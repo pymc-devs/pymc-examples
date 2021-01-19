@@ -9,6 +9,7 @@ normalized effective sampling rates.
 
 import time
 
+import arviz as az
 import numpy as np
 import pandas as pd
 import theano.tensor as tt
@@ -50,7 +51,7 @@ def run(steppers, p):
             runtimes[name] = time.time() - t_start
             print("{} samples across {} chains".format(len(mt) * mt.nchains, mt.nchains))
             traces[name] = mt
-            en = pm.ess(mt)
+            en = az.ess(mt)
             print(f"effective: {en}\r\n")
             if USE_XY:
                 effn[name] = np.mean(en["x"]) / len(mt) / mt.nchains
