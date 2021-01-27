@@ -39,6 +39,7 @@ Gallery.contents = {
     "variational_inference/gaussian-mixture-model-advi": "Mixture Models",
     "mixture_models/gaussian_mixture_model": "Mixture Models",
     "mixture_models/marginalized_gaussian_mixture_model": "Mixture Models",
+    "mixture_models/dirichlet_mixture_of_multinomials": "Mixture Models",
     "samplers/SMC2_gaussians": "Simulation-based Inference",
     "samplers/SMC-ABC_Lotka-Volterra_example": "Simulation-based Inference",
     "survival_analysis/bayes_param_survival_pymc3": "Survival Analysis",
