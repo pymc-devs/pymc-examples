@@ -152,4 +152,4 @@ with pm.Model() as model:
     start = {"early_mean": 2.0, "late_mean": 3.0}
 
     tr = pm.sample(1000, tune=500, start=start)
-    pm.plot_trace(tr)
+    az.plot_trace(tr)
