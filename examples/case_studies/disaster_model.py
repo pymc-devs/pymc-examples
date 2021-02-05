@@ -151,5 +151,5 @@ with pm.Model() as model:
     # Initial values for stochastic nodes
     start = {"early_mean": 2.0, "late_mean": 3.0}
 
-    tr = pm.sample(1000, tune=500, start=start)
+    tr = pm.sample(1000, tune=500, start=start, cores=1)
     az.plot_trace(tr)

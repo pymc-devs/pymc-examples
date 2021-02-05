@@ -1,3 +1,4 @@
+import arviz as az
 import numpy as np
 import theano.tensor as tt
 

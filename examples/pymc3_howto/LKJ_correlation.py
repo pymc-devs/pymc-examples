@@ -54,7 +54,7 @@ def run(n=1000):
     with model:
         trace = pm.sample(n)
     az.plot_trace(
-        trace, var_names=["mu", "r"], lines={"mu": mu_r, "r": corr_r[np.triu_indices(n_var, k=1)]}
+        trace, var_names=["mu", "r"]
     )
 
 
