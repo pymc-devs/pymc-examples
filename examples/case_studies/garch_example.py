@@ -1,7 +1,8 @@
 import numpy as np
 import theano.tensor as tt
 
-from pymc3 import Model, Normal, Uniform, sample, summary
+from arviz import summary
+from pymc3 import Model, Normal, Uniform, sample
 
 """
 Example from Stan - slightly altered

@@ -1,6 +1,6 @@
 import numpy as np
 import theano.tensor as tt
-
+import arviz as az
 from numpy.random import multivariate_normal
 
 import pymc3 as pm
@@ -53,8 +53,8 @@ def run(n=1000):
         n = 50
     with model:
         trace = pm.sample(n)
-    pm.traceplot(
-        trace, varnames=["mu", "r"], lines={"mu": mu_r, "r": corr_r[np.triu_indices(n_var, k=1)]}
+    az.plot_trace(
+        trace, var_names=["mu", "r"]
     )
 
 
