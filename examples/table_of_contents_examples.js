@@ -21,6 +21,7 @@ Gallery.contents = {
     "generalized_linear_models/GLM-robust-with-outlier-detection": "(Generalized) Linear and Hierarchical Linear Models",
     "generalized_linear_models/GLM-robust": "(Generalized) Linear and Hierarchical Linear Models",
     "generalized_linear_models/GLM-rolling-regression": "(Generalized) Linear and Hierarchical Linear Models",
+    "generalized_linear_models/GLM-truncated-censored-regression": "(Generalized) Linear and Hierarchical Linear Models",
     "gaussian_processes/GP-Kron": "Gaussian Processes",
     "gaussian_processes/GP-Latent": "Gaussian Processes",
     "gaussian_processes/GP-Marginal": "Gaussian Processes",
