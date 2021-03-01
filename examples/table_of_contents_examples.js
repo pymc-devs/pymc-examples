@@ -17,7 +17,7 @@ Gallery.contents = {
     "case_studies/hierarchical_partial_pooling": "(Generalized) Linear and Hierarchical Linear Models",
     "generalized_linear_models/GLM-model-selection": "(Generalized) Linear and Hierarchical Linear Models",
     "generalized_linear_models/GLM-negative-binomial-regression": "(Generalized) Linear and Hierarchical Linear Models",
-    "generalized_linear_models/GLM-out-of-sample-predictions": "Generalized) Linear and Hierarchical Linear Models",
+    "generalized_linear_models/GLM-out-of-sample-predictions": "(Generalized) Linear and Hierarchical Linear Models",
     "generalized_linear_models/GLM-poisson-regression": "(Generalized) Linear and Hierarchical Linear Models",
     "generalized_linear_models/GLM-robust-with-outlier-detection": "(Generalized) Linear and Hierarchical Linear Models",
     "generalized_linear_models/GLM-robust": "(Generalized) Linear and Hierarchical Linear Models",
