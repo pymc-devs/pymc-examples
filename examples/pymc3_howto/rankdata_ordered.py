@@ -1,3 +1,4 @@
+import arviz as az
 import numpy as np
 import theano.tensor as tt
 
@@ -46,14 +47,14 @@ def run(n=1500):
     with m:
         trace = pm.sample(n)
 
-    pm.traceplot(trace, varnames=["mu_hat"])
+    az.plot_trace(trace, var_names=["mu_hat"])
 
     print("Example observed data: ")
     print(y[:30, :].T)
     print("The true ranking is: ")
     print(yreal.flatten())
     print("The Latent mean is: ")
-    latentmu = np.hstack(([0], pm.summary(trace, varnames=["mu_hat"])["mean"].values))
+    latentmu = np.hstack(([0], az.summary(trace, var_names=["mu_hat"])["mean"].values))
     print(np.round(latentmu, 2))
     print("The estimated ranking is: ")
     print(np.argsort(latentmu))

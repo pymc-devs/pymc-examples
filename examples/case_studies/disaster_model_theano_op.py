@@ -4,7 +4,7 @@ deterministics which are not not working with Theano.
 Note that gradient based samplers will not work.
 """
 
-
+import arviz as az
 import theano.tensor as tt
 
 from numpy import arange, array, empty
@@ -165,5 +165,5 @@ with pm.Model() as model:
     # Initial values for stochastic nodes
     start = {"early_mean": 2.0, "late_mean": 3.0}
 
-    tr = pm.sample(1000, tune=500, start=start, step=[step1, step2], cores=2)
-    pm.traceplot(tr)
+    tr = pm.sample(1000, tune=500, start=start, step=[step1, step2], cores=1)
+    az.plot_trace(tr)

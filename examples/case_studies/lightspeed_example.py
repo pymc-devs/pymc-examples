@@ -1,5 +1,5 @@
 import numpy as np
-
+import arviz as az
 import pymc3 as pm
 
 light_speed = np.array(
@@ -92,7 +92,7 @@ def run(n=5000):
     with model_1:
         trace = pm.sample(n)
 
-        pm.summary(trace)
+        az.summary(trace)
 
 
 if __name__ == "__main__":

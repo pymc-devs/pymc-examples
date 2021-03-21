@@ -8,7 +8,7 @@ disasters[t] ~ Poi(early_mean if t <= switchpoint, late_mean otherwise)
 
 """
 
-
+import arviz as az
 import theano.tensor as tt
 
 from numpy import arange, array
@@ -151,5 +151,5 @@ with pm.Model() as model:
     # Initial values for stochastic nodes
     start = {"early_mean": 2.0, "late_mean": 3.0}
 
-    tr = pm.sample(1000, tune=500, start=start)
-    pm.traceplot(tr)
+    tr = pm.sample(1000, tune=500, start=start, cores=1)
+    az.plot_trace(tr)
