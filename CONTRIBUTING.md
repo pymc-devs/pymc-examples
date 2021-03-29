@@ -62,6 +62,14 @@ continue your work afterwards, let us know by commenting when you'll be able
 to retake the work.
 Alternatively, you can also contact your reviewers on [Discourse](https://discourse.pymc.io/)
 
+As for review timeline, while you may get some reviews in a few hours or even some minutes
+if we happen to be working on related things, _you should not expect that to be the norm_.
+You should expect to receive review(s) for your PRs in 1-2 days. If two and a half days
+after submitting you still have not received any comment, let us know (i.e. tag whoever
+opened the issue you are addressing in a new PR comment. If at any point we were
+overwhelmed by PRs and delay this timeline, we will comment on your PR with an estimate
+of when you can expect a proper review.
+
 ### In the event of a conflict
 In the event of two or more people working on the same issue,
 the general precedence will go to the person who first commented in the issue.
@@ -86,3 +94,5 @@ We recommended that your contribution complies with the following guidelines bef
   "Restart & Run All" option before saving.
 
 * No `pre-commit` errors: see the [Jupyter Notebook style](https://github.com/pymc-devs/pymc3/wiki/PyMC3-Jupyter-Notebook-Style-Guide) (and [Python code style](https://github.com/pymc-devs/pymc3/wiki/PyMC3-Python-Code-Style)) page from our Wiki on how to install and run it.
+
+* Indicate how are you aiming to update the notebook (i.e. what is the target end column in the tracker). The pull request template has a template for this.
