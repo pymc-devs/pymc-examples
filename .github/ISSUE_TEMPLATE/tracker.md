@@ -8,8 +8,6 @@ labels: tracker id
 File:
 Reviewers:
 
-## Context
-
 ## Known changes needed
 Changes listed in this section should all be done at some point in order to get this
 notebook to a "Best Practices" state. However, these are probably not enough!
@@ -35,4 +33,4 @@ the notebook but may not have a clear implementation, or fix some know issue onl
 
 ### Exotic dependencies
 
-### Computing power
+### Computing requirements
