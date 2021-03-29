@@ -13,6 +13,30 @@ Check out the `getting started guide <http://docs.pymc.io/notebooks/getting_star
 using Binder!
 For questions on PyMC3, head on over to our `PyMC Discourse <https://discourse.pymc.io/>`__ forum.
 
+Contributing
+============
+
+If you are interested in contributing to the example notebooks hosted here, please read the
+`contributing guide <https://github.com/pymc-devs/pymc-examples/blob/main/CONTRIBUTING.md>`__
+Also read our `Code of Conduct <https://github.com/pymc-devs/pymc-examples/blob/main/CODE_OF_CONDUCT.md>`__ guidelines for a better contributing experience.
+
+
+Contact
+=======
+
+We are using `discourse.pymc.io <https://discourse.pymc.io/>`__ as our main communication channel. You can also follow us on `Twitter @pymc_devs <https://twitter.com/pymc_devs>`__ for updates and other announcements.
+
+To ask a question regarding modeling or usage of PyMC3 we encourage posting to our Discourse forum under the `“Questions” Category <https://discourse.pymc.io/c/questions>`__. You can also suggest feature in the `“Development” Category <https://discourse.pymc.io/c/development>`__.
+
+To report an issue, please use the following:
+
+-  `PyMC3 Examples - Issue Tracker <https://github.com/pymc-devs/pymc-examples/issues>`__. For
+  issues about the example notebooks, errors in the example codes, outdated information, improvement
+  suggestions...
+-  `PyMC3 - Issue Tracker <https://github.com/pymc-devs/pymc3/issues>`__. For issues, bugs or
+  feature requests related to the PyMC3 library itself.
+
+Finally, if you need to get in touch for non-technical information about the project, `send us an e-mail <pymc.devs@gmail.com>`__.
 Getting started
 ===============
 
@@ -58,26 +82,6 @@ Papers citing PyMC3
 
 See `Google Scholar <https://scholar.google.de/scholar?oi=bibs&hl=en&authuser=1&cites=6936955228135731011>`__ for a continuously updated list.
 
-Contributors
-============
-
-See the `GitHub contributor
-page <https://github.com/pymc-devs/pymc-examples/graphs/contributors>`__. Also read our `Code of Conduct <https://github.com/pymc-devs/pymc3/blob/master/CODE_OF_CONDUCT.md>`__ guidelines for a better contributing experience.
-
-
-Contact
-=======
-
-We are using `discourse.pymc.io <https://discourse.pymc.io/>`__ as our main communication channel. You can also follow us on `Twitter @pymc_devs <https://twitter.com/pymc_devs>`__ for updates and other announcements.
-
-To ask a question regarding modeling or usage of PyMC3 we encourage posting to our Discourse forum under the `“Questions” Category <https://discourse.pymc.io/c/questions>`__. You can also suggest feature in the `“Development” Category <https://discourse.pymc.io/c/development>`__.
-
-To report an issue, please use the following:
-
--  `PyMC3 Examples - Issue Tracker <https://github.com/pymc-devs/pymc-examples/issues>`__.
--  `PyMC3 - Issue Tracker <https://github.com/pymc-devs/pymc3/issues>`__.
-
-Finally, if you need to get in touch for non-technical information about the project, `send us an e-mail <pymc.devs@gmail.com>`__.
 
 Support
 =======
