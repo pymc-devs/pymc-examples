@@ -40,6 +40,9 @@ else.
 One issue can be labeled "good first issue" for updating from "To Do" to "General updates", but
 that does not mean that updating from "To Do"->"ArviZ" or
 "General Updates"->"Best Practices" won't be challenging.
+The same could be true the other way around.
+In case of doubt, don't hesitate to ask and read over the notebook to
+see what changes are expected.
 
 If there are no comments and nobody is working on this notebook,
 comment on the ticket to make it evident to others, we will assign
