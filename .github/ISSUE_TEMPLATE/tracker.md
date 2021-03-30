@@ -8,7 +8,8 @@ labels: tracker id
 File:
 Reviewers:
 
-## Context
+> The sections below may still be pending. If so, the issue is still available, it simply doesn't
+> have specific guidance yet. Please refer to [this overview of updates](https://github.com/pymc-devs/pymc-examples/wiki/Notebook-updates-overview)
 
 ## Known changes needed
 Changes listed in this section should all be done at some point in order to get this
@@ -35,4 +36,4 @@ the notebook but may not have a clear implementation, or fix some know issue onl
 
 ### Exotic dependencies
 
-### Computing power
+### Computing requirements

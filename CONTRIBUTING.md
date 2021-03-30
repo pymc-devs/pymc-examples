@@ -36,6 +36,14 @@ Before starting a work on a pull request look at the tracker issue of the
 notebook you are planning to edit to make sure it is not being updated by someone
 else.
 
+**Note on labels**: The labels on an issue will apply to the most immediate 1 position update.
+One issue can be labeled "good first issue" for updating from "To Do" to "General updates", but
+that does not mean that updating from "To Do"->"ArviZ" or
+"General Updates"->"Best Practices" won't be challenging.
+The same could be true the other way around.
+In case of doubt, don't hesitate to ask and read over the notebook to
+see what changes are expected.
+
 If there are no comments and nobody is working on this notebook,
 comment on the ticket to make it evident to others, we will assign
 the issue to you as soon as possible.
