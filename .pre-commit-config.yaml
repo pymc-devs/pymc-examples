@@ -1,6 +1,6 @@
 repos:
 - repo: https://github.com/nbQA-dev/nbQA
-  rev: 0.5.5
+  rev: 0.6.0
   hooks:
     - id: nbqa-black
       additional_dependencies: [black==20.8b1]
@@ -9,6 +9,16 @@ repos:
     - id: nbqa-pyupgrade
       additional_dependencies: [pyupgrade==2.7.4]
       args: [--py37-plus]
+- repo: https://github.com/MarcoGorelli/check-execution-order
+  rev: v0.1.1
+  hooks:
+    - id: check-execution-order
+      exclude: |
+            (?x)^
+            ^examples/samplers/DEMetropolisZ_EfficiencyComparison\.ipynb$
+            |examples/variational_inference/convolutional_vae_keras_advi\.ipynb$
+            |examples/pymc3_howto/sampling_callback\.ipynb$
+            |examples/gaussian_processes/GP-Latent\.ipynb$
 - repo: local
   hooks:
     - id: watermark
