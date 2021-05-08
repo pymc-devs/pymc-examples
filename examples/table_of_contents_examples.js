@@ -5,6 +5,7 @@ Gallery.contents = {
     "case_studies/rugby_analytics": "Case Studies",
     "case_studies/multilevel_modeling": "Case Studies",
     "case_studies/putting_workflow": "Case Studies",
+    "case_studies/mediation_analysis": "Case Studies",
     "diagnostics_and_criticism/Diagnosing_biased_Inference_with_Divergences": "Diagnostics and Model Criticism",
     "diagnostics_and_criticism/model_comparison": "Diagnostics and Model Criticism",
     "diagnostics_and_criticism/posterior_predictive": "Diagnostics and Model Criticism",
