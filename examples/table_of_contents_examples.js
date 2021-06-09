@@ -35,6 +35,7 @@ Gallery.contents = {
     "gaussian_processes/GP-SparseApprox": "Gaussian Processes",
     "gaussian_processes/GP-TProcess": "Gaussian Processes",
     "gaussian_processes/GP-smoothing": "Gaussian Processes",
+    "gaussian_processes/GP-Heteroskedastic": "Gaussian Processes",
     "gaussian_processes/gaussian_process": "Gaussian Processes",
     "case_studies/conditional-autoregressive-model": "Gaussian Processes",
     "case_studies/log-gaussian-cox-process":"Gaussian Processes",
