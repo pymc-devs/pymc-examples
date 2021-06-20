@@ -55,6 +55,7 @@ Gallery.contents = {
     "time_series/MvGaussianRandomWalk_demo": "Time Series",
     "time_series/AR": "Time Series",
     "time_series/Euler-Maruyama_and_SDEs": "Time Series",
+    "time_series/Air_passengers-Prophet_with_Bayesian_workflow": "Time Series",
     "variational_inference/bayesian_neural_network_advi": "Variational Inference",
     "variational_inference/convolutional_vae_keras_advi": "Variational Inference",
     "variational_inference/empirical-approx-overview": "Variational Inference",
