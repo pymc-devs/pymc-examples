@@ -1,20 +1,22 @@
 ---
-name: 'Propose a new example notebook'
-about: Propose new content based on gaps in the current collection
-labels: proposal
+name: 'Notebook Error Report'
+about: Inform about errors and mistakes in the example notebooks
 
 ---
 
-# Notebook proposal
-**Title**: Use this also as issue title
+**Notebook title**:
+**Notebook url**:
 
-## Why should this notebook be added to pymc-examples?
-Explain why this topic is interesting and useful to PyMC3 users.
+## Issue description
+Explain the bug, error or mistake, where it is in the notebook, if it happens
+only once or multiple times...
 
-## Related notebooks
-Cover related notebooks on which this notebook will build,
-make sure that the notebook is not duplicated and
-explain whether it should be a new notebook or extend an existing one.
+*Note that this issue tracker is about the contents in the notebooks, if
+the notebook is instead triggering a bug or error in pymc3, please
+report to https://github.com/pymc-devs/pymc3/issues instead*
 
-# References
-If applicable, references and material that could help in writing the notebook.
+## Expected output
+If applicable, describe what should happen instead.
+
+## Proposed solution
+If applicable, explain possible solutions and workarounds.
