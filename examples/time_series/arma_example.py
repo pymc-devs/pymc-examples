@@ -2,6 +2,7 @@ import numpy as np
 
 from theano import scan, shared
 
+import arviz as az
 import pymc3 as pm
 
 """
@@ -82,8 +83,8 @@ def run(n_samples=1000):
     with model:
         trace = pm.sample(draws=n_samples, tune=1000, target_accept=0.99)
 
-    pm.plots.traceplot(trace)
-    pm.plots.forestplot(trace)
+    az.plot_trace(trace)
+    az.plot_forest(trace)
 
 
 if __name__ == "__main__":

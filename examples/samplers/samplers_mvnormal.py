@@ -9,6 +9,7 @@ normalized effective sampling rates.
 
 import time
 
+import arviz as az
 import numpy as np
 import pandas as pd
 import theano.tensor as tt
@@ -46,11 +47,11 @@ def run(steppers, p):
         for step_cls in steppers:
             name = step_cls.__name__
             t_start = time.time()
-            mt = pm.sample(draws=10000, chains=16, parallelize=False, step=step_cls(), start=start)
+            mt = pm.sample(draws=10000, chains=16, step=step_cls(), start=start)
             runtimes[name] = time.time() - t_start
             print("{} samples across {} chains".format(len(mt) * mt.nchains, mt.nchains))
             traces[name] = mt
-            en = pm.ess(mt)
+            en = az.ess(mt)
             print(f"effective: {en}\r\n")
             if USE_XY:
                 effn[name] = np.mean(en["x"]) / len(mt) / mt.nchains
@@ -74,9 +75,9 @@ if __name__ == "__main__":
     for p in df_effectiven.index:
         trace, rate, runtime = run(methods, p)
         for name in names:
-            df_effectiven.set_value(p, name, rate[name])
-            df_runtime.set_value(p, name, runtime[name])
-            df_performance.set_value(p, name, rate[name] / runtime[name])
+            df_effectiven.at[p, name] = rate[name]
+            df_runtime.at[p, name] = runtime[name]
+            df_performance.at[p, name] =  rate[name] / runtime[name]
 
     print("\r\nEffective sample size [0...1]")
     print(df_effectiven.T.to_string(float_format="{:.3f}".format))
