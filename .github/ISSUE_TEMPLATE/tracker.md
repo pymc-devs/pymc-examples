@@ -1,6 +1,6 @@
 ---
 name: 'Tracker issue'
-about: Create a tracker issue for the GitHub project
+about: *Internal template for PyMC documentation team only*
 labels: tracker id
 
 ---

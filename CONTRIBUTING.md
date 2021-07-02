@@ -95,6 +95,8 @@ We recommended that your contribution complies with the following guidelines bef
 
 *  Use the pull request title to describe the issue and mention the issue number in the pull request description. This will make sure a link back to the original issue is created. For example, use `Use ArviZ in sampler stats notebook` as a title and link to [#46](https://github.com/pymc-devs/pymc-examples/issues/46) in the description.
    * Please do not submit PRs that are not addressing an issue already present in the issue tracker.
+   * If you want to add a new notebook and no issue related to it is present yet, open one so we can
+     discuss the best way to add the content to the repo. We have an issue template for that.
 
 *  Prefix the title of incomplete contributions with `[WIP]` (to indicate a work in progress). WIPs may be useful to (1) indicate you are working on something to avoid duplicated work, (2) request broad review of functionality or API, or (3) seek collaborators.
 
