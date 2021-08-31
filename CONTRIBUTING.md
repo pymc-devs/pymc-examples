@@ -106,3 +106,13 @@ We recommended that your contribution complies with the following guidelines bef
 * No `pre-commit` errors: see the [Jupyter Notebook style](https://github.com/pymc-devs/pymc3/wiki/PyMC3-Jupyter-Notebook-Style-Guide) (and [Python code style](https://github.com/pymc-devs/pymc3/wiki/PyMC3-Python-Code-Style)) page from our Wiki on how to install and run it.
 
 * Indicate how are you aiming to update the notebook (i.e. what is the target end column in the tracker). The pull request template has a template for this.
+
+## Contributor guide
+In order to work and run the example notebooks you need to install the packages in
+`requirements-write.txt`. To see how the notebook looks rendered, you can follow
+the instructions in the following paragraph or open a PR to see the preview in
+readthedocs.
+
+To generate the draft standalone notebook gallery, you need to have installed all the packages in
+`requirements-docs.txt` and to run `sphinx-build examples/ _build -b html` from the repository
+home directory.

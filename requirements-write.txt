@@ -1,0 +1,8 @@
+jupyterlab
+notebook
+pymc3
+black
+ipython
+pre-commit>=2.8.0
+pandas
+watermark
