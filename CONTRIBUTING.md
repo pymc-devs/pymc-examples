@@ -113,6 +113,10 @@ In order to work and run the example notebooks you need to install the packages 
 the instructions in the following paragraph or open a PR to see the preview in
 readthedocs.
 
+The markdown cells in the notebook can use MyST, a superset of CommonMark markdown. See
+https://myst-parser.readthedocs.io/en/latest/ and https://myst-nb.readthedocs.io/en/latest/
+for documentation on their features and syntax.
+
 To generate the draft standalone notebook gallery, you need to have installed all the packages in
 `requirements-docs.txt` and to run `sphinx-build examples/ _build -b html` from the repository
 home directory.
