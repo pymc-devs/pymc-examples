@@ -98,7 +98,6 @@ html_sidebars = {
 blog_title = "PyMC Examples"
 blog_path = "blog"
 # fontawesome_included = True
-blog_post_pattern = ["*/*.ipynb", "samplers/*", "*/*", "examples/*/*"]
 # post_redirect_refresh = 1
 # post_auto_image = 1
 # post_auto_excerpt = 2
