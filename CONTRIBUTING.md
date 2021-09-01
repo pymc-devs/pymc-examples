@@ -119,4 +119,5 @@ for documentation on their features and syntax.
 
 To generate the draft standalone notebook gallery, you need to have installed all the packages in
 `requirements-docs.txt` and to run `sphinx-build examples/ _build -b html` from the repository
-home directory.
+home directory. After building, you can see the preview of the docs
+by opening `_build/index.html` file with your browser.
