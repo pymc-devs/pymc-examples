@@ -21,5 +21,7 @@ if __name__ == "__main__":
     parser.add_argument("paths", nargs="*", type=Path)
     args = parser.parse_args()
     for path in args.paths:
-        notebook_name = path.relative_to('examples').with_suffix('').as_posix()
-        assert notebook_name in toc_keys, f"Notebook '{notebook_name}' not added to table of contents!"
+        notebook_name = path.relative_to("examples").with_suffix("").as_posix()
+        assert (
+            notebook_name in toc_keys
+        ), f"Notebook '{notebook_name}' not added to table of contents!"

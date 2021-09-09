@@ -79,8 +79,8 @@ html_theme_options = {
     "navbar_end": ["search-field.html", "navbar-icon-links.html"],
     "external_links": [
         {"name": "Learning", "url": "https://pymc3.readthedocs.io/en/latest/learn.html"},
-        {"name": "API", "url": "https://pymc3.readthedocs.io/en/latest/api.html"}
-    ]
+        {"name": "API", "url": "https://pymc3.readthedocs.io/en/latest/api.html"},
+    ],
 }
 
 html_favicon = "../_static/PyMC3.ico"
@@ -103,16 +103,11 @@ blog_path = "blog"
 # post_auto_excerpt = 2
 
 # MyST config
-myst_enable_extensions = [
-    "colon_fence",
-    "deflist",
-    "dollarmath",
-    "amsmath"
-]
+myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "amsmath"]
 
 # bibtex config
-bibtex_bibfiles = ['references.bib']
-bibtex_default_style = 'unsrt'
+bibtex_bibfiles = ["references.bib"]
+bibtex_default_style = "unsrt"
 bibtex_reference_style = "author_year"
 
 # OpenGraph config

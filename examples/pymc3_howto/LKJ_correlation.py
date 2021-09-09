@@ -53,9 +53,7 @@ def run(n=1000):
         n = 50
     with model:
         trace = pm.sample(n)
-    az.plot_trace(
-        trace, var_names=["mu", "r"]
-    )
+    az.plot_trace(trace, var_names=["mu", "r"])
 
 
 if __name__ == "__main__":
