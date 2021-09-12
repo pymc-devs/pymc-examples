@@ -15,6 +15,11 @@ will change that part of the markdown cell to:
     :tags: glm, mcmc, exploratory analysis, pymc3.Categorical
     :category: beginner
     :::
+
+Example of how to run this:
+
+    python scripts/add_tags.py examples/getting_started.ipynb
+
 """
 import sys
 from myst_parser.main import to_tokens, MdParserConfig
