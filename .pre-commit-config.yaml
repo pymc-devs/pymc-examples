@@ -35,3 +35,12 @@ repos:
       language: python
       name: Check all notebooks appear in table of contents
       types: [jupyter]
+    - id: add-tags
+      entry: python scripts/add_tags.py
+      language: python
+      name: Add PyMC3 classes used to tags
+      types: [jupyter]
+      additional_dependencies:
+         - nbqa==1.1.1
+         - beautifulsoup4==4.9.3
+         - myst_parser==0.13.7
