@@ -1,3 +1,33 @@
+@article{blei2003lda,
+  abstract = {We describe latent Dirichlet allocation (LDA), a generative probabilistic model for collections of discrete data such as text corpora. LDA is a three-level hierarchical Bayesian model, in which each item of a collection is modeled as a finite mixture over an underlying set of topics. Each topic is, in turn, modeled as an infinite mixture over an underlying set of topic probabilities. In the context of text modeling, the topic probabilities provide an explicit representation of a document. We present efficient approximate inference techniques based on variational methods and an EM algorithm for empirical Bayes parameter estimation. We report results in document modeling, text classification, and collaborative filtering, comparing to a mixture of unigrams model and the probabilistic LSI model.},
+  added-at = {2010-03-23T16:09:41.000+0100},
+  author = {Blei, David M. and Ng, Andrew Y. and Jordan, Michael I.},
+  biburl = {https://www.bibsonomy.org/bibtex/2bc34cc810fa7dfa12b949b60c23d9f5c/zhenzhenx},
+  description = {Latent dirichlet allocation},
+  doi = {http://dx.doi.org/10.1162/jmlr.2003.3.4-5.993},
+  interhash = {9d1b808272b9e511425cbf557571e59a},
+  intrahash = {bc34cc810fa7dfa12b949b60c23d9f5c},
+  issn = {1532-4435},
+  journal = {J. Mach. Learn. Res.},
+  keywords = {LDA allocation dirichlet latent},
+  pages = {993--1022},
+  publisher = {JMLR.org},
+  timestamp = {2010-06-16T11:05:42.000+0200},
+  title = {Latent dirichlet allocation},
+  url = {http://portal.acm.org/citation.cfm?id=944937},
+  volume = 3,
+  year = 2003
+}
+
+@misc{blundell2015weight,
+      title={Weight Uncertainty in Neural Networks}, 
+      author={Charles Blundell and Julien Cornebise and Koray Kavukcuoglu and Daan Wierstra},
+      year={2015},
+      eprint={1505.05424},
+      archivePrefix={arXiv},
+      primaryClass={stat.ML}
+}
+
 @book{gelman2006data,
   title={Data analysis using regression and multilevel/hierarchical models},
   author={Gelman, Andrew and Hill, Jennifer},
@@ -16,6 +46,41 @@
   publisher={Taylor \& Francis}
 }
 
+
+@article{hoffman2013stochasticvi,
+  author  = {Matthew D. Hoffman and David M. Blei and Chong Wang and John Paisley},
+  title   = {Stochastic Variational Inference},
+  journal = {Journal of Machine Learning Research},
+  year    = {2013},
+  volume  = {14},
+  number  = {4},
+  pages   = {1303-1347},
+  url     = {http://jmlr.org/papers/v14/hoffman13a.html}
+}
+
+
+@misc{kingma2014autoencoding,
+      title={Auto-Encoding Variational Bayes}, 
+      author={Diederik P Kingma and Max Welling},
+      year={2014},
+      eprint={1312.6114},
+      archivePrefix={arXiv},
+      primaryClass={stat.ML}
+}
+
+
+@article{kucukelbir2017advi,
+  author  = {Alp Kucukelbir and Dustin Tran and Rajesh Ranganath and Andrew Gelman and David M. Blei},
+  title   = {Automatic Differentiation Variational Inference},
+  journal = {Journal of Machine Learning Research},
+  year    = {2017},
+  volume  = {18},
+  number  = {14},
+  pages   = {1-45},
+  url     = {http://jmlr.org/papers/v18/16-107.html}
+}
+
+
 @book{mcelreath2018statistical,
   title={Statistical rethinking: A Bayesian course with examples in R and Stan},
   author={McElreath, Richard},
@@ -24,3 +89,36 @@
 }
 
 
+@misc{rezende2016variational,
+      title={Variational Inference with Normalizing Flows}, 
+      author={Danilo Jimenez Rezende and Shakir Mohamed},
+      year={2016},
+      eprint={1505.05770},
+      archivePrefix={arXiv},
+      primaryClass={stat.ML}
+}
+
+
+@InProceedings{salimans2015mcmcandvi,
+  title={Markov Chain Monte Carlo and Variational Inference: Bridging the Gap},
+  author={Salimans, Tim and Kingma, Diederik and Welling, Max},
+  booktitle={Proceedings of the 32nd International Conference on Machine Learning},
+  pages={1218--1226},
+  year={2015},
+  editor={Bach, Francis and Blei, David},
+  volume={37},
+  series={Proceedings of Machine Learning Research},
+  address={Lille, France},
+  month={07--09 Jul},
+  publisher={PMLR},
+  pdf={http://proceedings.mlr.press/v37/salimans15.pdf},
+  url={https://proceedings.mlr.press/v37/salimans15.html},
+  abstract={Recent advances in stochastic gradient variational inference have made it possible to perform variational Bayesian inference with posterior approximations containing auxiliary random variables. This enables us to explore a new synthesis of variational inference and Monte Carlo methods where we incorporate one or more steps of MCMC into our variational approximation. By doing so we obtain a rich class of inference algorithms bridging the gap between variational methods and MCMC, and offering the best of both worlds: fast posterior approximation through the maximization of an explicit objective, with the option of trading off additional computation for additional accuracy. We describe the theoretical foundations that make this possible and show some promising first results.}
+}
+
+
+@misc{sklearn2020topicextraction,
+  title = {Topic extraction with Non-negative Matrix Factorization and Latent Dirichlet Allocation},
+  howpublished = {\url{https://scikit-learn.org/stable/auto_examples/applications/plot_topics_extraction_with_nmf_lda.html}},
+  note = {Accessed: 2020-09-15}
+}
