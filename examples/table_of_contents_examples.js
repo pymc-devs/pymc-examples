@@ -9,6 +9,7 @@ Gallery.contents = {
     "case_studies/mediation_analysis": "Case Studies",
     "case_studies/bayesian_ab_testing": "Case Studies",
     "case_studies/item_response_nba": "Case Studies",
+    "case_studies/well_switching_BHS": "Case Studies",
     "diagnostics_and_criticism/Diagnosing_biased_Inference_with_Divergences": "Diagnostics and Model Criticism",
     "diagnostics_and_criticism/model_comparison": "Diagnostics and Model Criticism",
     "diagnostics_and_criticism/posterior_predictive": "Diagnostics and Model Criticism",
