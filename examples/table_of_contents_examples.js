@@ -75,5 +75,6 @@ Gallery.contents = {
     "samplers/MLDA_simple_linear_regression": "MCMC",
     "samplers/MLDA_gravity_surveying": "MCMC",
     "samplers/MLDA_variance_reduction_linear_regression": "MCMC",
-    "samplers/GLM-hierarchical-jax": "MCMC"
+    "samplers/GLM-hierarchical-jax": "MCMC",
+    "splines/spline": "Splines"
 }
