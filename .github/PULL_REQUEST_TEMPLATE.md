@@ -1,4 +1,4 @@
-## Description
+# {Insert Description}
 <!-- Thank you so much for your PR to pymc-examples!
 
 To make the merge process smoother we've provided some links and a checklist below. 
@@ -13,7 +13,7 @@ or if you have been waiting too long to hear back on your PR.
 + [ ] Notebook follows style guide https://github.com/pymc-devs/pymc-examples/blob/main/.github/PULL_REQUEST_TEMPLATE.md
 
 
-Helpful links
+### Helpful links
 * https://github.com/pymc-devs/pymc-examples/blob/main/CONTRIBUTING.md
 
  
