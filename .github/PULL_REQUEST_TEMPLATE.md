@@ -10,7 +10,7 @@ or if you have been waiting too long to hear back on your PR.
 
  -->
 
-+ [ ] Notebook follows style guide https://github.com/pymc-devs/pymc-examples/blob/main/.github/PULL_REQUEST_TEMPLATE.md
++ [ ] Notebook follows style guide https://github.com/pymc-devs/pymc/wiki/PyMC-Jupyter-Notebook-Style-Guide
 
 
 ### Helpful links
