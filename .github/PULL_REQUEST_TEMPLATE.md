@@ -15,7 +15,3 @@ or if you have been waiting too long to hear back on your PR.
 
 ### Helpful links
 * https://github.com/pymc-devs/pymc-examples/blob/main/CONTRIBUTING.md
-
- 
-
-
