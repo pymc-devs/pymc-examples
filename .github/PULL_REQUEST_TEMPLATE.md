@@ -11,6 +11,7 @@ or if you have been waiting too long to hear back on your PR.
  -->
 
 + [ ] Notebook follows style guide https://github.com/pymc-devs/pymc/wiki/PyMC-Jupyter-Notebook-Style-Guide
++ [ ] A tracker issue is created for this notebook. Please use the  `Propose a new example notebook` issue template.
 
 
 ### Helpful links
