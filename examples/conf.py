@@ -17,7 +17,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = "PyMC3"
+project = "PyMC"
 copyright = "2021, PyMC Community"
 author = "PyMC Community"
 
@@ -78,26 +78,44 @@ html_theme_options = {
     "search_bar_text": "Search...",
     "navbar_end": ["search-field.html", "navbar-icon-links.html"],
     "external_links": [
-        {"name": "Learning", "url": "https://pymc3.readthedocs.io/en/latest/learn.html"},
-        {"name": "API", "url": "https://pymc3.readthedocs.io/en/latest/api.html"},
+        {"name": "Learning", "url": "https://docs.pymc.io/en/stable/learn.html"},
+        {"name": "API", "url": "https://docs.pymc.io/en/stable/api.html"},
     ],
 }
+html_context = {
+    "github_url": "https://github.com",
+    "github_user": "pymc-devs",
+    "github_repo": "pymc-examples",
+    "github_version": "main",
+    "doc_path": "examples/",
+}
 
-html_favicon = "../_static/PyMC3.ico"
+
+html_favicon = "../_static/PyMC.ico"
+html_logo = "../_static/PyMC.png"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["../_static"]
+templates_path = ["../_templates"]
+# Workaround to make the whole sidebar scrollable. See https://github.com/pydata/pydata-sphinx-theme/issues/500
+# ideally the tagcloud, categories and ads would be added from here in conf.py
 html_sidebars = {
-    "**": ["sidebar-nav-bs.html", "tagcloud.html", "categories.html"],
+    "**": [
+        # "sidebar-nav-bs.html",
+        "postcard.html",
+        # "tagcloud.html",
+        # "categories.html",
+        # "sidebar-ethical-ads.html",
+    ],
 }
 
 # ablog config
-# blog_baseurl = "https://predictablynoisy.com"
+blog_baseurl = "https://examples.pymc.io"
 blog_title = "PyMC Examples"
 blog_path = "blog"
-# fontawesome_included = True
+fontawesome_included = True
 # post_redirect_refresh = 1
 # post_auto_image = 1
 # post_auto_excerpt = 2
@@ -124,7 +142,7 @@ intersphinx_mapping = {
     # "mpl": ("https://matplotlib.org/", None),
     # "numpy": ("https://numpy.org/doc/stable/", None),
     # "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
-    "pymc3": ("https://docs.pymc.io/", None),
+    "pymc": ("https://docs.pymc.io/en/stable/", None),
     # "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
     # "xarray": ("http://xarray.pydata.org/en/stable/", None),
 }

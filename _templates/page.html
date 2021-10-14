@@ -1,0 +1,29 @@
+{%- extends "layout.html" %}
+{% block body %}
+<!-- Add github/binder/colab badges here? or on the sidebar better? -->
+{% if pagename in ablog %}
+
+  {% set gh_basepath =  github_user + '/' + github_repo + '/blob/' + github_version + '/' %}
+  {% set gh_binder = github_user + '/' + github_repo + '/' + github_version %}
+  {% set doc_path_aux = doc_path | trim('/') %}
+  {% set file_path = doc_path_aux + '/' + pagename + page_source_suffix %}
+
+  <div class="sd-text-right">
+  <p>
+  <a href="{{ github_url + '/' + gh_basepath + file_path }}", role="button" target="_blank">
+    <img src="{{ pathto('_static/github.svg', 1) }}" alt="View On GitHub">
+  </a>
+
+  <a href="{{ 'https://mybinder.org/v2/gh/' + gh_binder + '?filepath=' + file_path }}" target="_blank">
+    <img src="{{ pathto('_static/binder.svg', 1) }}" alt="Open In Binder">
+  </a>
+
+  <a href="{{ 'https://colab.research.google.com/github/' + gh_basepath + file_path }}" target="_blank">
+    <img src="{{ pathto('_static/colab.svg', 1) }}" alt="Open In Colab"/>
+  </a>
+  </p>
+  </div>
+{% endif %}
+
+  {{ body }}
+{% endblock %}

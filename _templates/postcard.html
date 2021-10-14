@@ -1,0 +1,50 @@
+{% if pagename in ablog %}
+  {% set fa = ablog.fontawesome %}
+  {% set post = ablog[pagename] %}
+  <nav class="bd-links" id="bd-docs-nav" aria-label="{{ _('Main navigation') }}">
+  <div class="bd-toc-item active">
+  <h3>Notebook metadata</h3>
+
+  <ul>
+  {% if post.author %}
+    <li id="author">
+      <span><i class="fa-fw fa fa-user"></i></span>
+      <a href="#authors">{% for coll in post.author %} {% if coll|length %}
+      {{ coll }}{% if loop.index <
+      post.author|length %},{% endif %} {% else %}{{ coll }}{% if loop.index <
+      post.author|length %},{% endif %}{% endif %} {% endfor %}
+      </a>
+    </li>
+  {% endif %}
+  {% if post.category %}
+    <li id="category">
+    <span><i class="fa-fw fa fa-folder-open"></i></span>
+    {% for coll in post.category %} {% if coll|length %}
+      <a href="{{ pathto(coll.docname) }}">{{ coll }}</a>{% if loop.index <
+      post.category|length %},{% endif %} {% else %}{{ coll }}{% if loop.index <
+      post.category|length %},{% endif %}{% endif %} {% endfor %}
+    </li>
+  {% endif %}
+  {% if post.tags %}
+    <li id="tags">
+    <span>
+      {% if post.tags|length > 1 %}<i class="fa-fw fa fa-tags"></i>
+      {% else %}<i class="fa-fw fa fa-tag"></i>
+      {% endif %}
+    </span>
+    {% for coll in post.tags %} {% if coll|length %}
+    <a href="{{ pathto(coll.docname) }}">{{ coll }}</a>{% if loop.index <
+    post.tags|length %}{% endif %} {% else %}{{ coll }}{% if loop.index <
+    post.tags|length %}{% endif %}{% endif %} {% endfor %}
+  </li>
+  {% endif %}
+  </ul>
+
+  <!-- Workaround to make the whole sidebar scrollable. See https://github.com/pydata/pydata-sphinx-theme/issues/500 -->
+  {% include "tagcloud.html" %}
+  {% include "categories.html" %}
+  {% include "sidebar-ethical-ads.html" %}
+
+  </div>
+  </nav>
+{% endif %}

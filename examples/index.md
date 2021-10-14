@@ -11,5 +11,4 @@ via the search bar.
 :::{toctree}
 :maxdepth: 2
 blog
-bibliography
 :::
