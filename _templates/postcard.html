@@ -1,8 +1,8 @@
+<nav class="bd-links" id="bd-docs-nav" aria-label="{{ _('Main navigation') }}">
+<div class="bd-toc-item active">
 {% if pagename in ablog %}
   {% set fa = ablog.fontawesome %}
   {% set post = ablog[pagename] %}
-  <nav class="bd-links" id="bd-docs-nav" aria-label="{{ _('Main navigation') }}">
-  <div class="bd-toc-item active">
   <h3>Notebook metadata</h3>
 
   <ul>
@@ -39,12 +39,12 @@
   </li>
   {% endif %}
   </ul>
-
-  <!-- Workaround to make the whole sidebar scrollable. See https://github.com/pydata/pydata-sphinx-theme/issues/500 -->
-  {% include "tagcloud.html" %}
-  {% include "categories.html" %}
-  {% include "sidebar-ethical-ads.html" %}
-
-  </div>
-  </nav>
 {% endif %}
+
+<!-- Workaround to make the whole sidebar scrollable. See https://github.com/pydata/pydata-sphinx-theme/issues/500 -->
+{% include "tagcloud.html" %}
+{% include "categories.html" %}
+{% include "sidebar-ethical-ads.html" %}
+
+</div>
+</nav>
