@@ -1,22 +1,7 @@
-# Configuration file for the Sphinx documentation builder.
-#
-# This file only contains a selection of the most common options. For a full
-# list see the documentation:
-# https://www.sphinx-doc.org/en/master/usage/configuration.html
-
-# -- Path setup --------------------------------------------------------------
-
-# If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
 
 
 # -- Project information -----------------------------------------------------
-
 project = "PyMC"
 copyright = "2021, PyMC Community"
 author = "PyMC Community"
@@ -82,12 +67,15 @@ html_theme_options = {
         {"name": "API", "url": "https://docs.pymc.io/en/stable/api.html"},
     ],
 }
+version = os.environ.get("READTHEDOCS_VERSION", "")
+version = version if "-" in version else "main"
 html_context = {
     "github_url": "https://github.com",
     "github_user": "pymc-devs",
     "github_repo": "pymc-examples",
-    "github_version": "main",
+    "github_version": version,
     "doc_path": "examples/",
+    "sandbox_repo": f"pymc-devs/pymc-sandbox/{version}",
 }
 
 
@@ -105,9 +93,9 @@ html_sidebars = {
     "**": [
         # "sidebar-nav-bs.html",
         "postcard.html",
-        # "tagcloud.html",
-        # "categories.html",
-        # "sidebar-ethical-ads.html",
+        "tagcloud.html",
+        "categories.html",
+        "sidebar-ethical-ads.html",
     ],
 }
 
