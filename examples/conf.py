@@ -21,6 +21,7 @@ extensions = [
     "sphinxext.opengraph",
     "sphinx_copybutton",
     "sphinxcontrib.bibtex",
+    "sphinx_codeautolink",
 ]
 
 # List of patterns, relative to source directory, that match files and
@@ -110,6 +111,7 @@ fontawesome_included = True
 
 # MyST config
 myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "amsmath"]
+jupyter_execute_notebooks = "off"
 
 # bibtex config
 bibtex_bibfiles = ["references.bib"]
@@ -120,17 +122,33 @@ bibtex_reference_style = "author_year"
 # ogp_site_url = "https://predictablynoisy.com"
 # ogp_image = "https://predictablynoisy.com/_static/profile-bw.png"
 
-# Temporarily stored as off until we fix it
-jupyter_execute_notebooks = "off"
+# codeautolink config
+from IPython.core.inputtransformer2 import TransformerManager
+
+
+def ipython_cell_transform(source):
+    out = TransformerManager().transform_cell(source)
+    return source, out
+
+
+# codeautolink
+codeautolink_custom_blocks = {
+    "ipython3": ipython_cell_transform,
+}
+codeautolink_autodoc_inject = False
+codeautolink_global_preface = """
+import arviz as az
+import pymc3 as pm
+"""
 
 # intersphinx mappings
 intersphinx_mapping = {
     "aesara": ("https://aesara.readthedocs.io/en/latest/", None),
     "arviz": ("https://arviz-devs.github.io/arviz/", None),
-    # "mpl": ("https://matplotlib.org/", None),
-    # "numpy": ("https://numpy.org/doc/stable/", None),
-    # "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
+    "mpl": ("https://matplotlib.org/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
     "pymc": ("https://docs.pymc.io/en/stable/", None),
-    # "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
-    # "xarray": ("http://xarray.pydata.org/en/stable/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
+    "xarray": ("http://xarray.pydata.org/en/stable/", None),
 }
