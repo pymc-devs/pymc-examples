@@ -9,6 +9,7 @@
 
 <!-- continuation of examples/page_footer.md -->
 {% if pagename in ablog %}
+  {% set post = ablog[pagename] %}
   <ul>
     <li>
       {% for coll in post.author %}
