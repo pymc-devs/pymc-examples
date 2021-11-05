@@ -4,16 +4,6 @@
   <h3>Notebook metadata</h3>
 
   <ul>
-  {% if post.author %}
-    <li id="author">
-      <span><i class="fa-fw fa fa-user"></i></span>
-      <a href="#authors">{% for coll in post.author %} {% if coll|length %}
-      {{ coll }}{% if loop.index <
-      post.author|length %},{% endif %} {% else %}{{ coll }}{% if loop.index <
-      post.author|length %},{% endif %}{% endif %} {% endfor %}
-      </a>
-    </li>
-  {% endif %}
   {% if post.category %}
     <li id="category">
     <span><i class="fa-fw fa fa-folder-open"></i></span>

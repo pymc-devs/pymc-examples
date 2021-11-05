@@ -1,11 +1,9 @@
 import os
 
-
 # -- Project information -----------------------------------------------------
 project = "PyMC"
 copyright = "2021, PyMC Community"
 author = "PyMC Community"
-
 
 # -- General configuration ---------------------------------------------------
 
@@ -110,7 +108,7 @@ fontawesome_included = True
 # post_auto_excerpt = 2
 
 # MyST config
-myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "amsmath"]
+myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "amsmath", "substitution"]
 jupyter_execute_notebooks = "off"
 
 # bibtex config
@@ -136,10 +134,10 @@ codeautolink_custom_blocks = {
     "ipython3": ipython_cell_transform,
 }
 codeautolink_autodoc_inject = False
-codeautolink_global_preface = """
-import arviz as az
-import pymc3 as pm
-"""
+# codeautolink_global_preface = """
+# import arviz as az
+# import pymc3 as pm
+# """
 
 # intersphinx mappings
 intersphinx_mapping = {
