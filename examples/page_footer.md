@@ -13,7 +13,7 @@ Here is an citation template in bibtex:
 @incollection{citekey,
   author    = "<notebook authors, see above>"
   title     = "<notebook title>",
-  editor    = "PyMC Team",j
+  editor    = "PyMC Team",
   booktitle = "PyMC examples",
   doi       = "10.5281/zenodo.5654871"
 }
