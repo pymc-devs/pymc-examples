@@ -20,7 +20,7 @@
           {{ coll }}
           {% if loop.index < post.author|length %},{% endif %}
         {% endif %}
-      {% endfor %}. "{{ title.split(' — ')[0] }}". In: <i>PyMC Examples</i>. DOI: <a href={{ doi_url }}>{{ doi_code }}</a></li>
+      {% endfor %}. "{{ title.split(' — ')[0] }}". In: <i>PyMC Examples</i>. Ed. by PyMC Team. DOI: <a href={{ doi_url }}>{{ doi_code }}</a></li>
   </ul>
 {% endif %}
 {% endblock %}

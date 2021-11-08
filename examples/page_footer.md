@@ -13,8 +13,9 @@ Here is an citation template in bibtex:
 @incollection{citekey,
   author    = "<notebook authors, see above>"
   title     = "<notebook title>",
+  editor    = "PyMC Team",j
   booktitle = "PyMC examples",
-  doi       = "<doi_code>"
+  doi       = "10.5281/zenodo.5654871"
 }
 ```
 

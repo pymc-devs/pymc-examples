@@ -75,6 +75,8 @@ html_context = {
     "github_version": version,
     "doc_path": "examples/",
     "sandbox_repo": f"pymc-devs/pymc-sandbox/{version}",
+    "doi_url": "https://doi.org/10.5281/zenodo.5654871",
+    "doi_code": "10.5281/zenodo.5654871",
 }
 
 
@@ -134,10 +136,7 @@ codeautolink_custom_blocks = {
     "ipython3": ipython_cell_transform,
 }
 codeautolink_autodoc_inject = False
-# codeautolink_global_preface = """
-# import arviz as az
-# import pymc3 as pm
-# """
+codeautolink_concat_default = True
 
 # intersphinx mappings
 intersphinx_mapping = {
