@@ -7,6 +7,14 @@ use provided the copyright and license notices are preserved.
 ## Citing PyMC examples
 
 To cite this notebook, use the DOI provided by Zenodo for the pymc-examples repository.
+
+:::{important}
+Many notebooks are adapted from other sources: blogs, books... In such cases you should
+cite the original source as well.
+
+Also remember to cite the relevant libraries used by your code.
+:::
+
 Here is an citation template in bibtex:
 
 ```bibtex
