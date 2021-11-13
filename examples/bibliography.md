@@ -1,6 +1,0 @@
-# General Bibliography
-
-:::{bibliography}
-:all:
-
-:::

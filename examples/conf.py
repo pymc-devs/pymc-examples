@@ -1,26 +1,9 @@
-# Configuration file for the Sphinx documentation builder.
-#
-# This file only contains a selection of the most common options. For a full
-# list see the documentation:
-# https://www.sphinx-doc.org/en/master/usage/configuration.html
-
-# -- Path setup --------------------------------------------------------------
-
-# If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
-
+import os
 
 # -- Project information -----------------------------------------------------
-
-project = "PyMC3"
+project = "PyMC"
 copyright = "2021, PyMC Community"
 author = "PyMC Community"
-
 
 # -- General configuration ---------------------------------------------------
 
@@ -36,6 +19,7 @@ extensions = [
     "sphinxext.opengraph",
     "sphinx_copybutton",
     "sphinxcontrib.bibtex",
+    "sphinx_codeautolink",
 ]
 
 # List of patterns, relative to source directory, that match files and
@@ -78,32 +62,56 @@ html_theme_options = {
     "search_bar_text": "Search...",
     "navbar_end": ["search-field.html", "navbar-icon-links.html"],
     "external_links": [
-        {"name": "Learning", "url": "https://pymc3.readthedocs.io/en/latest/learn.html"},
-        {"name": "API", "url": "https://pymc3.readthedocs.io/en/latest/api.html"},
+        {"name": "Learning", "url": "https://docs.pymc.io/en/stable/learn.html"},
+        {"name": "API", "url": "https://docs.pymc.io/en/stable/api.html"},
     ],
 }
+version = os.environ.get("READTHEDOCS_VERSION", "")
+version = version if "-" in version else "main"
+html_context = {
+    "github_url": "https://github.com",
+    "github_user": "pymc-devs",
+    "github_repo": "pymc-examples",
+    "github_version": version,
+    "doc_path": "examples/",
+    "sandbox_repo": f"pymc-devs/pymc-sandbox/{version}",
+    "doi_url": "https://doi.org/10.5281/zenodo.5654871",
+    "doi_code": "10.5281/zenodo.5654871",
+}
 
-html_favicon = "../_static/PyMC3.ico"
+
+html_favicon = "../_static/PyMC.ico"
+html_logo = "../_static/PyMC.png"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["../_static"]
+templates_path = ["../_templates"]
+# Workaround to make the whole sidebar scrollable. See https://github.com/pydata/pydata-sphinx-theme/issues/500
+# ideally the tagcloud, categories and ads would be added from here in conf.py
 html_sidebars = {
-    "**": ["sidebar-nav-bs.html", "tagcloud.html", "categories.html"],
+    "**": [
+        # "sidebar-nav-bs.html",
+        "postcard.html",
+        "tagcloud.html",
+        "categories.html",
+        "sidebar-ethical-ads.html",
+    ],
 }
 
 # ablog config
-# blog_baseurl = "https://predictablynoisy.com"
+blog_baseurl = "https://examples.pymc.io"
 blog_title = "PyMC Examples"
 blog_path = "blog"
-# fontawesome_included = True
+fontawesome_included = True
 # post_redirect_refresh = 1
 # post_auto_image = 1
 # post_auto_excerpt = 2
 
 # MyST config
-myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "amsmath"]
+myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "amsmath", "substitution"]
+jupyter_execute_notebooks = "off"
 
 # bibtex config
 bibtex_bibfiles = ["references.bib"]
@@ -114,17 +122,30 @@ bibtex_reference_style = "author_year"
 # ogp_site_url = "https://predictablynoisy.com"
 # ogp_image = "https://predictablynoisy.com/_static/profile-bw.png"
 
-# Temporarily stored as off until we fix it
-jupyter_execute_notebooks = "off"
+# codeautolink config
+from IPython.core.inputtransformer2 import TransformerManager
+
+
+def ipython_cell_transform(source):
+    out = TransformerManager().transform_cell(source)
+    return source, out
+
+
+# codeautolink
+codeautolink_custom_blocks = {
+    "ipython3": ipython_cell_transform,
+}
+codeautolink_autodoc_inject = False
+codeautolink_concat_default = True
 
 # intersphinx mappings
 intersphinx_mapping = {
     "aesara": ("https://aesara.readthedocs.io/en/latest/", None),
     "arviz": ("https://arviz-devs.github.io/arviz/", None),
-    # "mpl": ("https://matplotlib.org/", None),
-    # "numpy": ("https://numpy.org/doc/stable/", None),
-    # "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
-    "pymc3": ("https://docs.pymc.io/", None),
-    # "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
-    # "xarray": ("http://xarray.pydata.org/en/stable/", None),
+    "mpl": ("https://matplotlib.org/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
+    "pymc": ("https://docs.pymc.io/en/stable/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
+    "xarray": ("http://xarray.pydata.org/en/stable/", None),
 }

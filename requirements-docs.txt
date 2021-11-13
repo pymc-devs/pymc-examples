@@ -6,3 +6,4 @@ sphinx-copybutton
 sphinxcontrib-bibtex
 ablog
 sphinxext-opengraph
+sphinx-codeautolink
