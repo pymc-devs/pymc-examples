@@ -17,7 +17,7 @@ Gallery.contents = {
     "generalized_linear_models/GLM-linear": "(Generalized) Linear and Hierarchical Linear Models",
     "generalized_linear_models/GLM-logistic": "(Generalized) Linear and Hierarchical Linear Models",
     "generalized_linear_models/GLM-binomial-regression": "(Generalized) Linear and Hierarchical Linear Models",
-    "generalized_linear_models/GLM-hierarchical-binominal-model": "(Generalized) Linear and Hierarchical Linear Models",
+    "generalized_linear_models/GLM-hierarchical-binomial-model": "(Generalized) Linear and Hierarchical Linear Models",
     "generalized_linear_models/GLM-hierarchical": "(Generalized) Linear and Hierarchical Linear Models",
     "case_studies/hierarchical_partial_pooling": "(Generalized) Linear and Hierarchical Linear Models",
     "generalized_linear_models/GLM-model-selection": "(Generalized) Linear and Hierarchical Linear Models",
