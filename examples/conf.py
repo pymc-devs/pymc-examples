@@ -19,7 +19,7 @@ extensions = [
     "sphinxext.opengraph",
     "sphinx_copybutton",
     "sphinxcontrib.bibtex",
-    # "sphinx_codeautolink",
+    "sphinx_codeautolink",
 ]
 
 # List of patterns, relative to source directory, that match files and
