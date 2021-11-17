@@ -1,3 +1,21 @@
+@misc{carpenter2016hierarchical,
+  title={Hierarchical partial pooling for repeated binary trials},
+  author={Carpenter, Bob and Gabry, J and Goodrich, B},
+  year={2016},
+  publisher={Technical report. Retrieved from https://mc-stan. org/users/docum entat ion~…}
+}
+
+@article{efron1975data,
+  title={Data analysis using Stein's estimator and its generalizations},
+  author={Efron, Bradley and Morris, Carl},
+  journal={Journal of the American Statistical Association},
+  volume={70},
+  number={350},
+  pages={311--319},
+  year={1975},
+  publisher={Taylor \& Francis}
+}
+
 @book{gelman2006data,
   title={Data analysis using regression and multilevel/hierarchical models},
   author={Gelman, Andrew and Hill, Jennifer},
@@ -14,6 +32,25 @@
   pages={432--435},
   year={2006},
   publisher={Taylor \& Francis}
+}
+
+@article{gelman2008scaling,
+  title={Scaling regression inputs by dividing by two standard deviations},
+  author={Gelman, Andrew},
+  journal={Statistics in medicine},
+  volume={27},
+  number={15},
+  pages={2865--2873},
+  year={2008},
+  publisher={Wiley Online Library},
+  doi={doi:10.1002/sim.3107}
+}
+
+@book{gelman2013bayesian,
+  title={Bayesian Data Analysis},
+  publisher={Chapman and Hall/CRC},
+  author={Gelman, Andrew and Carlin, John B. and Stern, Hal S. and Dunson, David B. and Vehtari, Aki and Rubin, Donald B.},
+  year={2013}
 }
 
 @article{goldberg2001eigentaste,
@@ -37,59 +74,22 @@
   url={https://doi.org/10.1145/2827872}
 }
 
-@article{koren2009matrixfactorization,  
-author={Koren, Yehuda and Bell, Robert and Volinsky, Chris},  
-  journal={Computer},   
-  title={Matrix Factorization Techniques for Recommender Systems},   
-  year={2009},  
-  volume={42},  
-  number={8},  
-  pages={30--37},  
-  doi={10.1109/MC.2009.263}
+@misc{hogg2010data,
+      title={Data analysis recipes: Fitting a model to data},
+      author={David W. Hogg and Jo Bovy and Dustin Lang},
+      year={2010},
+      eprint={1008.4686},
+      archivePrefix={arXiv},
+      primaryClass={astro-ph.IM}
 }
 
-@misc{kingma2014autoencoding,
-  title={Auto-Encoding Variational Bayes}, 
-  author={Diederik P Kingma and Max Welling},
-  year={2014},
-  eprint={1312.6114},
-  archivePrefix={arXiv},
-  primaryClass={stat.ML}
-}
-
-@misc{kucukelbir2015automatic,
-  title={Automatic Variational Inference in Stan}, 
-  author={Alp Kucukelbir and Rajesh Ranganath and Andrew Gelman and David M. Blei},
-  year={2015},
-  eprint={1506.03431},
-  archivePrefix={arXiv},
-  primaryClass={stat.ML}
-}
-
-@book{mcelreath2018statistical,
-  title={Statistical rethinking: A Bayesian course with examples in R and Stan},
-  author={McElreath, Richard},
-  year={2018},
-  publisher={Chapman and Hall/CRC}
-}
-
-@misc{mnih2013playing,
-  title={Playing Atari with Deep Reinforcement Learning}, 
-  author={Volodymyr Mnih and Koray Kavukcuoglu and David Silver and Alex Graves and Ioannis Antonoglou and Daan Wierstra and Martin Riedmiller},
-  year={2013},
-  eprint={1312.5602},
-  archivePrefix={arXiv},
-  primaryClass={cs.LG}
-}
-
-@article{silver2016masteringgo,
-  title={Mastering the game of Go with deep neural networks and tree search},
-  author={D. Silver, A. Huang, C. Maddison et al.},
-  journal={Nature},
-  volume={529},
-  pages={484--489},
-  year={2016},
-  url={https://doi.org/10.1038/nature16961}
+@book{ivezić2014astroMLtext,
+  author = {Željko Ivezić and Andrew J. Connolly and Jacob T. VanderPlas and Alexander Gray},
+  doi = {doi:10.1515/9781400848911},
+  title = {Statistics, Data Mining, and Machine Learning in Astronomy: A Practical Python Guide for the Analysis of Survey Data},
+  year = {2014},
+  publisher = {Princeton University Press},
+  ISBN = {9781400848911}
 }
 
 @book{james2021statisticallearning,
@@ -102,16 +102,34 @@ author={Koren, Yehuda and Bell, Robert and Volinsky, Chris},
   isbn={978-1-0716-1420-4}
 }
 
-@book{wilkinson2005grammar,
-  title={The Grammar of Graphics},
-  author={Wilkinson, Leland},
-  year={2005},
-  publisher={Springer},
-  doi={https://doi.org/10.1007/0-387-28695-0},
-  issn={1431-8784},
-  isbn={978-0-387-24544-7}
+@article{koren2009matrixfactorization,
+author={Koren, Yehuda and Bell, Robert and Volinsky, Chris},
+  journal={Computer},
+  title={Matrix Factorization Techniques for Recommender Systems},
+  year={2009},
+  volume={42},
+  number={8},
+  pages={30--37},
+  doi={10.1109/MC.2009.263}
 }
 
+@misc{kingma2014autoencoding,
+  title={Auto-Encoding Variational Bayes},
+  author={Diederik P Kingma and Max Welling},
+  year={2014},
+  eprint={1312.6114},
+  archivePrefix={arXiv},
+  primaryClass={stat.ML}
+}
+
+@misc{kucukelbir2015automatic,
+  title={Automatic Variational Inference in Stan},
+  author={Alp Kucukelbir and Rajesh Ranganath and Andrew Gelman and David M. Blei},
+  year={2015},
+  eprint={1506.03431},
+  archivePrefix={arXiv},
+  primaryClass={stat.ML}
+}
 
 @article{lewandowski2009generating,
   title={Generating random correlation matrices based on vines and extended onion method},
@@ -122,6 +140,13 @@ author={Koren, Yehuda and Bell, Robert and Volinsky, Chris},
   pages={1989--2001},
   year={2009},
   publisher={Elsevier}
+}
+
+@book{mcelreath2018statistical,
+  title={Statistical rethinking: A Bayesian course with examples in R and Stan},
+  author={McElreath, Richard},
+  year={2018},
+  publisher={Chapman and Hall/CRC}
 }
 
 @inproceedings{mnih2008advances,
@@ -135,6 +160,15 @@ author={Koren, Yehuda and Bell, Robert and Volinsky, Chris},
   year={2008}
 }
 
+@misc{mnih2013playing,
+  title={Playing Atari with Deep Reinforcement Learning},
+  author={Volodymyr Mnih and Koray Kavukcuoglu and David Silver and Alex Graves and Ioannis Antonoglou and Daan Wierstra and Martin Riedmiller},
+  year={2013},
+  eprint={1312.5602},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG}
+}
+
 @article{nowlan1992simplifying,
   title={Simplifying Neural Networks By Soft Weight-Sharing},
   author={Nowlan, Steven J and Hinton, Geoffrey E},
@@ -146,6 +180,7 @@ author={Koren, Yehuda and Bell, Robert and Volinsky, Chris},
   publisher={MIT Press}
 }
 
+
 @inproceedings{salakhutdinov2008bayesian,
   title={Bayesian Probabilistic Matrix Factorization Using Markov Chain Monte Carlo},
   author={Salakhutdinov, Ruslan and Mnih, Andriy},
@@ -155,35 +190,43 @@ author={Koren, Yehuda and Bell, Robert and Volinsky, Chris},
   volume={25}
 }
 
+@article{silver2016masteringgo,
+  title={Mastering the game of Go with deep neural networks and tree search},
+  author={D. Silver, A. Huang, C. Maddison et al.},
+  journal={Nature},
+  volume={529},
+  pages={484--489},
+  year={2016},
+  url={https://doi.org/10.1038/nature16961}
+}
+
 @misc{szegedy2014going,
-  title={Going Deeper with Convolutions}, 
+  title={Going Deeper with Convolutions},
   author={Christian Szegedy and Wei Liu and Yangqing Jia and Pierre Sermanet and Scott Reed and Dragomir Anguelov and Dumitru Erhan and Vincent Vanhoucke and Andrew Rabinovich},
   year={2014},
   eprint={1409.4842},
   archivePrefix={arXiv},
   primaryClass={cs.CV}
   }
-  
-@misc{carpenter2016hierarchical,
-  title={Hierarchical partial pooling for repeated binary trials},
-  author={Carpenter, Bob and Gabry, J and Goodrich, B},
-  year={2016},
-  publisher={Technical report. Retrieved from https://mc-stan. org/users/docum entat ion~…}
+
+
+@INPROCEEDINGS{vanderplas2012astroML,
+ author={{Vanderplas}, J.T. and {Connolly}, A.J.
+         and {Ivezi{\'c}}, {\v Z}. and {Gray}, A.},
+ booktitle={Conference on Intelligent Data Understanding (CIDU)},
+ title={Introduction to astroML: Machine learning for astrophysics},
+ month={oct.},
+ pages={47 -54},
+ doi={10.1109/CIDU.2012.6382200},
+ year={2012}
 }
 
-@book{gelman2013bayesian, 
-  title={Bayesian Data Analysis},
-  publisher={Chapman and Hall/CRC}, 
-  author={Gelman, Andrew and Carlin, John B. and Stern, Hal S. and Dunson, David B. and Vehtari, Aki and Rubin, Donald B.},
-  year={2013}
-}
-@article{efron1975data,
-  title={Data analysis using Stein's estimator and its generalizations},
-  author={Efron, Bradley and Morris, Carl},
-  journal={Journal of the American Statistical Association},
-  volume={70},
-  number={350},
-  pages={311--319},
-  year={1975},
-  publisher={Taylor \& Francis}
+@book{wilkinson2005grammar,
+  title={The Grammar of Graphics},
+  author={Wilkinson, Leland},
+  year={2005},
+  publisher={Springer},
+  doi={https://doi.org/10.1007/0-387-28695-0},
+  issn={1431-8784},
+  isbn={978-0-387-24544-7}
 }
