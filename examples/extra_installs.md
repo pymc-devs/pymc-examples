@@ -30,5 +30,5 @@ Another alternative is using conda instead:
 when installing scientific python packages with conda,
 we recommend using [conda forge](https://conda-forge.org/index.html)
 
-{{ extra_instal_notes }}
+{{ extra_install_notes }}
 ::::::
