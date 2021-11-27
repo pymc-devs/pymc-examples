@@ -8,7 +8,7 @@ Please let us know if the reviews are unclear or the recommended next step seems
 if you would like help in addressing a reviewer's comments,
 or if you have been waiting too long to hear back on your PR. -->
 
-+ [ ] Notebook follows style guide https://github.com/pymc-devs/pymc/wiki/PyMC-Jupyter-Notebook-Style-Guide
++ [ ] Notebook follows style guide https://docs.pymc.io/en/latest/contributing/jupyter_style.html
 + [ ] PR description contains a link to the relevant issue: a tracker one for existing notebooks or a proposal one for new notebooks
 
 
