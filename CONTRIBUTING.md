@@ -32,7 +32,7 @@ To Do --<                          >--> Best Practices --> v4
 ```
 
 See https://github.com/pymc-devs/pymc-examples/wiki/Notebook-updates-overview for a more detailed
-description of what each of the status mean.
+description of what each of the statuses mean.
 
 Each pull request should update a single notebook 1-2 positions to the right.
 Before starting a work on a pull request look at the tracker issue of the
