@@ -4,6 +4,20 @@ As PyMC continues to mature and expand its functionality to accomodate more doma
 
 If implemented thoughtfully, a `pymc-experimental` repository could act as the first step in the PyMC development pipeline, where all novel code is introduced until it is obvious that it belongs in the main repository. This would improve the stability and streamline the testing overhead of the `pymc` respository.
 
+`pymc-experimental` would be designed to mirror the namespaces in `pymc` to make usage and migration as easy as possible. For example, a `ParabolicFractal` distribution could be used analogously to those in `pymc`:
+
+```python
+import python as pm
+import python_experimental as pmx
+
+with pm.Model():
+
+    alpha = pmx.ParabolicFractal(b=1, c=1)
+    
+    ...
+
+```
+
 ## Questions
 
 ### What belongs in `pymc-experimental`?
