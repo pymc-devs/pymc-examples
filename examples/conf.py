@@ -31,6 +31,8 @@ exclude_patterns = [
     ".DS_Store",
     "*import_posts*",
     "**/.ipynb_checkpoints/*",
+    "extra_installs.md",
+    "page_footer.md",
 ]
 
 
@@ -104,6 +106,10 @@ html_sidebars = {
 blog_baseurl = "https://examples.pymc.io"
 blog_title = "PyMC Examples"
 blog_path = "blog"
+blog_authors = {
+    "contributors": ("PyMC Contributors", "https://docs.pymc.io"),
+}
+blog_default_author = "contributors"
 fontawesome_included = True
 # post_redirect_refresh = 1
 # post_auto_image = 1
@@ -111,6 +117,11 @@ fontawesome_included = True
 
 # MyST config
 myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "amsmath", "substitution"]
+myst_substitutions = {
+    "pip_dependencies": "{{ extra_dependencies }}",
+    "conda_dependencies": "{{ extra_dependencies }}",
+    "extra_install_notes": "",
+}
 jupyter_execute_notebooks = "off"
 
 # bibtex config
