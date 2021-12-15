@@ -7,3 +7,4 @@ sphinxcontrib-bibtex
 ablog
 sphinxext-opengraph
 sphinx-codeautolink
+sphinx-notfound-page
