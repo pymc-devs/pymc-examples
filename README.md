@@ -12,7 +12,7 @@ import pymc_experimental as pmx
 
 with pm.Model():
 
-    alpha = pmx.ParabolicFractal(b=1, c=1)
+    alpha = pmx.ParabolicFractal('alpha', b=1, c=1)
     
     ...
 
