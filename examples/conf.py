@@ -43,6 +43,7 @@ exclude_patterns = [
     "page_footer.md",
     "**/*.myst.md",
 ]
+numfig = True
 
 
 def remove_index(app):
