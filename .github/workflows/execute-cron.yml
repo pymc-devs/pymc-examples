@@ -1,0 +1,48 @@
+name: Weekly Execution
+
+on:
+  schedule:
+    # https://crontab.guru/#12_3_*_*_0
+    - cron: "12 3 * * 0"
+
+jobs:
+  build-environment:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Setup Python environment
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.x" # Version range or exact version of a Python version to use, using SemVer's version range syntax
+          architecture: "x64" # optional x64 or x86. Defaults to x64 if not specified
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-write.txt
+          # To target latest commit of PyMC on main
+          pip install git+https://github.com/pymc-devs/pymc.git
+
+      # Execute notebooks
+      - name: Generate PDF and LaTeX
+        run: |
+          python -m ipykernel install --user --name pymc-examples
+          python scripts/execute_notebooks.py
+
+      - name: Commit successful notebooks
+        run: |
+          # some logic here that checks for successful execution
+
+      # Upload build directory to branch
+      # - name: Upload build directory to branch
+      #   uses: peaceiris/actions-gh-pages@v3
+      #   if: ${{ github.ref == 'refs/heads/main' }}
+      #   with:
+      #     personal_token: ${{ secrets.PERSONAL_TOKEN }}
+      #     publish_dir: notebooks
+      #     publish_branch: build
+      #     keep_files: false
+      #     force_orphan: true
+      #     enable_jekyll: false
+      #     disable_nojekyll: false
