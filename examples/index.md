@@ -15,14 +15,14 @@ to ensure notebooks are updated and re-executed at the same pace we
 publish PyMC releases. Consequently, PyMC has two documentation
 websites: the versioned docs and the example gallery
 
-**Versioned docs**
+## Versioned docs
 We publish the versioned docs directly at `docs.pymc.io`. The only additions
 to the url are the language and version of the documentation.
 
 The versioned docs are synced with PyMC releases and contain a handful of
 guides about core functionality and the API documentation among other things.
 
-**Example gallery**
+## Example gallery
 We publish the example gallery as a sub-project of the versioned docs: `docs.pymc.io/projects/examples`
 This means that the building process, language and version of the
 example gallery are independent from the versioned docs. However,
@@ -54,7 +54,7 @@ to include all the relevant metadata. Those notebooks can only be reached
 from the search bar.
 :::
 
-## Categories
+### Categories
 Notebooks have at most two categories, one indicating the level of the
 notebook and another indicating the type of content according to the
 [diataxis framework](https://diataxis.fr/). The left sidebar
@@ -63,7 +63,7 @@ there to reach the page listing all the notebooks in that category.
 If a page has some categories in its metadata they are highlighted in green
 in the category list.
 
-## Tags
+### Tags
 Notebooks can have any number of tags. Each tag represents a specific topic
 of potential interest to readers or a pymc object used within that notebook.
 
