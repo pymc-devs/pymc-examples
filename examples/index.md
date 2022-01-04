@@ -3,9 +3,9 @@
 **Welcome to the PyMC example gallery!**
 
 The PyMC example gallery is a collection of Jupyter notebooks
-about PyMC and its usage. These notebooks range can be tutorials,
+about PyMC and its usage. These notebooks can be tutorials,
 case studies or in-depth explanations.
-Some notebooks were originally blogposts, others were adapted from books
+Some notebooks were originally blog posts, others were adapted from books
 and some were written specifically for this example gallery.
 This homepage explains the organization of the website and provides
 some pointers on how to navigate it.
@@ -23,7 +23,7 @@ The versioned docs are synced with PyMC releases and contain a handful of
 guides about core functionality and the API documentation among other things.
 
 **Example gallery**
-We publish the example gallery as a subproject of the versioned docs: `docs.pymc.io/projects/examples`
+We publish the example gallery as a sub-project of the versioned docs: `docs.pymc.io/projects/examples`
 This means that the building process, language and version of the
 example gallery are independent from the versioned docs. However,
 the {ref}`search bar in the versioned docs <pymc:search>` searches
@@ -41,7 +41,7 @@ A version number in the `YYYY.0M.MICRO` format identifies the time the snapshot 
 
 ---
 
-Notebooks are treated as blogposts. The metadata of each notebook
+Notebooks are treated as blog posts. The metadata of each notebook
 describes its topics and type of content via tags and categories
 and the last update date. We believe that tags and categories
 ease and improve navigation (as opposed to a fixed topic division/hierarchy).
@@ -49,9 +49,9 @@ In addition, we also provide a list of recent updates and a search bar in the
 navigation bar at the top of the page.
 
 :::{caution}
-The website is still in construction. Thus, not all notebooks have been updated
+The website is still under construction. Thus, not all notebooks have been updated
 to include all the relevant metadata. Those notebooks can only be reached
-from the search bar
+from the search bar.
 :::
 
 ## Categories
