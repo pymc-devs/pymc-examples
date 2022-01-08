@@ -1,7 +1,7 @@
 import numpy as np
 import theano.tensor as tt
 
-import pymc3 as pm
+import pymc as pm
 
 
 # custom log-liklihood

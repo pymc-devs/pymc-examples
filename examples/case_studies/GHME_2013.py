@@ -2,8 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from pymc3 import HalfCauchy, Model, Normal, get_data, sample
-from pymc3.distributions.timeseries import GaussianRandomWalk
+from pymc import HalfCauchy, Model, Normal, get_data, sample
+from pymc.distributions.timeseries import GaussianRandomWalk
 
 data = pd.read_csv(get_data("pancreatitis.csv"))
 countries = ["CYP", "DNK", "ESP", "FIN", "GBR", "ISL"]

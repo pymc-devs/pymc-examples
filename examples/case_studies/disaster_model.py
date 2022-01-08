@@ -13,7 +13,7 @@ import theano.tensor as tt
 
 from numpy import arange, array
 
-import pymc3 as pm
+import pymc as pm
 
 __all__ = ["disasters_data", "switchpoint", "early_mean", "late_mean", "rate", "disasters"]
 

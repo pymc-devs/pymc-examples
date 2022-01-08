@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import theano.tensor as tt
 
-import pymc3 as pm
+import pymc as pm
 
 # with this flag one can switch between defining the bivariate normal as
 # either a 2D MvNormal (USE_XY = False) split up the two dimensions into

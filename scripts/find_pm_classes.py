@@ -1,13 +1,13 @@
 """
-Find all PyMC3 classes used in script.
+Find all PyMC classes used in script.
 
 This'll find both call of
 
-    pymc3.Categorical(...
+    pymc.Categorical(...
 
 and
     
-    from pymc3 import Categorical
+    from pymc import Categorical
     Categorical
 """
 import ast
@@ -19,7 +19,7 @@ class ImportVisitor(ast.NodeVisitor):
         self.imports = set()
 
     def visit_ImportFrom(self, node: ast.ImportFrom):
-        if node.module.split(".")[0] == "pymc3":
+        if node.module.split(".")[0] == "pymc":
             for name in node.names:
                 if name.name[0].isupper():
                     self.imports.add(name.name)
@@ -34,7 +34,7 @@ class CallVisitor(ast.NodeVisitor):
     def visit_Call(self, node: ast.Call):
         if isinstance(node.func, ast.Attribute):
             if isinstance(node.func.value, ast.Name):
-                if node.func.value.id in {"pm", "pymc3"}:
+                if node.func.value.id in {"pm", "pymc"}:
                     if node.func.attr[0].isupper():
                         self.classes_used.add(node.func.attr)
         elif isinstance(node.func, ast.Name):

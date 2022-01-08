@@ -1,4 +1,4 @@
-import pymc3 as pm
+import pymc as pm
 
 """
 You can add an arbitrary factor potential to the model likelihood using

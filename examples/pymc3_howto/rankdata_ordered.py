@@ -2,14 +2,14 @@ import arviz as az
 import numpy as np
 import theano.tensor as tt
 
-import pymc3 as pm
+import pymc as pm
 
 """
 Using Ordered transformation to model ranking data
 inspired by the Stan implementation of Thurstonian model
 see http://discourse.mc-stan.org/t/thurstonian-model/1735/5
-also see related discussion on PyMC3 discourse:
-https://discourse.pymc.io/t/order-statistics-in-pymc3/617
+also see related discussion on PyMC discourse:
+https://discourse.pymc.io/t/order-statistics-in-pymc/617
 """
 
 

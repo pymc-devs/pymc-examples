@@ -1,5 +1,5 @@
 """
-Automatically add tags to notebook based on which PyMC3 classes are used.
+Automatically add tags to notebook based on which PyMC classes are used.
 
 E.g. if a notebook contains a section like
 
@@ -8,11 +8,11 @@ E.g. if a notebook contains a section like
     :category: beginner
     :::
 
-in a markdown cell, and uses the class pymc3.Categorical, then this script
+in a markdown cell, and uses the class pymc.Categorical, then this script
 will change that part of the markdown cell to:
 
     :::{post} 30 Aug, 2021
-    :tags: glm, mcmc, exploratory analysis, pymc3.Categorical
+    :tags: glm, mcmc, exploratory analysis, pymc.Categorical
     :category: beginner
     :::
 
@@ -35,7 +35,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     for file in args.files:
-        # Find which PyMC3 classes are used in the code.
+        # Find which PyMC classes are used in the code.
         output = subprocess.run(
             [
                 "nbqa",
@@ -45,7 +45,7 @@ def main(argv=None):
             stdout=subprocess.PIPE,
             text=True,
         )
-        classes = {f"pymc3.{obj}" for obj in output.stdout.splitlines()}
+        classes = {f"pymc.{obj}" for obj in output.stdout.splitlines()}
 
         # Tokenize the notebook's markdown cells.
         with open(file, encoding="utf-8") as fd:
@@ -78,7 +78,7 @@ def main(argv=None):
                         tags = {tag.strip() for tag in line[len(line_start) :].split(",")}
                         break
 
-        # If tags were found, then append any PyMC3 classes which might have
+        # If tags were found, then append any PyMC classes which might have
         # been missed.
         if tags is not None:
             new_tags = ", ".join(sorted(tags.union(classes)))

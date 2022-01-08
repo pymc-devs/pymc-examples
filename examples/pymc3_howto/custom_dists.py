@@ -4,15 +4,15 @@
 #
 # While at the core it's just a linear regression, it's a nice
 # illustration of using Jeffrey priors and custom density
-# distributions in PyMC3.
+# distributions in PyMC.
 #
-# Adapted to PyMC3 by Thomas Wiecki
+# Adapted to PyMC by Thomas Wiecki
 
 import matplotlib.pyplot as plt
 import numpy as np
 import theano.tensor as tt
 
-import pymc3 as pm
+import pymc as pm
 
 np.random.seed(42)
 theta_true = (25, 0.5)
@@ -105,7 +105,7 @@ def plot_MCMC_results(xdata, ydata, trace, colors="k"):
     plot_MCMC_model(ax[1], xdata, ydata, trace)
 
 
-pymc3_trace = [trace["intercept"], trace["slope"], trace["sigma"]]
+pymc_trace = [trace["intercept"], trace["slope"], trace["sigma"]]
 
-plot_MCMC_results(xdata, ydata, pymc3_trace)
+plot_MCMC_results(xdata, ydata, pymc_trace)
 plt.show()

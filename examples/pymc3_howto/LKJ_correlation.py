@@ -3,7 +3,7 @@ import theano.tensor as tt
 import arviz as az
 from numpy.random import multivariate_normal
 
-import pymc3 as pm
+import pymc as pm
 
 # Generate some multivariate normal data:
 n_obs = 1000

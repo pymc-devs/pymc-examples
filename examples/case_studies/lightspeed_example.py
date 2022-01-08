@@ -1,6 +1,6 @@
 import numpy as np
 import arviz as az
-import pymc3 as pm
+import pymc as pm
 
 light_speed = np.array(
     [
