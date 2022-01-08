@@ -153,6 +153,7 @@ codeautolink_concat_default = True
 intersphinx_mapping = {
     "aesara": ("https://aesara.readthedocs.io/en/latest/", None),
     "arviz": ("https://arviz-devs.github.io/arviz/", None),
+    "bambi": ("https://bambinos.github.io/bambi/main", None),
     "mpl": ("https://matplotlib.org/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
