@@ -1,0 +1,64 @@
+{%- macro pathtocategory(category) -%}
+  {% set path = "blog/category/" + category %}
+  {{ pathto(path) }}
+{%- endmacro -%}
+
+{%- macro setcolorclass(active) -%}
+  {% if active %}
+    {{ "sd-text-success" }}
+  {% else %}
+    {{ "sd-text-muted" }}
+  {% endif %}
+{%- endmacro -%}
+
+
+{%- macro category_item(name, icon, active) -%}
+  <a href="{{ pathtocategory(name) }}" class="{{ setcolorclass(active) }}">
+    <span class="fas {{ icon }}"></span>
+    <label class="sr-only">{{ name }}</label>
+  </a>
+{%- endmacro -%}
+
+<!-- {% set post = "" %} -->
+<!-- {% if pagename in ablog %} -->
+{% set post = ablog[pagename] %}
+<!-- {% endif %} -->
+
+<h3>
+  <a href="{{ pathto(ablog.category.path) }}">{{ gettext('Categories') }}</a>
+</h3>
+<div id="category" class="sd-text-justify sd-fs-4 sd-text-muted">
+  <!-- level categories -->
+  {% set i_bool = "intermediate" in post.category|map('string') %}
+  {% set b_bool = "beginner" in post.category|map('string') %}
+  {% set a_bool = "advanced" in post.category|map('string') %}
+  <div class="container">
+    <div class="row">
+      <div class="col">
+        {{ category_item("beginner", "fa-crow", b_bool) }}
+      </div>
+      <div class="col">
+        {{ category_item("intermediate", "fa-dove", i_bool) }}
+      </div>
+      <div class="col">
+        {{ category_item("advanced", "fa-dragon", a_bool) }}
+      </div>
+    </div>
+  </div>
+
+  <!-- diataxis type categories -->
+  <div class="container sd-fs-6 sd-font-weight-bold">
+    <div class="row border-top border-bottom">
+      {% set t_bool = "tutorial" in post.category|map('string') %}
+      <div class="col {{ setcolorclass(t_bool) }}"><a href="{{ pathtocategory('tutorial') }}">Tutorial</a></div>
+      {% set h_bool = "how-to" in post.category|map('string') %}
+      <div class="col {{ setcolorclass(h_bool) }}"><a href="{{ pathtocategory('how-to') }}">How-to</a></div>
+      <div class="w-100"></div>
+      {% set e_bool = "explanation" in post.category|map('string') %}
+      <div class="col {{ setcolorclass(e_bool) }}"><a href="{{ pathtocategory('explanation') }}">Explanation</a></div>
+      {% set r_bool = "reference" in post.category|map('string') %}
+      <div class="col {{ setcolorclass(r_bool) }}"><a href="{{ pathtocategory('reference') }}">Reference</a></div>
+    </div>
+  </div>
+
+</div>

@@ -68,6 +68,7 @@ html_theme_options = {
         {"name": "Learning", "url": "https://docs.pymc.io/en/stable/learn.html"},
         {"name": "API", "url": "https://docs.pymc.io/en/stable/api.html"},
     ],
+    "page_sidebar_items": ["postcard", "page-toc", "edit-this-page"],
 }
 version = os.environ.get("READTHEDOCS_VERSION", "")
 version = version if "-" in version else "main"
@@ -90,15 +91,13 @@ html_logo = "../_static/PyMC.png"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["../_static"]
+html_css_files = ["custom.css"]
 templates_path = ["../_templates"]
-# Workaround to make the whole sidebar scrollable. See https://github.com/pydata/pydata-sphinx-theme/issues/500
-# ideally the tagcloud, categories and ads would be added from here in conf.py
 html_sidebars = {
     "**": [
         # "sidebar-nav-bs.html",
-        "postcard.html",
+        "postcard_categories.html",
         "tagcloud.html",
-        "categories.html",
         "sidebar-ethical-ads.html",
     ],
 }

@@ -1,0 +1,13 @@
+/* taken from sphinx-codeautolink examples */
+.sphinx-codeautolink-a{
+    border-bottom-color: rgb(0, 0, 0);
+    border-bottom-style: dotted;
+    border-bottom-width: 1px;
+}
+.sphinx-codeautolink-a:hover{
+    color: rgb(255, 139, 139);
+}
+
+.bd-sidebar {
+  overflow-y: auto;
+}
