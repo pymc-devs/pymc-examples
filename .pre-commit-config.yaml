@@ -12,7 +12,7 @@ repos:
       additional_dependencies: [pyupgrade==2.7.4]
       args: [--py37-plus]
 - repo: https://github.com/MarcoGorelli/madforhooks
-  rev: v0.3.0
+  rev: 0.3.0
   hooks:
     - id: check-execution-order
       exclude: |
