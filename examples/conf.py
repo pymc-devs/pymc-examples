@@ -72,7 +72,7 @@ html_theme_options = {
 }
 version = os.environ.get("READTHEDOCS_VERSION", "")
 version = version if "." in version else "main"
-doi_code = os.environ.get("READTHEDOCS_DOI", "10.5281/zenodo.5654871")
+doi_code = os.environ.get("DOI_READTHEDOCS", "10.5281/zenodo.5654871")
 html_context = {
     "github_url": "https://github.com",
     "github_user": "pymc-devs",
