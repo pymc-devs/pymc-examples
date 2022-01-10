@@ -71,7 +71,8 @@ html_theme_options = {
     "page_sidebar_items": ["postcard", "page-toc", "edit-this-page"],
 }
 version = os.environ.get("READTHEDOCS_VERSION", "")
-version = version if "-" in version else "main"
+version = version if "." in version else "main"
+doi_code = os.environ.get("DOI_READTHEDOCS", "10.5281/zenodo.5654871")
 html_context = {
     "github_url": "https://github.com",
     "github_user": "pymc-devs",
@@ -79,8 +80,8 @@ html_context = {
     "github_version": version,
     "doc_path": "examples/",
     "sandbox_repo": f"pymc-devs/pymc-sandbox/{version}",
-    "doi_url": "https://doi.org/10.5281/zenodo.5654871",
-    "doi_code": "10.5281/zenodo.5654871",
+    "doi_url": f"https://doi.org/{doi_code}",
+    "doi_code": doi_code,
 }
 
 
@@ -117,10 +118,24 @@ fontawesome_included = True
 
 # MyST config
 myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "amsmath", "substitution"]
+citation_code = f"""
+```bibtex
+@incollection{{citekey,
+  author    = "<notebook authors, see above>"
+  title     = "<notebook title>",
+  editor    = "PyMC Team",
+  booktitle = "PyMC examples",
+  doi       = "{doi_code}"
+}}
+```
+"""
+
+
 myst_substitutions = {
     "pip_dependencies": "{{ extra_dependencies }}",
     "conda_dependencies": "{{ extra_dependencies }}",
     "extra_install_notes": "",
+    "citation_code": citation_code,
 }
 jupyter_execute_notebooks = "off"
 

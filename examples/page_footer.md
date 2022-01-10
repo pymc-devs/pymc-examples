@@ -17,15 +17,7 @@ Also remember to cite the relevant libraries used by your code.
 
 Here is an citation template in bibtex:
 
-```bibtex
-@incollection{citekey,
-  author    = "<notebook authors, see above>"
-  title     = "<notebook title>",
-  editor    = "PyMC Team",
-  booktitle = "PyMC examples",
-  doi       = "10.5281/zenodo.5654871"
-}
-```
+{{ citation_code }}
 
 which once rendered could look like:
 
