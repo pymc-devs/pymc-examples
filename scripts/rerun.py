@@ -69,6 +69,7 @@ def run_precommit(fp: pathlib.Path, attempts: int = 2):
             _log.info("⏳ Running pre-commit attempt %i on %s", a, fp)
             try:
                 subprocess.check_call(["pre-commit", "run", "--files", str(fp)])
+                break
             except subprocess.CalledProcessError:
                 if a == attempts - 1:
                     raise
