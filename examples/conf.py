@@ -118,11 +118,24 @@ fontawesome_included = True
 
 # MyST config
 myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "amsmath", "substitution"]
+citation_code = f"""
+```bibtex
+@incollection{{citekey,
+  author    = "<notebook authors, see above>"
+  title     = "<notebook title>",
+  editor    = "PyMC Team",
+  booktitle = "PyMC examples",
+  doi       = "{doi_code}"
+}}
+```
+"""
+
+
 myst_substitutions = {
     "pip_dependencies": "{{ extra_dependencies }}",
     "conda_dependencies": "{{ extra_dependencies }}",
     "extra_install_notes": "",
-    "doi_code": doi_code,
+    "citation_code": citation_code,
 }
 jupyter_execute_notebooks = "off"
 
