@@ -11,8 +11,8 @@ repos:
     - id: nbqa-pyupgrade
       additional_dependencies: [pyupgrade==2.7.4]
       args: [--py37-plus]
-- repo: https://github.com/MarcoGorelli/check-execution-order
-  rev: v0.1.1
+- repo: https://github.com/MarcoGorelli/madforhooks
+  rev: 0.3.0
   hooks:
     - id: check-execution-order
       exclude: |

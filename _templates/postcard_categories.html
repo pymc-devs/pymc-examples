@@ -13,7 +13,7 @@
 
 
 {%- macro category_item(name, icon, active) -%}
-  <a href="{{ pathtocategory(name) }}" class="{{ setcolorclass(active) }}">
+<a href="{{ pathtocategory(name) }}" class="{{ setcolorclass(active) }}" title="{{ name }}">
     <span class="fas {{ icon }}"></span>
     <label class="sr-only">{{ name }}</label>
   </a>
