@@ -1,4 +1,5 @@
 Gallery.contents = {
+    "BART/BART_introduction":"BART",
     "case_studies/BEST": "Case Studies",
     "case_studies/LKJ": "Case Studies",
     "case_studies/stochastic_volatility": "Case Studies",
