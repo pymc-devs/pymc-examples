@@ -76,4 +76,5 @@ has tags in its metadata they are listed on the right sidebar after the {fas}`ta
 :hidden:
 
 blog
+object_index
 :::
