@@ -21,6 +21,12 @@ repos:
             |examples/variational_inference/convolutional_vae_keras_advi\.ipynb$
             |examples/pymc3_howto/sampling_callback\.ipynb$
             |examples/gaussian_processes/GP-Latent\.ipynb$
+- repo: https://github.com/FlamingTempura/bibtex-tidy
+  rev: v1.8.5
+  hooks:
+    - id: bibtex-tidy
+      files: examples/references.bib
+      args: ["--sort=author,year,title"]
 - repo: local
   hooks:
     - id: watermark
