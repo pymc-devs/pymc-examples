@@ -10,6 +10,7 @@ or if you have been waiting too long to hear back on your PR. -->
 
 + [ ] Notebook follows style guide https://docs.pymc.io/en/latest/contributing/jupyter_style.html
 + [ ] PR description contains a link to the relevant issue: a tracker one for existing notebooks or a proposal one for new notebooks
++ [ ] Check the notebook is not excluded from any pre-commit check: https://github.com/pymc-devs/pymc-examples/blob/main/.pre-commit-config.yaml
 
 
 ### Helpful links
