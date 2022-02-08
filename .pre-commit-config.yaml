@@ -15,12 +15,32 @@ repos:
   rev: 0.3.0
   hooks:
     - id: check-execution-order
+      args: [--strict]
       exclude: |
             (?x)^
-            ^examples/samplers/DEMetropolisZ_EfficiencyComparison\.ipynb$
-            |examples/variational_inference/convolutional_vae_keras_advi\.ipynb$
-            |examples/pymc3_howto/sampling_callback\.ipynb$
+            ^examples/ode_models/ODE_with_manual_gradients\.ipynb$
+            |examples/samplers/DEMetropolisZ_EfficiencyComparison\.ipynb$
             |examples/gaussian_processes/GP-Latent\.ipynb$
+            |examples/gaussian_processes/GP-MaunaLoa2\.ipynb$
+            |examples/samplers/MLDA_gravity_surveying\.ipynb$
+            |examples/case_studies/putting_workflow\.ipynb$
+            |examples/pymc3_howto/sampling_callback\.ipynb$
+            |examples/case_studies/blackbox_external_likelihood\.ipynb$
+            |examples/samplers/GLM-hierarchical-jax\.ipynb$
+            |examples/variational_inference/convolutional_vae_keras_advi\.ipynb$
+            |examples/gaussian_processes/GP-TProcess\.ipynb$
+            |examples/mixture_models/dependent_density_regression\.ipynb$
+            |examples/gaussian_processes/GP-Heteroskedastic\.ipynb$
+            |examples/gaussian_processes/GP-MeansAndCovs\.ipynb$
+            |examples/samplers/MLDA_variance_reduction_linear_regression\.ipynb$
+
+- repo: https://github.com/FlamingTempura/bibtex-tidy
+  rev: v1.8.5
+  hooks:
+    - id: bibtex-tidy
+      files: examples/references.bib
+      args: ["--sort=key", --quiet]
+      language_version: 15.14.0
 - repo: local
   hooks:
     - id: watermark
