@@ -1,4 +1,5 @@
 Gallery.contents = {
+    "BART/BART_introduction":"BART",
     "case_studies/BEST": "Case Studies",
     "case_studies/LKJ": "Case Studies",
     "case_studies/stochastic_volatility": "Case Studies",
@@ -8,6 +9,8 @@ Gallery.contents = {
     "case_studies/moderation_analysis": "Case Studies",
     "case_studies/mediation_analysis": "Case Studies",
     "case_studies/bayesian_ab_testing": "Case Studies",
+    "case_studies/item_response_nba": "Case Studies",
+    "case_studies/binning": "Case Studies",
     "diagnostics_and_criticism/Diagnosing_biased_Inference_with_Divergences": "Diagnostics and Model Criticism",
     "diagnostics_and_criticism/model_comparison": "Diagnostics and Model Criticism",
     "diagnostics_and_criticism/posterior_predictive": "Diagnostics and Model Criticism",
@@ -16,7 +19,7 @@ Gallery.contents = {
     "generalized_linear_models/GLM-linear": "(Generalized) Linear and Hierarchical Linear Models",
     "generalized_linear_models/GLM-logistic": "(Generalized) Linear and Hierarchical Linear Models",
     "generalized_linear_models/GLM-binomial-regression": "(Generalized) Linear and Hierarchical Linear Models",
-    "generalized_linear_models/GLM-hierarchical-binominal-model": "(Generalized) Linear and Hierarchical Linear Models",
+    "generalized_linear_models/GLM-hierarchical-binomial-model": "(Generalized) Linear and Hierarchical Linear Models",
     "generalized_linear_models/GLM-hierarchical": "(Generalized) Linear and Hierarchical Linear Models",
     "case_studies/hierarchical_partial_pooling": "(Generalized) Linear and Hierarchical Linear Models",
     "generalized_linear_models/GLM-model-selection": "(Generalized) Linear and Hierarchical Linear Models",
@@ -27,6 +30,7 @@ Gallery.contents = {
     "generalized_linear_models/GLM-robust": "(Generalized) Linear and Hierarchical Linear Models",
     "generalized_linear_models/GLM-rolling-regression": "(Generalized) Linear and Hierarchical Linear Models",
     "generalized_linear_models/GLM-truncated-censored-regression": "(Generalized) Linear and Hierarchical Linear Models",
+    "generalized_linear_models/GLM-simpsons-paradox": "(Generalized) Linear and Hierarchical Linear Models",
     "gaussian_processes/GP-Kron": "Gaussian Processes",
     "gaussian_processes/GP-Latent": "Gaussian Processes",
     "gaussian_processes/GP-Marginal": "Gaussian Processes",
@@ -73,5 +77,6 @@ Gallery.contents = {
     "samplers/MLDA_simple_linear_regression": "MCMC",
     "samplers/MLDA_gravity_surveying": "MCMC",
     "samplers/MLDA_variance_reduction_linear_regression": "MCMC",
-    "samplers/GLM-hierarchical-jax": "MCMC"
+    "samplers/GLM-hierarchical-jax": "MCMC",
+    "splines/spline": "Splines"
 }

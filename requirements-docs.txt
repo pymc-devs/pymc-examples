@@ -1,0 +1,10 @@
+myst-nb
+sphinx
+pydata_sphinx_theme
+sphinx-design
+sphinx-copybutton
+sphinxcontrib-bibtex
+ablog
+sphinxext-opengraph
+sphinx-codeautolink
+sphinx-notfound-page

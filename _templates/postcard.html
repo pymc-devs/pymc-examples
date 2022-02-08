@@ -1,0 +1,17 @@
+{% if pagename in ablog %}
+  {% set post = ablog[pagename] %}
+
+  {% if post.tags %}
+  <div class="sd-text-muted pt-5 tocsection" style="font-size: .9rem">
+    <span>
+      {% if post.tags|length > 1 %}<i class="fas fa-tags"></i>
+      {% else %}<i class="fas fa-tag"></i>
+      {% endif %}
+    </span>
+    {% for coll in post.tags %} {% if coll|length %}
+    <a href="{{ pathto(coll.docname) }}">{{ coll }}</a>{% if loop.index <
+    post.tags|length %}{% endif %} {% else %}{{ coll }}{% if loop.index <
+    post.tags|length %}{% endif %}{% endif %} {% endfor %}
+  </div>
+  {% endif %}
+{% endif %}

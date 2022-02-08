@@ -16,9 +16,11 @@ Gallery.contents = {
     "samplers/DEMetropolisZ_tune_drop_fraction": "Deep dives",
     "case_studies/factor_analysis": "Deep dives",
     "case_studies/blackbox_external_likelihood": "How-To",
+    "case_studies/blackbox_external_likelihood_numpy": "How-To",
     "pymc3_howto/profiling": "How-To",
     "pymc3_howto/howto_debugging": "How-To",
     "diagnostics_and_criticism/model_averaging": "How-To",
     "pymc3_howto/updating_priors": "How-To",
-    "pymc3_howto/lasso_block_update": "How-To"
+    "pymc3_howto/lasso_block_update": "How-To",
+    "pymc3_howto/custom_distribution": "How-To"
 }

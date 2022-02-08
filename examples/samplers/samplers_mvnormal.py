@@ -77,7 +77,7 @@ if __name__ == "__main__":
         for name in names:
             df_effectiven.at[p, name] = rate[name]
             df_runtime.at[p, name] = runtime[name]
-            df_performance.at[p, name] =  rate[name] / runtime[name]
+            df_performance.at[p, name] = rate[name] / runtime[name]
 
     print("\r\nEffective sample size [0...1]")
     print(df_effectiven.T.to_string(float_format="{:.3f}".format))

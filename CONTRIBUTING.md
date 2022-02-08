@@ -27,9 +27,12 @@ Therefore, all notebooks will be progressively updated along this path:
 
 ```
          / --> General updates -- \
-To Do --<                          >--> Best Practices (--> v4)
+To Do --<                          >--> Best Practices --> v4
          \ -->      ArviZ      -- /
 ```
+
+See https://github.com/pymc-devs/pymc-examples/wiki/Notebook-updates-overview for a more detailed
+description of what each of the statuses mean.
 
 Each pull request should update a single notebook 1-2 positions to the right.
 Before starting a work on a pull request look at the tracker issue of the
@@ -95,6 +98,8 @@ We recommended that your contribution complies with the following guidelines bef
 
 *  Use the pull request title to describe the issue and mention the issue number in the pull request description. This will make sure a link back to the original issue is created. For example, use `Use ArviZ in sampler stats notebook` as a title and link to [#46](https://github.com/pymc-devs/pymc-examples/issues/46) in the description.
    * Please do not submit PRs that are not addressing an issue already present in the issue tracker.
+   * If you want to add a new notebook and no issue related to it is present yet, open one so we can
+     discuss the best way to add the content to the repo. We have an issue template for that.
 
 *  Prefix the title of incomplete contributions with `[WIP]` (to indicate a work in progress). WIPs may be useful to (1) indicate you are working on something to avoid duplicated work, (2) request broad review of functionality or API, or (3) seek collaborators.
 
@@ -104,3 +109,18 @@ We recommended that your contribution complies with the following guidelines bef
 * No `pre-commit` errors: see the [Jupyter Notebook style](https://github.com/pymc-devs/pymc3/wiki/PyMC3-Jupyter-Notebook-Style-Guide) (and [Python code style](https://github.com/pymc-devs/pymc3/wiki/PyMC3-Python-Code-Style)) page from our Wiki on how to install and run it.
 
 * Indicate how are you aiming to update the notebook (i.e. what is the target end column in the tracker). The pull request template has a template for this.
+
+## Contributor guide
+In order to work and run the example notebooks you need to install the packages in
+`requirements-write.txt`. To see how the notebook looks rendered, you can follow
+the instructions in the following paragraph or open a PR to see the preview in
+readthedocs.
+
+The markdown cells in the notebook can use MyST, a superset of CommonMark markdown. See
+https://myst-parser.readthedocs.io/en/latest/ and https://myst-nb.readthedocs.io/en/latest/
+for documentation on their features and syntax.
+
+To generate the draft standalone notebook gallery, you need to have installed all the packages in
+`requirements-docs.txt` and to run `sphinx-build examples/ _build -b html` from the repository
+home directory. After building, you can see the preview of the docs
+by opening `_build/index.html` file with your browser.
