@@ -17,18 +17,24 @@ This project serves as both tracker and organizer of the work needed on each of 
 Each notebook will have its own issue where we can point out things to fix and discuss them.
 These issue tickets are placed on one of the columns in this project based on the state of the notebook:
 
-* **To Do:** notebooks in this column are outdated, don't use ArviZ or InferenceData (or do so only partially), use deprecated pymc3 arguments or show other practices that should be updated and improved.
-* **General updates:** notebooks in this column have pymc3 code up to date with v3, but don't use ArviZ (or do so only partially)
-* **ArviZ:** notebooks in this column use ArviZ but still have bad examples of pymc3 usage.
-* **Best practices:** notebooks in this column use ArviZ and pymc3 best practices. This column alone does not represent any extra updates, it is only the place for notebooks fulfilling the requirements to be in both "general updates" and "ArviZ".
-* **v4:** notebooks in this column use ArviZ and have been updated and executed with pymc3 v4.
+* **To Do:** notebooks in this column are potentially outdated, run on v3, don't follow the style guide,
+  don't use best practices when using PyMC...
+* **Best practices (v3):** notebooks in this column use ArviZ and PyMC v3 best practices.
+* **v4 (auto)**: Notebooks in this column have been updated and reexecuted with PyMC v4,
+  but following v3 style and patterns, and are not taking advantage of the new features
+  introduced in v4.
+* **Book style**: Notebooks in this column have had their content, style and formatting updated
+  to take advantage of all the pymc-examples website features, but still need work
+  on the code side (either because they still use v3 or because they use v4 but don't
+  take advantage of its new features)
+* **Done:** notebooks in this column use ArviZ and have been updated and executed with pymc3 v4.
 
 Therefore, all notebooks will be progressively updated along this path:
 
 ```
-         / --> General updates -- \
-To Do --<                          >--> Best Practices --> v4
-         \ -->      ArviZ      -- /
+                                 / -->   Book style    -- \
+To Do --> Best Practices (v3) --<                          >--> Done
+                                 \ -->   v4 (auto)     -- /
 ```
 
 See https://github.com/pymc-devs/pymc-examples/wiki/Notebook-updates-overview for a more detailed
@@ -39,13 +45,8 @@ Before starting a work on a pull request look at the tracker issue of the
 notebook you are planning to edit to make sure it is not being updated by someone
 else.
 
-**Note on labels**: The labels on an issue will apply to the most immediate 1 position update.
-One issue can be labeled "good first issue" for updating from "To Do" to "General updates", but
-that does not mean that updating from "To Do"->"ArviZ" or
-"General Updates"->"Best Practices" won't be challenging.
-The same could be true the other way around.
-In case of doubt, don't hesitate to ask and read over the notebook to
-see what changes are expected.
+**Note on labels**: The labels on an issue generally apply to potential code changes.
+You should ignore them if you are looking at content/style updates only.
 
 If there are no comments and nobody is working on this notebook,
 comment on the ticket to make it evident to others, we will assign
