@@ -26,7 +26,8 @@ These issue tickets are placed on one of the columns in this project based on th
 * **Book style**: Notebooks in this column have had their content, style and formatting updated
   to take advantage of all the pymc-examples website features, but still need work
   on the code side (either because they still use v3 or because they use v4 but don't
-  take advantage of its new features)
+  take advantage of its new features). There is a [webinar](https://pymc-data-umbrella.xyz/en/latest/webinars/contributing_to_documentation/index.html)
+  about the pymc examples repo and contributing to it, part of the PyMC Data Umbrella series.
 * **Done:** notebooks in this column use ArviZ and have been updated and executed with pymc3 v4.
 
 Therefore, all notebooks will be progressively updated along this path:
