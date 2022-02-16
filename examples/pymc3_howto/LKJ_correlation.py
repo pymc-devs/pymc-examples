@@ -42,7 +42,7 @@ with pm.Model() as model:
 
     # Extract the standard deviations etc
     sd = pm.Deterministic("sd", tt.sqrt(tt.diag(cov)))
-    corr = tt.diag(sd ** -1).dot(cov.dot(tt.diag(sd ** -1)))
+    corr = tt.diag(sd**-1).dot(cov.dot(tt.diag(sd**-1)))
     r = pm.Deterministic("r", corr[np.triu_indices(n_var, k=1)])
 
     like = pm.MvNormal("likelihood", mu=mu, chol=chol, observed=dataset)

@@ -1,6 +1,11 @@
 repos:
+- repo: https://github.com/mwouts/jupytext
+  rev: v1.13.7
+  hooks:
+  - id: jupytext
+    args: [--sync]
 - repo: https://github.com/psf/black
-  rev: 21.8b0
+  rev: 22.1.0
   hooks:
     - id: black-jupyter
 - repo: https://github.com/nbQA-dev/nbQA
@@ -59,3 +64,8 @@ repos:
          - nbqa==1.1.1
          - beautifulsoup4==4.9.3
          - myst_parser==0.13.7
+- repo: https://github.com/mwouts/jupytext
+  rev: v1.13.7
+  hooks:
+  - id: jupytext
+    args: [--sync]
