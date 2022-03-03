@@ -99,7 +99,6 @@ az.plot_pair(
     figsize=(10, 10),
     gridsize=50,
 )
-plt.show()
 ```
 
 ## Authors
