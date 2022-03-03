@@ -6,24 +6,29 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
 
+(mediation_analysis)=
 # Bayesian mediation analysis
 
-**Author:** [Benjamin T. Vincent](https://github.com/drbenvincent)
+:::{post} February, 2022
+:tags: mediation, path analysis, pymc3.ConstantData, pymc3.Deterministic, pymc3.HalfCauchy, pymc3.Model, pymc3.Normal, regression
+:category: beginner
+:author: Benjamin T. Vincent
+:::
 
 This notebook covers Bayesian [mediation analysis](https://en.wikipedia.org/wiki/Mediation_(statistics) ). This is useful when we want to explore possible mediating pathways between a predictor and an outcome variable.
 
-It is important to note that the approach to mediation analysis has evolved over time. This notebook will attempt to use best practice as of now, and is heavily influenced by the approach of Hayes (2018) as set out in his textbook "Introduction to Mediation, Moderation and Conditional Process Analysis."
+It is important to note that the approach to mediation analysis has evolved over time. This notebook was heavily influenced by the approach of {cite:t}`hayes2017introduction` as set out in his textbook "Introduction to Mediation, Moderation and Conditional Process Analysis."
 
 ```{code-cell} ipython3
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
 
 from pandas import DataFrame
@@ -52,10 +57,10 @@ where $i$ indexes each observation (row in the dataset), and $i_M$ and $i_Y$ are
 
 ![](mediation.png)
 
-Using definitions from Hayes (2018), we can define a few effects of interest:
+Using definitions from {cite:t}`hayes2017introduction`, we can define a few effects of interest:
 - **Direct effect:** is given by $c'$. Two cases that differ by one unit on $x$ but are equal on $m$ are estimated to differ by $c'$ units on $y$.
 - **Indirect effect:** is given by $a \cdot b$. Two cases which differ by one unit of $x$ are estimated to differ by $a \cdot b$ units on $y$ as a result of the effect of $x \rightarrow m$ and $m \rightarrow y$.
-- **Total effect:** is $c = c' + a \cdot b$ which is simply the sum of the direct and indirect effects. This could be understood as: two cases that differ by one unit on $x$ are estimated to differ by $a \cdot b$ units on $y$ due to both the direct pathway $x \rightarrow y$ and the indirect pathway $c \rightarrow m \rightarrow m$. The total effect could also be estimated by evaluating the alternative model $y_i \sim \mathrm{Normal}(i_{Y*} + c \cdot x_i, \sigma_{Y*})$.
+- **Total effect:** is $c = c' + a \cdot b$ which is simply the sum of the direct and indirect effects. This could be understood as: two cases that differ by one unit on $x$ are estimated to differ by $a \cdot b$ units on $y$ due to the indirect pathway $x \rightarrow m \rightarrow y$, and by $c'$ units due to the direct pathway $x \rightarrow y$. The total effect could also be estimated by evaluating the alternative model $y_i \sim \mathrm{Normal}(i_{Y*} + c \cdot x_i, \sigma_{Y*})$.
 
 +++
 
@@ -85,9 +90,9 @@ sns.pairplot(DataFrame({"x": x, "m": m, "y": y}));
 ```{code-cell} ipython3
 def mediation_model(x, m, y):
     with pm.Model() as model:
-        x = pm.Data("x", x)
-        y = pm.Data("y", y)
-        m = pm.Data("m", m)
+        x = pm.ConstantData("x", x, dims="obs_id")
+        y = pm.ConstantData("y", y, dims="obs_id")
+        m = pm.ConstantData("m", m, dims="obs_id")
 
         # intercept priors
         im = pm.Normal("im", mu=0, sigma=10)
@@ -101,41 +106,30 @@ def mediation_model(x, m, y):
         σy = pm.HalfCauchy("σy", 1)
 
         # likelihood
-        pm.Normal("m_likehood", mu=im + a * x, sigma=σm, observed=m)
-        pm.Normal("y_likehood", mu=iy + b * m + cprime * x, sigma=σy, observed=y)
+        pm.Normal("m_likelihood", mu=im + a * x, sigma=σm, observed=m, dims="obs_id")
+        pm.Normal("y_likelihood", mu=iy + b * m + cprime * x, sigma=σy, observed=y, dims="obs_id")
 
         # calculate quantities of interest
         indirect_effect = pm.Deterministic("indirect effect", a * b)
         total_effect = pm.Deterministic("total effect", a * b + cprime)
 
     return model
-```
 
-```{code-cell} ipython3
+
 model = mediation_model(x, m, y)
-```
-
-```{code-cell} ipython3
 pm.model_to_graphviz(model)
 ```
 
 ```{code-cell} ipython3
 with model:
-    result = pm.sample(
-        2000,
-        tune=4000,
-        chains=2,
-        target_accept=0.9,
-        random_seed=42,
-        return_inferencedata=True,
-        idata_kwargs={"dims": {"x": ["obs_id"], "m": ["obs_id"], "y": ["obs_id"]}},
-    )
+    result = pm.sample(tune=4000, target_accept=0.9, random_seed=42)
 ```
 
 Visualise the trace to check for convergence.
 
 ```{code-cell} ipython3
-az.plot_trace(result);
+az.plot_trace(result)
+plt.tight_layout()
 ```
 
 We have good chain mixing and the posteriors for each chain look very similar, so no problems in that regard.
@@ -171,7 +165,7 @@ ax = az.plot_posterior(
 ax[0].set(title="direct effect");
 ```
 
-- The posterior mean **direct effect** is 0.28, meaning that for every 1 unit of increase in $x$, $y$ increases by 0.28 due to the direct effect $x \rightarrow y$.
+- The posterior mean **direct effect** is 0.29, meaning that for every 1 unit of increase in $x$, $y$ increases by 0.29 due to the direct effect $x \rightarrow y$.
 - The posterior mean **indirect effect** is 0.49, meaning that for every 1 unit of increase in $x$, $y$ increases by 0.49 through the pathway $x \rightarrow m \rightarrow y$. The probability that the indirect effect is zero is infintesimal.
 - The posterior mean **total effect** is 0.77, meaning that for every 1 unit of increase in $x$, $y$ increases by 0.77 through both the direct and indirect pathways.
 
@@ -182,25 +176,17 @@ Above, we stated that the total effect could also be estimated by evaluating the
 
 ```{code-cell} ipython3
 with pm.Model() as total_effect_model:
-    _x = pm.Data("_x", x)
+    _x = pm.ConstantData("_x", x, dims="obs_id")
     iy = pm.Normal("iy", mu=0, sigma=1)
     c = pm.Normal("c", mu=0, sigma=1)
     σy = pm.HalfCauchy("σy", 1)
     μy = iy + c * _x
-    _y = pm.Normal("_y", mu=μy, sd=σy, observed=y)
+    pm.Normal("yy", mu=μy, sd=σy, observed=y, dims="obs_id")
 ```
 
 ```{code-cell} ipython3
 with total_effect_model:
-    total_effect_result = pm.sample(
-        2000,
-        tune=4000,
-        chains=2,
-        target_accept=0.9,
-        random_seed=42,
-        return_inferencedata=True,
-        idata_kwargs={"dims": {"x": ["obs_id"], "y": ["obs_id"]}},
-    )
+    total_effect_result = pm.sample(tune=4000, target_accept=0.9, random_seed=42)
 ```
 
 ```{code-cell} ipython3
@@ -218,25 +204,36 @@ As we can see, the posterior distributions over the direct effects are near-iden
 +++
 
 ## Parameter estimation versus hypothesis testing
-This notebook has focussed on the approach of Bayesian parameter estimation. For many situations this is entirely sufficient, and more information can be found in Yuan & MacKinnon (2009). It will tell us, amongst other things, what our posterior beliefs are in the direct effects, indirect effects, and total effects. And we can use those posterior beliefs to conduct posterior predictive checks to visually check how well the model accounts for the data.
+This notebook has focussed on the approach of Bayesian parameter estimation. For many situations this is entirely sufficient, and more information can be found in {cite:t}`yuan2009bayesian`. It will tell us, amongst other things, what our posterior beliefs are in the direct effects, indirect effects, and total effects. And we can use those posterior beliefs to conduct posterior predictive checks to visually check how well the model accounts for the data.
 
-However, depending upon the use case it may be preferable to test hypotheses about the presence or absence of an indirect effect ($x \rightarrow m \rightarrow y$) for example. In this case, it may be more appropriate to take a more explicit hypothesis testing approach to see examine the relative credibility of the mediation model as compared to a simple direct effect model (i.e. $y_i = \mathrm{Normal}(i_{Y*} + c \cdot x_i, \sigma_{Y*})$). Readers are referred to Nuijten et al (2014) for a hypothesis testing approach to Bayesian mediation models and to Kruschke (2011) for more information on parameter estimation versus hypothesis testing.
+However, depending upon the use case it may be preferable to test hypotheses about the presence or absence of an indirect effect ($x \rightarrow m \rightarrow y$) for example. In this case, it may be more appropriate to take a more explicit hypothesis testing approach to see examine the relative credibility of the mediation model as compared to a simple direct effect model (i.e. $y_i = \mathrm{Normal}(i_{Y*} + c \cdot x_i, \sigma_{Y*})$). Readers are referred to {cite:t}`nuijten2015default` for a hypothesis testing approach to Bayesian mediation models and to {cite:t}`kruschke2011bayesian` for more information on parameter estimation versus hypothesis testing.
 
 +++
 
 ## Summary
-As stated at the outset, the procedures used in mediation analysis have evolved over time. So there are plenty of people who are not necessarily up to speed with modern best practice. The approach in this notebook sticks to that outlined by Hayes (2018), but it is relevant to be aware of some of this history to avoid confusion - which is particularly important if defending your approach in peer review.
+As stated at the outset, the procedures used in mediation analysis have evolved over time. So there are plenty of people who are not necessarily up to speed with modern best practice. The approach in this notebook sticks to that outlined by {cite:t}`hayes2017introduction`, but it is relevant to be aware of some of this history to avoid confusion - which is particularly important if defending your approach in peer review.
 
 +++
 
-# References
+## Authors
+- Authored by Benjamin T. Vincent in August 2021
+- Updated by Benjamin T. Vincent in February 2022
 
-- Hayes, A. F. (2018). Introduction to Mediation, Moderation, and Conditional Process Analysis: A Regression‐Based Approach. New York: Guilford Press. Retrieved from https://doi.org/10.1111/jedm.12050
-- Kruschke, J. (2011). Bayesian Assessment of Null Values Via Parameter Estimation and Model Comparison. Perspectives on Psychological Science, 6(3), 299–312. Retrieved from https://doi.org/10.1177/1745691611406925
-- Nuijten, M. B., Wetzels, R., Matzke, D., Dolan, C. V., & Wagenmakers, E.-J. (2014). A default Bayesian hypothesis test for mediation. Behavior Research Methods, 47(1), 85–97. http://doi.org/10.3758/s13428-014-0470-2
-- Yuan, Y., & MacKinnon, D. P. (2009). Bayesian mediation analysis. Psychological Methods, 14(4), 301–322. http://doi.org/10.1037/a0016972
++++
+
+## References
+:::{bibliography}
+:filter: docname in docnames
+:::
+
++++
+
+## Watermark
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
 ```
+
+:::{include} ../page_footer.md
+:::
