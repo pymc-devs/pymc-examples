@@ -56,7 +56,6 @@ class PGBART(ArrayStepShared):
     stats_dtypes = [{"variable_inclusion": np.ndarray, "bart_trees": np.ndarray}]
 
     def __init__(self, vars=None, num_particles=40, max_stages=100, batch="auto", model=None):
-        _log.warning("BART is experimental. Use with caution.")
         model = modelcontext(model)
         initial_values = model.compute_initial_point()
         if vars is None:
