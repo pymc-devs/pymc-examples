@@ -22,5 +22,4 @@ __all__ = ["BART", "PGBART"]
 
 
 import pymc as pm
-
-pm.sampling.STEP_METHODS = list(pm.sampling.STEP_METHODS) + [PGBART]
+pm.STEP_METHODS = list(pm.STEP_METHODS) + [PGBART]
