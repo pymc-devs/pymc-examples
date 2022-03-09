@@ -100,7 +100,6 @@ html_sidebars = {
         # "sidebar-nav-bs.html",
         "postcard_categories.html",
         "tagcloud.html",
-        "sidebar-ethical-ads.html",
     ],
 }
 
