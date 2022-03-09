@@ -6,7 +6,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -129,7 +129,6 @@ with model:
     trace = pm.sample(
         random_seed=RANDOM_SEED,
         init="adapt_diag",
-        return_inferencedata=True,
         idata_kwargs={"dims": {"chol_stds": ["axis"], "chol_corr": ["axis", "axis_bis"]}},
     )
 az.summary(trace, var_names="~chol", round_to=2)
