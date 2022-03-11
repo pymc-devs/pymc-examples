@@ -53,7 +53,7 @@ class PGBART(ArrayStepShared):
     name = "pgbart"
     default_blocked = False
     generates_stats = True
-    stats_dtypes = [{"variable_inclusion": np.ndarray, "bart_trees": np.ndarray}]
+    stats_dtypes = [{"variable_inclusion": object, "bart_trees": object}]
 
     def __init__(self, vars=None, num_particles=40, max_stages=100, batch="auto", model=None):
         model = modelcontext(model)
