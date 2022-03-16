@@ -3,7 +3,7 @@ channels:
 - conda-forge
 - defaults
 dependencies:
-- pymc>=4.0.0b1
+- pymc>=4.0.0b3
 - pip
 - pytest-cov>=2.5
 - pytest>=3.0
