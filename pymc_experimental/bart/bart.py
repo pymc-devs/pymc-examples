@@ -37,8 +37,9 @@ class BARTRV(RandomVariable):
     all_trees = None
 
     def _shape_from_params(self, dist_params, rep_param_idx=1, param_shapes=None):
-        return default_supp_shape_from_params(self.ndim_supp, dist_params, rep_param_idx, param_shapes)
-
+        return default_supp_shape_from_params(
+            self.ndim_supp, dist_params, rep_param_idx, param_shapes
+        )
 
     def _infer_shape(cls, size, dist_params, param_shapes=None):
         dist_shape = (cls.X.shape[0],)
