@@ -5,7 +5,7 @@ from numpy.random import RandomState
 from numpy.testing import assert_almost_equal, assert_array_equal
 
 import pymc as pm
-import pymcx as pmx
+import pymc_experimental as pmx
 
 from pymc.tests.test_distributions_moments import assert_moment_is_expected
 
@@ -37,7 +37,7 @@ def test_bart_vi():
     X[:, 0] = np.random.normal(Y, 0.1)
 
     with pm.Model() as model:
-        mu = pmx.bart("mu", X, Y, m=10)
+        mu = pmx.BART("mu", X, Y, m=10)
         sigma = pm.HalfNormal("sigma", 1)
         y = pm.Normal("y", mu, sigma, observed=Y)
         idata = pm.sample(random_seed=3415)
@@ -57,7 +57,7 @@ def test_missing_data():
     X[10:20, 0] = np.nan
 
     with pm.Model() as model:
-        mu = pmx.bart("mu", X, Y, m=10)
+        mu = pmx.BART("mu", X, Y, m=10)
         sigma = pm.HalfNormal("sigma", 1)
         y = pm.Normal("y", mu, sigma, observed=Y)
         idata = pm.sample(tune=10, draws=10, chains=1, random_seed=3415)
@@ -70,7 +70,7 @@ class TestUtils:
     Y = np.random.normal(0, 1, size=50)
 
     with pm.Model() as model:
-        mu = pmx.bart("mu", X, Y, m=10)
+        mu = pmx.BART("mu", X, Y, m=10)
         sigma = pm.HalfNormal("sigma", 1)
         y = pm.Normal("y", mu, sigma, observed=Y)
         idata = pm.sample(random_seed=3415)
@@ -137,5 +137,5 @@ def test_bart_moment(size, expected):
     X = np.zeros((50, 2))
     Y = np.zeros(50)
     with pm.Model() as model:
-        pmx.bart("x", X=X, Y=Y, size=size)
+        pmx.BART("x", X=X, Y=Y, size=size)
     assert_moment_is_expected(model, expected)
