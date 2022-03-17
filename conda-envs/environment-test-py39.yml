@@ -1,0 +1,10 @@
+name: pymc-test-py39
+channels:
+- conda-forge
+- defaults
+dependencies:
+- pymc>=4.0.0b3
+- pip
+- pytest-cov>=2.5
+- pytest>=3.0
+- python=3.9
