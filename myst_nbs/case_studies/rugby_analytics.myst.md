@@ -9,7 +9,7 @@ kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
-myst_substitutions:
+substitutions:
   conda_dependencies: seaborn numba !!xarray-einstats not available!!
   pip_dependencies: seaborn numba xarray-einstats
 ---
