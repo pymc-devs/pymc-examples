@@ -33,11 +33,11 @@ Installation
 
 Contributing
 ============
-We welcome contributions from interested individuals or groups! For information about contributing to PyMC experimental check out our instructions, policies, and guidelines `here <https://github.com/pymcdevs/pymc_experimental/blob/main/CONTRIBUTING.md>`_.
+We welcome contributions from interested individuals or groups! For information about contributing to PyMC experimental check out our instructions, policies, and guidelines `here <https://github.com/pymc-devs/pymc-experimental/blob/main/CONTRIBUTING.md>`_.
 
 Contributors
 ============
-See the `GitHub contributor page <https://github.com/pymc-devs/pymc_experimental/graphs/contributors>`_.
+See the `GitHub contributor page <https://github.com/pymc-devs/pymc-experimental/graphs/contributors>`_.
 
 Contents
 ========
