@@ -46,15 +46,12 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.mathjax",
     "nbsphinx",
-    "sphinx_multiversion",
 ]
 
 nbsphinx_execute = "never"
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ["_templates"]
-
-html_sidebars = {"**": ["searchbox.html", "versioning.html"]}
+# templates_path = ["_templates"]
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
@@ -112,32 +109,6 @@ html_theme_options = {
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
-
-# Custom sidebar templates, must be a dictionary that maps document names
-# to template names.
-#
-# The default sidebars (for documents that don't match any pattern) are
-# defined by theme itself.  Builtin themes are using these templates by
-# default: ``['localtoc.html', 'relations.html', 'sourcelink.html',
-# 'searchbox.html']``.
-#
-# html_sidebars = {}
-
-# Whitelist pattern for remotes (set to None to use local branches only)
-smv_remote_whitelist = r"^origin$"
-
-# Whitelist pattern for branches (set to None to ignore all branches)
-smv_branch_whitelist = r"^main$"
-
-# Tags are released
-smv_released_pattern = r"^refs/tags/.*$"
-
-# Tags like 0.0.1, 0.5.1 are kept
-# smv_tag_whitelist = r'^\d+\.\d+\.\d+S'
-
-# sphinx-multiversion options
-smv_rebuild_tags = False
-smv_tag_whitelist = r"^\d+\.\d+.\d+$"
 
 # -- Options for HTMLHelp output ---------------------------------------------
 

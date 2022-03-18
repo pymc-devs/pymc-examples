@@ -28,8 +28,7 @@ Installation
 
 .. code-block:: bash
 
-   pip install git+https://github.com/pymc-devs/pymc_experimental.git
-
+  pip install git+https://github.com/pymc-devs/pymc-experimental.git
 
 Contributing
 ============
