@@ -1,0 +1,4 @@
+git+https://github.com/dls-controls/sphinx-multiversion.git@only-arg
+nbsphinx>=0.4.2
+pydata-sphinx-theme>=0.6.3
+sphinx>=1.8
