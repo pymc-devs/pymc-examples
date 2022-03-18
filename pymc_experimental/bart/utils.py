@@ -1,3 +1,5 @@
+"""Utility function for variable selection and bart interpretability."""
+
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,7 +12,7 @@ from scipy.stats import pearsonr
 
 def predict(idata, rng, X_new=None, size=None, excluded=None):
     """
-    Generate samples from the BART-posterior
+    Generate samples from the BART-posterior.
 
     Parameters
     ----------
@@ -75,7 +77,7 @@ def plot_dependence(
     ax=None,
 ):
     """
-    Partial dependence or individual conditional expectation plot
+    Partial dependence or individual conditional expectation plot.
 
     Parameters
     ----------
@@ -107,12 +109,12 @@ def plot_dependence(
     instances : int
         Number of instances of X to plot. Only relevant if ice ``kind="ice"`` plots.
     random_seed : int
-        random_seed used to sample from the posterior. Defaults to None.
+        Seed used to sample from the posterior. Defaults to None.
     sharey : bool
         Controls sharing of properties among y-axes. Defaults to True.
     rug : bool
         Whether to include a rugplot. Defaults to True.
-    smooth=True,
+    smooth : bool
         If True the result will be smoothed by first computing a linear interpolation of the data
         over a regular grid and then applying the Savitzky-Golay filter to the interpolated data.
         Defaults to True.
@@ -302,7 +304,7 @@ def plot_dependence(
 
 def plot_variable_importance(idata, labels=None, figsize=None, samples=100, random_seed=None):
     """
-    Estimates variable importance from the BART-posterior
+    Estimates variable importance from the BART-posterior.
 
     Parameters
     ----------

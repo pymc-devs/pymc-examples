@@ -25,9 +25,7 @@ __all__ = ["BART"]
 
 
 class BARTRV(RandomVariable):
-    """
-    Base class for BART
-    """
+    """Base class for BART."""
 
     name = "BART"
     ndim_supp = 1

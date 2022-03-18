@@ -32,7 +32,7 @@ _log = logging.getLogger("pymc")
 
 class PGBART(ArrayStepShared):
     """
-    Particle Gibss BART sampling step
+    Particle Gibss BART sampling step.
 
     Parameters
     ----------
@@ -208,9 +208,7 @@ class PGBART(ArrayStepShared):
         return self.sum_trees, [stats]
 
     def normalize(self, particles):
-        """
-        Use logsumexp trick to get W_t and softmax to get normalized_weights
-        """
+        """Use logsumexp trick to get W_t and softmax to get normalized_weights."""
         log_w = np.array([p.log_weight for p in particles])
         log_w_max = log_w.max()
         log_w_ = log_w - log_w_max
@@ -224,9 +222,7 @@ class PGBART(ArrayStepShared):
         return W_t, normalized_weights
 
     def init_particles(self, tree_id: int) -> np.ndarray:
-        """
-        Initialize particles
-        """
+        """Initialize particles."""
         p = self.all_particles[tree_id]
         particles = [p]
         particles.append(copy(p))
@@ -238,7 +234,7 @@ class PGBART(ArrayStepShared):
 
     def update_weight(self, particle, old=False):
         """
-        Update the weight of a particle
+        Update the weight of a particle.
 
         Since the prior is used as the proposal,the weights are updated additively as the ratio of
         the new and old log-likelihoods.
@@ -253,9 +249,7 @@ class PGBART(ArrayStepShared):
 
     @staticmethod
     def competence(var, has_grad):
-        """
-        PGBART is only suitable for BART distributions
-        """
+        """PGBART is only suitable for BART distributions."""
         dist = getattr(var.owner, "op", None)
         if isinstance(dist, BARTRV):
             return Competence.IDEAL
@@ -263,9 +257,7 @@ class PGBART(ArrayStepShared):
 
 
 class ParticleTree:
-    """
-    Particle tree
-    """
+    """Particle tree."""
 
     def __init__(self, tree):
         self.tree = tree.copy()  # keeps the tree that we care at the moment
@@ -340,6 +332,7 @@ class SampleSplittingVariable:
 def compute_prior_probability(alpha):
     """
     Calculate the probability of the node being a LeafNode (1 - p(being SplitNode)).
+
     Taken from equation 19 in [Rockova2018].
 
     Parameters
@@ -463,7 +456,7 @@ def get_new_idx_data_points(split_value, idx_data_points, selected_predictor, X)
 
 
 def draw_leaf_value(Y_mu_pred, X_mu, mean, m, normal, mu_std):
-    """Draw Gaussian distributed leaf values"""
+    """Draw Gaussian distributed leaf values."""
     if Y_mu_pred.size == 0:
         return 0
     else:
@@ -504,9 +497,7 @@ def discrete_uniform_sampler(upper_value):
 
 
 class NormalSampler:
-    """
-    Cache samples from a standard normal distribution
-    """
+    """Cache samples from a standard normal distribution."""
 
     def __init__(self):
         self.size = 1000

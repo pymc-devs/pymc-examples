@@ -21,7 +21,7 @@ import numpy as np
 
 
 class Tree:
-    """Full binary tree
+    """Full binary tree.
 
     A full binary tree is a tree where each node has exactly zero or two children.
     This structure is used as the basic component of the Bayesian Additive Regression Tree (BART)
@@ -135,17 +135,16 @@ class Tree:
     @staticmethod
     def init_tree(leaf_node_value, idx_data_points):
         """
+        Initialize tree.
 
         Parameters
         ----------
         leaf_node_value
         idx_data_points
-        m : int
-            number of trees in BART
 
         Returns
         -------
-
+        tree
         """
         new_tree = Tree(len(idx_data_points))
         new_tree[0] = LeafNode(index=0, value=leaf_node_value, idx_data_points=idx_data_points)

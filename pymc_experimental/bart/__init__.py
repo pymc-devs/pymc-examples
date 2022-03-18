@@ -20,6 +20,6 @@ from pymc_experimental.bart.utils import plot_dependence, plot_variable_importan
 __all__ = ["BART", "PGBART"]
 
 
-
 import pymc as pm
+
 pm.STEP_METHODS = list(pm.STEP_METHODS) + [PGBART]
