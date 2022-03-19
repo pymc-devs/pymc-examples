@@ -61,6 +61,10 @@ RANDOM_SEED = 31415
 rng = default_rng(RANDOM_SEED)
 ```
 
+## Simulated data generation
+
++++
+
 To work through a few examples, we'll first generate some data. The data will not follow the exact generative process assumed by the factor analysis model, as the latent variates will not be Gaussian. We'll assume that we have an observed data set with $N$ rows and $d$ columns which are actually a noisy linear function of $k_{true}$ latent variables.
 
 ```{code-cell} ipython3
@@ -91,10 +95,15 @@ If you squint long enough, you may be able to glimpse a few places where distinc
 
 +++
 
+## Model
 Probabilistic PCA (PPCA) and factor analysis (FA) are a common source of topics in the PyMC Discourse cite. The posts linked below handle different aspects of the problem including:
 * [Minibatched FA for large datasets](https://discourse.pymc.io/t/large-scale-factor-analysis-with-minibatch-advi/246)
 * [Handling missing data in FA](https://discourse.pymc.io/t/dealing-with-missing-data/252)
 * [Identifiability in FA / PPCA](https://discourse.pymc.io/t/unique-solution-for-probabilistic-pca/1324/14)
+
++++
+
+### Direct implementation
 
 +++
 
@@ -131,6 +140,8 @@ plt.legend(ncol=4, loc="upper center", fontsize=12, frameon=True), plt.xlabel("S
 Each chain appears to have a different sample mean and we can also see that there is a great deal of autocorrelation across chains, manifest as long-range trends over sampling interations. Some of the chains may have divergences as well, lending further evidence to the claim that using MCMC for this model as shown is suboptimal.
 
 One of the primary drawbacks for this model formulation is its lack of identifiability. With this model representation, only the product $WF$ matters for the likelihood of $X$, so $P(X|W, F) = P(X|W\Omega, \Omega^{-1}F)$ for any invertible matrix $\Omega$. While the priors on $W$ and $F$ constrain $|\Omega|$ to be neither too large or too small, factors and loadings can still be rotated, reflected, and/or permuted *without changing the model likelihood*. Expect it to happen between runs of the sampler, or even for the parametrization to "drift" within run, and to produce the highly autocorrelated $W$ traceplot above.
+
+### Alternative parametrization
 
 This can be fixed by constraining the form of W to be:
   + Lower triangular
@@ -221,6 +232,7 @@ with pm.Model(coords=coords) as PPCA_scaling:
     trace_vi = pm.fit(n=50000, method="fullrank_advi", obj_n_mc=1).sample()
 ```
 
+## Results
 When we compare the posteriors calculated using MCMC and VI, we find that (for at least this specific parameter we are looking at) the two distributions are close, but they do differ in their mean. The MCMC chains all agree with each other and the ADVI estimate is not far off.
 
 ```{code-cell} ipython3
@@ -255,10 +267,6 @@ $(W^TW)^{-1}W^T\Psi^{-1/2}X|W,F \sim N(F, (W^TW)^{-1})$
 +++
 
 Here, we draw many random variates from a standard normal distribution, transforming them appropriate to represent the posterior of $F$ which is multivariate normal under our model.
-
-```{code-cell} ipython3
-trace_vi.posterior
-```
 
 ```{code-cell} ipython3
 # configure xarray-einstats
