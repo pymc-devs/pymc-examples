@@ -24,6 +24,8 @@ This notebook covers Bayesian [mediation analysis](https://en.wikipedia.org/wiki
 
 It is important to note that the approach to mediation analysis has evolved over time. This notebook was heavily influenced by the approach of {cite:t}`hayes2017introduction` as set out in his textbook "Introduction to Mediation, Moderation and Conditional Process Analysis."
 
+Readers should be aware that mediation analysis is commonly confused with moderation analysis for which we have a separate example (:ref:`moderation_analysis`).
+
 ```{code-cell} ipython3
 import arviz as az
 import matplotlib.pyplot as plt
