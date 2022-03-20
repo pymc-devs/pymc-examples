@@ -16,7 +16,7 @@ kernelspec:
 
 :::{post} March, 2022
 :tags: moderation, path analysis,
-:category: beginner
+:category: beginner, explanation
 :author: Benjamin T. Vincent
 :::
 
