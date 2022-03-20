@@ -6,13 +6,21 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: pymc-dev-py39
   language: python
-  name: python3
+  name: pymc-dev-py39
 ---
 
+(GLM-simpsons-paradox)=
 # Simpson's paradox and mixed models
-Author: [Benjamin T. Vincent](https://github.com/drbenvincent)
+
+:::{post} March, 2022
+:tags: regression, hierarchical model, linear model, multi level model, posterior predictive
+:category: beginner
+:author: Benjamin T. Vincent
+:::
+
++++
 
 This notebook covers:
 - [Simpson's Paradox](https://en.wikipedia.org/wiki/Simpson%27s_paradox) and its resolution through mixed or hierarchical models. This is a situation where there might be a negative relationship between two variables within a group, but when data from multiple groups are combined, that relationship may disappear or even reverse sign. The gif below (from the [Simpson's Paradox](https://en.wikipedia.org/wiki/Simpson%27s_paradox) Wikipedia page) demonstrates this very nicely.
@@ -31,7 +39,7 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import xarray as xr
 ```
 
@@ -100,22 +108,21 @@ First we examine the simplest model - plain linear regression which pools all th
 ### Build model
 
 ```{code-cell} ipython3
-coords = {
+COORDS = {
     "group": np.sort(data.group.unique()),
-    "observation": np.arange(data.shape[0]),
 }
 
-with pm.Model(coords=coords) as linear_regression:
+with pm.Model(coords=COORDS) as linear_regression:
     # Define priors
     sigma = pm.HalfCauchy("sigma", beta=2)
     β0 = pm.Normal("β0", 0, sigma=5)
     β1 = pm.Normal("β1", 0, sigma=5)
     # Data
-    x = pm.Data("x", data.x)
+    x = pm.MutableData("x", data.x)
     # Linear model
-    μ = pm.Deterministic("μ", β0 + β1 * x, dims="observation")
+    μ = pm.Deterministic("μ", β0 + β1 * x)
     # Define likelihood
-    pm.Normal("y", mu=μ, sigma=sigma, observed=data.y, dims="observation")
+    pm.Normal("y", mu=μ, sigma=sigma, observed=data.y)
 ```
 
 ```{code-cell} ipython3
@@ -126,11 +133,11 @@ pm.model_to_graphviz(linear_regression)
 
 ```{code-cell} ipython3
 with linear_regression:
-    trace = pm.sample(tune=1000, draws=500, cores=4, return_inferencedata=True)
+    idata = pm.sample()
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace);
+az.plot_trace(idata, var_names=["β0", "β1", "sigma"]);
 ```
 
 ### Visualisation
@@ -142,7 +149,7 @@ xi = np.linspace(data.x.min(), data.x.max(), 20)
 # do posterior predictive inference
 with linear_regression:
     pm.set_data({"x": xi})
-    pp_y = pm.sample_posterior_predictive(trace, keep_size=True)["y"]
+    idata.extend(pm.sample_posterior_predictive(idata))
 ```
 
 ```{code-cell} ipython3
@@ -152,7 +159,7 @@ fig, ax = plt.subplots(1, 3, figsize=(12, 4))
 # data
 ax[0].scatter(data.x, data.y, color="k")
 # conditional mean credible intervals
-post = trace.posterior.stack(sample=("chain", "draw"))
+post = idata.posterior.stack(sample=("chain", "draw"))
 xi = xr.DataArray(np.linspace(np.min(data.x), np.max(data.x), 20), dims=["x_plot"])
 y = post.β0 + post.β1 * xi
 region = y.quantile([0.025, 0.15, 0.5, 0.85, 0.975], dim="sample")
@@ -171,10 +178,12 @@ ax[0].set(xlabel="x", ylabel="y", title="Conditional mean")
 # data
 ax[1].scatter(data.x, data.y, color="k")
 # posterior mean and HDI's
-ax[1].plot(xi, np.mean(pp_y, axis=(0, 1)), "k")
+
+ax[1].plot(xi, idata.posterior_predictive.y.mean(["chain", "draw"]), "k")
+
 az.plot_hdi(
     xi,
-    pp_y,
+    idata.posterior_predictive.y.mean(["chain", "draw"]),
     hdi_prob=0.6,
     color="k",
     fill_kwargs={"alpha": 0.2, "linewidth": 0},
@@ -182,7 +191,7 @@ az.plot_hdi(
 )
 az.plot_hdi(
     xi,
-    pp_y,
+    idata.posterior_predictive.y.mean(["chain", "draw"]),
     hdi_prob=0.95,
     color="k",
     fill_kwargs={"alpha": 0.2, "linewidth": 0},
@@ -223,7 +232,7 @@ One of the clear things about this analysis is that we have credible evidence th
 We will use the same data in this analysis, but this time we will use our knowledge that data come from groups. More specifically we will essentially fit independent regressions to data within each group.
 
 ```{code-cell} ipython3
-coords = {"group": group_list, "observation": np.arange(data.shape[0])}  # actual group names
+coords = {"group": group_list, "observation": np.arange(data.shape[0])}
 
 with pm.Model(coords=coords) as ind_slope_intercept:
     # Define priors
@@ -231,12 +240,12 @@ with pm.Model(coords=coords) as ind_slope_intercept:
     β0 = pm.Normal("β0", 0, sigma=5, dims="group")
     β1 = pm.Normal("β1", 0, sigma=5, dims="group")
     # Data
-    x = pm.Data("x", data.x, dims="observation")
-    g = pm.Data("g", data.group_idx, dims="observation")
+    x = pm.MutableData("x", data.x)
+    g = pm.MutableData("g", data.group_idx)
     # Linear model
-    μ = pm.Deterministic("μ", β0[g] + β1[g] * x, dims="observation")
+    μ = pm.Deterministic("μ", β0[g] + β1[g] * x)
     # Define likelihood
-    pm.Normal("y", mu=μ, sigma=sigma[g], observed=data.y, dims="observation")
+    pm.Normal("y", mu=μ, sigma=sigma[g], observed=data.y)
 ```
 
 By plotting the DAG for this model it is clear to see that we now have individual intercept, slope, and variance parameters for each of the groups.
@@ -247,9 +256,9 @@ pm.model_to_graphviz(ind_slope_intercept)
 
 ```{code-cell} ipython3
 with ind_slope_intercept:
-    trace = pm.sample(tune=1000, draws=500, cores=4, return_inferencedata=True, target_accept=0.9)
+    idata = pm.sample()
 
-az.plot_trace(trace);
+az.plot_trace(idata, var_names=["β0", "β1", "sigma"]);
 ```
 
 ### Visualisation
@@ -263,10 +272,12 @@ xi = [
 g = [np.ones(10) * i for i, _ in enumerate(group_list)]
 xi, g = np.concatenate(xi), np.concatenate(g)
 
+g.astype(int)
+
 # Do the posterior prediction
 with ind_slope_intercept:
     pm.set_data({"x": xi, "g": g.astype(int)})
-    pp_y = pm.sample_posterior_predictive(trace, keep_size=True)["y"]
+    idata.extend(pm.sample_posterior_predictive(idata))
 ```
 
 ```{code-cell} ipython3
@@ -277,7 +288,7 @@ for i, groupname in enumerate(group_list):
     # data
     ax[0].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
     # conditional mean credible intervals
-    post = trace.posterior.stack(sample=("chain", "draw"))
+    post = idata.posterior.stack(sample=("chain", "draw"))
     _xi = xr.DataArray(
         np.linspace(np.min(data.x[data.group_idx == i]), np.max(data.x[data.group_idx == i]), 20),
         dims=["x_plot"],
@@ -334,8 +345,8 @@ ax[1].set(xlabel="x", ylabel="y", title="Posterior predictive distribution")
 # parameter space ---------------------------------------------------
 for i, _ in enumerate(group_list):
     ax[2].scatter(
-        trace.posterior.β1.stack(sample=("chain", "draw"))[i, :],
-        trace.posterior.β0.stack(sample=("chain", "draw"))[i, :],
+        idata.posterior.β1.stack(sample=("chain", "draw"))[i, :],
+        idata.posterior.β0.stack(sample=("chain", "draw"))[i, :],
         color=f"C{i}",
         alpha=0.01,
         rasterized=True,
@@ -359,8 +370,8 @@ Note: This model was producing divergent samples, so a reparameterisation trick 
 
 ```{code-cell} ipython3
 coords = {
-    "group": group_list,  # actual group names
-    "observation": np.arange(data.shape[0]),  # or use this, `data.index.values`
+    "group": group_list,
+    "observation": np.arange(data.shape[0]),
 }
 
 with pm.Model(coords=coords) as hierarchical:
@@ -384,8 +395,8 @@ with pm.Model(coords=coords) as hierarchical:
     β1 = pm.Deterministic("β1", slope_mu + β1_offset * slope_sigma, dims="group")
 
     # Data
-    x = pm.Data("x", data.x, dims="observation")
-    g = pm.Data("g", data.group_idx, dims="observation")
+    x = pm.MutableData("x", data.x, dims="observation")
+    g = pm.MutableData("g", data.group_idx, dims="observation")
     # Linear model
     μ = pm.Deterministic("μ", β0[g] + β1[g] * x, dims="observation")
     # Define likelihood
@@ -400,9 +411,9 @@ pm.model_to_graphviz(hierarchical)
 
 ```{code-cell} ipython3
 with hierarchical:
-    trace = pm.sample(tune=2000, draws=500, cores=4, return_inferencedata=True, target_accept=0.99)
+    idata = pm.sample()
 
-az.plot_trace(trace);
+az.plot_trace(idata);
 ```
 
 ### Visualise
@@ -419,7 +430,7 @@ xi, g = np.concatenate(xi), np.concatenate(g)
 # Do the posterior prediction
 with hierarchical:
     pm.set_data({"x": xi, "g": g.astype(int)})
-    pp_y = pm.sample_posterior_predictive(trace, keep_size=True)["y"]
+    pp_y = pm.sample_posterior_predictive(idata, keep_size=True)["y"]
 ```
 
 ```{code-cell} ipython3
@@ -430,7 +441,7 @@ for i, groupname in enumerate(group_list):
     # data
     ax[0].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
     # conditional mean credible intervals
-    post = trace.posterior.stack(sample=("chain", "draw"))
+    post = idata.posterior.stack(sample=("chain", "draw"))
     _xi = xr.DataArray(
         np.linspace(np.min(data.x[data.group_idx == i]), np.max(data.x[data.group_idx == i]), 20),
         dims=["x_plot"],
@@ -486,19 +497,19 @@ ax[1].set(xlabel="x", ylabel="y", title="Posterior Predictive")
 # parameter space ---------------------------------------------------
 # plot posterior for population level slope and intercept
 slope = rng.normal(
-    trace.posterior.slope_mu.stack(sample=("chain", "draw")).values,
-    trace.posterior.slope_sigma.stack(sample=("chain", "draw")).values,
+    idata.posterior.slope_mu.stack(sample=("chain", "draw")).values,
+    idata.posterior.slope_sigma.stack(sample=("chain", "draw")).values,
 )
 intercept = rng.normal(
-    trace.posterior.intercept_mu.stack(sample=("chain", "draw")).values,
-    trace.posterior.intercept_sigma.stack(sample=("chain", "draw")).values,
+    idata.posterior.intercept_mu.stack(sample=("chain", "draw")).values,
+    idata.posterior.intercept_sigma.stack(sample=("chain", "draw")).values,
 )
 ax[2].scatter(slope, intercept, color="k", alpha=0.05)
 # plot posterior for group level slope and intercept
 for i, _ in enumerate(group_list):
     ax[2].scatter(
-        trace.posterior.β1.stack(sample=("chain", "draw"))[i, :],
-        trace.posterior.β0.stack(sample=("chain", "draw"))[i, :],
+        idata.posterior.β1.stack(sample=("chain", "draw"))[i, :],
+        idata.posterior.β0.stack(sample=("chain", "draw"))[i, :],
         color=f"C{i}",
         alpha=0.01,
     )
@@ -524,7 +535,20 @@ The third and final model added a layer to the hierarchy, which captures our kno
 
 If you are interested in learning more, there are a number of other [PyMC examples](http://docs.pymc.io/nb_examples/index.html) covering hierarchical modelling and regression topics.
 
++++
+
+## Authors
+* Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in July 2021
+* Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in March 2022
+
++++
+
+## Watermark
+
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p aesara,aeppl
 ```
+
+:::{include} ../page_footer.md
+:::
