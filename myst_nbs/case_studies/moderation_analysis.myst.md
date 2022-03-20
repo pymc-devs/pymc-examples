@@ -259,7 +259,7 @@ pm.model_to_graphviz(model)
 
 ```{code-cell} ipython3
 with model:
-    result = pm.sample(draws=1000, tune=1000, random_seed=42)
+    result = pm.sample(draws=1000, tune=1000, random_seed=42, nuts={"target_accept": 0.9})
 ```
 
 Visualise the trace to check for convergence.
