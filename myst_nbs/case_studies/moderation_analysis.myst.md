@@ -22,7 +22,7 @@ kernelspec:
 
 This notebook covers Bayesian [moderation analysis](https://en.wikipedia.org/wiki/Moderation_(statistics)). This is appropriate when we believe that one predictor variable (the moderator) may influence the linear relationship between another predictor variable and an outcome. Here we look at an example where we look at the relationship between hours of training and muscle mass, where it may be that age (the moderating variable) affects this relationship.
 
-This is not intended as a one-stop solution to a wide variety of data analysis problems, rather, it is intended as an educational exposition to show how moderation analysis works and how to conduct Bayesian parameter estimation in PyMC3.
+This is not intended as a one-stop solution to a wide variety of data analysis problems, rather, it is intended as an educational exposition to show how moderation analysis works and how to conduct Bayesian parameter estimation in PyMC.
 
 Note that this is sometimes mixed up with [mediation analysis](https://en.wikipedia.org/wiki/Mediation_(statistics)). Mediation analysis is appropriate when we believe the effect of a predictor variable upon an outcome variable is (partially, or fully) mediated through a 3rd mediating variable. Readers are referred to the textbook by {cite:t}`hayes2017introduction` as a comprehensive (albeit Frequentist) guide to moderation and related models.
 
@@ -227,14 +227,13 @@ ax[2].hist(y, alpha=0.5)
 ax[2].set(xlabel="muscle percentage, $y$");
 ```
 
-## Define the PyMC3 model and conduct inference
+## Define the PyMC model and conduct inference
 
 ```{code-cell} ipython3
 def model_factory(x, m, y):
-    COORDS = {"obs": np.arange(len(x))}
-    with pm.Model(coords=COORDS) as model:
-        x = pm.ConstantData("x", x, dims="obs")
-        m = pm.ConstantData("m", m, dims="obs")
+    with pm.Model() as model:
+        x = pm.ConstantData("x", x)
+        m = pm.ConstantData("m", m)
         # priors
         β0 = pm.Normal("β0", mu=0, sd=10)
         β1 = pm.Normal("β1", mu=0, sd=10)
