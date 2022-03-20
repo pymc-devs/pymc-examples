@@ -15,7 +15,7 @@ kernelspec:
 # Bayesian mediation analysis
 
 :::{post} February, 2022
-:tags: mediation, path analysis, pymc3.ConstantData, pymc3.Deterministic, pymc3.HalfCauchy, pymc3.Model, pymc3.Normal, regression
+:tags: mediation, path analysis, regression
 :category: beginner
 :author: Benjamin T. Vincent
 :::
