@@ -55,7 +55,14 @@ class PGBART(ArrayStepShared):
     generates_stats = True
     stats_dtypes = [{"variable_inclusion": object, "bart_trees": object}]
 
-    def __init__(self, vars=None, num_particles=40, max_stages=100, batch="auto", model=None):
+    def __init__(
+        self,
+        vars=None,
+        num_particles=40,
+        max_stages=100,
+        batch="auto",
+        model=None,
+    ):
         model = modelcontext(model)
         initial_values = model.compute_initial_point()
         if vars is None:
@@ -135,7 +142,7 @@ class PGBART(ArrayStepShared):
             # at the end of the algorithm we return one of these particles as the new tree
             particles = self.init_particles(tree_id)
             # Compute the sum of trees without the old tree, that we are attempting to replace
-            self.sum_trees_noi = self.sum_trees - particles[0].tree.predict_output()
+            self.sum_trees_noi = self.sum_trees - particles[0].tree._predict()
             # Resample leaf values for particle 1 which is a copy of the old tree
             particles[1].sample_leafs(
                 self.sum_trees,
@@ -191,10 +198,11 @@ class PGBART(ArrayStepShared):
             # Get the new tree and update
             new_particle = np.random.choice(particles, p=normalized_weights)
             new_tree = new_particle.tree
-            self.all_trees[tree_id] = new_tree
+
             new_particle.log_weight = new_particle.old_likelihood_logp - self.log_num_particles
             self.all_particles[tree_id] = new_particle
-            self.sum_trees = self.sum_trees_noi + new_tree.predict_output()
+            self.sum_trees = self.sum_trees_noi + new_tree._predict()
+            self.all_trees[tree_id] = new_tree.trim()
 
             if self.tune:
                 self.ssv = SampleSplittingVariable(self.alpha_vec)
@@ -239,7 +247,7 @@ class PGBART(ArrayStepShared):
         Since the prior is used as the proposal,the weights are updated additively as the ratio of
         the new and old log-likelihoods.
         """
-        new_likelihood = self.likelihood_logp(self.sum_trees_noi + particle.tree.predict_output())
+        new_likelihood = self.likelihood_logp(self.sum_trees_noi + particle.tree._predict())
         if old:
             particle.log_weight = new_likelihood
             particle.old_likelihood_logp = new_likelihood

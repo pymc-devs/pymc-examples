@@ -77,9 +77,9 @@ class TestUtils:
 
     def test_predict(self):
         rng = RandomState(12345)
-        pred_all = pmx.bart.utils.predict(self.idata, rng, size=2)
+        pred_all = pmx.bart.utils.predict(self.idata, rng, X=self.X, size=2)
         rng = RandomState(12345)
-        pred_first = pmx.bart.utils.predict(self.idata, rng, X_new=self.X[:10])
+        pred_first = pmx.bart.utils.predict(self.idata, rng, X=self.X[:10])
 
         assert_almost_equal(pred_first, pred_all[0, :10], decimal=4)
         assert pred_all.shape == (2, 50)
@@ -112,7 +112,7 @@ class TestUtils:
         ],
     )
     def test_vi(self, kwargs):
-        pmx.bart.utils.plot_variable_importance(self.idata, **kwargs)
+        pmx.bart.utils.plot_variable_importance(self.idata, X=self.X, **kwargs)
 
     def test_pdp_pandas_labels(self):
         pd = pytest.importorskip("pandas")

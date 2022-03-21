@@ -74,22 +74,28 @@ class Tree:
             self.idx_leaf_nodes.remove(index)
         del self.tree_structure[index]
 
-    def predict_output(self, excluded=None):
+    def trim(self):
+        a_tree = self.copy()
+        del a_tree.num_observations
+        del a_tree.idx_leaf_nodes
+        for k, v in a_tree.tree_structure.items():
+            current_node = a_tree[k]
+            del current_node.depth
+            if isinstance(current_node, LeafNode):
+                del current_node.idx_data_points
+        return a_tree
+
+    def _predict(self):
         output = np.zeros(self.num_observations)
         for node_index in self.idx_leaf_nodes:
             leaf_node = self.get_node(node_index)
-            if excluded is None:
-                output[leaf_node.idx_data_points] = leaf_node.value
-            else:
-                parent_node = leaf_node.get_idx_parent_node()
-                if self.get_node(parent_node).idx_split_variable not in excluded:
-                    output[leaf_node.idx_data_points] = leaf_node.value
+            output[leaf_node.idx_data_points] = leaf_node.value
 
         return output.astype(aesara.config.floatX)
 
-    def predict_out_of_sample(self, X, excluded=None):
+    def predict(self, X, excluded=None):
         """
-        Predict output of tree for an unobserved point x.
+        Predict output of tree for an (un)observed point X.
 
         Parameters
         ----------

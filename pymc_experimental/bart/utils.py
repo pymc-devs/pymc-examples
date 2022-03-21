@@ -10,20 +10,21 @@ from scipy.signal import savgol_filter
 from scipy.stats import pearsonr
 
 
-def predict(idata, rng, X_new=None, size=None, excluded=None):
+def predict(idata, rng, X=None, size=None, excluded=None):
     """
     Generate samples from the BART-posterior.
 
     Parameters
     ----------
-    idata: InferenceData
+    idata : InferenceData
         InferenceData containing a collection of BART_trees in sample_stats group
     rng: NumPy random generator
-    X_new : array-like
-        A new covariate matrix. Use it to obtain out-of-sample predictions
-    size: int or tuple
+    X : array-like
+        A covariate matrix. Use the same used to fit BART for in-sample predictions or a new one for
+        out-of-sample predictions.
+    size : int or tuple
         Number of samples.
-    excluded: list
+    excluded : list
         indexes of the variables to exclude when computing predictions
     """
     bart_trees = idata.sample_stats.bart_trees
@@ -39,16 +40,10 @@ def predict(idata, rng, X_new=None, size=None, excluded=None):
 
     idx = rng.randint(len(stacked_trees.trees), size=flatten_size)
 
-    if X_new is None:
-        pred = np.zeros((flatten_size, stacked_trees[0, 0].item().num_observations))
-        for ind, p in enumerate(pred):
-            for tree in stacked_trees.isel(trees=idx[ind]).values:
-                p += tree.predict_output(excluded=excluded)
-    else:
-        pred = np.zeros((flatten_size, X_new.shape[0]))
-        for ind, p in enumerate(pred):
-            for tree in stacked_trees.isel(trees=idx[ind]).values:
-                p += np.array([tree.predict_out_of_sample(x, excluded) for x in X_new])
+    pred = np.zeros((flatten_size, X.shape[0]))
+    for ind, p in enumerate(pred):
+        for tree in stacked_trees.isel(trees=idx[ind]).values:
+            p += np.array([tree.predict(x, excluded) for x in X])
     return pred.reshape((*size, -1))
 
 
@@ -210,13 +205,13 @@ def plot_dependence(
             for x_i in new_X_i:
                 new_X[:, indices_mi] = X[:, indices_mi]
                 new_X[:, i] = x_i
-                y_pred.append(np.mean(predict(idata, rng, X_new=new_X, size=samples), 1))
+                y_pred.append(np.mean(predict(idata, rng, X=new_X, size=samples), 1))
             new_X_target.append(new_X_i)
         else:
             for instance in instances:
                 new_X = X[idx_s]
                 new_X[:, indices_mi] = X[:, indices_mi][instance]
-                y_pred.append(np.mean(predict(idata, rng, X_new=new_X, size=samples), 0))
+                y_pred.append(np.mean(predict(idata, rng, X=new_X, size=samples), 0))
             new_X_target.append(new_X[:, i])
         y_mins.append(np.min(y_pred))
         new_Y.append(np.array(y_pred).T)
@@ -302,7 +297,9 @@ def plot_dependence(
     return axes
 
 
-def plot_variable_importance(idata, labels=None, figsize=None, samples=100, random_seed=None):
+def plot_variable_importance(
+    idata, X=None, labels=None, figsize=None, samples=100, random_seed=None
+):
     """
     Estimates variable importance from the BART-posterior.
 
@@ -310,8 +307,11 @@ def plot_variable_importance(idata, labels=None, figsize=None, samples=100, rand
     ----------
     idata: InferenceData
         InferenceData containing a collection of BART_trees in sample_stats group
+    X : array-like
+        The covariate matrix.
     labels: list
-        List of the names of the covariates.
+        List of the names of the covariates. If X is a DataFrame the names of the covariables will
+        be taken from it and this argument will be ignored.
     figsize : tuple
         Figure size. If None it will be defined automatically.
     samples : int
@@ -325,6 +325,10 @@ def plot_variable_importance(idata, labels=None, figsize=None, samples=100, rand
     """
     rng = RandomState(seed=random_seed)
     _, axes = plt.subplots(2, 1, figsize=figsize)
+
+    if hasattr(X, "columns") and hasattr(X, "values"):
+        labels = list(X.columns)
+        X = X.values
 
     VI = idata.sample_stats["variable_inclusion"].mean(("chain", "draw")).values
     if labels is None:
@@ -341,12 +345,12 @@ def plot_variable_importance(idata, labels=None, figsize=None, samples=100, rand
     axes[0].set_xlabel("variable index")
     axes[0].set_ylabel("relative importance")
 
-    predicted_all = predict(idata, rng, size=samples, excluded=None)
+    predicted_all = predict(idata, rng, X=X, size=samples, excluded=None)
 
     EV_mean = np.zeros(len(VI))
     EV_hdi = np.zeros((len(VI), 2))
     for idx, subset in enumerate(subsets):
-        predicted_subset = predict(idata, rng, size=samples, excluded=subset)
+        predicted_subset = predict(idata, rng, X=X, size=samples, excluded=subset)
         pearson = np.zeros(samples)
         for j in range(samples):
             pearson[j] = pearsonr(predicted_all[j], predicted_subset[j])[0]
