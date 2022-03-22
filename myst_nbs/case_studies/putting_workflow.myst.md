@@ -77,7 +77,11 @@ BALL_RADIUS = (1.68 / 2) / 12
 CUP_RADIUS = (4.25 / 2) / 12
 ```
 
+We start plotting the data to get a better idea of how it looks. The hidden cell contains the plotting code
+
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 def plot_golf_data(golf_data, ax=None, color="C0"):
     """Utility function to standardize a pretty plotting of the golf data."""
     if ax is None:
@@ -101,8 +105,9 @@ def plot_golf_data(golf_data, ax=None, color="C0"):
     ax.set_xlim(left=0)
     ax.grid(True, axis="y", alpha=0.7)
     return ax
+```
 
-
+```{code-cell} ipython3
 ax = plot_golf_data(golf_data)
 ax.set_title("Overview of data from Berry (1996)");
 ```
@@ -150,7 +155,7 @@ We have some intuition that $a$ should be negative, and also that $b$ should be 
 
 ```{code-cell} ipython3
 with logit_model:
-    logit_trace = pm.sample(1000, tune=1000)
+    logit_trace = pm.sample(1000, tune=1000, target_accept=0.9)
 
 az.summary(logit_trace)
 ```
@@ -321,7 +326,7 @@ This is a little funny! Most obviously, it should probably be not this common to
 
 ```{code-cell} ipython3
 with angle_model:
-    angle_trace.extend(pm.sample(1000, tune=1000))
+    angle_trace.extend(pm.sample(1000, tune=1000, target_accept=0.85))
 
 angle_post = angle_trace.posterior
 ```
@@ -460,8 +465,13 @@ with angle_model:
             "successes": new_golf_data["successes"],
         }
     )
-    new_angle_trace = pm.sample(1000, tune=1000, nuts=dict(target_accept=0.9))
+    new_angle_trace = pm.sample(1000, tune=1500)
 ```
+
+:::{note}
+As you will see in the plot below, this model fits the new data quite badly. In this case, all the divergences
+and convergence warnings have no other solution than using a different model that can actually explain the data.
+:::
 
 ```{code-cell} ipython3
 ax = plot_golf_data(new_golf_data)
@@ -542,7 +552,7 @@ This model still has only 2 dimensions to fit. We might think about checking on 
 
 ```{code-cell} ipython3
 with distance_angle_model:
-    distance_angle_trace = pm.sample(1000, tune=1000)
+    distance_angle_trace = pm.sample(1000, tune=1000, target_accept=0.85)
 ```
 
 ```{code-cell} ipython3
