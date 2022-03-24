@@ -14,7 +14,7 @@ kernelspec:
 (notebook_name)=
 # Mean and Covariance Functions
 
-:::{post} Aug 31, 2021
+:::{post} Mar 22, 2022
 :tags: GP
 :category: intermediate
 :author: Bill Engels
@@ -59,8 +59,6 @@ az.style.use("arviz-darkgrid")
 ```
 
 +++ {"papermill": {"duration": 0.037844, "end_time": "2020-12-22T18:36:31.751886", "exception": false, "start_time": "2020-12-22T18:36:31.714042", "status": "completed"}, "tags": []}
-
-# 
 
 A large set of mean and covariance functions are available in PyMC3.  It is relatively easy to define custom mean and covariance functions.  Since PyMC3 uses Theano, their gradients do not need to be defined by the user.  
 
