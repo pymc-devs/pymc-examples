@@ -6,10 +6,19 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
+
+(notebook_name)=
+# Mean and Covariance Functions
+
+:::{post} Aug 31, 2021
+:tags: GP
+:category: intermediate
+:author: Bill Engels
+:::
 
 ```{code-cell} ipython3
 ---
@@ -44,13 +53,14 @@ papermill:
 tags: []
 ---
 RANDOM_SEED = 8927
+FIGSIZE = (10, 4)
 np.random.seed(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
 
 +++ {"papermill": {"duration": 0.037844, "end_time": "2020-12-22T18:36:31.751886", "exception": false, "start_time": "2020-12-22T18:36:31.714042", "status": "completed"}, "tags": []}
 
-# Mean and Covariance Functions
+# 
 
 A large set of mean and covariance functions are available in PyMC3.  It is relatively easy to define custom mean and covariance functions.  Since PyMC3 uses Theano, their gradients do not need to be defined by the user.  
 
@@ -204,7 +214,7 @@ cov += pm.gp.cov.WhiteNoise(1e-6)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=K.shape[0]).random(size=3).T)
 plt.title("Samples from the GP prior")
@@ -313,7 +323,7 @@ cov = pm.gp.cov.WhiteNoise(sigma)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
@@ -346,7 +356,7 @@ cov += pm.gp.cov.WhiteNoise(1e-6)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
@@ -379,7 +389,7 @@ cov = tau * pm.gp.cov.RatQuad(1, ls, alpha)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
@@ -410,7 +420,7 @@ cov = pm.gp.cov.Exponential(1, ls_inv=inverse_lengthscale)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
@@ -444,7 +454,7 @@ cov = tau * pm.gp.cov.Matern52(1, ls)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
@@ -477,7 +487,7 @@ cov = tau * pm.gp.cov.Matern32(1, ls)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
@@ -507,7 +517,7 @@ cov = tau * pm.gp.cov.Matern12(1, ls)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
@@ -540,7 +550,7 @@ cov += pm.gp.cov.WhiteNoise(1e-4)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
@@ -574,7 +584,7 @@ cov += pm.gp.cov.WhiteNoise(1e-6)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
@@ -610,7 +620,7 @@ cov += pm.gp.cov.WhiteNoise(1e-6)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
@@ -644,7 +654,7 @@ cov = pm.gp.cov.Matern32(1, 0.5) * K_cos
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
@@ -685,14 +695,14 @@ cov += pm.gp.cov.WhiteNoise(1e-6)
 X = np.linspace(0, 2, 400)[:, None]
 wf = warp_func(X.flatten(), a, b, c).eval()
 
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, wf)
 plt.xlabel("X")
 plt.ylabel("warp_func(X)")
 plt.title("The warping function used")
 
 K = cov(X).eval()
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
@@ -742,7 +752,7 @@ cov = pm.gp.cov.WarpedInput(1, cov_func=cov_exp, warp_func=mapping, args=(T,))
 cov += pm.gp.cov.WhiteNoise(1e-6)
 
 K = cov(X).eval()
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
@@ -772,7 +782,7 @@ cov = pm.gp.cov.Periodic(1, period=period, ls=ls)
 cov += pm.gp.cov.WhiteNoise(1e-6)
 
 K = cov(X).eval()
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 for p in np.arange(0, 2, period):
     plt.axvline(p, color="black")
@@ -822,7 +832,7 @@ tau = 4
 cov = pm.gp.cov.Circular(1, period=period, tau=tau)
 
 K = cov(X).eval()
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 for p in np.arange(0, 2, period):
     plt.axvline(p, color="black")
@@ -851,7 +861,7 @@ tau = 40
 cov = pm.gp.cov.Circular(1, period=period, tau=tau)
 
 K = cov(X).eval()
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 for p in np.arange(0, 2, period):
     plt.axvline(p, color="black")
@@ -896,14 +906,14 @@ cov = pm.gp.cov.Gibbs(1, tanh_func, args=(ls1, ls2, w, x0))
 cov += pm.gp.cov.WhiteNoise(1e-6)
 
 wf = tanh_func(X, ls1, ls2, w, x0).eval()
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, wf)
 plt.ylabel("lengthscale")
 plt.xlabel("X")
 plt.title("Lengthscale as a function of X")
 
 K = cov(X).eval()
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
@@ -950,14 +960,14 @@ cov += pm.gp.cov.WhiteNoise(1e-5)
 X = np.linspace(0, 10, 400)[:, None]
 lfunc = logistic(X.flatten(), a, b, c, d).eval()
 
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, lfunc)
 plt.xlabel("X")
 plt.ylabel(r"$\phi(x)$")
 plt.title("The scaling function")
 
 K = cov(X).eval()
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
@@ -1008,7 +1018,7 @@ cov = cov1 + cov2
 cov += pm.gp.cov.WhiteNoise(1e-5)
 
 X = np.linspace(0, 10, 400)
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.fill_between(
     X,
     np.zeros(400),
@@ -1026,7 +1036,7 @@ plt.ylabel(r"$\phi(x)$")
 plt.title("The two scaling functions")
 
 K = cov(X[:, None]).eval()
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
@@ -1073,7 +1083,7 @@ cov += pm.gp.cov.WhiteNoise(1e-6)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
@@ -1108,7 +1118,7 @@ cov += pm.gp.cov.WhiteNoise(1e-6)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
@@ -1141,7 +1151,7 @@ cov += pm.gp.cov.WhiteNoise(1e-6)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
+plt.figure(figsize=FIGSIZE)
 plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
