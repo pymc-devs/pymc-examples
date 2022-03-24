@@ -53,11 +53,11 @@ from aesara.link.jax.dispatch import jax_funcify
 
 PyMC uses the [Aesara](https://aesara.readthedocs.io/en/latest/) library to create and manipulate probabilistic graphs. Aesara is backend-agnostic, meaning it can make use of functions written in different languages or frameworks, including pure Python, NumPy, C, Cython, Numba, and [JAX](https://jax.readthedocs.io/en/latest/index.html). 
 
-All that is needed is to encapsulate such function in a Aeasara {class}`~aesara.graph.basic.Op`, which enforces a specific API regarding how inputs and outputs of pure "operations" should be handled. It also implement methods for optional extra functionality like symbolic shape inference and gradient expressions. This is well covered in the Aesara [`Op`s documentation](https://aesara.readthedocs.io/en/latest/extending/op.html) and in our {ref}`blackbox_external_likelihood_numpy` pymc-example.
+All that is needed is to encapsulate such function in a Aesara {class}`~aesara.graph.basic.Op`, which enforces a specific API regarding how inputs and outputs of pure "operations" should be handled. It also implements methods for optional extra functionality like symbolic shape inference and automatic differentiation. This is well covered in the Aesara [`Op`s documentation](https://aesara.readthedocs.io/en/latest/extending/op.html) and in our {ref}`blackbox_external_likelihood_numpy` pymc-example.
 
-More recentely, Aesara became capable of compiling directly to some of these languages/frameworks, meaning that we can convert a complete Aesara graph into a JAX or NUMBA jitted function, whereas traditionally they could only be converted to Python or C.
+More recently, Aesara became capable of compiling directly to some of these languages/frameworks, meaning that we can convert a complete Aesara graph into a JAX or NUMBA jitted function, whereas traditionally they could only be converted to Python or C.
 
-This has some interesting advantages, such as being able to sample models defined in PyMC using pure JAX samplers, such as those implemented in [NumPyro](https://num.pyro.ai/en/latest/index.html) or [BlackJax](https://github.com/blackjax-devs/blackjax). 
+This has some interesting uses, such as sampling models defined in PyMC with pure JAX samplers, like those implemented in [NumPyro](https://num.pyro.ai/en/latest/index.html) or [BlackJax](https://github.com/blackjax-devs/blackjax). 
 
 This notebook illustrates how we can implement a new Aesara {class}`~aesara.graph.basic.Op` that wraps a JAX function. 
 
@@ -68,7 +68,7 @@ This notebook illustrates how we can implement a new Aesara {class}`~aesara.grap
 
 +++
 
-# A motivating example: marginal HMM
+## A motivating example: marginal HMM
 
 +++
 
@@ -180,7 +180,7 @@ ax[1].set_xlabel("step")
 fig.suptitle("Simulated data");
 ```
 
-The figure above shown the hidden state and respective observed emission for our simulated data. We will use this data later to perform posterior inferences about the model parameters.
+The figure above shows the hidden state and respective observed emission of our simulated data. Later, we will use this data to perform posterior inferences about the true model parameters.
 
 +++
 
@@ -188,11 +188,11 @@ The figure above shown the hidden state and respective observed emission for our
 
 +++
 
-We will write a JAX function to compute the likelihood of hour HMM model, marginalizing over the hidden states. This allows for more efficient sampling of the remaining model parameters. To achieve this, we will use the well known [forward algorithm](https://en.wikipedia.org/wiki/Forward_algorithm), working on the log scale for numerical stability.
+We will write a JAX function to compute the likelihood of our HMM model, marginalizing over the hidden states. This allows for more efficient sampling of the remaining model parameters. To achieve this, we will use the well known [forward algorithm](https://en.wikipedia.org/wiki/Forward_algorithm), working on the log scale for numerical stability.
 
 We will take advantage of JAX [scan](https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.scan.html) to obtain an efficient and differentiable log-likelihood, and the handy [vmap](https://jax.readthedocs.io/en/latest/_autosummary/jax.vmap.html#jax.vmap) to automatically vectorize this log-likelihood across multiple observed processes.
 
-Before that, let us create some helper variables derived from our true parameters, that we can use to test our implementation
+Before that, let us create some helper variables derived from our true parameters, that we can use to test our implementation.
 
 ```{code-cell} ipython3
 n_hidden_states = len(p_initial_state_true)
@@ -210,11 +210,11 @@ logp_initial_state_true
 # p[1, 0], is the probability of going from S_t=1 to S_t+1=0
 # p[0, 1], is the probabilty of going from S_t=0 to S_t+1=1 (which is impossible)
 # p[3, 3], is the probability of going from S_t=3, to S_t+1=3
-possible_states = np.arange(n_hidden_states)
+possible_states = np.arange(n_hidden_states, dtype="int16")
 p_transition_true = (
     pm.logp(
         pm.Binomial.dist(n=possible_states, p=1 - p_decay_true),
-        possible_states[..., None],
+        possible_states[:, None],
     )
     .T.exp()
     .eval()
@@ -329,13 +329,13 @@ jitted_vec_hmm_logp(
 )
 ```
 
-Similarly to Aesara, it's pretty easy to get a graph for the gradients wrt to our inputs in JAX
+We will also ask JAX to give us the function of the gradients with respect to each input. This will come in handy later.
 
 ```{code-cell} ipython3
 jitted_vec_hmm_logp_grad = jax.jit(jax.grad(vec_hmm_logp, argnums=list(range(5))))
 ```
 
-Let's print out the gradient with respect to `emission_signal`, and compare it with a rough finite difference computation
+Let's print out the gradient with respect to `emission_signal`, and compare it with a rough finite difference estimation.
 
 ```{code-cell} ipython3
 jitted_vec_hmm_logp_grad(
@@ -347,37 +347,11 @@ jitted_vec_hmm_logp_grad(
 )[1]
 ```
 
-```{code-cell} ipython3
-eps = 1e-5
-
-grad1 = jitted_vec_hmm_logp(
-    emission_observed,
-    emission_signal_true + eps,
-    emission_noise_true,
-    logp_initial_state_true,
-    logp_transition_true,
-)
-
-grad2 = jitted_vec_hmm_logp(
-    emission_observed,
-    emission_signal_true - eps,
-    emission_noise_true,
-    logp_initial_state_true,
-    logp_transition_true,
-)
-
-(grad1 - grad2) / (2 * eps)
-```
-
-Looks good!
+## Wrapping the JAX function in Aesara
 
 +++
 
-# Wrapping the JAX function in Aesara
-
-+++
-
-Now we are ready to wrap our JAX jitted function in a Aesaara {class}`~aesara.graph.basic.Op`, that we can use in our PyMC models later on. We recommend you check Aesara's official [`Op` documentation](https://aesara.readthedocs.io/en/latest/extending/op.html) if you want to undertand it in more detail.
+Now we are ready to wrap our JAX jitted function in a Aesara {class}`~aesara.graph.basic.Op`, that we can then use in our PyMC models. We recommend you check Aesara's official [`Op` documentation](https://aesara.readthedocs.io/en/latest/extending/op.html) if you want to understand it in more detail.
 
 In brief, we will inherit from {class}`~aesara.graph.basic.Op` and define the following methods:
 1. `make_node`: Creates an {class}`~aesara.graph.basic.Apply` node that holds together the symbolic inputs and outputs of our operation
@@ -392,12 +366,12 @@ class HMMLogpOp(Op):
         # Convert our inputs to symbolic variables
         inputs = [at.as_tensor_variable(inp) for inp in inputs]
         # Define the type of the output returned by the wrapped JAX function
-        outputs = [at.fscalar()]
+        outputs = [at.dscalar()]
         return Apply(self, inputs, outputs)
 
     def perform(self, node, inputs, outputs):
         result = jitted_vec_hmm_logp(*inputs)
-        # Aesara complains if the dtype of the returned output is not
+        # Aesara raises an error if the dtype of the returned output is not
         # exactly the one expected from the Apply node (in this case
         # `dscalar`, which stands for float64 scalar), so we make sure
         # to convert to the expected dtype. To avoid unecessary conversions
@@ -474,7 +448,7 @@ x_grad_wrt_emission_signal = at.grad(x, wrt=emission_signal_variable)
 x_grad_wrt_emission_signal.eval()
 ```
 
-## Sampling with PyMC
+### Sampling with PyMC
 
 +++
 
@@ -490,7 +464,8 @@ with pm.Model(rng_seeder=int(rng.integers(2**30))) as model:
 
     p_decay = pm.Beta("p_decay", 1, 1)
     logp_transition = pm.logp(
-        pm.Binomial.dist(n=possible_states, p=1 - p_decay), possible_states[:, None]
+        pm.Binomial.dist(n=possible_states, p=1 - p_decay),
+        possible_states[:, None],
     ).T
 
     loglike = pm.Potential(
@@ -570,13 +545,13 @@ The posteriors look reasonably centered around the true values used to generate 
 
 +++
 
-# Unwrapping the wrapped JAX function
+## Unwrapping the wrapped JAX function
 
 +++
 
 As mentioned in the beginning, Aesara can compile an entire graph to JAX. To do this, it needs to know how each {class}`~aesara.graph.basic.Op` in the graph can be converted to a JAX function. This can be done by {term}`dispatch <dispatching>` with {func}`aesara.link.jax.dispatch.jax_funcify`. Most of the default Aesara {class}`~aesara.graph.basic.Op`s already have such a dispatch function, but we will need to add a new one for our custom `HMMLogpOp`, as Aesara has never seen that before.
 
-For that we need a function which returns (another) JAX function, that performs the same computation as in our `perform` method. Fortunately, because we started exactly with such function, this amounts to 3 short lines of code.
+For that we need a function which returns (another) JAX function, that performs the same computation as in our `perform` method. Fortunately, we started exactly with such function, so this amounts to 3 short lines of code.
 
 ```{code-cell} ipython3
 @jax_funcify.register(HMMLogpOp)
@@ -588,7 +563,7 @@ def hmm_logp_dispatch(op, **kwargs):
 We do not return the jitted function, so that the entire Aesara graph can be jitted together after being converted to JAX.
 :::
 
-For a better understanding into {class}`~aesara.graph.basic.Op` JAX conversions, we recommend you check Aesara's [Adding JAX and Numba support for Ops guide](https://aesara.readthedocs.io/en/latest/extending/creating_a_numba_jax_op.html?highlight=JAX)
+For a better understanding of {class}`~aesara.graph.basic.Op` JAX conversions, we recommend reading Aesara's [Adding JAX and Numba support for Ops guide](https://aesara.readthedocs.io/en/latest/extending/creating_a_numba_jax_op.html?highlight=JAX)
 
 We can test that our conversion function is working properly by compiling a {func}`aesara.function` with `mode="JAX"`:
 
@@ -604,25 +579,24 @@ jax_fn = aesara.function(inputs=[], outputs=out, mode="JAX")
 jax_fn()
 ```
 
-We can also compile a JAX function that computes the log probability of each variable in our PyMC model, similar to {meth}`~pymc.Model.point_logps`
+We can also compile a JAX function that computes the log probability of each variable in our PyMC model, similar to {meth}`~pymc.Model.point_logps`. We will use the helper method {met}`~pymc.model.Model.compile_fn`.
 
 ```{code-cell} ipython3
-inputs = model.value_vars
-outputs = model.logpt(sum=False)
-model_logp_jax_fn = aesara.function(inputs, outputs, mode="JAX")
+model_logp_jax_fn = model.compile_fn(model.logpt(sum=False), mode="JAX")
+model_logp_jax_fn(initial_point)
 ```
 
-```{code-cell} ipython3
-model_logp_jax_fn(*initial_point.values())
-```
-
-Note that we could have added an equally simple function to convert our `HMMLogpGradOp`, in case we wanted to convert Aesara gradient graphs to JAX. In our case, we don't need to do this because we will rely on JAX `grad` function (or more precisely, NumPyro will rely on it) to obtain these again from our compiled JAX function.
-
-We include a {ref}`aesara_vs_jax <short discussion>` at the end of this document, to help you better understand the trade-offs between writting grahs in Aesara vs JAX, and when you migh want to use one or the other.
+We see a JAX warning that `float64` casting operations present in the original Aesara graph will be ignored. This is expected, as aesara is less strict about using a single float precision. This should be fine in our case, but if you need to understand what parts of the graph are trying to introduce `float64` variables, you can change the Aesara [warn_float64 flag](https://aesara.readthedocs.io/en/latest/library/config.html#config.warn_float64)
 
 +++
 
-## Sampling with Numpyro
+Note that we could have added an equally simple function to convert our `HMMLogpGradOp`, in case we wanted to convert Aesara gradient graphs to JAX. In our case, we don't need to do this because we will rely on JAX `grad` function (or more precisely, NumPyro will rely on it) to obtain these again from our compiled JAX function.
+
+We include a {ref}`short discussion <aesara_vs_jax>` at the end of this document, to help you better understand the trade-offs between working with Aesara graphs vs JAX functions, and when you might want to use one or the other.
+
++++
+
+### Sampling with NumPyro
 
 +++
 
@@ -630,7 +604,7 @@ Now that we know our model logp can be entirely compiled to JAX, we can use the 
 
 ```{code-cell} ipython3
 with model:
-    idata_numpyro = pm.sampling_jax.sample_numpyro_nuts(chains=2)
+    idata_numpyro = pm.sampling_jax.sample_numpyro_nuts(chains=2, progress_bar=False)
 ```
 
 ```{code-cell} ipython3
@@ -647,15 +621,52 @@ Depending on the model and computer architecture you are using, a pure JAX sampl
 
 +++
 
-## Bonus: Using a single Op to wrap the value and gradients at once
+(aesara_vs_jax)=
+## Some brief notes on using Aesara vs JAX
 
 +++
 
-We had to create two {class}`~aesara.graph.basic.Op`s, one for the function we cared about and a separate one for its gradients. However, JAX provides a `value_and_grad` utility that can return both the value of a function and its derivatives. This means we can get away with a single {class}`~aesara.graph.basic.Op` if we are clever about it.
+### When should you use JAX?
 
-It also means we can (potentially) save memory and reuse computation that is shared between the function and its gradients. This may be relevant when working with very large JAX functions.
++++
 
-Note that this is only useful if you are interested in taking gradients with respect to your {class}`~aesara.graph.basic.Op` using Aesara. If your endgoal is to compile your graph to JAX, and only then take derivatives (as NumPyro does), then it's better to use the first approach. You don't even need to implement the `grad` method and associated {class}`~aesara.graph.basic.Op` in that case.
+As we have seen, it is pretty straightforward to interface between Aesara graphs and JAX functions. 
+
+This can be very handy when you want to combine previously implemented JAX function with PyMC models. We used a marginalized HMM log-likelihood in this example, but the same strategy could be used to do Bayesian inference with Deep Neural Networks or Differential Equations, or pretty much any other functions implemented in JAX that can be used in the context of a Bayesian model.
+
+It can also be worth it, if you need to make use of JAX's unique features like vectorization, support for tree structures, or its fine-grained parallelization, and GPU and TPU capabilities.
+
++++
+
+### When should you not use JAX?
+
++++
+
+Like JAX, Aesara has the goal of mimicking the NumPy and Scipy APIs, so that writing code in Aesara should feel very similar to how code is written in those libraries.
+
+There are, however, some of advantages to working with Aesara:
+
+1. Aesara graphs are considerably easier to [inspect and debug](https://aesara.readthedocs.io/en/latest/tutorial/debug_faq.html) than JAX functions
+2. Aesara has clever [optimization and stabilization routines](https://aesara.readthedocs.io/en/latest/optimizations.html) that are not possible or implemented in JAX
+3. Aesara graphs can be easily [manipulated after creation](https://aesara.readthedocs.io/en/latest/extending/graph_rewriting.html#graph-rewriting)
+
+Point 2 means your graphs are likely to perform better if written in Aesara. In general you don't have to worry about using specialized functions like `log1p` or `logsumexp`, as Aesara will be able to detect the equivalent naive expressions and replace them by their specialized counterparts. Importantly, you still benefit from these optimizations when your graph is later compiled to JAX.
+
+The catch is that Aesara cannot reason about JAX functions, and by association {class}`~aesara.graph.basic.Op`s that wrap them. This means that the larger the portion of the graph is "hidden" inside a JAX function, the less a user will benefit from Aesara's rewrite and debugging abilities.
+
+Point 3 is more important for library developers. It is the main reason why PyMC developers opted to use Aesara (and before that, its predecessor Theano) as its backend. Many of the user-facing utilities provided by PyMC rely on the ability to easily parse and manipulate Aesara graphs.
+
++++
+
+## Bonus: Using a single Op that can compute its own gradients
+
++++
+
+We had to create two {class}`~aesara.graph.basic.Op`s, one for the function we cared about and a separate one for its gradients. However, JAX provides a `value_and_grad` utility that can return both the value of a function and its gradients. We can do something similar and get away with a single {class}`~aesara.graph.basic.Op` if we are clever about it.
+
+By doing this we can (potentially) save memory and reuse computation that is shared between the function and its gradients. This may be relevant when working with very large JAX functions.
+
+Note that this is only useful if you are interested in taking gradients with respect to your {class}`~aesara.graph.basic.Op` using Aesara. If your endgoal is to compile your graph to JAX, and only then take the gradients (as NumPyro does), then it's better to use the first approach. You don't even need to implement the `grad` method and associated {class}`~aesara.graph.basic.Op` in that case.
 
 ```{code-cell} ipython3
 ---
@@ -693,7 +704,7 @@ class HmmLogpValueGradOp(Op):
 
         # Make sure the user is not trying to take the gradient with respect to
         # the gradient outputs! That would require computing the second order
-        # derivatives
+        # gradients
         assert all(
             isinstance(g.type, aesara.gradient.DisconnectedType) for g in output_gradients[1:]
         )
@@ -718,43 +729,6 @@ x = hmm_logp_value_grad_op(
 )
 at.grad(x, emission_signal_variable).eval()
 ```
-
-(aesara_vs_jax)=
-## Notes on using Aesara vs JAX
-
-+++
-
-### When should you write functions in JAX?
-
-+++
-
-As we have seen, it is pretty straightforward to interface between Aesara graphs and JAX functions. 
-
-This can be very handy when you want to combine previously implemented JAX function with PyMC models. We used a marginalized HMM log-likelihood in this example, but the same strategy could be used to do Bayesian inference with Deep Neural Networks or Differential Equations, or pretty much any other functions implemented in JAX that can be used in the context of a Bayesian model.
-
-It can also be important, if you need to make use of JAX's unique features like vectorization, support for tree structures, or make use of its fine-grained parallelization, or GPU and TPU capabilities.
-
-+++
-
-### When should you not write functions in JAX?
-
-+++
-
-Like JAX, Aesara has the goal of mimicking the NumPy and Scipy APIs, so that writting code in Aesara should feel very similar to how code is written in those libraries.
-
-There are, however, some of advantages to working with Aesara:
-
-1. Aesara graphs are considerably easier to [inspect and debug](https://aesara.readthedocs.io/en/latest/tutorial/debug_faq.html) than JAX functions
-2. Aesara has clever [optimization and stabilization routines](https://aesara.readthedocs.io/en/latest/optimizations.html) that are not possible or implemented in JAX
-3. Aesara graphs can be easily [manipulated after creation](https://aesara.readthedocs.io/en/latest/extending/graph_rewriting.html#graph-rewriting)
-
-Point 2 means your graphs are likely to perform better if written in Aesara. In general you don't have to worry about using specialized functions like `log1p` or `logsumexp`, as Aesara will be able to detect the equivalent naive expressions and replace them by their specialized counterparts. Importantly, you still benefit from these optimizations when your graph is later compiled to JAX.
-
-The catch is that Aesara cannot reason about JAX functions, and by association {class}`~aesara.graph.basic.Op`s that wrap them. This means that the larger the portion of the graph is "hidden" inside a JAX function, the less a user will benefit from Aesara's rewrite and debugging abilities.
-
-Point 3 is more important for library developers. It is the main reason why PyMC developers opted to use Aesara (and before that, its predecessor Theano) as its backend. Many of the user-facing utilities provided by PyMC rely on the ability to easily parse and manipulate Aesara graphs.
-
-+++
 
 ## Authors
 
