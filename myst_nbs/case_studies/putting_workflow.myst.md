@@ -17,7 +17,7 @@ substitutions:
 (putting_workflow)=
 # Model building and expansion for golf putting
 
-:::{post} Aug 31, 2021
+:::{post} Apr 2, 2022
 :tags: bayesian workflow, model expansion, sports
 :category: intermediate, how-to
 :author: Colin Carroll, Marco Gorelli, Oriol Abril-Pla
