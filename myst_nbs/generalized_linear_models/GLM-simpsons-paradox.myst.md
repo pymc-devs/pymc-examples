@@ -15,7 +15,7 @@ kernelspec:
 # Simpson's paradox and mixed models
 
 :::{post} March, 2022
-:tags: regression, hierarchical model, linear model, multi level model, posterior predictive
+:tags: regression, hierarchical model, linear model, multi level model, posterior predictive, Simpson's paradox
 :category: beginner
 :author: Benjamin T. Vincent
 :::
@@ -526,7 +526,7 @@ The panel on the right shows the posterior group level posterior of the slope an
 :tags: [hide-input]
 
 az.plot_posterior(slope, ref_val=0)
-plt.title("Population level slope parameter")
+plt.title("Population level slope parameter");
 ```
 
 ## Summary
