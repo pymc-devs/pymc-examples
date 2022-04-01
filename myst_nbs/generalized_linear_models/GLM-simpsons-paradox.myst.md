@@ -373,25 +373,27 @@ In one sense this move from Model 2 to Model 3 can be seen as adding parameters,
 Note: This model was producing divergent samples, so a reparameterisation trick is used. See the blog post [Why hierarchical models are awesome, tricky, and Bayesian](https://twiecki.io/blog/2017/02/08/bayesian-hierchical-non-centered/) by Thomas Wiecki for more information on this.
 
 ```{code-cell} ipython3
+non_centered = True
+
 with pm.Model(coords=coords) as hierarchical:
     # Hyperpriors
     intercept_mu = pm.Normal("intercept_mu", 0, sigma=1)
-    intercept_sigma = pm.HalfCauchy("intercept_sigma", beta=2)
+    intercept_sigma = pm.HalfNormal("intercept_sigma", sigma=2)
     slope_mu = pm.Normal("slope_mu", 0, sigma=1)
-    slope_sigma = pm.HalfCauchy("slope_sigma", beta=2)
+    slope_sigma = pm.HalfNormal("slope_sigma", sigma=2)
+    sigma_hyperprior = pm.HalfNormal("sigma_hyperprior", sigma=0.5)
 
     # Define priors
-    sigma = pm.HalfCauchy("sigma", beta=2, dims="group")
+    sigma = pm.HalfNormal("sigma", sigma=sigma_hyperprior, dims="group")
 
-    # Reparameterise to avoid chain divergences
-    # β0 = pm.Normal("β0", intercept_mu, sigma=intercept_sigma, dims="group")
-    β0_offset = pm.Normal("β0_offset", 0, sigma=1, dims="group")
-    β0 = pm.Deterministic("β0", intercept_mu + β0_offset * intercept_sigma, dims="group")
-
-    # Reparameterise to avoid chain divergences
-    # β1 = pm.Normal("β1", slope_mu, sigma=slope_sigma, dims="group")
-    β1_offset = pm.Normal("β1_offset", 0, sigma=1, dims="group")
-    β1 = pm.Deterministic("β1", slope_mu + β1_offset * slope_sigma, dims="group")
+    if non_centered:
+        β0_offset = pm.Normal("β0_offset", 0, sigma=1, dims="group")
+        β0 = pm.Deterministic("β0", intercept_mu + β0_offset * intercept_sigma, dims="group")
+        β1_offset = pm.Normal("β1_offset", 0, sigma=1, dims="group")
+        β1 = pm.Deterministic("β1", slope_mu + β1_offset * slope_sigma, dims="group")
+    else:
+        β0 = pm.Normal("β0", intercept_mu, sigma=intercept_sigma, dims="group")
+        β1 = pm.Normal("β1", slope_mu, sigma=slope_sigma, dims="group")
 
     # Data
     x = pm.MutableData("x", data.x, dims="obs_id")
@@ -410,7 +412,7 @@ pm.model_to_graphviz(hierarchical)
 
 ```{code-cell} ipython3
 with hierarchical:
-    idata = pm.sample(tune=2000)
+    idata = pm.sample(tune=2000, target_accept=0.99)
 
 az.plot_trace(idata, filter_vars="regex", var_names=["~μ"]);
 ```
