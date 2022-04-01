@@ -431,7 +431,7 @@ xi, g = np.concatenate(xi), np.concatenate(g)
 # Do the posterior prediction
 with hierarchical:
     pm.set_data({"x": xi, "g": g.astype(int)})
-    idata.extend(pm.sample_posterior_predictive(idata, var_names=["μ", "y"], keep_size=True))
+    idata.extend(pm.sample_posterior_predictive(idata, var_names=["μ", "y"]))
 ```
 
 ```{code-cell} ipython3
