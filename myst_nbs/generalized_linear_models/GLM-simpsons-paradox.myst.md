@@ -51,9 +51,11 @@ rng = np.random.default_rng(1234)
 
 ## Generate data
 
-This data generation code was influenced by this [stackexchange](https://stats.stackexchange.com/questions/479201/understanding-simpsons-paradox-with-random-effects) question.
+This data generation was influenced by this [stackexchange](https://stats.stackexchange.com/questions/479201/understanding-simpsons-paradox-with-random-effects) question.
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 def generate():
     group_list = ["one", "two", "three", "four", "five"]
     trials_per_group = 20
@@ -71,8 +73,9 @@ def generate():
     y = rng.normal(intercept + (x - mx) * slope, 1)
     data = pd.DataFrame({"group": group, "group_idx": subject, "x": x, "y": y})
     return data, group_list
+```
 
-
+```{code-cell} ipython3
 data, group_list = generate()
 ```
 
@@ -85,6 +88,8 @@ display(data)
 And we can visualise this as below.
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 for i, group in enumerate(group_list):
     plt.scatter(
         data.query(f"group_idx=={i}").x,
@@ -108,21 +113,13 @@ First we examine the simplest model - plain linear regression which pools all th
 ### Build model
 
 ```{code-cell} ipython3
-COORDS = {
-    "group": np.sort(data.group.unique()),
-}
-
-with pm.Model(coords=COORDS) as linear_regression:
-    # Define priors
+with pm.Model() as linear_regression:
     sigma = pm.HalfCauchy("sigma", beta=2)
     β0 = pm.Normal("β0", 0, sigma=5)
     β1 = pm.Normal("β1", 0, sigma=5)
-    # Data
-    x = pm.MutableData("x", data.x)
-    # Linear model
+    x = pm.MutableData("x", data.x, dims="obs_id")
     μ = pm.Deterministic("μ", β0 + β1 * x)
-    # Define likelihood
-    pm.Normal("y", mu=μ, sigma=sigma, observed=data.y)
+    pm.Normal("y", mu=μ, sigma=sigma, observed=data.y, dims="obs_id")
 ```
 
 ```{code-cell} ipython3
@@ -137,7 +134,7 @@ with linear_regression:
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(idata, var_names=["β0", "β1", "sigma"]);
+az.plot_trace(idata, filter_vars="regex", var_names=["~μ"]);
 ```
 
 ### Visualisation
@@ -149,10 +146,12 @@ xi = np.linspace(data.x.min(), data.x.max(), 20)
 # do posterior predictive inference
 with linear_regression:
     pm.set_data({"x": xi})
-    idata.extend(pm.sample_posterior_predictive(idata))
+    idata.extend(pm.sample_posterior_predictive(idata, var_names=["y", "μ"]))
 ```
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 fig, ax = plt.subplots(1, 3, figsize=(12, 4))
 
 # conditional mean plot ---------------------------------------------
@@ -183,7 +182,7 @@ ax[1].plot(xi, idata.posterior_predictive.y.mean(["chain", "draw"]), "k")
 
 az.plot_hdi(
     xi,
-    idata.posterior_predictive.y.mean(["chain", "draw"]),
+    idata.posterior_predictive.y,
     hdi_prob=0.6,
     color="k",
     fill_kwargs={"alpha": 0.2, "linewidth": 0},
@@ -191,7 +190,7 @@ az.plot_hdi(
 )
 az.plot_hdi(
     xi,
-    idata.posterior_predictive.y.mean(["chain", "draw"]),
+    idata.posterior_predictive.y,
     hdi_prob=0.95,
     color="k",
     fill_kwargs={"alpha": 0.2, "linewidth": 0},
@@ -202,8 +201,8 @@ ax[1].set(xlabel="x", ylabel="y", title="Posterior predictive distribution")
 
 # parameter space ---------------------------------------------------
 ax[2].scatter(
-    trace.posterior.β1.stack(sample=("chain", "draw")),
-    trace.posterior.β0.stack(sample=("chain", "draw")),
+    idata.posterior.β1.stack(sample=("chain", "draw")),
+    idata.posterior.β0.stack(sample=("chain", "draw")),
     color="k",
     alpha=0.01,
     rasterized=True,
@@ -232,7 +231,7 @@ One of the clear things about this analysis is that we have credible evidence th
 We will use the same data in this analysis, but this time we will use our knowledge that data come from groups. More specifically we will essentially fit independent regressions to data within each group.
 
 ```{code-cell} ipython3
-coords = {"group": group_list, "observation": np.arange(data.shape[0])}
+coords = {"group": group_list}
 
 with pm.Model(coords=coords) as ind_slope_intercept:
     # Define priors
@@ -240,12 +239,12 @@ with pm.Model(coords=coords) as ind_slope_intercept:
     β0 = pm.Normal("β0", 0, sigma=5, dims="group")
     β1 = pm.Normal("β1", 0, sigma=5, dims="group")
     # Data
-    x = pm.MutableData("x", data.x)
-    g = pm.MutableData("g", data.group_idx)
+    x = pm.MutableData("x", data.x, dims="obs_id")
+    g = pm.MutableData("g", data.group_idx, dims="obs_id")
     # Linear model
-    μ = pm.Deterministic("μ", β0[g] + β1[g] * x)
+    μ = pm.Deterministic("μ", β0[g] + β1[g] * x, dims="obs_id")
     # Define likelihood
-    pm.Normal("y", mu=μ, sigma=sigma[g], observed=data.y)
+    pm.Normal("y", mu=μ, sigma=sigma[g], observed=data.y, dims="obs_id")
 ```
 
 By plotting the DAG for this model it is clear to see that we now have individual intercept, slope, and variance parameters for each of the groups.
@@ -258,7 +257,7 @@ pm.model_to_graphviz(ind_slope_intercept)
 with ind_slope_intercept:
     idata = pm.sample()
 
-az.plot_trace(idata, var_names=["β0", "β1", "sigma"]);
+az.plot_trace(idata, filter_vars="regex", var_names=["~μ"]);
 ```
 
 ### Visualisation
@@ -272,15 +271,20 @@ xi = [
 g = [np.ones(10) * i for i, _ in enumerate(group_list)]
 xi, g = np.concatenate(xi), np.concatenate(g)
 
-g.astype(int)
-
 # Do the posterior prediction
 with ind_slope_intercept:
     pm.set_data({"x": xi, "g": g.astype(int)})
-    idata.extend(pm.sample_posterior_predictive(idata))
+    idata.extend(pm.sample_posterior_predictive(idata, var_names=["μ", "y"]))
 ```
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
+def get_ppy_for_group(group_list, group):
+    """Get posterior predictive outcomes for observations from a given group"""
+    return idata.posterior_predictive.y.data[:, :, group_list == group]
+
+
 fig, ax = plt.subplots(1, 3, figsize=(12, 4))
 
 # conditional mean plot ---------------------------------------------
@@ -321,10 +325,10 @@ for i, groupname in enumerate(group_list):
     # data
     ax[1].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
     # posterior mean and HDI's
-    ax[1].plot(xi[g == i], np.mean(pp_y[:, :, g == i], axis=(0, 1)), label=groupname)
+    ax[1].plot(xi[g == i], np.mean(get_ppy_for_group(g, i), axis=(0, 1)), label=groupname)
     az.plot_hdi(
         xi[g == i],
-        pp_y[:, :, g == i],
+        get_ppy_for_group(g, i),  # pp_y[:, :, g == i],
         hdi_prob=0.6,
         color=f"C{i}",
         fill_kwargs={"alpha": 0.4, "linewidth": 0},
@@ -332,7 +336,7 @@ for i, groupname in enumerate(group_list):
     )
     az.plot_hdi(
         xi[g == i],
-        pp_y[:, :, g == i],
+        get_ppy_for_group(g, i),
         hdi_prob=0.95,
         color=f"C{i}",
         fill_kwargs={"alpha": 0.2, "linewidth": 0},
@@ -369,11 +373,6 @@ In one sense this move from Model 2 to Model 3 can be seen as adding parameters,
 Note: This model was producing divergent samples, so a reparameterisation trick is used. See the blog post [Why hierarchical models are awesome, tricky, and Bayesian](https://twiecki.io/blog/2017/02/08/bayesian-hierchical-non-centered/) by Thomas Wiecki for more information on this.
 
 ```{code-cell} ipython3
-coords = {
-    "group": group_list,
-    "observation": np.arange(data.shape[0]),
-}
-
 with pm.Model(coords=coords) as hierarchical:
     # Hyperpriors
     intercept_mu = pm.Normal("intercept_mu", 0, sigma=1)
@@ -395,12 +394,12 @@ with pm.Model(coords=coords) as hierarchical:
     β1 = pm.Deterministic("β1", slope_mu + β1_offset * slope_sigma, dims="group")
 
     # Data
-    x = pm.MutableData("x", data.x, dims="observation")
-    g = pm.MutableData("g", data.group_idx, dims="observation")
+    x = pm.MutableData("x", data.x, dims="obs_id")
+    g = pm.MutableData("g", data.group_idx, dims="obs_id")
     # Linear model
-    μ = pm.Deterministic("μ", β0[g] + β1[g] * x, dims="observation")
+    μ = pm.Deterministic("μ", β0[g] + β1[g] * x, dims="obs_id")
     # Define likelihood
-    pm.Normal("y", mu=μ, sigma=sigma[g], observed=data.y, dims="observation")
+    pm.Normal("y", mu=μ, sigma=sigma[g], observed=data.y, dims="obs_id")
 ```
 
 Plotting the DAG now makes it clear that the group-level intercept and slope parameters are drawn from a population level distributions. That is, we have hyper-priors for the slopes and intercept parameters. This particular model does not have a hyper-prior for the measurement error - this is just left as one parameter per group, as in the previous model.
@@ -411,9 +410,9 @@ pm.model_to_graphviz(hierarchical)
 
 ```{code-cell} ipython3
 with hierarchical:
-    idata = pm.sample()
+    idata = pm.sample(tune=2000)
 
-az.plot_trace(idata);
+az.plot_trace(idata, filter_vars="regex", var_names=["~μ"]);
 ```
 
 ### Visualise
@@ -430,10 +429,12 @@ xi, g = np.concatenate(xi), np.concatenate(g)
 # Do the posterior prediction
 with hierarchical:
     pm.set_data({"x": xi, "g": g.astype(int)})
-    pp_y = pm.sample_posterior_predictive(idata, keep_size=True)["y"]
+    idata.extend(pm.sample_posterior_predictive(idata, var_names=["μ", "y"], keep_size=True))
 ```
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 fig, ax = plt.subplots(1, 3, figsize=(12, 4))
 
 # conditional mean plot ---------------------------------------------
@@ -474,10 +475,10 @@ for i, groupname in enumerate(group_list):
     # data
     ax[1].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
     # posterior mean and HDI's
-    ax[1].plot(xi[g == i], np.mean(pp_y[:, :, g == i], axis=(0, 1)), label=groupname)
+    ax[1].plot(xi[g == i], np.mean(get_ppy_for_group(g, i), axis=(0, 1)), label=groupname)
     az.plot_hdi(
         xi[g == i],
-        pp_y[:, :, g == i],
+        get_ppy_for_group(g, i),
         hdi_prob=0.6,
         color=f"C{i}",
         fill_kwargs={"alpha": 0.4, "linewidth": 0},
@@ -485,7 +486,7 @@ for i, groupname in enumerate(group_list):
     )
     az.plot_hdi(
         xi[g == i],
-        pp_y[:, :, g == i],
+        get_ppy_for_group(g, i),
         hdi_prob=0.95,
         color=f"C{i}",
         fill_kwargs={"alpha": 0.2, "linewidth": 0},
@@ -516,12 +517,14 @@ for i, _ in enumerate(group_list):
 
 ax[2].set(xlabel="slope", ylabel="intercept", title="Parameter space", xlim=[-2, 1], ylim=[-5, 5])
 ax[2].axhline(y=0, c="k")
-ax[2].axvline(x=0, c="k")
+ax[2].axvline(x=0, c="k");
 ```
 
 The panel on the right shows the posterior group level posterior of the slope and intercept parameters in black. This particular visualisation is a little unclear however, so we can just plot the marginal distribution below to see how much belief we have in the slope being less than zero.
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 az.plot_posterior(slope, ref_val=0)
 plt.title("Population level slope parameter")
 ```
@@ -539,7 +542,7 @@ If you are interested in learning more, there are a number of other [PyMC exampl
 
 ## Authors
 * Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in July 2021
-* Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in March 2022
+* Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in April 2022
 
 +++
 
