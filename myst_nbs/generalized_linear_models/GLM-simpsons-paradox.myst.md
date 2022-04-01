@@ -118,7 +118,7 @@ with pm.Model() as linear_regression:
     β0 = pm.Normal("β0", 0, sigma=5)
     β1 = pm.Normal("β1", 0, sigma=5)
     x = pm.MutableData("x", data.x, dims="obs_id")
-    μ = pm.Deterministic("μ", β0 + β1 * x)
+    μ = pm.Deterministic("μ", β0 + β1 * x, dims="obs_id")
     pm.Normal("y", mu=μ, sigma=sigma, observed=data.y, dims="obs_id")
 ```
 
