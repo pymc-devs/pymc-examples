@@ -9,6 +9,9 @@ kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
+substitutions:
+  conda_dependencies: '!!xarray-einstats not available!!'
+  pip_dependencies: xarray-einstats
 ---
 
 (putting_workflow)=
@@ -23,6 +26,9 @@ kernelspec:
 **This uses and closely follows [the case study from Andrew Gelman](https://mc-stan.org/users/documentation/case-studies/golf.html), written in Stan. There are some new visualizations and we steered away from using improper priors, but much credit to him and to the Stan group for the wonderful case study and software.**
 
 We use a data set from "Statistics: A Bayesian Perspective" {cite:p}`berry1996statistics`. The dataset describes the outcome of professional golfers putting from a number of distances, and is small enough that we can just print and load it inline, instead of doing any special `csv` reading.
+
+:::{include} ../extra_installs.md
+:::
 
 ```{code-cell} ipython3
 import io
@@ -112,7 +118,7 @@ ax = plot_golf_data(golf_data)
 ax.set_title("Overview of data from Berry (1996)");
 ```
 
-After plotting, we see that generally golfers are less accurate from further away. Note that this data is pre-aggregated: we may be able to do more interesting work with granular putt-by-putt data. This data set appears to have been binned to the nearest foot. 
+After plotting, we see that generally golfers are less accurate from further away. Note that this data is pre-aggregated: we may be able to do more interesting work with granular putt-by-putt data. This data set appears to have been binned to the nearest foot.
 
 We might think about doing prediction with this data: fitting a curve to this data would allow us to make reasonable guesses at intermediate distances, as well as perhaps to extrapolate to longer distances.
 
@@ -124,7 +130,7 @@ First we will fit a traditional logit-binomial model. We model the number of suc
 
 $$
 a, b \sim \mathcal{N}(0, 1) \\
-p(\text{success}) = \operatorname{logit}^{-1}(a \cdot \text{distance} + b) \\ 
+p(\text{success}) = \operatorname{logit}^{-1}(a \cdot \text{distance} + b) \\
 \text{num. successes} \sim \operatorname{Binomial}(\text{tries}, p(\text{success}))
 $$
 
@@ -211,7 +217,7 @@ $$
 \mathbb{E}[f(\theta)] \ne f(\mathbb{E}[\theta]).
 $$
 
-this appeared here in using 
+this appeared here in using
 
 ```python
 # Right!
@@ -505,7 +511,7 @@ u \sim \mathcal{N}\left(1 + \text{distance}, \sigma_{\text{distance}} (1 + \text
 $$
 where we will learn $\sigma_{\text{distance}}$.
 
-Again, this is a geometry and algebra problem to work the probability that the ball goes in from any given distance: 
+Again, this is a geometry and algebra problem to work the probability that the ball goes in from any given distance:
 $$
 P(\text{good distance}) = P(\text{distance} < u < \text{distance} + 3)
 $$
@@ -616,7 +622,7 @@ ax.set_title("Residuals of new model");
 
 ## A new model
 
-It is reasonable to stop at this point, but if we want to improve the fit everywhere, we may want to choose a different likelihood from the `Binomial`, which cares deeply about those points with many observations. One thing we could do is add some independent extra error to each data point. We could do this in a few ways: 
+It is reasonable to stop at this point, but if we want to improve the fit everywhere, we may want to choose a different likelihood from the `Binomial`, which cares deeply about those points with many observations. One thing we could do is add some independent extra error to each data point. We could do this in a few ways:
 1. The `Binomial` distribution in usually parametrized by $n$, the number of observations, and $p$, the probability of an individual success. We could instead parametrize it by mean ($np$) and variance ($np(1-p)$), and add error independent of $n$ to the likelihood.
 2. Use a `BetaBinomial` distribution, though the error there would still be (roughly) proportional to the number observations
 3. Approximate the Binomial with a Normal distribution of the probability of success. This is actually equivalent to the first approach, but does not require a custom distribution. Note that we will use $p$ as the mean, and $p(1-p) / n$ as the variance. Once we add some dispersion $\epsilon$, the variance becomes $p(1-p)/n + \epsilon$.
@@ -721,12 +727,12 @@ ax.set_title("Residuals of dispersed model vs distance/angle model");
 
 ## Beyond prediction
 
-We want to use Bayesian analysis because we care about quantifying uncertainty in our parameters. We have a beautiful geometric model that not only gives us predictions, but gives us posterior distributions over our parameters. We can use this to back out how where our putts may end up, if not in the hole! 
+We want to use Bayesian analysis because we care about quantifying uncertainty in our parameters. We have a beautiful geometric model that not only gives us predictions, but gives us posterior distributions over our parameters. We can use this to back out how where our putts may end up, if not in the hole!
 
 First, we can try to visualize how 20,000 putts from a professional golfer might look. We:
 
 1. Set the number of trials to 5
-2. For each *joint* posterior sample of `variance_of_shot` and `variance_of_distance`, 
+2. For each *joint* posterior sample of `variance_of_shot` and `variance_of_distance`,
    draw an angle and a distance from normal distribution 5 times.
 3. Plot the point, unless it would have gone in the hole
 
