@@ -513,7 +513,7 @@ Nevertheless this is a good method to get some insight into how the variables ar
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p xarray,aesara,aeppl
+%watermark -n -u -v -iv -w -p xarray,aeppl,numba,xarray_einstats
 ```
 
 :::{include} ../page_footer.md
