@@ -15,7 +15,7 @@ kernelspec:
 # Bayesian mediation analysis
 
 :::{post} February, 2022
-:tags: mediation, path analysis, pymc3.ConstantData, pymc3.Deterministic, pymc3.HalfCauchy, pymc3.Model, pymc3.Normal, regression
+:tags: mediation, path analysis, regression
 :category: beginner
 :author: Benjamin T. Vincent
 :::
@@ -23,6 +23,8 @@ kernelspec:
 This notebook covers Bayesian [mediation analysis](https://en.wikipedia.org/wiki/Mediation_(statistics) ). This is useful when we want to explore possible mediating pathways between a predictor and an outcome variable.
 
 It is important to note that the approach to mediation analysis has evolved over time. This notebook was heavily influenced by the approach of {cite:t}`hayes2017introduction` as set out in his textbook "Introduction to Mediation, Moderation and Conditional Process Analysis."
+
+Readers should be aware that mediation analysis is commonly confused with moderation analysis for which we have a separate example ({ref}`moderation_analysis`).
 
 ```{code-cell} ipython3
 import arviz as az

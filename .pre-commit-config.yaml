@@ -6,7 +6,7 @@ repos:
     files: ^examples/.+\.ipynb$
     args: ["--sync"]
 - repo: https://github.com/psf/black
-  rev: 22.1.0
+  rev: 22.3.0
   hooks:
     - id: black-jupyter
 - repo: https://github.com/nbQA-dev/nbQA
@@ -29,7 +29,6 @@ repos:
             |examples/gaussian_processes/GP-Latent\.ipynb$
             |examples/gaussian_processes/GP-MaunaLoa2\.ipynb$
             |examples/samplers/MLDA_gravity_surveying\.ipynb$
-            |examples/case_studies/putting_workflow\.ipynb$
             |examples/pymc3_howto/sampling_callback\.ipynb$
             |examples/case_studies/blackbox_external_likelihood\.ipynb$
             |examples/samplers/GLM-hierarchical-jax\.ipynb$
