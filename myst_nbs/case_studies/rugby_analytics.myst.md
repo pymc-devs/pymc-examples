@@ -10,8 +10,7 @@ kernelspec:
   language: python
   name: python3
 substitutions:
-  conda_dependencies: seaborn numba !!xarray-einstats not available!!
-  pip_dependencies: seaborn numba xarray-einstats
+  extra_dependencies: seaborn numba xarray-einstats
 ---
 
 # A Hierarchical model for Rugby prediction
