@@ -11,8 +11,7 @@ kernelspec:
   language: python
   name: python3
 substitutions:
-  conda_dependencies: seaborn !!xarray-einstats not available!!
-  pip_dependencies: seaborn xarray-einstats
+  extra_dependencies: seaborn xarray-einstats
 ---
 
 (factor_analysis)=
