@@ -95,7 +95,7 @@ If you squint long enough, you may be able to glimpse a few places where distinc
 +++
 
 ## Model
-Probabilistic PCA (PPCA) and factor analysis (FA) are a common source of topics in the PyMC Discourse cite. The posts linked below handle different aspects of the problem including:
+Probabilistic PCA (PPCA) and factor analysis (FA) are a common source of topics on [PyMC Discourse](https://discourse.pymc.io/). The posts linked below handle different aspects of the problem including:
 * [Minibatched FA for large datasets](https://discourse.pymc.io/t/large-scale-factor-analysis-with-minibatch-advi/246)
 * [Handling missing data in FA](https://discourse.pymc.io/t/dealing-with-missing-data/252)
 * [Identifiability in FA / PPCA](https://discourse.pymc.io/t/unique-solution-for-probabilistic-pca/1324/14)
@@ -145,7 +145,7 @@ One of the primary drawbacks for this model formulation is its lack of identifia
 This can be fixed by constraining the form of W to be:
   + Lower triangular
   + Positive with an increasing diagonal
-  
+
 We can adapt `expand_block_triangular` to fill out a non-square matrix. This function mimics `pm.expand_packed_triangular`, but while the latter only works on packed versions of square matrices (i.e. $d=k$ in our model, the former can also be used with nonsquare matrices.
 
 ```{code-cell} ipython3
@@ -256,7 +256,7 @@ ax.legend(loc="upper right");
 
 ### Post-hoc identification of F
 
-The matrix $F$ is typically of interest for factor analysis, and is often used as a feature matrix for dimensionality reduction. However, $F$ has been 
+The matrix $F$ is typically of interest for factor analysis, and is often used as a feature matrix for dimensionality reduction. However, $F$ has been
 marginalized away in order to make fitting the model easier; and now we need it back. This is, in effect, an exercise in least-squares as:
 
 $X|WF \sim N(WF, \Psi)$
