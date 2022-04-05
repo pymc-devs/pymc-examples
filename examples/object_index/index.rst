@@ -1,3 +1,5 @@
+.. _object_index:
+
 ================
 Object use index
 ================
