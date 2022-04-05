@@ -9,22 +9,23 @@ kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
+substitutions:
+  extra_dependencies: seaborn numba xarray-einstats
 ---
 
 # A Hierarchical model for Rugby prediction
 
-:::{post} 30 Aug, 2021
-:tags: hierarchical, pymc3.Data, pymc3.Deterministic, pymc3.HalfNormal, pymc3.Model, pymc3.Normal, pymc3.Poisson, sports
-:category: intermediate
+:::{post} 19 Mar, 2022
+:tags: hierarchical, sports
+:category: intermediate, how-to
+:author: Peadar Coyle, Meenal Jhajharia, Oriol Abril-Pla
 :::
 
 +++
 
-Based on the following blog post: [Daniel Weitzenfeld's](http://danielweitzenfeld.github.io/passtheroc/blog/2014/10/28/bayes-premier-league/), which based on the work of [Baio and Blangiardo](http://discovery.ucl.ac.uk/16040/1/16040.pdf).
+In this example, we're going to reproduce the first model described in {cite:t}`baio2010bayesian` using PyMC. Then show how to sample from the posterior predictive to simulate championship outcomes from the scored goals which are the modeled quantities.
 
-In this example, we're going to reproduce the first model described in the paper using PyMC3.
-
-Since I am a rugby fan I decide to apply the results of the paper to the Six Nations Championship, which is a competition between Italy, Ireland, Scotland, England, France and Wales.
+We apply the results of the paper to the Six Nations Championship, which is a competition between Italy, Ireland, Scotland, England, France and Wales.
 
 +++
 
@@ -33,23 +34,27 @@ Your estimate of the strength of a team depends on your estimates of the other s
 
 Ireland are a stronger team than Italy for example - but by how much?
 
-Source for Results 2014 are Wikipedia. I've added the subsequent years, 2015, 2016, 2017. Manually pulled from Wikipedia. 
+Source for Results 2014 are Wikipedia. I've added the subsequent years, 2015, 2016, 2017. Manually pulled from Wikipedia.
 
-* We want to infer a latent parameter - that is the 'strength' of a team based only on their **scoring intensity**, and all we have are their scores and results, we can't accurately measure the 'strength' of a team. 
+* We want to infer a latent parameter - that is the 'strength' of a team based only on their **scoring intensity**, and all we have are their scores and results, we can't accurately measure the 'strength' of a team.
 * Probabilistic Programming is a brilliant paradigm for modeling these **latent** parameters
 * Aim is to build a model for the upcoming Six Nations in 2018.
+
++++
+
+:::{include} ../extra_installs.md
+:::
 
 ```{code-cell} ipython3
 !date
 
+import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
-import theano.tensor as tt
-import xarray as xr
 
 from matplotlib.ticker import StrMethodFormatter
 
@@ -88,7 +93,7 @@ except:
 +++
 
 ### Visualization/EDA
-We should do some some exploratory data analysis of this dataset. 
+We should do some some exploratory data analysis of this dataset.
 
 The plots should be fairly self-explantory, we'll look at things like difference between teams in terms of their scores.
 
@@ -101,8 +106,8 @@ df_all.describe()
 df_all.tail()
 ```
 
-There are a few things here that we don't need. We don't need the year for our model. 
-But that is something that could improve a future model. 
+There are a few things here that we don't need. We don't need the year for our model.
+But that is something that could improve a future model.
 
 Firstly let us look at differences in scores by year.
 
@@ -158,12 +163,12 @@ You can see that Italy and Scotland have negative scores on average. You can als
 );
 ```
 
-This indicates that Italy, Scotland and France all have poor away from home form. 
+This indicates that Italy, Scotland and France all have poor away from home form.
 England suffers the least when playing away from home. This aggregate view doesn't take into account the strength of the teams.
 
 +++
 
-Let us look a bit more at a timeseries plot of the average of the score difference over the year. 
+Let us look a bit more at a timeseries plot of the average of the score difference over the year.
 
 We see some changes in team behaviour, and we also see that Italy is a poor team.
 
@@ -179,8 +184,8 @@ g = g.map(plt.scatter, "year", "difference_non_abs").set_axis_labels("Year", "Sc
 g.fig.autofmt_xdate()
 ```
 
-You can see some interesting things here like Wales were good away from home in 2015. 
-In that year they won three games away from home and won by 40 points or so away from home to Italy. 
+You can see some interesting things here like Wales were good away from home in 2015.
+In that year they won three games away from home and won by 40 points or so away from home to Italy.
 
 So now we've got a feel for the data, we can proceed on with describing the model.
 
@@ -197,7 +202,7 @@ So now we've got a feel for the data, we can proceed on with describing the mode
 
 ## The model.
 
-The league is made up by a total of T= 6 teams, playing each other once 
+The league is made up by a total of T= 6 teams, playing each other once
 in a season. We indicate the number of points scored by the home and the away team in the g-th game of the season (15 games) as $y_{g1}$ and $y_{g2}$ respectively. </p>
 The vector of observed counts $\mathbb{y} = (y_{g1}, y_{g2})$ is modelled as independent Poisson:
 $y_{gi}| \theta_{gj} \tilde\;\;  Poisson(\theta_{gj})$
@@ -217,25 +222,26 @@ $$log \theta_{g2} = att_{a(g)} + def_{h(g)}$$
 
 * $att_{t} \; \tilde\;\; Normal(\mu_{att},\tau_{att})$ and $def_{t} \; \tilde\;\;Normal(\mu_{def},\tau_{def})$
 
-+++
-
-* We did some munging above and adjustments of the data to make it **tidier** for our model. 
+* We did some munging above and adjustments of the data to make it **tidier** for our model.
 * The log function to away scores and home scores is a standard trick in the sports analytics literature
 
-## Building of the model 
-* We now build the model in PyMC3, specifying the global parameters, and the team-specific parameters and the likelihood function
++++
+
+## Building of the model
+We now build the model in PyMC, specifying the global parameters, the team-specific parameters and the likelihood function
 
 ```{code-cell} ipython3
+plt.rcParams["figure.constrained_layout.use"] = True
 home_idx, teams = pd.factorize(df_all["home_team"], sort=True)
 away_idx, _ = pd.factorize(df_all["away_team"], sort=True)
-coords = {"team": teams, "match": np.arange(60)}
+coords = {"team": teams}
 ```
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as model:
     # constant data
-    home_team = pm.Data("home_team", home_idx, dims="match")
-    away_team = pm.Data("away_team", away_idx, dims="match")
+    home_team = pm.ConstantData("home_team", home_idx, dims="match")
+    away_team = pm.ConstantData("away_team", away_idx, dims="match")
 
     # global model parameters
     home = pm.Normal("home", mu=0, sigma=1)
@@ -247,10 +253,10 @@ with pm.Model(coords=coords) as model:
     atts_star = pm.Normal("atts_star", mu=0, sigma=sd_att, dims="team")
     defs_star = pm.Normal("defs_star", mu=0, sigma=sd_def, dims="team")
 
-    atts = pm.Deterministic("atts", atts_star - tt.mean(atts_star), dims="team")
-    defs = pm.Deterministic("defs", defs_star - tt.mean(defs_star), dims="team")
-    home_theta = tt.exp(intercept + home + atts[home_idx] + defs[away_idx])
-    away_theta = tt.exp(intercept + atts[away_idx] + defs[home_idx])
+    atts = pm.Deterministic("atts", atts_star - at.mean(atts_star), dims="team")
+    defs = pm.Deterministic("defs", defs_star - at.mean(defs_star), dims="team")
+    home_theta = at.exp(intercept + home + atts[home_idx] + defs[away_idx])
+    away_theta = at.exp(intercept + atts[away_idx] + defs[home_idx])
 
     # likelihood of observed data
     home_points = pm.Poisson(
@@ -265,16 +271,12 @@ with pm.Model(coords=coords) as model:
         observed=df_all["away_score"],
         dims=("match"),
     )
-    trace = pm.sample(1000, tune=1000, cores=4, return_inferencedata=True, target_accept=0.85)
+    trace = pm.sample(1000, tune=1500, cores=4)
 ```
 
 * We specified the model and the likelihood function
 
-* All this runs on a Theano graph under the hood
-
-* `return_inferencedata=True` stores Arviz.InferenceData in trace variable
-
-* Note: To know more about Arviz-Pymc3 integration, see [official documentation](https://arviz-devs.github.io/arviz/api/generated/arviz.InferenceData.html)
+* All this runs on an Aesara graph under the hood
 
 ```{code-cell} ipython3
 az.plot_trace(trace, var_names=["intercept", "home", "sd_att", "sd_def"], compact=False);
@@ -326,25 +328,31 @@ ax.set_ylabel("Posterior Attack Strength")
 ax.set_title("HDI of Team-wise Attack Strength");
 ```
 
-This is one of the powerful things about Bayesian modelling, we can have *uncertainty quantification* of some of our estimates. 
-We've got a Bayesian credible interval for the attack strength of different countries. 
+This is one of the powerful things about Bayesian modelling, we can have *uncertainty quantification* of some of our estimates.
+We've got a Bayesian credible interval for the attack strength of different countries.
 
 We can see an overlap between Ireland, Wales and England which is what you'd expect since these teams have won in recent years.
 
 Italy is well behind everyone else - which is what we'd expect and there's an overlap between Scotland and France which seems about right.
 
-There are probably some effects we'd like to add in here, like weighting more recent results more strongly. 
+There are probably some effects we'd like to add in here, like weighting more recent results more strongly.
 However that'd be a much more complicated model.
 
 ```{code-cell} ipython3
-ax = az.plot_forest(trace, var_names=["atts"])
-ax[0].set_yticklabels(teams)
+# subclass arviz labeller to omit the variable name
+class TeamLabeller(az.labels.BaseLabeller):
+    def make_label_flat(self, var_name, sel, isel):
+        sel_str = self.sel_to_str(sel, isel)
+        return sel_str
+```
+
+```{code-cell} ipython3
+ax = az.plot_forest(trace, var_names=["atts"], labeller=TeamLabeller())
 ax[0].set_title("Team Offense");
 ```
 
 ```{code-cell} ipython3
-ax = az.plot_forest(trace, var_names=["defs"])
-ax[0].set_yticklabels(teams)
+ax = az.plot_forest(trace, var_names=["defs"], labeller=TeamLabeller())
 ax[0].set_title("Team Defense");
 ```
 
@@ -352,27 +360,27 @@ Good teams like Ireland and England have a strong negative effect defense. Which
 
 +++
 
-This approach that we're using of looking at parameters and examining them is part of a good statistical workflow. 
-We also think that perhaps our priors could be better specified. However this is beyond the scope of this article. 
+This approach that we're using of looking at parameters and examining them is part of a good statistical workflow.
+We also think that perhaps our priors could be better specified. However this is beyond the scope of this article.
 We recommend for a good discussion of 'statistical workflow' you visit [Robust Statistical Workflow with RStan](http://mc-stan.org/users/documentation/case-studies/rstan_workflow.html)
 
 +++
 
-Let's do some other plots. So we can see our range for our defensive effect. 
+Let's do some other plots. So we can see our range for our defensive effect.
 I'll print the teams below too just for reference
 
 ```{code-cell} ipython3
 az.plot_posterior(trace, var_names=["defs"]);
 ```
 
-We know Ireland is defs_2 so let's talk about that one. We can see that it's mean is -0.39 
-which means we expect Ireland to have a strong defense. Which is what we'd expect, Ireland generally even in games it loses doesn't lose by say 50 points.
-And we can see that the 95% HDI is between -0.491, and -0.28  
+We can see that Ireland's mean is -0.39  which means we expect Ireland to have a strong defense.
+Which is what we'd expect, Ireland generally even in games it loses doesn't lose by say 50 points.
+And we can see that the 94% HDI is between -0.491, and -0.28
 
-In comparison with Italy, we see a strong positive effect 0.58 mean and a HDI of 0.51 and 0.65. This means that we'd expect Italy to concede a lot of points, compared to what it scores. 
-Given that Italy often loses by 30 - 60 points, this seems correct. 
+In comparison with Italy, we see a strong positive effect 0.58 mean and a HDI of 0.51 and 0.65. This means that we'd expect Italy to concede a lot of points, compared to what it scores.
+Given that Italy often loses by 30 - 60 points, this seems correct.
 
-We see here also that this informs what other priors we could bring into this. We could bring some sort of world ranking as a prior. 
+We see here also that this informs what other priors we could bring into this. We could bring some sort of world ranking as a prior.
 
 As of December 2017 the [rugby rankings](https://www.worldrugby.org/rankings/mru) indicate that England is 2nd in the world, Ireland 3rd, Scotland 5th, Wales 7th, France 9th and Italy 14th. We could bring that into a model and it can explain some of the fact that Italy is apart from a lot of the other teams.
 
@@ -382,11 +390,15 @@ Now let's simulate who wins over a total of 4000 simulations, one per sample in 
 
 ```{code-cell} ipython3
 with model:
-    trace.extend(az.from_pymc3(posterior_predictive=pm.sample_posterior_predictive(trace)))
+    pm.sample_posterior_predictive(trace, extend_inferencedata=True)
 pp = trace.posterior_predictive
 const = trace.constant_data
 team_da = trace.posterior.team
 ```
+
+The posterior predictive samples contain the goals scored by each team in each match. We modeled and therefore simulated according to scoring and devensive powers using goals as observed variable.
+
+Our goal now is to see who wins the competition, so we can estimate the probability each team has of winning the whole competition. From that we need to convert the scored goals to points:
 
 ```{code-cell} ipython3
 # fmt: off
@@ -395,45 +407,55 @@ pp["home_win"] = (
     + (pp["home_points"] == pp["away_points"]) * 2  # tie -> home team gets 2 points
 )
 pp["away_win"] = (
-    (pp["home_points"] < pp["away_points"]) * 3 
+    (pp["home_points"] < pp["away_points"]) * 3
     + (pp["home_points"] == pp["away_points"]) * 2
 )
+# fmt: on
+```
+
+Then add the points each team has collected throughout all matches:
+
+```{code-cell} ipython3
 groupby_sum_home = pp.home_win.groupby(team_da[const.home_team]).sum()
 groupby_sum_away = pp.away_win.groupby(team_da[const.away_team]).sum()
 
 pp["teamscores"] = groupby_sum_home + groupby_sum_away
-# fmt: on
 ```
 
-```{code-cell} ipython3
-from scipy.stats import rankdata
+And eventually generate the ranks of all teams for each of the 4000 simulations. As our data is stored in xarray objects inside the InferenceData class, we will use {doc}`einstats:index`:
 
-pp["rank"] = xr.apply_ufunc(
-    rankdata,
-    -pp["teamscores"],
-    input_core_dims=[["team"]],
-    output_core_dims=[["team"]],
-    kwargs=dict(axis=-1, method="min"),
+```{code-cell} ipython3
+from xarray_einstats.stats import rankdata
+
+pp["rank"] = rankdata(-pp["teamscores"], dims="team", method="min")
+pp[["rank"]].sel(team="England")
+```
+
+As you can see, we now have a collection of 4000 integers between 1 and 6 for each team, 1 meaning they win the competition. We can use a histogram with bin edges at half integers to count and normalize how many times each team
+finishes in each position:
+
+```{code-cell} ipython3
+from xarray_einstats.numba import histogram
+
+bin_edges = np.arange(7) + 0.5
+data_sim = (
+    histogram(pp["rank"], dims=("chain", "draw"), bins=bin_edges, density=True)
+    .rename({"bin": "rank"})
+    .assign_coords(rank=np.arange(6) + 1)
 )
 ```
 
-```{code-cell} ipython3
-# We now create a dict to store the counts of ranks held by each team
-data_sim = {}
-for i in teams:
-    u, c = np.unique(pp["rank"].sel(team=i).values, return_counts=True)
-    s = pd.Series(data=c, index=u)
-    data_sim[i] = s
-sim_table = pd.DataFrame.from_dict(data_sim).fillna(0) / pp.dims["draw"]
-```
+Now that we have reduced the data to a 2 dimensional array, we will convert it to a pandas DataFrame
+which is now a more adequate choice to work with our data:
 
 ```{code-cell} ipython3
-sim_table.style.hide_index()
+idx_dim, col_dim = data_sim.dims
+sim_table = pd.DataFrame(data_sim, index=data_sim[idx_dim], columns=data_sim[col_dim])
 ```
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(8, 4))
-ax = sim_table.plot(kind="barh", ax=ax)
+ax = sim_table.T.plot(kind="barh", ax=ax)
 ax.xaxis.set_major_formatter(StrMethodFormatter("{x:.1%}"))
 ax.set_xlabel("Rank-wise Probability of results for all six teams")
 ax.set_yticklabels(np.arange(1, 7))
@@ -443,8 +465,10 @@ ax.legend(loc="best", fontsize="medium");
 ```
 
 We see according to this model that Ireland finishes with the most points about 60% of the time, and England finishes with the most points 45% of the time and Wales finishes with the most points about 10% of the time.  (Note that these probabilities do not sum to 100% since there is a non-zero chance of a tie atop the table.)
-As an Irish rugby fan - I like this model. However it indicates some problems with shrinkage, and bias. Since recent form suggests England will win. 
-Nevertheless the point of this model was to illustrate how a Hierachical model could be applied to a sports analytics problem, and illustrate the power of PyMC3.
+
+> As an Irish rugby fan - I like this model. However it indicates some problems with shrinkage, and bias. Since recent form suggests England will win.
+
+Nevertheless the point of this model was to illustrate how a Hierachical model could be applied to a sports analytics problem, and illustrate the power of PyMC.
 
 +++
 
@@ -463,16 +487,37 @@ az.plot_pair(
 figsize = (10, 10)
 ```
 
-We observe that there isn't a lot of correlation between these covariates, other than the weaker teams like Italy have a more negative distribution of these variables. 
+We observe that there isn't a lot of correlation between these covariates, other than the weaker teams like Italy have a more negative distribution of these variables.
 Nevertheless this is a good method to get some insight into how the variables are behaving.
 
 +++
 
-* Original Author: Peadar Coyle
-* peadarcoyle@gmail.com
+## Authors
+
+* Adapted [Daniel Weitzenfeld's](http://danielweitzenfeld.github.io/passtheroc/blog/2014/10/28/bayes-premier-league/) blog post by [Peadar Coyle](). The original blog post was based on the work of {cite:p}`baio2010bayesian`
 * Updated by Meenal Jhajharia to use ArviZ and xarray
+* Updated by Oriol Abril-Pla to use PyMC v4 and xarray-einstats
+
++++
+
+## References
+
+:::{bibliography}
+:filter: docname in docnames
+:::
+
++++
+
+## Watermark
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w
+%watermark -n -u -v -iv -w -p xarray,aeppl,numba,xarray_einstats
+```
+
+:::{include} ../page_footer.md
+:::
+
+```{code-cell} ipython3
+
 ```
