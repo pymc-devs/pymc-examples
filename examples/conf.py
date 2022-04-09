@@ -155,6 +155,7 @@ intersphinx_mapping = {
     "aesara": ("https://aesara.readthedocs.io/en/latest/", None),
     "arviz": ("https://arviz-devs.github.io/arviz/", None),
     "bambi": ("https://bambinos.github.io/bambi/main", None),
+    "einstats": ("https://xarray-einstats.readthedocs.io/en/stable/", None),
     "mpl": ("https://matplotlib.org/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
