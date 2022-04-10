@@ -497,7 +497,7 @@ The histograms above suggest that it might be appropriate to add a hierarchical 
 * Adapted from Austin Rochford's [blogpost on NBA Foul Calls and Bayesian Item Response Theory](https://www.austinrochford.com/posts/2017-04-04-nba-irt.html) by [Lorenzo Toniazzi](https://github.com/ltoniazzi) on  3 Jul 2021 ([PR181](https://github.com/pymc-devs/pymc-examples/pull/181))
 * Re-executed by [Michael Osthege](https://github.com/michaelosthege) on  10 Jan 2022 ([PR266](https://github.com/pymc-devs/pymc-examples/pull/266))
 * Re-executed by [Oriol Abril-Pla](https://github.com/OriolAbril) on  3 Jul 2021 ([PR283](https://github.com/pymc-devs/pymc-examples/pull/283))
-* Updated by [Lorenzo Toniazzi](https://github.com/ltoniazzi) on  12 Apr 2022 ([PR?](?))
+* Updated by [Lorenzo Toniazzi](https://github.com/ltoniazzi) on  15 Apr 2022 ([PR309](https://github.com/pymc-devs/pymc-examples/pull/309))
 
 +++
 
