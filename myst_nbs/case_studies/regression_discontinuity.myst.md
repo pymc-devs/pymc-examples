@@ -27,9 +27,9 @@ The [regression discontinuity design](https://en.wikipedia.org/wiki/Regression_d
 :::{figure-md} fig-target
 :class: myclass
 
-<img src="regression_discontinuity.gif" alt="regression discontinuity design schematic" class="bg-primary mb-1">
+<img src="regression_discontinuity.png" alt="regression discontinuity design schematic" class="bg-primary mb-1">
 
-A schematic diagram of the regression discontinuity design. The dashed green line shows where we would have expected the post test scores of the test group to be if they had not recieved the treatment. Image taken from https://conjointly.com/kb/regression-discontinuity-design/.
+A schematic diagram of the regression discontinuity design. The dashed green line shows where we would have expected the post test scores of the test group to be if they had not recieved the treatment. Image taken from [https://conjointly.com/kb/regression-discontinuity-design/](https://conjointly.com/kb/regression-discontinuity-design/).
 :::
 
 Units with very low scores are likely to differ systematically along some dimensions than units with very high scores. For example, if we look at students who achieve the highest, and students who achieve the lowest, in all likelihood there are confounding variables. Students with high scores are likely to have come from more priviledged backgrounds than those with the lowest scores. 
