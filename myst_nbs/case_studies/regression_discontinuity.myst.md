@@ -53,6 +53,9 @@ import pymc as pm
 ```
 
 ```{code-cell} ipython3
+RANDOM_SEED = 1234
+rng = np.random.default_rng(RANDOM_SEED)
+az.style.use("arviz-darkgrid")
 %config InlineBackend.figure_format = 'retina'
 ```
 
@@ -70,9 +73,9 @@ sd = 0.3  # represents change between pre and post test with zero measurement er
 
 # No measurement error, but random change from pre to post
 df = (
-    pd.DataFrame.from_dict({"x": np.random.randn(N)})
+    pd.DataFrame.from_dict({"x": rng.normal(size=N)})
     .assign(treated=lambda x: x.x > threshold)
-    .assign(y=lambda x: x.x + np.random.randn(N) * sd + treatment_effect * x.treated)
+    .assign(y=lambda x: x.x + rng.normal(loc=0, scale=sd, size=N) + treatment_effect * x.treated)
 )
 
 df
@@ -88,7 +91,6 @@ def plot_data(df):
     ax.axvline(x=threshold, color="k", ls="--", lw=3, label="treatment threshold")
     ax.set(xlabel=r"observed $x$ (pre-test)", ylabel=r"observed $y$ (post-test)")
     plt.legend()
-    plt.grid()
     return ax
 
 
