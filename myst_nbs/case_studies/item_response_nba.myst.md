@@ -229,7 +229,7 @@ We now plot our model to show the hierarchical structure (and the non-centered p
 ```{code-cell} ipython3
 :tags: []
 
-pm.model_to_graphviz(model);
+pm.model_to_graphviz(model)
 ```
 
 ## Sampling and convergence
