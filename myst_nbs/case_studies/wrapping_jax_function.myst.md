@@ -72,19 +72,17 @@ This notebook illustrates how we can implement a new Aesara {class}`~aesara.grap
 
 +++
 
-For illustration purposes, we will simulate data following a simple [Hidden Markov Model](https://en.wikipedia.org/wiki/Hidden_Markov_model) (HMM), with 4 possible latent states $S \in \{0, 1, 2, 3\}$ and normal emission likelihood.
+For illustration purposes, we will simulate data following a simple [Hidden Markov Model](https://en.wikipedia.org/wiki/Hidden_Markov_model) (HMM), with 3 possible latent states $S \in \{0, 1, 2\}$ and normal emission likelihood.
 
-$$Y \sim \text{Normal}(S \cdot \text{signal}, (S + 1) \cdot \text{noise})$$
+$$Y \sim \text{Normal}((S + 1) \cdot \text{signal}, \text{noise})$$
 
-Our HMM will have a fixed Binomial probability of decaying from a higher state $S_t$ to a lower state $S_{t+1}$ in every step, 
+Our HMM will have a fixed Categorical probability $P$ of switching across states, which depends only on the last state
 
-$$S_{t+1} \sim \text{Binomial}(S_t, \text{1-p_decay})$$
+$$S_{t+1} \sim \text{Categorical}(P_{S_t})$$
 
-This implies a zero probability of going from a lower state $S_{t}$ to a higher state $S_{t+1}$. 
+To complete our model, we assume a fixed probability $P_{t0}$ for each possible initial state $S_{t0}$,
 
-To complete our model, we assume a fixed probability for each possible initial state $S_{t0}$,
-
-$$S_{t0} \sim \text{Categorical}(P_{\{0, 1, 2, 3\}})$$
+$$S_{t0} \sim \text{Categorical}(P_{t0})$$
 
 
 ### Simulating data
@@ -92,19 +90,38 @@ Let's generate data according to this model! The first step is to set some value
 
 ```{code-cell} ipython3
 # Emission signal and noise parameters
-emission_signal_true = 0.75
-emission_noise_true = 0.05
+emission_signal_true = 1.15
+emission_noise_true = 0.15
 
-# Probability of starting in initial states [0, 1, 2, 3]
-p_initial_state_true = np.array([0.01, 0.04, 0.25, 0.7])
+p_initial_state_true = np.array([0.9, 0.09, 0.01])
+
+# Probability of switching from state_t to state_t+1
+p_transition_true = np.array(
+    [
+        #    0,   1,   2
+        [0.9, 0.09, 0.01],  # 0
+        [0.1, 0.8, 0.1],  # 1
+        [0.2, 0.1, 0.7],  # 2
+    ]
+)
+
+# Confirm that we have defined valid probabilities
 assert np.isclose(np.sum(p_initial_state_true), 1)
-
-p_decay_true = 0.125
+assert np.allclose(np.sum(p_transition_true, axis=-1), 1)
 ```
 
 ```{code-cell} ipython3
-# We will observe 100 HMM processes, each with a total of 50 steps
-n_obs = 100
+# Let's compute the log of the probalitiy transition matrix for later use
+with np.errstate(divide="ignore"):
+    logp_initial_state_true = np.log(p_initial_state_true)
+    logp_transition_true = np.log(p_transition_true)
+
+logp_initial_state_true, logp_transition_true
+```
+
+```{code-cell} ipython3
+# We will observe 70 HMM processes, each with a total of 50 steps
+n_obs = 70
 n_steps = 50
 ```
 
@@ -117,29 +134,31 @@ rng = np.random.default_rng(rng_seed)
 We write a helper function to generate a single HMM process and create our simulated data
 
 ```{code-cell} ipython3
-def simulate_hmm(p_initial_state, p_decay, emission_signal, emission_noise, n_steps, rng):
+def simulate_hmm(p_initial_state, p_transition, emission_signal, emission_noise, n_steps, rng):
     """Generate hidden state and emission from our HMM model."""
-    n_possible_states = len(p_initial_state)
-    initial_state = rng.choice(range(n_possible_states), p=p_initial_state)
 
-    hidden_state = [initial_state]
+    possible_states = np.array([0, 1, 2])
+
+    hidden_states = []
+    initial_state = rng.choice(possible_states, p=p_initial_state)
+    hidden_states.append(initial_state)
     for step in range(n_steps):
-        hidden_state.append(rng.binomial(n=hidden_state[-1], p=1 - p_decay))
+        new_hidden_state = rng.choice(possible_states, p=p_transition[hidden_states[-1]])
+        hidden_states.append(new_hidden_state)
+    hidden_states = np.array(hidden_states)
 
-    hidden_state = np.array(hidden_state)
-
-    emission = rng.normal(
-        hidden_state * emission_signal,
-        (hidden_state + 1) * emission_noise,
+    emissions = rng.normal(
+        (hidden_states + 1) * emission_signal,
+        emission_noise,
     )
 
-    return hidden_state, emission
+    return hidden_states, emissions
 ```
 
 ```{code-cell} ipython3
 single_hmm_hidden_state, single_hmm_emission = simulate_hmm(
     p_initial_state_true,
-    p_decay_true,
+    p_transition_true,
     emission_signal_true,
     emission_noise_true,
     n_steps,
@@ -156,7 +175,7 @@ emission_observed = []
 for i in range(n_obs):
     hidden_state, emission = simulate_hmm(
         p_initial_state_true,
-        p_decay_true,
+        p_transition_true,
         emission_signal_true,
         emission_noise_true,
         n_steps,
@@ -171,9 +190,11 @@ emission_observed = np.array(emission_observed)
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(2, 1, figsize=(8, 6), sharex=True)
-for hidden_state, emission in zip(hidden_state_true, emission_observed):
-    ax[0].plot(hidden_state, color="C0", alpha=0.1)
-    ax[1].plot(emission, color="C0", alpha=0.1)
+# Plot first five hmm processes
+for i in range(4):
+    ax[0].plot(hidden_state_true[i] + i * 0.02, color=f"C{i}", lw=2, alpha=0.4)
+    ax[1].plot(emission_observed[i], color=f"C{i}", lw=2, alpha=0.4)
+ax[0].set_yticks([0, 1, 2])
 ax[0].set_ylabel("hidden state")
 ax[1].set_ylabel("observed emmission")
 ax[1].set_xlabel("step")
@@ -192,49 +213,9 @@ We will write a JAX function to compute the likelihood of our HMM model, margina
 
 We will take advantage of JAX [scan](https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.scan.html) to obtain an efficient and differentiable log-likelihood, and the handy [vmap](https://jax.readthedocs.io/en/latest/_autosummary/jax.vmap.html#jax.vmap) to automatically vectorize this log-likelihood across multiple observed processes.
 
-Before that, let us create some helper variables derived from our true parameters, that we can use to test our implementation.
++++
 
-```{code-cell} ipython3
-n_hidden_states = len(p_initial_state_true)
-n_hidden_states
-```
-
-```{code-cell} ipython3
-logp_initial_state_true = np.log(p_initial_state_true)
-logp_initial_state_true
-```
-
-```{code-cell} ipython3
-# Compute the probability transition matrix, of going from S_t to S_t+1
-# p[0, 0], is the probability of going from S_t=0 to S_t+1=0
-# p[1, 0], is the probability of going from S_t=1 to S_t+1=0
-# p[0, 1], is the probabilty of going from S_t=0 to S_t+1=1 (which is impossible)
-# p[3, 3], is the probability of going from S_t=3, to S_t+1=3
-possible_states = np.arange(n_hidden_states, dtype="int16")
-p_transition_true = (
-    pm.logp(
-        pm.Binomial.dist(n=possible_states, p=1 - p_decay_true),
-        possible_states[:, None],
-    )
-    .T.exp()
-    .eval()
-)
-p_transition_true
-```
-
-```{code-cell} ipython3
-# Confirm that we have a valid transition probability matrix
-assert np.allclose(np.sum(p_transition_true, axis=-1), 1)
-```
-
-```{code-cell} ipython3
-logp_transition_true = np.log(p_transition_true)
-logp_transition_true
-```
-
-### Writing the JAX function
-
-This is our core JAX function which computes the marginal log-likelihood of a single HMM process
+Our core JAX function computes the marginal log-likelihood of a single HMM process
 
 ```{code-cell} ipython3
 def hmm_logp(
@@ -246,14 +227,13 @@ def hmm_logp(
 ):
     """Compute the marginal log-likelihood of a single HMM process."""
 
-    # Caution: Using global variable for simplicity!
-    hidden_states = np.arange(n_hidden_states)
+    hidden_states = np.array([0, 1, 2])
 
     # Compute log-likelihood of observed emissions for each (step x possible hidden state)
     logp_emission = jsp.stats.norm.logpdf(
         emission_observed[:, None],
-        hidden_states * emission_signal,
-        (hidden_states + 1) * emission_noise,
+        (hidden_states + 1) * emission_signal,
+        emission_noise,
     )
 
     # We use the forward_algorithm to compute log_alpha(x_t) = logp(x_t, y_1:t)
@@ -362,9 +342,22 @@ For the `grad` we will create a second {class}`~aesara.graph.op.Op` that wraps o
 
 ```{code-cell} ipython3
 class HMMLogpOp(Op):
-    def make_node(self, *inputs):
+    def make_node(
+        self,
+        emission_observed,
+        emission_signal,
+        emission_noise,
+        logp_initial_state,
+        logp_transition,
+    ):
         # Convert our inputs to symbolic variables
-        inputs = [at.as_tensor_variable(inp) for inp in inputs]
+        inputs = [
+            at.as_tensor_variable(emission_observed),
+            at.as_tensor_variable(emission_signal),
+            at.as_tensor_variable(emission_noise),
+            at.as_tensor_variable(logp_initial_state),
+            at.as_tensor_variable(logp_transition),
+        ]
         # Define the type of the output returned by the wrapped JAX function
         outputs = [at.dscalar()]
         return Apply(self, inputs, outputs)
@@ -380,13 +373,42 @@ class HMMLogpOp(Op):
         outputs[0][0] = np.asarray(result, dtype=node.outputs[0].dtype)
 
     def grad(self, inputs, output_gradients):
-        gradients = hmm_logp_grad_op(*inputs)
-        return [output_gradients[0] * gradient for gradient in gradients]
+        (
+            grad_wrt_emission_obsered,
+            grad_wrt_emission_signal,
+            grad_wrt_emission_noise,
+            grad_wrt_logp_initial_state,
+            grad_wrt_logp_transition,
+        ) = hmm_logp_grad_op(*inputs)
+        # If there are inputs for which the gradients will never be needed or cannot
+        # be computed, `aesara.gradient.grad_not_implemented` should  be used as the
+        # output gradient for that input.
+        output_gradient = output_gradients[0]
+        return [
+            output_gradient * grad_wrt_emission_obsered,
+            output_gradient * grad_wrt_emission_signal,
+            output_gradient * grad_wrt_emission_noise,
+            output_gradient * grad_wrt_logp_initial_state,
+            output_gradient * grad_wrt_logp_transition,
+        ]
 
 
 class HMMLogpGradOp(Op):
-    def make_node(self, *inputs):
-        inputs = [at.as_tensor_variable(inp) for inp in inputs]
+    def make_node(
+        self,
+        emission_observed,
+        emission_signal,
+        emission_noise,
+        logp_initial_state,
+        logp_transition,
+    ):
+        inputs = [
+            at.as_tensor_variable(emission_observed),
+            at.as_tensor_variable(emission_signal),
+            at.as_tensor_variable(emission_noise),
+            at.as_tensor_variable(logp_initial_state),
+            at.as_tensor_variable(logp_transition),
+        ]
         # This `Op` wil return one gradient per input. For simplicity, we assume
         # each output is of the same type as the input. In practice, you should use
         # the exact dtype to avoid overhead when saving the results of the computation
@@ -395,11 +417,18 @@ class HMMLogpGradOp(Op):
         return Apply(self, inputs, outputs)
 
     def perform(self, node, inputs, outputs):
-        # If there are inputs for which the gradients will never be needed or cannot
-        # be computed, `aesara.gradient.grad_not_implemented` should  be used
-        results = jitted_vec_hmm_logp_grad(*inputs)
-        for i, result in enumerate(results):
-            outputs[i][0] = np.asarray(result, dtype=node.outputs[i].dtype)
+        (
+            grad_wrt_emission_obsered_result,
+            grad_wrt_emission_signal_result,
+            grad_wrt_emission_noise_result,
+            grad_wrt_logp_initial_state_result,
+            grad_wrt_logp_transition_result,
+        ) = jitted_vec_hmm_logp_grad(*inputs)
+        outputs[0][0] = np.asarray(grad_wrt_emission_obsered_result, dtype=node.outputs[0].dtype)
+        outputs[1][0] = np.asarray(grad_wrt_emission_signal_result, dtype=node.outputs[1].dtype)
+        outputs[2][0] = np.asarray(grad_wrt_emission_noise_result, dtype=node.outputs[2].dtype)
+        outputs[3][0] = np.asarray(grad_wrt_logp_initial_state_result, dtype=node.outputs[3].dtype)
+        outputs[4][0] = np.asarray(grad_wrt_logp_transition_result, dtype=node.outputs[4].dtype)
 
 
 # Initialize our `Op`s
@@ -459,14 +488,11 @@ with pm.Model(rng_seeder=int(rng.integers(2**30))) as model:
     emission_signal = pm.Normal("emission_signal", 0, 1)
     emission_noise = pm.HalfNormal("emission_noise", 1)
 
-    p_initial_state = pm.Dirichlet("p_initial_state", np.ones(n_hidden_states))
+    p_initial_state = pm.Dirichlet("p_initial_state", np.ones(3))
     logp_initial_state = at.log(p_initial_state)
 
-    p_decay = pm.Beta("p_decay", 1, 1)
-    logp_transition = pm.logp(
-        pm.Binomial.dist(n=possible_states, p=1 - p_decay),
-        possible_states[:, None],
-    ).T
+    p_transition = pm.Dirichlet("p_transition", np.ones(3), size=3)
+    logp_transition = at.log(p_transition)
 
     loglike = pm.Potential(
         "hmm_loglike",
@@ -490,7 +516,7 @@ pycharm:
 pm.model_to_graphviz(model)
 ```
 
-Before we start sampling, we check the logp of each variable at the model initial point
+Before we start sampling, we check the logp of each variable at the model initial point. Bugs tend to manifest themselves in the form of `nan` or `-inf` for the initial probabilities.
 
 ```{code-cell} ipython3
 initial_point = model.compute_initial_point()
@@ -535,7 +561,7 @@ true_values = [
     emission_signal_true,
     emission_noise_true,
     *p_initial_state_true,
-    p_decay_true,
+    *p_transition_true.ravel(),
 ]
 
 az.plot_posterior(idata, ref_val=true_values);
@@ -676,7 +702,7 @@ jitted_hmm_logp_value_and_grad = jax.jit(jax.value_and_grad(vec_hmm_logp, argnum
 
 ```{code-cell} ipython3
 class HmmLogpValueGradOp(Op):
-    # By default only return the first output
+    # By default only show the first output, and "hide" the other ones
     default_output = 0
 
     def make_node(self, *inputs):
