@@ -1,3 +1,5 @@
+notebook_metadata_filter = "substitutions"
+
 [formats]
 "examples/" = "ipynb"
 "myst_nbs/" = ".myst.md:myst"
