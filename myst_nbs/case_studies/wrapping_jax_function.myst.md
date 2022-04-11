@@ -15,8 +15,8 @@ kernelspec:
 # How to wrap a JAX function for use in PyMC
 
 :::{post} Mar 24, 2022
-:tags: Aesara, hidden markov model (HMM)
-:category: advanced, how to
+:tags: Aesara, hidden markov model, JAX
+:category: advanced, how-to
 :author: Ricardo Vieira
 :::
 
@@ -123,12 +123,6 @@ logp_initial_state_true, logp_transition_true
 # We will observe 70 HMM processes, each with a total of 50 steps
 n_obs = 70
 n_steps = 50
-```
-
-```{code-cell} ipython3
-# Define Random Number Generator
-rng_seed = int("".join(map(str, map(ord, "hmm"))))
-rng = np.random.default_rng(rng_seed)
 ```
 
 We write a helper function to generate a single HMM process and create our simulated data
@@ -315,7 +309,7 @@ We will also ask JAX to give us the function of the gradients with respect to ea
 jitted_vec_hmm_logp_grad = jax.jit(jax.grad(vec_hmm_logp, argnums=list(range(5))))
 ```
 
-Let's print out the gradient with respect to `emission_signal`, and compare it with a rough finite difference estimation.
+Let's print out the gradient with respect to `emission_signal`. We will check this value is unchanged after we wrap our function in Aesara.
 
 ```{code-cell} ipython3
 jitted_vec_hmm_logp_grad(
@@ -436,7 +430,7 @@ hmm_logp_op = HMMLogpOp()
 hmm_logp_grad_op = HMMLogpGradOp()
 ```
 
-We can use the debug helper `eval` method to confirm we get the same outputs as before
+We recommend using the debug helper `eval` method to confirm we specified everything correctly. We should get the same outputs as before:
 
 ```{code-cell} ipython3
 hmm_logp_op(
@@ -460,7 +454,7 @@ hmm_logp_grad_op(
 
 +++ {"pycharm": {"name": "#%% md\n"}}
 
-It's also helpful to confirm that the gradient of our {class}`~aesara.graph.op.Op` can be requested via the Aesara `grad` interface
+It's also useful to check the gradient of our {class}`~aesara.graph.op.Op` can be requested via the Aesara `grad` interface:
 
 ```{code-cell} ipython3
 # We define the symbolic `emission_signal` variable outside of the `Op`
@@ -564,7 +558,7 @@ true_values = [
     *p_transition_true.ravel(),
 ]
 
-az.plot_posterior(idata, ref_val=true_values);
+az.plot_posterior(idata, ref_val=true_values, grid=(3, 5));
 ```
 
 The posteriors look reasonably centered around the true values used to generate our data.
@@ -634,7 +628,7 @@ az.plot_trace(idata_numpyro);
 ```
 
 ```{code-cell} ipython3
-az.plot_posterior(idata_numpyro, ref_val=true_values);
+az.plot_posterior(idata_numpyro, ref_val=true_values, grid=(3, 5));
 ```
 
 As expected, sampling results look pretty similar! 
