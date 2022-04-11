@@ -25,9 +25,8 @@ kernelspec:
 The [regression discontinuity design](https://en.wikipedia.org/wiki/Regression_discontinuity_design) is a particular form of quasi experimental design. It consists of a control and test group, but assignment of units to conditions is chosen based upon a threshold criteria, not randomly. 
 
 :::{figure-md} fig-target
-:class: myclass
 
-<img src="regression_discontinuity.png" alt="regression discontinuity design schematic" class="bg-primary mb-1">
+![regression discontinuity design schematic](regression_discontinuity.png)
 
 A schematic diagram of the regression discontinuity design. The dashed green line shows where we would have expected the post test scores of the test group to be if they had not recieved the treatment. Image taken from [https://conjointly.com/kb/regression-discontinuity-design/](https://conjointly.com/kb/regression-discontinuity-design/).
 :::
