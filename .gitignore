@@ -1,0 +1,46 @@
+*.pyc
+*.sw[op]
+examples/*.png
+nb_examples/
+nb_tutorials/
+build/*
+dist/*
+*.egg-info/
+.ipynb_checkpoints
+tmtags
+tags
+.DS_Store
+.cache
+# IntelliJ IDE
+.idea
+*.iml
+
+# Sphinx
+_build
+docs/jupyter_execute
+docs/.jupyter_cache
+docs/**/generated/*
+
+# Merge tool
+*.orig
+
+# Docker development
+# notebooks/
+
+# air speed velocity (asv)
+benchmarks/env/
+benchmarks/html/
+benchmarks/results/
+.pytest_cache/
+
+# Visual Studio / VSCode
+.vs/
+.vscode/
+.mypy_cache
+
+pytestdebug.log
+.dir-locals.el
+.pycheckers
+
+# Codespaces
+pythonenv*
