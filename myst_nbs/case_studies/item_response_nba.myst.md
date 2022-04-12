@@ -14,10 +14,10 @@ kernelspec:
 (item_response_nba)=
 # NBA Foul Analysis with Item Response Theory
 
-:::{post} Apr 13, 2021
-:tags: hierarchical model, ctutorialtutorialtutorialtutorialase study, generalized linear model
+:::{post} Apr 17, 2022
+:tags: hierarchical model, case study, generalized linear model
 :category: intermediate, tutorial
-:author:  Oriol Abril-Pla, Michael Osthege, Lorenzo Toniazzi
+:author:  Michael Osthege, Lorenzo Toniazzi
 :::
 
 ```{code-cell} ipython3
@@ -345,6 +345,7 @@ az.plot_forest(
     combined=True,
     coords={"disadvantaged": top_theta[:amount].coords["disadvantaged"]},
     ax=theta_top_ax,
+    labeller=az.labels.NoVarLabeller(),
 )
 theta_top_ax.set_title(f"theta: top {amount}")
 theta_top_ax.set_xlabel("theta\n")
@@ -361,6 +362,7 @@ az.plot_forest(
     combined=True,
     coords={"disadvantaged": bottom_theta[:amount].coords["disadvantaged"]},
     ax=theta_bottom_ax,
+    labeller=az.labels.DimCoordLabeller(),
 )
 theta_bottom_ax.set_title(f"theta: bottom {amount}")
 theta_bottom_ax.set_xlabel("theta")
@@ -408,11 +410,11 @@ A natural question to ask is whether players skilled as disadvantaged players (i
 
 ```{code-cell} ipython3
 amount = 20  # How many top players we want to display
-top_theta_list = top_theta[:amount].coords["disadvantaged"].to_dict()["data"]
-top_b_list = top_b[:amount].coords["committing"].to_dict()["data"]
+top_theta_players = top_theta["disadvantaged"][:amount].to_dict()["data"]
+top_b_players = top_b["committing"][:amount].to_dict()["data"]
 
-top_theta_in_committing = set(committing).intersection(set(top_theta_list))
-top_b_in_disadvantaged = set(disadvantaged).intersection(set(top_b_list))
+top_theta_in_committing = set(committing).intersection(set(top_theta_players))
+top_b_in_disadvantaged = set(disadvantaged).intersection(set(top_b_players))
 if (len(top_theta_in_committing) < amount) | (len(top_b_in_disadvantaged) < amount):
     print(
         f"Some players in the top {amount} for theta (or b) do not have observations for b (or theta).\n",
@@ -434,7 +436,7 @@ else:
         var_names=["b"],
         colors="blue",
         combined=True,
-        coords={"committing": top_theta[:amount].coords["disadvantaged"].to_dict()["data"]},
+        coords={"committing": top_theta_players},
         figsize=(7, 7),
         ax=b_top_theta,
     )
@@ -448,7 +450,7 @@ else:
         var_names=["theta"],
         colors="blue",
         combined=True,
-        coords={"disadvantaged": top_b[:amount].coords["committing"].to_dict()["data"]},
+        coords={"disadvantaged": top_b_players},
         figsize=(7, 7),
         ax=theta_top_b,
     )
@@ -465,15 +467,15 @@ Given the last observation, we decide to plot a histogram for the occurence of d
 :tags: []
 
 amount = 50  # How many top players we want to display
-top_theta_list = top_theta[:amount].coords["disadvantaged"].to_dict()["data"]
-top_b_list = top_b[:amount].coords["committing"].to_dict()["data"]
+top_theta_players = top_theta["disadvantaged"][:amount].to_dict()["data"]
+top_b_players = top_b["committing"][:amount].to_dict()["data"]
 
 positions = ["C", "C-F", "F-C", "F", "G-F", "G"]
 
 # Histogram of positions of top disadvantaged players
 fig = plt.figure(figsize=(8, 6))
 top_theta_position = fig.add_subplot(121)
-df_position.loc[df_position.index.isin(top_theta_list)].position.value_counts().loc[
+df_position.loc[df_position.index.isin(top_theta_players)].position.value_counts().loc[
     positions
 ].plot.bar(ax=top_theta_position, color="orange", label="theta")
 top_theta_position.set_title(f"Positions of top {amount} disadvantaged (theta)\n", fontsize=12)
@@ -481,9 +483,9 @@ top_theta_position.legend(loc="upper left")
 
 # Histogram of positions of top committing players
 top_b_position = fig.add_subplot(122, sharey=top_theta_position)
-df_position.loc[df_position.index.isin(top_b_list)].position.value_counts().loc[positions].plot.bar(
-    ax=top_b_position, label="b"
-)
+df_position.loc[df_position.index.isin(top_b_players)].position.value_counts().loc[
+    positions
+].plot.bar(ax=top_b_position, label="b")
 top_b_position.set_title(f"Positions of top {amount} committing (b)\n", fontsize=12)
 top_b_position.legend(loc="upper right");
 ```
@@ -496,7 +498,6 @@ The histograms above suggest that it might be appropriate to add a hierarchical 
  
 * Adapted from Austin Rochford's [blogpost on NBA Foul Calls and Bayesian Item Response Theory](https://www.austinrochford.com/posts/2017-04-04-nba-irt.html) by [Lorenzo Toniazzi](https://github.com/ltoniazzi) on  3 Jul 2021 ([PR181](https://github.com/pymc-devs/pymc-examples/pull/181))
 * Re-executed by [Michael Osthege](https://github.com/michaelosthege) on  10 Jan 2022 ([PR266](https://github.com/pymc-devs/pymc-examples/pull/266))
-* Re-executed by [Oriol Abril-Pla](https://github.com/OriolAbril) on  3 Jul 2021 ([PR283](https://github.com/pymc-devs/pymc-examples/pull/283))
 * Updated by [Lorenzo Toniazzi](https://github.com/ltoniazzi) on  15 Apr 2022 ([PR309](https://github.com/pymc-devs/pymc-examples/pull/309))
 
 +++
