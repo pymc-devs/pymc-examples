@@ -53,7 +53,7 @@ from aesara.link.jax.dispatch import jax_funcify
 
 PyMC uses the [Aesara](https://aesara.readthedocs.io/en/latest/) library to create and manipulate probabilistic graphs. Aesara is backend-agnostic, meaning it can make use of functions written in different languages or frameworks, including pure Python, NumPy, C, Cython, Numba, and [JAX](https://jax.readthedocs.io/en/latest/index.html). 
 
-All that is needed is to encapsulate such function in a Aesara {class}`~aesara.graph.op.Op`, which enforces a specific API regarding how inputs and outputs of pure "operations" should be handled. It also implements methods for optional extra functionality like symbolic shape inference and automatic differentiation. This is well covered in the Aesara [`Op`s documentation](https://aesara.readthedocs.io/en/latest/extending/op.html) and in our {ref}`blackbox_external_likelihood_numpy` pymc-example.
+All that is needed is to encapsulate such function in a Aesara {class}`~aesara.graph.op.Op`, which enforces a specific API regarding how inputs and outputs of pure "operations" should be handled. It also implements methods for optional extra functionality like symbolic shape inference and automatic differentiation. This is well covered in the Aesara {ref}`Op documentation <aesara:op_contract>` and in our {ref}`blackbox_external_likelihood_numpy` pymc-example.
 
 More recently, Aesara became capable of compiling directly to some of these languages/frameworks, meaning that we can convert a complete Aesara graph into a JAX or NUMBA jitted function, whereas traditionally they could only be converted to Python or C.
 
@@ -325,7 +325,7 @@ jitted_vec_hmm_logp_grad(
 
 +++
 
-Now we are ready to wrap our JAX jitted function in a Aesara {class}`~aesara.graph.op.Op`, that we can then use in our PyMC models. We recommend you check Aesara's official [`Op` documentation](https://aesara.readthedocs.io/en/latest/extending/op.html) if you want to understand it in more detail.
+Now we are ready to wrap our JAX jitted function in a Aesara {class}`~aesara.graph.op.Op`, that we can then use in our PyMC models. We recommend you check Aesara's official {ref}`Op documentation <aesara:op_contract>` if you want to understand it in more detail.
 
 In brief, we will inherit from {class}`~aesara.graph.op.Op` and define the following methods:
 1. `make_node`: Creates an {class}`~aesara.graph.basic.Apply` node that holds together the symbolic inputs and outputs of our operation
@@ -663,8 +663,8 @@ Like JAX, Aesara has the goal of mimicking the NumPy and Scipy APIs, so that wri
 There are, however, some of advantages to working with Aesara:
 
 1. Aesara graphs are considerably easier to {ref}`inspect and debug <aesara:debug_faq>` than JAX functions
-2. Aesara has clever [optimization and stabilization routines](https://aesara.readthedocs.io/en/latest/optimizations.html) that are not possible or implemented in JAX
-3. Aesara graphs can be easily [manipulated after creation](https://aesara.readthedocs.io/en/latest/extending/graph_rewriting.html#graph-rewriting)
+2. Aesara has clever {ref}`optimization and stabilization routines <aesara:optimizations>` that are not possible or implemented in JAX
+3. Aesara graphs can be easily {ref}`manipulated after creation <aesara:graph_rewriting>`
 
 Point 2 means your graphs are likely to perform better if written in Aesara. In general you don't have to worry about using specialized functions like `log1p` or `logsumexp`, as Aesara will be able to detect the equivalent naive expressions and replace them by their specialized counterparts. Importantly, you still benefit from these optimizations when your graph is later compiled to JAX.
 
