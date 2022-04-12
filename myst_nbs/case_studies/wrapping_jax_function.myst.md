@@ -51,7 +51,7 @@ from aesara.link.jax.dispatch import jax_funcify
 
 ## Intro: Aesara and its backends
 
-PyMC uses the [Aesara](https://aesara.readthedocs.io/en/latest/) library to create and manipulate probabilistic graphs. Aesara is backend-agnostic, meaning it can make use of functions written in different languages or frameworks, including pure Python, NumPy, C, Cython, Numba, and [JAX](https://jax.readthedocs.io/en/latest/index.html). 
+PyMC uses the {doc}`Aesara <aesara:index>` library to create and manipulate probabilistic graphs. Aesara is backend-agnostic, meaning it can make use of functions written in different languages or frameworks, including pure Python, NumPy, C, Cython, Numba, and [JAX](https://jax.readthedocs.io/en/latest/index.html). 
 
 All that is needed is to encapsulate such function in a Aesara {class}`~aesara.graph.op.Op`, which enforces a specific API regarding how inputs and outputs of pure "operations" should be handled. It also implements methods for optional extra functionality like symbolic shape inference and automatic differentiation. This is well covered in the Aesara {ref}`Op documentation <aesara:op_contract>` and in our {ref}`blackbox_external_likelihood_numpy` pymc-example.
 
