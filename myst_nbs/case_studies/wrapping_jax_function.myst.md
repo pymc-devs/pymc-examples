@@ -583,7 +583,7 @@ def hmm_logp_dispatch(op, **kwargs):
 We do not return the jitted function, so that the entire Aesara graph can be jitted together after being converted to JAX.
 :::
 
-For a better understanding of {class}`~aesara.graph.op.Op` JAX conversions, we recommend reading Aesara's [Adding JAX and Numba support for Ops guide](https://aesara.readthedocs.io/en/latest/extending/creating_a_numba_jax_op.html?highlight=JAX)
+For a better understanding of {class}`~aesara.graph.op.Op` JAX conversions, we recommend reading Aesara's {doc}`Adding JAX and Numba support for Ops guide <aesara:extending/creating_a_numba_jax_op>`.
 
 We can test that our conversion function is working properly by compiling a {func}`aesara.function` with `mode="JAX"`:
 
@@ -616,7 +616,7 @@ We include a {ref}`short discussion <aesara_vs_jax>` at the end of this document
 
 +++
 
-Now that we know our model logp can be entirely compiled to JAX, we can use the handy {mod}`pymc.sampling_jax` module to sample our model using the pure JAX sampler implemented in NumPyro.
+Now that we know our model logp can be entirely compiled to JAX, we can use the handy {func}`pymc.sampling_jax.sample_numpyro_nuts` to sample our model using the pure JAX sampler implemented in NumPyro.
 
 ```{code-cell} ipython3
 with model:
@@ -662,7 +662,7 @@ Like JAX, Aesara has the goal of mimicking the NumPy and Scipy APIs, so that wri
 
 There are, however, some of advantages to working with Aesara:
 
-1. Aesara graphs are considerably easier to [inspect and debug](https://aesara.readthedocs.io/en/latest/tutorial/debug_faq.html) than JAX functions
+1. Aesara graphs are considerably easier to {ref}`inspect and debug <aesara:debug_faq>` than JAX functions
 2. Aesara has clever [optimization and stabilization routines](https://aesara.readthedocs.io/en/latest/optimizations.html) that are not possible or implemented in JAX
 3. Aesara graphs can be easily [manipulated after creation](https://aesara.readthedocs.io/en/latest/extending/graph_rewriting.html#graph-rewriting)
 
