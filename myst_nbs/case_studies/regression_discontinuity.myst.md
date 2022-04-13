@@ -15,7 +15,7 @@ kernelspec:
 # Regression discontinuity design analysis
 
 :::{post} April, 2022
-:tags: regression discontinuity, causal inference, quasi experimental design, counterfactuals
+:tags: regression, causal inference, quasi experimental design, counterfactuals
 :category: beginner
 :author: Benjamin T. Vincent
 :::
@@ -143,8 +143,7 @@ with model:
 We can see that we get no sampling warnings, and that plotting the MCMC traces shows no issues.
 
 ```{code-cell} ipython3
-az.plot_trace(idata, var_names=["effect", "sigma"])
-plt.tight_layout()
+az.plot_trace(idata, var_names=["effect", "sigma"]);
 ```
 
 We can also see that we are able to accurately recover the true discontinuity magnitude (left) and the standard deviation of the change in units between pre- and post-test (right).
@@ -190,7 +189,7 @@ with model:
 # plotting
 _y = ppc.posterior_predictive.mu.mean(dim=["chain", "draw"])
 az.plot_hdi(_x, ppc.posterior_predictive["mu"], color="C1", hdi_prob=0.95)
-ax.legend();
+plt.legend();
 ```
 
 The blue shaded region (which is very narrow) shows the 95% credible region of the expected value of the post-test measurement for a range of possible pre-test measures. This is actually very interesting because it is an example of counterfactual inference. We did not observe any units that were untreated above the threshold. But assuming our model is a good description of reality, we can ask the counterfactual question of "what if a unit above the threshold was not treated?"
