@@ -1,66 +1,66 @@
 repos:
-  - repo: https://github.com/mwouts/jupytext
-    rev: v1.13.7
-    hooks:
-      - id: jupytext
-        files: ^examples/.+\.ipynb$
-        args: ["--sync"]
-  - repo: https://github.com/psf/black
-    rev: 22.3.0
-    hooks:
-      - id: black-jupyter
-  - repo: https://github.com/nbQA-dev/nbQA
-    rev: 1.1.0
-    hooks:
-      - id: nbqa-isort
-        additional_dependencies: [isort==5.6.4]
-      - id: nbqa-pyupgrade
-        additional_dependencies: [pyupgrade==2.7.4]
-        args: [--py37-plus]
-  - repo: https://github.com/MarcoGorelli/madforhooks
-    rev: 0.3.0
-    hooks:
-      - id: check-execution-order
-        args: [--strict]
-        exclude: |
-          (?x)^
-          ^examples/ode_models/ODE_with_manual_gradients\.ipynb$
-          |examples/samplers/DEMetropolisZ_EfficiencyComparison\.ipynb$
-          |examples/gaussian_processes/GP-Latent\.ipynb$
-          |examples/gaussian_processes/GP-MaunaLoa2\.ipynb$
-          |examples/samplers/MLDA_gravity_surveying\.ipynb$
-          |examples/pymc3_howto/sampling_callback\.ipynb$
-          |examples/case_studies/blackbox_external_likelihood\.ipynb$
-          |examples/samplers/GLM-hierarchical-jax\.ipynb$
-          |examples/variational_inference/convolutional_vae_keras_advi\.ipynb$
-          |examples/gaussian_processes/GP-TProcess\.ipynb$
-          |examples/mixture_models/dependent_density_regression\.ipynb$
-          |examples/gaussian_processes/GP-Heteroskedastic\.ipynb$
-          |examples/gaussian_processes/GP-MeansAndCovs\.ipynb$
-          |examples/samplers/MLDA_variance_reduction_linear_regression\.ipynb$
+- repo: https://github.com/mwouts/jupytext
+  rev: v1.13.7
+  hooks:
+  - id: jupytext
+    files: ^examples/.+\.ipynb$
+    args: ["--sync"]
+- repo: https://github.com/psf/black
+  rev: 22.3.0
+  hooks:
+    - id: black-jupyter
+- repo: https://github.com/nbQA-dev/nbQA
+  rev: 1.1.0
+  hooks:
+    - id: nbqa-isort
+      additional_dependencies: [isort==5.6.4]
+    - id: nbqa-pyupgrade
+      additional_dependencies: [pyupgrade==2.7.4]
+      args: [--py37-plus]
+- repo: https://github.com/MarcoGorelli/madforhooks
+  rev: 0.3.0
+  hooks:
+    - id: check-execution-order
+      args: [--strict]
+      exclude: |
+            (?x)^
+            ^examples/ode_models/ODE_with_manual_gradients\.ipynb$
+            |examples/samplers/DEMetropolisZ_EfficiencyComparison\.ipynb$
+            |examples/gaussian_processes/GP-Latent\.ipynb$
+            |examples/gaussian_processes/GP-MaunaLoa2\.ipynb$
+            |examples/samplers/MLDA_gravity_surveying\.ipynb$
+            |examples/pymc3_howto/sampling_callback\.ipynb$
+            |examples/case_studies/blackbox_external_likelihood\.ipynb$
+            |examples/samplers/GLM-hierarchical-jax\.ipynb$
+            |examples/variational_inference/convolutional_vae_keras_advi\.ipynb$
+            |examples/gaussian_processes/GP-TProcess\.ipynb$
+            |examples/mixture_models/dependent_density_regression\.ipynb$
+            |examples/gaussian_processes/GP-Heteroskedastic\.ipynb$
+            |examples/gaussian_processes/GP-MeansAndCovs\.ipynb$
+            |examples/samplers/MLDA_variance_reduction_linear_regression\.ipynb$
 
-  - repo: https://github.com/FlamingTempura/bibtex-tidy
-    rev: v1.8.5
-    hooks:
-      - id: bibtex-tidy
-        files: examples/references.bib
-        args: ["--sort=key", --quiet]
-        language_version: 15.14.0
-  - repo: local
-    hooks:
-      - id: watermark
-        args: [--negate, --multiline]
-        entry: "%load_ext watermark.*%watermark -n -u -v -iv -w"
-        language: pygrep
-        minimum_pre_commit_version: 2.8.0
-        name: Check notebooks have watermark (see Jupyter style guide from PyMC docs)
-        types: [jupyter]
-      - id: no-internal-links
-        name: Check no internal links are in the docs
-        description: >-
-          'A quick check to prevent urls pointing to pymc docs'
-        files: ^docs/source/
-        entry: >
+- repo: https://github.com/FlamingTempura/bibtex-tidy
+  rev: v1.8.5
+  hooks:
+    - id: bibtex-tidy
+      files: examples/references.bib
+      args: ["--sort=key", --quiet]
+      language_version: 15.14.0
+- repo: local
+  hooks:
+    - id: watermark
+      args: [--negate, --multiline]
+      entry: '%load_ext watermark.*%watermark -n -u -v -iv -w'
+      language: pygrep
+      minimum_pre_commit_version: 2.8.0
+      name: Check notebooks have watermark (see Jupyter style guide from PyMC docs)
+      types: [jupyter]
+    - id: no-internal-links
+      name: Check no internal links are in the docs
+      description: >-
+        'A quick check to prevent urls pointing to pymc docs'
+      files: ^docs/source/
+      entry: >
           (?x)(arviz-devs.github.io|
                aesara.readthedocs.io|
                aeppl.readthedocs.io|
@@ -72,11 +72,11 @@ repos:
                myst-nb.readthedocs.io|
                docs.python.org|
                xarray.pydata.org)
-        language: pygrep
-        types_or: [markdown, rst, jupyter]
-  - repo: https://github.com/mwouts/jupytext
-    rev: v1.13.7
-    hooks:
-      - id: jupytext
-        files: ^examples/.+\.ipynb$
-        args: ["--sync"]
+      language: pygrep
+      types_or: [markdown, rst, jupyter]
+- repo: https://github.com/mwouts/jupytext
+  rev: v1.13.7
+  hooks:
+  - id: jupytext
+    files: ^examples/.+\.ipynb$
+    args: ["--sync"]
