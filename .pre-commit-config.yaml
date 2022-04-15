@@ -59,7 +59,9 @@ repos:
       name: Check no internal links are in the docs
       description: >-
         'A quick check to prevent urls pointing to pymc docs'
-      files: ^docs/source/
+      files: ^examples/
+      exclude: >
+          (?x)(conf.py)
       entry: >
           (?x)(arviz-devs.github.io|
                aesara.readthedocs.io|
