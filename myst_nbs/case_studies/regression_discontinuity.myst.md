@@ -159,6 +159,8 @@ We can use posterior prediction to ask what would we expect to see if:
 - no units were exposed to the treatment (blue shaded region)
 - all units were exposed to the treatment (orange shaded region).
 
+_Technical note:_ Formally we are doing posterior prediction of `y`. Running `pm.sample_posterior_predictive` multiple times with different random seeds will result in new and different samples of `y` each time. However, this is not the case (we are not formally doing posterior prediction) for `mu`. This is because `mu` is a deterministic function (`mu = x + delta*treated`), so for our already obtained posterior samples of `delta`, the values of `mu` will be entirely determined by the values of `x` and `treated` data).
+
 ```{code-cell} ipython3
 :tags: []
 
@@ -167,7 +169,7 @@ We can use posterior prediction to ask what would we expect to see if:
 _x = np.linspace(np.min(df.x), np.max(df.x), 500)
 _treated = np.zeros(_x.shape)
 
-# posterior prediction
+# posterior prediction (see technical note above)
 with model:
     pm.set_data({"x": _x, "treated": _treated})
     ppc = pm.sample_posterior_predictive(idata, var_names=["mu", "y"])
@@ -181,7 +183,7 @@ az.plot_hdi(_x, ppc.posterior_predictive["mu"], color="C0", hdi_prob=0.95)
 _x = np.linspace(np.min(df.x), np.max(df.x), 500)
 _treated = np.ones(_x.shape)
 
-# posterior prediction
+# posterior prediction (see technical note above)
 with model:
     pm.set_data({"x": _x, "treated": _treated})
     ppc = pm.sample_posterior_predictive(idata, var_names=["mu", "y"])
