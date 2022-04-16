@@ -16,7 +16,7 @@ kernelspec:
 
 :::{post} April, 2022
 :tags: mixture model
-:category: beginner
+:category: beginner, classification
 :author: Benjamin T. Vincent
 :::
 
