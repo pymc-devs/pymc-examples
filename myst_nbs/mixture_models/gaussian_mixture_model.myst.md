@@ -113,9 +113,9 @@ ax[2].set(title="Group membership", ylabel="Probability");
 ```
 
 ## Authors
-- Original notebook by Abe Flaxman.
-- Modified by Thomas Wiecki.
-- Re-written by [Benjamin T. Vincent](https://github.com/drbenvincent) in April 2022 ([#310](https://github.com/pymc-devs/pymc-examples/pull/310)) to use `pm.NormalMixture`.
+- Authored by Abe Flaxman.
+- Updated by Thomas Wiecki.
+- Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in April 2022 ([#310](https://github.com/pymc-devs/pymc-examples/pull/310)) to use `pm.NormalMixture`.
 
 +++
 
