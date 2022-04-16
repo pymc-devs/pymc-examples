@@ -173,7 +173,6 @@ with model:
 
 # plotting
 ax = plot_data(df)
-_y = ppc.posterior_predictive.mu.mean(dim=["chain", "draw"])
 az.plot_hdi(_x, ppc.posterior_predictive["mu"], color="C0", hdi_prob=0.95)
 
 # MODEL EXPECTATION WITH TREATMENT ---------------------------------------
@@ -187,7 +186,6 @@ with model:
     ppc = pm.sample_posterior_predictive(idata, var_names=["mu", "y"])
 
 # plotting
-_y = ppc.posterior_predictive.mu.mean(dim=["chain", "draw"])
 az.plot_hdi(_x, ppc.posterior_predictive["mu"], color="C1", hdi_prob=0.95)
 plt.legend();
 ```
