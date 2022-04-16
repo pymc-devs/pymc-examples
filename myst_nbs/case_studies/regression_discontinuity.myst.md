@@ -159,7 +159,7 @@ We can use posterior prediction to ask what would we expect to see if:
 - all units were exposed to the treatment (orange shaded region).
 
 ```{code-cell} ipython3
-:tags: [hide-input]
+:tags: []
 
 # MODEL EXPECTATION WITHOUT TREATMENT ------------------------------------
 # probe data
