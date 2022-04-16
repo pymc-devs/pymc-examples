@@ -32,6 +32,7 @@ import pandas as pd
 import pymc as pm
 
 from scipy.stats import norm
+from xarray_einstats.stats import XrContinuousRV
 ```
 
 ```{code-cell} ipython3
@@ -88,27 +89,20 @@ az.plot_trace(idata, var_names=["μ", "σ"], lines=[("μ", {}, [centers]), ("σ"
 And if we wanted, we could calculate the probability density function and examine the estimated group membership probabilities, based on the posterior mean estimates.
 
 ```{code-cell} ipython3
-:tags: [hide-input]
+xi = np.linspace(-7, 7, 500)
+post = idata.posterior
+pdf_components = XrContinuousRV(norm, post["μ"], post["σ"]).pdf(xi) * post["w"]
+pdf = pdf_components.sum("cluster")
 
-ni = 500
-xi = np.linspace(-7, 7, ni)
-
-μ = idata.posterior.μ.mean(dim=["chain", "draw"]).values
-σ = idata.posterior.σ.mean(dim=["chain", "draw"]).values
-w = idata.posterior.w.mean(dim=["chain", "draw"]).values
-
-X = np.zeros((ni, k))
-for i in np.arange(k):
-    X[:, i] = norm(loc=μ[i], scale=σ[i]).pdf(xi) * w[i]
-
-fig, ax = plt.subplots(3, 1, sharex=True)
+fig, ax = plt.subplots(3, 1, figsize=(7, 8), sharex=True)
+# empirical histogram
 ax[0].hist(x, 50)
 ax[0].set(title="Data", ylabel="Frequency")
-
-ax[1].plot(xi, np.sum(X, axis=1))
+# pdf
+pdf_components.mean(dim=["chain", "draw"]).sum("cluster").plot.line(ax=ax[1])
 ax[1].set(title="PDF", ylabel="Probability\ndensity")
-
-ax[2].plot(xi, (X.T / np.sum(X, axis=1)).T)
+# plot group membership probabilities
+(pdf_components / pdf).mean(dim=["chain", "draw"]).plot.line(hue="cluster", ax=ax[2])
 ax[2].set(title="Group membership", ylabel="Probability");
 ```
 
