@@ -61,7 +61,8 @@ repos:
         'A quick check to prevent urls pointing to pymc docs'
       files: ^examples/
       exclude: >
-          (?x)(conf.py)
+          (?x)(404.md|
+               conf.py)
       entry: >
           (?x)(arviz-devs.github.io|
                aesara.readthedocs.io|
@@ -70,10 +71,10 @@ repos:
                docs.pymc.io|
                numpy.org/doc|
                pymc-examples.readthedocs.io|
-               myst-parser.readthedocs.io|
-               myst-nb.readthedocs.io|
                docs.python.org|
-               xarray.pydata.org)
+               xarray.pydata.org
+               python.arviz.org|
+               docs.xarray.dev)
       language: pygrep
       types_or: [markdown, rst, jupyter]
 - repo: https://github.com/mwouts/jupytext
