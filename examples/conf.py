@@ -53,7 +53,7 @@ html_theme_options = {
         },
         {
             "name": "Twitter",
-            "url": "https://twitter.com/pymc-devs",
+            "url": "https://twitter.com/pymc_devs",
             "icon": "fab fa-twitter-square",
         },
         {
