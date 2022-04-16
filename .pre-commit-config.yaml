@@ -61,8 +61,28 @@ repos:
         'A quick check to prevent urls pointing to pymc docs'
       files: ^examples/
       exclude: >
-          (?x)(404.md|
-               conf.py)
+          (?x)(index.md|
+               404.md|
+               conf.py|
+               examples/case_studies/LKJ.ipynb|
+               examples/case_studies/LKJ.ipynb|
+               examples/case_studies/blackbox_external_likelihood.ipynb|
+               examples/case_studies/item_response_nba.ipynb|
+               examples/case_studies/multilevel_modeling.ipynb|
+               examples/diagnostics_and_criticism/sampler-stats.ipynb|
+               examples/gaussian_processes/GP-MaunaLoa2.ipynb|
+               examples/generalized_linear_models/GLM-logistic.ipynb|
+               examples/generalized_linear_models/GLM-out-of-sample-predictions.ipynb|
+               examples/generalized_linear_models/GLM-poisson-regression.ipynb|
+               examples/generalized_linear_models/GLM-robust.ipynb|
+               examples/generalized_linear_models/GLM-rolling-regression.ipynb|
+               examples/generalized_linear_models/GLM-simpsons-paradox.ipynb|
+               examples/samplers/MLDA_gravity_surveying.ipynb|
+               examples/samplers/MLDA_simple_linear_regression.ipynb|
+               examples/samplers/SMC-ABC_Lotka-Volterra_example.ipynb|
+               examples/splines/spline.ipynb|
+               examples/survival_analysis/censored_data.ipynb|
+               examples/survival_analysis/weibull_aft.ipynb)
       entry: >
           (?x)(arviz-devs.github.io|
                aesara.readthedocs.io|
