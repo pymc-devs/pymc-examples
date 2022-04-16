@@ -97,13 +97,13 @@ pdf = pdf_components.sum("cluster")
 fig, ax = plt.subplots(3, 1, figsize=(7, 8), sharex=True)
 # empirical histogram
 ax[0].hist(x, 50)
-ax[0].set(title="Data", ylabel="Frequency")
+ax[0].set(title="Data", xlabel="x", ylabel="Frequency")
 # pdf
 pdf_components.mean(dim=["chain", "draw"]).sum("cluster").plot.line(ax=ax[1])
-ax[1].set(title="PDF", ylabel="Probability\ndensity")
+ax[1].set(title="PDF", xlabel="x", ylabel="Probability\ndensity")
 # plot group membership probabilities
 (pdf_components / pdf).mean(dim=["chain", "draw"]).plot.line(hue="cluster", ax=ax[2])
-ax[2].set(title="Group membership", ylabel="Probability");
+ax[2].set(title="Group membership", xlabel="x", ylabel="Probability");
 ```
 
 ## Authors
