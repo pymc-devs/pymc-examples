@@ -1,5 +1,6 @@
 ---
 jupytext:
+  notebook_metadata_filter: substitutions
   text_representation:
     extension: .md
     format_name: myst
@@ -16,7 +17,7 @@ kernelspec:
 
 :::{post} April, 2022
 :tags: regression, causal inference, quasi experimental design, counterfactuals
-:category: beginner
+:category: beginner, explanation
 :author: Benjamin T. Vincent
 :::
 
