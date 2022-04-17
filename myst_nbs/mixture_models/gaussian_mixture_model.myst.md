@@ -15,8 +15,8 @@ kernelspec:
 # Gaussian Mixture Model
 
 :::{post} April, 2022
-:tags: mixture model
-:category: beginner, classification
+:tags: mixture model, classification
+:category: beginner
 :author: Benjamin T. Vincent
 :::
 
@@ -117,7 +117,7 @@ ax[2].set(title="Group membership", xlabel="x", ylabel="Probability");
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
+%watermark -n -u -v -iv -w -p aesara,aeppl,xarray,xarray_einstats
 ```
 
 :::{include} ../page_footer.md
