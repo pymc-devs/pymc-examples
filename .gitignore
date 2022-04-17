@@ -1,6 +1,7 @@
 *.pyc
 .ipynb_checkpoints
 .vscode/*
+*.DS_Store
 
 _build
 jupyter_execute
