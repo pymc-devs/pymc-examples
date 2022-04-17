@@ -6,29 +6,33 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: pymc-dev-py39
   language: python
-  name: python3
+  name: pymc-dev-py39
 ---
 
+(gaussian_mixture_model)=
 # Gaussian Mixture Model
 
-
-:::{post} Sept 18, 2021
-:tags: mixture model, pymc3.Categorical, pymc3.CategoricalGibbsMetropolis, pymc3.Dirichlet, pymc3.Metropolis, pymc3.Model, pymc3.Normal, pymc3.Potential, pymc3.Uniform
-:category: intermediate
+:::{post} April, 2022
+:tags: mixture model, classification
+:category: beginner
+:author: Benjamin T. Vincent
 :::
 
+A [mixture model](https://en.wikipedia.org/wiki/Mixture_model) allows us to make inferences about the component contributors to a distribution of data. More specifically, a Gaussian Mixture Model allows us to make inferences about the means and standard deviations of a specified number of underlying component Gaussian distributions.
+
+This could be useful in a number of ways. For example, we may be interested in simply describing a complex distribution parametrically (i.e. a [mixture distribution](https://en.wikipedia.org/wiki/Mixture_distribution)). Alternatively, we may be interested in [classification](https://en.wikipedia.org/wiki/Classification) where we seek to probabilistically classify which of a number of classes a particular observation is from.
+
 ```{code-cell} ipython3
-!date
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
-import theano.tensor as tt
+import pymc as pm
 
-print(f"Running on PyMC3 v{pm.__version__}")
+from scipy.stats import norm
+from xarray_einstats.stats import XrContinuousRV
 ```
 
 ```{code-cell} ipython3
@@ -38,84 +42,74 @@ rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
 
+First we generate some simulated observations.
+
 ```{code-cell} ipython3
-# simulate data from a known mixture distribution
+:tags: [hide-input]
+
 k = 3
 ndata = 500
-spread = 5
-centers = np.array([-spread, 0, spread])
-
-# simulate data from mixture distribution
-v = rng.integers(0, k, ndata)
-data = centers[v] + rng.standard_normal(ndata)
-
-plt.hist(data);
+centers = np.array([-5, 0, 5])
+sds = np.array([0.5, 2.0, 0.75])
+idx = rng.integers(0, k, ndata)
+x = rng.normal(loc=centers[idx], scale=sds[idx], size=ndata)
+plt.hist(x, 40);
 ```
 
-```{code-cell} ipython3
-# setup model
-model = pm.Model(coords={"cluster": np.arange(k), "obs_id": np.arange(ndata)})
-with model:
-    # cluster sizes
-    p = pm.Dirichlet("p", a=np.array([1.0, 1.0, 1.0]), dims="cluster")
-    # ensure all clusters have some points
-    p_min_potential = pm.Potential("p_min_potential", tt.switch(tt.min(p) < 0.1, -np.inf, 0))
+In the PyMC model, we will estimate one $\mu$ and one $\sigma$ for each of the 3 clusters. Writing a Gaussian Mixture Model got significantly easier from PyMC 4.0.0b6 onwards with the introduction of `pm.NormalMixture`.
 
-    # cluster centers
-    means = pm.Normal("means", mu=[0, 0, 0], sigma=15, dims="cluster")
-    # break symmetry
-    order_means_potential = pm.Potential(
-        "order_means_potential",
-        tt.switch(means[1] - means[0] < 0, -np.inf, 0)
-        + tt.switch(means[2] - means[1] < 0, -np.inf, 0),
+```{code-cell} ipython3
+with pm.Model(coords={"cluster": range(k)}) as model:
+    μ = pm.Normal(
+        "μ",
+        mu=0,
+        sigma=5,
+        transform=pm.distributions.transforms.ordered,
+        initval=[-4, 0, 4],
+        dims="cluster",
     )
+    σ = pm.HalfNormal("σ", sigma=1, dims="cluster")
+    weights = pm.Dirichlet("w", np.ones(k), dims="cluster")
+    pm.NormalMixture("x", w=weights, mu=μ, sigma=σ, observed=x)
 
-    # measurement error
-    sd = pm.Uniform("sd", lower=0, upper=20)
-
-    # latent cluster of each observation
-    category = pm.Categorical("category", p=p, dims="obs_id")
-
-    # likelihood for each observed value
-    points = pm.Normal("obs", mu=means[category], sigma=sd, observed=data, dims="obs_id")
+pm.model_to_graphviz(model)
 ```
 
 ```{code-cell} ipython3
-# fit model
 with model:
-    step1 = pm.Metropolis(vars=[p, sd, means])
-    step2 = pm.CategoricalGibbsMetropolis(vars=[category])
-    trace = pm.sample(20000, step=[step1, step2], tune=5000, return_inferencedata=True)
+    idata = pm.sample()
 ```
 
-## Trace
+We can also plot the trace to check the nature of the MCMC chains, and compare to the ground truth values.
 
 ```{code-cell} ipython3
-az.plot_trace(trace, var_names=["p", "sd", "means"]);
+az.plot_trace(idata, var_names=["μ", "σ"], lines=[("μ", {}, [centers]), ("σ", {}, [sds])]);
 ```
+
+And if we wanted, we could calculate the probability density function and examine the estimated group membership probabilities, based on the posterior mean estimates.
 
 ```{code-cell} ipython3
-# I prefer autocorrelation plots for serious confirmation of MCMC convergence
-az.plot_autocorr(trace, var_names=["sd"]);
+xi = np.linspace(-7, 7, 500)
+post = idata.posterior
+pdf_components = XrContinuousRV(norm, post["μ"], post["σ"]).pdf(xi) * post["w"]
+pdf = pdf_components.sum("cluster")
+
+fig, ax = plt.subplots(3, 1, figsize=(7, 8), sharex=True)
+# empirical histogram
+ax[0].hist(x, 50)
+ax[0].set(title="Data", xlabel="x", ylabel="Frequency")
+# pdf
+pdf_components.mean(dim=["chain", "draw"]).sum("cluster").plot.line(ax=ax[1])
+ax[1].set(title="PDF", xlabel="x", ylabel="Probability\ndensity")
+# plot group membership probabilities
+(pdf_components / pdf).mean(dim=["chain", "draw"]).plot.line(hue="cluster", ax=ax[2])
+ax[2].set(title="Group membership", xlabel="x", ylabel="Probability");
 ```
 
-## Sampling of cluster for individual data point
-
-```{code-cell} ipython3
-fig, axes = plt.subplots(3, 2, sharex="col", sharey="col", figsize=(10, 5))
-
-az.plot_trace(
-    trace,
-    var_names="category",
-    coords={"obs_id": [194, 346, 422]},
-    compact=False,
-    combined=True,
-    trace_kwargs={"ls": "none", "marker": ".", "alpha": 0.3},
-    axes=axes,
-);
-```
-
-Original NB by Abe Flaxman, modified by Thomas Wiecki
+## Authors
+- Authored by Abe Flaxman.
+- Updated by Thomas Wiecki.
+- Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in April 2022 ([#310](https://github.com/pymc-devs/pymc-examples/pull/310)) to use `pm.NormalMixture`.
 
 +++
 
@@ -123,5 +117,8 @@ Original NB by Abe Flaxman, modified by Thomas Wiecki
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p xarray
+%watermark -n -u -v -iv -w -p aesara,aeppl,xarray,xarray_einstats
 ```
+
+:::{include} ../page_footer.md
+:::
