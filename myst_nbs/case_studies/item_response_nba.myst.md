@@ -343,7 +343,7 @@ az.plot_forest(
     trace,
     var_names=["theta"],
     combined=True,
-    coords={"disadvantaged": top_theta[:amount].coords["disadvantaged"]},
+    coords={"disadvantaged": top_theta["disadvantaged"][:amount]},
     ax=theta_top_ax,
 )
 theta_top_ax.set_title(f"theta: top {amount}")
@@ -359,7 +359,7 @@ az.plot_forest(
     var_names=["theta"],
     colors="blue",
     combined=True,
-    coords={"disadvantaged": bottom_theta[:amount].coords["disadvantaged"]},
+    coords={"disadvantaged": bottom_theta["disadvantaged"][:amount]},
     ax=theta_bottom_ax,
 )
 theta_bottom_ax.set_title(f"theta: bottom {amount}")
@@ -373,7 +373,7 @@ az.plot_forest(
     var_names=["b"],
     colors="blue",
     combined=True,
-    coords={"committing": top_b[:amount].coords["committing"]},
+    coords={"committing": top_b["committing"][:amount]},
     ax=b_top_ax,
 )
 b_top_ax.set_title(f"b: top {amount}")
@@ -388,7 +388,7 @@ az.plot_forest(
     var_names=["b"],
     colors="blue",
     combined=True,
-    coords={"committing": bottom_b[:amount].coords["committing"]},
+    coords={"committing": bottom_b["committing"][:amount]},
     ax=b_bottom_ax,
 )
 b_bottom_ax.set_title(f"b: bottom {amount}")
