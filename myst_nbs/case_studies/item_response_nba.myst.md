@@ -345,7 +345,6 @@ az.plot_forest(
     combined=True,
     coords={"disadvantaged": top_theta[:amount].coords["disadvantaged"]},
     ax=theta_top_ax,
-    labeller=az.labels.NoVarLabeller(),
 )
 theta_top_ax.set_title(f"theta: top {amount}")
 theta_top_ax.set_xlabel("theta\n")
@@ -362,7 +361,6 @@ az.plot_forest(
     combined=True,
     coords={"disadvantaged": bottom_theta[:amount].coords["disadvantaged"]},
     ax=theta_bottom_ax,
-    labeller=az.labels.DimCoordLabeller(),
 )
 theta_bottom_ax.set_title(f"theta: bottom {amount}")
 theta_bottom_ax.set_xlabel("theta")
@@ -498,7 +496,7 @@ The histograms above suggest that it might be appropriate to add a hierarchical 
  
 * Adapted from Austin Rochford's [blogpost on NBA Foul Calls and Bayesian Item Response Theory](https://www.austinrochford.com/posts/2017-04-04-nba-irt.html) by [Lorenzo Toniazzi](https://github.com/ltoniazzi) on  3 Jul 2021 ([PR181](https://github.com/pymc-devs/pymc-examples/pull/181))
 * Re-executed by [Michael Osthege](https://github.com/michaelosthege) on  10 Jan 2022 ([PR266](https://github.com/pymc-devs/pymc-examples/pull/266))
-* Updated by [Lorenzo Toniazzi](https://github.com/ltoniazzi) on  15 Apr 2022 ([PR309](https://github.com/pymc-devs/pymc-examples/pull/309))
+* Updated by [Lorenzo Toniazzi](https://github.com/ltoniazzi) on  25 Apr 2022 ([PR309](https://github.com/pymc-devs/pymc-examples/pull/309))
 
 +++
 
