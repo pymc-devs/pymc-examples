@@ -53,7 +53,7 @@ import pymc as pm
 ```
 
 ```{code-cell} ipython3
-RANDOM_SEED = 1234
+RANDOM_SEED = 123
 rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 %config InlineBackend.figure_format = 'retina'
@@ -140,7 +140,7 @@ pm.model_to_graphviz(model)
 
 ```{code-cell} ipython3
 with model:
-    idata = pm.sample(random_seed=123)
+    idata = pm.sample(random_seed=RANDOM_SEED)
 ```
 
 We can see that we get no sampling warnings, and that plotting the MCMC traces shows no issues.
@@ -152,8 +152,12 @@ az.plot_trace(idata, var_names=["effect", "sigma"]);
 We can also see that we are able to accurately recover the true discontinuity magnitude (left) and the standard deviation of the change in units between pre- and post-test (right).
 
 ```{code-cell} ipython3
-az.plot_posterior(idata, var_names=["effect", "sigma"], ref_val=[treatment_effect, sd]);
+az.plot_posterior(
+    idata, var_names=["effect", "sigma"], ref_val=[treatment_effect, sd], hdi_prob=0.95
+);
 ```
+
+The most important thing is the posterior over the `effect` parameter. We can use that to base a judgement about the strength of the effect (e.g. through the 95% credible interval) or the presence/absence of an effect (e.g. through a Bayes Factor or ROPE).
 
 +++ {"tags": []}
 
