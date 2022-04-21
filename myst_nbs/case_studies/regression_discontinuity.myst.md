@@ -21,7 +21,7 @@ kernelspec:
 :author: Benjamin T. Vincent
 :::
 
-[Quasi experiments](https://en.wikipedia.org/wiki/Quasi-experiment) involve experimental interventions and quantitative measures. However, unlike regular experimental designs, random assignment of units (e.g. cells, people, companies, schools, states) to test or control groups is not possible for whatever reason. This inability to conduct random assignment poses problems when making causal claims as it makes it harder to argue that any difference between a control and test group are because of an intervention and not because of a confounding factor.
+[Quasi experiments](https://en.wikipedia.org/wiki/Quasi-experiment) involve experimental interventions and quantitative measures. However, quasi-experiments do _not_ involve random assignment of units (e.g. cells, people, companies, schools, states) to test or control groups. This inability to conduct random assignment poses problems when making causal claims as it makes it harder to argue that any difference between a control and test group are because of an intervention and not because of a confounding factor.
 
 The [regression discontinuity design](https://en.wikipedia.org/wiki/Regression_discontinuity_design) is a particular form of quasi experimental design. It consists of a control and test group, but assignment of units to conditions is chosen based upon a threshold criteria, not randomly. 
 
