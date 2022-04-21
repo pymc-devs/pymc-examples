@@ -66,7 +66,7 @@ Note that here we assume that there is negligible/zero measurement noise, but th
 :tags: [hide-input]
 
 # define true parameters
-threshold = 1.0
+threshold = 0.0
 treatment_effect = 0.7
 N = 1000
 sd = 0.3  # represents change between pre and post test with zero measurement error
@@ -74,7 +74,7 @@ sd = 0.3  # represents change between pre and post test with zero measurement er
 # No measurement error, but random change from pre to post
 df = (
     pd.DataFrame.from_dict({"x": rng.normal(size=N)})
-    .assign(treated=lambda x: x.x > threshold)
+    .assign(treated=lambda x: x.x < threshold)
     .assign(y=lambda x: x.x + rng.normal(loc=0, scale=sd, size=N) + treatment_effect * x.treated)
 )
 
@@ -90,7 +90,7 @@ def plot_data(df):
     ax.plot(df.x[df.treated], df.y[df.treated], "o", alpha=0.3, label="treated")
     ax.axvline(x=threshold, color="k", ls="--", lw=3, label="treatment threshold")
     ax.set(xlabel=r"observed $x$ (pre-test)", ylabel=r"observed $y$ (post-test)")
-    plt.legend()
+    ax.legend()
     return ax
 
 
@@ -119,7 +119,9 @@ where:
 - $treated_i$ is an observed indicator variable (0 for control group, 1 for test group).
 
 Notes:
-- If the pre-test ($x$) and post-test ($y$) measures where not the same, then we would want to add additional slope and intercept parameters to this model. But because we assume the same measure is being taken pre- and post-test, then we do not need this.
+- We make the simplifying assumption of no measurement error.
+- Here, we confine ourselves to the sitation where we use the same measure (e.g. heart rate, educational attainment, upper arm circumference) for both the pre-test ($x$) and post-test ($y$). So the _untreated_ post-test measure can be modelled as $y \sim \text{Normal}(\mu=x, \sigma)$. 
+- In the case that the pre- and post-test measuring instruments where not identical, then we would want to build slope and intercept parameters into $\mu$ to capture the 'exchange rate' between the pre- and post-test measures.
 - We assume we have accurately observed whether a unit has been treated or not. That is, this model assumes a sharp discontinuity with no uncertainty.
 
 ```{code-cell} ipython3
@@ -153,10 +155,12 @@ We can also see that we are able to accurately recover the true discontinuity ma
 az.plot_posterior(idata, var_names=["effect", "sigma"], ref_val=[treatment_effect, sd]);
 ```
 
++++ {"tags": []}
+
 ## Counterfactual questions
 
 We can use posterior prediction to ask what would we expect to see if:
-- no units were exposed to the treatment (blue shaded region)
+- no units were exposed to the treatment (blue shaded region, which is very narrow)
 - all units were exposed to the treatment (orange shaded region).
 
 _Technical note:_ Formally we are doing posterior prediction of `y`. Running `pm.sample_posterior_predictive` multiple times with different random seeds will result in new and different samples of `y` each time. However, this is not the case (we are not formally doing posterior prediction) for `mu`. This is because `mu` is a deterministic function (`mu = x + delta*treated`), so for our already obtained posterior samples of `delta`, the values of `mu` will be entirely determined by the values of `x` and `treated` data).
@@ -176,7 +180,14 @@ with model:
 
 # plotting
 ax = plot_data(df)
-az.plot_hdi(_x, ppc.posterior_predictive["mu"], color="C0", hdi_prob=0.95)
+az.plot_hdi(
+    _x,
+    ppc.posterior_predictive["mu"],
+    color="C0",
+    hdi_prob=0.95,
+    ax=ax,
+    fill_kwargs={"label": r"$\mu$ untreated"},
+)
 
 # MODEL EXPECTATION WITH TREATMENT ---------------------------------------
 # probe data
@@ -189,13 +200,22 @@ with model:
     ppc = pm.sample_posterior_predictive(idata, var_names=["mu", "y"])
 
 # plotting
-az.plot_hdi(_x, ppc.posterior_predictive["mu"], color="C1", hdi_prob=0.95)
-plt.legend();
+az.plot_hdi(
+    _x,
+    ppc.posterior_predictive["mu"],
+    color="C1",
+    hdi_prob=0.95,
+    ax=ax,
+    fill_kwargs={"label": r"$\mu$ treated"},
+)
+ax.legend()
 ```
 
-The blue shaded region (which is very narrow) shows the 95% credible region of the expected value of the post-test measurement for a range of possible pre-test measures. This is actually very interesting because it is an example of counterfactual inference. We did not observe any units that were untreated above the threshold. But assuming our model is a good description of reality, we can ask the counterfactual question of "what if a unit above the threshold was not treated?"
+The blue shaded region shows the 95% credible region of the expected value of the post-test measurement for a range of possible pre-test measures, in the case of no treatment. This is actually infinitely narrow because this particular model assumes $\mu=x$ (see above).
 
-Similarly, we did not observe any units below the threshold that were not treated, but we can ask the counterfactual question of "what if a unit below the threshold was treated?" And the answer is provided by the orange 95% credible region below the threshold.
+The orange shaded region shows the 95% credible region of the expected value of the post-test measurement for a range of possible pre-test measures in the case of treatment.
+
+Both are actually very interesting as examples of counterfactual inference. We did not observe any units that were untreated below the threshold, nor any treated units above the treshold. But assuming our model is a good description of reality, we can ask the counterfactual questions "What if a unit above the threshold was treated?" and "What if a unit below the treshold was treated?"
 
 +++
 
