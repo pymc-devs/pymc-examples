@@ -1,4 +1,4 @@
-name: pymc-test-py38
+name: pymc-test-py37
 channels:
 - conda-forge
 - defaults
@@ -6,6 +6,6 @@ dependencies:
 - pip
 - pytest-cov>=2.5
 - pytest>=3.0
-- python=3.8
+- python=3.7
 - pip:
   - "git+https://github.com/pymc-devs/pymc.git@main"

@@ -64,7 +64,7 @@ class PGBART(ArrayStepShared):
         model=None,
     ):
         model = modelcontext(model)
-        initial_values = model.compute_initial_point()
+        initial_values = model.initial_point()
         if vars is None:
             vars = model.value_vars
         else:

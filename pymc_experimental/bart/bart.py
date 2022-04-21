@@ -19,7 +19,7 @@ from aeppl.logprob import _logprob
 from aesara.tensor.random.op import RandomVariable, default_supp_shape_from_params
 from pandas import DataFrame, Series
 
-from pymc.distributions.distribution import NoDistribution, _get_moment
+from pymc.distributions.distribution import NoDistribution, _moment
 
 __all__ = ["BART"]
 
@@ -109,7 +109,7 @@ class BART(NoDistribution):
 
         NoDistribution.register(BARTRV)
 
-        @_get_moment.register(BARTRV)
+        @_moment.register(BARTRV)
         def get_moment(rv, size, *rv_inputs):
             return cls.get_moment(rv, size, *rv_inputs)
 
