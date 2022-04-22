@@ -345,6 +345,7 @@ az.plot_forest(
     combined=True,
     coords={"disadvantaged": top_theta["disadvantaged"][:amount]},
     ax=theta_top_ax,
+    labeller=az.labels.NoVarLabeller(),
 )
 theta_top_ax.set_title(f"theta: top {amount}")
 theta_top_ax.set_xlabel("theta\n")
@@ -361,6 +362,7 @@ az.plot_forest(
     combined=True,
     coords={"disadvantaged": bottom_theta["disadvantaged"][:amount]},
     ax=theta_bottom_ax,
+    labeller=az.labels.NoVarLabeller(),
 )
 theta_bottom_ax.set_title(f"theta: bottom {amount}")
 theta_bottom_ax.set_xlabel("theta")
@@ -375,6 +377,7 @@ az.plot_forest(
     combined=True,
     coords={"committing": top_b["committing"][:amount]},
     ax=b_top_ax,
+    labeller=az.labels.NoVarLabeller(),
 )
 b_top_ax.set_title(f"b: top {amount}")
 b_top_ax.set_xlabel("b\n")
@@ -390,6 +393,7 @@ az.plot_forest(
     combined=True,
     coords={"committing": bottom_b["committing"][:amount]},
     ax=b_bottom_ax,
+    labeller=az.labels.NoVarLabeller(),
 )
 b_bottom_ax.set_title(f"b: bottom {amount}")
 b_bottom_ax.set_xlabel("b")
@@ -437,6 +441,7 @@ else:
         coords={"committing": top_theta_players},
         figsize=(7, 7),
         ax=b_top_theta,
+        labeller=az.labels.NoVarLabeller(),
     )
     b_top_theta.set_title(f"\nb score for top {amount} in theta\n (94% HDI)\n\n", fontsize=17)
     b_top_theta.set_xlabel("b")
@@ -451,6 +456,7 @@ else:
         coords={"disadvantaged": top_b_players},
         figsize=(7, 7),
         ax=theta_top_b,
+        labeller=az.labels.NoVarLabeller(),
     )
     theta_top_b.set_title(f"\ntheta score for top {amount} in b\n (94% HDI)\n\n", fontsize=17)
     theta_top_b.set_xlabel("theta")
