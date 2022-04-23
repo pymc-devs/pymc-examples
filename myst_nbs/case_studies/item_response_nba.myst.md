@@ -17,7 +17,7 @@ kernelspec:
 :::{post} Apr 17, 2022
 :tags: hierarchical model, case study, generalized linear model
 :category: intermediate, tutorial
-:author:  Michael Osthege, Lorenzo Toniazzi
+:author:  Austin Rochford, Lorenzo Toniazzi
 :::
 
 ```{code-cell} ipython3
@@ -404,7 +404,7 @@ plt.show();
 
 By visiting [Austin Rochford post](https://www.austinrochford.com/posts/2017-04-04-nba-irt.html) and checking the analogous table for the Rasch model there (which uses data from the 2016-17 season),  the reader can see that several top players in both skills are still in the top 10 with our larger data set (covering seasons 2015-16 to 2020-21).
 
-+++
++++ {"tags": []}
 
 ### Discovering extra hierarchical structure
 
@@ -412,8 +412,8 @@ A natural question to ask is whether players skilled as disadvantaged players (i
 
 ```{code-cell} ipython3
 amount = 20  # How many top players we want to display
-top_theta_players = top_theta["disadvantaged"][:amount].to_dict()["data"]
-top_b_players = top_b["committing"][:amount].to_dict()["data"]
+top_theta_players = top_theta["disadvantaged"][:amount].values
+top_b_players = top_b["committing"][:amount].values
 
 top_theta_in_committing = set(committing).intersection(set(top_theta_players))
 top_b_in_disadvantaged = set(disadvantaged).intersection(set(top_b_players))
@@ -471,8 +471,8 @@ Given the last observation, we decide to plot a histogram for the occurence of d
 :tags: []
 
 amount = 50  # How many top players we want to display
-top_theta_players = top_theta["disadvantaged"][:amount].to_dict()["data"]
-top_b_players = top_b["committing"][:amount].to_dict()["data"]
+top_theta_players = top_theta["disadvantaged"][:amount].values
+top_b_players = top_b["committing"][:amount].values
 
 positions = ["C", "C-F", "F-C", "F", "G-F", "G"]
 
@@ -495,6 +495,8 @@ top_b_position.legend(loc="upper right");
 ```
 
 The histograms above suggest that it might be appropriate to add a hierarchical layer to our model. Namely, group disadvantaged and committing players by the respective positions to account for the role of position in evaluating the latent skills `theta` and `b`. This can be done in our Rasch model by imposing mean and variance hyperpriors for each player grouped by the positions, which is left as an exercise for the reader. To this end, notice that the dataframe `df_orig` is set up precisely to add this hierarchical structure. Have fun!
+
+A warm thank you goes to [Eric Ma](https://github.com/ericmjl) for many useful comments that improved this notebook.
 
 +++ {"tags": []}
 
