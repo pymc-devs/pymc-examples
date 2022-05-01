@@ -19,7 +19,7 @@ substitutions:
 :::{post} April, 2022
 :tags: gaussian process, CO2
 :category: intermediate
-:author: Bill Engels
+:author: Bill Engels, Chris Fonnesbeck
 :::
 
 +++
@@ -135,7 +135,7 @@ data_monthly = data_monthly.assign(t=t)
 data_monthly = data_monthly.assign(y_n=y_n)
 ```
 
-This data might be familiar to you, since it was used as an example in the [Gaussian Processes for Machine Learning](http://www.gaussianprocess.org/gpml/) book by {cite:t}`rasmussen2003gaussian`.  The version of the data set they use starts in the late 1950's, but stops at the end of 2003.  So that our PyMC3 example is somewhat comparable to their example, we use the stretch of data from before 2004 as the "training" set.  The data from 2004 to current year we'll use to test our predictions.
+This data might be familiar to you, since it was used as an example in the [Gaussian Processes for Machine Learning](http://www.gaussianprocess.org/gpml/) book by {cite:t}`rasmussen2003gaussian`.  The version of the data set they use starts in the late 1950's, but stops at the end of 2003.  So that our PyMC3 example is somewhat comparable to their example, we use the stretch of data from before 2004 as the "training" set.  The data from 2004 to 2022 we'll use to test our predictions.
 
 ```{code-cell} ipython3
 # split into training and test set
@@ -508,7 +508,7 @@ This plot makes it clear that there is a broadening over time.  So it would seem
 
 ## What day will the CO2 level break 400 ppm?
 
-How well do our forecasts look?  Clearly the observed data trends up and the seasonal effect is very pronounced.  Does our GP model capture this well enough to make reasonable extrapolations?  Our "training" set went up until the end of 2003, so we are going to predict from January 2004 out to the end of current year.  
+How well do our forecasts look?  Clearly the observed data trends up and the seasonal effect is very pronounced.  Does our GP model capture this well enough to make reasonable extrapolations?  Our "training" set went up until the end of 2003, so we are going to predict from January 2004 out to the end of 2022.  
 
 Although there isn't any particular significance to this event other than it being a nice round number, our side goal was to see how well we could predict the date when the 400 ppm mark is first crossed.  [This event first occurred during May, 2013](https://scripps.ucsd.edu/programs/keelingcurve/2013/05/20/now-what/#more-741) and there were a few [news articles about other significant milestones](https://www.usatoday.com/story/tech/sciencefair/2016/09/29/carbon-dioxide-levels-400-ppm-scripps-mauna-loa-global-warming/91279952/).
 
@@ -585,7 +585,7 @@ Next, we'll see about using PyMC3's GP functionality to improve the model, look 
 
 ## Authors
 * Authored by Bill Engels in September, 2017 ([pymc#2444](https://github.com/pymc-devs/pymc/pull/2444))
-* Updated by Chris Fonnesbeck in December, 2020 ([pymc-examples#8](https://github.com/pymc-devs/pymc-examples/pull/8))
+* Updated by Chris Fonnesbeck in December, 2020
 * Re-executed by Danh Phan in May, 2022 ([pymc-examples#316](https://github.com/pymc-devs/pymc-examples/pull/316))
 
 +++
