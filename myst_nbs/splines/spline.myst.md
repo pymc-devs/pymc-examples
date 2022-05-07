@@ -252,7 +252,7 @@ blossom_data.plot.scatter(
     color="cornflowerblue",
     s=10,
     title="Cherry blossom data with posterior predictions",
-    ylabel="Day of Year",
+    ylabel="Days in bloom",
 )
 for knot in knot_list:
     plt.gca().axvline(knot, color="grey", alpha=0.4)
