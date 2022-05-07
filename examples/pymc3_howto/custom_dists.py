@@ -27,7 +27,7 @@ data = {"x": xdata, "y": ydata}
 # define loglikelihood outside of the model context, otherwise cores wont work:
 # Lambdas defined in local namespace are not picklable (see issue #1995)
 def loglike1(value):
-    return -1.5 * tt.log(1 + value ** 2)
+    return -1.5 * tt.log(1 + value**2)
 
 
 def loglike2(value):

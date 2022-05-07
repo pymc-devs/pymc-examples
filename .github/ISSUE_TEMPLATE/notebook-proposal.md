@@ -9,7 +9,12 @@ labels: proposal
 **Title**: Use this also as issue title
 
 ## Why should this notebook be added to pymc-examples?
-Explain why this topic is interesting and useful to PyMC users.
+Explain why this topic is interesting and useful to PyMC users
+and what need of the PyMC users it aims to answer.
+
+Suggested categories:
+* Level:
+* [Diataxis](https://diataxis.fr/) type:
 
 ## Related notebooks
 Cover related notebooks on which this notebook will build,

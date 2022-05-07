@@ -50,14 +50,14 @@
   <div class="container sd-fs-6 sd-font-weight-bold">
     <div class="row border-top border-bottom">
       {% set t_bool = "tutorial" in post.category|map('string') %}
-      <div class="col {{ setcolorclass(t_bool) }}"><a href="{{ pathtocategory('tutorial') }}">Tutorial</a></div>
+      <div class="col"><a class="{{ setcolorclass(t_bool) }}" href="{{ pathtocategory('tutorial') }}">Tutorial</a></div>
       {% set h_bool = "how-to" in post.category|map('string') %}
-      <div class="col {{ setcolorclass(h_bool) }}"><a href="{{ pathtocategory('how-to') }}">How-to</a></div>
+      <div class="col"><a class="{{ setcolorclass(h_bool) }}" href="{{ pathtocategory('how-to') }}">How-to</a></div>
       <div class="w-100"></div>
       {% set e_bool = "explanation" in post.category|map('string') %}
-      <div class="col {{ setcolorclass(e_bool) }}"><a href="{{ pathtocategory('explanation') }}">Explanation</a></div>
+      <div class="col"><a class="{{ setcolorclass(e_bool) }}" href="{{ pathtocategory('explanation') }}">Explanation</a></div>
       {% set r_bool = "reference" in post.category|map('string') %}
-      <div class="col {{ setcolorclass(r_bool) }}"><a href="{{ pathtocategory('reference') }}">Reference</a></div>
+      <div class="col"><a class="{{ setcolorclass(r_bool) }}" href="{{ pathtocategory('reference') }}">Reference</a></div>
     </div>
   </div>
 

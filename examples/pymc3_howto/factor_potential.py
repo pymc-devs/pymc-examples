@@ -11,7 +11,7 @@ Stan.
 def build_model():
     with pm.Model() as model:
         x = pm.Normal("x", 1, 1)
-        x2 = pm.Potential("x2", -(x ** 2))
+        x2 = pm.Potential("x2", -(x**2))
     return model
 
 

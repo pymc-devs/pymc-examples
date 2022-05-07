@@ -53,7 +53,7 @@ html_theme_options = {
         },
         {
             "name": "Twitter",
-            "url": "https://twitter.com/pymc-devs",
+            "url": "https://twitter.com/pymc_devs",
             "icon": "fab fa-twitter-square",
         },
         {
@@ -69,6 +69,7 @@ html_theme_options = {
         {"name": "API", "url": "https://docs.pymc.io/en/stable/api.html"},
     ],
     "page_sidebar_items": ["postcard", "page-toc", "edit-this-page"],
+    "google_analytics_id": "G-6KPRBTE6WV",
 }
 version = os.environ.get("READTHEDOCS_VERSION", "")
 version = version if "." in version else "main"
@@ -99,12 +100,11 @@ html_sidebars = {
         # "sidebar-nav-bs.html",
         "postcard_categories.html",
         "tagcloud.html",
-        "sidebar-ethical-ads.html",
     ],
 }
 
 # ablog config
-blog_baseurl = "https://examples.pymc.io"
+blog_baseurl = "https://docs.pymc.io/projects/examples/en/latest/"
 blog_title = "PyMC Examples"
 blog_path = "blog"
 blog_authors = {
@@ -145,22 +145,8 @@ bibtex_default_style = "unsrt"
 bibtex_reference_style = "author_year"
 
 # OpenGraph config
-# ogp_site_url = "https://predictablynoisy.com"
-# ogp_image = "https://predictablynoisy.com/_static/profile-bw.png"
+# use default readthedocs integration aka no config here
 
-# codeautolink config
-from IPython.core.inputtransformer2 import TransformerManager
-
-
-def ipython_cell_transform(source):
-    out = TransformerManager().transform_cell(source)
-    return source, out
-
-
-# codeautolink
-codeautolink_custom_blocks = {
-    "ipython3": ipython_cell_transform,
-}
 codeautolink_autodoc_inject = False
 codeautolink_concat_default = True
 
@@ -169,10 +155,11 @@ intersphinx_mapping = {
     "aesara": ("https://aesara.readthedocs.io/en/latest/", None),
     "arviz": ("https://arviz-devs.github.io/arviz/", None),
     "bambi": ("https://bambinos.github.io/bambi/main", None),
+    "einstats": ("https://xarray-einstats.readthedocs.io/en/stable/", None),
     "mpl": ("https://matplotlib.org/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
-    "pymc": ("https://docs.pymc.io/en/stable/", None),
+    "pymc": ("https://docs.pymc.io/en/latest/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
     "xarray": ("http://xarray.pydata.org/en/stable/", None),
 }

@@ -8,7 +8,7 @@ PyMC Examples
 
 Supporting examples and tutorials for PyMC, the Python package for Bayesian statistical modeling and Probabilistic Machine Learning!
 
-Check out the `getting started guide <http://docs.pymc.io/notebooks/getting_started>`__,  or
+Check out the `getting started guide <https://docs.pymc.io/en/latest/learning.html#learning>`__,  or
 interact with live examples using Binder! Each notebook in `PyMC examples gallery
 <https://pymc-examples.readthedocs.io>`__ has a binder badge.
 For questions on PyMC, head on over to our `PyMC Discourse <https://discourse.pymc.io/>`__ forum.
