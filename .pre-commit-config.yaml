@@ -69,7 +69,6 @@ repos:
                examples/case_studies/blackbox_external_likelihood.ipynb|
                examples/case_studies/blackbox_external_likelihood_numpy.ipynb|
                examples/case_studies/item_response_nba.ipynb|
-               examples/case_studies/multilevel_modeling.ipynb|
                examples/diagnostics_and_criticism/sampler-stats.ipynb|
                examples/gaussian_processes/GP-MaunaLoa2.ipynb|
                examples/generalized_linear_models/GLM-logistic.ipynb|

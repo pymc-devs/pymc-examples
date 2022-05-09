@@ -6,15 +6,16 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: Python 3.9.10 ('pymc-dev-py39')
   language: python
   name: python3
 ---
 
+(notebook_name)=
 # A Primer on Bayesian Methods for Multilevel Modeling
 
 :::{post} 27 February, 2022
-:tags: hierarchical, pymc.Data, pymc.Deterministic, pymc.Exponential, pymc.LKJCholeskyCov, pymc.Model, pymc.MvNormal, pymc.Normal
+:tags: hierarchical, Data, Deterministic, Exponential, LKJCholeskyCov, Model, MvNormal, Normal
 :category: intermediate
 :author: Chris Fonnesbeck, Colin Carroll, Alex Andorra, Oriol Abril, Farhan Reynaldo
 :::
@@ -167,7 +168,7 @@ with pm.Model(coords=coords, rng_seeder=RANDOM_SEED) as pooled_model:
 pm.model_to_graphviz(pooled_model)
 ```
 
-You may be wondering why we are using the `pm.Data` container above even though the variable `floor_idx` is not an observed variable nor a parameter of the model. As you'll see, this will make our lives much easier when we'll plot and diagnose our model. In short, this will tell [ArviZ](https://arviz-devs.github.io/arviz/index.html) that `floor_idx` is information used by the model to index variables. ArviZ will thus include `floor_idx` as a variable in the `constant_data` group of the resulting [`InferenceData`](https://arviz-devs.github.io/arviz/notebooks/XarrayforArviZ.html) object. Moreover, including `floor_idx` in the `InferenceData` object makes sharing and reproducing analysis much easier, all the data needed to analyze or rerun the model is stored there.
+You may be wondering why we are using the `pm.Data` container above even though the variable `floor_idx` is not an observed variable nor a parameter of the model. As you'll see, this will make our lives much easier when we'll plot and diagnose our model. In short, this will tell {doc}`Arviz <arviz:index>` that `floor_idx` is information used by the model to index variables. ArviZ will thus include `floor_idx` as a variable in the `constant_data` group of the resulting {ref}`InferenceData <xarray_for_arviz>` object. Moreover, including `floor_idx` in the `InferenceData` object makes sharing and reproducing analysis much easier, all the data needed to analyze or rerun the model is stored there.
 
 +++
 
@@ -1134,3 +1135,6 @@ mcelreath2018statistical
 %load_ext watermark
 %watermark -n -u -v -iv -w
 ```
+
+:::{include} ../page_footer.md
+:::
