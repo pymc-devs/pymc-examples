@@ -11,7 +11,7 @@ kernelspec:
   name: python3
 ---
 
-(notebook_name)=
+(multilevel_modeling)=
 # A Primer on Bayesian Methods for Multilevel Modeling
 
 :::{post} 27 February, 2022
