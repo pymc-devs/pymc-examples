@@ -15,7 +15,7 @@ kernelspec:
 # A Primer on Bayesian Methods for Multilevel Modeling
 
 :::{post} 27 February, 2022
-:tags: hierarchical, Data, Deterministic, Exponential, LKJCholeskyCov, Model, MvNormal, Normal
+:tags: hierarchical model, case study
 :category: intermediate
 :author: Chris Fonnesbeck, Colin Carroll, Alex Andorra, Oriol Abril, Farhan Reynaldo
 :::
