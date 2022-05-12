@@ -29,17 +29,17 @@ The [regression discontinuity design](https://en.wikipedia.org/wiki/Regression_d
 
 ![regression discontinuity design schematic](regression_discontinuity.png)
 
-A schematic diagram of the regression discontinuity design. The dashed green line shows where we would have expected the post test scores of the test group to be if they had not recieved the treatment. Image taken from [https://conjointly.com/kb/regression-discontinuity-design/](https://conjointly.com/kb/regression-discontinuity-design/).
+A schematic diagram of the regression discontinuity design. The dashed green line shows where we would have expected the post test scores of the test group to be if they had not received the treatment. Image taken from [https://conjointly.com/kb/regression-discontinuity-design/](https://conjointly.com/kb/regression-discontinuity-design/).
 :::
 
-Units with very low scores are likely to differ systematically along some dimensions than units with very high scores. For example, if we look at students who achieve the highest, and students who achieve the lowest, in all likelihood there are confounding variables. Students with high scores are likely to have come from more priviledged backgrounds than those with the lowest scores. 
+Units with very low scores are likely to differ systematically along some dimensions than units with very high scores. For example, if we look at students who achieve the highest, and students who achieve the lowest, in all likelihood there are confounding variables. Students with high scores are likely to have come from more privileged backgrounds than those with the lowest scores. 
 
 If we gave extra tuition (our experimental intervention) to students scoring in the lowest half of scores then we can easily imagine that we have large differences in some measure of privilege between test and control groups. At a first glance, this would seem to make the regression discontinuity design useless - the whole point of random assignment is to reduce or eliminate systematic biases between control and test groups. But use of a threshold would seem to maximise the differences in confounding variables between groups. Isn't this an odd thing to do?
 
 The key point however is that it is much less likely that students scoring just below and just above the threshold systematically differ in their degree of privilege. And so _if_ we find evidence of a meaningful discontinuity in a post-test score in those just above and just below the threshold, then it is much more plausible that the intervention (applied according to the threshold criteria) was causally responsible.
 
 ## Sharp v.s. fuzzy regression discontinuity designs
-Note that regression discontinuity designs fall into two categories. This notebook focusses on _sharp_ regression discontinuity designs, but it is important to understand both sharp and fuzzy variants:
+Note that regression discontinuity designs fall into two categories. This notebook focuses on _sharp_ regression discontinuity designs, but it is important to understand both sharp and fuzzy variants:
 
 - **Sharp:** Here, the assignment to control or treatment groups is purely dictated by the threshold. There is no uncertainty in which units are in which group.
 - **Fuzzy:** In some situations there may not be a sharp boundary between control and treatment based upon the threshold. This could happen for example if experimenters are not strict in assigning units to groups based on the threshold. Alternatively, there could be non-compliance on the side of the actual units being studied. For example, patients may not always be fully compliant in taking medication, so some unknown proportion of patients assigned to the test group may actually be in the control group because of non compliance.
@@ -120,7 +120,7 @@ where:
 
 Notes:
 - We make the simplifying assumption of no measurement error.
-- Here, we confine ourselves to the sitation where we use the same measure (e.g. heart rate, educational attainment, upper arm circumference) for both the pre-test ($x$) and post-test ($y$). So the _untreated_ post-test measure can be modelled as $y \sim \text{Normal}(\mu=x, \sigma)$. 
+- Here, we confine ourselves to the situation where we use the same measure (e.g. heart rate, educational attainment, upper arm circumference) for both the pre-test ($x$) and post-test ($y$). So the _untreated_ post-test measure can be modelled as $y \sim \text{Normal}(\mu=x, \sigma)$. 
 - In the case that the pre- and post-test measuring instruments where not identical, then we would want to build slope and intercept parameters into $\mu$ to capture the 'exchange rate' between the pre- and post-test measures.
 - We assume we have accurately observed whether a unit has been treated or not. That is, this model assumes a sharp discontinuity with no uncertainty.
 
@@ -219,7 +219,7 @@ The blue shaded region shows the 95% credible region of the expected value of th
 
 The orange shaded region shows the 95% credible region of the expected value of the post-test measurement for a range of possible pre-test measures in the case of treatment.
 
-Both are actually very interesting as examples of counterfactual inference. We did not observe any units that were untreated below the threshold, nor any treated units above the treshold. But assuming our model is a good description of reality, we can ask the counterfactual questions "What if a unit above the threshold was treated?" and "What if a unit below the treshold was treated?"
+Both are actually very interesting as examples of counterfactual inference. We did not observe any units that were untreated below the threshold, nor any treated units above the threshold. But assuming our model is a good description of reality, we can ask the counterfactual questions "What if a unit above the threshold was treated?" and "What if a unit below the threshold was treated?"
 
 +++
 

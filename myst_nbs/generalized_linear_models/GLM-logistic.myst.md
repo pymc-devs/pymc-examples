@@ -208,7 +208,7 @@ seaborn.heatmap(
 ```
 
 We see here not many strong correlations. The highest is 0.30 according to this plot. We see a weak-correlation between hours and income 
-(which is logical), we see a slighty stronger correlation between education and income (which is the kind of question we are answering).
+(which is logical), we see a slightly stronger correlation between education and income (which is the kind of question we are answering).
 
 +++
 
@@ -232,7 +232,7 @@ where $p_i = \frac{1}{1 + e^{-z_i}}$,
 
 $z_{i} = \beta_{0} + \beta_{1}(age)_{i} + \beta_2(age)^{2}_{i} + \beta_{3}(educ)_{i} + \beta_{4}(hours)_{i}$ and $y_{i} = 1$ if income is greater than 50K and $y_{i} = 0$ otherwise. 
 
-With the math out of the way we can get back to the data. Here I use PyMC3 to draw samples from the posterior. The sampling algorithm used is NUTS, which is a form of Hamiltonian Monte Carlo, in which parameteres are tuned automatically. Notice, that we get to borrow the syntax of specifying GLM's from R, very convenient! I use a convenience function from above to plot the trace infromation from the first 1000 parameters.
+With the math out of the way we can get back to the data. Here I use PyMC3 to draw samples from the posterior. The sampling algorithm used is NUTS, which is a form of Hamiltonian Monte Carlo, in which parameteres are tuned automatically. Notice, that we get to borrow the syntax of specifying GLM's from R, very convenient! I use a convenience function from above to plot the trace information from the first 1000 parameters.
 
 ```{code-cell} ipython3
 model = bmb.Model("income ~ age + age2 + educ + hours", data, family="bernoulli")

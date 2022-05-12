@@ -80,7 +80,7 @@ When we call `pm.sample(return_inferencedata=False)`, `PyMC` assigns the best st
 +++
 
 ## Specify compound steps
-Auto-assignment can be overriden for any subset of variables by specifying them manually prior to sampling:
+Auto-assignment can be overridden for any subset of variables by specifying them manually prior to sampling:
 
 ```{code-cell} ipython3
 with m:

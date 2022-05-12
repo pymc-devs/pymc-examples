@@ -28,7 +28,7 @@ import seaborn as sns
 
 %matplotlib inline
 
-print(f"Runing on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC3 v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3

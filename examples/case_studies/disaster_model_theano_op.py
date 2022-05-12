@@ -159,7 +159,7 @@ with pm.Model() as model:
 
     # Use slice sampler for means
     step1 = pm.Slice([early_mean, late_mean])
-    # Use Metropolis for switchpoint, since it accomodates discrete variables
+    # Use Metropolis for switchpoint, since it accommodates discrete variables
     step2 = pm.Metropolis([switchpoint])
 
     # Initial values for stochastic nodes

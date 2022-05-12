@@ -273,9 +273,9 @@ ax.legend(loc=1)
 ax.set_title("LIDAR Data");
 ```
 
-The model has fit the linear components of the data well, and also accomodated its heteroskedasticity.  This flexibility, along with the ability to modularly specify the conditional mixture weights and conditional component densities, makes dependent density regression an extremely useful nonparametric Bayesian model.
+The model has fit the linear components of the data well, and also accommodated its heteroskedasticity.  This flexibility, along with the ability to modularly specify the conditional mixture weights and conditional component densities, makes dependent density regression an extremely useful nonparametric Bayesian model.
 
-To learn more about depdendent density regression and related models, consult [_Bayesian Data Analysis_](http://www.stat.columbia.edu/~gelman/book/), [_Bayesian Nonparametric Data Analysis_](http://www.springer.com/us/book/9783319189673), or [_Bayesian Nonparametrics_](https://www.google.com/webhp?sourceid=chrome-instant&ion=1&espv=2&ie=UTF-8#q=bayesian+nonparametrics+book).
+To learn more about dependent density regression and related models, consult [_Bayesian Data Analysis_](http://www.stat.columbia.edu/~gelman/book/), [_Bayesian Nonparametric Data Analysis_](http://www.springer.com/us/book/9783319189673), or [_Bayesian Nonparametrics_](https://www.google.com/webhp?sourceid=chrome-instant&ion=1&espv=2&ie=UTF-8#q=bayesian+nonparametrics+book).
 
 This example first appeared [here](http://austinrochford.com/posts/2017-01-18-ddp-pymc3.html).
 

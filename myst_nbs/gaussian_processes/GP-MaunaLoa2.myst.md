@@ -29,13 +29,13 @@ This GP example shows how to
 
 +++
 
-The first data set we'll look at is CO2 measurments from ice core data.  This data goes back to the year 13 AD.  The data after the year 1958 is an average of ice core measurments and more accurate data taken from Mauna Loa.  **I'm very greatful to Tobias Erhardt from the University of B&#235;rn  for his generous insight on the science of how some of the processes touched on actually work.**   Any mistakes are my own of course. 
+The first data set we'll look at is CO2 measurements from ice core data.  This data goes back to the year 13 AD.  The data after the year 1958 is an average of ice core measurements and more accurate data taken from Mauna Loa.  **I'm very grateful to Tobias Erhardt from the University of B&#235;rn  for his generous insight on the science of how some of the processes touched on actually work.**   Any mistakes are my own of course. 
 
-This data is less accurate than the Mauna Loa atmospheric CO2 measurments.  Snow that falls on Antarctica accumulates gradually and hardens into ice over time, which is referred to as *firn*.  CO2 measured in the Law Dome ice cores come from air bubbles trapped in the ice.  If this ice were flash frozen, the amount of CO2 contained in the air bubbles would reflect the amount of CO2 in the atmosphere at the exact date and time of the freeze.  Instead, the process happens gradually, so the trapped air has time to diffuse throughout the solidifying ice.  The process of the layering, freezing and solidifying of the firn happens over the scale of years.  For the Law Dome data used here, the CO2 measurments listed in the data represent an average CO2 across about 2-4 years in total.  
+This data is less accurate than the Mauna Loa atmospheric CO2 measurements.  Snow that falls on Antarctica accumulates gradually and hardens into ice over time, which is referred to as *firn*.  CO2 measured in the Law Dome ice cores come from air bubbles trapped in the ice.  If this ice were flash frozen, the amount of CO2 contained in the air bubbles would reflect the amount of CO2 in the atmosphere at the exact date and time of the freeze.  Instead, the process happens gradually, so the trapped air has time to diffuse throughout the solidifying ice.  The process of the layering, freezing and solidifying of the firn happens over the scale of years.  For the Law Dome data used here, the CO2 measurements listed in the data represent an average CO2 across about 2-4 years in total.  
 
-Also, the ordering of the data points is fixed.  There is no way for older ice layers to end up on top of newer ice layers.  This enforces that we place a prior on the measurment locations whose order is restricted. 
+Also, the ordering of the data points is fixed.  There is no way for older ice layers to end up on top of newer ice layers.  This enforces that we place a prior on the measurement locations whose order is restricted. 
 
-The dates of the ice core measurements have some uncertainty.  They may be accurate on a yearly level due to how the ice layers on it self every year, but the date isn't likely to be reliable as to the season when the measurment was taken.  Also, the CO2 level observed may be some sort of average of the overall yearly level.  
+The dates of the ice core measurements have some uncertainty.  They may be accurate on a yearly level due to how the ice layers on it self every year, but the date isn't likely to be reliable as to the season when the measurement was taken.  Also, the CO2 level observed may be some sort of average of the overall yearly level.  
 
 As we saw in the previous example, there is a strong seasonal component in CO2 levels that won't be observable in this data set.  In PyMC3, we can easily include both errors in $y$ and errors in $x$.  To demonstrate this, we remove the latter part of the data (which are averaged with Mauna Loa readings) so we have only the ice core measurements.  We fit the Gaussian process model using the No-U-Turn MCMC sampler.
 
@@ -75,7 +75,7 @@ ax.set_xlabel("Year")
 ax.set_ylabel("CO2 (ppm)");
 ```
 
-The industrial revolution era occured around the years 1760 to 1840.  This point is clearly visible in the graph, where CO2 levels rise dramatically after being fairly stationary at around 280 ppm for over a thousand years.
+The industrial revolution era occurred around the years 1760 to 1840.  This point is clearly visible in the graph, where CO2 levels rise dramatically after being fairly stationary at around 280 ppm for over a thousand years.
 
 +++
 
@@ -190,7 +190,7 @@ as we forecast into the future, the function will eventually return to zero.  Is
 
 ### A linear model for changepoints
 
-We adopt the formulation used by [Facebooks prophet](https://peerj.com/preprints/3190.pdf) time series model.  This is a linear peicewise function, where each segments endpoints are restricted to be connect to one another.  Some example functions are plotted below.
+We adopt the formulation used by [Facebooks prophet](https://peerj.com/preprints/3190.pdf) time series model.  This is a linear piecewise function, where each segments endpoints are restricted to be connect to one another.  Some example functions are plotted below.
 
 ```{code-cell} ipython3
 def dm_changepoints(t, changepoints_t):
@@ -266,7 +266,7 @@ with pm.Model() as model:
     α = pm.Gamma("α", alpha=3, beta=1)
     cov = η**2 * pm.gp.cov.RatQuad(1, α, ℓ)
 
-    # peicewise linear mean function
+    # piecewise linear mean function
     k = pm.Normal("k", mu=0, sigma=1)
     m = pm.Normal("m", mu=0, sigma=1)
     delta = pm.Normal("delta", mu=0, sigma=5, shape=len(changepoints_t))
@@ -654,7 +654,7 @@ plt.xlabel("year")
 plt.ylabel("CO2 (ppm)");
 ```
 
-Since the ice core data isn't measured accurately, it wont be possible to backcast the seasonal component *unless we model uncertainty in x*.
+Since the ice core data isn't measured accurately, it won't be possible to backcast the seasonal component *unless we model uncertainty in x*.
 
 +++
 

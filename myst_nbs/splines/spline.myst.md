@@ -186,7 +186,7 @@ Below is a table summarizing the posterior distributions of the model parameters
 The posteriors of $a$ and $\sigma$ are quite narrow while those for $w$ are wider.
 This is likely because all of the data points are used to estimate $a$ and $\sigma$ whereas only a subset are used for each value of $w$.
 (It could be interesting to model these hierarchically allowing for the sharing of information and adding regularization across the spline.) 
-The effective sample size and $\widehat{R}$ values all look good, indiciating that the model has converged and sampled well from the posterior distribution.
+The effective sample size and $\widehat{R}$ values all look good, indicating that the model has converged and sampled well from the posterior distribution.
 
 ```{code-cell} ipython3
 az.summary(idata, var_names=["a", "w", "sigma"])
@@ -203,7 +203,7 @@ az.plot_forest(idata, var_names=["w"], combined=False, r_hat=True);
 ```
 
 Another visualization of the fit spline values is to plot them multiplied against the basis matrix.
-The knot boundaries are shown as vertical lines again, but now the spline basis is multipled against the values of $w$ (represented as the rainbow-colored curves). The dot product of $B$ and $w$ – the actual computation in the linear model – is shown in black.
+The knot boundaries are shown as vertical lines again, but now the spline basis is multiplied against the values of $w$ (represented as the rainbow-colored curves). The dot product of $B$ and $w$ – the actual computation in the linear model – is shown in black.
 
 ```{code-cell} ipython3
 wp = idata.posterior["w"].mean(("chain", "draw")).values

@@ -45,7 +45,7 @@ Using PyMC3 for Robust Regression with Outlier Detection using the Hogg 2010 Sig
 
 +++
 
-See the original project [README](https://github.com/jonsedar/pymc3_examples/blob/master/README.md) for full details on dependencies and about the environment where the notebook was writen in. A summary on the environment where this notebook was executed is available in the ["Watermark"](#watermark) section.
+See the original project [README](https://github.com/jonsedar/pymc3_examples/blob/master/README.md) for full details on dependencies and about the environment where the notebook was written in. A summary on the environment where this notebook was executed is available in the ["Watermark"](#watermark) section.
 
 :::{include} ../extra_installs.md
 :::
@@ -577,7 +577,7 @@ with pm.Model(coords=coords) as mdl_hogg:
 
 Note that `pm.sample` conveniently and automatically creates the compound sampling process to:
 1. sample a Bernoulli variable (the class `is_outlier`) using a discrete sampler
-2. sample the continuous variables using a continous sampler
+2. sample the continuous variables using a continuous sampler
 
 Further note:
 + This also means we can't initialise using ADVI, so will init using `jitter+adapt_diag`
@@ -613,7 +613,7 @@ _ = az.plot_trace(trc_hogg, var_names=rvs, compact=False);
 + However, at `target_accept = 0.9` (and increasing `tune` from 5000 to 10000), the traces exhibit fewer divergences and appear slightly better behaved.
 + The traces for the inlier model `beta` parameters, and for outlier model parameter `y_est_out` (the mean) look reasonably converged
 + The traces for outlier model param `y_sigma_out` (the additional pooled variance) occasionally go a bit wild
-+ It's intersting that `frac_outliers` is so dispersed: that's quite a flat distribution: suggests that there are a few datapoints where their inlier/outlier status is subjective
++ It's interesting that `frac_outliers` is so dispersed: that's quite a flat distribution: suggests that there are a few datapoints where their inlier/outlier status is subjective
 + Indeed as Thomas noted in his v2.0 Notebook, because we're explicitly modeling the latent label (inlier/outlier) as binary choice the sampler could have a problem - rewriting this model into a marginal mixture model would be better.
 
 +++

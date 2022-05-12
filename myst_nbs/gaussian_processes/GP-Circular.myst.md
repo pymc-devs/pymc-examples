@@ -69,7 +69,7 @@ def weinland(t, c, tau=4):
     return (1 + tau * t / c) * np.clip(1 - t / c, 0, np.inf) ** tau
 ```
 
-We also need implimentation for the distance on a circular domain
+We also need implementation for the distance on a circular domain
 
 ```{code-cell} ipython3
 def angular_distance(x, y, c):

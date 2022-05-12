@@ -58,7 +58,7 @@ df_data.index.name = "date"
 df_data.head()
 ```
 
-PyMC3 can also keep track of the dimensions (like dates or cities) and coordinates (such as the actual date times or city names) of multi-dimensional data. That way, when wraping your data around the `Data` container when building your model, you can specify the dimension names and coordinates of random variables, instead of specifying the shapes of those random variables as numbers.
+PyMC3 can also keep track of the dimensions (like dates or cities) and coordinates (such as the actual date times or city names) of multi-dimensional data. That way, when wrapping your data around the `Data` container when building your model, you can specify the dimension names and coordinates of random variables, instead of specifying the shapes of those random variables as numbers.
 
 More generally, there are two ways to specify new dimensions and their coordinates:
 - Entering the dimensions in the `dims` kwarg of a `pm.Data` variable with a pandas Series or DataFrame. The name of the index and columns will be remembered as the dimensions, and PyMC3 will infer that the values of the given columns must be the coordinates.
