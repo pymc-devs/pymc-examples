@@ -17,7 +17,7 @@ kernelspec:
 import os
 
 import arviz as az
-import bambi
+import bambi as bmb
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -51,13 +51,13 @@ y = true_intercept + x * true_slope + rng.normal(scale=0.5, size=size)
 data = pd.DataFrame({"x": x, "y": y})
 ```
 
-> Bambi is a high-level Bayesian model-building interface written in Python. It's built on top of the PyMC3  probabilistic programming framework, and is designed to make it extremely easy to fit mixed-effects models common 
+> Bambi is a high-level Bayesian model-building interface written in Python. It's built on top of the PyMC3  probabilistic programming framework, and is designed to make it extremely easy to fit mixed-effects models common
 in social sciences settings using a Bayesian approach.
 
 We construct a model using Bambi(it uses formula based input), If no priors are given explicitly by the user, then Bambi chooses smart default priors for all parameters of the model based on plausible implied partial correlations between the outcome and the predictors ( [Documentation](https://bambinos.github.io/bambi/master), [Reference](https://arxiv.org/abs/2012.10754) )
 
 ```{code-cell} ipython3
-model = bambi.Model("y ~ x", data)
+model = bmb.Model("y ~ x", data)
 fitted = model.fit(draws=1000)
 ```
 
@@ -83,7 +83,7 @@ data_outlier = pd.DataFrame({"x": x_out, "y": y_out})
 ```
 
 ```{code-cell} ipython3
-model = bambi.Model("y ~ x", data_outlier)
+model = bmb.Model("y ~ x", data_outlier)
 fitted = model.fit(draws=1000)
 fitted
 ```
@@ -108,9 +108,7 @@ plt.plot(x_axis, mu_mean, color="C1");
 Because the Normal distribution does not have a lot of mass in the tails, an outlier will affect the fit strongly. Instead, we can replace the Normal likelihood with a Student T distribution which has heavier tails and is more robust towards outliers. Bambi does not support passing family="StudentT" yet to indicate a StudentT likelihood, but we can make our own custom [Family object](https://bambinos.github.io/bambi/master/notebooks/getting_started.html#Families)
 
 ```{code-cell} ipython3
-family = bambi.Family(
-    "t", prior=bambi.Prior("StudentT", lam=1, nu=1.5), link="identity", parent="mu"
-)
+family = bmb.Family("t", prior=bmb.Prior("StudentT", lam=1, nu=1.5), link="identity", parent="mu")
 ```
 
 `link = "identity"` implies that no transformation is applied to the linear predictor. </br>
@@ -120,10 +118,10 @@ family = bambi.Family(
 Here `common` key in priors dict defines the prior for all common effects at the same time. As explained in a section below, Bambi supports two types of effects, common and group effects.
 
 ```{code-cell} ipython3
-model = bambi.Model(
+model = bmb.Model(
     "y ~ x",
     data_outlier,
-    priors={"common": bambi.Prior("HalfNormal", sigma=10)},
+    priors={"common": bmb.Prior("HalfNormal", sigma=10)},
     family=family,
 )
 ```
@@ -158,20 +156,20 @@ Bambi uses [formulae based syntax](https://bambinos.github.io/bambi/master/noteb
 Group-specific effects are specified with the `(variable|group)` syntax ,and `(1|group)` if you want group-specific intercepts, which is what we did for `spend`, `stu_tea_rat`, `salary` and `prcnt_take`.
 
 ```{code-cell} ipython3
-grp_mean = bambi.Prior("Normal", mu=0, sigma=10)
-grp_sd = bambi.Prior("HalfCauchy", beta=5)
+grp_mean = bmb.Prior("Normal", mu=0, sigma=10)
+grp_sd = bmb.Prior("HalfCauchy", beta=5)
 
 priors = {
-    "Intercept": bambi.Prior("Normal", mu=sat_data.sat_t.mean(), sigma=sat_data.sat_t.std()),
-    "1|spend": bambi.Prior("Normal", mu=grp_mean, sigma=grp_sd),
-    "1|stu_tea_rat": bambi.Prior("Normal", mu=grp_mean, sigma=grp_sd),
-    "1|salary": bambi.Prior("Normal", mu=grp_mean, sigma=grp_sd),
-    "1|prcnt_take": bambi.Prior("Normal", mu=grp_mean, sigma=grp_sd),
+    "Intercept": bmb.Prior("Normal", mu=sat_data.sat_t.mean(), sigma=sat_data.sat_t.std()),
+    "1|spend": bmb.Prior("Normal", mu=grp_mean, sigma=grp_sd),
+    "1|stu_tea_rat": bmb.Prior("Normal", mu=grp_mean, sigma=grp_sd),
+    "1|salary": bmb.Prior("Normal", mu=grp_mean, sigma=grp_sd),
+    "1|prcnt_take": bmb.Prior("Normal", mu=grp_mean, sigma=grp_sd),
 }
 ```
 
 ```{code-cell} ipython3
-model = bambi.Model(
+model = bmb.Model(
     "sat_t ~ (1|spend) + (1|stu_tea_rat) + (1|salary) + (1|prcnt_take)", sat_data, priors=priors
 )
 results = model.fit()
@@ -182,14 +180,14 @@ az.plot_pair(results, marginals=True);
 ```
 
 ```{code-cell} ipython3
-grp_mean = bambi.Prior("Normal", mu=0, sigma=10)
-grp_prec = bambi.Prior("Gamma", alpha=1, beta=0.1, testval=1.0)
+grp_mean = bmb.Prior("Normal", mu=0, sigma=10)
+grp_prec = bmb.Prior("Gamma", alpha=1, beta=0.1, testval=1.0)
 
 priors = {
-    "Intercept": bambi.Prior("Normal", mu=sat_data.sat_t.mean(), sigma=sat_data.sat_t.std()),
-    "slope": bambi.Prior("StudentT", mu=grp_mean, lam=grp_prec, nu=1),
+    "Intercept": bmb.Prior("Normal", mu=sat_data.sat_t.mean(), sigma=sat_data.sat_t.std()),
+    "slope": bmb.Prior("StudentT", mu=grp_mean, lam=grp_prec, nu=1),
 }
-model = bambi.Model("sat_t ~ spend + stu_tea_rat + salary + prcnt_take", sat_data, priors=priors)
+model = bmb.Model("sat_t ~ spend + stu_tea_rat + salary + prcnt_take", sat_data, priors=priors)
 results = model.fit()
 ```
 
@@ -209,7 +207,7 @@ htwt_data.head()
 ```
 
 ```{code-cell} ipython3
-model = bambi.Model("male ~ height + weight", htwt_data, family="bernoulli")
+model = bmb.Model("male ~ height + weight", htwt_data, family="bernoulli")
 results = model.fit()
 
 az.summary(results)
@@ -236,11 +234,11 @@ plt.title("Laplace distribution");
 
 ```{code-cell} ipython3
 priors = {
-    "Intercept": bambi.Prior("Normal", mu=0, sigma=50),
-    "Regressor": bambi.Prior("Laplace", mu=0, b=0.05),
+    "Intercept": bmb.Prior("Normal", mu=0, sigma=50),
+    "Regressor": bmb.Prior("Laplace", mu=0, b=0.05),
 }
 
-model = bambi.Model("male ~ height + weight", htwt_data, priors=priors, family="bernoulli")
+model = bmb.Model("male ~ height + weight", htwt_data, priors=priors, family="bernoulli")
 results = model.fit()
 
 az.summary(results)
