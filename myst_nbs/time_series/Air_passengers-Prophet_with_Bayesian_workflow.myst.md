@@ -72,7 +72,7 @@ There's an increasing trend, with multiplicative seasonality. We'll fit a linear
 First, we'll scale time to be between 0 and 1:
 
 ```{code-cell} ipython3
-t = (df["Month"] - pd.Timestamp("1900-01-01")).dt.total_seconds().to_numpy()
+t = (df["Month"] - pd.Timestamp("1900-01-01")).dt.days.to_numpy()
 t_min = np.min(t)
 t_max = np.max(t)
 t = (t - t_min) / (t_max - t_min)
@@ -185,7 +185,8 @@ $$\text{Passengers} \sim (\alpha + \beta\ \text{time}) (1 + \text{seasonality})$
 
 ```{code-cell} ipython3
 n_order = 10
-periods = df["Month"].dt.dayofyear / 365.25
+periods = (df["Month"] - pd.Timestamp("1900-01-01")).dt.days / 365.25
+
 fourier_features = pd.DataFrame(
     {
         f"{func}_order_{order}": getattr(np, func)(2 * np.pi * periods * order)
