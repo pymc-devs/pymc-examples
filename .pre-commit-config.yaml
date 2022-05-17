@@ -104,3 +104,9 @@ repos:
   - id: jupytext
     files: ^examples/.+\.ipynb$
     args: ["--sync"]
+- repo: https://github.com/codespell-project/codespell
+  rev: v2.1.0
+  hooks:
+  - id: codespell
+    files: myst_nbs/
+    args: ["--write-changes", "--ignore-words-list", "hist,fpr,fro,lik"]
