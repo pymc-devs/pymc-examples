@@ -190,7 +190,7 @@ as we forecast into the future, the function will eventually return to zero.  Is
 
 ### A linear model for changepoints
 
-We adopt the formulation used by [Facebooks prophet](https://peerj.com/preprints/3190.pdf) time series model.  This is a linear piecewise function, where each segments endpoints are restricted to be connect to one another.  Some example functions are plotted below.
+We adopt the formulation used by [Facebook's prophet](https://peerj.com/preprints/3190.pdf) time series model.  This is a linear piecewise function, where each segments endpoints are restricted to be connect to one another.  Some example functions are plotted below.
 
 ```{code-cell} ipython3
 def dm_changepoints(t, changepoints_t):
