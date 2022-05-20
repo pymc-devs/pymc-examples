@@ -11,12 +11,11 @@ kernelspec:
   name: python3
 ---
 
-(notebook_id)=
+(BART_introduction)=
 # Bayesian Additive Regression Trees: Introduction
 :::{post} Dec 21, 2021
-:tags: , BART, Bayesian additive regression trees, non-parametric, pymc3.BART, pymc3.HalfNormal, pymc3.Model, pymc3.Normal, pymc3.Poisson, regression
-:category: intermediate
-:category: explanation
+:tags: BART, Bayesian additive regression trees, non-parametric, pymc3.BART, pymc3.HalfNormal, pymc3.Model, pymc3.Normal, pymc3.Poisson, regression
+:category: intermediate, explanation
 :author: Osvaldo Martin
 :::
 
@@ -160,7 +159,7 @@ pmx.bart.plot_dependence(idata_bikes, X=X, Y=Y, grid=(2, 2), var_discrete=[3]);
 
 From this plot we can see the main effect of each covariate on the predicted value. This is very useful we can recover complex relationship beyond monotonic increasing or decreasing effects. For example for the `hour` covariate we can see two peaks around 8 and and 17 hs and a minimum at midnight.
 
-When interpreting partial dependence plots we should be careful about the assumptions in this plot. First we are assuming variables are independent. For example when computing the effect of `hour` we have to marginalize the effect of `temperature` and this means that to compute the partial dependence value at `hour=0` we are including all observed values of temperature, and this may include temperatures that are actually not observed at midnight, given that lower temperatures are more likely than higher ones. We are seeing only averages, so if for a covariate half the values are positively associated with predicted variable and the other half negatively associated. The partial dependence plot will be flat as their contributions will cancel each other out. This is a problem that can be solved by using instead individual conditional expectation plots `pm.bart.plot_dependence(idata_bikes, kind="ice")`. Notice that all this assumptions are assumptions of the partial dependence plot, not of our model! In fact BART can easily accommodate interaction of variables Although the prior in BART regularizes high order interactions). For more on interpreting Machine Learning model you could check this [book](https://christophm.github.io/interpretable-ml-book/).
+When interpreting partial dependence plots we should be careful about the assumptions in this plot. First we are assuming variables are independent. For example when computing the effect of `hour` we have to marginalize the effect of `temperature` and this means that to compute the partial dependence value at `hour=0` we are including all observed values of temperature, and this may include temperatures that are actually not observed at midnight, given that lower temperatures are more likely than higher ones. We are seeing only averages, so if for a covariate half the values are positively associated with predicted variable and the other half negatively associated. The partial dependence plot will be flat as their contributions will cancel each other out. This is a problem that can be solved by using instead individual conditional expectation plots `pm.bart.plot_dependence(idata_bikes, kind="ice")`. Notice that all this assumptions are assumptions of the partial dependence plot, not of our model! In fact BART can easily accommodate interaction of variables Although the prior in BART regularizes high order interactions). For more on interpreting Machine Learning model you could check the "Interpretable Machine Learning" book {cite:p}`molnar2019`.
 
 Finally like with other regression method we should be careful that the effects we are seeing on individual variables are conditional on the inclusion of the other variables. So for example, while `humidity` seems to be mostly flat, meaning that this covariate has an small effect of the number of used bikes. This could be the case because `humidity` and `temperature` are correlated to some extend and once we include `temperature` in our model `humidity` does not provide too much information. Try for example fitting the model again but this time with `humidity` as the single covariate and then fitting the model again with `hour` as a single covariate. You should see that the result for this single-variate models will very similar to the previous figure for the `hour` covariate, but less similar for the `humidity` covariate.
 
@@ -168,10 +167,9 @@ Finally like with other regression method we should be careful that the effects 
 
 ### Variable importance
 
-As we saw in the previous section a partial dependence plot can visualize give us an idea of how much each covariable contributes to the predicted outcome. But BART itself leads to a simple heuristic to estimate variable importance. Counting how many times each variable is included in the regression trees. The intuition is that a more important variable should appears more often in the fitted trees than a less important variable. While this heuristic seems to provide reasonable results in practice, there is not too much theory justifying this procedure, at least not yet.
+As we saw in the previous section a partial dependence plot can visualize give us an idea of how much each covariable contributes to the predicted outcome. But BART itself leads to a simple heuristic to estimate variable importance. That is simple count how many times a variable is included in all the regression trees. The intuition is that if a variable is important they it should appears more often in the fitted trees that less important variables. While this heuristic seems to provide reasonable results in practice, there is not too much theory justifying this procedure, at least not yet.
 
-The top panel in the following plot shows the relative importance in a scale from 0 to 1 (less to more importance) and the sum of the individual importance is 1. See that, at least in this case, the relative importance qualitative agrees with the partial dependence plot.
-
+The following plot shows the relative importance in a scale from 0 to 1 (less to more importance) and the sum of the individual importance is 1. See that, at least in this case, the relative importance qualitative agrees with the partial dependence plot.
 
 Additionally, we provide a novel method to assess the variable importance. You can see an example in the bottom panel. On the x-axis we have the number of components (variables) and on the y-axis the Pearson correlation between the predictions made between the full-model (all variables included) and the restricted-models, those with only a subset of the variables in the full-model. The components are included following the relative variable importance order, as show in the top panel. Thus, in this example 1 component means `hour`, two components means `hour` and `temperature`, 3 components `hour`, `temperature`and `humidity`. Finally, four components means `hour`, `temperature`, `humidity`, `workingday`, i.e., the full model. Hence, from the next figure we can see that even a model with a single component, `hour`, is very close to the full model. Even more, the model with two components `hour`, and `temperature` is on average indistinguishable from the full model. The error bars represent the 94 \% HDI from the posterior predictive distribution. It is important to notice that to compute these correlations we do not resample the models, instead the predictions of the restricted-models are approximated from the full-model.
 
@@ -180,8 +178,20 @@ labels = ["hour", "temperature", "humidity", "workingday"]
 pmx.bart.utils.plot_variable_importance(idata_bikes, X.values, labels, samples=100);
 ```
 
-* Authored by Osvaldo Martin in Dec, 2021 ([pymc#259](https://github.com/pymc-devs/pymc-examples/pull/259))
-* Updated by Osvaldo Martin in May, 2022
+## Authors
+* Authored by Osvaldo Martin in Dec, 2021 ([pymc-examples#259](https://github.com/pymc-devs/pymc-examples/pull/259))
+* Updated by Osvaldo Martin in May, 2022  ([pymc-examples#323](https://github.com/pymc-devs/pymc-examples/pull/323))
+
++++
+
+## References
+
+:::{bibliography}
+:filter: docname in docnames
+
+martin2018bayesian
+martin2021bayesian
+:::
 
 +++
 
