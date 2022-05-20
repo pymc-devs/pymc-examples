@@ -292,7 +292,7 @@ conditioned on the posterior distribution.
 This is particularly obvious for (e.g.) species-2 where we have one observation of more than 20
 trees of this species, despite the posterior predicitive mass being concentrated far below that.
 
-This is overdispersion at work, and a clear sign that we need to adjust our model to accomodate it.
+This is overdispersion at work, and a clear sign that we need to adjust our model to accommodate it.
 
 Posterior predictive checks are one of the best ways to diagnose model misspecification,
 and this example is no different.

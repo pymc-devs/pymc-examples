@@ -653,7 +653,7 @@ plt.xlabel("X");
 
 +++ {"papermill": {"duration": 0.078461, "end_time": "2020-12-22T18:37:08.672218", "exception": false, "start_time": "2020-12-22T18:37:08.593757", "status": "completed"}, "tags": []}
 
-### Applying an arbitary warping function on the inputs
+### Applying an arbitrary warping function on the inputs
 
 If $k(x, x')$ is a valid covariance function, then so is $k(w(x), w(x'))$.
 

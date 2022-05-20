@@ -24,7 +24,7 @@ Suppose you are tasked with estimating baseball batting skills for several playe
 
 So, suppose a player came to bat only 4 times, and never hit the ball. Are they a bad player?
 
-As a disclaimer, the author of this notebook assumes little to non-existant knowledge about baseball and its rules. The number of times at bat in his entire life is around "4".
+As a disclaimer, the author of this notebook assumes little to non-existent knowledge about baseball and its rules. The number of times at bat in his entire life is around "4".
 
 
 ## Data
