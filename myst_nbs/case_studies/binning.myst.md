@@ -24,7 +24,7 @@ kernelspec:
 ## The problem
 Let us say that we are interested in inferring the properties of a population. This could be anything from the distribution of age, or income, or body mass index, or a whole range of different possible measures. In completing this task, we might often come across the situation where we have multiple datasets, each of which can inform our beliefs about the overall population.
 
-Very often this data can be in a form that we, as data scientists, would not consider ideal. For example, this data may have been binned into categories. One reason why this is not ideal is that this binning process actually discards information - we lose any knowledge about where in a certain bin an individual datum lies. A second reason why this is not ideal is that different studies may use alternative binning methods - for example one study might record age in terms of decades (e.g. is someone in their 20's, 30's, 40's and so on) but another study may record age (indirectly) by assigning generational labels (Gen Z, Millenial, Gen X, Boomer II, Boomer I, Post War) for example.
+Very often this data can be in a form that we, as data scientists, would not consider ideal. For example, this data may have been binned into categories. One reason why this is not ideal is that this binning process actually discards information - we lose any knowledge about where in a certain bin an individual datum lies. A second reason why this is not ideal is that different studies may use alternative binning methods - for example one study might record age in terms of decades (e.g. is someone in their 20's, 30's, 40's and so on) but another study may record age (indirectly) by assigning generational labels (Gen Z, Millennial, Gen X, Boomer II, Boomer I, Post War) for example.
 
 So we are faced with a problem: we have datasets with counts of our measure of interest (whether that be age, income, BMI, or whatever), but they are binned, and they have been binned _differently_. This notebook presents a solution to this problem that [PyMC Labs](https://www.pymc-labs.io) worked on, supported by the [Gates Foundation](https://www.gatesfoundation.org/). We _can_ make inferences about the parameters of a population level distribution.
 
@@ -40,7 +40,7 @@ More formally, we describe the problem as: if we have the bin edges (aka cut poi
 2. the underlying distribution is specified in a parametric form, and
 3. the cut points that delineate the bins are known and can be pinpointed on the support of the distribution (also known as the valid values that the probability distribution can return).
 
-The approach used is heavily based upon the logic behind [ordinal regression](https://en.wikipedia.org/wiki/Ordinal_regression). This approach proposes that observed bin counts $Y = {1, 2, \ldots, K}$ are generated from a set of bin edges (aka cutpoints) $\theta_1, \ldots, \theta _{K-1}$ operating upon a latent probability distirbution which we could call $y^*$. We can describe the probability of observing data in bin 1 as:
+The approach used is heavily based upon the logic behind [ordinal regression](https://en.wikipedia.org/wiki/Ordinal_regression). This approach proposes that observed bin counts $Y = {1, 2, \ldots, K}$ are generated from a set of bin edges (aka cutpoints) $\theta_1, \ldots, \theta _{K-1}$ operating upon a latent probability distribution which we could call $y^*$. We can describe the probability of observing data in bin 1 as:
 
 $$P(Y=1) = \Phi(\theta_1) - \Phi(-\infty) = \Phi(\theta_1) - 0$$
 
@@ -295,7 +295,7 @@ Recall that we used `mu = -2` and `sigma = 2` to generate the data.
 az.plot_posterior(trace1, var_names=["mu", "sigma"], ref_val=[true_mu, true_sigma]);
 ```
 
-Pretty good! And we can access the posterior mean estimates (stored as [xarray](http://xarray.pydata.org/en/stable/index.html) types) as below. The MCMC samples arrive back in a 2D matrix with one dimension for the MCMC chain (`chain`), and one for the sample number (`draw`). We can calcalate the overal posterior average with `.mean(dim=["draw", "chain"])`.
+Pretty good! And we can access the posterior mean estimates (stored as [xarray](http://xarray.pydata.org/en/stable/index.html) types) as below. The MCMC samples arrive back in a 2D matrix with one dimension for the MCMC chain (`chain`), and one for the sample number (`draw`). We can calculate the overal posterior average with `.mean(dim=["draw", "chain"])`.
 
 ```{code-cell} ipython3
 :tags: []
@@ -356,7 +356,7 @@ with model2:
     ppc = az.from_pymc3(posterior_predictive=ppc2)
 ```
 
-Note that `ppc2` is not in xarray format. It is a dictionary where the keys are the paramters and the values are arrays of samples. So the line below looks at the mean bin posterior predictive bin counts, averaged over samples.
+Note that `ppc2` is not in xarray format. It is a dictionary where the keys are the parameters and the values are arrays of samples. So the line below looks at the mean bin posterior predictive bin counts, averaged over samples.
 
 ```{code-cell} ipython3
 :tags: []
@@ -843,7 +843,7 @@ ax[1, 0].set(xlim=(0, 50), xlabel="BMI", ylabel="observed frequency", title="Sam
 
 ### Model specification
 
-This is a varation of Example 3 above. The only changes are:
+This is a variation of Example 3 above. The only changes are:
 - update the probability distribution to match our target (the Gumbel distribution)
 - ensure we specify priors for our target distribution, appropriate given our domain knowledge.
 

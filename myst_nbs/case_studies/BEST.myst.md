@@ -52,7 +52,7 @@ A more informative and effective approach for comparing groups is one based on *
 
 ## Example: Drug trial evaluation
 
-To illustrate how this Bayesian estimation approach works in practice, we will use a fictitious example from {cite:t}`kruschke2013` concerning the evaluation of a clinical trial for drug evaluation. The trial aims to evaluate the efficacy of a "smart drug" that is supposed to increase intelligence by comparing IQ scores of individuals in a treatment arm (those receiving the drug) to those in a control arm (those recieving a placebo). There are 47 individuals and 42 individuals in the treatment and control arms, respectively.
+To illustrate how this Bayesian estimation approach works in practice, we will use a fictitious example from {cite:t}`kruschke2013` concerning the evaluation of a clinical trial for drug evaluation. The trial aims to evaluate the efficacy of a "smart drug" that is supposed to increase intelligence by comparing IQ scores of individuals in a treatment arm (those receiving the drug) to those in a control arm (those receiving a placebo). There are 47 individuals and 42 individuals in the treatment and control arms, respectively.
 
 ```{code-cell} ipython3
 # fmt: off
@@ -124,7 +124,7 @@ with model:
 az.plot_kde(rng.exponential(scale=30, size=10000), fill_kwargs={"alpha": 0.5});
 ```
 
-Since PyMC parameterizes the Student-T in terms of precision, rather than standard deviation, we must transform the standard deviations before specifying our likelihoods.
+Since PyMC parametrizes the Student-T in terms of precision, rather than standard deviation, we must transform the standard deviations before specifying our likelihoods.
 
 ```{code-cell} ipython3
 with model:

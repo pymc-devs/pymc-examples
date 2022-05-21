@@ -36,7 +36,7 @@ print(f"Running on PyMC3 v{pm.__version__}")
 az.style.use("arviz-darkgrid")
 ```
 
-This short tutorial demonstrates how to use PyMC3 to do inference for the rat tumour example found in chapter 5 of *Bayesian Data Analysis 3rd Edition* {cite:p}`gelman2013bayesian`. Readers should already be familliar with the PyMC3 API.
+This short tutorial demonstrates how to use PyMC3 to do inference for the rat tumour example found in chapter 5 of *Bayesian Data Analysis 3rd Edition* {cite:p}`gelman2013bayesian`. Readers should already be familiar with the PyMC3 API.
 
 Suppose we are interested in the probability that a lab rat develops endometrial stromal polyps. We have data from 71 previously performed trials and would like to use this data to perform inference.
 
@@ -76,7 +76,7 @@ p(\alpha, \beta)
 
 See BDA3 pg. 110 for a more information on the deriving the marginal posterior distribution. With a little determination, we can plot the marginal posterior and estimate the means of $\alpha$ and $\beta$ without having to resort to MCMC. We will see, however, that this requires considerable effort.
 
-The authors of BDA3 choose to plot the surface under the paramterization $(\log(\alpha/\beta), \log(\alpha+\beta))$.  We do so as well. Through the remainder of the example let $x = \log(\alpha/\beta)$ and $z = \log(\alpha+\beta)$.
+The authors of BDA3 choose to plot the surface under the parameterization $(\log(\alpha/\beta), \log(\alpha+\beta))$.  We do so as well. Through the remainder of the example let $x = \log(\alpha/\beta)$ and $z = \log(\alpha+\beta)$.
 
 ```{code-cell} ipython3
 # rat data (BDA3, p. 102)
@@ -235,7 +235,7 @@ with pm.Model(coords=coords) as model:
 az.plot_trace(trace, var_names=["ab", "X", "Z"], compact=False);
 ```
 
-We can plot a kernel density estimate for $x$ and $y$. It looks rather similar to our countour plot made from the analytic marginal posterior density.  That's a good sign, and required far less effort.
+We can plot a kernel density estimate for $x$ and $y$. It looks rather similar to our contour plot made from the analytic marginal posterior density.  That's a good sign, and required far less effort.
 
 ```{code-cell} ipython3
 az.plot_pair(trace, var_names=["X", "Z"], kind="kde");

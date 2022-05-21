@@ -218,9 +218,9 @@ np.round(BF_smc)
 
 As we can see from the previous cell, SMC gives essentially the same answer as the analytical calculation! 
 
-We obtain an array with two values, one per SMC run. As with other samplers PyMC3 attempts to run the sampler more than one time. Having independent samples may help diagnose the performace of the sampler.
+We obtain an array with two values, one per SMC run. As with other samplers PyMC3 attempts to run the sampler more than one time. Having independent samples may help diagnose the performance of the sampler.
 
-The advantage of using SMC to compute the (log) marginal likelihood is that we can use it for a wider range of models as a closed-form expression is no longer needed. The cost we pay for this flexibility is a more expensive computation. Notice that SMC (with a metropolis kernel as implemented in PyMC3) is not as efficient or robust as gradient-based samplers like NUTS. As the dimensionality of the problem increases a more accurate estimation of the posterior and the _marginal likelihood_ will requiere a larger number of `draws`. Additionally, a larger number of `n_steps` may help, specially if after stage 1 we notice that SMC uses a number of steps that are close to `n_steps`, i.e. SMC is having trouble to automatically reduce this number.
+The advantage of using SMC to compute the (log) marginal likelihood is that we can use it for a wider range of models as a closed-form expression is no longer needed. The cost we pay for this flexibility is a more expensive computation. Notice that SMC (with a metropolis kernel as implemented in PyMC3) is not as efficient or robust as gradient-based samplers like NUTS. As the dimensionality of the problem increases a more accurate estimation of the posterior and the _marginal likelihood_ will require a larger number of `draws`. Additionally, a larger number of `n_steps` may help, specially if after stage 1 we notice that SMC uses a number of steps that are close to `n_steps`, i.e. SMC is having trouble to automatically reduce this number.
 
 You can check the number of steps per stage by doing:
 

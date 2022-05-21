@@ -245,7 +245,7 @@ _sample_proba = approx.sample_node(
 # Efficient vectorized form of sampling is used
 sample_proba = theano.function([x, n], _sample_proba)
 
-# Create bechmark functions
+# Create benchmark functions
 def production_step1():
     pm.set_data(new_data={"ann_input": X_test, "ann_output": Y_test}, model=neural_network)
     ppc = pm.sample_posterior_predictive(

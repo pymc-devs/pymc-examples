@@ -180,7 +180,7 @@ Posterior inference on the length_scale parameter is useful for understanding wh
 az.summary(trace, var_names=["mu", "rho"])
 ```
 
-We are also interested in looking at the value of the intensity field at a large number of new points in space. We can accomodate this within our model by including a new random variable for the latent Gaussian process evaluated at a denser set of points. Using `sample_posterior_predictive`, we generate posterior predictions on new data points contained in the variable `intensity_new`.
+We are also interested in looking at the value of the intensity field at a large number of new points in space. We can accommodate this within our model by including a new random variable for the latent Gaussian process evaluated at a denser set of points. Using `sample_posterior_predictive`, we generate posterior predictions on new data points contained in the variable `intensity_new`.
 
 ```{code-cell} ipython3
 x_new = np.linspace(5, 275, 20)

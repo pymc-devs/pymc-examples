@@ -90,7 +90,7 @@ for i in range(len(adj)):
     for j in range(len(adj[i])):
         adj[i][j] = adj[i][j] - 1
 
-# spatial weight: column (WEIGHTS) contains list entries which are preprocessed to obtain weigths as list of lists
+# spatial weight: column (WEIGHTS) contains list entries which are preprocessed to obtain weights as list of lists
 weights = (
     df_scot_cancer["WEIGHTS"]
     .apply(lambda x: [int(val) for val in x.strip("][").split(",")])
@@ -126,7 +126,7 @@ model
 }
 ```
 
-The main challenge to porting this model to `PyMC3` is the `car.normal` function in `WinBUGS`. It is a likelihood function that conditions each realization on some neigbour realization (a smoothed property). In `PyMC2`, it could be implemented as a [custom likelihood function (a `@stochastic` node) `mu_phi`](http://glau.ca/?p=340):  
+The main challenge to porting this model to `PyMC3` is the `car.normal` function in `WinBUGS`. It is a likelihood function that conditions each realization on some neighbour realization (a smoothed property). In `PyMC2`, it could be implemented as a [custom likelihood function (a `@stochastic` node) `mu_phi`](http://glau.ca/?p=340):  
 
 ```python
 @stochastic
@@ -138,7 +138,7 @@ def mu_phi(tau=tau_c, value=np.zeros(N)):
     return normal_like(value,mu,taux)
 ```
 
-We can just define `mu_phi` similarly and wrap it in a `pymc3.DensityDist`, however, doing so usually results in a very slow model (both in compling and sampling). In general, porting pymc2 code into pymc3 (or even generally porting `WinBUGS`, `JAGS`, or `Stan` code into `PyMC3`) that use a `for` loops tend to perform poorly in `theano`, the backend of `PyMC3`.  
+We can just define `mu_phi` similarly and wrap it in a `pymc3.DensityDist`, however, doing so usually results in a very slow model (both in compiling and sampling). In general, porting pymc2 code into pymc3 (or even generally porting `WinBUGS`, `JAGS`, or `Stan` code into `PyMC3`) that use a `for` loops tend to perform poorly in `theano`, the backend of `PyMC3`.  
 
 The underlying mechanism in `PyMC3` is very different compared to `PyMC2`, using `for` loops to generate RV or stacking multiple RV with arguments such as `[pm.Binomial('obs%'%i, p[i], n) for i in range(K)]` generate unnecessary large number of nodes in `theano` graph, which then slows down compilation appreciably.  
 
@@ -199,7 +199,7 @@ def mu_phi(value):
 print(mu_phi(value))
 ```
 
-Since it produces the same result as the orignial for-loop, we will wrap it as a new distribution with a log-likelihood function in `PyMC3`.
+Since it produces the same result as the original for-loop, we will wrap it as a new distribution with a log-likelihood function in `PyMC3`.
 
 ```{code-cell} ipython3
 class CAR(distribution.Continuous):
@@ -570,7 +570,7 @@ with the data transformed in the model:
 ```stan
 transformed data {
   int W_sparse[W_n, 2];   // adjacency pairs
-  vector[n] D_sparse;     // diagonal of D (number of neigbors for each site)
+  vector[n] D_sparse;     // diagonal of D (number of neighbors for each site)
   vector[n] lambda;       // eigenvalues of invsqrtD * W * invsqrtD
   
   { // generate sparse representation for W
@@ -644,7 +644,7 @@ class Sparse_CAR(distribution.Continuous):
         self.W = theano.sparse.as_sparse_variable(w_sparse)
         self.D = tt.as_tensor_variable(D)
 
-        # Presicion Matrix (inverse of Covariance matrix)
+        # Precision Matrix (inverse of Covariance matrix)
         # d_sparse = scipy.sparse.csr_matrix(np.diag(D))
         # self.D = theano.sparse.as_sparse_variable(d_sparse)
         # self.Phi = self.tau * (self.D - self.alpha*self.W)
