@@ -65,8 +65,9 @@ html_theme_options = {
     "search_bar_text": "Search...",
     "navbar_end": ["search-field.html", "navbar-icon-links.html"],
     "external_links": [
-        {"name": "Learning", "url": "https://docs.pymc.io/en/stable/learn.html"},
-        {"name": "API", "url": "https://docs.pymc.io/en/stable/api.html"},
+        {"name": "Contributing", "url": "https://docs.pymc.io/en/latest/contributing/index.html"},
+        {"name": "docs.pymc.io", "url": "https://docs.pymc.io"},
+        {"name": "pymc.io", "url": "https://www.pymc.io"},
     ],
     "page_sidebar_items": ["postcard", "page-toc", "edit-this-page"],
     "google_analytics_id": "G-6KPRBTE6WV",
@@ -153,13 +154,13 @@ codeautolink_concat_default = True
 # intersphinx mappings
 intersphinx_mapping = {
     "aesara": ("https://aesara.readthedocs.io/en/latest/", None),
-    "arviz": ("https://arviz-devs.github.io/arviz/", None),
+    "arviz": ("https://python.arviz.org/en/latest/", None),
     "bambi": ("https://bambinos.github.io/bambi/main", None),
-    "einstats": ("https://xarray-einstats.readthedocs.io/en/stable/", None),
+    "einstats": ("https://einstats.python.arviz.org/en/latest/", None),
     "mpl": ("https://matplotlib.org/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
     "pymc": ("https://docs.pymc.io/en/latest/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
-    "xarray": ("http://xarray.pydata.org/en/stable/", None),
+    "xarray": ("http://docs.xarray.dev/en/stable/", None),
 }
