@@ -10,7 +10,7 @@ from scipy.signal import savgol_filter
 from scipy.stats import pearsonr
 
 
-def predict(idata, rng, X=None, size=None, excluded=None):
+def predict(idata, rng, X, size=None, excluded=None):
     """
     Generate samples from the BART-posterior.
 
@@ -49,7 +49,7 @@ def predict(idata, rng, X=None, size=None, excluded=None):
 
 def plot_dependence(
     idata,
-    X=None,
+    X,
     Y=None,
     kind="pdp",
     xs_interval="linear",
@@ -157,7 +157,6 @@ def plot_dependence(
     else:
         Y_label = "Predicted Y"
 
-    num_observations = X.shape[0]
     num_covariates = X.shape[1]
 
     indices = list(range(num_covariates))
@@ -297,9 +296,7 @@ def plot_dependence(
     return axes
 
 
-def plot_variable_importance(
-    idata, X=None, labels=None, figsize=None, samples=100, random_seed=None
-):
+def plot_variable_importance(idata, X, labels=None, figsize=None, samples=100, random_seed=None):
     """
     Estimates variable importance from the BART-posterior.
 
