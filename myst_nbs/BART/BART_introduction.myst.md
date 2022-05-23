@@ -86,8 +86,9 @@ In PyMC a BART variable can be defined very similar to other random variables. O
 
 ```{code-cell} ipython3
 with pm.Model() as model_coal:
-    μ = pmx.BART("μ", X=x_data, Y=y_data, m=20)
-    y_pred = pm.Poisson("y_pred", mu=pm.math.exp(μ), observed=y_data)
+    μ_ = pmx.BART("μ_", X=x_data, Y=y_data, m=20)
+    μ = pm.Deterministic("μ", np.abs(μ_))
+    y_pred = pm.Poisson("y_pred", mu=np.abs(μ), observed=y_data)
     idata_coal = pm.sample(random_seed=RANDOM_SEED)
 ```
 
@@ -96,9 +97,9 @@ The white line in the following plot shows the median rate of accidents. The dar
 ```{code-cell} ipython3
 _, ax = plt.subplots(figsize=(10, 6))
 
-rates = np.exp(idata_coal.posterior["μ"])
-rate_median = np.exp(idata_coal.posterior["μ"].median(dim=["draw", "chain"]))
-ax.plot(x_centers, rate_median, "w", lw=3)
+rates = idata_coal.posterior["μ"]
+rate_mean = idata_coal.posterior["μ"].mean(dim=["draw", "chain"])
+ax.plot(x_centers, rate_mean, "w", lw=3)
 az.plot_hdi(x_centers, rates, smooth=False)
 az.plot_hdi(x_centers, rates, hdi_prob=0.5, smooth=False, plot_kwargs={"alpha": 0})
 ax.plot(coal, np.zeros_like(coal) - 0.5, "k|")
