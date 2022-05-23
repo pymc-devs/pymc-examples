@@ -78,7 +78,7 @@ class Tree:
         a_tree = self.copy()
         del a_tree.num_observations
         del a_tree.idx_leaf_nodes
-        for k, v in a_tree.tree_structure.items():
+        for k in a_tree.tree_structure.keys():
             current_node = a_tree[k]
             del current_node.depth
             if isinstance(current_node, LeafNode):

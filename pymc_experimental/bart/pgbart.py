@@ -40,8 +40,6 @@ class PGBART(ArrayStepShared):
         List of value variables for sampler
     num_particles : int
         Number of particles for the conditional SMC sampler. Defaults to 40
-    max_stages : int
-        Maximum number of iterations of the conditional SMC sampler. Defaults to 100.
     batch : int or tuple
         Number of trees fitted per step. Defaults to  "auto", which is the 10% of the `m` trees
         during tuning and after tuning. If a tuple is passed the first element is the batch size
@@ -59,7 +57,6 @@ class PGBART(ArrayStepShared):
         self,
         vars=None,
         num_particles=40,
-        max_stages=100,
         batch="auto",
         model=None,
     ):
@@ -78,7 +75,6 @@ class PGBART(ArrayStepShared):
         self.missing_data = np.any(np.isnan(self.X))
         self.m = self.bart.m
         self.alpha = self.bart.alpha
-        self.k = self.bart.k
         self.alpha_vec = self.bart.split_prior
         if self.alpha_vec is None:
             self.alpha_vec = np.ones(self.X.shape[1])
@@ -87,10 +83,10 @@ class PGBART(ArrayStepShared):
         # if data is binary
         Y_unique = np.unique(self.Y)
         if Y_unique.size == 2 and np.all(Y_unique == [0, 1]):
-            self.mu_std = 6 / (self.k * self.m**0.5)
+            mu_std = 3 / self.m**0.5
         # maybe we need to check for count data
         else:
-            self.mu_std = (2 * self.Y.std()) / (self.k * self.m**0.5)
+            mu_std = self.Y.std() / self.m**0.5
 
         self.num_observations = self.X.shape[0]
         self.num_variates = self.X.shape[1]
@@ -103,7 +99,8 @@ class PGBART(ArrayStepShared):
         )
         self.mean = fast_mean()
 
-        self.normal = NormalSampler()
+        self.normal = NormalSampler(mu_std)
+        self.uniform = UniformSampler(0.33, 0.75)
         self.prior_prob_leaf_node = compute_prior_probability(self.alpha)
         self.ssv = SampleSplittingVariable(self.alpha_vec)
 
@@ -121,12 +118,11 @@ class PGBART(ArrayStepShared):
         self.log_num_particles = np.log(num_particles)
         self.indices = list(range(2, num_particles))
         self.len_indices = len(self.indices)
-        self.max_stages = max_stages
 
         shared = make_shared_replacements(initial_values, vars, model)
         self.likelihood_logp = logp(initial_values, [model.datalogpt], vars, shared)
         self.all_particles = []
-        for i in range(self.m):
+        for _ in range(self.m):
             self.a_tree.leaf_node_value = self.init_mean / self.m
             p = ParticleTree(self.a_tree)
             self.all_particles.append(p)
@@ -138,25 +134,13 @@ class PGBART(ArrayStepShared):
 
         tree_ids = np.random.choice(range(self.m), replace=False, size=self.batch[~self.tune])
         for tree_id in tree_ids:
+            # Compute the sum of trees without the old tree that we are attempting to replace
+            self.sum_trees_noi = self.sum_trees - self.all_particles[tree_id].tree._predict()
             # Generate an initial set of SMC particles
             # at the end of the algorithm we return one of these particles as the new tree
             particles = self.init_particles(tree_id)
-            # Compute the sum of trees without the old tree, that we are attempting to replace
-            self.sum_trees_noi = self.sum_trees - particles[0].tree._predict()
-            # Resample leaf values for particle 1 which is a copy of the old tree
-            particles[1].sample_leafs(
-                self.sum_trees,
-                self.X,
-                self.mean,
-                self.m,
-                self.normal,
-                self.mu_std,
-            )
 
-            # The old tree and the one with new leafs do not grow so we update the weights only once
-            self.update_weight(particles[0], old=True)
-            self.update_weight(particles[1], old=True)
-            for _ in range(self.max_stages):
+            while True:
                 # Sample each particle (try to grow each tree), except for the first two
                 stop_growing = True
                 for p in particles[2:]:
@@ -170,7 +154,6 @@ class PGBART(ArrayStepShared):
                         self.mean,
                         self.m,
                         self.normal,
-                        self.mu_std,
                     )
                     if tree_grew:
                         self.update_weight(p)
@@ -178,8 +161,9 @@ class PGBART(ArrayStepShared):
                         stop_growing = False
                 if stop_growing:
                     break
+
                 # Normalize weights
-                W_t, normalized_weights = self.normalize(particles[2:])
+                w_t, normalized_weights = self.normalize(particles[2:])
 
                 # Resample all but first two particles
                 new_indices = np.random.choice(
@@ -187,9 +171,9 @@ class PGBART(ArrayStepShared):
                 )
                 particles[2:] = particles[new_indices]
 
-                # Set the new weights
+                # Set the new weight
                 for p in particles[2:]:
-                    p.log_weight = W_t
+                    p.log_weight = w_t
 
             for p in particles[2:]:
                 p.log_weight = p.old_likelihood_logp
@@ -216,27 +200,45 @@ class PGBART(ArrayStepShared):
         return self.sum_trees, [stats]
 
     def normalize(self, particles):
-        """Use logsumexp trick to get W_t and softmax to get normalized_weights."""
+        """Use logsumexp trick to get w_t and softmax to get normalized_weights.
+
+        w_t is the un-normalized weight per particle, we will assign it to the
+        next round of particles, so they all start with the same weight.
+        """
         log_w = np.array([p.log_weight for p in particles])
         log_w_max = log_w.max()
         log_w_ = log_w - log_w_max
         w_ = np.exp(log_w_)
         w_sum = w_.sum()
-        W_t = log_w_max + np.log(w_sum) - self.log_num_particles
+        w_t = log_w_max + np.log(w_sum) - self.log_num_particles
         normalized_weights = w_ / w_sum
         # stabilize weights to avoid assigning exactly zero probability to a particle
         normalized_weights += 1e-12
 
-        return W_t, normalized_weights
+        return w_t, normalized_weights
 
     def init_particles(self, tree_id: int) -> np.ndarray:
         """Initialize particles."""
-        p = self.all_particles[tree_id]
-        particles = [p]
-        particles.append(copy(p))
+        p0 = self.all_particles[tree_id]
+        p1 = copy(p0)
+        p1.sample_leafs(
+            self.sum_trees,
+            self.mean,
+            self.m,
+            self.normal,
+        )
+        # The old tree and the one with new leafs do not grow so we update the weights only once
+        self.update_weight(p0, old=True)
+        self.update_weight(p1, old=True)
 
+        particles = [p0, p1]
         for _ in self.indices:
-            particles.append(ParticleTree(self.a_tree))
+            pt = ParticleTree(self.a_tree)
+            if self.tune:
+                pt.kf = self.uniform.random()
+            else:
+                pt.kf = p0.kf
+            particles.append(pt)
 
         return np.array(particles)
 
@@ -273,6 +275,7 @@ class ParticleTree:
         self.log_weight = 0
         self.old_likelihood_logp = 0
         self.used_variates = []
+        self.kf = 0.75
 
     def sample_tree(
         self,
@@ -285,7 +288,6 @@ class ParticleTree:
         mean,
         m,
         normal,
-        mu_std,
     ):
         tree_grew = False
         if self.expansion_nodes:
@@ -305,7 +307,7 @@ class ParticleTree:
                     mean,
                     m,
                     normal,
-                    mu_std,
+                    self.kf,
                 )
                 if index_selected_predictor is not None:
                     new_indexes = self.tree.idx_leaf_nodes[-2:]
@@ -315,9 +317,20 @@ class ParticleTree:
 
         return tree_grew
 
-    def sample_leafs(self, sum_trees, X, mean, m, normal, mu_std):
+    def sample_leafs(self, sum_trees, mean, m, normal):
 
-        sample_leaf_values(self.tree, sum_trees, X, mean, m, normal, mu_std)
+        for idx in self.tree.idx_leaf_nodes:
+            if idx > 0:
+                leaf = self.tree[idx]
+                idx_data_points = leaf.idx_data_points
+                node_value = draw_leaf_value(
+                    sum_trees[idx_data_points],
+                    mean,
+                    m,
+                    normal,
+                    self.kf,
+                )
+                leaf.value = node_value
 
 
 class SampleSplittingVariable:
@@ -375,7 +388,7 @@ def grow_tree(
     mean,
     m,
     normal,
-    mu_std,
+    kf,
 ):
     current_node = tree.get_node(index_leaf_node)
     idx_data_points = current_node.idx_data_points
@@ -406,11 +419,10 @@ def grow_tree(
             idx_data_point = new_idx_data_points[idx]
             node_value = draw_leaf_value(
                 sum_trees[idx_data_point],
-                X[idx_data_point, selected_predictor],
                 mean,
                 m,
                 normal,
-                mu_std,
+                kf,
             )
 
             new_node = LeafNode(
@@ -435,25 +447,6 @@ def grow_tree(
         return index_selected_predictor
 
 
-def sample_leaf_values(tree, sum_trees, X, mean, m, normal, mu_std):
-
-    for idx in tree.idx_leaf_nodes:
-        if idx > 0:
-            leaf = tree[idx]
-            idx_data_points = leaf.idx_data_points
-            parent_node = tree[leaf.get_idx_parent_node()]
-            selected_predictor = parent_node.idx_split_variable
-            node_value = draw_leaf_value(
-                sum_trees[idx_data_points],
-                X[idx_data_points, selected_predictor],
-                mean,
-                m,
-                normal,
-                mu_std,
-            )
-            leaf.value = node_value
-
-
 def get_new_idx_data_points(split_value, idx_data_points, selected_predictor, X):
 
     left_idx = X[idx_data_points, selected_predictor] <= split_value
@@ -463,12 +456,12 @@ def get_new_idx_data_points(split_value, idx_data_points, selected_predictor, X)
     return left_node_idx_data_points, right_node_idx_data_points
 
 
-def draw_leaf_value(Y_mu_pred, X_mu, mean, m, normal, mu_std):
+def draw_leaf_value(Y_mu_pred, mean, m, normal, kf):
     """Draw Gaussian distributed leaf values."""
     if Y_mu_pred.size == 0:
         return 0
     else:
-        norm = normal.random() * mu_std
+        norm = normal.random() * kf
         if Y_mu_pred.size == 1:
             mu_mean = Y_mu_pred.item() / m
         else:
@@ -507,9 +500,10 @@ def discrete_uniform_sampler(upper_value):
 class NormalSampler:
     """Cache samples from a standard normal distribution."""
 
-    def __init__(self):
+    def __init__(self, scale):
         self.size = 1000
         self.cache = []
+        self.scale = scale
 
     def random(self):
         if not self.cache:
@@ -517,7 +511,25 @@ class NormalSampler:
         return self.cache.pop()
 
     def update(self):
-        self.cache = np.random.normal(loc=0.0, scale=1, size=self.size).tolist()
+        self.cache = np.random.normal(loc=0.0, scale=self.scale, size=self.size).tolist()
+
+
+class UniformSampler:
+    """Cache samples from a uniform distribution."""
+
+    def __init__(self, lower_bound, upper_bound):
+        self.size = 1000
+        self.cache = []
+        self.lower_bound = lower_bound
+        self.upper_bound = upper_bound
+
+    def random(self):
+        if not self.cache:
+            self.update()
+        return self.cache.pop()
+
+    def update(self):
+        self.cache = np.random.uniform(self.lower_bound, self.upper_bound, size=self.size).tolist()
 
 
 def logp(point, out_vars, vars, shared):

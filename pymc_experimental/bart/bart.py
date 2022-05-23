@@ -68,9 +68,6 @@ class BART(NoDistribution):
     alpha : float
         Control the prior probability over the depth of the trees. Even when it can takes values in
         the interval (0, 1), it is recommended to be in the interval (0, 0.5].
-    k : float
-        Scale parameter for the values of the leaf nodes. Defaults to 2. Recomended to be between 1
-        and 3.
     split_prior : array-like
         Each element of split_prior should be in the [0, 1] interval and the elements should sum to
         1. Otherwise they will be normalized.
@@ -84,7 +81,6 @@ class BART(NoDistribution):
         Y,
         m=50,
         alpha=0.25,
-        k=2,
         split_prior=None,
         **kwargs,
     ):
@@ -102,7 +98,6 @@ class BART(NoDistribution):
                 Y=Y,
                 m=m,
                 alpha=alpha,
-                k=k,
                 split_prior=split_prior,
             ),
         )()
@@ -114,7 +109,7 @@ class BART(NoDistribution):
             return cls.get_moment(rv, size, *rv_inputs)
 
         cls.rv_op = bart_op
-        params = [X, Y, m, alpha, k]
+        params = [X, Y, m, alpha]
         return super().__new__(cls, name, *params, **kwargs)
 
     @classmethod
