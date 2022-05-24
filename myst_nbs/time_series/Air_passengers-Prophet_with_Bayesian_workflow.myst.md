@@ -48,13 +48,6 @@ except FileNotFoundError:
     df = pd.read_csv(pm.get_data("AirPassengers.csv"), parse_dates=["Month"])
 ```
 
-```{code-cell} ipython3
-def _sample(array, n_samples):
-    """Little utility function, sample n_samples with replacement"""
-    idx = np.random.choice(np.arange(len(array)), n_samples, replace=True)
-    return array[idx]
-```
-
 ## Before we begin: visualise the data
 
 ```{code-cell} ipython3
@@ -102,12 +95,13 @@ with pm.Model(check_bounds=False) as linear:
     trend = pm.Deterministic("trend", α + β * t)
     pm.Normal("likelihood", mu=trend, sigma=σ, observed=y)
 
-    linear_prior_predictive = pm.sample_prior_predictive()
+    linear_prior = pm.sample_prior_predictive()
 
 fig, ax = plt.subplots(nrows=2, ncols=1, sharex=True)
 ax[0].plot(
     df["Month"],
-    _sample(linear_prior_predictive.prior_predictive["likelihood"].sel(chain=0), 100).T * y_max,
+    az.extract_dataset(linear_prior, group="prior_predictive", num_samples=100)["likelihood"]
+    * y_max,
     color="blue",
     alpha=0.05,
 )
@@ -115,7 +109,7 @@ df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[0])
 ax[0].set_title("Prior predictive")
 ax[1].plot(
     df["Month"],
-    _sample(linear_prior_predictive.prior["trend"].sel(chain=0), 100).T * y_max,
+    az.extract_dataset(linear_prior, group="prior", num_samples=100)["trend"] * y_max,
     color="blue",
     alpha=0.05,
 )
@@ -133,12 +127,13 @@ with pm.Model(check_bounds=False) as linear:
     trend = pm.Deterministic("trend", α + β * t)
     pm.Normal("likelihood", mu=trend, sigma=σ, observed=y)
 
-    linear_prior_predictive = pm.sample_prior_predictive(samples=100)
+    linear_prior = pm.sample_prior_predictive(samples=100)
 
 fig, ax = plt.subplots(nrows=2, ncols=1, sharex=True)
 ax[0].plot(
     df["Month"],
-    _sample(linear_prior_predictive.prior_predictive["likelihood"].sel(chain=0), 100).T * y_max,
+    az.extract_dataset(linear_prior, group="prior_predictive", num_samples=100)["likelihood"]
+    * y_max,
     color="blue",
     alpha=0.05,
 )
@@ -146,7 +141,7 @@ df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[0])
 ax[0].set_title("Prior predictive")
 ax[1].plot(
     df["Month"],
-    _sample(linear_prior_predictive.prior["trend"].sel(chain=0), 100).T * y_max,
+    az.extract_dataset(linear_prior, group="prior", num_samples=100)["trend"] * y_max,
     color="blue",
     alpha=0.05,
 )
@@ -159,20 +154,24 @@ Cool. Before going on to anything more complicated, let's try conditioning on th
 ```{code-cell} ipython3
 with linear:
     linear_trace = pm.sample(return_inferencedata=True)
-    linear_posterior_predictive = pm.sample_posterior_predictive(trace=linear_trace)
+    linear_prior = pm.sample_posterior_predictive(trace=linear_trace)
 
 fig, ax = plt.subplots(nrows=2, ncols=1, sharex=True)
 ax[0].plot(
     df["Month"],
-    _sample(linear_posterior_predictive.posterior_predictive["likelihood"].sel(chain=0), 100).T
+    az.extract_dataset(linear_prior, group="posterior_predictive", num_samples=100)["likelihood"]
     * y_max,
     color="blue",
     alpha=0.01,
 )
 df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[0])
 ax[0].set_title("Posterior predictive")
-posterior_trend = linear_trace.posterior["trend"].stack(sample=("draw", "chain")).T
-ax[1].plot(df["Month"], _sample(posterior_trend, 100).T * y_max, color="blue", alpha=0.01)
+ax[1].plot(
+    df["Month"],
+    az.extract_dataset(linear_trace, group="posterior", num_samples=100)["trend"] * y_max,
+    color="blue",
+    alpha=0.01,
+)
 df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[1])
 ax[1].set_title("Posterior trend lines");
 ```
@@ -213,14 +212,14 @@ with pm.Model(check_bounds=False, coords=coords) as linear_with_seasonality:
     μ = trend * (1 + seasonality)
     pm.Normal("likelihood", mu=μ, sigma=σ, observed=y)
 
-    linear_with_seasonality_prior_predictive = pm.sample_prior_predictive()
+    linear_seasonality_prior = pm.sample_prior_predictive()
 
 fig, ax = plt.subplots(nrows=3, ncols=1, sharex=False)
 ax[0].plot(
     df["Month"],
-    _sample(
-        linear_with_seasonality_prior_predictive.prior_predictive["likelihood"].sel(chain=0), 100
-    ).T
+    az.extract_dataset(linear_seasonality_prior, group="prior_predictive", num_samples=100)[
+        "likelihood"
+    ]
     * y_max,
     color="blue",
     alpha=0.05,
@@ -229,7 +228,7 @@ df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[0])
 ax[0].set_title("Prior predictive")
 ax[1].plot(
     df["Month"],
-    _sample(linear_with_seasonality_prior_predictive.prior["trend"].sel(chain=0), 100).T * y_max,
+    az.extract_dataset(linear_seasonality_prior, group="prior", num_samples=100)["trend"] * y_max,
     color="blue",
     alpha=0.05,
 )
@@ -237,9 +236,7 @@ df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[1])
 ax[1].set_title("Prior trend lines")
 ax[2].plot(
     df["Month"].iloc[:12],
-    _sample(
-        linear_with_seasonality_prior_predictive.prior["seasonality"].sel(chain=0)[:, :12], 100
-    ).T
+    az.extract_dataset(linear_seasonality_prior, group="prior", num_samples=100)["seasonality"][:12]
     * 100,
     color="blue",
     alpha=0.05,
@@ -268,14 +265,14 @@ with pm.Model(check_bounds=False, coords=coords) as linear_with_seasonality:
     σ = pm.HalfNormal("σ", sigma=0.1)
     pm.Normal("likelihood", mu=μ, sigma=σ, observed=y)
 
-    linear_with_seasonality_prior_predictive = pm.sample_prior_predictive()
+    linear_seasonality_prior = pm.sample_prior_predictive()
 
 fig, ax = plt.subplots(nrows=3, ncols=1, sharex=False)
 ax[0].plot(
     df["Month"],
-    _sample(
-        linear_with_seasonality_prior_predictive.prior_predictive["likelihood"].sel(chain=0), 100
-    ).T
+    az.extract_dataset(linear_seasonality_prior, group="prior_predictive", num_samples=100)[
+        "likelihood"
+    ]
     * y_max,
     color="blue",
     alpha=0.05,
@@ -284,7 +281,7 @@ df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[0])
 ax[0].set_title("Prior predictive")
 ax[1].plot(
     df["Month"],
-    _sample(linear_with_seasonality_prior_predictive.prior["trend"].sel(chain=0), 100).T * y_max,
+    az.extract_dataset(linear_seasonality_prior, group="prior", num_samples=100)["trend"] * y_max,
     color="blue",
     alpha=0.05,
 )
@@ -292,9 +289,7 @@ df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[1])
 ax[1].set_title("Prior trend lines")
 ax[2].plot(
     df["Month"].iloc[:12],
-    _sample(
-        linear_with_seasonality_prior_predictive.prior["seasonality"].sel(chain=0)[:, :12], 100
-    ).T
+    az.extract_dataset(linear_seasonality_prior, group="prior", num_samples=100)["seasonality"][:12]
     * 100,
     color="blue",
     alpha=0.05,
@@ -309,36 +304,35 @@ Seems a lot more believable. Time for a posterior predictive check:
 
 ```{code-cell} ipython3
 with linear_with_seasonality:
-    linear_with_seasonality_trace = pm.sample(return_inferencedata=True)
-    linear_with_seasonality_posterior_predictive = pm.sample_posterior_predictive(
-        trace=linear_with_seasonality_trace
-    )
+    linear_seasonality_trace = pm.sample(return_inferencedata=True)
+    linear_seasonality_posterior = pm.sample_posterior_predictive(trace=linear_seasonality_trace)
 
 fig, ax = plt.subplots(nrows=3, ncols=1, sharex=False)
 ax[0].plot(
     df["Month"],
-    _sample(
-        linear_with_seasonality_posterior_predictive.posterior_predictive["likelihood"].sel(
-            chain=0
-        ),
-        100,
-    ).T
+    az.extract_dataset(linear_seasonality_posterior, group="posterior_predictive", num_samples=100)[
+        "likelihood"
+    ]
     * y_max,
     color="blue",
     alpha=0.05,
 )
 df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[0])
 ax[0].set_title("Posterior predictive")
-posterior_trend = linear_trace.posterior["trend"].stack(sample=("draw", "chain")).T
-ax[1].plot(df["Month"], _sample(posterior_trend, 100).T * y_max, color="blue", alpha=0.05)
+ax[1].plot(
+    df["Month"],
+    az.extract_dataset(linear_trace, group="posterior", num_samples=100)["trend"] * y_max,
+    color="blue",
+    alpha=0.05,
+)
 df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[1])
 ax[1].set_title("Posterior trend lines")
-posterior_seasonality = (
-    linear_with_seasonality_trace.posterior["seasonality"].stack(sample=("draw", "chain")).T
-)
 ax[2].plot(
     df["Month"].iloc[:12],
-    _sample(posterior_seasonality[:, :12], 100).T * 100,
+    az.extract_dataset(linear_seasonality_trace, group="posterior", num_samples=100)["seasonality"][
+        :12
+    ]
+    * 100,
     color="blue",
     alpha=0.05,
 )
@@ -364,7 +358,7 @@ For reference, you might also want to check out:
 
 ## Authors
 * Authored by [Marco Gorelli](https://github.com/MarcoGorelli) in June, 2021 ([pymc-examples#183](https://github.com/pymc-devs/pymc-examples/pull/183))
-* Re-executed by Danh Phan in May, 2022 ([pymc-examples#320](https://github.com/pymc-devs/pymc-examples/pull/320))
+* Updated by Danh Phan in May, 2022 ([pymc-examples#320](https://github.com/pymc-devs/pymc-examples/pull/320))
 
 +++
 
@@ -377,3 +371,6 @@ For reference, you might also want to check out:
 %load_ext watermark
 %watermark -n -u -v -iv -w -p aesara,aeppl,xarray
 ```
+
+:::{include} ../page_footer.md
+:::
