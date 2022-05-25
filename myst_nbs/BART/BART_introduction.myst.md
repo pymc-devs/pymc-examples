@@ -88,7 +88,7 @@ In PyMC a BART variable can be defined very similar to other random variables. O
 with pm.Model() as model_coal:
     μ_ = pmx.BART("μ_", X=x_data, Y=y_data, m=20)
     μ = pm.Deterministic("μ", np.abs(μ_))
-    y_pred = pm.Poisson("y_pred", mu=np.abs(μ), observed=y_data)
+    y_pred = pm.Poisson("y_pred", mu=μ, observed=y_data)
     idata_coal = pm.sample(random_seed=RANDOM_SEED)
 ```
 
