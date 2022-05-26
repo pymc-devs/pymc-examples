@@ -1,8 +1,8 @@
 import os
-
+from sphinx.application import Sphinx
 # -- Project information -----------------------------------------------------
 project = "PyMC"
-copyright = "2021, PyMC Community"
+copyright = "2022, PyMC Community"
 author = "PyMC Community"
 
 # -- General configuration ---------------------------------------------------
@@ -21,6 +21,7 @@ extensions = [
     "sphinxcontrib.bibtex",
     "sphinx_codeautolink",
     "notfound.extension",
+    'sphinx_gallery.load_style',
 ]
 
 # List of patterns, relative to source directory, that match files and
@@ -36,7 +37,39 @@ exclude_patterns = [
     "page_footer.md",
 ]
 
+def hack_nbsphinx(app: Sphinx) -> None:
+    from nbsphinx import (
+        depart_gallery_html,
+        doctree_resolved,
+        GalleryNode,
+        NbGallery,
+        patched_toctree_resolve,
+    )
+    from sphinx.environment.adapters import toctree
 
+    def builder_inited(app: Sphinx):
+        if not hasattr(app.env, "nbsphinx_thumbnails"):
+            app.env.nbsphinx_thumbnails = {}
+
+    def do_nothing(*node):
+        pass
+
+    app.add_config_value("nbsphinx_thumbnails", {}, rebuild="html")
+    app.add_directive("nbgallery", NbGallery)
+    app.add_node(
+        GalleryNode,
+        html=(do_nothing, depart_gallery_html),
+        latex=(do_nothing, do_nothing),
+        text=(do_nothing, do_nothing),
+    )
+    app.connect("builder-inited", builder_inited)
+    app.connect("doctree-resolved", doctree_resolved)
+
+    # Monkey-patch Sphinx TocTree adapter
+    toctree.TocTree.resolve = patched_toctree_resolve
+
+def setup(app: Sphinx):
+    hack_nbsphinx(app)
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
