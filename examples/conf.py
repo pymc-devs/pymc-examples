@@ -1,5 +1,6 @@
 import os
 from sphinx.application import Sphinx
+
 # -- Project information -----------------------------------------------------
 project = "PyMC"
 copyright = "2022, PyMC Community"
@@ -21,7 +22,7 @@ extensions = [
     "sphinxcontrib.bibtex",
     "sphinx_codeautolink",
     "notfound.extension",
-    'sphinx_gallery.load_style',
+    "sphinx_gallery.load_style",
 ]
 
 # List of patterns, relative to source directory, that match files and
@@ -36,6 +37,7 @@ exclude_patterns = [
     "extra_installs.md",
     "page_footer.md",
 ]
+
 
 def hack_nbsphinx(app: Sphinx) -> None:
     from nbsphinx import (
@@ -68,8 +70,11 @@ def hack_nbsphinx(app: Sphinx) -> None:
     # Monkey-patch Sphinx TocTree adapter
     toctree.TocTree.resolve = patched_toctree_resolve
 
+
 def setup(app: Sphinx):
     hack_nbsphinx(app)
+
+
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
