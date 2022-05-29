@@ -6,7 +6,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -17,7 +17,7 @@ kernelspec:
 :::{post} April, 2022
 :tags: time series, prophet
 :category: intermediate
-:author: Marco Gorelli
+:author: Marco Gorelli, Danh Phan
 :::
 
 +++
@@ -214,7 +214,7 @@ with pm.Model(check_bounds=False, coords=coords) as linear_with_seasonality:
 
     linear_seasonality_prior = pm.sample_prior_predictive()
 
-fig, ax = plt.subplots(nrows=3, ncols=1, sharex=False)
+fig, ax = plt.subplots(nrows=3, ncols=1, sharex=False, figsize=(8, 6))
 ax[0].plot(
     df["Month"],
     az.extract_dataset(linear_seasonality_prior, group="prior_predictive", num_samples=100)[
@@ -267,7 +267,7 @@ with pm.Model(check_bounds=False, coords=coords) as linear_with_seasonality:
 
     linear_seasonality_prior = pm.sample_prior_predictive()
 
-fig, ax = plt.subplots(nrows=3, ncols=1, sharex=False)
+fig, ax = plt.subplots(nrows=3, ncols=1, sharex=False, figsize=(8, 6))
 ax[0].plot(
     df["Month"],
     az.extract_dataset(linear_seasonality_prior, group="prior_predictive", num_samples=100)[
@@ -307,7 +307,7 @@ with linear_with_seasonality:
     linear_seasonality_trace = pm.sample(return_inferencedata=True)
     linear_seasonality_posterior = pm.sample_posterior_predictive(trace=linear_seasonality_trace)
 
-fig, ax = plt.subplots(nrows=3, ncols=1, sharex=False)
+fig, ax = plt.subplots(nrows=3, ncols=1, sharex=False, figsize=(8, 6))
 ax[0].plot(
     df["Month"],
     az.extract_dataset(linear_seasonality_posterior, group="posterior_predictive", num_samples=100)[
