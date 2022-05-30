@@ -1,15 +1,15 @@
 import arviz as az
 import numpy as np
-import theano.tensor as tt
+import aesara.tensor as at
 
-import pymc3 as pm
+import pymc as pm
 
 """
 Using Ordered transformation to model ranking data
 inspired by the Stan implementation of Thurstonian model
 see http://discourse.mc-stan.org/t/thurstonian-model/1735/5
-also see related discussion on PyMC3 discourse:
-https://discourse.pymc.io/t/order-statistics-in-pymc3/617
+also see related discussion on PyMC discourse:
+https://discourse.pymc.io/t/order-statistics-in-pymc/617
 """
 
 
@@ -26,7 +26,7 @@ y_argsort = np.argsort(y, axis=-1)
 with pm.Model() as m:
     mu_hat = pm.Normal("mu_hat", 0, 1, shape=K - 1)
     # set first value to 0 to avoid unidentified model
-    mu = tt.concatenate([[0.0], mu_hat])
+    mu = at.concatenate([[0.0], mu_hat])
     # sd = pm.HalfCauchy('sigma', 1.)
     latent = pm.Normal(
         "latent",

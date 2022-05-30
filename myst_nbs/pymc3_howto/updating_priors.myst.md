@@ -6,35 +6,35 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python (PyMC3 Dev)
+  display_name: Python (PyMC Dev)
   language: python
-  name: pymc3-dev
+  name: pymc-dev
 ---
 
 # Updating priors
 
 +++
 
-In this notebook, I will show how it is possible to update the priors as new data becomes available. The example is a slightly modified version of the linear regression in the [Getting started with PyMC3](https://github.com/pymc-devs/pymc3/blob/master/docs/source/notebooks/getting_started.ipynb) notebook.
+In this notebook, I will show how it is possible to update the priors as new data becomes available. The example is a slightly modified version of the linear regression in the [Getting started with PyMC](https://github.com/pymc-devs/pymc/blob/master/docs/source/notebooks/getting_started.ipynb) notebook.
 
 ```{code-cell} ipython3
 %matplotlib inline
 import warnings
 
+import aesara.tensor as at
 import arviz as az
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano.tensor as tt
+import pymc as pm
 
-from pymc3 import Model, Normal, Slice, sample
-from pymc3.distributions import Interpolated
+from aesara import as_op
+from pymc import Model, Normal, Slice, sample
+from pymc.distributions import Interpolated
 from scipy import stats
-from theano import as_op
 
 plt.style.use("seaborn-darkgrid")
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -95,7 +95,7 @@ az.plot_trace(trace);
 
 In order to update our beliefs about the parameters, we use the posterior distributions, which will be used as the prior distributions for the next inference. The data used for each inference iteration has to be independent from the previous iterations, otherwise the same (possibly wrong) belief is injected over and over in the system, amplifying the errors and misleading the inference. By ensuring the data is independent, the system should converge to the true parameter values.
 
-Because we draw samples from the posterior distribution (shown on the right in the figure above), we need to estimate their probability density (shown on the left in the figure above). [Kernel density estimation](https://en.wikipedia.org/wiki/Kernel_density_estimation) (KDE) is a way to achieve this, and we will use this technique here. In any case, it is an empirical distribution that cannot be expressed analytically. Fortunately PyMC3 provides a way to use custom distributions, via `Interpolated` class.
+Because we draw samples from the posterior distribution (shown on the right in the figure above), we need to estimate their probability density (shown on the left in the figure above). [Kernel density estimation](https://en.wikipedia.org/wiki/Kernel_density_estimation) (KDE) is a way to achieve this, and we will use this technique here. In any case, it is an empirical distribution that cannot be expressed analytically. Fortunately PyMC provides a way to use custom distributions, via `Interpolated` class.
 
 ```{code-cell} ipython3
 def from_posterior(param, samples):

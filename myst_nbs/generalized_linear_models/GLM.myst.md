@@ -11,23 +11,23 @@ kernelspec:
   name: python3
 ---
 
-# (Generalized) Linear and Hierarchical Linear Models in PyMC3
+# (Generalized) Linear and Hierarchical Linear Models in PyMC
 
 ```{code-cell} ipython3
 import os
 
+import aesara
 import arviz as az
 import bambi
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
-import theano
+import pymc as pm
 import xarray as xr
 
 from numpy.random import default_rng
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -51,7 +51,7 @@ y = true_intercept + x * true_slope + rng.normal(scale=0.5, size=size)
 data = pd.DataFrame({"x": x, "y": y})
 ```
 
-> Bambi is a high-level Bayesian model-building interface written in Python. It's built on top of the PyMC3  probabilistic programming framework, and is designed to make it extremely easy to fit mixed-effects models common 
+> Bambi is a high-level Bayesian model-building interface written in Python. It's built on top of the PyMC  probabilistic programming framework, and is designed to make it extremely easy to fit mixed-effects models common 
 in social sciences settings using a Bayesian approach.
 
 We construct a model using Bambi(it uses formula based input), If no priors are given explicitly by the user, then Bambi chooses smart default priors for all parameters of the model based on plausible implied partial correlations between the outcome and the predictors ( [Documentation](https://bambinos.github.io/bambi/master), [Reference](https://arxiv.org/abs/2012.10754) )
@@ -88,7 +88,7 @@ fitted = model.fit(draws=1000)
 fitted
 ```
 
-Here we generate a graphviz model of the Bambi/PyMC3 model
+Here we generate a graphviz model of the Bambi/PyMC model
 
 ```{code-cell} ipython3
 model.graph()
@@ -228,7 +228,7 @@ az.plot_pair(results);
 ```{code-cell} ipython3
 lp = pm.Laplace.dist(mu=0, b=0.05)
 x_eval = np.linspace(-0.5, 0.5, 300)
-plt.plot(x_eval, theano.tensor.exp(lp.logp(x_eval)).eval())
+plt.plot(x_eval, aesara.tensor.exp(lp.logp(x_eval)).eval())
 plt.xlabel("x")
 plt.ylabel("Probability")
 plt.title("Laplace distribution");

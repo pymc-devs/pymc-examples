@@ -15,7 +15,7 @@ kernelspec:
 # Dirichlet mixtures of multinomials
 
 :::{post} Jan 8, 2022
-:tags: mixture model, pymc3.Dirichlet, pymc3.DirichletMultinomial, pymc3.Lognormal, pymc3.Model, pymc3.Multinomial
+:tags: mixture model, pymc.Dirichlet, pymc.DirichletMultinomial, pymc.Lognormal, pymc.Model, pymc.Multinomial
 :category: advanced
 :author: Byron J. Smith, Abhipsha Das, Oriol Abril-Pla
 :::
@@ -48,12 +48,12 @@ This notebook will demonstrate the performance benefits that come from taking th
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 import scipy as sp
 import scipy.stats
 import seaborn as sns
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -166,7 +166,7 @@ here we'll instead switch to the Metropolis step method,
 which ignores some of the geometric pathologies of our naïve model.
 
 **Important**: switching to Metropolis does not not _fix_ our model's issues, rather it _sweeps them under the rug_.
-In fact, if you try running this model with NUTS (PyMC3's default step method), it will break loudly during sampling.
+In fact, if you try running this model with NUTS (PyMC's default step method), it will break loudly during sampling.
 When that happens, this should be a **red alert** that there is something wrong in our model.
 
 You'll also notice below that we have to increase considerably the number of draws we take from the posterior;
@@ -175,9 +175,7 @@ exploring the posterior than NUTS.
 
 ```{code-cell} ipython3
 with model_multinomial:
-    trace_multinomial = pm.sample(
-        draws=5000, chains=4, step=pm.Metropolis(), return_inferencedata=True
-    )
+    trace_multinomial = pm.sample(draws=5000, chains=4, step=pm.Metropolis())
 ```
 
 Let's ignore the warning about inefficient sampling for now.
@@ -229,7 +227,7 @@ Let's troubleshoot this model using a posterior-predictive check, comparing our 
 
 ```{code-cell} ipython3
 with model_multinomial:
-    pp_samples = az.from_pymc3(
+    pp_samples = pm.to_inference_data(
         posterior_predictive=pm.fast_sample_posterior_predictive(trace=trace_multinomial)
     )
 
@@ -331,7 +329,7 @@ accounting for overdispersion of counts relative to the simple multinomial model
 
 ```{code-cell} ipython3
 with model_dm_explicit:
-    trace_dm_explicit = pm.sample(chains=4, return_inferencedata=True)
+    trace_dm_explicit = pm.sample(chains=4)
 ```
 
 We got a warning, although we'll ignore it for now.
@@ -384,7 +382,7 @@ that our $\mathrm{ESS} \; \mathrm{sec}^{-1}$ is relatively small.
 
 Happily, the Dirichlet distribution is conjugate to the multinomial
 and therefore there's a convenient, closed-form for the marginalized
-distribution, i.e. the Dirichlet-multinomial distribution, which was added to PyMC3 in [3.11.0](https://github.com/pymc-devs/pymc3/releases/tag/v3.11.0).
+distribution, i.e. the Dirichlet-multinomial distribution, which was added to PyMC in [3.11.0](https://github.com/pymc-devs/pymc/releases/tag/v3.11.0).
 
 Let's take advantage of this, marginalizing out the explicit latent parameter, $p_i$,
 replacing the combination of this node and the multinomial
@@ -406,7 +404,7 @@ nodes together into a single DM node.
 
 ```{code-cell} ipython3
 with model_dm_marginalized:
-    trace_dm_marginalized = pm.sample(chains=4, return_inferencedata=True)
+    trace_dm_marginalized = pm.sample(chains=4)
 ```
 
 It samples much more quickly and without any of the warnings from before!
@@ -438,7 +436,7 @@ Posterior predictive checks to the rescue (again)!
 
 ```{code-cell} ipython3
 with model_dm_marginalized:
-    pp_samples = az.from_pymc3(
+    pp_samples = pm.to_inference_data(
         posterior_predictive=pm.fast_sample_posterior_predictive(trace_dm_marginalized)
     )
 
@@ -557,7 +555,7 @@ In that case, swapping the vanilla Dirichlet distribution for something fancier 
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p aesara,xarray
 ```
 
 :::{include} page_footer.md

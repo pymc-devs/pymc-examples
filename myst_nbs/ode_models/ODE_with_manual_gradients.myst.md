@@ -6,24 +6,24 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python PyMC3 (Dev)
+  display_name: Python PyMC (Dev)
   language: python
-  name: pymc3-dev-py38
+  name: pymc-dev-py38
 ---
 
 ```{code-cell} ipython3
+import aesara
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano
+import pymc as pm
 
+from aesara import *
 from scipy.integrate import odeint
-from theano import *
 
 THEANO_FLAGS = "optimizer=fast_compile"
 
-print(f"PyMC3 Version: {pm.__version__}")
+print(f"PyMC Version: {pm.__version__}")
 ```
 
 # Lotka-Volterra with manual gradients
@@ -32,9 +32,9 @@ by [Sanmitra Ghosh](https://www.mrc-bsu.cam.ac.uk/people/in-alphabetical-order/a
 
 +++
 
-Mathematical models are used ubiquitously in a variety of science and engineering domains to model the time evolution of physical variables. These mathematical models are often described as ODEs that are characterised by model structure - the functions of the dynamical variables - and model parameters. However, for the vast majority of systems of practical interest it is necessary to infer both the model parameters and an appropriate model structure from experimental observations. This experimental data often appears to be scarce and incomplete. Furthermore, a large variety of models described as dynamical systems show traits of sloppiness (see [Gutenkunst et al., 2007](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.0030189)) and have unidentifiable parameter combinations. The task of inferring model parameters and structure from experimental data is of paramount importance to reliably analyse the behaviour of dynamical systems and draw faithful predictions in light of the difficulties posit by their complexities. Moreover, any future model prediction should encompass and propagate variability and uncertainty in model parameters and/or structure. Thus, it is also important that the inference methods are equipped to quantify and propagate the aforementioned uncertainties from the model descriptions to model predictions. As a natural choice to handle uncertainty, at least in the parameters, Bayesian inference is increasingly used to fit ODE models to experimental data ([Mark Girolami, 2008](https://www.sciencedirect.com/science/article/pii/S030439750800501X)). However, due to some of the difficulties that I pointed above, fitting an ODE model using Bayesian inference is a challenging task. In this tutorial I am going to take up that challenge and will show how PyMC3 could be potentially used for this purpose. 
+Mathematical models are used ubiquitously in a variety of science and engineering domains to model the time evolution of physical variables. These mathematical models are often described as ODEs that are characterised by model structure - the functions of the dynamical variables - and model parameters. However, for the vast majority of systems of practical interest it is necessary to infer both the model parameters and an appropriate model structure from experimental observations. This experimental data often appears to be scarce and incomplete. Furthermore, a large variety of models described as dynamical systems show traits of sloppiness (see [Gutenkunst et al., 2007](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.0030189)) and have unidentifiable parameter combinations. The task of inferring model parameters and structure from experimental data is of paramount importance to reliably analyse the behaviour of dynamical systems and draw faithful predictions in light of the difficulties posit by their complexities. Moreover, any future model prediction should encompass and propagate variability and uncertainty in model parameters and/or structure. Thus, it is also important that the inference methods are equipped to quantify and propagate the aforementioned uncertainties from the model descriptions to model predictions. As a natural choice to handle uncertainty, at least in the parameters, Bayesian inference is increasingly used to fit ODE models to experimental data ([Mark Girolami, 2008](https://www.sciencedirect.com/science/article/pii/S030439750800501X)). However, due to some of the difficulties that I pointed above, fitting an ODE model using Bayesian inference is a challenging task. In this tutorial I am going to take up that challenge and will show how PyMC could be potentially used for this purpose. 
 
-I must point out that model fitting (inference of the unknown parameters) is just one of many crucial tasks that a modeller has to complete in order to gain a deeper understanding of a physical process. However, success in this task is crucial and this is where PyMC3, and probabilistic programming (ppl) in general, is extremely useful. The modeller can take full advantage of the variety of samplers and distributions provided by PyMC3 to automate inference.
+I must point out that model fitting (inference of the unknown parameters) is just one of many crucial tasks that a modeller has to complete in order to gain a deeper understanding of a physical process. However, success in this task is crucial and this is where PyMC, and probabilistic programming (ppl) in general, is extremely useful. The modeller can take full advantage of the variety of samplers and distributions provided by PyMC to automate inference.
 
 In this tutorial I will focus on the fitting exercise, that is estimating the posterior distribution of the parameters given some noisy experimental time series.
 
@@ -58,7 +58,7 @@ For this tutorial I have chosen two ODEs:
 1. The [__Lotka-Volterra predator prey model__ ](http://www.scholarpedia.org/article/Predator-prey_model)
 2. The [__Fitzhugh-Nagumo action potential model__](http://www.scholarpedia.org/article/FitzHugh-Nagumo_model)
 
-I will showcase two distinctive approaches (__NUTS__ and __SMC__ step methods), supported by PyMC3, for the estimation of unknown parameters in these models.
+I will showcase two distinctive approaches (__NUTS__ and __SMC__ step methods), supported by PyMC, for the estimation of unknown parameters in these models.
 
 +++
 
@@ -71,7 +71,7 @@ I will showcase two distinctive approaches (__NUTS__ and __SMC__ step methods), 
  	\frac{d y}{dt} &=-\gamma y + \delta xy,
  \end{aligned}
  $$
- shows limit cycle behaviour and has often been used for benchmarking Bayesian inference methods. $\boldsymbol{\theta}=(\alpha,\beta,\gamma,\delta, x(0),y(0))$ is the set of unknown parameters that we wish to infer from experimental observations of the state vector $X(t)=(x(t),y(t))$ comprising the concentrations of the prey and the predator species respectively. $x(0), y(0)$ are the initial values of the states needed to solve the ODE, which are also treated as unknown quantities. The predator prey model was recently used to demonstrate the applicability of the NUTS sampler, and the Stan ppl in general, for inference in ODE models. I will closely follow [this](https://mc-stan.org/users/documentation/case-studies/lotka-volterra-predator-prey.html) Stan tutorial and thus I will setup this model and associated inference problem (including the data) exactly as was done for the Stan tutorial. Let me first write down the code to solve this ODE using the SciPy's `odeint`. Note that the methods in this tutorial is not limited or tied to `odeint`. Here I have chosen `odeint` to simply stay within PyMC3's dependencies (SciPy in this case).
+ shows limit cycle behaviour and has often been used for benchmarking Bayesian inference methods. $\boldsymbol{\theta}=(\alpha,\beta,\gamma,\delta, x(0),y(0))$ is the set of unknown parameters that we wish to infer from experimental observations of the state vector $X(t)=(x(t),y(t))$ comprising the concentrations of the prey and the predator species respectively. $x(0), y(0)$ are the initial values of the states needed to solve the ODE, which are also treated as unknown quantities. The predator prey model was recently used to demonstrate the applicability of the NUTS sampler, and the Stan ppl in general, for inference in ODE models. I will closely follow [this](https://mc-stan.org/users/documentation/case-studies/lotka-volterra-predator-prey.html) Stan tutorial and thus I will setup this model and associated inference problem (including the data) exactly as was done for the Stan tutorial. Let me first write down the code to solve this ODE using the SciPy's `odeint`. Note that the methods in this tutorial is not limited or tied to `odeint`. Here I have chosen `odeint` to simply stay within PyMC's dependencies (SciPy in this case).
 
 ```{code-cell} ipython3
 class LotkaVolterraModel:
@@ -99,9 +99,9 @@ ode_model = LotkaVolterraModel()
 NUTS requires the gradient of the log of the target density w.r.t. the unknown parameters, $\nabla_{\boldsymbol{\theta}}p(\boldsymbol{\theta}|\boldsymbol{Y})$, which can be evaluated using the chain rule of differentiation as 
 $$ \nabla_{\boldsymbol{\theta}}p(\boldsymbol{\theta}|\boldsymbol{Y}) = \frac{\partial p(\boldsymbol{\theta}|\boldsymbol{Y})}{\partial \boldsymbol{X}}^T \frac{\partial \boldsymbol{X}}{\partial \boldsymbol{\theta}}.$$
 
-The gradient of an ODE w.r.t. its parameters, the term $\frac{\partial \boldsymbol{X}}{\partial \boldsymbol{\theta}}$, can be obtained using local sensitivity analysis, although this is not the only method to obtain gradients. However, just like solving an ODE (a non-linear one to be precise) evaluation of the gradients can only be carried out using some sort of numerical method, say for example the famous Runge-Kutta method for non-stiff ODEs. PyMC3 uses Theano as the automatic differentiation engine and thus all models are implemented by stitching together available primitive operations (Ops) supported by Theano. Even to extend PyMC3 we need to compose models that can be expressed as symbolic combinations of Theano's Ops. However, if we take a step back and think about Theano then it is apparent that neither the ODE solution nor its gradient w.r.t. to the parameters can be expressed symbolically as combinations of Theano’s primitive Ops. Hence, from Theano’s perspective an ODE (and for that matter any other form of a non-linear differential equation) is a non-differentiable black-box function. However, one might argue that if a numerical method is coded up in Theano (using say the `scan` Op), then it is possible to symbolically express the numerical method that evaluates the ODE states, and then we can easily use Theano’s automatic differentiation engine to obtain the gradients as well by differentiating through the numerical solver itself. I like to point out that the former, obtaining the solution, is indeed possible this way but the obtained gradient would be error-prone. Additionally, this entails to a complete ‘re-inventing the wheel’ as one would have to implement decades old sophisticated numerical algorithms again from scratch in Theano. 
+The gradient of an ODE w.r.t. its parameters, the term $\frac{\partial \boldsymbol{X}}{\partial \boldsymbol{\theta}}$, can be obtained using local sensitivity analysis, although this is not the only method to obtain gradients. However, just like solving an ODE (a non-linear one to be precise) evaluation of the gradients can only be carried out using some sort of numerical method, say for example the famous Runge-Kutta method for non-stiff ODEs. PyMC uses Aesara as the automatic differentiation engine and thus all models are implemented by stitching together available primitive operations (Ops) supported by Aesara. Even to extend PyMC we need to compose models that can be expressed as symbolic combinations of Aesara's Ops. However, if we take a step back and think about Aesara then it is apparent that neither the ODE solution nor its gradient w.r.t. to the parameters can be expressed symbolically as combinations of Aesara’s primitive Ops. Hence, from Aesara’s perspective an ODE (and for that matter any other form of a non-linear differential equation) is a non-differentiable black-box function. However, one might argue that if a numerical method is coded up in Aesara (using say the `scan` Op), then it is possible to symbolically express the numerical method that evaluates the ODE states, and then we can easily use Aesara’s automatic differentiation engine to obtain the gradients as well by differentiating through the numerical solver itself. I like to point out that the former, obtaining the solution, is indeed possible this way but the obtained gradient would be error-prone. Additionally, this entails to a complete ‘re-inventing the wheel’ as one would have to implement decades old sophisticated numerical algorithms again from scratch in Aesara. 
 
-Thus, in this tutorial I am going to present the alternative approach which consists of defining new [custom Theano Ops](http://deeplearning.net/software/theano_versions/dev/extending/extending_theano.html), extending Theano, that will wrap both the numerical solution and the vector-Matrix product, $ \frac{\partial p(\boldsymbol{\theta}|\boldsymbol{Y})}{\partial \boldsymbol{X}}^T \frac{\partial \boldsymbol{X}}{\partial \boldsymbol{\theta}}$, often known as the _**vector-Jacobian product**_ (VJP) in automatic differentiation literature. I like to point out here that in the context of non-linear ODEs the term Jacobian is used to denote gradients of the ODE dynamics $\boldsymbol{f}$ w.r.t. the ODE states $X(t)$. Thus, to avoid confusion, from now on I will use the term _**vector-sensitivity product**_ (VSP) to denote the same quantity that the term VJP denotes.
+Thus, in this tutorial I am going to present the alternative approach which consists of defining new [custom Aesara Ops](http://deeplearning.net/software/aesara_versions/dev/extending/extending_aesara.html), extending Aesara, that will wrap both the numerical solution and the vector-Matrix product, $ \frac{\partial p(\boldsymbol{\theta}|\boldsymbol{Y})}{\partial \boldsymbol{X}}^T \frac{\partial \boldsymbol{X}}{\partial \boldsymbol{\theta}}$, often known as the _**vector-Jacobian product**_ (VJP) in automatic differentiation literature. I like to point out here that in the context of non-linear ODEs the term Jacobian is used to denote gradients of the ODE dynamics $\boldsymbol{f}$ w.r.t. the ODE states $X(t)$. Thus, to avoid confusion, from now on I will use the term _**vector-sensitivity product**_ (VSP) to denote the same quantity that the term VJP denotes.
 
 I will start by introducing the forward sensitivity analysis.
 
@@ -198,17 +198,17 @@ For this model I have set the relative and absolute tolerances to $10^{-6}$ and 
 
 ## Custom ODE Op
 
-In order to define the custom `Op` I have written down two `theano.Op` classes `ODEGradop`, `ODEop`. `ODEop` essentially wraps the ODE solution and will be called by PyMC3. The `ODEGradop` wraps the numerical VSP and this op is then in turn used inside the `grad` method in the `ODEop` to return the VSP. Note that we pass in two functions: `state`, `numpy_vsp` as arguments to respective Ops. I will define these functions later. These functions act as shims using which we connect the python code for numerical solution of state and VSP to Theano and thus PyMC3.
+In order to define the custom `Op` I have written down two `aesara.Op` classes `ODEGradop`, `ODEop`. `ODEop` essentially wraps the ODE solution and will be called by PyMC. The `ODEGradop` wraps the numerical VSP and this op is then in turn used inside the `grad` method in the `ODEop` to return the VSP. Note that we pass in two functions: `state`, `numpy_vsp` as arguments to respective Ops. I will define these functions later. These functions act as shims using which we connect the python code for numerical solution of state and VSP to Aesara and thus PyMC.
 
 ```{code-cell} ipython3
-class ODEGradop(theano.tensor.Op):
+class ODEGradop(aesara.tensor.Op):
     def __init__(self, numpy_vsp):
         self._numpy_vsp = numpy_vsp
 
     def make_node(self, x, g):
-        x = theano.tensor.as_tensor_variable(x)
-        g = theano.tensor.as_tensor_variable(g)
-        node = theano.Apply(self, [x, g], [g.type()])
+        x = aesara.tensor.as_tensor_variable(x)
+        g = aesara.tensor.as_tensor_variable(g)
+        node = aesara.Apply(self, [x, g], [g.type()])
         return node
 
     def perform(self, node, inputs_storage, output_storage):
@@ -219,15 +219,15 @@ class ODEGradop(theano.tensor.Op):
         out[0] = self._numpy_vsp(x, g)  # get the numerical VSP
 
 
-class ODEop(theano.tensor.Op):
+class ODEop(aesara.tensor.Op):
     def __init__(self, state, numpy_vsp):
         self._state = state
         self._numpy_vsp = numpy_vsp
 
     def make_node(self, x):
-        x = theano.tensor.as_tensor_variable(x)
+        x = aesara.tensor.as_tensor_variable(x)
 
-        return theano.tensor.Apply(self, [x], [x.type()])
+        return aesara.tensor.Apply(self, [x], [x.type()])
 
     def perform(self, node, inputs_storage, output_storage):
         x = inputs_storage[0]
@@ -275,7 +275,7 @@ cached_solver = solveCached(times, n_odeparams + n_ivs, n_states)
 
 ### The ODE state & VSP evaluation
 
-Most ODE systems of practical interest will have multiple states and thus the output of the solver, which I have denoted so far as $\boldsymbol{X}$, for a system with $K$ states solved on $T$ time points, would be a $T \times K$-dimensional matrix. For the Lotka-Volterra model the columns of this matrix represent the time evolution of the individual species concentrations. I flatten this matrix to a $TK$-dimensional vector $vec(\boldsymbol{X})$, and also rearrange the sensitivities accordingly to obtain the desired vector-matrix product. It is beneficial at this point to test the custom Op as described [here](http://deeplearning.net/software/theano_versions/dev/extending/extending_theano.html#how-to-test-it).
+Most ODE systems of practical interest will have multiple states and thus the output of the solver, which I have denoted so far as $\boldsymbol{X}$, for a system with $K$ states solved on $T$ time points, would be a $T \times K$-dimensional matrix. For the Lotka-Volterra model the columns of this matrix represent the time evolution of the individual species concentrations. I flatten this matrix to a $TK$-dimensional vector $vec(\boldsymbol{X})$, and also rearrange the sensitivities accordingly to obtain the desired vector-matrix product. It is beneficial at this point to test the custom Op as described [here](http://deeplearning.net/software/aesara_versions/dev/extending/extending_aesara.html#how-to-test-it).
 
 ```{code-cell} ipython3
 def state(x):
@@ -320,7 +320,7 @@ plt.title("Lynx (predator) - Hare (prey): oscillatory dynamics", fontsize=25);
 
 ## The probabilistic model
 
-I have now got all the ingredients needed in order to define the probabilistic model in PyMC3. As I have mentioned previously I will set up the probabilistic model with the exact same likelihood and priors used in the Stan example. The observed data is defined as follows:
+I have now got all the ingredients needed in order to define the probabilistic model in PyMC. As I have mentioned previously I will set up the probabilistic model with the exact same likelihood and priors used in the Stan example. The observed data is defined as follows:
 
 $$\log (\boldsymbol{Y(t)}) = \log (\boldsymbol{X(t)}) + \eta(t),$$ 
 
@@ -339,19 +339,19 @@ x(0), y(0) &\sim  \mathcal{L}\mathcal{N}(\log(10),1),\\
 \end{aligned}
 $$
 
-For an intuitive explanation, which I am omitting for brevity, regarding the choice of priors as well as the likelihood model, I would recommend the Stan example mentioned above. The above probabilistic model is defined in PyMC3 below. Note that the flattened state vector is reshaped to match the data dimensionality.
+For an intuitive explanation, which I am omitting for brevity, regarding the choice of priors as well as the likelihood model, I would recommend the Stan example mentioned above. The above probabilistic model is defined in PyMC below. Note that the flattened state vector is reshaped to match the data dimensionality.
 
 Finally, I use the `pm.sample` method to run NUTS by default and obtain $1500$ post warm-up samples from the posterior.
 
 ```{code-cell} ipython3
-theano.config.exception_verbosity = "high"
-theano.config.floatX = "float64"
+aesara.config.exception_verbosity = "high"
+aesara.config.floatX = "float64"
 
 
 # Define the data matrix
 Y = np.vstack((Hare, Lynx)).T
 
-# Now instantiate the theano custom ODE op
+# Now instantiate the aesara custom ODE op
 my_ODEop = ODEop(state, numpy_vsp)
 
 # The probabilistic model
@@ -435,7 +435,7 @@ A simple way of building the sequence of distributions is to use a temperature $
 
 $$p_{\beta}(\boldsymbol{\theta}|\boldsymbol{y})\propto p(\boldsymbol{y}|\boldsymbol{\theta})^{\beta} p(\boldsymbol{\theta}).$$
 
-Samplers that carry out sequential-importance-sampling from these artificial sequence of distributions, to avoid the difficult task of sampling directly from $p(\boldsymbol{\theta}|\boldsymbol{y})$, are known as Sequential Monte Carlo (SMC) samplers ([P Del Moral et al., 2006](https://rss.onlinelibrary.wiley.com/doi/full/10.1111/j.1467-9868.2006.00553.x)). The performance of these samplers are sensitive to the choice of the temperature schedule, that is the set of user-defined increasing values of $\beta$ between $0$ and $1$. Fortunately, PyMC3 provides a version of the SMC sampler ([Jianye Ching and Yi-Chu Chen, 2007](https://ascelibrary.org/doi/10.1061/%28ASCE%290733-9399%282007%29133%3A7%28816%29)) that automatically figures out this temperature schedule. Moreover, the PyMC3's SMC sampler does not require the gradient of the log target density. As a result it is extremely easy to use this sampler for inference in ODE models. In the next example I will apply this SMC sampler to estimate the parameters of the Fitzhugh-Nagumo model.
+Samplers that carry out sequential-importance-sampling from these artificial sequence of distributions, to avoid the difficult task of sampling directly from $p(\boldsymbol{\theta}|\boldsymbol{y})$, are known as Sequential Monte Carlo (SMC) samplers ([P Del Moral et al., 2006](https://rss.onlinelibrary.wiley.com/doi/full/10.1111/j.1467-9868.2006.00553.x)). The performance of these samplers are sensitive to the choice of the temperature schedule, that is the set of user-defined increasing values of $\beta$ between $0$ and $1$. Fortunately, PyMC provides a version of the SMC sampler ([Jianye Ching and Yi-Chu Chen, 2007](https://ascelibrary.org/doi/10.1061/%28ASCE%290733-9399%282007%29133%3A7%28816%29)) that automatically figures out this temperature schedule. Moreover, the PyMC's SMC sampler does not require the gradient of the log target density. As a result it is extremely easy to use this sampler for inference in ODE models. In the next example I will apply this SMC sampler to estimate the parameters of the Fitzhugh-Nagumo model.
 
 +++
 
@@ -497,17 +497,17 @@ plt.ylabel("Values", fontsize=15)
 plt.title("Fitzhugh-Nagumo Action Potential Model", fontsize=25);
 ```
 
-##  Define a non-differentiable black-box op using Theano @as_op
+##  Define a non-differentiable black-box op using Aesara @as_op
 
-Remember that I told SMC sampler does not require gradients, this is by the way the case for other samplers such as the Metropolis-Hastings, Slice sampler that are also supported in PyMC3. For all these gradient-free samplers I will show a simple and quick way of wrapping the forward model i.e. the ODE solution in Theano. All we have to do is to simply to use the decorator `as_op` that converts a python function into a basic Theano Op. We also tell Theano using the `as_op` decorator that we have three parameters each being a Theano scalar. The output then is a Theano matrix whose columns are the state vectors.
+Remember that I told SMC sampler does not require gradients, this is by the way the case for other samplers such as the Metropolis-Hastings, Slice sampler that are also supported in PyMC. For all these gradient-free samplers I will show a simple and quick way of wrapping the forward model i.e. the ODE solution in Aesara. All we have to do is to simply to use the decorator `as_op` that converts a python function into a basic Aesara Op. We also tell Aesara using the `as_op` decorator that we have three parameters each being a Aesara scalar. The output then is a Aesara matrix whose columns are the state vectors.
 
 ```{code-cell} ipython3
-import theano.tensor as tt
+import aesara.tensor as at
 
-from theano.compile.ops import as_op
+from aesara.compile.ops import as_op
 
 
-@as_op(itypes=[tt.dscalar, tt.dscalar, tt.dscalar], otypes=[tt.dmatrix])
+@as_op(itypes=[at.dscalar, at.dscalar, at.dscalar], otypes=[at.dmatrix])
 def th_forward_model(param1, param2, param3):
     param = [param1, param2, param3]
     th_states = ode_model.simulate(param)
@@ -612,7 +612,7 @@ I have tried to keep everything as general as possible. So, my custom ODE Op, th
 
 ### Other forms of differential equation (DDE, DAE, PDE)
 
-I hope the two examples have elucidated the applicability of PyMC3 in regards to fitting ODE models. Although ODEs are the most fundamental constituent of a mathematical model, there are indeed other forms of dynamical systems such as a delay differential equation (DDE), a differential algebraic equation (DAE) and the partial differential equation (PDE) whose parameter estimation is equally important. The SMC and for that matter any other non-gradient sampler supported by PyMC3 can be used to fit all these forms of differential equation, of course using the `as_op`. However, just like an ODE we can solve augmented systems of DDE/DAE along with their sensitivity equations. The sensitivity equations for a DDE and a DAE can be found in this recent paper, [C Rackauckas et al., 2018](https://arxiv.org/abs/1812.01892) (Equation 9 and 10). Thus we can easily apply NUTS sampler to these models.
+I hope the two examples have elucidated the applicability of PyMC in regards to fitting ODE models. Although ODEs are the most fundamental constituent of a mathematical model, there are indeed other forms of dynamical systems such as a delay differential equation (DDE), a differential algebraic equation (DAE) and the partial differential equation (PDE) whose parameter estimation is equally important. The SMC and for that matter any other non-gradient sampler supported by PyMC can be used to fit all these forms of differential equation, of course using the `as_op`. However, just like an ODE we can solve augmented systems of DDE/DAE along with their sensitivity equations. The sensitivity equations for a DDE and a DAE can be found in this recent paper, [C Rackauckas et al., 2018](https://arxiv.org/abs/1812.01892) (Equation 9 and 10). Thus we can easily apply NUTS sampler to these models.
 
 ### Stan already supports ODEs
 
@@ -620,9 +620,9 @@ Well there are many problems where I believe SMC sampler would be more suitable 
 
 ### Model selection
 
-Most ODE inference literature since [Vladislav Vyshemirsky and Mark Girolami, 2008](https://academic.oup.com/bioinformatics/article/24/6/833/192524) recommend the usage of Bayes factor for the purpose of model selection/comparison. This involves the calculation of the marginal likelihood which is a much more nuanced topic and I would refrain from any discussion about that. Fortunately, the SMC sampler calculates the marginal likelihood as a by product so this can be used for obtaining Bayes factors. Follow PyMC3's other tutorials for further information regarding how to obtain the marginal likelihood after running the SMC sampler.
+Most ODE inference literature since [Vladislav Vyshemirsky and Mark Girolami, 2008](https://academic.oup.com/bioinformatics/article/24/6/833/192524) recommend the usage of Bayes factor for the purpose of model selection/comparison. This involves the calculation of the marginal likelihood which is a much more nuanced topic and I would refrain from any discussion about that. Fortunately, the SMC sampler calculates the marginal likelihood as a by product so this can be used for obtaining Bayes factors. Follow PyMC's other tutorials for further information regarding how to obtain the marginal likelihood after running the SMC sampler.
 
-Since we generally frame the ODE inference as a regression problem (along with the i.i.d measurement noise assumption in most cases) we can straight away use any of the supported information criterion, such as the widely available information criterion (WAIC), irrespective of what sampler is used for inference. See the PyMC3's API for further information regarding WAIC.
+Since we generally frame the ODE inference as a regression problem (along with the i.i.d measurement noise assumption in most cases) we can straight away use any of the supported information criterion, such as the widely available information criterion (WAIC), irrespective of what sampler is used for inference. See the PyMC's API for further information regarding WAIC.
 
 ###  Other AD packages
 

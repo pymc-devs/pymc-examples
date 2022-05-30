@@ -6,14 +6,14 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: 'Python 3.8.2 64-bit (''pymc3'': conda)'
+  display_name: 'Python 3.8.2 64-bit (''pymc'': conda)'
   language: python
-  name: python38264bitpymc3conda8b8223a2f9874eff9bd3e12d36ed2ca2
+  name: python38264bitpymcconda8b8223a2f9874eff9bd3e12d36ed2ca2
 ---
 
 +++ {"ein.tags": ["worksheet-0"], "slideshow": {"slide_type": "-"}}
 
-# Analysis of An $AR(1)$ Model in PyMC3
+# Analysis of An $AR(1)$ Model in PyMC
 
 ```{code-cell} ipython3
 ---
@@ -24,7 +24,7 @@ slideshow:
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 ```
 
 ```{code-cell} ipython3
@@ -72,7 +72,7 @@ plt.ylabel("$y$");
 
 +++ {"ein.tags": ["worksheet-0"], "slideshow": {"slide_type": "-"}}
 
-This generative process is quite straight forward to implement in PyMC3:
+This generative process is quite straight forward to implement in PyMC:
 
 ```{code-cell} ipython3
 ---
@@ -91,7 +91,7 @@ with pm.Model() as ar1:
     likelihood = pm.AR1("y", k=theta, tau_e=tau, observed=y - center)
 
     trace = pm.sample(1000, tune=2000, init="advi+adapt_diag", random_seed=RANDOM_SEED)
-    idata = az.from_pymc3(trace)
+    idata = pm.to_inference_data(trace)
 ```
 
 We can see that even though the sample data did not start at zero, the true center of zero is captured rightly inferred by the model, as you can see in the trace plot below. Likewise, the model captured the true values of the autocorrelation parameter 𝜃 and the innovation term $\epsilon_t$ (`tau` in the model) -- 0.95 and 1 respectively).
@@ -110,7 +110,7 @@ az.plot_trace(
 +++ {"ein.tags": ["worksheet-0"], "slideshow": {"slide_type": "-"}}
 
 ## Extension to AR(p)
-We can instead estimate an AR(2) model using PyMC3.
+We can instead estimate an AR(2) model using PyMC.
 
 $$
  y_t = \theta_1 y_{t-1} + \theta_2 y_{t-2} + \epsilon_t.
@@ -136,7 +136,7 @@ with pm.Model() as ar2:
         tune=2000,
         random_seed=RANDOM_SEED,
     )
-    idata = az.from_pymc3(trace)
+    idata = pm.to_inference_data(trace)
 ```
 
 ```{code-cell} ipython3
@@ -171,7 +171,7 @@ with pm.Model() as ar2_bis:
         tune=2000,
         random_seed=RANDOM_SEED,
     )
-    idata = az.from_pymc3(trace)
+    idata = pm.to_inference_data(trace)
 ```
 
 ```{code-cell} ipython3

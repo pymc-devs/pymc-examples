@@ -1,16 +1,16 @@
 """
 Similar to disaster_model.py, but for arbitrary
-deterministics which are not not working with Theano.
+deterministics which are not not working with Aesara.
 Note that gradient based samplers will not work.
 """
 
 import arviz as az
-import theano.tensor as tt
+import aesara.tensor as at
 
 from numpy import arange, array, empty
-from theano.compile.ops import as_op
+from aesara.compile.ops import as_op
 
-import pymc3 as pm
+import pymc as pm
 
 __all__ = ["disasters_data", "switchpoint", "early_mean", "late_mean", "rate", "disasters"]
 
@@ -133,7 +133,7 @@ disasters_data = array(
 years = len(disasters_data)
 
 
-@as_op(itypes=[tt.lscalar, tt.dscalar, tt.dscalar], otypes=[tt.dvector])
+@as_op(itypes=[at.lscalar, at.dscalar, at.dscalar], otypes=[at.dvector])
 def rate_(switchpoint, early_mean, late_mean):
     out = empty(years)
     out[:switchpoint] = early_mean

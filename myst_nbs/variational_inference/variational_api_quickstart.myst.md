@@ -6,9 +6,9 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python (PyMC3 Dev)
+  display_name: Python (PyMC Dev)
   language: python
-  name: pymc3-dev
+  name: pymc-dev
 ---
 
 # Variational API quickstart
@@ -17,8 +17,8 @@ The variational inference (VI) API is focused on approximating posterior distrib
 
 * Sampling from model posterior and computing arbitrary expressions
 * Conduct Monte Carlo approximation of expectation, variance, and other statistics
-* Remove symbolic dependence on PyMC3 random nodes and evaluate expressions (using `eval`)
-* Provide a bridge to arbitrary Theano code
+* Remove symbolic dependence on PyMC random nodes and evaluate expressions (using `eval`)
+* Provide a bridge to arbitrary Aesara code
 
 Sounds good, doesn't it?
 
@@ -26,11 +26,11 @@ The module provides an interface to a variety of inference methods, so you are f
 
 ```{code-cell} ipython3
 %matplotlib inline
+import aesara
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano
+import pymc as pm
 
 np.random.seed(42)
 pm.set_tt_rng(42)
@@ -46,7 +46,7 @@ mu = pm.floatX([-0.3, 0.5])
 sd = pm.floatX([0.1, 0.1])
 
 with pm.Model() as model:
-    x = pm.NormalMixture("x", w=w, mu=mu, sigma=sd, dtype=theano.config.floatX)
+    x = pm.NormalMixture("x", w=w, mu=mu, sigma=sd, dtype=aesara.config.floatX)
     x2 = x**2
     sin_x = pm.math.sin(x)
 ```
@@ -79,7 +79,7 @@ Let's use the same model:
 ```{code-cell} ipython3
 with pm.Model() as model:
 
-    x = pm.NormalMixture("x", w=w, mu=mu, sigma=sd, dtype=theano.config.floatX)
+    x = pm.NormalMixture("x", w=w, mu=mu, sigma=sd, dtype=aesara.config.floatX)
     x2 = x**2
     sin_x = pm.math.sin(x)
 ```
@@ -106,7 +106,7 @@ help(pm.callbacks.CheckParametersConvergence)
 Let's use the default arguments for `CheckParametersConvergence` as they seem to be reasonable.
 
 ```{code-cell} ipython3
-from pymc3.variational.callbacks import CheckParametersConvergence
+from pymc.variational.callbacks import CheckParametersConvergence
 
 with model:
     mean_field = pm.fit(method="advi", callbacks=[CheckParametersConvergence()])
@@ -271,9 +271,9 @@ a_sample.eval()
 a_sample.eval()
 ```
 
-Every call yields a different value from the same theano node. This is because it is **stochastic**. 
+Every call yields a different value from the same aesara node. This is because it is **stochastic**. 
 
-By applying replacements, we are now free of the dependence on the PyMC3 model; instead, we now depend on the approximation. Changing it will change the distribution for stochastic nodes:
+By applying replacements, we are now free of the dependence on the PyMC model; instead, we now depend on the approximation. Changing it will change the distribution for stochastic nodes:
 
 ```{code-cell} ipython3
 sns.kdeplot(np.array([a_sample.eval() for _ in range(2000)]))
@@ -304,7 +304,7 @@ a_samples.mean(0).eval()  # mean
 A symbolic sample size can also be specified:
 
 ```{code-cell} ipython3
-i = theano.tensor.iscalar("i")
+i = aesara.tensor.iscalar("i")
 i.tag.test_value = 1
 a_samples_i = svgd_approx.sample_node(a, size=i)
 ```
@@ -341,8 +341,8 @@ az.plot_posterior(trace_approx.sample(10000));
 Let's illustrate the use of `Tracker` with the famous Iris dataset. We'll attempy multi-label classification and compute the expected accuracy score as a diagnostic.
 
 ```{code-cell} ipython3
+import aesara.tensor as at
 import pandas as pd
-import theano.tensor as tt
 
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
@@ -358,8 +358,8 @@ X_train, X_test, y_train, y_test = train_test_split(X, y)
 A relatively simple model will be sufficient here because the classes are roughly linearly separable; we are going to fit multinomial logistic regression.
 
 ```{code-cell} ipython3
-Xt = theano.shared(X_train)
-yt = theano.shared(y_train)
+Xt = aesara.shared(X_train)
+yt = aesara.shared(y_train)
 
 with pm.Model() as iris_model:
 
@@ -367,13 +367,13 @@ with pm.Model() as iris_model:
     β = pm.Normal("β", 0, sigma=1e2, shape=(4, 3))
     # Transoform to unit interval
     a = pm.Flat("a", shape=(3,))
-    p = tt.nnet.softmax(Xt.dot(β) + a)
+    p = at.nnet.softmax(Xt.dot(β) + a)
 
     observed = pm.Categorical("obs", p=p, observed=yt)
 ```
 
 ### Applying replacements in practice
-PyMC3 models have symbolic inputs for latent variables. To evaluate an espression that requires knowledge of latent variables, one needs to provide fixed values. We can use values approximated by VI for this purpose. The function `sample_node` removes the symbolic dependenices. 
+PyMC models have symbolic inputs for latent variables. To evaluate an espression that requires knowledge of latent variables, one needs to provide fixed values. We can use values approximated by VI for this purpose. The function `sample_node` removes the symbolic dependenices. 
 
 `sample_node` will use the whole distribution at each step, so we will use it here. We can apply more replacements in single function call using the `more_replacements` keyword argument in both replacement functions.
 
@@ -404,13 +404,13 @@ By applying the code above, we now have 100 sampled probabilities (default numbe
 Next we create symbolic expressions for sampled accuracy scores:
 
 ```{code-cell} ipython3
-test_ok = tt.eq(test_probs.argmax(-1), y_test)
-train_ok = tt.eq(train_probs.argmax(-1), y_train)
+test_ok = at.eq(test_probs.argmax(-1), y_test)
+train_ok = at.eq(train_probs.argmax(-1), y_train)
 test_accuracy = test_ok.mean(-1)
 train_accuracy = train_ok.mean(-1)
 ```
 
-Tracker expects callables so we can pass `.eval` method of theano node that is function itself. 
+Tracker expects callables so we can pass `.eval` method of aesara node that is function itself. 
 
 Calls to this function are cached so they can be reused.
 
@@ -459,10 +459,10 @@ So, `Tracker` allows us to monitor our approximation and choose good training sc
 ## Minibatches
 When dealing with large datasets, using minibatch training can drastically speed up and improve approximation performance. Large datasets impose a hefty cost on the computation of gradients. 
 
-There is a nice API in pymc3 to handle these cases, which is available through the `pm.Minibatch` class. The minibatch is just a highly specialized Theano tensor:
+There is a nice API in pymc to handle these cases, which is available through the `pm.Minibatch` class. The minibatch is just a highly specialized Aesara tensor:
 
 ```{code-cell} ipython3
-issubclass(pm.Minibatch, theano.tensor.TensorVariable)
+issubclass(pm.Minibatch, aesara.tensor.TensorVariable)
 ```
 
 To demonstrate, let's simulate a large quantity of data:
@@ -504,7 +504,7 @@ Now let's use minibatches. At every iteration, we will draw 500 random values:
 
 > Remember to set `total_size` in observed
 
-**total_size** is an important parameter that allows pymc3 to infer the right way of rescaling densities. If it is not set, you are likely to get completely wrong results. For more information please refer to the comprehensive documentation of `pm.Minibatch`.
+**total_size** is an important parameter that allows pymc to infer the right way of rescaling densities. If it is not set, you are likely to get completely wrong results. For more information please refer to the comprehensive documentation of `pm.Minibatch`.
 
 ```{code-cell} ipython3
 X = pm.Minibatch(data, batch_size=500)

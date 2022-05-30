@@ -13,16 +13,16 @@ kernelspec:
 
 # Multivariate Gaussian Random Walk
 :::{post} Sep 25, 2021
-:tags: linear model, pymc3.HalfNormal, pymc3.LKJCholeskyCov, pymc3.Model, pymc3.MvGaussianRandomWalk, pymc3.Normal, regression, time series
+:tags: linear model, pymc.HalfNormal, pymc.LKJCholeskyCov, pymc.Model, pymc.MvGaussianRandomWalk, pymc.Normal, regression, time series
 :category: beginner
 :::
 
 ```{code-cell} ipython3
+import aesara
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano
+import pymc as pm
 
 from scipy.linalg import cholesky
 
@@ -113,7 +113,7 @@ class Scaler:
         return x * self.std_ + self.mean_
 ```
 
-We now construct the regression model in {eq}`eqn:model` imposing priors on the GRWs $\alpha$ and $\beta$, on the standard deviation $\sigma$ and hyperpriors on the Cholesky matrices. We use the LKJ prior {cite:p}`lewandowski2009generating` for the Cholesky matrices (see this {func}`link for the documentation <pymc3.distributions.multivariate.LKJCholeskyCov>` and also the PyMC notebook {doc}`/case_studies/LKJ` for some usage examples.)
+We now construct the regression model in {eq}`eqn:model` imposing priors on the GRWs $\alpha$ and $\beta$, on the standard deviation $\sigma$ and hyperpriors on the Cholesky matrices. We use the LKJ prior {cite:p}`lewandowski2009generating` for the Cholesky matrices (see this {func}`link for the documentation <pymc.distributions.multivariate.LKJCholeskyCov>` and also the PyMC notebook {doc}`/case_studies/LKJ` for some usage examples.)
 
 ```{code-cell} ipython3
 def inference(t, y, sections, n_samples=100):
@@ -127,10 +127,10 @@ def inference(t, y, sections, n_samples=100):
     # Create a section index
     t_section = np.repeat(np.arange(sections), N / sections)
 
-    # Create theano equivalent
-    t_t = theano.shared(np.repeat(t, D, axis=1))
-    y_t = theano.shared(y)
-    t_section_t = theano.shared(t_section)
+    # Create aesara equivalent
+    t_t = aesara.shared(np.repeat(t, D, axis=1))
+    y_t = aesara.shared(y)
+    t_section_t = aesara.shared(t_section)
 
     coords = {"y_": ["y_0", "y_1", "y_2"], "steps": np.arange(N)}
     with pm.Model(coords=coords) as model:
@@ -160,10 +160,12 @@ def inference(t, y, sections, n_samples=100):
         likelihood = pm.Normal("y", mu=regression, sigma=sigma, observed=y_t, dims=("steps", "y_"))
 
         # MCMC sampling
-        trace = pm.sample(n_samples, cores=4, return_inferencedata=True)
+        trace = pm.sample(n_samples, cores=4)
 
         # Posterior predictive sampling
-        trace.extend(az.from_pymc3(posterior_predictive=pm.sample_posterior_predictive(trace)))
+        trace.extend(
+            pm.to_inference_data(posterior_predictive=pm.sample_posterior_predictive(trace))
+        )
 
     return trace, y_scaler, t_scaler, t_section
 ```
@@ -237,5 +239,5 @@ ax.set_title("Posterior Predictive Samples and the Three Correlated Series");
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p aesara,xarray
 ```

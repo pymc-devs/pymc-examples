@@ -6,9 +6,9 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python PyMC3 (Dev)
+  display_name: Python PyMC (Dev)
   language: python
-  name: pymc3-dev-py38
+  name: pymc-dev-py38
 ---
 
 # Variance reduction in MLDA - Linear regression
@@ -37,18 +37,18 @@ The first term in the right hand side can be estimated using the samples from le
 #### Note on asymptotic variance results
 $E_{VR}[Q]$ is shown to have asymptotically lower variance than $E_P[Q]$ in [1], as long as the subsampling rate $K$ in level $l$ is larger than the MCMC autocorrelation length in level $l-1$ (and if this is true for all levels). When this condition does not hold, we still see reasonably good variance reduction in experiments, although there is no theoretical guarantee of asymptotically lower variance. Users are advices to do pre-runs to detect the autocorrelation length of all chains in MLDA and then set the subsampling rates accordingly.
 
-#### Using variance reductioon in PyMC3
-The code in this notebook demonstrates how the user can employ the variance reduction technique within the PyMC3 implementation of MLDA. We run two samplers, one with VR and one without and calculate the resulting variances in the estimates.
+#### Using variance reductioon in PyMC
+The code in this notebook demonstrates how the user can employ the variance reduction technique within the PyMC implementation of MLDA. We run two samplers, one with VR and one without and calculate the resulting variances in the estimates.
 
-In order to use variance reduction, the user needs to pass the argument `variance_reduction=True` when instantiating the MLDA stepper. Also, they need to do two things when defining the PyMC3 model: 
+In order to use variance reduction, the user needs to pass the argument `variance_reduction=True` when instantiating the MLDA stepper. Also, they need to do two things when defining the PyMC model: 
 - Include a `pm.Data()` variable with the name `Q` in the model description of all levels, as shown in the code.
-- Use a Theano Op to calculate the forward model (or the combination of a forward model and a likelihood). This Op should have a `perform()` method which (in addition to all the other calculations), calculates the quantity of interest and stores it to the variable `Q` of the PyMC3 model, using the `set_value()` function. An example is shown in the code.
+- Use a Aesara Op to calculate the forward model (or the combination of a forward model and a likelihood). This Op should have a `perform()` method which (in addition to all the other calculations), calculates the quantity of interest and stores it to the variable `Q` of the PyMC model, using the `set_value()` function. An example is shown in the code.
 
 By doing the above, the user provides MLDA with the quantity of interest in each MCMC step. MLDA then internally stores and manages the values and returns all the terms necessary to calculate $E_{VR}[Q]$ (i.e. all $Q_0$ values and all $Y_n^l$ differences/corrections) within the stats of the generated trace. The user can extract them using the `get_sampler_stats()` function of the trace object, as shown at the end of the notebook.
 
 
 ### Dependencies
-The code has been developed and tested with Python 3.6. You will need to have pymc3 installed and also [FEniCS](https://fenicsproject.org/) for your system. FEniCS is a popular, open-source, [well documented](https://fenicsproject.org/documentation/), high-performance computing framework for solving Partial Differential Equations. FEniCS can be [installed](https://fenicsproject.org/download/) either through their prebuilt Docker images, from their Ubuntu PPA, or from Anaconda. 
+The code has been developed and tested with Python 3.6. You will need to have pymc installed and also [FEniCS](https://fenicsproject.org/) for your system. FEniCS is a popular, open-source, [well documented](https://fenicsproject.org/documentation/), high-performance computing framework for solving Partial Differential Equations. FEniCS can be [installed](https://fenicsproject.org/download/) either through their prebuilt Docker images, from their Ubuntu PPA, or from Anaconda. 
   
 
 ### References
@@ -63,11 +63,11 @@ import os as os
 import sys as sys
 import time as time
 
+import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano.tensor as tt
+import pymc as pm
 
 from matplotlib.ticker import ScalarFormatter
 ```
@@ -119,21 +119,21 @@ ax.plot(x, true_regression_line, label="true regression line", lw=2.0)
 plt.legend(loc=0);
 ```
 
-### Create a theano op that implements the likelihood
-In order to use variance reduction, the user needs to define a Theano Op that calculates the forward model 
+### Create a aesara op that implements the likelihood
+In order to use variance reduction, the user needs to define a Aesara Op that calculates the forward model 
 (or both the forward model and the likelihood).
 Also, this Op needs to save the quantity of interest to a model variable with the name `Q`.
-Here we use a Theano Op that contains both the forward model (i.e. the linear equation in this case) and the likelihood calculation. The quantity of interest is calculated with the perform() function and it is the mean of linear predictions given theta from all data points.
+Here we use a Aesara Op that contains both the forward model (i.e. the linear equation in this case) and the likelihood calculation. The quantity of interest is calculated with the perform() function and it is the mean of linear predictions given theta from all data points.
 
 ```{code-cell} ipython3
-class Likelihood(tt.Op):
+class Likelihood(at.Op):
     # Specify what type of object will be passed and returned to the Op when it is
     # called. In our case we will be passing it a vector of values (the parameters
     # that define our model) and returning a scalar (likelihood)
-    itypes = [tt.dvector]
-    otypes = [tt.dscalar]
+    itypes = [at.dvector]
+    otypes = [at.dscalar]
 
-    def __init__(self, x, y, pymc3_model):
+    def __init__(self, x, y, pymc_model):
         """
         Initialise the Op with various things that our likelihood requires.
         Parameters
@@ -142,12 +142,12 @@ class Likelihood(tt.Op):
             The x points.
         y:
             The y points.
-        pymc3_model:
-            The pymc3 model.
+        pymc_model:
+            The pymc model.
         """
         self.x = x
         self.y = y
-        self.pymc3_model = pymc3_model
+        self.pymc_model = pymc_model
 
     def perform(self, node, inputs, outputs):
         intercept = inputs[0][0]
@@ -155,8 +155,8 @@ class Likelihood(tt.Op):
 
         # this uses the linear model to calculate outputs
         temp = intercept + x_coeff * self.x
-        # this saves the quantity of interest to the pymc3 model variable Q
-        self.pymc3_model.Q.set_value(temp.mean())
+        # this saves the quantity of interest to the pymc model variable Q
+        self.pymc_model.Q.set_value(temp.mean())
         # this calculates the likelihood value
         outputs[0][0] = np.array(-(0.5 / s**2) * np.sum((temp - self.y) ** 2))
 ```
@@ -169,7 +169,7 @@ We need to include a `pm.Data()` variable `Q` in each one of those models, insta
 mout = []
 coarse_models = []
 
-# Set up models in pymc3 for each level - excluding finest model level
+# Set up models in pymc for each level - excluding finest model level
 # Level 0 (coarsest)
 with pm.Model() as coarse_model_0:
     # A variable Q has to be defined if you want to use the variance reduction feature
@@ -181,11 +181,11 @@ with pm.Model() as coarse_model_0:
     x_coeff = pm.Normal("x", 0, sigma=20)
 
     # convert thetas to a tensor vector
-    theta = tt.as_tensor_variable([intercept, x_coeff])
+    theta = at.as_tensor_variable([intercept, x_coeff])
 
     # Here we instantiate a Likelihood object using the class defined above
     # and we add to the mout list. We pass the coarse data x_coarse_0 and y_coarse_0
-    # and the coarse pymc3 model coarse_model_0. This creates a coarse likelihood.
+    # and the coarse pymc model coarse_model_0. This creates a coarse likelihood.
     mout.append(Likelihood(x_coarse_0, y_coarse_0, coarse_model_0))
 
     # This uses the likelihood object to define the likelihood of the model, given theta
@@ -204,11 +204,11 @@ with pm.Model() as coarse_model_1:
     x_coeff = pm.Normal("x", 0, sigma=20)
 
     # convert thetas to a tensor vector
-    theta = tt.as_tensor_variable([intercept, x_coeff])
+    theta = at.as_tensor_variable([intercept, x_coeff])
 
     # Here we instantiate a Likelihood object using the class defined above
     # and we add to the mout list. We pass the coarse data x_coarse_1 and y_coarse_1
-    # and the coarse pymc3 model coarse_model_1. This creates a coarse likelihood.
+    # and the coarse pymc model coarse_model_1. This creates a coarse likelihood.
     mout.append(Likelihood(x_coarse_1, y_coarse_1, coarse_model_1))
 
     # This uses the likelihood object to define the likelihood of the model, given theta
@@ -234,11 +234,11 @@ with pm.Model() as model:
     x_coeff = pm.Normal("x", 0, sigma=20)
 
     # convert thetas to a tensor vector
-    theta = tt.as_tensor_variable([intercept, x_coeff])
+    theta = at.as_tensor_variable([intercept, x_coeff])
 
     # Here we instantiate a Likelihood object using the class defined above
     # and we add to the mout list. We pass the fine data x and y
-    # and the fine pymc3 model model. This creates a fine likelihood.
+    # and the fine pymc model model. This creates a fine likelihood.
     mout.append(Likelihood(x, y, model))
 
     # This uses the likelihood object to define the likelihood of the model, given theta
@@ -283,13 +283,13 @@ with pm.Model() as model:
 
 ```{code-cell} ipython3
 with model:
-    trace1_az = az.from_pymc3(trace1)
+    trace1_az = pm.to_inference_data(trace1)
 az.summary(trace1_az)
 ```
 
 ```{code-cell} ipython3
 with model:
-    trace2_az = az.from_pymc3(trace2)
+    trace2_az = pm.to_inference_data(trace2)
 az.summary(trace2_az)
 ```
 

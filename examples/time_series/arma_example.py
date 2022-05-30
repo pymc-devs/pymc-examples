@@ -1,9 +1,9 @@
 import numpy as np
 
-from theano import scan, shared
+from aesara import scan, shared
 
 import arviz as az
-import pymc3 as pm
+import pymc as pm
 
 """
 ARMA example
@@ -49,7 +49,7 @@ sigma ~ cauchy(0,5);
 err ~ normal(0,sigma);
 // priors
 // likelihood
-Ported to PyMC3 by Peadar Coyle and Chris Fonnesbeck (c) 2016.
+Ported to PyMC by Peadar Coyle and Chris Fonnesbeck (c) 2016.
 """
 
 

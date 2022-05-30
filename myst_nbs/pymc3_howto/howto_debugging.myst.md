@@ -15,19 +15,19 @@ kernelspec:
 
 There are various levels on which to debug a model. One of the simplest is to just print out the values that different variables are taking on.
 
-Because `PyMC3` uses `Theano` expressions to build the model, and not functions, there is no way to place a `print` statement into a likelihood function. Instead, you can use the `Theano` `Print` operatator. For more information, see:  theano Print operator for this before: http://deeplearning.net/software/theano/tutorial/debug_faq.html#how-do-i-print-an-intermediate-value-in-a-function.
+Because `PyMC` uses `Aesara` expressions to build the model, and not functions, there is no way to place a `print` statement into a likelihood function. Instead, you can use the `Aesara` `Print` operatator. For more information, see:  aesara Print operator for this before: http://deeplearning.net/software/aesara/tutorial/debug_faq.html#how-do-i-print-an-intermediate-value-in-a-function.
 
 Let's build a simple model with just two parameters:
 
 ```{code-cell} ipython3
 %matplotlib inline
 
+import aesara.tensor as at
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
-import theano.tensor as tt
 
 x = np.random.randn(100)
 
@@ -51,8 +51,8 @@ with pm.Model() as model:
     mu = pm.Normal("mu", mu=0, sigma=1)
     sd = pm.Normal("sd", mu=0, sigma=1)
 
-    mu_print = tt.printing.Print("mu")(mu)
-    sd_print = tt.printing.Print("sd")(sd)
+    mu_print = at.printing.Print("mu")(mu)
+    sd_print = at.printing.Print("sd")(sd)
 
     obs = pm.Normal("obs", mu=mu_print, sigma=sd_print, observed=x)
     step = pm.Metropolis()
@@ -81,8 +81,8 @@ with pm.Model() as model:
     mu = pm.Normal("mu", mu=0, sigma=1)
     sd = pm.Normal("sd", mu=0, sigma=1)
 
-    mu_print = tt.printing.Print("mu")(mu)
-    sd_print = tt.printing.Print("sd")(sd)
+    mu_print = at.printing.Print("mu")(mu)
+    sd_print = at.printing.Print("sd")(sd)
 
     obs = pm.Normal("obs", mu=mu_print, sigma=sd_print, observed=x)
     step = pm.Metropolis()

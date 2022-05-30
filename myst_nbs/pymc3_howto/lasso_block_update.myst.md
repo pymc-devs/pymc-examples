@@ -15,7 +15,7 @@ kernelspec:
 # Lasso regression with block updating
 
 :::{post} Feb 10, 2022
-:tags: pymc3.Exponential, pymc3.Laplace, pymc3.Metropolis, pymc3.Model, pymc3.Normal, pymc3.Slice, pymc3.Uniform, regression
+:tags: pymc.Exponential, pymc.Laplace, pymc.Metropolis, pymc.Model, pymc.Normal, pymc.Slice, pymc.Uniform, regression
 :category: beginner
 :author: Chris Fonnesbeck, Raul Maldonado, Michael Osthege, Thomas Wiecki, Lorenzo Toniazzi
 :::

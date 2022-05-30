@@ -12,16 +12,16 @@ kernelspec:
 ---
 
 ```{code-cell} ipython3
+import aesara
+import aesara.tensor as at
 import arviz as az
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import scipy.stats as stats
-import theano
-import theano.tensor as tt
 
-from pymc3.distributions import continuous, distribution
-from theano import scan, shared
+from aesara import scan, shared
+from pymc.distributions import continuous, distribution
 ```
 
 ```{code-cell} ipython3
@@ -33,17 +33,17 @@ floatX = "float32"
 ```
 
 # Conditional Autoregressive (CAR) model
-A walkthrough of implementing a Conditional Autoregressive (CAR) model in `PyMC3`, with `WinBUGS`/`PyMC2` and `Stan` code as references.
+A walkthrough of implementing a Conditional Autoregressive (CAR) model in `PyMC`, with `WinBUGS`/`PyMC2` and `Stan` code as references.
 
 +++
 
-As a probabilistic language, there are some fundamental differences between `PyMC3` and other alternatives such as `WinBUGS`, `JAGS`, and `Stan`. In this notebook, I will summarise some heuristics and intuition I got over the past two years using `PyMC3`. I will outline some thinking in how I approach a modelling problem using `PyMC3`, and how thinking in linear algebra solves most of the programming problems. I hope this notebook will shed some light onto the design and features of `PyMC3`, and similar languages that are built on linear algebra packages with a static world view (e.g., Edward, which is based on Tensorflow).  
+As a probabilistic language, there are some fundamental differences between `PyMC` and other alternatives such as `WinBUGS`, `JAGS`, and `Stan`. In this notebook, I will summarise some heuristics and intuition I got over the past two years using `PyMC`. I will outline some thinking in how I approach a modelling problem using `PyMC`, and how thinking in linear algebra solves most of the programming problems. I hope this notebook will shed some light onto the design and features of `PyMC`, and similar languages that are built on linear algebra packages with a static world view (e.g., Edward, which is based on Tensorflow).  
 
 
-For more resources comparing between PyMC3 codes and other probabilistic languages:
-* [PyMC3 port of "Doing Bayesian Data Analysis" - PyMC3 vs WinBUGS/JAGS/Stan](https://github.com/aloctavodia/Doing_bayesian_data_analysis)
-* [PyMC3 port of "Bayesian Cognitive Modeling" - PyMC3 vs WinBUGS/JAGS/Stan](https://github.com/junpenglao/Bayesian-Cognitive-Modeling-in-Pymc3)
-* [PyMC3 port of "Statistical Rethinking" - PyMC3 vs Stan](https://github.com/aloctavodia/Statistical-Rethinking-with-Python-and-PyMC3)
+For more resources comparing between PyMC codes and other probabilistic languages:
+* [PyMC port of "Doing Bayesian Data Analysis" - PyMC vs WinBUGS/JAGS/Stan](https://github.com/aloctavodia/Doing_bayesian_data_analysis)
+* [PyMC port of "Bayesian Cognitive Modeling" - PyMC vs WinBUGS/JAGS/Stan](https://github.com/junpenglao/Bayesian-Cognitive-Modeling-in-Pymc3)
+* [PyMC port of "Statistical Rethinking" - PyMC vs Stan](https://github.com/aloctavodia/Statistical-Rethinking-with-Python-and-PyMC)
 
 +++
 
@@ -126,7 +126,7 @@ model
 }
 ```
 
-The main challenge to porting this model to `PyMC3` is the `car.normal` function in `WinBUGS`. It is a likelihood function that conditions each realization on some neighbour realization (a smoothed property). In `PyMC2`, it could be implemented as a [custom likelihood function (a `@stochastic` node) `mu_phi`](http://glau.ca/?p=340):  
+The main challenge to porting this model to `PyMC` is the `car.normal` function in `WinBUGS`. It is a likelihood function that conditions each realization on some neighbour realization (a smoothed property). In `PyMC2`, it could be implemented as a [custom likelihood function (a `@stochastic` node) `mu_phi`](http://glau.ca/?p=340):  
 
 ```python
 @stochastic
@@ -138,26 +138,26 @@ def mu_phi(tau=tau_c, value=np.zeros(N)):
     return normal_like(value,mu,taux)
 ```
 
-We can just define `mu_phi` similarly and wrap it in a `pymc3.DensityDist`, however, doing so usually results in a very slow model (both in compiling and sampling). In general, porting pymc2 code into pymc3 (or even generally porting `WinBUGS`, `JAGS`, or `Stan` code into `PyMC3`) that use a `for` loops tend to perform poorly in `theano`, the backend of `PyMC3`.  
+We can just define `mu_phi` similarly and wrap it in a `pymc.DensityDist`, however, doing so usually results in a very slow model (both in compiling and sampling). In general, porting pymc2 code into pymc (or even generally porting `WinBUGS`, `JAGS`, or `Stan` code into `PyMC`) that use a `for` loops tend to perform poorly in `aesara`, the backend of `PyMC`.  
 
-The underlying mechanism in `PyMC3` is very different compared to `PyMC2`, using `for` loops to generate RV or stacking multiple RV with arguments such as `[pm.Binomial('obs%'%i, p[i], n) for i in range(K)]` generate unnecessary large number of nodes in `theano` graph, which then slows down compilation appreciably.  
+The underlying mechanism in `PyMC` is very different compared to `PyMC2`, using `for` loops to generate RV or stacking multiple RV with arguments such as `[pm.Binomial('obs%'%i, p[i], n) for i in range(K)]` generate unnecessary large number of nodes in `aesara` graph, which then slows down compilation appreciably.  
 
-The easiest way is to move the loop out of `pm.Model`. And usually is not difficult to do. For example, in `Stan` you can have a `transformed data{}` block; in `PyMC3` you just need to compute it before defining your Model.
+The easiest way is to move the loop out of `pm.Model`. And usually is not difficult to do. For example, in `Stan` you can have a `transformed data{}` block; in `PyMC` you just need to compute it before defining your Model.
 
-If it is absolutely necessary to use a `for` loop, you can use a theano loop (i.e., `theano.scan`), which you can find some introduction on the [theano website](http://deeplearning.net/software/theano/tutorial/loop.html) and see a usecase in PyMC3 [timeseries distribution](https://github.com/pymc-devs/pymc3/blob/master/pymc3/distributions/timeseries.py#L125-L130).
+If it is absolutely necessary to use a `for` loop, you can use a aesara loop (i.e., `aesara.scan`), which you can find some introduction on the [aesara website](http://deeplearning.net/software/aesara/tutorial/loop.html) and see a usecase in PyMC [timeseries distribution](https://github.com/pymc-devs/pymc/blob/master/pymc/distributions/timeseries.py#L125-L130).
 
 +++
 
-## PyMC3 implementation using `theano.scan`
+## PyMC implementation using `aesara.scan`
 
-So lets try to implement the CAR model using `theano.scan`. First we create a `theano` function with `theano.scan` and check if it really works by comparing its result to the for-loop.
+So lets try to implement the CAR model using `aesara.scan`. First we create a `aesara` function with `aesara.scan` and check if it really works by comparing its result to the for-loop.
 
 ```{code-cell} ipython3
 value = np.asarray(
     np.random.randn(
         N,
     ),
-    dtype=theano.config.floatX,
+    dtype=aesara.config.floatX,
 )
 
 maxwz = max([sum(w) for w in weights])
@@ -169,22 +169,22 @@ for i, w in enumerate(weights):
     amat[i, np.arange(len(w))] = adj[i]
 
 # defining the tensor variables
-x = tt.vector("x")
+x = at.vector("x")
 x.tag.test_value = value
-w = tt.matrix("w")
-# provide Theano with a default test-value
+w = at.matrix("w")
+# provide Aesara with a default test-value
 w.tag.test_value = wmat
-a = tt.matrix("a", dtype="int32")
+a = at.matrix("a", dtype="int32")
 a.tag.test_value = amat
 
 
 def get_mu(w, a):
-    a1 = tt.cast(a, "int32")
-    return tt.sum(w * x[a1]) / tt.sum(w)
+    a1 = at.cast(a, "int32")
+    return at.sum(w * x[a1]) / at.sum(w)
 
 
-results, _ = theano.scan(fn=get_mu, sequences=[w, a])
-compute_elementwise = theano.function(inputs=[x, w, a], outputs=results)
+results, _ = aesara.scan(fn=get_mu, sequences=[w, a])
+compute_elementwise = aesara.function(inputs=[x, w, a], outputs=results)
 
 print(compute_elementwise(value, wmat, amat))
 
@@ -199,7 +199,7 @@ def mu_phi(value):
 print(mu_phi(value))
 ```
 
-Since it produces the same result as the original for-loop, we will wrap it as a new distribution with a log-likelihood function in `PyMC3`.
+Since it produces the same result as the original for-loop, we will wrap it as a new distribution with a log-likelihood function in `PyMC`.
 
 ```{code-cell} ipython3
 class CAR(distribution.Continuous):
@@ -215,15 +215,15 @@ class CAR(distribution.Continuous):
 
     def __init__(self, w, a, tau, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.a = a = tt.as_tensor_variable(a)
-        self.w = w = tt.as_tensor_variable(w)
-        self.tau = tau * tt.sum(w, axis=1)
+        self.a = a = at.as_tensor_variable(a)
+        self.w = w = at.as_tensor_variable(w)
+        self.tau = tau * at.sum(w, axis=1)
         self.mode = 0.0
 
     def get_mu(self, x):
         def weigth_mu(w, a):
-            a1 = tt.cast(a, "int32")
-            return tt.sum(w * x[a1]) / tt.sum(w)
+            a1 = at.cast(a, "int32")
+            return at.sum(w * x[a1]) / at.sum(w)
 
         mu_w, _ = scan(fn=weigth_mu, sequences=[self.w, self.a])
 
@@ -232,10 +232,10 @@ class CAR(distribution.Continuous):
     def logp(self, x):
         mu_w = self.get_mu(x)
         tau = self.tau
-        return tt.sum(continuous.Normal.dist(mu=mu_w, tau=tau).logp(x))
+        return at.sum(continuous.Normal.dist(mu=mu_w, tau=tau).logp(x))
 ```
 
-We then use it in our `PyMC3` version of the CAR model:
+We then use it in our `PyMC` version of the CAR model:
 
 ```{code-cell} ipython3
 with pm.Model() as model1:
@@ -254,18 +254,18 @@ with pm.Model() as model1:
     mu_phi = CAR("mu_phi", w=wmat, a=amat, tau=tau_c, shape=N)
 
     # Zero-centre phi
-    phi = pm.Deterministic("phi", mu_phi - tt.mean(mu_phi))
+    phi = pm.Deterministic("phi", mu_phi - at.mean(mu_phi))
 
     # Mean model
-    mu = pm.Deterministic("mu", tt.exp(logE + beta0 + beta1 * aff + theta + phi))
+    mu = pm.Deterministic("mu", at.exp(logE + beta0 + beta1 * aff + theta + phi))
 
     # Likelihood
     Yi = pm.Poisson("Yi", mu=mu, observed=O)
 
     # Marginal SD of heterogeniety effects
-    sd_h = pm.Deterministic("sd_h", tt.std(theta))
+    sd_h = pm.Deterministic("sd_h", at.std(theta))
     # Marginal SD of clustering (spatial) effects
-    sd_c = pm.Deterministic("sd_c", tt.std(phi))
+    sd_c = pm.Deterministic("sd_c", at.std(phi))
     # Proportion sptial variance
     alpha = pm.Deterministic("alpha", sd_c / (sd_h + sd_c))
 
@@ -276,7 +276,7 @@ with pm.Model() as model1:
         init="advi",
         target_accept=0.9,
         max_treedepth=15,
-        return_inferencedata=True,
+        ,
     )
 ```
 
@@ -310,13 +310,13 @@ az.plot_forest(
 az.plot_posterior(infdata1, var_names=["alpha"]);
 ```
 
-`theano.scan` is much faster than using a python for loop, but it is still quite slow. One approach for improving it is to use linear algebra. That is, we should try to find a way to use matrix multiplication instead of looping (if you have experience in using MATLAB, it is the same philosophy). In our case, we can totally do that.  
+`aesara.scan` is much faster than using a python for loop, but it is still quite slow. One approach for improving it is to use linear algebra. That is, we should try to find a way to use matrix multiplication instead of looping (if you have experience in using MATLAB, it is the same philosophy). In our case, we can totally do that.  
 
 For a similar problem, you can also have a look of [my port of Lee and Wagenmakers' book](https://github.com/junpenglao/Bayesian-Cognitive-Modeling-in-Pymc3). For example, in Chapter 19, the Stan code use [a for loop to generate the likelihood function](https://github.com/stan-dev/example-models/blob/master/Bayesian_Cognitive_Modeling/CaseStudies/NumberConcepts/NumberConcept_1_Stan.R#L28-L59), and I [generate the matrix outside and use matrix multiplication etc](http://nbviewer.jupyter.org/github/junpenglao/Bayesian-Cognitive-Modeling-in-Pymc3/blob/master/CaseStudies/NumberConceptDevelopment.ipynb#19.1-Knower-level-model-for-Give-N) to archive the same purpose.
 
 +++
 
-## PyMC3 implementation using matrix "trick"
+## PyMC implementation using matrix "trick"
 
 Again, we try on some simulated data to make sure the implementation is correct.
 
@@ -333,7 +333,7 @@ value = np.asarray(
     np.random.randn(
         N,
     ),
-    dtype=theano.config.floatX,
+    dtype=aesara.config.floatX,
 )
 
 print(np.sum(value * amat2, axis=1) / np.sum(wmat2, axis=1))
@@ -349,7 +349,7 @@ def mu_phi(value):
 print(mu_phi(value))
 ```
 
-Now create a new CAR distribution with the matrix multiplication instead of `theano.scan` to get the `mu`
+Now create a new CAR distribution with the matrix multiplication instead of `aesara.scan` to get the `mu`
 
 ```{code-cell} ipython3
 class CAR2(distribution.Continuous):
@@ -365,9 +365,9 @@ class CAR2(distribution.Continuous):
 
     def __init__(self, w, a, tau, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.a = a = tt.as_tensor_variable(a)
-        self.w = w = tt.as_tensor_variable(w)
-        self.tau = tau * tt.sum(w, axis=1)
+        self.a = a = at.as_tensor_variable(a)
+        self.w = w = at.as_tensor_variable(w)
+        self.tau = tau * at.sum(w, axis=1)
         self.mode = 0.0
 
     def logp(self, x):
@@ -375,8 +375,8 @@ class CAR2(distribution.Continuous):
         w = self.w
         a = self.a
 
-        mu_w = tt.sum(x * a, axis=1) / tt.sum(w, axis=1)
-        return tt.sum(continuous.Normal.dist(mu=mu_w, tau=tau).logp(x))
+        mu_w = at.sum(x * a, axis=1) / at.sum(w, axis=1)
+        return at.sum(continuous.Normal.dist(mu=mu_w, tau=tau).logp(x))
 ```
 
 ```{code-cell} ipython3
@@ -396,18 +396,18 @@ with pm.Model() as model2:
     mu_phi = CAR2("mu_phi", w=wmat2, a=amat2, tau=tau_c, shape=N)
 
     # Zero-centre phi
-    phi = pm.Deterministic("phi", mu_phi - tt.mean(mu_phi))
+    phi = pm.Deterministic("phi", mu_phi - at.mean(mu_phi))
 
     # Mean model
-    mu = pm.Deterministic("mu", tt.exp(logE + beta0 + beta1 * aff + theta + phi))
+    mu = pm.Deterministic("mu", at.exp(logE + beta0 + beta1 * aff + theta + phi))
 
     # Likelihood
     Yi = pm.Poisson("Yi", mu=mu, observed=O)
 
     # Marginal SD of heterogeniety effects
-    sd_h = pm.Deterministic("sd_h", tt.std(theta))
+    sd_h = pm.Deterministic("sd_h", at.std(theta))
     # Marginal SD of clustering (spatial) effects
-    sd_c = pm.Deterministic("sd_c", tt.std(phi))
+    sd_c = pm.Deterministic("sd_c", at.std(phi))
     # Proportion sptial variance
     alpha = pm.Deterministic("alpha", sd_c / (sd_h + sd_c))
 
@@ -418,7 +418,7 @@ with pm.Model() as model2:
         init="advi",
         target_accept=0.9,
         max_treedepth=15,
-        return_inferencedata=True,
+        ,
     )
 ```
 
@@ -450,7 +450,7 @@ az.plot_trace(infdata2, var_names=["alpha", "sd_h", "sd_c"]);
 az.plot_posterior(infdata2, var_names=["alpha"]);
 ```
 
-## PyMC3 implementation using Matrix multiplication
+## PyMC implementation using Matrix multiplication
 
 There are almost always multiple ways to formulate a particular model. Some approaches work better than the others under different contexts (size of your dataset, properties of the sampler, etc). 
 
@@ -491,7 +491,7 @@ model {
   ...
 } 
 ```
-since the precision matrix just generated by some matrix multiplication, we can do just that in `PyMC3`:
+since the precision matrix just generated by some matrix multiplication, we can do just that in `PyMC`:
 
 ```{code-cell} ipython3
 with pm.Model() as model3:
@@ -504,12 +504,12 @@ with pm.Model() as model3:
     phi = pm.MvNormal("phi", mu=0, tau=tau * (D - alpha * W), shape=(1, N))
 
     # Mean model
-    mu = pm.Deterministic("mu", tt.exp(tt.dot(X, beta) + phi.T + log_offset))
+    mu = pm.Deterministic("mu", at.exp(at.dot(X, beta) + phi.T + log_offset))
 
     # Likelihood
     Yi = pm.Poisson("Yi", mu=mu.ravel(), observed=O)
 
-    infdata3 = pm.sample(1000, tune=2000, cores=4, target_accept=0.85, return_inferencedata=True)
+    infdata3 = pm.sample(1000, tune=2000, cores=4, target_accept=0.85)
 ```
 
 ```{code-cell} ipython3
@@ -524,7 +524,7 @@ Notice that since the model parameterization is different than in the `WinBUGS` 
 
 +++
 
-## PyMC3 implementation using Sparse Matrix
+## PyMC implementation using Sparse Matrix
 
 Note that in the node $\phi \sim \mathcal{N}(0, [D_\tau (I - \alpha B)]^{-1})$, we are computing the log-likelihood for a multivariate Gaussian distribution, which might not scale well in high-dimensions. We can take advantage of the fact that the covariance matrix here $[D_\tau (I - \alpha B)]^{-1}$ is **sparse**, and there are faster ways to compute its log-likelihood. 
 
@@ -608,7 +608,7 @@ model {
 
 This is quite a lot of code to digest, so my general approach is to compare the intermediate steps (whenever possible) with `Stan`. In this case, I will try to compute `tau, alpha, W_sparse, D_sparse, lambda, n, W_n` outside of the `Stan` model in `R` and compare with my own implementation.  
 
-Below is a Sparse CAR implementation in `PyMC3` ([see also here](https://github.com/pymc-devs/pymc3/issues/2066#issuecomment-296397012)). Again, we try to avoid using any looping, as in `Stan`.
+Below is a Sparse CAR implementation in `PyMC` ([see also here](https://github.com/pymc-devs/pymc/issues/2066#issuecomment-296397012)). Again, we try to avoid using any looping, as in `Stan`.
 
 ```{code-cell} ipython3
 import scipy
@@ -626,8 +626,8 @@ class Sparse_CAR(distribution.Continuous):
     """
 
     def __init__(self, alpha, W, tau, *args, **kwargs):
-        self.alpha = alpha = tt.as_tensor_variable(alpha)
-        self.tau = tau = tt.as_tensor_variable(tau)
+        self.alpha = alpha = at.as_tensor_variable(alpha)
+        self.tau = tau = at.as_tensor_variable(tau)
         D = W.sum(axis=0)
         n, m = W.shape
         self.n = n
@@ -641,24 +641,24 @@ class Sparse_CAR(distribution.Continuous):
 
         # sparse representation of W
         w_sparse = scipy.sparse.csr_matrix(W)
-        self.W = theano.sparse.as_sparse_variable(w_sparse)
-        self.D = tt.as_tensor_variable(D)
+        self.W = aesara.sparse.as_sparse_variable(w_sparse)
+        self.D = at.as_tensor_variable(D)
 
         # Precision Matrix (inverse of Covariance matrix)
         # d_sparse = scipy.sparse.csr_matrix(np.diag(D))
-        # self.D = theano.sparse.as_sparse_variable(d_sparse)
+        # self.D = aesara.sparse.as_sparse_variable(d_sparse)
         # self.Phi = self.tau * (self.D - self.alpha*self.W)
 
     def logp(self, x):
-        logtau = self.n * tt.log(tau)
-        logdet = tt.log(1 - self.alpha * self.lam).sum()
+        logtau = self.n * at.log(tau)
+        logdet = at.log(1 - self.alpha * self.lam).sum()
 
         # tau * ((phi .* D_sparse)' * phi - alpha * (phit_W * phi))
-        Wx = theano.sparse.dot(self.W, x)
+        Wx = aesara.sparse.dot(self.W, x)
         tau_dot_x = self.D * x.T - self.alpha * Wx.ravel()
-        logquad = self.tau * tt.dot(x.ravel(), tau_dot_x.ravel())
+        logquad = self.tau * at.dot(x.ravel(), tau_dot_x.ravel())
 
-        # logquad = tt.dot(x.T, theano.sparse.dot(self.Phi, x)).sum()
+        # logquad = at.dot(x.T, aesara.sparse.dot(self.Phi, x)).sum()
         return 0.5 * (logtau + logdet - logquad)
 ```
 
@@ -673,12 +673,12 @@ with pm.Model() as model4:
     phi = Sparse_CAR("phi", alpha, W, tau, shape=(N, 1))
 
     # Mean model
-    mu = pm.Deterministic("mu", tt.exp(tt.dot(X, beta) + phi + log_offset))
+    mu = pm.Deterministic("mu", at.exp(at.dot(X, beta) + phi + log_offset))
 
     # Likelihood
     Yi = pm.Poisson("Yi", mu=mu.ravel(), observed=O)
 
-    infdata4 = pm.sample(1000, tune=2000, cores=4, target_accept=0.85, return_inferencedata=True)
+    infdata4 = pm.sample(1000, tune=2000, cores=4, target_accept=0.85)
 ```
 
 ```{code-cell} ipython3
@@ -694,7 +694,7 @@ As you can see above, the sparse representation returns the same estimates, whil
 +++
 
 ## A few other warnings
-In `Stan`, there is an option to write a `generated quantities` block for sample generation. Doing the similar in pymc3, however, is not recommended.  
+In `Stan`, there is an option to write a `generated quantities` block for sample generation. Doing the similar in pymc, however, is not recommended.  
 
 Consider the following simple sample:
 
@@ -719,20 +719,20 @@ where we intended to use
 ```python
 count = pm.Binomial('count', n=10, p=p, shape=10)
 ```
-to generate posterior prediction. However, if the new RV added to the model is a discrete variable it can cause weird turbulence to the trace. You can see [issue #1990](https://github.com/pymc-devs/pymc3/issues/1990) for related discussion.
+to generate posterior prediction. However, if the new RV added to the model is a discrete variable it can cause weird turbulence to the trace. You can see [issue #1990](https://github.com/pymc-devs/pymc/issues/1990) for related discussion.
 
 +++
 
 ## Final remarks
 
-In this notebook, most of the parameter conventions (e.g., using `tau` when defining a Normal distribution) and choice of priors are strictly matched with the original code in `Winbugs` or `Stan`. However, it is important to note that merely porting the code from one probabilistic programming language to the another is not necessarily the best practice. The aim is not just to run the code in `PyMC3`, but to make sure the model is appropriate so that it returns correct estimates, and runs efficiently (fast sampling). 
+In this notebook, most of the parameter conventions (e.g., using `tau` when defining a Normal distribution) and choice of priors are strictly matched with the original code in `Winbugs` or `Stan`. However, it is important to note that merely porting the code from one probabilistic programming language to the another is not necessarily the best practice. The aim is not just to run the code in `PyMC`, but to make sure the model is appropriate so that it returns correct estimates, and runs efficiently (fast sampling). 
 
-For example, as [@aseyboldt](https://github.com/aseyboldt) pointed out [here](https://github.com/pymc-devs/pymc3/pull/2080#issuecomment-297456574) and [here](https://github.com/pymc-devs/pymc3/issues/1924#issue-215496293), non-centered parametrizations are often a better choice than the centered parametrizations. In our case here, `phi` is following a zero-mean Normal distribution, thus it can be left out in the beginning and used to scale the values afterwards. Often, doing this can avoid correlations in the posterior (it will be slower in some cases, however).  
+For example, as [@aseyboldt](https://github.com/aseyboldt) pointed out [here](https://github.com/pymc-devs/pymc/pull/2080#issuecomment-297456574) and [here](https://github.com/pymc-devs/pymc/issues/1924#issue-215496293), non-centered parametrizations are often a better choice than the centered parametrizations. In our case here, `phi` is following a zero-mean Normal distribution, thus it can be left out in the beginning and used to scale the values afterwards. Often, doing this can avoid correlations in the posterior (it will be slower in some cases, however).  
 
 Another thing to keep in mind is that models can be sensitive to choices of prior distributions; for example, you can have a hard time using Normal variables with a large sd as prior. Gelman often recommends Cauchy or StudentT (*i.e.*, weakly-informative priors). More information on prior choice can be found on the [Stan wiki](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations).  
 
-There are always ways to improve  code. Since our computational graph with `pm.Model()` consist of `theano` objects, we can always do `print(VAR_TO_CHECK.tag.test_value)` right after the declaration or computation to check the shape. 
-For example, in our last example, as suggested by [@aseyboldt](https://github.com/pymc-devs/pymc3/pull/2080#issuecomment-297456574) there seem to be a lot of correlation in the posterior. That probably slows down NUTS quite a bit. As a debugging tool and guide for reparametrization you can look at the singular value decomposition of the standardized samples from the trace – basically the eigenvalues of the correlation matrix. If the problem is high dimensional you can use stuff from `scipy.sparse.linalg` to only compute the largest singular value: 
+There are always ways to improve  code. Since our computational graph with `pm.Model()` consist of `aesara` objects, we can always do `print(VAR_TO_CHECK.tag.test_value)` right after the declaration or computation to check the shape. 
+For example, in our last example, as suggested by [@aseyboldt](https://github.com/pymc-devs/pymc/pull/2080#issuecomment-297456574) there seem to be a lot of correlation in the posterior. That probably slows down NUTS quite a bit. As a debugging tool and guide for reparametrization you can look at the singular value decomposition of the standardized samples from the trace – basically the eigenvalues of the correlation matrix. If the problem is high dimensional you can use stuff from `scipy.sparse.linalg` to only compute the largest singular value: 
 
 ```python
 from scipy import linalg, sparse
@@ -764,7 +764,7 @@ az.plot_pair(infdata3, var_names=["beta", "tau", "alpha"], divergences=True);
 az.plot_pair(infdata4, var_names=["beta", "tau", "alpha"], divergences=True);
 ```
 
-* Notebook Written by [Junpeng Lao](https://www.github.com/junpenglao/), inspired by `PyMC3` [issue#2022](https://github.com/pymc-devs/pymc3/issues/2022), [issue#2066](https://github.com/pymc-devs/pymc3/issues/2066) and [comments](https://github.com/pymc-devs/pymc3/issues/2066#issuecomment-296397012). I would like to thank [@denadai2](https://github.com/denadai2), [@aseyboldt](https://github.com/aseyboldt), and [@twiecki](https://github.com/twiecki) for the helpful discussion.
+* Notebook Written by [Junpeng Lao](https://www.github.com/junpenglao/), inspired by `PyMC` [issue#2022](https://github.com/pymc-devs/pymc/issues/2022), [issue#2066](https://github.com/pymc-devs/pymc/issues/2066) and [comments](https://github.com/pymc-devs/pymc/issues/2066#issuecomment-296397012). I would like to thank [@denadai2](https://github.com/denadai2), [@aseyboldt](https://github.com/aseyboldt), and [@twiecki](https://github.com/twiecki) for the helpful discussion.
 
 ```{code-cell} ipython3
 %load_ext watermark

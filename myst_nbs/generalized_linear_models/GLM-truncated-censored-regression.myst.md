@@ -15,7 +15,7 @@ kernelspec:
 # Bayesian regression with truncated or censored data
 
 :::{post} January, 2022
-:tags: censored, censoring, generalized linear model, pymc3.Censored, pymc3.HalfNormal, pymc3.Model, pymc3.Normal, pymc3.TruncatedNormal, regression, truncated, truncation
+:tags: censored, censoring, generalized linear model, pymc.Censored, pymc.HalfNormal, pymc.Model, pymc.Normal, pymc.TruncatedNormal, regression, truncated, truncation
 :category: beginner
 :author: Benjamin T. Vincent
 :::
@@ -140,7 +140,7 @@ So we can run this on our truncated and our censored data, separately.
 trunc_linear_model = linear_regression(xt, yt)
 
 with trunc_linear_model:
-    trunc_linear_fit = pm.sample()
+    trunc_linear_fit = pm.sample(return_inferencedata=False)
 ```
 
 ```{code-cell} ipython3
@@ -149,7 +149,7 @@ with trunc_linear_model:
 cens_linear_model = linear_regression(xc, yc)
 
 with cens_linear_model:
-    cens_linear_fit = pm.sample()
+    cens_linear_fit = pm.sample(return_inferencedata=False)
 ```
 
 By plotting the posterior distribution over the slope parameters we can see that the estimates for the slope are pretty far off, so we are indeed underestimating the regression slope.
@@ -305,7 +305,7 @@ Now we can conduct our parameter estimation with the truncated regression model 
 truncated_model = truncated_regression(xt, yt, bounds)
 
 with truncated_model:
-    truncated_fit = pm.sample()
+    truncated_fit = pm.sample(return_inferencedata=False)
 ```
 
 and with the censored regression model on the censored data.

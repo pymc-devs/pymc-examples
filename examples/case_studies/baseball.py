@@ -5,7 +5,7 @@
 
 import numpy as np
 
-import pymc3 as pm
+import pymc as pm
 
 
 def build_model():

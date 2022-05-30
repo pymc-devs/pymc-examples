@@ -21,12 +21,12 @@ import bambi as bmb
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
 
 from scipy import stats
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -208,5 +208,5 @@ See also, [`bambi's` negative binomial example](https://bambinos.github.io/bambi
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p aesara,xarray
 ```

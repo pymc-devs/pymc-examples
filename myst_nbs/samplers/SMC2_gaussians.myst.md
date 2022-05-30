@@ -14,17 +14,17 @@ kernelspec:
 # Sequential Monte Carlo
 
 :::{post} Oct 19, 2021
-:tags: SMC, pymc3.Model, pymc3.Potential, pymc3.Uniform, pymc3.sample_smc
+:tags: SMC, pymc.Model, pymc.Potential, pymc.Uniform, pymc.sample_smc
 :category: beginner
 :::
 
 ```{code-cell} ipython3
 %matplotlib inline
+import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano.tensor as tt
+import pymc as pm
 
 print(f"Running on PyMC v{pm.__version__}")
 ```
@@ -110,16 +110,16 @@ w2 = 1 - w1  # the other mode with 0.9 of the mass
 
 def two_gaussians(x):
     log_like1 = (
-        -0.5 * n * tt.log(2 * np.pi)
-        - 0.5 * tt.log(dsigma)
+        -0.5 * n * at.log(2 * np.pi)
+        - 0.5 * at.log(dsigma)
         - 0.5 * (x - mu1).T.dot(isigma).dot(x - mu1)
     )
     log_like2 = (
-        -0.5 * n * tt.log(2 * np.pi)
-        - 0.5 * tt.log(dsigma)
+        -0.5 * n * at.log(2 * np.pi)
+        - 0.5 * at.log(dsigma)
         - 0.5 * (x - mu2).T.dot(isigma).dot(x - mu2)
     )
-    return pm.math.logsumexp([tt.log(w1) + log_like1, tt.log(w2) + log_like2])
+    return pm.math.logsumexp([at.log(w1) + log_like1, at.log(w2) + log_like2])
 ```
 
 ```{code-cell} ipython3
@@ -133,7 +133,7 @@ with pm.Model() as model:
     )
     llk = pm.Potential("llk", two_gaussians(X))
     trace_04 = pm.sample_smc(2000, parallel=True)
-    idata_04 = az.from_pymc3(trace_04)
+    idata_04 = pm.to_inference_data(trace_04)
 ```
 
 We can see from the message that PyMC is running four **SMC chains** in parallel. As explained before this is useful for diagnostics. As with other samplers one useful diagnostics is the `plot_trace`, here we use `kind="rank_vlines"` as rank plots as generally more useful than the classical "trace"
@@ -175,16 +175,16 @@ w2 = 1 - w1
 ```{code-cell} ipython3
 def two_gaussians(x):
     log_like1 = (
-        -0.5 * n * tt.log(2 * np.pi)
-        - 0.5 * tt.log(dsigma)
+        -0.5 * n * at.log(2 * np.pi)
+        - 0.5 * at.log(dsigma)
         - 0.5 * (x - mu1).T.dot(isigma).dot(x - mu1)
     )
     log_like2 = (
-        -0.5 * n * tt.log(2 * np.pi)
-        - 0.5 * tt.log(dsigma)
+        -0.5 * n * at.log(2 * np.pi)
+        - 0.5 * at.log(dsigma)
         - 0.5 * (x - mu2).T.dot(isigma).dot(x - mu2)
     )
-    return pm.math.logsumexp([tt.log(w1) + log_like1, tt.log(w2) + log_like2])
+    return pm.math.logsumexp([at.log(w1) + log_like1, at.log(w2) + log_like2])
 
 
 with pm.Model() as model:
@@ -197,7 +197,7 @@ with pm.Model() as model:
     )
     llk = pm.Potential("llk", two_gaussians(X))
     trace_80 = pm.sample_smc(2000, parallel=True)
-    idata_80 = az.from_pymc3(trace_80)
+    idata_80 = pm.to_inference_data(trace_80)
 ```
 
 We see that SMC recognizes this is a harder problem and increases the number of stages. We can see that SMC still sample from both modes but now the model with less weight is being subsampled (we get a relative weight way lower than 0.1). Notice how the rank plot looks worse than when n=4.

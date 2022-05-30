@@ -29,11 +29,11 @@ For more information on these approximations, see [Quinonero-Candela+Rasmussen, 
 For the following examples, we use the same data set as was used in the `gp.Marginal` example, but with more data points.
 
 ```{code-cell} ipython3
+import aesara
+import aesara.tensor as at
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano
-import theano.tensor as tt
+import pymc as pm
 
 %matplotlib inline
 ```
@@ -54,7 +54,7 @@ cov_func = η_true**2 * pm.gp.cov.Matern52(1, ℓ_true)
 mean_func = pm.gp.mean.Zero()
 
 # The latent function values are one sample from a multivariate normal
-# Note that we have to call `eval()` because PyMC3 built on top of Theano
+# Note that we have to call `eval()` because PyMC built on top of Aesara
 f_true = np.random.multivariate_normal(
     mean_func(X).eval(), cov_func(X).eval() + 1e-8 * np.eye(n), 1
 ).flatten()
@@ -114,7 +114,7 @@ fig = plt.figure(figsize=(12, 5))
 ax = fig.gca()
 
 # plot the samples from the gp posterior with samples and shading
-from pymc3.gp.util import plot_gp_dist
+from pymc.gp.util import plot_gp_dist
 
 plot_gp_dist(ax, pred_samples["f_pred"], X_new)
 

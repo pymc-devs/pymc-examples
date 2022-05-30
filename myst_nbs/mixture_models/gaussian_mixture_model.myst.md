@@ -77,7 +77,7 @@ pm.model_to_graphviz(model)
 
 ```{code-cell} ipython3
 with model:
-    idata = pm.sample()
+    idata = pm.sample(return_inferencedata=False)
 ```
 
 We can also plot the trace to check the nature of the MCMC chains, and compare to the ground truth values.

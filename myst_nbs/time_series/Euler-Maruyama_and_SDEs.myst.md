@@ -27,12 +27,12 @@ slideshow:
   slide_type: '-'
 ---
 %pylab inline
+import aesara.tensor as at
 import arviz as az
-import pymc3 as pm
+import pymc as pm
 import scipy
-import theano.tensor as tt
 
-from pymc3.distributions.timeseries import EulerMaruyama
+from pymc.distributions.timeseries import EulerMaruyama
 ```
 
 ```{code-cell} ipython3
@@ -274,7 +274,7 @@ def osc_sde(xy, τ, a):
     x, y = xy[:, 0], xy[:, 1]
     dx = τ * (x - x**3.0 / 3.0 + y)
     dy = (1.0 / τ) * (a - x)
-    dxy = tt.stack([dx, dy], axis=0).T
+    dxy = at.stack([dx, dy], axis=0).T
     return dxy, σ2
 ```
 

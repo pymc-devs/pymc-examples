@@ -23,12 +23,12 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
 
 %matplotlib inline
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -47,10 +47,10 @@ with model:
 ```{code-cell} ipython3
 with model:
     step = pm.NUTS()
-    trace = pm.sample(2000, tune=1000, init=None, step=step, cores=2, return_inferencedata=True)
+    trace = pm.sample(2000, tune=1000, init=None, step=step, cores=2)
 ```
 
-- `Note`: NUTS provides the following statistics( these are internal statistics that the sampler uses, you don't need to do anything with them when using PyMC3, to learn more about them, [check this page](https://docs.pymc.io/api/inference.html#module-pymc3.step_methods.hmc.nuts).
+- `Note`: NUTS provides the following statistics( these are internal statistics that the sampler uses, you don't need to do anything with them when using PyMC, to learn more about them, [check this page](https://docs.pymc.io/api/inference.html#module-pymc.step_methods.hmc.nuts).
 
 ```{code-cell} ipython3
 trace.sample_stats
@@ -87,7 +87,7 @@ The sample statistics variables are defined as follows:
 +++
 
 Some points to `Note`:
-- Some of the sample statistics used by NUTS are renamed when converting to `InferenceData` to follow [ArviZ's naming convention](https://arviz-devs.github.io/arviz/schema/schema.html#sample-stats), while some are specific to PyMC3 and keep their internal PyMC3 name in the resulting InferenceData object.
+- Some of the sample statistics used by NUTS are renamed when converting to `InferenceData` to follow [ArviZ's naming convention](https://arviz-devs.github.io/arviz/schema/schema.html#sample-stats), while some are specific to PyMC and keep their internal PyMC name in the resulting InferenceData object.
 - `InferenceData` also stores additional info like the date, versions used, sampling time and tuning steps as attributes.
 
 ```{code-cell} ipython3
@@ -145,7 +145,7 @@ with model:
         step=[step1, step2],
         cores=2,
         tune=1000,
-        return_inferencedata=True,
+        ,
         idata_kwargs={"dims": dims, "coords": coords},
     )
 ```

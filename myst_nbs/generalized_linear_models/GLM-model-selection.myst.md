@@ -15,7 +15,7 @@ kernelspec:
 # GLM: Model Selection
 
 :::{post} Jan 8, 2022
-:tags: cross validation, generalized linear models, loo, model comparison, pymc3.HalfCauchy, pymc3.Model, pymc3.Normal, waic
+:tags: cross validation, generalized linear models, loo, model comparison, pymc.HalfCauchy, pymc.Model, pymc.Normal, waic
 :category: intermediate
 :author: Jon Sedar, Junpeng Lao, Abhipsha Das, Oriol Abril-Pla
 :::
@@ -26,13 +26,13 @@ import bambi as bmb
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
 import xarray as xr
 
 from ipywidgets import fixed, interactive
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -45,7 +45,7 @@ plt.rcParams["figure.constrained_layout.use"] = False
 ```
 
 ## Introduction
-A fairly minimal reproducible example of Model Selection using WAIC, and LOO as currently implemented in PyMC3. 
+A fairly minimal reproducible example of Model Selection using WAIC, and LOO as currently implemented in PyMC. 
 
 This example creates two toy datasets under linear and quadratic models, and then tests the fit of a range of polynomial linear models upon those datasets by using Widely Applicable Information Criterion (WAIC), and leave-one-out (LOO) cross-validation using Pareto-smoothed importance sampling (PSIS). 
 
@@ -338,7 +338,7 @@ $$y = a + bx + \epsilon$$
 
 +++
 
-### Define model using explicit PyMC3 method
+### Define model using explicit PyMC method
 
 ```{code-cell} ipython3
 with pm.Model() as mdl_ols:
@@ -353,7 +353,7 @@ with pm.Model() as mdl_ols:
     y_sigma = pm.HalfCauchy("y_sigma", beta=10)
     likelihood = pm.Normal("likelihood", mu=yest, sigma=y_sigma, observed=df_lin["y"])
 
-    idata_ols = pm.sample(2000, return_inferencedata=True)
+    idata_ols = pm.sample(2000)
 ```
 
 ```{code-cell} ipython3
@@ -418,7 +418,7 @@ def create_poly_modelspec(k=1):
 def run_models(df, upper_order=5):
     """
     Convenience function:
-    Fit a range of pymc3 models of increasing polynomial complexity.
+    Fit a range of pymc models of increasing polynomial complexity.
     Suggest limit to max order 5 since calculation time is exponential.
     """
 
@@ -574,7 +574,7 @@ ax.set_title("Quadratic data");
 
 It is important to keep in mind that, with more data points, the real underlying model (one that we used to generate the data) should outperform other models. 
 
-There is some agreement that PSIS-LOO offers the best indication of a model's quality. To quote from [avehtari's comment](https://github.com/pymc-devs/pymc3/issues/938#issuecomment-313425552): "I also recommend using PSIS-LOO instead of WAIC, because it's more reliable and has better diagnostics as discussed in {cite:t}`vehtari2017practical`, but if you insist to have one information criterion then leave WAIC". 
+There is some agreement that PSIS-LOO offers the best indication of a model's quality. To quote from [avehtari's comment](https://github.com/pymc-devs/pymc/issues/938#issuecomment-313425552): "I also recommend using PSIS-LOO instead of WAIC, because it's more reliable and has better diagnostics as discussed in {cite:t}`vehtari2017practical`, but if you insist to have one information criterion then leave WAIC". 
 
 Alternatively, Watanabe [says](http://watanabe-www.math.dis.titech.ac.jp/users/swatanab/index.html) "WAIC is a better approximator of the generalization error than the pareto smoothing importance sampling cross validation. The Pareto smoothing cross validation may be the better approximator of the cross validation than WAIC, however, it is not of the generalization error".
 
@@ -590,7 +590,7 @@ spiegelhalter2002bayesian
 :::
 
 :::{seealso}
-+ Thomas Wiecki's [detailed response](https://stats.stackexchange.com/questions/161082/bayesian-model-selection-in-pymc3/166383#166383) to a question on Cross Validated
++ Thomas Wiecki's [detailed response](https://stats.stackexchange.com/questions/161082/bayesian-model-selection-in-pymc/166383#166383) to a question on Cross Validated
 + [Cross-validation FAQs](https://avehtari.github.io/modelselection/CV-FAQ.html) by Aki Vehtari
 :::
 
@@ -610,7 +610,7 @@ spiegelhalter2002bayesian
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p aesara,xarray
 ```
 
 :::{include} ../page_footer.md

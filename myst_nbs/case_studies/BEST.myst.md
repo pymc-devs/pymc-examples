@@ -15,7 +15,7 @@ kernelspec:
 # Bayesian Estimation Supersedes the T-Test
 
 :::{post} Jan 07, 2022
-:tags: hypothesis testing, model comparison, pymc3.Deterministic, pymc3.Exponential, pymc3.Model, pymc3.Normal, pymc3.StudentT, pymc3.Uniform
+:tags: hypothesis testing, model comparison, pymc.Deterministic, pymc.Exponential, pymc.Model, pymc.Normal, pymc.StudentT, pymc.Uniform
 :category: beginner
 :author: Andrew Straw, Thomas Wiecki, Chris Fonnesbeck, Andrés suárez
 :::
@@ -149,7 +149,7 @@ Now, we can fit the model and evaluate its output.
 
 ```{code-cell} ipython3
 with model:
-    idata = pm.sample()
+    idata = pm.sample(return_inferencedata=False)
 ```
 
 We can plot the stochastic parameters of the model. Arviz's `plot_posterior` function replicates the informative histograms portrayed in {cite:p}`kruschke2013`. These summarize the posterior distributions of the parameters, and present a 95% credible interval and the posterior mean. The plots below are constructed with the final 1000 samples from each of the 2 chains, pooled together.
@@ -194,7 +194,7 @@ az.summary(idata, var_names=["difference of means", "difference of stds", "effec
 +++
 
 * Authored by Andrew Straw in Dec, 2012 ([best](https://github.com/strawlab/best))
-* Ported to PyMC3 by Thomas Wiecki in 2015
+* Ported to PyMC by Thomas Wiecki in 2015
 * Updated by Chris Fonnesbeck in Dec, 2020
 * Ported to PyMC4 by Andrés Suárez in Ene, 2022 ([pymc-examples#52](https://github.com/pymc-devs/pymc-examples/issues/52))
 

@@ -11,13 +11,13 @@ kernelspec:
   name: python3
 ---
 
-# Automatic autoencoding variational Bayes for latent dirichlet allocation with PyMC3
+# Automatic autoencoding variational Bayes for latent dirichlet allocation with PyMC
 
 For probabilistic models with latent variables, autoencoding variational Bayes (AEVB; Kingma and Welling, 2014) is an algorithm which allows us to perform inference efficiently for large datasets with an encoder. In AEVB, the encoder is used to infer variational parameters of approximate posterior on latent variables from given samples. By using tunable and flexible encoders such as multilayer perceptrons (MLPs), AEVB approximates complex variational posterior based on mean-field approximation, which does not utilize analytic representations of the true posterior. Combining AEVB with ADVI (Kucukelbir et al., 2015), we can perform posterior inference on almost arbitrary probabilistic models involving continuous latent variables. 
 
-I have implemented AEVB for ADVI with mini-batch on PyMC3. To demonstrate flexibility of this approach, we will apply this to latent dirichlet allocation (LDA; Blei et al., 2003) for modeling documents. In the LDA model, each document is assumed to be generated from a multinomial distribution, whose parameters are treated as latent variables. By using AEVB with an MLP as an encoder, we will fit the LDA model to the 20-newsgroups dataset. 
+I have implemented AEVB for ADVI with mini-batch on PyMC. To demonstrate flexibility of this approach, we will apply this to latent dirichlet allocation (LDA; Blei et al., 2003) for modeling documents. In the LDA model, each document is assumed to be generated from a multinomial distribution, whose parameters are treated as latent variables. By using AEVB with an MLP as an encoder, we will fit the LDA model to the 20-newsgroups dataset. 
 
-In this example, extracted topics by AEVB seem to be qualitatively comparable to those with a standard LDA implementation, i.e., online VB implemented on scikit-learn. Unfortunately, the predictive accuracy of unseen words is less than the standard implementation of LDA, it might be due to the mean-field approximation. However, the combination of AEVB and ADVI allows us to quickly apply more complex probabilistic models than LDA to big data with the help of mini-batches. I hope this notebook will attract readers, especially practitioners working on a variety of machine learning tasks, to probabilistic programming and PyMC3.
+In this example, extracted topics by AEVB seem to be qualitatively comparable to those with a standard LDA implementation, i.e., online VB implemented on scikit-learn. Unfortunately, the predictive accuracy of unseen words is less than the standard implementation of LDA, it might be due to the mean-field approximation. However, the combination of AEVB and ADVI allows us to quickly apply more complex probabilistic models than LDA to big data with the help of mini-batches. I hope this notebook will attract readers, especially practitioners working on a variety of machine learning tasks, to probabilistic programming and PyMC.
 
 ```{code-cell} ipython3
 %matplotlib inline
@@ -28,19 +28,19 @@ from collections import OrderedDict
 from copy import deepcopy
 from time import time
 
+import aesara
+import aesara.tensor as at
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
-import theano
-import theano.tensor as tt
 
-from pymc3 import Dirichlet
-from pymc3 import math as pmmath
+from aesara import shared
+from aesara.sandbox.rng_mrg import MRG_RandomStreams
+from pymc import Dirichlet
+from pymc import math as pmmath
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-from theano import shared
-from theano.sandbox.rng_mrg import MRG_RandomStreams
 
 # unfortunately I was not able to run it on GPU due to overflow problems
 %env THEANO_FLAGS=device=cpu,floatX=float64
@@ -121,11 +121,11 @@ def logp_lda_doc(beta, theta):
         dixs, vixs = docs.nonzero()
         vfreqs = docs[dixs, vixs]
         ll_docs = (
-            vfreqs * pmmath.logsumexp(tt.log(theta[dixs]) + tt.log(beta.T[vixs]), axis=1).ravel()
+            vfreqs * pmmath.logsumexp(at.log(theta[dixs]) + at.log(beta.T[vixs]), axis=1).ravel()
         )
 
         # Per-word log-likelihood times num of tokens in the whole dataset
-        return tt.sum(ll_docs) / (tt.sum(vfreqs) + 1e-9) * n_tokens
+        return at.sum(ll_docs) / (at.sum(vfreqs) + 1e-9) * n_tokens
 
     return ll_docs_f
 ```
@@ -137,7 +137,7 @@ In the inner function, the log-likelihood is scaled for mini-batches by the numb
 ## LDA model
 With the log-likelihood function, we can construct the probabilistic model for LDA. `doc_t` works as a placeholder to which documents in a mini-batch are set.  
 
-For ADVI, each of random variables $\theta$ and $\beta$, drawn from Dirichlet distributions, is transformed into unconstrained real coordinate space. To do this, by default, PyMC3 uses an isometric logratio transformation. Since these random variables are on a simplex, the dimension of the unconstrained coordinate space is the original dimension minus 1. For example, the dimension of $\theta_{d}$ is the number of topics (`n_topics`) in the LDA model, thus the transformed space has dimension `(n_topics - 1)`. 
+For ADVI, each of random variables $\theta$ and $\beta$, drawn from Dirichlet distributions, is transformed into unconstrained real coordinate space. To do this, by default, PyMC uses an isometric logratio transformation. Since these random variables are on a simplex, the dimension of the unconstrained coordinate space is the original dimension minus 1. For example, the dimension of $\theta_{d}$ is the number of topics (`n_topics`) in the LDA model, thus the transformed space has dimension `(n_topics - 1)`. 
 
 The variational posterior on these transformed parameters is represented by a spherical Gaussian distributions (meanfield approximation). Thus, the number of variational parameters of $\theta_{d}$, the latent variable for each document, is `2 * (n_topics - 1)` for means and standard deviations. 
 
@@ -192,8 +192,8 @@ class LDAEncoder:
     def encode(self, xs):
         if 0 < self.p_corruption:
             dixs, vixs = xs.nonzero()
-            mask = tt.set_subtensor(
-                tt.zeros_like(xs)[dixs, vixs],
+            mask = at.set_subtensor(
+                at.zeros_like(xs)[dixs, vixs],
                 self.rng.binomial(size=dixs.shape, n=1, p=1 - self.p_corruption),
             )
             xs_ = xs * mask
@@ -202,7 +202,7 @@ class LDAEncoder:
 
         w0 = self.w0.reshape((self.n_words, self.n_hidden))
         w1 = self.w1.reshape((self.n_hidden, 2 * (self.n_topics - 1)))
-        hs = tt.tanh(xs_.dot(w0) + self.b0)
+        hs = at.tanh(xs_.dot(w0) + self.b0)
         zs = hs.dot(w1) + self.b1
         zs_mean = zs[:, : (self.n_topics - 1)]
         zs_rho = zs[:, (self.n_topics - 1) :]
@@ -220,7 +220,7 @@ local_RVs = OrderedDict([(theta, encoder.encode(doc_t))])
 local_RVs
 ```
 
-`theta` is the random variable defined in the model creation and is a key of an entry of the `OrderedDict`. The value `(encoder.encode(doc_t), n_samples_tr / minibatch_size)` is a tuple of a theano expression and a scalar. The theano expression `encoder.encode(doc_t)` is the output of the encoder given inputs (documents). The scalar `n_samples_tr / minibatch_size` specifies the scaling factor for mini-batches. 
+`theta` is the random variable defined in the model creation and is a key of an entry of the `OrderedDict`. The value `(encoder.encode(doc_t), n_samples_tr / minibatch_size)` is a tuple of a aesara expression and a scalar. The aesara expression `encoder.encode(doc_t)` is the output of the encoder given inputs (documents). The scalar `n_samples_tr / minibatch_size` specifies the scaling factor for mini-batches. 
 
 ADVI optimizes the parameters of the encoder. They are passed to the function for ADVI.
 
@@ -280,9 +280,9 @@ def print_top_words(beta, feature_names, n_top_words=10):
 
 doc_t.set_value(docs_tr.toarray())
 samples = pm.sample_approx(approx, draws=100)
-beta_pymc3 = samples["beta"].mean(axis=0)
+beta_pymc = samples["beta"].mean(axis=0)
 
-print_top_words(beta_pymc3, feature_names)
+print_top_words(beta_pymc, feature_names)
 ```
 
 We compare these topics to those obtained by a standard LDA implementation on scikit-learn, which is based on an online stochastic variational inference (Hoffman et al., 2013). We can see that estimated words in the topics are qualitatively similar.
@@ -371,21 +371,21 @@ def eval_lda(transform, beta, docs_te, wixs):
 `transform()` function is defined with `sample_vp()` function. This function is an argument to the function for calculating log predictive probabilities.
 
 ```{code-cell} ipython3
-inp = tt.matrix(dtype="int64")
-sample_vi_theta = theano.function(
+inp = at.matrix(dtype="int64")
+sample_vi_theta = aesara.function(
     [inp], approx.sample_node(approx.model.theta, 100, more_replacements={doc_t: inp}).mean(0)
 )
 
 
-def transform_pymc3(docs):
+def transform_pymc(docs):
     return sample_vi_theta(docs)
 ```
 
 ```{code-cell} ipython3
-%time result_pymc3 = eval_lda(\
-          transform_pymc3, beta_pymc3, docs_te.toarray(), np.arange(100)\
+%time result_pymc = eval_lda(\
+          transform_pymc, beta_pymc, docs_te.toarray(), np.arange(100)\
       )
-print("Predictive log prob (pm3) = {}".format(result_pymc3["lp"]))
+print("Predictive log prob (pm3) = {}".format(result_pymc["lp"]))
 ```
 
 We compare the result with the scikit-learn LDA implemented. The log predictive probability is comparable with AEVB-ADVI, and it shows good set of words in the estimated topics.
@@ -403,7 +403,7 @@ print("Predictive log prob (sklearn) = {}".format(result_sklearn["lp"]))
 ```
 
 ## Summary
-We have seen that PyMC3 allows us to estimate random variables of LDA, a probabilistic model with latent variables, based on automatic variational inference. Variational parameters of the local latent variables in the probabilistic model are encoded from observations. The parameters of the encoding model, MLP in this example, are optimized with variational parameters of the global latent variables. Once the probabilistic and the encoding models are defined, parameter optimization is done just by invoking an inference (`ADVI()`) without need to derive complex update equations. 
+We have seen that PyMC allows us to estimate random variables of LDA, a probabilistic model with latent variables, based on automatic variational inference. Variational parameters of the local latent variables in the probabilistic model are encoded from observations. The parameters of the encoding model, MLP in this example, are optimized with variational parameters of the global latent variables. Once the probabilistic and the encoding models are defined, parameter optimization is done just by invoking an inference (`ADVI()`) without need to derive complex update equations. 
 
 This notebook shows that even mean field approximation can perform as well as sklearn implementation, which is based on the conjugate priors and thus not relying on the mean field approximation.
 

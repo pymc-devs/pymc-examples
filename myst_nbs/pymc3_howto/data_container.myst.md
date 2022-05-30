@@ -15,7 +15,7 @@ kernelspec:
 # Using shared variables (`Data` container adaptation)
 
 :::{post} Dec 16, 2021
-:tags: posterior predictive, predictions, pymc3.Bernoulli, pymc3.Data, pymc3.Deterministic, pymc3.HalfNormal, pymc3.Model, pymc3.Normal, shared data
+:tags: posterior predictive, predictions, pymc.Bernoulli, pymc.Data, pymc.Deterministic, pymc.HalfNormal, pymc.Model, pymc.Normal, shared data
 :category: beginner
 :author: Juan Martin Loyola, Kavya Jaiswal, Oriol Abril
 :::
@@ -25,11 +25,11 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 
 from numpy.random import default_rng
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -42,7 +42,7 @@ az.style.use("arviz-darkgrid")
 
 ## The Data class
 
-The {class}`pymc.Data` container class wraps the theano shared variable class and lets the model be aware of its inputs and outputs. This allows one to change the value of an observed variable to predict or refit on new data. All variables of this class must be declared inside a model context and specify a name for them.
+The {class}`pymc.Data` container class wraps the aesara shared variable class and lets the model be aware of its inputs and outputs. This allows one to change the value of an observed variable to predict or refit on new data. All variables of this class must be declared inside a model context and specify a name for them.
 
 In the following example, this is demonstrated with fictional temperature observations.
 
@@ -58,10 +58,10 @@ df_data.index.name = "date"
 df_data.head()
 ```
 
-PyMC3 can also keep track of the dimensions (like dates or cities) and coordinates (such as the actual date times or city names) of multi-dimensional data. That way, when wrapping your data around the `Data` container when building your model, you can specify the dimension names and coordinates of random variables, instead of specifying the shapes of those random variables as numbers.
+PyMC can also keep track of the dimensions (like dates or cities) and coordinates (such as the actual date times or city names) of multi-dimensional data. That way, when wrapping your data around the `Data` container when building your model, you can specify the dimension names and coordinates of random variables, instead of specifying the shapes of those random variables as numbers.
 
 More generally, there are two ways to specify new dimensions and their coordinates:
-- Entering the dimensions in the `dims` kwarg of a `pm.Data` variable with a pandas Series or DataFrame. The name of the index and columns will be remembered as the dimensions, and PyMC3 will infer that the values of the given columns must be the coordinates.
+- Entering the dimensions in the `dims` kwarg of a `pm.Data` variable with a pandas Series or DataFrame. The name of the index and columns will be remembered as the dimensions, and PyMC will infer that the values of the given columns must be the coordinates.
 - Using the new `coords` argument to {class}`pymc.Model` to set the coordinates explicitly.
 
 For more explanation about dimensions, coordinates and their big benefits, we encourage you to take a look at the {ref}`ArviZ documentation <arviz:xarray_for_arviz>`.
@@ -86,7 +86,7 @@ with pm.Model(coords=coords) as model:
         2000,
         tune=2000,
         target_accept=0.85,
-        return_inferencedata=True,
+        ,
         random_seed=RANDOM_SEED,
     )
 ```
@@ -119,7 +119,7 @@ We can get the data container variable from the model using:
 model["data"].get_value()
 ```
 
-Note that we used a theano method {meth}`theano.compile.sharedvalue.SharedVariable.get_value` of class {class}`theano.compile.sharedvalue.SharedVariable` to get the value of the variable. This is because our variable is actually a `SharedVariable`.
+Note that we used a aesara method {meth}`aesara.compile.sharedvalue.SharedVariable.get_value` of class {class}`aesara.compile.sharedvalue.SharedVariable` to get the value of the variable. This is because our variable is actually a `SharedVariable`.
 
 ```{code-cell} ipython3
 type(data)
@@ -127,17 +127,17 @@ type(data)
 
 The methods and functions related to the Data container class are:
 
-- `data_container.get_value` (method inherited from the theano SharedVariable): gets the value associated with the `data_container`.
-- `data_container.set_value` (method inherited from the theano SharedVariable): sets the value associated with the `data_container`.
-- {func}`pymc.set_data`: PyMC3 function that sets the value associated with each Data container variable indicated in the dictionary `new_data` with it corresponding new value.
+- `data_container.get_value` (method inherited from the aesara SharedVariable): gets the value associated with the `data_container`.
+- `data_container.set_value` (method inherited from the aesara SharedVariable): sets the value associated with the `data_container`.
+- {func}`pymc.set_data`: PyMC function that sets the value associated with each Data container variable indicated in the dictionary `new_data` with it corresponding new value.
 
 +++
 
 ## Using Data container variables to fit the same model to several datasets
 
-This and the next sections are an adaptation of the notebook ["Advanced usage of Theano in PyMC3"](../Advanced_usage_of_Theano_in_PyMC3.html#using-shared-variables) using `pm.Data`.
+This and the next sections are an adaptation of the notebook ["Advanced usage of Aesara in PyMC"](../Advanced_usage_of_Aesara_in_PyMC.html#using-shared-variables) using `pm.Data`.
 
-We can use `Data` container variables in PyMC3 to fit the same model to several datasets without the need to recreate the model each time (which can be time consuming if the number of datasets is large):
+We can use `Data` container variables in PyMC to fit the same model to several datasets without the need to recreate the model each time (which can be time consuming if the number of datasets is large):
 
 ```{code-cell} ipython3
 :tags: [hide-output]
@@ -157,12 +157,12 @@ for data_vals in observed_data:
     with model:
         # Switch out the observed dataset
         pm.set_data({"data": data_vals})
-        traces.append(pm.sample(return_inferencedata=True))
+        traces.append(pm.sample())
 ```
 
 ## Using Data container variables to predict on new data
 
-We can also sometimes use `Data` container variables to work around limitations in the current PyMC3 API. A common task in machine learning is to predict values for unseen data, and one way to achieve this is to use a `Data` container variable for our observations:
+We can also sometimes use `Data` container variables to work around limitations in the current PyMC API. A common task in machine learning is to predict values for unseen data, and one way to achieve this is to use a `Data` container variable for our observations:
 
 ```{code-cell} ipython3
 x = rng.random(100)
@@ -176,7 +176,7 @@ with pm.Model() as model:
     pm.Bernoulli("obs", p=logistic, observed=y)
 
     # fit the model
-    trace = pm.sample(return_inferencedata=True, tune=2000)
+    trace = pm.sample(tune=2000)
 ```
 
 ```{code-cell} ipython3
@@ -195,7 +195,7 @@ The same concept applied to a more complex model can be seen in the notebook {re
 
 +++
 
-This example is taken from Osvaldo Martin's book: [Bayesian Analysis with Python: Introduction to statistical modeling and probabilistic programming using PyMC3 and ArviZ, 2nd Edition](https://www.amazon.com/Bayesian-Analysis-Python-Introduction-probabilistic-ebook/dp/B07HHBCR9G) {cite:p}`martin2018bayesian`.
+This example is taken from Osvaldo Martin's book: [Bayesian Analysis with Python: Introduction to statistical modeling and probabilistic programming using PyMC and ArviZ, 2nd Edition](https://www.amazon.com/Bayesian-Analysis-Python-Introduction-probabilistic-ebook/dp/B07HHBCR9G) {cite:p}`martin2018bayesian`.
 
 +++
 
@@ -230,7 +230,7 @@ with pm.Model(coords={"time_idx": np.arange(len(data))}) as model_babies:
 
     length = pm.Normal("length", mu=μ, sigma=ε, observed=data.Length, dims="time_idx")
 
-    idata_babies = pm.sample(tune=2000, return_inferencedata=True)
+    idata_babies = pm.sample(tune=2000)
 ```
 
 The following figure shows the result of our model. The expected length, $\mu$, is represented with a blue curve, and two semi-transparent orange bands represent the 60% and 94% highest posterior density intervals of posterior predictive length measurements:
@@ -238,7 +238,7 @@ The following figure shows the result of our model. The expected length, $\mu$, 
 ```{code-cell} ipython3
 with model_babies:
     idata_babies.extend(
-        az.from_pymc3(posterior_predictive=pm.sample_posterior_predictive(idata_babies))
+        pm.to_inference_data(posterior_predictive=pm.sample_posterior_predictive(idata_babies))
     )
 ```
 
@@ -265,7 +265,7 @@ ax = az.plot_lm(
 )
 ```
 
-At the moment of writing Osvaldo's daughter is two weeks ($\approx 0.5$ months) old, and thus he wonders how her length compares to the growth chart we have just created. One way to answer this question is to ask the model for the distribution of the variable length for babies of 0.5 months. Using PyMC3 we can ask this questions with the function `sample_posterior_predictive` , as this will return samples of _Length_ conditioned on the obseved data and the estimated distribution of parameters, that is including uncertainties. 
+At the moment of writing Osvaldo's daughter is two weeks ($\approx 0.5$ months) old, and thus he wonders how her length compares to the growth chart we have just created. One way to answer this question is to ask the model for the distribution of the variable length for babies of 0.5 months. Using PyMC we can ask this questions with the function `sample_posterior_predictive` , as this will return samples of _Length_ conditioned on the obseved data and the estimated distribution of parameters, that is including uncertainties. 
 
 The only problem is that by default this function will return predictions for _Length_ for the observed values of _Month_, and $0.5$ months (the value Osvaldo cares about) has not been observed, -- all measures are reported for integer months. The easier way to get predictions for non-observed values of _Month_ is to pass new values to the `Data` container we defined above in our model. To do that, we need to use `pm.set_data` and then we just have to sample from the posterior predictve distribution:
 
@@ -274,12 +274,12 @@ ages_to_check = [0.5, 0.75]
 with model_babies:
     pm.set_data({"month": ages_to_check})
     # we use two values instead of only 0.5 months to avoid triggering
-    # https://github.com/pymc-devs/pymc3/issues/3640
+    # https://github.com/pymc-devs/pymc/issues/3640
     predictions = pm.sample_posterior_predictive(idata_babies)
 
     # add the generation predictions also to the inferencedata object
     # this is not necessary but allows for example storing data, posterior and predictions in the same file
-    az.from_pymc3_predictions(
+    pm.to_inference_data_predictions(
         predictions,
         idata_orig=idata_babies,
         inplace=True,
@@ -322,7 +322,7 @@ az.plot_posterior(
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p aesara,xarray
 ```
 
 :::{include} ../page_footer.md

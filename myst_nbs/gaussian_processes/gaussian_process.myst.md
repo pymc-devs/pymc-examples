@@ -19,17 +19,19 @@ kernelspec:
 
 Example of simple GP fit, adapted from Stan's [example-models repository](https://github.com/stan-dev/example-models/blob/master/misc/gaussian-process/gp-fit.stan).
 
-This example builds a Gaussian process from scratch, to illustrate the underlying model. PyMC3 now includes a dedicated GP submodule which is going to be more usable for a wider variety of problems.
+This example builds a Gaussian process from scratch, to illustrate the underlying model. PyMC now includes a dedicated GP submodule which is going to be more usable for a wider variety of problems.
 
 ```{code-cell} ipython3
+import aesara.tensor as T
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
-import theano.tensor as T
 
-from pymc3 import (
+from aesara import shared
+from aesara.tensor.nlinalg import matrix_inverse
+from pymc import (
     NUTS,
     Deterministic,
     HalfCauchy,
@@ -40,10 +42,8 @@ from pymc3 import (
     summary,
     traceplot,
 )
-from theano import shared
-from theano.tensor.nlinalg import matrix_inverse
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3

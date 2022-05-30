@@ -17,18 +17,18 @@ In another [example](dp_mix.ipynb), we showed how to use Dirichlet processes to 
 Just as Dirichlet process mixtures can be thought of as infinite mixture models that select the number of active components as part of inference, dependent density regression can be thought of as infinite [mixtures of experts](https://en.wikipedia.org/wiki/Committee_machine) that select the active experts as part of inference.  Their flexibility and modularity make them powerful tools for performing nonparametric Bayesian Data analysis.
 
 ```{code-cell} ipython3
+import aesara.tensor as at
 import arviz as az
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
 
 from IPython.display import HTML
 from matplotlib import animation as ani
 from matplotlib import pyplot as plt
-from theano import tensor as tt
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -144,16 +144,16 @@ where $\Phi$ is the cumulative distribution function of the standard normal dist
 
 $$w_i\ |\ x = v_i\ |\ x \cdot \prod_{j = 1}^{i - 1} (1 - v_j\ |\ x).$$
 
-For the LIDAR data set, we use independent normal priors $\alpha_i \sim N(0, 5^2)$ and $\beta_i \sim N(0, 5^2)$.  We now express this this model for the conditional mixture weights using `PyMC3`.
+For the LIDAR data set, we use independent normal priors $\alpha_i \sim N(0, 5^2)$ and $\beta_i \sim N(0, 5^2)$.  We now express this this model for the conditional mixture weights using `PyMC`.
 
 ```{code-cell} ipython3
 def norm_cdf(z):
-    return 0.5 * (1 + tt.erf(z / np.sqrt(2)))
+    return 0.5 * (1 + at.erf(z / np.sqrt(2)))
 
 
 def stick_breaking(v):
-    return v * tt.concatenate(
-        [tt.ones_like(v[:, :1]), tt.extra_ops.cumprod(1 - v, axis=1)[:, :-1]], axis=1
+    return v * at.concatenate(
+        [at.ones_like(v[:, :1]), at.extra_ops.cumprod(1 - v, axis=1)[:, :-1]], axis=1
     )
 ```
 
@@ -172,9 +172,9 @@ with pm.Model(coords={"N": np.arange(N), "K": np.arange(K) + 1, "one": [1]}) as 
     w = pm.Deterministic("w", stick_breaking(v), dims=["N", "K"])
 ```
 
-We have defined `x` as a `pm.Data` container in order to use `PyMC3`'s posterior prediction capabilities later.
+We have defined `x` as a `pm.Data` container in order to use `PyMC`'s posterior prediction capabilities later.
 
-While the dependent density regression model theoretically has infinitely many components, we must truncate the model to finitely many components (in this case, twenty) in order to express it using `PyMC3`.  After sampling from the model, we will verify that truncation did not unduly influence our results.
+While the dependent density regression model theoretically has infinitely many components, we must truncate the model to finitely many components (in this case, twenty) in order to express it using `PyMC`.  After sampling from the model, we will verify that truncation did not unduly influence our results.
 
 Since the LIDAR data seems to have several linear components, we use the linear models
 
@@ -217,7 +217,7 @@ BURN = 10000
 
 with model:
     step = pm.Metropolis()
-    trace = pm.sample(SAMPLES, tune=BURN, step=step, random_seed=SEED, return_inferencedata=True)
+    trace = pm.sample(SAMPLES, tune=BURN, step=step, random_seed=SEED)
 ```
 
 To verify that truncation did not unduly influence our results, we plot the largest posterior expected mixture weight for each component.  (In this model, each point has a mixture weight for each component, so we plot the maximum mixture weight for each component across all data points in order to judge if the component exerts any influence on the posterior.)
@@ -277,7 +277,7 @@ The model has fit the linear components of the data well, and also accommodated 
 
 To learn more about dependent density regression and related models, consult [_Bayesian Data Analysis_](http://www.stat.columbia.edu/~gelman/book/), [_Bayesian Nonparametric Data Analysis_](http://www.springer.com/us/book/9783319189673), or [_Bayesian Nonparametrics_](https://www.google.com/webhp?sourceid=chrome-instant&ion=1&espv=2&ie=UTF-8#q=bayesian+nonparametrics+book).
 
-This example first appeared [here](http://austinrochford.com/posts/2017-01-18-ddp-pymc3.html).
+This example first appeared [here](http://austinrochford.com/posts/2017-01-18-ddp-pymc.html).
 
 Author: [Austin Rochford](https://github.com/AustinRochford/)
 

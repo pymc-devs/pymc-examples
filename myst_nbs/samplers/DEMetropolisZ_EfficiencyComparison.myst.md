@@ -17,7 +17,7 @@ But just like the most recent positions of an entire population converges, so do
 
 In [ter Braak & Vrugt, 2008](https://doi.org/10.1007/s11222-008-9104-9) this history of posterior samples is used in the "DE-MCMC-Z" variant to make proposals.
 
-The implementation in PyMC3 is based on `DE-MCMC-Z`, but a few details are different. Namely, each `DEMetropolisZ` chain only looks into its own history. Also we use a different tuning scheme.
+The implementation in PyMC is based on `DE-MCMC-Z`, but a few details are different. Namely, each `DEMetropolisZ` chain only looks into its own history. Also we use a different tuning scheme.
 
 In this notebook, a D-dimenstional multivariate normal target densities are sampled with `DEMetropolis` and `DEMetropolisZ` at different $N_{chains}$ settings.
 
@@ -30,12 +30,12 @@ import fastprogress
 import ipywidgets
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 
 from matplotlib import cm
 from matplotlib import pyplot as plt
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ## Benchmarking with a D-dimensional MVNormal model
@@ -85,7 +85,7 @@ def run_setting(D, N_tune, N_draws, N_chains, algorithm):
                 step=step,
                 start={"x": [0] * D},
                 discard_tuned_samples=False,
-                return_inferencedata=True,
+                ,
             )
         idata.to_netcdf(savename)
     else:

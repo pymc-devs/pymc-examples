@@ -6,29 +6,29 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python (PyMC3 Dev)
+  display_name: Python (PyMC Dev)
   language: python
-  name: pymc3-dev
+  name: pymc-dev
 ---
 
-# Bayesian Parametric Survival Analysis with PyMC3
+# Bayesian Parametric Survival Analysis with PyMC
 
 ```{code-cell} ipython3
 import warnings
 
+import aesara.tensor as at
 import arviz as az
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 import scipy as sp
 import seaborn as sns
 
+from aesara import shared
 from matplotlib import pyplot as plt
 from matplotlib.ticker import StrMethodFormatter
 from statsmodels import datasets
-from theano import shared
-from theano import tensor as tt
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -42,7 +42,7 @@ az.style.use("arviz-darkgrid")
 
 [Survival analysis](https://en.wikipedia.org/wiki/Survival_analysis) studies the distribution of the time between when a subject comes under observation and when that subject experiences an event of interest.  One of the fundamental challenges of survival analysis (which also makes is mathematically interesting) is that, in general, not every subject will experience the event of interest before we conduct our analysis.  In more concrete terms, if we are studying the time between cancer treatment and death (as we will in this post), we will often want to analyze our data before every subject has died.  This phenomenon is called <a href="https://en.wikipedia.org/wiki/Censoring_(statistics)">censoring</a> and is fundamental to survival analysis.
 
-I have previously [written](http://austinrochford.com/posts/2015-10-05-bayes-survival.html) about Bayesian survival analysis using the [semiparametric](https://en.wikipedia.org/wiki/Semiparametric_model) [Cox proportional hazards model](https://en.wikipedia.org/wiki/Proportional_hazards_model#The_Cox_model).  Implementing that semiparametric model in PyMC3 involved some fairly complex `numpy` code and nonobvious probability theory equivalences.  This post illustrates a parametric approach to Bayesian survival analysis in PyMC3.  Parametric models of survival are simpler to both implement and understand than semiparametric models; statistically, they are also more [powerful](https://en.wikipedia.org/wiki/Statistical_power) than non- or semiparametric methods _when they are correctly specified_. This post will not further cover the differences between parametric and nonparametric models or the various methods for choosing between them.
+I have previously [written](http://austinrochford.com/posts/2015-10-05-bayes-survival.html) about Bayesian survival analysis using the [semiparametric](https://en.wikipedia.org/wiki/Semiparametric_model) [Cox proportional hazards model](https://en.wikipedia.org/wiki/Proportional_hazards_model#The_Cox_model).  Implementing that semiparametric model in PyMC involved some fairly complex `numpy` code and nonobvious probability theory equivalences.  This post illustrates a parametric approach to Bayesian survival analysis in PyMC.  Parametric models of survival are simpler to both implement and understand than semiparametric models; statistically, they are also more [powerful](https://en.wikipedia.org/wiki/Statistical_power) than non- or semiparametric methods _when they are correctly specified_. This post will not further cover the differences between parametric and nonparametric models or the various methods for choosing between them.
 
 As in the previous post, we will analyze [mastectomy data](https://vincentarelbundock.github.io/Rdatasets/doc/HSAUR/mastectomy.html) from `R`'s [`HSAUR`](https://cran.r-project.org/web/packages/HSAUR/index.html) package.  First, we load the data.
 
@@ -128,7 +128,7 @@ A choice of distribution for the error term $\varepsilon$ determines baseline su
 </table>
 </center>
 
-Accelerated failure time models are conventionally named after their baseline survival function, $S_0$.  The rest of this post will show how to implement Weibull and log-logistic survival regression models in PyMC3 using the mastectomy data.
+Accelerated failure time models are conventionally named after their baseline survival function, $S_0$.  The rest of this post will show how to implement Weibull and log-logistic survival regression models in PyMC using the mastectomy data.
 
 +++
 
@@ -222,7 +222,7 @@ This survival function is implemented below.
 
 ```{code-cell} ipython3
 def gumbel_sf(y, μ, σ):
-    return 1.0 - tt.exp(-tt.exp(-(y - μ) / σ))
+    return 1.0 - at.exp(-at.exp(-(y - μ) / σ))
 ```
 
 We now specify the likelihood for the censored observations.
@@ -269,7 +269,7 @@ az.plot_posterior(weibull_trace, lw=0, alpha=0.5);
 
 These are somewhat interesting (espescially the fact that the posterior of $\beta_1$ is fairly well-separated from zero), but the posterior predictive survival curves will be much more interpretable.
 
-The advantage of using [`theano.shared`](http://deeplearning.net/software/theano_versions/dev/library/compile/shared.html) variables is that we can now change their values to perform posterior predictive sampling.  For posterior prediction, we set $X$ to have two rows, one for a subject whose cancer had not metastized and one for a subject whose cancer had metastized.  Since we want to predict actual survival times, none of the posterior predictive rows are censored.
+The advantage of using [`aesara.shared`](http://deeplearning.net/software/aesara_versions/dev/library/compile/shared.html) variables is that we can now change their values to perform posterior predictive sampling.  For posterior prediction, we set $X$ to have two rows, one for a subject whose cancer had not metastized and one for a subject whose cancer had metastized.  Since we want to predict actual survival times, none of the posterior predictive rows are censored.
 
 ```{code-cell} ipython3
 X_pp = np.empty((2, 2))
@@ -405,7 +405,7 @@ ax.legend(loc=1)
 ax.set_title("Weibull and log-logistic\nsurvival regression models");
 ```
 
-This post has been a short introduction to implementing parametric survival regression models in PyMC3 with a fairly simple data set.  The modular nature of probabilistic programming with PyMC3 should make it straightforward to generalize these techniques to more complex and interesting data set.
+This post has been a short introduction to implementing parametric survival regression models in PyMC with a fairly simple data set.  The modular nature of probabilistic programming with PyMC should make it straightforward to generalize these techniques to more complex and interesting data set.
 
 +++
 

@@ -1,12 +1,12 @@
 import numpy as np
-import theano.tensor as tt
+import aesara.tensor as at
 
-import pymc3 as pm
+import pymc as pm
 
 
 # custom log-liklihood
 def logp(failure, lam, value):
-    return tt.sum(failure * tt.log(lam) - lam * value)
+    return at.sum(failure * at.log(lam) - lam * value)
 
 
 def build_model():

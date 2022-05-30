@@ -17,12 +17,12 @@ substitutions:
 # GLM: Robust Regression using Custom Likelihood for Outlier Classification
 
 :::{post} 17 Nov, 2021
-:tags: pymc3.Bernoulli, pymc3.Data, pymc3.Deterministic, pymc3.DiscreteUniform, pymc3.Exponential, pymc3.GaussianRandomWalk, pymc3.HalfNormal, pymc3.InverseGamma, pymc3.Model, pymc3.Normal, pymc3.Poisson, pymc3.Potential, pymc3.Slice, pymc3.StudentT, pymc3.Uniform, regression, robust analysis
+:tags: pymc.Bernoulli, pymc.Data, pymc.Deterministic, pymc.DiscreteUniform, pymc.Exponential, pymc.GaussianRandomWalk, pymc.HalfNormal, pymc.InverseGamma, pymc.Model, pymc.Normal, pymc.Poisson, pymc.Potential, pymc.Slice, pymc.StudentT, pymc.Uniform, regression, robust analysis
 :category: intermediate
 :author: Jon Sedar, Thomas Wiecki, Raul Maldonado, Oriol Abril
 :::
 
-Using PyMC3 for Robust Regression with Outlier Detection using the Hogg 2010 Signal vs Noise method. 
+Using PyMC for Robust Regression with Outlier Detection using the Hogg 2010 Signal vs Noise method. 
 
 **Modelling concept:**
 + This model uses a custom likelihood function as a mixture of two likelihoods, one for the main data-generating function (a linear model that we care about), and one for outliers.
@@ -45,7 +45,7 @@ Using PyMC3 for Robust Regression with Outlier Detection using the Hogg 2010 Sig
 
 +++
 
-See the original project [README](https://github.com/jonsedar/pymc3_examples/blob/master/README.md) for full details on dependencies and about the environment where the notebook was written in. A summary on the environment where this notebook was executed is available in the ["Watermark"](#watermark) section.
+See the original project [README](https://github.com/jonsedar/pymc_examples/blob/master/README.md) for full details on dependencies and about the environment where the notebook was written in. A summary on the environment where this notebook was executed is available in the ["Watermark"](#watermark) section.
 
 :::{include} ../extra_installs.md
 :::
@@ -62,7 +62,7 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
 
 from matplotlib.lines import Line2D
@@ -131,7 +131,7 @@ Exploratory Data Analysis
 +++
 
 Note:
-+ this is very rudimentary so we can quickly get to the `pymc3` part
++ this is very rudimentary so we can quickly get to the `pymc` part
 + the dataset contains errors in both the x and y, but we will deal here with only errors in y.
 + see the {cite:t}`hogg2010data` for more detail
 
@@ -295,7 +295,7 @@ with mdl_ols:
         init="advi+adapt_diag",
         n_init=50000,
         progressbar=True,
-        return_inferencedata=True,
+        ,
     )
 ```
 
@@ -333,7 +333,7 @@ fig.suptitle("Posterior joint distribution (mdl_ols)", y=1.02);
 
 +++
 
-I've added this brief section in order to directly compare the Student-T based method exampled in Thomas Wiecki's notebook in the [PyMC3 documentation](http://pymc-devs.github.io/pymc3/GLM-robust/)
+I've added this brief section in order to directly compare the Student-T based method exampled in Thomas Wiecki's notebook in the [PyMC documentation](http://pymc-devs.github.io/pymc/GLM-robust/)
 
 Instead of using a Normal distribution for the likelihood, we use a Student-T which has fatter tails. In theory this allows outliers to have a smaller influence in the likelihood estimation. This method does not produce inlier / outlier flags (it marginalizes over such a classification) but it's simpler and faster to run than the Signal Vs Noise model below, so a comparison seems worthwhile.
 
@@ -393,7 +393,7 @@ with mdl_studentt:
         init="advi+adapt_diag",
         n_init=50000,
         progressbar=True,
-        return_inferencedata=True,
+        ,
     )
 ```
 
@@ -513,20 +513,20 @@ $X_{j}$, in this case `1 + x`
 
 +++
 
-This notebook uses {func}`~pymc3.model.Potential` class combined with `logp` to create a likelihood and build this model where a feature is not observed, here the Bernoulli switching variable.
+This notebook uses {func}`~pymc.model.Potential` class combined with `logp` to create a likelihood and build this model where a feature is not observed, here the Bernoulli switching variable.
 
 Usage of `Potential` is not discussed. Other resources are available that are worth referring to for details
 on `Potential` usage:
 
-+ [Junpenglao's presentation on likelihoods](https://github.com/junpenglao/All-that-likelihood-with-PyMC3) at PyData Berlin July 2018
++ [Junpenglao's presentation on likelihoods](https://github.com/junpenglao/All-that-likelihood-with-PyMC) at PyData Berlin July 2018
 + worked examples on [Discourse](https://discourse.pymc.io/t/pm-potential-much-needed-explanation-for-newbie/2341) and [Cross Validated](https://stats.stackexchange.com/a/252607/10625). 
-+ and the pymc3 port of CamDP's Probabilistic Programming and Bayesian Methods for Hackers, Chapter 5 Loss Functions, [Example: Optimizing for the Showcase on The Price is Right](https://github.com/CamDavidsonPilon/Probabilistic-Programming-and-Bayesian-Methods-for-Hackers/blob/master/Chapter5_LossFunctions/Ch5_LossFunctions_PyMC3.ipynb)
-+ Other examples using it, search for the `pymc3.Potential` tag on the left sidebar
++ and the pymc port of CamDP's Probabilistic Programming and Bayesian Methods for Hackers, Chapter 5 Loss Functions, [Example: Optimizing for the Showcase on The Price is Right](https://github.com/CamDavidsonPilon/Probabilistic-Programming-and-Bayesian-Methods-for-Hackers/blob/master/Chapter5_LossFunctions/Ch5_LossFunctions_PyMC.ipynb)
++ Other examples using it, search for the `pymc.Potential` tag on the left sidebar
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as mdl_hogg:
 
-    # state input data as Theano shared vars
+    # state input data as Aesara shared vars
     tsv_x = pm.Data("tsv_x", dfhoggs["x"], dims="datapoint_id")
     tsv_y = pm.Data("tsv_y", dfhoggs["y"], dims="datapoint_id")
     tsv_sigma_y = pm.Data("tsv_sigma_y", dfhoggs["sigma_y"], dims="datapoint_id")
@@ -544,7 +544,7 @@ with pm.Model(coords=coords) as mdl_hogg:
     sigma_y_out = pm.HalfNormal("sigma_y_out", sigma=10, testval=pm.floatX(1.0))
 
     # create in/outlier distributions to get a logp evaluated on the observed y
-    # this is not strictly a pymc3 likelihood, but behaves like one when we
+    # this is not strictly a pymc likelihood, but behaves like one when we
     # evaluate it within a Potential (which is minimised)
     inlier_logp = pm.Normal.dist(mu=y_est_in, sigma=tsv_sigma_y).logp(tsv_y)
 
@@ -581,7 +581,7 @@ Note that `pm.sample` conveniently and automatically creates the compound sampli
 
 Further note:
 + This also means we can't initialise using ADVI, so will init using `jitter+adapt_diag`
-+ In order to pass `kwargs` to a particular stepper, wrap them in a dict addressed to the lowercased [name of the stepper](https://github.com/pymc-devs/pymc3/blob/master/pymc3/sampling.py) e.g. `nuts={'target_accept': 0.85}`
++ In order to pass `kwargs` to a particular stepper, wrap them in a dict addressed to the lowercased [name of the stepper](https://github.com/pymc-devs/pymc/blob/master/pymc/sampling.py) e.g. `nuts={'target_accept': 0.85}`
 
 ```{code-cell} ipython3
 with mdl_hogg:
@@ -592,7 +592,7 @@ with mdl_hogg:
         cores=4,
         init="jitter+adapt_diag",
         nuts={"target_accept": 0.99},
-        return_inferencedata=True,
+        ,
     )
 ```
 
@@ -917,11 +917,11 @@ Overall:
 
 +++
 
-* Authored and adapted for this collection by Jon Sedar ([jonsedar](https://github.com/jonsedar)) on December, 2015. It was originally posted in [jonsedar/pymc3_examples](https://github.com/jonsedar/pymc3_examples)
+* Authored and adapted for this collection by Jon Sedar ([jonsedar](https://github.com/jonsedar)) on December, 2015. It was originally posted in [jonsedar/pymc_examples](https://github.com/jonsedar/pymc_examples)
 * Updated by Thomas Wiecki ([twiecki](https://github.com/twiecki)) on July, 2018
   * Restate outlier model using `pm.Normal.dist().logp()` and `pm.Potential()`
 * Updated by Jon Sedar on November, 2019
-  * Restate `nu` in StudentT model to be more efficient, drop explicit use of theano shared vars, generally improve plotting / explanations / layout
+  * Restate `nu` in StudentT model to be more efficient, drop explicit use of aesara shared vars, generally improve plotting / explanations / layout
 * Updated by Jon Sedar on May, 2020
   * Tidyup language, formatting, plots and warnings and rerun with pymc=3.8, arviz=0.7
 * Updated by Raul Maldonado ([CloudChaoszero](https://github.com/CloudChaoszero)) on April, 2021
@@ -936,7 +936,7 @@ Overall:
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p aesara,xarray
 ```
 
 :::{include} ../page_footer.md

@@ -15,7 +15,7 @@ kernelspec:
 # Dirichlet process mixtures for density estimation
 
 :::{post} Sept 16, 2021
-:tags: mixture model, pymc3.Beta, pymc3.Deterministic, pymc3.Gamma, pymc3.Mixture, pymc3.Model, pymc3.Normal, pymc3.NormalMixture
+:tags: mixture model, pymc.Beta, pymc.Deterministic, pymc.Gamma, pymc.Mixture, pymc.Model, pymc.Normal, pymc.NormalMixture
 :category: advanced
 :author: Austin Rochford, Abhipsha Das
 :::
@@ -71,17 +71,17 @@ We can use the stick-breaking process above to easily sample from a Dirichlet pr
 ```{code-cell} ipython3
 import os
 
+import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import scipy as sp
 import seaborn as sns
-import theano.tensor as tt
 import xarray as xr
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -236,7 +236,7 @@ ax.set_yticklabels([])
 ax.legend(loc=1);
 ```
 
-Sampling from these stochastic processes is fun, but these ideas become truly useful when we fit them to data.  The discreteness of samples and the stick-breaking representation of the Dirichlet process lend themselves nicely to Markov chain Monte Carlo simulation of posterior distributions.  We will perform this sampling using `PyMC3`.
+Sampling from these stochastic processes is fun, but these ideas become truly useful when we fit them to data.  The discreteness of samples and the stick-breaking representation of the Dirichlet process lend themselves nicely to Markov chain Monte Carlo simulation of posterior distributions.  We will perform this sampling using `PyMC`.
 
 Our first example uses a Dirichlet process mixture to estimate the density of waiting times between eruptions of the [Old Faithful](https://en.wikipedia.org/wiki/Old_Faithful) geyser in [Yellowstone National Park](https://en.wikipedia.org/wiki/Yellowstone_National_Park).
 
@@ -298,7 +298,7 @@ $$
 
 Note that instead of fixing a value of $\alpha$, as in our previous simulations, we specify a prior on $\alpha$, so that we may learn its posterior distribution from the observations.
 
-We now construct this model using `pymc3`.
+We now construct this model using `pymc`.
 
 ```{code-cell} ipython3
 N = old_faithful_df.shape[0]
@@ -308,7 +308,7 @@ K = 30
 
 ```{code-cell} ipython3
 def stick_breaking(beta):
-    portion_remaining = tt.concatenate([[1], tt.extra_ops.cumprod(1 - beta)[:-1]])
+    portion_remaining = at.concatenate([[1], at.extra_ops.cumprod(1 - beta)[:-1]])
 
     return beta * portion_remaining
 ```
@@ -338,7 +338,7 @@ with model:
         init="advi",
         target_accept=0.9,
         random_seed=RANDOM_SEED,
-        return_inferencedata=True,
+        ,
     )
 ```
 
@@ -499,7 +499,7 @@ with model:
         init="advi",
         target_accept=0.8,
         random_seed=RANDOM_SEED,
-        return_inferencedata=True,
+        ,
     )
 ```
 

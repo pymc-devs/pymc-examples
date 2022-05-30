@@ -196,7 +196,7 @@ Note that $p_k$ is always dependent on $\mu_\theta,\,\sigma_\theta$ and $\sigma_
 Finally, notice how we worked backwards from our data to construct this model. This is a very natural way to construct a model, allowing us to quickly see how each variable connects to others and their intuition. Meanwhile, when instantiating the model below, the construction goes in the opposite direction, i.e. starting from priors and moving up to the observations.
 
 ### PyMC implementation
-We now implement the model above in PyMC. Note that, to easily keep track of the players (as we have hundreds of them being both committing and disadvantaged), we make use of the `coords` argument for {class}`pymc.Model`. (For tutorials on this functionality see the notebook {ref}`data_container` or [this blogpost](https://oriolabrilpla.cat/python/arviz/pymc3/xarray/2020/09/22/pymc3-arviz.html).) We choose our priors to be the same as in [Austin Rochford's post](https://www.austinrochford.com/posts/2017-04-04-nba-irt.html), to make the comparison consistent.
+We now implement the model above in PyMC. Note that, to easily keep track of the players (as we have hundreds of them being both committing and disadvantaged), we make use of the `coords` argument for {class}`pymc.Model`. (For tutorials on this functionality see the notebook {ref}`data_container` or [this blogpost](https://oriolabrilpla.cat/python/arviz/pymc/xarray/2020/09/22/pymc-arviz.html).) We choose our priors to be the same as in [Austin Rochford's post](https://www.austinrochford.com/posts/2017-04-04-nba-irt.html), to make the comparison consistent.
 
 ```{code-cell} ipython3
 coords = {"disadvantaged": disadvantaged, "committing": committing}

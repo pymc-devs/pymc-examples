@@ -21,14 +21,14 @@ papermill:
   status: completed
 tags: []
 ---
+import aesara
+import aesara.tensor as at
 import arviz as az
 import matplotlib.cm as cmap
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 import scipy.stats as stats
-import theano
-import theano.tensor as tt
 
 %matplotlib inline
 ```
@@ -52,11 +52,11 @@ az.style.use("arviz-darkgrid")
 
 # Mean and Covariance Functions
 
-A large set of mean and covariance functions are available in PyMC3.  It is relatively easy to define custom mean and covariance functions.  Since PyMC3 uses Theano, their gradients do not need to be defined by the user.  
+A large set of mean and covariance functions are available in PyMC.  It is relatively easy to define custom mean and covariance functions.  Since PyMC uses Aesara, their gradients do not need to be defined by the user.  
 
 ## Mean functions
 
-The following mean functions are available in PyMC3.
+The following mean functions are available in PyMC.
 
 - `gp.mean.Zero`
 - `gp.mean.Constant`
@@ -84,7 +84,7 @@ print(zero_func(X).eval())
 
 +++ {"papermill": {"duration": 0.040891, "end_time": "2020-12-22T18:36:32.947028", "exception": false, "start_time": "2020-12-22T18:36:32.906137", "status": "completed"}, "tags": []}
 
-The default mean functions for all GP implementations in PyMC3 is `Zero`.
+The default mean functions for all GP implementations in PyMC is `Zero`.
 
 ### Constant
 
@@ -107,7 +107,7 @@ print(const_func(X).eval())
 
 +++ {"papermill": {"duration": 0.039627, "end_time": "2020-12-22T18:36:35.195057", "exception": false, "start_time": "2020-12-22T18:36:35.155430", "status": "completed"}, "tags": []}
 
-As long as the shape matches the input it will receive, `gp.mean.Constant` can also accept a Theano tensor or vector of PyMC3 random variables.
+As long as the shape matches the input it will receive, `gp.mean.Constant` can also accept a Aesara tensor or vector of PyMC random variables.
 
 ```{code-cell} ipython3
 ---
@@ -119,7 +119,7 @@ papermill:
   status: completed
 tags: []
 ---
-const_func_vec = pm.gp.mean.Constant(tt.ones(5))
+const_func_vec = pm.gp.mean.Constant(at.ones(5))
 
 print(const_func_vec(X).eval())
 ```
@@ -156,7 +156,7 @@ print(lin_func(X).eval())
 To define a custom mean function, subclass `gp.mean.Mean`, and provide `__call__` and `__init__` methods.  For example, the code for the `Constant` mean function is
 
 ```python
-import theano.tensor as tt
+import aesara.tensor as at
 
 class Constant(pm.gp.mean.Mean):
     
@@ -165,17 +165,17 @@ class Constant(pm.gp.mean.Mean):
         self.c = c 
 
     def __call__(self, X): 
-        return tt.alloc(1.0, X.shape[0]) * self.c
+        return at.alloc(1.0, X.shape[0]) * self.c
 
 ```
 
-Remember that Theano must be used instead of NumPy.
+Remember that Aesara must be used instead of NumPy.
 
 +++ {"papermill": {"duration": 0.039306, "end_time": "2020-12-22T18:36:36.998649", "exception": false, "start_time": "2020-12-22T18:36:36.959343", "status": "completed"}, "tags": []}
 
 ## Covariance functions
 
-PyMC3 contains a much larger suite of built-in covariance functions.  The following shows functions drawn from a GP prior with a given covariance function, and demonstrates how composite covariance functions can be constructed with Python operators in a straightforward manner.  Our goal was for our API to follow kernel algebra (see Ch.4 of Rassmussen + Williams) as closely as possible.  See the main documentation page for an overview on their usage in PyMC3.
+PyMC contains a much larger suite of built-in covariance functions.  The following shows functions drawn from a GP prior with a given covariance function, and demonstrates how composite covariance functions can be constructed with Python operators in a straightforward manner.  Our goal was for our API to follow kernel algebra (see Ch.4 of Rassmussen + Williams) as closely as possible.  See the main documentation page for an overview on their usage in PyMC.
 
 +++ {"papermill": {"duration": 0.039789, "end_time": "2020-12-22T18:36:37.078199", "exception": false, "start_time": "2020-12-22T18:36:37.038410", "status": "completed"}, "tags": []}
 
@@ -218,7 +218,7 @@ plt.xlabel("X");
 
 #### Both dimensions active
 
-It is easy to define kernels with higher dimensional inputs.  Notice that the ```ls``` (lengthscale) parameter is an array of length 2.  Lists of PyMC3 random variables can be used for automatic relevance determination (ARD).
+It is easy to define kernels with higher dimensional inputs.  Notice that the ```ls``` (lengthscale) parameter is an array of length 2.  Lists of PyMC random variables can be used for automatic relevance determination (ARD).
 
 ```{code-cell} ipython3
 ---
@@ -670,7 +670,7 @@ papermill:
 tags: []
 ---
 def warp_func(x, a, b, c):
-    return 1.0 + x + (a * tt.tanh(b * (x - c)))
+    return 1.0 + x + (a * at.tanh(b * (x - c)))
 
 
 a = 1.0
@@ -728,7 +728,7 @@ tags: []
 ---
 def mapping(x, T):
     c = 2.0 * np.pi * (1.0 / T)
-    u = tt.concatenate((tt.sin(c * x), tt.cos(c * x)), 1)
+    u = at.concatenate((at.sin(c * x), at.cos(c * x)), 1)
     return u
 
 
@@ -884,7 +884,7 @@ def tanh_func(x, ls1, ls2, w, x0):
     w:   transition width
     x0:  transition location.
     """
-    return (ls1 + ls2) / 2.0 - (ls1 - ls2) / 2.0 * tt.tanh((x - x0) / w)
+    return (ls1 + ls2) / 2.0 - (ls1 - ls2) / 2.0 * at.tanh((x - x0) / w)
 
 
 ls1 = 0.05
@@ -1152,7 +1152,7 @@ plt.xlabel("X");
 
 ### Defining a custom covariance function
 
-Covariance function objects in PyMC3 need to implement the `__init__`, `diag`, and `full` methods, and subclass `gp.cov.Covariance`.  `diag` returns only the diagonal of the covariance matrix, and `full` returns the full covariance matrix.  The `full` method has two inputs `X` and `Xs`.  `full(X)` returns the square covariance matrix, and `full(X, Xs)` returns the cross-covariances between the two sets of inputs.
+Covariance function objects in PyMC need to implement the `__init__`, `diag`, and `full` methods, and subclass `gp.cov.Covariance`.  `diag` returns only the diagonal of the covariance matrix, and `full` returns the full covariance matrix.  The `full` method has two inputs `X` and `Xs`.  `full(X)` returns the square covariance matrix, and `full(X, Xs)` returns the cross-covariances between the two sets of inputs.
 
 For example, here is the implementation of the `WhiteNoise` covariance function:
 
@@ -1163,13 +1163,13 @@ class WhiteNoise(pm.gp.cov.Covariance):
         self.sigma = sigma
 
     def diag(self, X):
-        return tt.alloc(tt.square(self.sigma), X.shape[0])
+        return at.alloc(at.square(self.sigma), X.shape[0])
 
     def full(self, X, Xs=None):
         if Xs is None:
-            return tt.diag(self.diag(X))
+            return at.diag(self.diag(X))
         else:
-            return tt.alloc(0.0, X.shape[0], Xs.shape[0])
+            return at.alloc(0.0, X.shape[0], Xs.shape[0])
 ```
 
 If we have forgotten an important covariance or mean function, please feel free to submit a pull request!

@@ -130,7 +130,7 @@ pm.model_to_graphviz(linear_regression)
 
 ```{code-cell} ipython3
 with linear_regression:
-    idata = pm.sample()
+    idata = pm.sample(return_inferencedata=False)
 ```
 
 ```{code-cell} ipython3
@@ -255,7 +255,7 @@ pm.model_to_graphviz(ind_slope_intercept)
 
 ```{code-cell} ipython3
 with ind_slope_intercept:
-    idata = pm.sample()
+    idata = pm.sample(return_inferencedata=False)
 
 az.plot_trace(idata, filter_vars="regex", var_names=["~μ"]);
 ```

@@ -14,7 +14,7 @@ kernelspec:
 (awkward_binning)=
 # Estimating parameters of a distribution from awkwardly binned data
 :::{post} Oct 23, 2021
-:tags: binned data, case study, parameter estimation, pymc3.Bound, pymc3.Deterministic, pymc3.Gamma, pymc3.HalfNormal, pymc3.Model, pymc3.Multinomial, pymc3.Normal
+:tags: binned data, case study, parameter estimation, pymc.Bound, pymc.Deterministic, pymc.Gamma, pymc.HalfNormal, pymc.Model, pymc.Multinomial, pymc.Normal
 :category: intermediate
 :author: Eric Ma, Benjamin T. Vincent
 :::
@@ -76,8 +76,8 @@ with pm.Model() as model:
     sigma = pm.HalfNormal("sigma")
     # generative process
     probs = pm.Normal.dist(mu=mu, sigma=sigma).cdf(cutpoints)
-    probs = theano.tensor.concatenate([[0], probs, [1]])
-    probs = theano.tensor.extra_ops.diff(probs)
+    probs = aesara.tensor.concatenate([[0], probs, [1]])
+    probs = aesara.tensor.extra_ops.diff(probs)
     # likelihood
     pm.Multinomial("counts", p=probs, n=sum(counts), observed=counts)
 ```
@@ -89,12 +89,12 @@ probs = pm.Normal.dist(mu=mu, sigma=sigma).cdf(cutpoints)
 ```
 calculates the cumulative density at each of the cutpoints. The second line 
 ```python
-probs = theano.tensor.concatenate([[0], probs, [1]])
+probs = aesara.tensor.concatenate([[0], probs, [1]])
 ```
 simply concatenates the cumulative density at $-\infty$ (which is zero) and at $\infty$ (which is 1).
 The third line
 ```python
-probs = theano.tensor.extra_ops.diff(probs)
+probs = aesara.tensor.extra_ops.diff(probs)
 ```
 calculates the difference between consecutive cumulative densities to give the actual probability of a datum falling in any given bin.
 
@@ -107,13 +107,13 @@ The approach was illustrated with a Gaussian distribution, and below we show a n
 ```{code-cell} ipython3
 :tags: []
 
+import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
-import theano.tensor as aet
 ```
 
 ```{code-cell} ipython3
@@ -220,8 +220,8 @@ with pm.Model() as model1:
     sigma = pm.HalfNormal("sigma")
     mu = pm.Normal("mu")
 
-    probs1 = aet.exp(pm.Normal.dist(mu=mu, sigma=sigma).logcdf(d1))
-    probs1 = aet.extra_ops.diff(aet.concatenate([[0], probs1, [1]]))
+    probs1 = at.exp(pm.Normal.dist(mu=mu, sigma=sigma).logcdf(d1))
+    probs1 = at.extra_ops.diff(at.concatenate([[0], probs1, [1]]))
     pm.Multinomial("counts1", p=probs1, n=c1.sum(), observed=c1.values)
 ```
 
@@ -233,7 +233,7 @@ pm.model_to_graphviz(model1)
 :tags: []
 
 with model1:
-    trace1 = pm.sample(return_inferencedata=True)
+    trace1 = pm.sample()
 ```
 
 ### Checks on model
@@ -247,7 +247,7 @@ we should be able to generate observations that look close to what we observed.
 
 with model1:
     ppc1 = pm.sample_posterior_predictive(trace1)
-    ppc = az.from_pymc3(posterior_predictive=ppc1)
+    ppc = pm.to_inference_data(posterior_predictive=ppc1)
 ```
 
 We can do this graphically.
@@ -326,8 +326,8 @@ with pm.Model() as model2:
     sigma = pm.HalfNormal("sigma")
     mu = pm.Normal("mu")
 
-    probs2 = aet.exp(pm.Normal.dist(mu=mu, sigma=sigma).logcdf(d2))
-    probs2 = aet.extra_ops.diff(aet.concatenate([[0], probs2, [1]]))
+    probs2 = at.exp(pm.Normal.dist(mu=mu, sigma=sigma).logcdf(d2))
+    probs2 = at.extra_ops.diff(at.concatenate([[0], probs2, [1]]))
     pm.Multinomial("counts2", p=probs2, n=c2.sum(), observed=c2.values)
 ```
 
@@ -335,7 +335,7 @@ with pm.Model() as model2:
 :tags: []
 
 with model2:
-    trace2 = pm.sample(return_inferencedata=True)
+    trace2 = pm.sample()
 ```
 
 ```{code-cell} ipython3
@@ -353,7 +353,7 @@ Let's run a PPC check to ensure we are generating data that are similar to what 
 
 with model2:
     ppc2 = pm.sample_posterior_predictive(trace2)
-    ppc = az.from_pymc3(posterior_predictive=ppc2)
+    ppc = pm.to_inference_data(posterior_predictive=ppc2)
 ```
 
 Note that `ppc2` is not in xarray format. It is a dictionary where the keys are the parameters and the values are arrays of samples. So the line below looks at the mean bin posterior predictive bin counts, averaged over samples.
@@ -422,12 +422,12 @@ with pm.Model() as model3:
     sigma = pm.HalfNormal("sigma")
     mu = pm.Normal("mu")
 
-    probs1 = aet.exp(pm.Normal.dist(mu=mu, sigma=sigma).logcdf(d1))
-    probs1 = aet.extra_ops.diff(aet.concatenate([np.array([0]), probs1, np.array([1])]))
+    probs1 = at.exp(pm.Normal.dist(mu=mu, sigma=sigma).logcdf(d1))
+    probs1 = at.extra_ops.diff(at.concatenate([np.array([0]), probs1, np.array([1])]))
     probs1 = pm.Deterministic("normal1_cdf", probs1)
 
-    probs2 = aet.exp(pm.Normal.dist(mu=mu, sigma=sigma).logcdf(d2))
-    probs2 = aet.extra_ops.diff(aet.concatenate([np.array([0]), probs2, np.array([1])]))
+    probs2 = at.exp(pm.Normal.dist(mu=mu, sigma=sigma).logcdf(d2))
+    probs2 = at.extra_ops.diff(at.concatenate([np.array([0]), probs2, np.array([1])]))
     probs2 = pm.Deterministic("normal2_cdf", probs2)
 
     pm.Multinomial("counts1", p=probs1, n=c1.sum(), observed=c1.values)
@@ -442,7 +442,7 @@ pm.model_to_graphviz(model3)
 :tags: []
 
 with model3:
-    trace3 = pm.sample(return_inferencedata=True)
+    trace3 = pm.sample()
 ```
 
 ```{code-cell} ipython3
@@ -454,7 +454,7 @@ az.plot_pair(trace3, var_names=["mu", "sigma"], divergences=True);
 ```{code-cell} ipython3
 with model3:
     ppc3 = pm.sample_posterior_predictive(trace3)
-    ppc = az.from_pymc3(posterior_predictive=ppc3)
+    ppc = pm.to_inference_data(posterior_predictive=ppc3)
 ```
 
 ```{code-cell} ipython3
@@ -516,8 +516,8 @@ with pm.Model() as model4:
     sigma = pm.HalfNormal("sigma")
     mu = pm.Normal("mu")
     # study 1
-    probs1 = aet.exp(pm.Normal.dist(mu=mu, sigma=sigma).logcdf(d1))
-    probs1 = aet.extra_ops.diff(aet.concatenate([np.array([0]), probs1, np.array([1])]))
+    probs1 = at.exp(pm.Normal.dist(mu=mu, sigma=sigma).logcdf(d1))
+    probs1 = at.extra_ops.diff(at.concatenate([np.array([0]), probs1, np.array([1])]))
     probs1 = pm.Deterministic("normal1_cdf", probs1)
     pm.Multinomial("counts1", p=probs1, n=c1.sum(), observed=c1.values)
     # study 2
@@ -530,7 +530,7 @@ pm.model_to_graphviz(model4)
 
 ```{code-cell} ipython3
 with model4:
-    trace4 = pm.sample(return_inferencedata=True)
+    trace4 = pm.sample()
 ```
 
 ### Posterior predictive checks
@@ -538,7 +538,7 @@ with model4:
 ```{code-cell} ipython3
 with model4:
     ppc4 = pm.sample_posterior_predictive(trace4)
-    ppc = az.from_pymc3(posterior_predictive=ppc4)
+    ppc = pm.to_inference_data(posterior_predictive=ppc4)
 ```
 
 ```{code-cell} ipython3
@@ -608,13 +608,13 @@ with pm.Model(coords=coords) as model5:
     sigma = BoundedNormal("sigma", mu=sigma_pop_mean, sigma=sigma_pop_sigma, dims="study")
 
     # Study 1
-    probs1 = aet.exp(pm.Normal.dist(mu=mu[0], sigma=sigma[0]).logcdf(d1))
-    probs1 = aet.extra_ops.diff(aet.concatenate([np.array([0]), probs1, np.array([1])]))
+    probs1 = at.exp(pm.Normal.dist(mu=mu[0], sigma=sigma[0]).logcdf(d1))
+    probs1 = at.extra_ops.diff(at.concatenate([np.array([0]), probs1, np.array([1])]))
     probs1 = pm.Deterministic("normal1_cdf", probs1, dims="bin1")
 
     # Study 2
-    probs2 = aet.exp(pm.Normal.dist(mu=mu[1], sigma=sigma[1]).logcdf(d2))
-    probs2 = aet.extra_ops.diff(aet.concatenate([np.array([0]), probs2, np.array([1])]))
+    probs2 = at.exp(pm.Normal.dist(mu=mu[1], sigma=sigma[1]).logcdf(d2))
+    probs2 = at.extra_ops.diff(at.concatenate([np.array([0]), probs2, np.array([1])]))
     probs2 = pm.Deterministic("normal2_cdf", probs2, dims="bin2")
 
     # Likelihood
@@ -641,13 +641,13 @@ with pm.Model(coords=coords) as model5:
     sigma = pm.Gamma("sigma", alpha=2, beta=1, dims="study")
 
     # Study 1
-    probs1 = aet.exp(pm.Normal.dist(mu=mu[0], sigma=sigma[0]).logcdf(d1))
-    probs1 = aet.extra_ops.diff(aet.concatenate([np.array([0]), probs1, np.array([1])]))
+    probs1 = at.exp(pm.Normal.dist(mu=mu[0], sigma=sigma[0]).logcdf(d1))
+    probs1 = at.extra_ops.diff(at.concatenate([np.array([0]), probs1, np.array([1])]))
     probs1 = pm.Deterministic("normal1_cdf", probs1, dims="bin1")
 
     # Study 2
-    probs2 = aet.exp(pm.Normal.dist(mu=mu[1], sigma=sigma[1]).logcdf(d2))
-    probs2 = aet.extra_ops.diff(aet.concatenate([np.array([0]), probs2, np.array([1])]))
+    probs2 = at.exp(pm.Normal.dist(mu=mu[1], sigma=sigma[1]).logcdf(d2))
+    probs2 = at.extra_ops.diff(at.concatenate([np.array([0]), probs2, np.array([1])]))
     probs2 = pm.Deterministic("normal2_cdf", probs2, dims="bin2")
 
     # Likelihood
@@ -661,7 +661,7 @@ pm.model_to_graphviz(model5)
 
 ```{code-cell} ipython3
 with model5:
-    trace5 = pm.sample(tune=2000, target_accept=0.99, return_inferencedata=True)
+    trace5 = pm.sample(tune=2000, target_accept=0.99)
 ```
 
 We can see that despite our efforts, we still get some divergences. Plotting the samples and highlighting the divergences suggests (from the top left subplot) that our model is suffering from the funnel problem
@@ -677,7 +677,7 @@ az.plot_pair(
 ```{code-cell} ipython3
 with model5:
     ppc5 = pm.sample_posterior_predictive(trace5)
-    ppc = az.from_pymc3(posterior_predictive=ppc5)
+    ppc = pm.to_inference_data(posterior_predictive=ppc5)
 ```
 
 ```{code-cell} ipython3
@@ -745,13 +745,13 @@ with pm.Model(coords=coords) as model5:
     sigma = pm.HalfNormal("sigma", dims='study')
     
     # Study 1
-    probs1 = aet.exp(pm.Normal.dist(mu=mu[0], sigma=sigma[0]).logcdf(d1))
-    probs1 = aet.extra_ops.diff(aet.concatenate([np.array([0]), probs1, np.array([1])]))
+    probs1 = at.exp(pm.Normal.dist(mu=mu[0], sigma=sigma[0]).logcdf(d1))
+    probs1 = at.extra_ops.diff(at.concatenate([np.array([0]), probs1, np.array([1])]))
     probs1 = pm.Deterministic("normal1_cdf", probs1, dims='bin1')
 
     # Study 2
-    probs2 = aet.exp(pm.Normal.dist(mu=mu[1], sigma=sigma[1]).logcdf(d2))
-    probs2 = aet.extra_ops.diff(aet.concatenate([np.array([0]), probs2, np.array([1])]))
+    probs2 = at.exp(pm.Normal.dist(mu=mu[1], sigma=sigma[1]).logcdf(d2))
+    probs2 = at.extra_ops.diff(at.concatenate([np.array([0]), probs2, np.array([1])]))
     probs2 = pm.Deterministic("normal2_cdf", probs2, dims='bin2')
 
     # Likelihood
@@ -852,12 +852,12 @@ with pm.Model() as model6:
     mu = pm.Normal("mu", 20, 5)
     beta = pm.HalfNormal("beta", 10)
 
-    probs1 = aet.exp(pm.Gumbel.dist(mu=mu, beta=beta).logcdf(d1))
-    probs1 = aet.extra_ops.diff(aet.concatenate([np.array([0]), probs1, np.array([1])]))
+    probs1 = at.exp(pm.Gumbel.dist(mu=mu, beta=beta).logcdf(d1))
+    probs1 = at.extra_ops.diff(at.concatenate([np.array([0]), probs1, np.array([1])]))
     probs1 = pm.Deterministic("gumbel_cdf1", probs1)
 
-    probs2 = aet.exp(pm.Gumbel.dist(mu=mu, beta=beta).logcdf(d2))
-    probs2 = aet.extra_ops.diff(aet.concatenate([np.array([0]), probs2, np.array([1])]))
+    probs2 = at.exp(pm.Gumbel.dist(mu=mu, beta=beta).logcdf(d2))
+    probs2 = at.extra_ops.diff(at.concatenate([np.array([0]), probs2, np.array([1])]))
     probs2 = pm.Deterministic("gumbel_cdf2", probs2)
 
     pm.Multinomial("counts1", p=probs1, n=c1.sum(), observed=c1.values)
@@ -870,7 +870,7 @@ pm.model_to_graphviz(model6)
 
 ```{code-cell} ipython3
 with model6:
-    trace6 = pm.sample(return_inferencedata=True)
+    trace6 = pm.sample()
 ```
 
 ### Posterior predictive checks
@@ -878,7 +878,7 @@ with model6:
 ```{code-cell} ipython3
 with model6:
     ppc6 = pm.sample_posterior_predictive(trace6)
-    ppc = az.from_pymc3(posterior_predictive=ppc6)
+    ppc = pm.to_inference_data(posterior_predictive=ppc6)
 ```
 
 ```{code-cell} ipython3
@@ -942,7 +942,7 @@ We have presented a range of different examples here which makes clear that the 
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p aesara,xarray
 ```
 
 :::{include} ../page_footer.md

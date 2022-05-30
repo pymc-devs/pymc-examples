@@ -195,7 +195,7 @@ Speaking of sampling, let's fire up the Bayesian machinery!
 
 ```{code-cell} ipython3
 with pooled_model:
-    pooled_trace = pm.sample()
+    pooled_trace = pm.sample(return_inferencedata=False)
 
 pooled_trace.extend(prior_checks)
 az.summary(pooled_trace, round_to=2)
@@ -293,7 +293,7 @@ pm.model_to_graphviz(unpooled_model)
 
 ```{code-cell} ipython3
 with unpooled_model:
-    unpooled_trace = pm.sample()
+    unpooled_trace = pm.sample(return_inferencedata=False)
 ```
 
 Sampling went fine again. Let's look at the expected values for both basement (dimension 0) and floor (dimension 1) in each county:

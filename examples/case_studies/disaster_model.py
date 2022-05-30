@@ -9,11 +9,11 @@ disasters[t] ~ Poi(early_mean if t <= switchpoint, late_mean otherwise)
 """
 
 import arviz as az
-import theano.tensor as tt
+import aesara.tensor as at
 
 from numpy import arange, array
 
-import pymc3 as pm
+import pymc as pm
 
 __all__ = ["disasters_data", "switchpoint", "early_mean", "late_mean", "rate", "disasters"]
 
@@ -144,7 +144,7 @@ with pm.Model() as model:
 
     # Allocate appropriate Poisson rates to years before and after current
     # switchpoint location
-    rate = tt.switch(switchpoint >= year, early_mean, late_mean)
+    rate = at.switch(switchpoint >= year, early_mean, late_mean)
 
     disasters = pm.Poisson("disasters", rate, observed=disasters_data)
 

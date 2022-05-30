@@ -6,9 +6,9 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python PyMC3 (Dev)
+  display_name: Python PyMC (Dev)
   language: python
-  name: pymc3-dev-py38
+  name: pymc-dev-py38
 ---
 
 # Bayes Factors and Marginal Likelihood
@@ -16,13 +16,13 @@ kernelspec:
 ```{code-cell} ipython3
 import arviz as az
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 
 from matplotlib import pyplot as plt
 from scipy.special import betaln
 from scipy.stats import beta
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -120,7 +120,7 @@ In case we find these problems, we can try to improve sampling by implementing t
 
 * Ideally, we can get a better sampling of both models if they are visited equally, so we can adjust the prior for each model in such a way to favour the less favourable model and disfavour the most favourable one. This will not affect the computation of the Bayes factor because we have to include the priors in the computation.
 
-* Use pseudo priors, as suggested by Kruschke and others. The idea is simple: if the problem is that the parameters drift away unrestricted, when the model they belong to is not selected, then one solution is to try to restrict them artificially, but only when not used! You can find an example of using pseudo priors in a model used by Kruschke in his book and [ported](https://github.com/aloctavodia/Doing_bayesian_data_analysis) to Python/PyMC3.
+* Use pseudo priors, as suggested by Kruschke and others. The idea is simple: if the problem is that the parameters drift away unrestricted, when the model they belong to is not selected, then one solution is to try to restrict them artificially, but only when not used! You can find an example of using pseudo priors in a model used by Kruschke in his book and [ported](https://github.com/aloctavodia/Doing_bayesian_data_analysis) to Python/PyMC.
 
 If you want to learn more about this approach to the computation of the marginal likelihood see [Chapter 12 of Doing Bayesian Data Analysis](http://www.sciencedirect.com/science/book/9780124058880). This chapter also discuss how to use Bayes Factors as a Bayesian alternative to classical hypothesis testing.
 
@@ -218,9 +218,9 @@ np.round(BF_smc)
 
 As we can see from the previous cell, SMC gives essentially the same answer as the analytical calculation! 
 
-We obtain an array with two values, one per SMC run. As with other samplers PyMC3 attempts to run the sampler more than one time. Having independent samples may help diagnose the performance of the sampler.
+We obtain an array with two values, one per SMC run. As with other samplers PyMC attempts to run the sampler more than one time. Having independent samples may help diagnose the performance of the sampler.
 
-The advantage of using SMC to compute the (log) marginal likelihood is that we can use it for a wider range of models as a closed-form expression is no longer needed. The cost we pay for this flexibility is a more expensive computation. Notice that SMC (with a metropolis kernel as implemented in PyMC3) is not as efficient or robust as gradient-based samplers like NUTS. As the dimensionality of the problem increases a more accurate estimation of the posterior and the _marginal likelihood_ will require a larger number of `draws`. Additionally, a larger number of `n_steps` may help, specially if after stage 1 we notice that SMC uses a number of steps that are close to `n_steps`, i.e. SMC is having trouble to automatically reduce this number.
+The advantage of using SMC to compute the (log) marginal likelihood is that we can use it for a wider range of models as a closed-form expression is no longer needed. The cost we pay for this flexibility is a more expensive computation. Notice that SMC (with a metropolis kernel as implemented in PyMC) is not as efficient or robust as gradient-based samplers like NUTS. As the dimensionality of the problem increases a more accurate estimation of the posterior and the _marginal likelihood_ will require a larger number of `draws`. Additionally, a larger number of `n_steps` may help, specially if after stage 1 we notice that SMC uses a number of steps that are close to `n_steps`, i.e. SMC is having trouble to automatically reduce this number.
 
 You can check the number of steps per stage by doing:
 

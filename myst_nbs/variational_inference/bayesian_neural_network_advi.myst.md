@@ -17,7 +17,7 @@ kernelspec:
 +++
 
 :::{post} Oct 20, 2021
-:tags: pymc3.ADVI, pymc3.Bernoulli, pymc3.Data, pymc3.Minibatch, pymc3.Model, pymc3.Normal, variational inference
+:tags: pymc.ADVI, pymc.Bernoulli, pymc.Data, pymc.Minibatch, pymc.Model, pymc.Normal, variational inference
 :category: intermediate
 :::
 
@@ -25,22 +25,22 @@ kernelspec:
 
 ## Current trends in Machine Learning
 
-There are currently three big trends in machine learning: **Probabilistic Programming**, **Deep Learning** and "**Big Data**". Inside of PP, a lot of innovation is in making things scale using **Variational Inference**. In this blog post, I will show how to use **Variational Inference** in PyMC3 to fit a simple Bayesian Neural Network. I will also discuss how bridging Probabilistic Programming and Deep Learning can open up very interesting avenues to explore in future research.
+There are currently three big trends in machine learning: **Probabilistic Programming**, **Deep Learning** and "**Big Data**". Inside of PP, a lot of innovation is in making things scale using **Variational Inference**. In this blog post, I will show how to use **Variational Inference** in PyMC to fit a simple Bayesian Neural Network. I will also discuss how bridging Probabilistic Programming and Deep Learning can open up very interesting avenues to explore in future research.
 
 ### Probabilistic Programming at scale
-**Probabilistic Programming** allows very flexible creation of custom probabilistic models and is mainly concerned with **insight** and learning from your data. The approach is inherently **Bayesian** so we can specify **priors** to inform and constrain our models and get uncertainty estimation in form of a **posterior** distribution. Using [MCMC sampling algorithms](http://twiecki.github.io/blog/2015/11/10/mcmc-sampling/) we can draw samples from this posterior to very flexibly estimate these models. PyMC3 and [Stan](http://mc-stan.org/) are the current state-of-the-art tools to consruct and estimate these models. One major drawback of sampling, however, is that it's often very slow, especially for high-dimensional models. That's why more recently, **variational inference** algorithms have been developed that are almost as flexible as MCMC but much faster. Instead of drawing samples from the posterior, these algorithms instead fit a distribution (e.g. normal) to the posterior turning a sampling problem into and optimization problem. Automatic Differentation Variational Inference {cite:p}`kucukelbir2015automatic` is implemented in PyMC3 and [Stan](http://mc-stan.org/), as well as a new package called [Edward](https://github.com/blei-lab/edward/) which is mainly concerned with Variational Inference. 
+**Probabilistic Programming** allows very flexible creation of custom probabilistic models and is mainly concerned with **insight** and learning from your data. The approach is inherently **Bayesian** so we can specify **priors** to inform and constrain our models and get uncertainty estimation in form of a **posterior** distribution. Using [MCMC sampling algorithms](http://twiecki.github.io/blog/2015/11/10/mcmc-sampling/) we can draw samples from this posterior to very flexibly estimate these models. PyMC and [Stan](http://mc-stan.org/) are the current state-of-the-art tools to consruct and estimate these models. One major drawback of sampling, however, is that it's often very slow, especially for high-dimensional models. That's why more recently, **variational inference** algorithms have been developed that are almost as flexible as MCMC but much faster. Instead of drawing samples from the posterior, these algorithms instead fit a distribution (e.g. normal) to the posterior turning a sampling problem into and optimization problem. Automatic Differentation Variational Inference {cite:p}`kucukelbir2015automatic` is implemented in PyMC and [Stan](http://mc-stan.org/), as well as a new package called [Edward](https://github.com/blei-lab/edward/) which is mainly concerned with Variational Inference. 
 
 Unfortunately, when it comes to traditional ML problems like classification or (non-linear) regression, Probabilistic Programming often plays second fiddle (in terms of accuracy and scalability) to more algorithmic approaches like [ensemble learning](https://en.wikipedia.org/wiki/Ensemble_learning) (e.g. [random forests](https://en.wikipedia.org/wiki/Random_forest) or [gradient boosted regression trees](https://en.wikipedia.org/wiki/Boosting_(machine_learning)).
 
 ### Deep Learning
 
-Now in its third renaissance, deep learning has been making headlines repeatadly by dominating almost any object recognition benchmark, kicking ass at Atari games {cite:p}`mnih2013playing`, and beating the world-champion Lee Sedol at Go {cite:p}`silver2016masteringgo`. From a statistical point, Neural Networks are extremely good non-linear function approximators and representation learners. While mostly known for classification, they have been extended to unsupervised learning with AutoEncoders {cite:p}`kingma2014autoencoding` and in all sorts of other interesting ways (e.g. [Recurrent Networks](https://en.wikipedia.org/wiki/Recurrent_neural_network), or [MDNs](http://cbonnett.github.io/MDN_EDWARD_KERAS_TF.html) to estimate multimodal distributions). Why do they work so well? No one really knows as the statistical properties are still not fully understood.
+Now in its third renaissance, deep learning has been making headlines repeatadly by dominating almost any object recognition benchmark, kicking ass at Atari games {cite:p}`mnih2013playing`, and beating the world-champion Lee Sedol at Go {cite:p}`silver2016masteringgo`. From a statistical point, Neural Networks are extremely good non-linear function approximators and representation learners. While mostly known for classification, they have been extended to unsupervised learning with AutoEncoders {cite:p}`kingma2014autoencoding` and in all sorts of other interesting ways (e.g. [Recurrent Networks](https://en.wikipedia.org/wiki/Recurrent_neural_network), or [MDNs](http://cbonneat.github.io/MDN_EDWARD_KERAS_TF.html) to estimate multimodal distributions). Why do they work so well? No one really knows as the statistical properties are still not fully understood.
 
 A large part of the innoviation in deep learning is the ability to train these extremely complex models. This rests on several pillars:
 * Speed: facilitating the GPU allowed for much faster processing.
-* Software: frameworks like [Theano](http://deeplearning.net/software/theano/) and [TensorFlow](https://www.tensorflow.org/) allow flexible creation of abstract models that can then be optimized and compiled to CPU or GPU.
+* Software: frameworks like [Aesara](http://deeplearning.net/software/aesara/) and [TensorFlow](https://www.tensorflow.org/) allow flexible creation of abstract models that can then be optimized and compiled to CPU or GPU.
 * Learning algorithms: training on sub-sets of the data -- stochastic gradient descent -- allows us to train these models on massive amounts of data. Techniques like drop-out avoid overfitting.
-* Architectural: A lot of innovation comes from changing the input layers, like for convolutional neural nets, or the output layers, like for [MDNs](http://cbonnett.github.io/MDN_EDWARD_KERAS_TF.html).
+* Architectural: A lot of innovation comes from changing the input layers, like for convolutional neural nets, or the output layers, like for [MDNs](http://cbonneat.github.io/MDN_EDWARD_KERAS_TF.html).
 
 ### Bridging Deep Learning and Probabilistic Programming
 On one hand we have Probabilistic Programming which allows us to build rather small and focused models in a very principled and well-understood way to gain insight into our data; on the other hand we have deep learning which uses many heuristics to train huge and highly complex models that are amazing at prediction. Recent innovations in variational inference allow probabilistic programming to scale model complexity as well as data size. We are thus at the cusp of being able to combine these two approaches to hopefully unlock new innovations in Machine Learning. For more motivation, see also [Dustin Tran's](https://twitter.com/dustinvtran) recent [blog post](http://dustintran.com/blog/a-quick-update-edward-and-some-motivations/).
@@ -50,12 +50,12 @@ While this would allow Probabilistic Programming to be applied to a much wider s
 * **Uncertainty in representations**: We also get uncertainty estimates of our weights which could inform us about the stability of the learned representations of the network.
 * **Regularization with priors**: Weights are often L2-regularized to avoid overfitting, this very naturally becomes a Gaussian prior for the weight coefficients. We could, however, imagine all kinds of other priors, like spike-and-slab to enforce sparsity (this would be more like using the L1-norm).
 * **Transfer learning with informed priors**: If we wanted to train a network on a new object recognition data set, we could bootstrap the learning by placing informed priors centered around weights retrieved from other pre-trained networks, like GoogLeNet {cite:p}`szegedy2014going`. 
-* **Hierarchical Neural Networks**: A very powerful approach in Probabilistic Programming is hierarchical modeling that allows pooling of things that were learned on sub-groups to the overall population (see my tutorial on [Hierarchical Linear Regression in PyMC3](https://twiecki.github.io/blog/2014/03/17/bayesian-glms-3/)). Applied to Neural Networks, in hierarchical data sets, we could train individual neural nets to specialize on sub-groups while still being informed about representations of the overall population. For example, imagine a network trained to classify car models from pictures of cars. We could train a hierarchical neural network where a sub-neural network is trained to tell apart models from only a single manufacturer. The intuition being that all cars from a certain manufactures share certain similarities so it would make sense to train individual networks that specialize on brands. However, due to the individual networks being connected at a higher layer, they would still share information with the other specialized sub-networks about features that are useful to all brands. Interestingly, different layers of the network could be informed by various levels of the hierarchy -- e.g. early layers that extract visual lines could be identical in all sub-networks while the higher-order representations would be different. The hierarchical model would learn all that from the data.
+* **Hierarchical Neural Networks**: A very powerful approach in Probabilistic Programming is hierarchical modeling that allows pooling of things that were learned on sub-groups to the overall population (see my tutorial on [Hierarchical Linear Regression in PyMC](https://twiecki.github.io/blog/2014/03/17/bayesian-glms-3/)). Applied to Neural Networks, in hierarchical data sets, we could train individual neural nets to specialize on sub-groups while still being informed about representations of the overall population. For example, imagine a network trained to classify car models from pictures of cars. We could train a hierarchical neural network where a sub-neural network is trained to tell apart models from only a single manufacturer. The intuition being that all cars from a certain manufactures share certain similarities so it would make sense to train individual networks that specialize on brands. However, due to the individual networks being connected at a higher layer, they would still share information with the other specialized sub-networks about features that are useful to all brands. Interestingly, different layers of the network could be informed by various levels of the hierarchy -- e.g. early layers that extract visual lines could be identical in all sub-networks while the higher-order representations would be different. The hierarchical model would learn all that from the data.
 * **Other hybrid architectures**: We can more freely build all kinds of neural networks. For example, Bayesian non-parametrics could be used to flexibly adjust the size and shape of the hidden layers to optimally scale the network architecture to the problem at hand during training. Currently, this requires costly hyper-parameter optimization and a lot of tribal knowledge.
 
 +++
 
-## Bayesian Neural Networks in PyMC3
+## Bayesian Neural Networks in PyMC
 
 +++
 
@@ -64,26 +64,26 @@ While this would allow Probabilistic Programming to be applied to a much wider s
 First, lets generate some toy data -- a simple binary classification problem that's not linearly separable.
 
 ```{code-cell} ipython3
+import aesara
+import aesara.tensor as T
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
 import sklearn
-import theano
-import theano.tensor as T
 
 from sklearn import datasets
 from sklearn.datasets import make_moons
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import scale
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
-floatX = theano.config.floatX
+floatX = aesara.config.floatX
 RANDOM_SEED = 9927
 rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
@@ -112,7 +112,7 @@ ax.set(xlabel="X", ylabel="Y", title="Toy binary classification data set");
 
 ### Model specification
 
-A neural network is quite simple. The basic unit is a [perceptron](https://en.wikipedia.org/wiki/Perceptron) which is nothing more than [logistic regression](http://pymc-devs.github.io/pymc3/notebooks/posterior_predictive.html#Prediction). We use many of these in parallel and then stack them up to get hidden layers. Here we will use 2 hidden layers with 5 neurons each which is sufficient for such a simple problem.
+A neural network is quite simple. The basic unit is a [perceptron](https://en.wikipedia.org/wiki/Perceptron) which is nothing more than [logistic regression](http://pymc-devs.github.io/pymc/notebooks/posterior_predictive.html#Prediction). We use many of these in parallel and then stack them up to get hidden layers. Here we will use 2 hidden layers with 5 neurons each which is sufficient for such a simple problem.
 
 ```{code-cell} ipython3
 ---
@@ -136,9 +136,9 @@ def construct_nn(ann_input, ann_output):
     with pm.Model(coords=coords) as neural_network:
         # Trick: Turn inputs and outputs into shared variables using the data container pm.Data
         # It's still the same thing, but we can later change the values of the shared variable
-        # (to switch in the test-data later) and pymc3 will just use the new data.
+        # (to switch in the test-data later) and pymc will just use the new data.
         # Kind-of like a pointer we can redirect.
-        # For more info, see: http://deeplearning.net/software/theano/library/compile/shared.html
+        # For more info, see: http://deeplearning.net/software/aesara/library/compile/shared.html
         ann_input = pm.Data("ann_input", X_train)
         ann_output = pm.Data("ann_output", Y_train)
 
@@ -180,9 +180,9 @@ That's not so bad. The `Normal` priors help regularize the weights. Usually we w
 
 ### Variational Inference: Scaling model complexity
 
-We could now just run a MCMC sampler like {class}`~pymc3.step_methods.hmc.nuts.NUTS` which works pretty well in this case, but as I already mentioned, this will become very slow as we scale our model up to deeper architectures with more layers.
+We could now just run a MCMC sampler like {class}`~pymc.step_methods.hmc.nuts.NUTS` which works pretty well in this case, but as I already mentioned, this will become very slow as we scale our model up to deeper architectures with more layers.
 
-Instead, we will use the {class}`~pymc3.variational.inference.ADVI` variational inference algorithm which was added to `PyMC3`, and updated to use the operator variational inference (OPVI) framework. This is much faster and will scale better. Note, that this is a mean-field approximation so we ignore correlations in the posterior.
+Instead, we will use the {class}`~pymc.variational.inference.ADVI` variational inference algorithm which was added to `PyMC`, and updated to use the operator variational inference (OPVI) framework. This is much faster and will scale better. Note, that this is a mean-field approximation so we ignore correlations in the posterior.
 
 ```{code-cell} ipython3
 ---
@@ -212,13 +212,13 @@ plt.xlabel("iteration");
 
 ```{code-cell} ipython3
 trace = approx.sample(draws=5000)
-trace = az.from_pymc3(trace, model=neural_network)
+trace = pm.to_inference_data(trace, model=neural_network)
 ```
 
 Now that we trained our model, lets predict on the hold-out set using a posterior predictive check (PPC). 
 
-1. We can use {func}`~pymc3.sampling.sample_posterior_predictive` to generate new data (in this case class predictions) from the posterior (sampled from the variational estimation).
-2. It is better to get the node directly and build theano graph using our approximation (`approx.sample_node`) , we get a lot of speed up
+1. We can use {func}`~pymc.sampling.sample_posterior_predictive` to generate new data (in this case class predictions) from the posterior (sampled from the variational estimation).
+2. It is better to get the node directly and build aesara graph using our approximation (`approx.sample_node`) , we get a lot of speed up
 
 ```{code-cell} ipython3
 # We can get predicted probability from model
@@ -234,7 +234,7 @@ jupyter:
 x = T.matrix("X")
 # symbolic number of samples is supported, we build vectorized posterior on the fly
 n = T.iscalar("n")
-# Do not forget test_values or set theano.config.compute_test_value = 'off'
+# Do not forget test_values or set aesara.config.compute_test_value = 'off'
 x.tag.test_value = np.empty_like(X_train[:10])
 n.tag.test_value = 100
 _sample_proba = approx.sample_node(
@@ -243,7 +243,7 @@ _sample_proba = approx.sample_node(
 # It is time to compile the function
 # No updates are needed for Approximation random generator
 # Efficient vectorized form of sampling is used
-sample_proba = theano.function([x, n], _sample_proba)
+sample_proba = aesara.function([x, n], _sample_proba)
 
 # Create benchmark functions
 def production_step1():
@@ -251,7 +251,7 @@ def production_step1():
     ppc = pm.sample_posterior_predictive(
         trace, samples=500, progressbar=False, model=neural_network
     )
-    trace.extend(az.from_pymc3(posterior_predictive=ppc, model=neural_network))
+    trace.extend(pm.to_inference_data(posterior_predictive=ppc, model=neural_network))
     # Use probability of > 0.5 to assume prediction of class 1
     pred = ppc["out"].mean(axis=0) > 0.5
 
@@ -380,13 +380,13 @@ az.plot_trace(trace);
 
 ## Summary
 
-Hopefully this blog post demonstrated a very powerful new inference algorithm available in PyMC3: {class}`~pymc3.variational.inference.ADVI`. I also think bridging the gap between Probabilistic Programming and Deep Learning can open up many new avenues for innovation in this space, as discussed above. Specifically, a hierarchical neural network sounds pretty bad-ass. These are really exciting times.
+Hopefully this blog post demonstrated a very powerful new inference algorithm available in PyMC: {class}`~pymc.variational.inference.ADVI`. I also think bridging the gap between Probabilistic Programming and Deep Learning can open up many new avenues for innovation in this space, as discussed above. Specifically, a hierarchical neural network sounds pretty bad-ass. These are really exciting times.
 
 ## Next steps
 
-[`Theano`](https://github.com/Theano/Theano), which is used by `PyMC3` as its computational backend, was mainly developed for estimating neural networks and there are great libraries like [`Lasagne`](https://github.com/Lasagne/Lasagne) that build on top of `Theano` to make construction of the most common neural network architectures easy. Ideally, we wouldn't have to build the models by hand as I did above, but use the convenient syntax of `Lasagne` to construct the architecture, define our priors, and run ADVI. 
+[`Aesara`](https://github.com/Aesara/Aesara), which is used by `PyMC` as its computational backend, was mainly developed for estimating neural networks and there are great libraries like [`Lasagne`](https://github.com/Lasagne/Lasagne) that build on top of `Aesara` to make construction of the most common neural network architectures easy. Ideally, we wouldn't have to build the models by hand as I did above, but use the convenient syntax of `Lasagne` to construct the architecture, define our priors, and run ADVI. 
 
-You can also run this example on the GPU by setting `device = gpu` and `floatX = float32` in your `.theanorc`.
+You can also run this example on the GPU by setting `device = gpu` and `floatX = float32` in your `.aesararc`.
 
 You might also argue that the above network isn't really deep, but note that we could easily extend it to have more layers, including convolutional ones to train on more challenging data sets.
 
@@ -397,7 +397,7 @@ Finally, you can download this NB [here](https://github.com/twiecki/WhileMyMCMCG
 
 ## Acknowledgements
 
-[Taku Yoshioka](https://github.com/taku-y) did a lot of work on ADVI in PyMC3, including the mini-batch implementation as well as the sampling from the variational posterior. I'd also like to the thank the Stan guys (specifically Alp Kucukelbir and Daniel Lee) for deriving ADVI and teaching us about it. Thanks also to Chris Fonnesbeck, Andrew Campbell, Taku Yoshioka, and Peadar Coyle for useful comments on an earlier draft.
+[Taku Yoshioka](https://github.com/taku-y) did a lot of work on ADVI in PyMC, including the mini-batch implementation as well as the sampling from the variational posterior. I'd also like to the thank the Stan guys (specifically Alp Kucukelbir and Daniel Lee) for deriving ADVI and teaching us about it. Thanks also to Chris Fonnesbeck, Andrew Campbell, Taku Yoshioka, and Peadar Coyle for useful comments on an earlier draft.
 
 +++
 

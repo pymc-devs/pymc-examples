@@ -14,7 +14,7 @@ kernelspec:
 # Rolling Regression
 
 :::{post} Sept 15, 2021
-:tags: generalized linear model, pymc3.Exponential, pymc3.GaussianRandomWalk, pymc3.HalfCauchy, pymc3.HalfNormal, pymc3.Model, pymc3.Normal, regression
+:tags: generalized linear model, pymc.Exponential, pymc.GaussianRandomWalk, pymc.HalfCauchy, pymc.HalfNormal, pymc.Model, pymc.Normal, regression
 :category: intermediate
 :::
 
@@ -35,12 +35,12 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import xarray as xr
 
 from matplotlib import cm
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -84,7 +84,7 @@ cb.ax.set_yticklabels(ticklabels);
 A naive approach would be to estimate a linear model and ignore the time domain.
 
 ```{code-cell} ipython3
-with pm.Model() as model:  # model specifications in PyMC3 are wrapped in a with-statement
+with pm.Model() as model:  # model specifications in PyMC are wrapped in a with-statement
     # Define priors
     sigma = pm.HalfCauchy("sigma", beta=10, testval=1.0)
     alpha = pm.Normal("alpha", mu=0, sigma=20)
@@ -96,7 +96,7 @@ with pm.Model() as model:  # model specifications in PyMC3 are wrapped in a with
     )
 
     # Inference
-    trace_reg = pm.sample(tune=2000, return_inferencedata=True)
+    trace_reg = pm.sample(tune=2000)
 ```
 
 The posterior predictive plot shows how bad the fit is.
@@ -159,7 +159,7 @@ Inference. Despite this being quite a complex model, NUTS handles it wells.
 
 ```{code-cell} ipython3
 with model_randomwalk:
-    trace_rw = pm.sample(tune=2000, cores=4, target_accept=0.9, return_inferencedata=True)
+    trace_rw = pm.sample(tune=2000, cores=4, target_accept=0.9)
 ```
 
 Increasing the tree-depth does indeed help but it makes sampling very slow. The results look identical with this run, however.
@@ -239,5 +239,5 @@ Author: Thomas Wiecki
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano
+%watermark -n -u -v -iv -w -p aesara
 ```

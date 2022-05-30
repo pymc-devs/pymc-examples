@@ -15,9 +15,9 @@ kernelspec:
 
 This tutorial first appeard as a post in small series on Bayesian GLMs on:
 
-  1. [The Inference Button: Bayesian GLMs made easy with PyMC3](http://twiecki.github.com/blog/2013/08/12/bayesian-glms-1/)
-  2. [This world is far from Normal(ly distributed): Robust Regression in PyMC3](http://twiecki.github.io/blog/2013/08/27/bayesian-glms-2/)
-  3. [The Best Of Both Worlds: Hierarchical Linear Regression in PyMC3](http://twiecki.github.io/blog/2014/03/17/bayesian-glms-3/)
+  1. [The Inference Button: Bayesian GLMs made easy with PyMC](http://twiecki.github.com/blog/2013/08/12/bayesian-glms-1/)
+  2. [This world is far from Normal(ly distributed): Robust Regression in PyMC](http://twiecki.github.io/blog/2013/08/27/bayesian-glms-2/)
+  3. [The Best Of Both Worlds: Hierarchical Linear Regression in PyMC](http://twiecki.github.io/blog/2014/03/17/bayesian-glms-3/)
   
 In this blog post I will write about:
 
@@ -38,15 +38,15 @@ Again, import our modules.
 ```{code-cell} ipython3
 %matplotlib inline
 
+import aesara
 import arviz as az
 import bambi as bmb
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
-import theano
+import pymc as pm
 
-print(f"Running on pymc3 v{pm.__version__}")
+print(f"Running on pymc v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -119,8 +119,8 @@ Lets look at those two distributions to get a feel for them.
 normal_dist = pm.Normal.dist(mu=0, sigma=1)
 t_dist = pm.StudentT.dist(mu=0, lam=1, nu=1)
 x_eval = np.linspace(-8, 8, 300)
-plt.plot(x_eval, theano.tensor.exp(normal_dist.logp(x_eval)).eval(), label="Normal", lw=2.0)
-plt.plot(x_eval, theano.tensor.exp(t_dist.logp(x_eval)).eval(), label="Student T", lw=2.0)
+plt.plot(x_eval, aesara.tensor.exp(normal_dist.logp(x_eval)).eval(), label="Normal", lw=2.0)
+plt.plot(x_eval, aesara.tensor.exp(t_dist.logp(x_eval)).eval(), label="Student T", lw=2.0)
 plt.xlabel("x")
 plt.ylabel("Probability density")
 plt.legend();
@@ -153,7 +153,7 @@ There, much better! The outliers are barely influencing our estimation at all be
 - `Bambi` allows you to pass in a `family` argument that contains information about the likelihood.
  - By changing the likelihood from a Normal distribution to a Student T distribution -- which has more mass in the tails -- we can perform *Robust Regression*.
 
-The next post will be about logistic regression in PyMC3 and what the posterior and oatmeal have in common.
+The next post will be about logistic regression in PyMC and what the posterior and oatmeal have in common.
 
 *Extensions*: 
 

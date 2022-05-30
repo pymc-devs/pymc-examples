@@ -12,9 +12,9 @@ import time
 import arviz as az
 import numpy as np
 import pandas as pd
-import theano.tensor as tt
+import aesara.tensor as at
 
-import pymc3 as pm
+import pymc as pm
 
 # with this flag one can switch between defining the bivariate normal as
 # either a 2D MvNormal (USE_XY = False) split up the two dimensions into
@@ -35,7 +35,7 @@ def run(steppers, p):
             y = pm.Flat("y")
             mu = np.array([0.0, 0.0])
             cov = np.array([[1.0, p], [p, 1.0]])
-            z = pm.MvNormal.dist(mu=mu, cov=cov, shape=(2,)).logp(tt.stack([x, y]))
+            z = pm.MvNormal.dist(mu=mu, cov=cov, shape=(2,)).logp(at.stack([x, y]))
             pot = pm.Potential("logp_xy", z)
             start = {"x": 0, "y": 0}
         else:

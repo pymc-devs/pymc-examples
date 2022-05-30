@@ -16,11 +16,11 @@ kernelspec:
 ```{code-cell} ipython3
 import warnings
 
+import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano.tensor as tt
+import pymc as pm
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 ```
@@ -28,13 +28,13 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
 az.style.use("arviz-darkgrid")
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 print(f"Running on ArviZ v{az.__version__}")
 ```
 
 ## 1. Model creation
 
-Models in PyMC3 are centered around the `Model` class. It has references to all random variables (RVs) and computes the model logp and its gradients. Usually, you would instantiate it as part of a `with` context:
+Models in PyMC are centered around the `Model` class. It has references to all random variables (RVs) and computes the model logp and its gradients. Usually, you would instantiate it as part of a `with` context:
 
 ```{code-cell} ipython3
 with pm.Model() as model:
@@ -78,15 +78,15 @@ logp = model.logp
 
 ## 2. Probability Distributions
 
-Every probabilistic program consists of observed and unobserved Random Variables (RVs). Observed RVs are defined via likelihood distributions, while unobserved RVs are defined via prior distributions. In PyMC3, probability distributions are available from the main module space:
+Every probabilistic program consists of observed and unobserved Random Variables (RVs). Observed RVs are defined via likelihood distributions, while unobserved RVs are defined via prior distributions. In PyMC, probability distributions are available from the main module space:
 
 ```{code-cell} ipython3
 help(pm.Normal)
 ```
 
-In the PyMC3 module, the structure for probability distributions looks like this:
+In the PyMC module, the structure for probability distributions looks like this:
 
-[pymc3.distributions](../api/distributions.rst)
+[pymc.distributions](../api/distributions.rst)
 - [continuous](../api/distributions/continuous.rst)
 - [discrete](../api/distributions/discrete.rst)
 - [timeseries](../api/distributions/timeseries.rst)
@@ -124,7 +124,7 @@ with pm.Model():
     obs = pm.Normal("x", mu=0, sigma=1, observed=np.random.randn(100))
 ```
 
-`observed` supports lists, `numpy.ndarray`, `theano` and `pandas` data structures.
+`observed` supports lists, `numpy.ndarray`, `aesara` and `pandas` data structures.
 
 +++
 
@@ -132,7 +132,7 @@ with pm.Model():
 
 +++
 
-PyMC3 allows you to freely do algebra with RVs in all kinds of ways:
+PyMC allows you to freely do algebra with RVs in all kinds of ways:
 
 ```{code-cell} ipython3
 with pm.Model():
@@ -152,13 +152,13 @@ with pm.Model():
     plus_2 = pm.Deterministic("x plus 2", x + 2)
 ```
 
-Note that `plus_2` can be used in the identical way to above, we only tell PyMC3 to keep track of this RV for us.
+Note that `plus_2` can be used in the identical way to above, we only tell PyMC to keep track of this RV for us.
 
 +++
 
 ### Automatic transforms of bounded RVs
 
-In order to sample models more efficiently, PyMC3 automatically transforms bounded RVs to be unbounded.
+In order to sample models more efficiently, PyMC automatically transforms bounded RVs to be unbounded.
 
 ```{code-cell} ipython3
 with pm.Model() as model:
@@ -171,13 +171,13 @@ When we look at the RVs of the model, we would expect to find `x` there, however
 model.free_RVs
 ```
 
-`x_interval__` represents `x` transformed to accept parameter values between -inf and +inf. In the case of an upper and a lower bound, a `LogOdd`s transform is applied. Sampling in this transformed space makes it easier for the sampler. PyMC3 also keeps track of the non-transformed, bounded parameters. These are common determinstics (see above):
+`x_interval__` represents `x` transformed to accept parameter values between -inf and +inf. In the case of an upper and a lower bound, a `LogOdd`s transform is applied. Sampling in this transformed space makes it easier for the sampler. PyMC also keeps track of the non-transformed, bounded parameters. These are common determinstics (see above):
 
 ```{code-cell} ipython3
 model.deterministics
 ```
 
-When displaying results, PyMC3 will usually hide transformed parameters. You can pass the `include_transformed=True` parameter to many functions to see the transformed parameters that are used for sampling.
+When displaying results, PyMC will usually hide transformed parameters. You can pass the `include_transformed=True` parameter to many functions to see the transformed parameters that are used for sampling.
 
 You can also turn transforms off:
 
@@ -191,7 +191,7 @@ print(model.free_RVs)
 Or specify different transformation other than the default:
 
 ```{code-cell} ipython3
-import pymc3.distributions.transforms as tr
+import pymc.distributions.transforms as tr
 
 with pm.Model() as model:
     # use the default log transformation
@@ -204,20 +204,20 @@ print("The user specified transformation of x2 is: " + x2.transformation.name)
 ```
 
 ### Transformed distributions and changes of variables
-PyMC3 does not provide explicit functionality to transform one distribution to another. Instead, a dedicated distribution is usually created in consideration of optimising performance. However, users can still create transformed distribution by passing the inverse transformation to `transform` kwarg. Take the classical textbook example of LogNormal: $log(y) \sim \text{Normal}(\mu, \sigma)$
+PyMC does not provide explicit functionality to transform one distribution to another. Instead, a dedicated distribution is usually created in consideration of optimising performance. However, users can still create transformed distribution by passing the inverse transformation to `transform` kwarg. Take the classical textbook example of LogNormal: $log(y) \sim \text{Normal}(\mu, \sigma)$
 
 ```{code-cell} ipython3
 class Exp(tr.ElemwiseTransform):
     name = "exp"
 
     def backward(self, x):
-        return tt.log(x)
+        return at.log(x)
 
     def forward(self, x):
-        return tt.exp(x)
+        return at.exp(x)
 
     def jacobian_det(self, x):
-        return -tt.log(x)
+        return -at.log(x)
 
 
 with pm.Model() as model:
@@ -296,7 +296,7 @@ with model:
 
 ### Initialization with test_values
 
-While PyMC3 tries to automatically initialize models it is sometimes helpful to define initial values for RVs. This can be done via the `testval` kwarg:
+While PyMC tries to automatically initialize models it is sometimes helpful to define initial values for RVs. This can be done via the `testval` kwarg:
 
 ```{code-cell} ipython3
 with pm.Model():
@@ -318,23 +318,23 @@ This technique is quite useful to identify problems with model specification or 
 
 ## 3. Inference
 
-Once we have defined our model, we have to perform inference to approximate the posterior distribution. PyMC3 supports two broad classes of inference: sampling and variational inference.
+Once we have defined our model, we have to perform inference to approximate the posterior distribution. PyMC supports two broad classes of inference: sampling and variational inference.
 
 ### 3.1 Sampling
 
-The main entry point to MCMC sampling algorithms is via the `pm.sample()` function. By default, this function tries to auto-assign the right sampler(s) and auto-initialize if you don't pass anything.
+The main entry point to MCMC sampling algorithms is via the `pm.sample(return_inferencedata=False)` function. By default, this function tries to auto-assign the right sampler(s) and auto-initialize if you don't pass anything.
 
-With PyMC3 version >=3.9 the `return_inferencedata=True` kwarg makes the `sample` function return an `arviz.InferenceData` object instead of a `MultiTrace`. `InferenceData` has many advantages, compared to a `MultiTrace`: For example it can be saved/loaded from a file, and can also carry additional (meta)data such as date/version, or posterior predictive distributions. Take a look at the [ArviZ Quickstart](https://arviz-devs.github.io/arviz/getting_started/Introduction.html) to learn more.
+With PyMC version >=3.9 the `` kwarg makes the `sample` function return an `arviz.InferenceData` object instead of a `MultiTrace`. `InferenceData` has many advantages, compared to a `MultiTrace`: For example it can be saved/loaded from a file, and can also carry additional (meta)data such as date/version, or posterior predictive distributions. Take a look at the [ArviZ Quickstart](https://arviz-devs.github.io/arviz/getting_started/Introduction.html) to learn more.
 
 ```{code-cell} ipython3
 with pm.Model() as model:
     mu = pm.Normal("mu", mu=0, sigma=1)
     obs = pm.Normal("obs", mu=mu, sigma=1, observed=np.random.randn(100))
 
-    idata = pm.sample(2000, tune=1500, return_inferencedata=True)
+    idata = pm.sample(2000, tune=1500)
 ```
 
-As you can see, on a continuous model, PyMC3 assigns the NUTS sampler, which is very efficient even for complex models. PyMC3 also runs tuning to find good starting parameters for the sampler. Here we draw 2000 samples from the posterior in each chain and allow the sampler to adjust its parameters in an additional 1500 iterations.
+As you can see, on a continuous model, PyMC assigns the NUTS sampler, which is very efficient even for complex models. PyMC also runs tuning to find good starting parameters for the sampler. Here we draw 2000 samples from the posterior in each chain and allow the sampler to adjust its parameters in an additional 1500 iterations.
 If not set via the `cores` kwarg, the number of chains is determined from the number of available CPU cores.
 
 ```{code-cell} ipython3
@@ -350,7 +350,7 @@ with pm.Model() as model:
     mu = pm.Normal("mu", mu=0, sigma=1)
     obs = pm.Normal("obs", mu=mu, sigma=1, observed=np.random.randn(100))
 
-    idata = pm.sample(cores=4, chains=6, return_inferencedata=True)
+    idata = pm.sample(cores=4, chains=6)
 ```
 
 ```{code-cell} ipython3
@@ -362,7 +362,7 @@ idata.posterior["mu"].shape
 idata.posterior["mu"].sel(chain=1).shape
 ```
 
-PyMC3, offers a variety of other samplers, found in `pm.step_methods`.
+PyMC, offers a variety of other samplers, found in `pm.step_methods`.
 
 ```{code-cell} ipython3
 list(filter(lambda x: x[0].isupper(), dir(pm.step_methods)))
@@ -391,7 +391,7 @@ with pm.Model() as model:
 
     step1 = pm.Metropolis(vars=[mu])
     step2 = pm.Slice(vars=[sd])
-    idata = pm.sample(10000, step=[step1, step2], cores=4, return_inferencedata=True)
+    idata = pm.sample(10000, step=[step1, step2], cores=4)
 ```
 
 ### 3.2 Analyze sampling results
@@ -425,7 +425,7 @@ For high-dimensional models it becomes cumbersome to look at all parameter's tra
 ```{code-cell} ipython3
 with pm.Model() as model:
     x = pm.Normal("x", mu=0, sigma=1, shape=100)
-    idata = pm.sample(cores=4, return_inferencedata=True)
+    idata = pm.sample(cores=4)
 
 az.plot_energy(idata);
 ```
@@ -436,7 +436,7 @@ For more information on sampler stats and the energy plot, see [here](sampler-st
 
 ### 3.3 Variational inference
 
-PyMC3 supports various Variational Inference techniques. While these methods are much faster, they are often also less accurate and can lead to biased inference. The main entry point is `pymc3.fit()`.
+PyMC supports various Variational Inference techniques. While these methods are much faster, they are often also less accurate and can lead to biased inference. The main entry point is `pymc.fit()`.
 
 ```{code-cell} ipython3
 with pm.Model() as model:
@@ -494,7 +494,7 @@ trace = approx.sample(10000)
 az.plot_dist(trace["x"]);
 ```
 
-For more information on variational inference, see [these examples](http://pymc-devs.github.io/pymc3/examples.html#variational-inference).
+For more information on variational inference, see [these examples](http://pymc-devs.github.io/pymc/examples.html#variational-inference).
 
 +++
 
@@ -509,14 +509,14 @@ with pm.Model() as model:
     sd = pm.HalfNormal("sd", sigma=1)
     obs = pm.Normal("obs", mu=mu, sigma=sd, observed=data)
 
-    idata = pm.sample(return_inferencedata=True)
+    idata = pm.sample()
 ```
 
 ```{code-cell} ipython3
 with model:
     post_pred = pm.sample_posterior_predictive(idata.posterior)
 # add posterior predictive to the InferenceData
-az.concat(idata, az.from_pymc3(posterior_predictive=post_pred), inplace=True)
+az.concat(idata, pm.to_inference_data(posterior_predictive=post_pred), inplace=True)
 ```
 
 ```{code-cell} ipython3
@@ -528,9 +528,9 @@ ax.legend(fontsize=10);
 
 ## 4.1 Predicting on hold-out data
 
-In many cases you want to predict on unseen / hold-out data. This is especially relevant in Probabilistic Machine Learning and Bayesian Deep Learning. We recently improved the API in this regard with the `pm.Data` container. It is a wrapper around a `theano.shared` variable whose values can be changed later. Otherwise they can be passed into PyMC3 just like any other numpy array or tensor.
+In many cases you want to predict on unseen / hold-out data. This is especially relevant in Probabilistic Machine Learning and Bayesian Deep Learning. We recently improved the API in this regard with the `pm.Data` container. It is a wrapper around a `aesara.shared` variable whose values can be changed later. Otherwise they can be passed into PyMC just like any other numpy array or tensor.
 
-This distinction is significant since internally all models in PyMC3 are giant symbolic expressions. When you pass data directly into a model, you are giving Theano permission to treat this data as a constant and optimize it away as it sees fit. If you need to change this data later you might not have a way to point at it in the symbolic expression. Using `theano.shared` offers a way to point to a place in that symbolic expression, and change what is there.
+This distinction is significant since internally all models in PyMC are giant symbolic expressions. When you pass data directly into a model, you are giving Aesara permission to treat this data as a constant and optimize it away as it sees fit. If you need to change this data later you might not have a way to point at it in the symbolic expression. Using `aesara.shared` offers a way to point to a place in that symbolic expression, and change what is there.
 
 ```{code-cell} ipython3
 x = np.random.randn(100)
@@ -544,7 +544,7 @@ with pm.Model() as model:
     coeff = pm.Normal("x", mu=0, sigma=1)
     logistic = pm.math.sigmoid(coeff * x_shared)
     pm.Bernoulli("obs", p=logistic, observed=y_shared)
-    idata = pm.sample(return_inferencedata=True)
+    idata = pm.sample()
 ```
 
 Now assume we want to predict on unseen data. For this we have to change the values of `x_shared` and `y_shared`. Theoretically we don't need to set `y_shared` as we want to predict it but it has to match the shape of `x_shared`.

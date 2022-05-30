@@ -1,8 +1,8 @@
 import numpy as np
-import theano.tensor as tt
+import aesara.tensor as at
 
 from arviz import summary
-from pymc3 import Model, Normal, Uniform, sample
+from pymc import Model, Normal, Uniform, sample
 
 """
 Example from Stan - slightly altered
@@ -43,7 +43,7 @@ def get_garch_model():
         alpha1 = Uniform("alpha1", 0.0, 1.0, shape=shape)
         beta1 = Uniform("beta1", 0.0, 1 - alpha1, shape=shape)
         mu = Normal("mu", mu=0.0, sigma=100.0, shape=shape)
-        theta = tt.sqrt(alpha0 + alpha1 * tt.pow(r - mu, 2) + beta1 * tt.pow(sigma1, 2))
+        theta = at.sqrt(alpha0 + alpha1 * at.pow(r - mu, 2) + beta1 * at.pow(sigma1, 2))
         Normal("obs", mu, sigma=theta, observed=r)
     return garch
 

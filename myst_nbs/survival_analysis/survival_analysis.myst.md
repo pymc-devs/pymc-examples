@@ -15,21 +15,21 @@ kernelspec:
 
 Author: Austin Rochford
 
-[Survival analysis](https://en.wikipedia.org/wiki/Survival_analysis) studies the distribution of the time to an event.  Its applications span many fields across medicine, biology, engineering, and social science.  This tutorial shows how to fit and analyze a Bayesian survival model in Python using PyMC3.
+[Survival analysis](https://en.wikipedia.org/wiki/Survival_analysis) studies the distribution of the time to an event.  Its applications span many fields across medicine, biology, engineering, and social science.  This tutorial shows how to fit and analyze a Bayesian survival model in Python using PyMC.
 
 We illustrate these concepts by analyzing a [mastectomy data set](https://vincentarelbundock.github.io/Rdatasets/doc/HSAUR/mastectomy.html) from `R`'s [HSAUR](https://cran.r-project.org/web/packages/HSAUR/index.html) package.
 
 ```{code-cell} ipython3
+import aesara
 import arviz as az
 import numpy as np
 import pandas as pd
-import pymc3 as pm
-import theano
+import pymc as pm
 
 %matplotlib inline
+from aesara import tensor as T
 from matplotlib import pyplot as plt
-from pymc3.distributions.timeseries import GaussianRandomWalk
-from theano import tensor as T
+from pymc.distributions.timeseries import GaussianRandomWalk
 ```
 
 ```{code-cell} ipython3
@@ -190,7 +190,7 @@ ax.set_ylabel("Number of observations")
 ax.legend();
 ```
 
-With the prior distributions on $\beta$ and $\lambda_0(t)$ chosen, we now show how the model may be fit using MCMC simulation with `pymc3`.  The key observation is that the piecewise-constant proportional hazard model is [closely related](http://data.princeton.edu/wws509/notes/c7s4.html) to a Poisson regression model.   (The models are not identical, but their likelihoods differ by a factor that depends only on the observed data and not the parameters $\beta$ and $\lambda_j$.  For details, see Germán Rodríguez's WWS 509 [course notes](http://data.princeton.edu/wws509/notes/c7s4.html).)
+With the prior distributions on $\beta$ and $\lambda_0(t)$ chosen, we now show how the model may be fit using MCMC simulation with `pymc`.  The key observation is that the piecewise-constant proportional hazard model is [closely related](http://data.princeton.edu/wws509/notes/c7s4.html) to a Poisson regression model.   (The models are not identical, but their likelihoods differ by a factor that depends only on the observed data and not the parameters $\beta$ and $\lambda_j$.  For details, see Germán Rodríguez's WWS 509 [course notes](http://data.princeton.edu/wws509/notes/c7s4.html).)
 
 We define indicator variables based on whether the $i$-th subject died in the $j$-th interval,
 
@@ -215,7 +215,7 @@ exposure[patients, last_period] = df.time - interval_bounds[last_period]
 
 Finally, denote the risk incurred by the $i$-th subject in the $j$-th interval as $\lambda_{i, j} = \lambda_j \exp(\mathbf{x}_i \beta)$.
 
-We may approximate $d_{i, j}$ with a Poisson random variable with mean $t_{i, j}\ \lambda_{i, j}$.  This approximation leads to the following `pymc3` model.
+We may approximate $d_{i, j}$ with a Poisson random variable with mean $t_{i, j}\ \lambda_{i, j}$.  This approximation leads to the following `pymc` model.
 
 ```{code-cell} ipython3
 coords = {"intervals": intervals}
@@ -245,7 +245,7 @@ with model:
         n_samples,
         tune=n_tune,
         target_accept=0.99,
-        return_inferencedata=True,
+        ,
         random_seed=RANDOM_SEED,
     )
 ```
@@ -327,7 +327,7 @@ fig.suptitle("Bayesian survival model");
 
 We see that the cumulative hazard for metastasized subjects increases more rapidly initially (through about seventy months), after which it increases roughly in parallel with the baseline cumulative hazard.
 
-These plots also show the pointwise 95% high posterior density interval for each function.  One of the distinct advantages of the Bayesian model fit with `pymc3` is the inherent quantification of uncertainty in our estimates.
+These plots also show the pointwise 95% high posterior density interval for each function.  One of the distinct advantages of the Bayesian model fit with `pymc` is the inherent quantification of uncertainty in our estimates.
 
 +++
 
@@ -335,7 +335,7 @@ These plots also show the pointwise 95% high posterior density interval for each
 
 Another of the advantages of the model we have built is its flexibility.  From the plots above, we may reasonable believe that the additional hazard due to metastization varies over time; it seems plausible that cancer that has metastasized increases the hazard rate immediately after the mastectomy, but that the risk due to metastization decreases over time.  We can accommodate this mechanism in our model by allowing the regression coefficients to vary over time.  In the time-varying coefficient model, if $s_j \leq t < s_{j + 1}$, we let $\lambda(t) = \lambda_j \exp(\mathbf{x} \beta_j).$  The sequence of regression coefficients $\beta_1, \beta_2, \ldots, \beta_{N - 1}$ form a normal random walk with $\beta_1 \sim N(0, 1)$, $\beta_j\ |\ \beta_{j - 1} \sim N(\beta_{j - 1}, 1)$.
 
-We implement this model in `pymc3` as follows.
+We implement this model in `pymc` as follows.
 
 ```{code-cell} ipython3
 coords = {"intervals": intervals}
@@ -358,7 +358,7 @@ with time_varying_model:
     time_varying_idata = pm.sample(
         n_samples,
         tune=n_tune,
-        return_inferencedata=True,
+        ,
         target_accept=0.99,
         random_seed=RANDOM_SEED,
     )

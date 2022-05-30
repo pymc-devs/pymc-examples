@@ -22,14 +22,15 @@ First, create artificial data from a mixuture of two Gaussian components.
 ```{code-cell} ipython3
 %env THEANO_FLAGS=device=cpu,floatX=float32
 
+import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
-import theano.tensor as tt
 
-from pymc3 import (
+from aesara.tensor.nlinalg import det
+from pymc import (
     NUTS,
     DensityDist,
     Dirichlet,
@@ -40,10 +41,9 @@ from pymc3 import (
     find_MAP,
     sample,
 )
-from pymc3.math import logsumexp
-from theano.tensor.nlinalg import det
+from pymc.math import logsumexp
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -74,7 +74,7 @@ Gaussian mixture models are usually constructed with categorical random variable
 In the below code, DensityDist class is used as the likelihood term. The second argument, logp_gmix(mus, pi, np.eye(2)), is a python function which receives observations (denoted by 'value') and returns the tensor representation of the log-likelihood.
 
 ```{code-cell} ipython3
-from pymc3.math import logsumexp
+from pymc.math import logsumexp
 
 
 # Log likelihood of normal distribution
@@ -83,8 +83,8 @@ def logp_normal(mu, tau, value):
     k = tau.shape[0]
     delta = lambda mu: value - mu
     return (-1 / 2.0) * (
-        k * tt.log(2 * np.pi)
-        + tt.log(1.0 / det(tau))
+        k * at.log(2 * np.pi)
+        + at.log(1.0 / det(tau))
         + (delta(mu).dot(tau) * delta(mu)).sum(axis=1)
     )
 
@@ -92,9 +92,9 @@ def logp_normal(mu, tau, value):
 # Log likelihood of Gaussian mixture distribution
 def logp_gmix(mus, pi, tau):
     def logp_(value):
-        logps = [tt.log(pi[i]) + logp_normal(mu, tau, value) for i, mu in enumerate(mus)]
+        logps = [at.log(pi[i]) + logp_normal(mu, tau, value) for i, mu in enumerate(mus)]
 
-        return tt.sum(logsumexp(tt.stacklists(logps)[:, :n_samples], axis=0))
+        return at.sum(logsumexp(at.stacklists(logps)[:, :n_samples], axis=0))
 
     return logp_
 
@@ -251,7 +251,7 @@ plt.xlim(-6, 6)
 plt.ylim(-6, 6)
 ```
 
-For ADVI with mini-batch, put theano tensor on the observed variable of the ObservedRV. The tensor will be replaced with mini-batches. Because of the difference of the size of mini-batch and whole samples, the log-likelihood term should be appropriately scaled. To tell the log-likelihood term, we need to give ObservedRV objects ('minibatch_RVs' below) where mini-batch is put. Also we should keep the tensor ('minibatch_tensors').
+For ADVI with mini-batch, put aesara tensor on the observed variable of the ObservedRV. The tensor will be replaced with mini-batches. Because of the difference of the size of mini-batch and whole samples, the log-likelihood term should be appropriately scaled. To tell the log-likelihood term, we need to give ObservedRV objects ('minibatch_RVs' below) where mini-batch is put. Also we should keep the tensor ('minibatch_tensors').
 
 ```{code-cell} ipython3
 minibatch_size = 200

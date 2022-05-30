@@ -6,19 +6,19 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: pymc3
+  display_name: pymc
   language: python
-  name: pymc3
+  name: pymc
 ---
 
 # GP-Circular
 
 ```{code-cell} ipython3
+import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano.tensor as tt
+import pymc as pm
 ```
 
 ```{code-cell} ipython3
@@ -106,7 +106,7 @@ plt.ylabel(r"$\operatorname{dist}_{geo}(1.5, x)$")
 plt.xlabel("$x$");
 ```
 
-In pymc3 we will use `pm.gp.cov.Circular` to model circular functions
+In pymc we will use `pm.gp.cov.Circular` to model circular functions
 
 ```{code-cell} ipython3
 angles = np.linspace(0, 2 * np.pi)

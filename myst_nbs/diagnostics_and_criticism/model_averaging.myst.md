@@ -6,9 +6,9 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python PyMC3 (Dev)
+  display_name: Python PyMC (Dev)
   language: python
-  name: pymc3-dev-py38
+  name: pymc-dev-py38
 ---
 
 ```{code-cell} ipython3
@@ -25,9 +25,9 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -53,7 +53,7 @@ When confronted with more than one model we have several options. One of them is
 
 One alternative is to perform model selection but discuss all the different models together with the computed values of a given Information Criterion. It is important to put all these numbers and tests in the context of our problem so that we and our audience can have a better feeling of the possible limitations and shortcomings of our methods. If you are in the academic world you can use this approach to add elements to the discussion section of a paper, presentation, thesis, and so on.
 
-Yet another approach is to perform model averaging. The idea now is to generate a meta-model (and meta-predictions) using a weighted average of the models. There are several ways to do this and PyMC3 includes 3 of them that we are going to briefly discuss, you will find a more thorough explanation in the work by [Yuling Yao et. al.](https://arxiv.org/abs/1704.02030)
+Yet another approach is to perform model averaging. The idea now is to generate a meta-model (and meta-predictions) using a weighted average of the models. There are several ways to do this and PyMC includes 3 of them that we are going to briefly discuss, you will find a more thorough explanation in the work by [Yuling Yao et. al.](https://arxiv.org/abs/1704.02030)
 
 ## Pseudo Bayesian model averaging
 
@@ -71,7 +71,7 @@ The above formula for computing weights is a very nice and simple approach, but 
 
 ## Stacking
 
-The third approach implemented in PyMC3 is know as _stacking of predictive distributions_ and it has been recently [proposed](https://arxiv.org/abs/1704.02030). We want to combine several models in a metamodel in order to minimize the diverge between the meta-model and the _true_ generating model, when using a logarithmic scoring rule this is equivalently to:
+The third approach implemented in PyMC is know as _stacking of predictive distributions_ and it has been recently [proposed](https://arxiv.org/abs/1704.02030). We want to combine several models in a metamodel in order to minimize the diverge between the meta-model and the _true_ generating model, when using a logarithmic scoring rule this is equivalently to:
 
 $$\max_{w} \frac{1}{n} \sum_{i=1}^{n}log\sum_{k=1}^{K} w_k p(y_i|y_{-i}, M_k)$$
 
@@ -81,9 +81,9 @@ The quantity $p(y_i|y_{-i}, M_k)$ is the leave-one-out predictive distribution f
 
 ## Weighted posterior predictive samples
 
-Once we have computed the weights, using any of the above 3 methods,  we can use them to get a weighted posterior predictive samples. PyMC3 offers functions to perform these steps in a simple way, so let see them in action using an example.
+Once we have computed the weights, using any of the above 3 methods,  we can use them to get a weighted posterior predictive samples. PyMC offers functions to perform these steps in a simple way, so let see them in action using an example.
 
-The following example is taken from the superb book [Statistical Rethinking](http://xcelab.net/rm/statistical-rethinking/) by Richard McElreath. You will find more PyMC3 examples from this book in this [repository](https://github.com/aloctavodia/Statistical-Rethinking-with-Python-and-PyMC3). We are going to explore a simplified version of it. Check the book for the whole example and a more thorough discussion of both, the biological motivation for this problem and a theoretical/practical discussion of using Information Criteria to compare, select and average models.
+The following example is taken from the superb book [Statistical Rethinking](http://xcelab.net/rm/statistical-rethinking/) by Richard McElreath. You will find more PyMC examples from this book in this [repository](https://github.com/aloctavodia/Statistical-Rethinking-with-Python-and-PyMC). We are going to explore a simplified version of it. Check the book for the whole example and a more thorough discussion of both, the biological motivation for this problem and a theoretical/practical discussion of using Information Criteria to compare, select and average models.
 
 Briefly, our problem is as follows: We want to explore the composition of milk across several primate species, it is hypothesized that females from species of primates with larger brains produce more _nutritious_ milk (loosely speaking this is done _in order to_ support the development of such big brains). This is an important question for evolutionary biologists and try to give and answer we will use 3 variables, two predictor variables: the proportion of neocortex compare to the total mass of the brain and the logarithm of the body mass of the mothers. And for predicted variable, the kilocalories per gram of milk. With these variables we are going to build 3 different linear models:
  
@@ -136,7 +136,7 @@ with pm.Model() as model_0:
     mu = alpha + beta * d["neocortex"]
 
     kcal = pm.Normal("kcal", mu=mu, sigma=sigma, observed=d["kcal.per.g"])
-    trace_0 = pm.sample(2000, return_inferencedata=True)
+    trace_0 = pm.sample(2000)
 ```
 
 +++ {"papermill": {"duration": 0.049578, "end_time": "2020-11-29T12:14:25.401979", "exception": false, "start_time": "2020-11-29T12:14:25.352401", "status": "completed"}, "tags": []}
@@ -162,7 +162,7 @@ with pm.Model() as model_1:
 
     kcal = pm.Normal("kcal", mu=mu, sigma=sigma, observed=d["kcal.per.g"])
 
-    trace_1 = pm.sample(2000, return_inferencedata=True)
+    trace_1 = pm.sample(2000)
 ```
 
 +++ {"papermill": {"duration": 0.049839, "end_time": "2020-11-29T12:14:34.547268", "exception": false, "start_time": "2020-11-29T12:14:34.497429", "status": "completed"}, "tags": []}
@@ -188,7 +188,7 @@ with pm.Model() as model_2:
 
     kcal = pm.Normal("kcal", mu=mu, sigma=sigma, observed=d["kcal.per.g"])
 
-    trace_2 = pm.sample(2000, return_inferencedata=True)
+    trace_2 = pm.sample(2000)
 ```
 
 +++ {"papermill": {"duration": 0.050236, "end_time": "2020-11-29T12:14:54.072799", "exception": false, "start_time": "2020-11-29T12:14:54.022563", "status": "completed"}, "tags": []}
@@ -228,7 +228,7 @@ az.plot_density(traces, var_names=["alpha", "sigma"]);
 
 +++ {"papermill": {"duration": 0.055089, "end_time": "2020-11-29T12:14:57.977616", "exception": false, "start_time": "2020-11-29T12:14:57.922527", "status": "completed"}, "tags": []}
 
-Now that we have sampled the posterior for the 3 models, we are going to use WAIC (Widely applicable information criterion) to compare the 3 models. We can do this using the `compare` function included with PyMC3.
+Now that we have sampled the posterior for the 3 models, we are going to use WAIC (Widely applicable information criterion) to compare the 3 models. We can do this using the `compare` function included with PyMC.
 
 ```{code-cell} ipython3
 ---
@@ -251,7 +251,7 @@ We can see that the best model is `model_2`, the one with both predictor variabl
 
 We can also see that we get a column with the relative `weight` for each model (according to the first equation at the beginning of this notebook). This weights can be _vaguely_ interpreted as the probability that each model will make the correct predictions on future data. Of course this interpretation is conditional on the models used to compute the weights, if we add or remove models the weights will change. And also is dependent on the assumptions behind WAIC (or any other Information Criterion used). So try to do not overinterpret these `weights`. 
 
-Now we are going to use copmuted `weights` to generate predictions based not on a single model but on the weighted set of models. This is one way to perform model averaging. Using PyMC3 we can call the `sample_posterior_predictive_w` function as follows:
+Now we are going to use copmuted `weights` to generate predictions based not on a single model but on the weighted set of models. This is one way to perform model averaging. Using PyMC we can call the `sample_posterior_predictive_w` function as follows:
 
 ```{code-cell} ipython3
 ---

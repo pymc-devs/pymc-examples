@@ -25,6 +25,8 @@ uses Cython whereas {ref}`this other one <blackbox_external_likelihood_numpy>` u
 import os
 import platform
 
+import aesara
+import aesara.tensor as at
 import arviz as az
 import corner
 import cython
@@ -33,11 +35,9 @@ import IPython
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano
-import theano.tensor as tt
+import pymc as pm
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -45,12 +45,12 @@ print(f"Running on PyMC3 v{pm.__version__}")
 az.style.use("arviz-darkgrid")
 ```
 
-[PyMC3](https://docs.pymc.io/index.html) is a great tool for doing Bayesian inference and parameter estimation. It has a load of [in-built probability distributions](https://docs.pymc.io/api/distributions.html) that you can use to set up priors and likelihood functions for your particular model. You can even create your own [custom distributions](https://docs.pymc.io/prob_dists.html#custom-distributions).
+[PyMC](https://docs.pymc.io/index.html) is a great tool for doing Bayesian inference and parameter estimation. It has a load of [in-built probability distributions](https://docs.pymc.io/api/distributions.html) that you can use to set up priors and likelihood functions for your particular model. You can even create your own [custom distributions](https://docs.pymc.io/prob_dists.html#custom-distributions).
 
-However, this is not necessarily that simple if you have a model function, or probability distribution, that, for example, relies on an external code that you have little/no control over (and may even be, for example, wrapped `C` code rather than Python). This can be problematic went you need to pass parameters set as PyMC3 distributions to these external functions; your external function probably wants you to pass it floating point numbers rather than PyMC3 distributions!
+However, this is not necessarily that simple if you have a model function, or probability distribution, that, for example, relies on an external code that you have little/no control over (and may even be, for example, wrapped `C` code rather than Python). This can be problematic went you need to pass parameters set as PyMC distributions to these external functions; your external function probably wants you to pass it floating point numbers rather than PyMC distributions!
 
 ```python
-import pymc3 as pm
+import pymc as pm
 from external_module import my_external_func  # your external function!
 
 # set up your model
@@ -62,11 +62,11 @@ with pm.Model():
     m = my_external_func(a, b)  # <--- this is not going to work!
 ```
 
-Another issue is that if you want to be able to use the [gradient-based step samplers](https://docs.pymc.io/notebooks/getting_started.html#Gradient-based-sampling-methods) like [NUTS](https://docs.pymc.io/api/inference.html#module-pymc3.step_methods.hmc.nuts) and [Hamiltonian Monte Carlo (HMC)](https://docs.pymc.io/api/inference.html#hamiltonian-monte-carlo), then your model/likelihood needs a gradient to be defined. If you have a model that is defined as a set of Theano operators then this is no problem - internally it will be able to do automatic differentiation - but if your model is essentially a "black box" then you won't necessarily know what the gradients are.
+Another issue is that if you want to be able to use the [gradient-based step samplers](https://docs.pymc.io/notebooks/getting_started.html#Gradient-based-sampling-methods) like [NUTS](https://docs.pymc.io/api/inference.html#module-pymc.step_methods.hmc.nuts) and [Hamiltonian Monte Carlo (HMC)](https://docs.pymc.io/api/inference.html#hamiltonian-monte-carlo), then your model/likelihood needs a gradient to be defined. If you have a model that is defined as a set of Aesara operators then this is no problem - internally it will be able to do automatic differentiation - but if your model is essentially a "black box" then you won't necessarily know what the gradients are.
 
-Defining a model/likelihood that PyMC3 can use and that calls your "black box" function is possible, but it relies on creating a [custom Theano Op](https://docs.pymc.io/advanced_theano.html#writing-custom-theano-ops). This is, hopefully, a clear description of how to do this, including one way of writing a gradient function that could be generally applicable.
+Defining a model/likelihood that PyMC can use and that calls your "black box" function is possible, but it relies on creating a [custom Aesara Op](https://docs.pymc.io/advanced_aesara.html#writing-custom-aesara-ops). This is, hopefully, a clear description of how to do this, including one way of writing a gradient function that could be generally applicable.
 
-In the examples below, we create a very simple model and log-likelihood function in [Cython](http://cython.org/). Cython is used just as an example to show what you might need to do if calling external `C` codes, but you could in fact be using pure Python codes. The log-likelihood function used is actually just a [Normal distribution](https://en.wikipedia.org/wiki/Normal_distribution), so defining this yourself is obviously overkill (and I'll compare it to doing the same thing purely with the pre-defined PyMC3 [Normal](https://docs.pymc.io/api/distributions/continuous.html#pymc3.distributions.continuous.Normal) distribution), but it should provide a simple to follow demonstration.
+In the examples below, we create a very simple model and log-likelihood function in [Cython](http://cython.org/). Cython is used just as an example to show what you might need to do if calling external `C` codes, but you could in fact be using pure Python codes. The log-likelihood function used is actually just a [Normal distribution](https://en.wikipedia.org/wiki/Normal_distribution), so defining this yourself is obviously overkill (and I'll compare it to doing the same thing purely with the pre-defined PyMC [Normal](https://docs.pymc.io/api/distributions/continuous.html#pymc.distributions.continuous.Normal) distribution), but it should provide a simple to follow demonstration.
 
 First, let's define a _super-complicated_&trade; model (a straight line!), which is parameterised by two variables (a gradient `m` and a y-intercept `c`) and calculated at a vector of points `x`. Here the model is defined in [Cython](http://cython.org/) and calls [GSL](https://www.gnu.org/software/gsl/) functions. This is just to show that you could be calling some other `C` library that you need. In this example, the model parameters are all packed into a list/array/tuple called `theta`.
 
@@ -152,10 +152,10 @@ cpdef my_loglike(theta, np.ndarray[np.float64_t, ndim=1] x,
     return -(0.5/sigma**2)*np.sum((data - model)**2)
 ```
 
-Now, as things are, if we wanted to sample from this log-likelihood function, using certain prior distributions for the model parameters (gradient and y-intercept) using PyMC3, we might try something like this (using a [PyMC3 DensityDist](https://docs.pymc.io/prob_dists.html#custom-distributions)):
+Now, as things are, if we wanted to sample from this log-likelihood function, using certain prior distributions for the model parameters (gradient and y-intercept) using PyMC, we might try something like this (using a [PyMC DensityDist](https://docs.pymc.io/prob_dists.html#custom-distributions)):
 
 ```python
-import pymc3 as pm
+import pymc as pm
 
 # create/read in our "data" (I'll show this in the real example below)
 x = ...
@@ -181,13 +181,13 @@ But, this will give an error like:
 ValueError: setting an array element with a sequence.
 ```
 
-This is because `m` and `c` are Theano tensor-type objects.
+This is because `m` and `c` are Aesara tensor-type objects.
 
-So, what we actually need to do is create a [Theano Op](http://deeplearning.net/software/theano/extending/extending_theano.html). This will be a new class that wraps our log-likelihood function (or just our model function, if that is all that is required) into something that can take in Theano tensor objects, but internally can cast them as floating point values that can be passed to our log-likelihood function. We will do this below, initially without defining a [grad() method](http://deeplearning.net/software/theano/extending/op.html#grad) for the Op.
+So, what we actually need to do is create a [Aesara Op](http://deeplearning.net/software/aesara/extending/extending_aesara.html). This will be a new class that wraps our log-likelihood function (or just our model function, if that is all that is required) into something that can take in Aesara tensor objects, but internally can cast them as floating point values that can be passed to our log-likelihood function. We will do this below, initially without defining a [grad() method](http://deeplearning.net/software/aesara/extending/op.html#grad) for the Op.
 
 ```{code-cell} ipython3
-# define a theano Op for our likelihood function
-class LogLike(tt.Op):
+# define a aesara Op for our likelihood function
+class LogLike(at.Op):
 
     """
     Specify what type of object will be passed and returned to the Op when it is
@@ -196,8 +196,8 @@ class LogLike(tt.Op):
     log-likelihood)
     """
 
-    itypes = [tt.dvector]  # expects a vector of parameter values when called
-    otypes = [tt.dscalar]  # outputs a single scalar value (the log likelihood)
+    itypes = [at.dvector]  # expects a vector of parameter values when called
+    otypes = [at.dscalar]  # outputs a single scalar value (the log likelihood)
 
     def __init__(self, loglike, data, x, sigma):
         """
@@ -233,7 +233,7 @@ class LogLike(tt.Op):
         outputs[0][0] = np.array(logl)  # output the log-likelihood
 ```
 
-Now, let's use this Op to repeat the example shown above. To do this let's create some data containing a straight line with additive Gaussian noise (with a mean of zero and a standard deviation of `sigma`). For simplicity we set [uniform](https://docs.pymc.io/api/distributions/continuous.html#pymc3.distributions.continuous.Uniform) prior distributions on the gradient and y-intercept. As we've not set the `grad()` method of the Op PyMC3 will not be able to use the gradient-based samplers, so will fall back to using the [Slice](https://docs.pymc.io/api/inference.html#module-pymc3.step_methods.slicer) sampler.
+Now, let's use this Op to repeat the example shown above. To do this let's create some data containing a straight line with additive Gaussian noise (with a mean of zero and a standard deviation of `sigma`). For simplicity we set [uniform](https://docs.pymc.io/api/distributions/continuous.html#pymc.distributions.continuous.Uniform) prior distributions on the gradient and y-intercept. As we've not set the `grad()` method of the Op PyMC will not be able to use the gradient-based samplers, so will fall back to using the [Slice](https://docs.pymc.io/api/inference.html#module-pymc.step_methods.slicer) sampler.
 
 ```{code-cell} ipython3
 # set up our data
@@ -256,14 +256,14 @@ nburn = 1000  # number of "burn-in points" (which we'll discard)
 # create our Op
 logl = LogLike(my_loglike, data, x, sigma)
 
-# use PyMC3 to sampler from log-likelihood
+# use PyMC to sampler from log-likelihood
 with pm.Model():
     # uniform priors on m and c
     m = pm.Uniform("m", lower=-10.0, upper=10.0)
     c = pm.Uniform("c", lower=-10.0, upper=10.0)
 
     # convert m and c to a tensor vector
-    theta = tt.as_tensor_variable([m, c])
+    theta = at.as_tensor_variable([m, c])
 
     # use a DensityDist (use a lamdba function to "call" the Op)
     pm.DensityDist("likelihood", lambda v: logl(v), observed={"v": theta})
@@ -274,10 +274,10 @@ with pm.Model():
 _ = az.plot_trace(trace, lines={"m": mtrue, "c": ctrue})
 
 # put the chains in an array (for later!)
-samples_pymc3 = np.vstack((trace["m"], trace["c"])).T
+samples_pymc = np.vstack((trace["m"], trace["c"])).T
 ```
 
-What if we wanted to use NUTS or HMC? If we knew the analytical derivatives of the model/likelihood function then we could add a [grad() method](http://deeplearning.net/software/theano/extending/op.html#grad) to the Op using that analytical form.
+What if we wanted to use NUTS or HMC? If we knew the analytical derivatives of the model/likelihood function then we could add a [grad() method](http://deeplearning.net/software/aesara/extending/op.html#grad) to the Op using that analytical form.
 
 But, what if we don't know the analytical form. If our model/likelihood is purely Python and made up of standard maths operators and Numpy functions, then the [autograd](https://github.com/HIPS/autograd) module could potentially be used to find gradients (also, see [here](https://github.com/ActiveState/code/blob/master/recipes/Python/580610_Auto_differentiation/recipe-580610.py) for a nice Python example of automatic differentiation). But, if our model/likelihood truly is a "black box" then we can just use the good-old-fashioned [finite difference](https://en.wikipedia.org/wiki/Finite_difference) to find the gradients - this can be slow, especially if there are a large number of variables, or the model takes a long time to evaluate. Below, a function to find gradients has been defined that uses the finite difference (the central difference) - it uses an iterative method with successively smaller interval sizes to check that the gradient converges. But, you could do something far simpler and just use, for example, the SciPy [approx_fprime](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.approx_fprime.html) function. Here, the gradient function is defined in Cython for speed, but if the function it evaluates to find the gradients is the performance bottle neck then having this as a pure Python function may not make a significant speed difference.
 
@@ -419,14 +419,14 @@ def gradients(vals, func, releps=1e-3, abseps=None, mineps=1e-9, reltol=1e-3,
 
 So, now we can just redefine our Op with a `grad()` method, right?
 
-It's not quite so simple! The `grad()` method itself requires that its inputs are Theano tensor variables, whereas our `gradients` function above, like our `my_loglike` function, wants a list of floating point values. So, we need to define another Op that calculates the gradients. Below, I define a new version of the `LogLike` Op, called `LogLikeWithGrad` this time, that has a `grad()` method. This is followed by anothor Op called `LogLikeGrad` that, when called with a vector of Theano tensor variables, returns another vector of values that are the gradients (i.e., the [Jacobian](https://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant)) of our log-likelihood function at those values. Note that the `grad()` method itself does not return the gradients directly, but instead returns the [Jacobian](https://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant)-vector product (you can hopefully just copy what I've done and not worry about what this means too much!).
+It's not quite so simple! The `grad()` method itself requires that its inputs are Aesara tensor variables, whereas our `gradients` function above, like our `my_loglike` function, wants a list of floating point values. So, we need to define another Op that calculates the gradients. Below, I define a new version of the `LogLike` Op, called `LogLikeWithGrad` this time, that has a `grad()` method. This is followed by anothor Op called `LogLikeGrad` that, when called with a vector of Aesara tensor variables, returns another vector of values that are the gradients (i.e., the [Jacobian](https://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant)) of our log-likelihood function at those values. Note that the `grad()` method itself does not return the gradients directly, but instead returns the [Jacobian](https://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant)-vector product (you can hopefully just copy what I've done and not worry about what this means too much!).
 
 ```{code-cell} ipython3
-# define a theano Op for our likelihood function
-class LogLikeWithGrad(tt.Op):
+# define a aesara Op for our likelihood function
+class LogLikeWithGrad(at.Op):
 
-    itypes = [tt.dvector]  # expects a vector of parameter values when called
-    otypes = [tt.dscalar]  # outputs a single scalar value (the log likelihood)
+    itypes = [at.dvector]  # expects a vector of parameter values when called
+    otypes = [at.dscalar]  # outputs a single scalar value (the log likelihood)
 
     def __init__(self, loglike, data, x, sigma):
         """
@@ -470,15 +470,15 @@ class LogLikeWithGrad(tt.Op):
         return [g[0] * self.logpgrad(theta)]
 
 
-class LogLikeGrad(tt.Op):
+class LogLikeGrad(at.Op):
 
     """
     This Op will be called with a vector of values and also return a vector of
     values - the gradients in each dimension.
     """
 
-    itypes = [tt.dvector]
-    otypes = [tt.dvector]
+    itypes = [at.dvector]
+    otypes = [at.dvector]
 
     def __init__(self, loglike, data, x, sigma):
         """
@@ -516,20 +516,20 @@ class LogLikeGrad(tt.Op):
         outputs[0][0] = grads
 ```
 
-Now, let's re-run PyMC3 with our new "grad"-ed Op. This time it will be able to automatically use NUTS.
+Now, let's re-run PyMC with our new "grad"-ed Op. This time it will be able to automatically use NUTS.
 
 ```{code-cell} ipython3
 # create our Op
 logl = LogLikeWithGrad(my_loglike, data, x, sigma)
 
-# use PyMC3 to sampler from log-likelihood
+# use PyMC to sampler from log-likelihood
 with pm.Model() as opmodel:
     # uniform priors on m and c
     m = pm.Uniform("m", lower=-10.0, upper=10.0)
     c = pm.Uniform("c", lower=-10.0, upper=10.0)
 
     # convert m and c to a tensor vector
-    theta = tt.as_tensor_variable([m, c])
+    theta = at.as_tensor_variable([m, c])
 
     # use a DensityDist
     pm.DensityDist("likelihood", lambda v: logl(v), observed={"v": theta})
@@ -540,10 +540,10 @@ with pm.Model() as opmodel:
 _ = az.plot_trace(trace, lines={"m": mtrue, "c": ctrue})
 
 # put the chains in an array (for later!)
-samples_pymc3_2 = np.vstack((trace["m"], trace["c"])).T
+samples_pymc_2 = np.vstack((trace["m"], trace["c"])).T
 ```
 
-Now, finally, just to check things actually worked as we might expect, let's do the same thing purely using PyMC3 distributions (because in this simple example we can!)
+Now, finally, just to check things actually worked as we might expect, let's do the same thing purely using PyMC distributions (because in this simple example we can!)
 
 ```{code-cell} ipython3
 with pm.Model() as pymodel:
@@ -552,7 +552,7 @@ with pm.Model() as pymodel:
     c = pm.Uniform("c", lower=-10.0, upper=10.0)
 
     # convert m and c to a tensor vector
-    theta = tt.as_tensor_variable([m, c])
+    theta = at.as_tensor_variable([m, c])
 
     # use a Normal distribution
     pm.Normal("likelihood", mu=(m * x + c), sigma=sigma, observed=data)
@@ -563,7 +563,7 @@ with pm.Model() as pymodel:
 _ = az.plot_trace(trace, lines={"m": mtrue, "c": ctrue})
 
 # put the chains in an array (for later!)
-samples_pymc3_3 = np.vstack((trace["m"], trace["c"])).T
+samples_pymc_3 = np.vstack((trace["m"], trace["c"])).T
 ```
 
 To check that they match let's plot all the examples together and also find the autocorrelation lengths.
@@ -584,9 +584,9 @@ hist2dkwargs = {
 }  # roughly 1 and 2 sigma
 
 colors = ["r", "g", "b"]
-labels = ["Theanp Op (no grad)", "Theano Op (with grad)", "Pure PyMC3"]
+labels = ["Theanp Op (no grad)", "Aesara Op (with grad)", "Pure PyMC"]
 
-for i, samples in enumerate([samples_pymc3, samples_pymc3_2, samples_pymc3_3]):
+for i, samples in enumerate([samples_pymc, samples_pymc_2, samples_pymc_3]):
     # get maximum chain autocorrelartion length
     autocorrlen = int(np.max(emcee.autocorr.integrated_time(samples, c=3)))
     print("Auto-correlation length ({}): {}".format(labels[i], autocorrlen))
@@ -608,29 +608,29 @@ for i, samples in enumerate([samples_pymc3, samples_pymc3_2, samples_pymc3_3]):
 fig.set_size_inches(8, 8)
 ```
 
-We can now check that the gradient Op works was we expect it to. First, just create and call the `LogLikeGrad` class, which should return the gradient directly (note that we have to create a [Theano function](http://deeplearning.net/software/theano/library/compile/function.html) to convert the output of the Op to an array). Secondly, we call the gradient from `LogLikeWithGrad` by using the [Theano tensor gradient](http://deeplearning.net/software/theano/library/gradient.html#theano.gradient.grad) function. Finally, we will check the gradient returned by the PyMC3 model for a Normal distribution, which should be the same as the log-likelihood function we defined. In all cases we evaluate the gradients at the true values of the model function (the straight line) that was created.
+We can now check that the gradient Op works was we expect it to. First, just create and call the `LogLikeGrad` class, which should return the gradient directly (note that we have to create a [Aesara function](http://deeplearning.net/software/aesara/library/compile/function.html) to convert the output of the Op to an array). Secondly, we call the gradient from `LogLikeWithGrad` by using the [Aesara tensor gradient](http://deeplearning.net/software/aesara/library/gradient.html#aesara.gradient.grad) function. Finally, we will check the gradient returned by the PyMC model for a Normal distribution, which should be the same as the log-likelihood function we defined. In all cases we evaluate the gradients at the true values of the model function (the straight line) that was created.
 
 ```{code-cell} ipython3
 # test the gradient Op by direct call
-theano.config.compute_test_value = "ignore"
-theano.config.exception_verbosity = "high"
+aesara.config.compute_test_value = "ignore"
+aesara.config.exception_verbosity = "high"
 
-var = tt.dvector()
+var = at.dvector()
 test_grad_op = LogLikeGrad(my_loglike, data, x, sigma)
-test_grad_op_func = theano.function([var], test_grad_op(var))
+test_grad_op_func = aesara.function([var], test_grad_op(var))
 grad_vals = test_grad_op_func([mtrue, ctrue])
 
 print(f'Gradient returned by "LogLikeGrad": {grad_vals}')
 
 # test the gradient called through LogLikeWithGrad
 test_gradded_op = LogLikeWithGrad(my_loglike, data, x, sigma)
-test_gradded_op_grad = tt.grad(test_gradded_op(var), var)
-test_gradded_op_grad_func = theano.function([var], test_gradded_op_grad)
+test_gradded_op_grad = at.grad(test_gradded_op(var), var)
+test_gradded_op_grad_func = aesara.function([var], test_gradded_op_grad)
 grad_vals_2 = test_gradded_op_grad_func([mtrue, ctrue])
 
 print(f'Gradient returned by "LogLikeWithGrad": {grad_vals_2}')
 
-# test the gradient that PyMC3 uses for the Normal log likelihood
+# test the gradient that PyMC uses for the Normal log likelihood
 test_model = pm.Model()
 with test_model:
     m = pm.Uniform("m", lower=-10.0, upper=10.0)
@@ -640,12 +640,12 @@ with test_model:
 
     gradfunc = test_model.logp_dlogp_function([m, c], dtype=None)
     gradfunc.set_extra_values({"m_interval__": mtrue, "c_interval__": ctrue})
-    grad_vals_pymc3 = gradfunc(np.array([mtrue, ctrue]))[1]  # get dlogp values
+    grad_vals_pymc = gradfunc(np.array([mtrue, ctrue]))[1]  # get dlogp values
 
-print(f'Gradient returned by PyMC3 "Normal" distribution: {grad_vals_pymc3}')
+print(f'Gradient returned by PyMC "Normal" distribution: {grad_vals_pymc}')
 ```
 
-We can also do some [profiling](http://docs.pymc.io/notebooks/profiling.html) of the Op, as used within a PyMC3 Model, to check performance. First, we'll profile using the `LogLikeWithGrad` Op, and then doing the same thing purely using PyMC3 distributions.
+We can also do some [profiling](http://docs.pymc.io/notebooks/profiling.html) of the Op, as used within a PyMC Model, to check performance. First, we'll profile using the `LogLikeWithGrad` Op, and then doing the same thing purely using PyMC distributions.
 
 ```{code-cell} ipython3
 # profile logpt using our Op
@@ -653,13 +653,13 @@ opmodel.profile(opmodel.logpt).summary()
 ```
 
 ```{code-cell} ipython3
-# profile using our PyMC3 distribution
+# profile using our PyMC distribution
 pymodel.profile(pymodel.logpt).summary()
 ```
 
 ## Authors
 
-* Adapted from a blog post by [Matt Pitkin](http://mattpitkin.github.io/samplers-demo/pages/pymc3-blackbox-likelihood/) on August 27, 2018. That post was based on an example provided by [Jørgen Midtbø](https://github.com/jorgenem/).
+* Adapted from a blog post by [Matt Pitkin](http://mattpitkin.github.io/samplers-demo/pages/pymc-blackbox-likelihood/) on August 27, 2018. That post was based on an example provided by [Jørgen Midtbø](https://github.com/jorgenem/).
 
 ```{code-cell} ipython3
 %load_ext watermark

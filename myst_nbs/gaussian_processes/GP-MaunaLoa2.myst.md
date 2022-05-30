@@ -37,16 +37,16 @@ Also, the ordering of the data points is fixed.  There is no way for older ice l
 
 The dates of the ice core measurements have some uncertainty.  They may be accurate on a yearly level due to how the ice layers on it self every year, but the date isn't likely to be reliable as to the season when the measurement was taken.  Also, the CO2 level observed may be some sort of average of the overall yearly level.  
 
-As we saw in the previous example, there is a strong seasonal component in CO2 levels that won't be observable in this data set.  In PyMC3, we can easily include both errors in $y$ and errors in $x$.  To demonstrate this, we remove the latter part of the data (which are averaged with Mauna Loa readings) so we have only the ice core measurements.  We fit the Gaussian process model using the No-U-Turn MCMC sampler.
+As we saw in the previous example, there is a strong seasonal component in CO2 levels that won't be observable in this data set.  In PyMC, we can easily include both errors in $y$ and errors in $x$.  To demonstrate this, we remove the latter part of the data (which are averaged with Mauna Loa readings) so we have only the ice core measurements.  We fit the Gaussian process model using the No-U-Turn MCMC sampler.
 
 ```{code-cell} ipython3
+import aesara
+import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
-import theano
-import theano.tensor as tt
+import pymc as pm
 ```
 
 ```{code-cell} ipython3
@@ -81,7 +81,7 @@ The industrial revolution era occurred around the years 1760 to 1840.  This poin
 
 ## Uncertainty in 'x'
 
-To model uncertainty in $x$, or time, we place a prior distribution over each of the observation dates.  So that the prior is standardized, we specifically use a PyMC3 random variable to model the difference between the date given in the data set, and it's error.  We assume that these differences are normal with mean zero, and standard deviation of two years.  We also enforce that the observations have a strict ordering in time using the `ordered` transform.
+To model uncertainty in $x$, or time, we place a prior distribution over each of the observation dates.  So that the prior is standardized, we specifically use a PyMC random variable to model the difference between the date given in the data set, and it's error.  We assume that these differences are normal with mean zero, and standard deviation of two years.  We also enforce that the observations have a strict ordering in time using the `ordered` transform.
 
 For just the ice core data, the uncertainty in $x$ is not very important.  In the last example, we'll see how it plays a more influential role in the model.
 
@@ -134,11 +134,11 @@ with pm.Model() as model:
     y_ = gp.marginal_likelihood("y", X=t_uncert[:, None], y=y_n, noise=σ)
 ```
 
-Next we can sample with the NUTS MCMC algorithm.  We run two chains but set the number of cores to one, since the linear algebra libraries used internally by Theano are multicore.
+Next we can sample with the NUTS MCMC algorithm.  We run two chains but set the number of cores to one, since the linear algebra libraries used internally by Aesara are multicore.
 
 ```{code-cell} ipython3
 with model:
-    tr = pm.sample(target_accept=0.95, return_inferencedata=True)
+    tr = pm.sample(target_accept=0.95)
 ```
 
 ```{code-cell} ipython3
@@ -200,11 +200,11 @@ def dm_changepoints(t, changepoints_t):
     return A
 ```
 
-For later use, we reprogram this function using symbolic theano variables.  The code is a bit inscrutible, but it returns the same thing as `dm_changepoitns` while avoiding the use of a loop.
+For later use, we reprogram this function using symbolic aesara variables.  The code is a bit inscrutible, but it returns the same thing as `dm_changepoitns` while avoiding the use of a loop.
 
 ```{code-cell} ipython3
-def dm_changepoints_theano(X, changepoints_t):
-    return 0.5 * (1.0 + tt.sgn(tt.tile(X, (1, len(changepoints_t))) - changepoints_t))
+def dm_changepoints_aesara(X, changepoints_t):
+    return 0.5 * (1.0 + at.sgn(at.tile(X, (1, len(changepoints_t))) - changepoints_t))
 ```
 
 From looking at the graph, some possible locations for changepoints are at 1600, 1800 and maybe 1900.  These bookend the little ice age, the start of the industrial revolution, and the start of more modern industrial practices.
@@ -247,9 +247,9 @@ class PiecewiseLinear(pm.gp.mean.Mean):
 
     def __call__(self, X):
         # X are the x locations, or time points
-        A = dm_changepoints_theano(X, self.changepoints)
-        return (self.k + tt.dot(A, self.delta)) * X.flatten() + (
-            self.m + tt.dot(A, -self.changepoints * self.delta)
+        A = dm_changepoints_aesara(X, self.changepoints)
+        return (self.k + at.dot(A, self.delta)) * X.flatten() + (
+            self.m + at.dot(A, -self.changepoints * self.delta)
         )
 ```
 
@@ -350,16 +350,16 @@ $$
 
 which is parameterized by the changepoint $x_0$. The covariance function $s(x; x_0) k_b(x, x') s(x'; x_0)$ is only active in the region $x > x_0$.  
 
-The PyMC3 contains the `ScaledCov` covariance function.  As arguments, it takes a base
-covariance, a scaling function, and the tuple of the arguments for the base covariance.  To construct this in PyMC3, we first define the scaling function:
+The PyMC contains the `ScaledCov` covariance function.  As arguments, it takes a base
+covariance, a scaling function, and the tuple of the arguments for the base covariance.  To construct this in PyMC, we first define the scaling function:
 
 ```{code-cell} ipython3
 def step_function(x, x0, greater=True):
     if greater:
         # s = 1 for x > x_0
-        return 0.5 * (tt.sgn(x - x0) + 1.0)
+        return 0.5 * (at.sgn(x - x0) + 1.0)
     else:
-        return 0.5 * (tt.sgn(x0 - x) + 1.0)
+        return 0.5 * (at.sgn(x0 - x) + 1.0)
 ```
 
 ```{code-cell} ipython3
@@ -684,15 +684,15 @@ class CustomWhiteNoise(pm.gp.cov.Covariance):
         self.n2 = n2
 
     def diag(self, X):
-        d1 = tt.alloc(tt.square(self.sigma1), self.n1)
-        d2 = tt.alloc(tt.square(self.sigma2), self.n2)
-        return tt.concatenate((d1, d2), 0)
+        d1 = at.alloc(at.square(self.sigma1), self.n1)
+        d2 = at.alloc(at.square(self.sigma2), self.n2)
+        return at.concatenate((d1, d2), 0)
 
     def full(self, X, Xs=None):
         if Xs is None:
-            return tt.diag(self.diag(X))
+            return at.diag(self.diag(X))
         else:
-            return tt.alloc(0.0, X.shape[0], Xs.shape[0])
+            return at.alloc(0.0, X.shape[0], Xs.shape[0])
 ```
 
 Next we need to organize and combine the two data sets. Remember that the unit on the x-axis is centuries, not years.
@@ -769,7 +769,7 @@ with pm.Model() as model:
     t_mu = t_n[:111]
     t_diff = pm.Normal("t_diff", mu=0.0, sigma=0.02, shape=len(t_mu))
     t_uncert = t_mu - t_diff
-    t_combined = tt.concatenate((t_uncert, t_n[111:]), 0)
+    t_combined = at.concatenate((t_uncert, t_n[111:]), 0)
 
     # Noise covariance, using boundary avoiding priors for MAP estimation
     σ1 = pm.Gamma("σ1", alpha=3, beta=50)
@@ -783,7 +783,7 @@ with pm.Model() as model:
 
 ```{code-cell} ipython3
 with model:
-    tr = pm.sample(500, tune=1000, chains=2, cores=16, return_inferencedata=True)
+    tr = pm.sample(500, tune=1000, chains=2, cores=16)
 ```
 
 ```{code-cell} ipython3
@@ -939,7 +939,7 @@ Even as we go back before the year zero BCE, the general backcasted seasonality 
 
 ### Conclusion
 
-The goal of this notebook is to help provide some ideas of ways to take advantage of the flexibility of PyMC3's GP modeling capabilities.  Data rarely comes in neat, evenly sampled intervals from a single source, which is no problem for GP models in general.  To enable modeling interesting behavior, it is easy to define custom covariance and mean functions.  There is no need to worry about figuring out the gradients, since this is taken care of by Theano's autodiff capabilities.  Being able to use the extremely high quality NUTS sampler in PyMC3 with GP models means that it's possible to use samples from the posterior distribution as possible forecasts, which take into account uncertainty in the mean and covariance function hyperparameters.
+The goal of this notebook is to help provide some ideas of ways to take advantage of the flexibility of PyMC's GP modeling capabilities.  Data rarely comes in neat, evenly sampled intervals from a single source, which is no problem for GP models in general.  To enable modeling interesting behavior, it is easy to define custom covariance and mean functions.  There is no need to worry about figuring out the gradients, since this is taken care of by Aesara's autodiff capabilities.  Being able to use the extremely high quality NUTS sampler in PyMC with GP models means that it's possible to use samples from the posterior distribution as possible forecasts, which take into account uncertainty in the mean and covariance function hyperparameters.
 
 ```{code-cell} ipython3
 %load_ext watermark

@@ -13,25 +13,25 @@ kernelspec:
 
 ```{code-cell} ipython3
 %matplotlib inline
+import aesara
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano
+import pymc as pm
 
-from pymc3.ode import DifferentialEquation
+from pymc.ode import DifferentialEquation
 from scipy.integrate import odeint
 
 plt.style.use("seaborn-darkgrid")
 ```
 
-# GSoC 2019: Introduction of pymc3.ode API
+# GSoC 2019: Introduction of pymc.ode API
 by [Demetri Pananos](https://dpananos.github.io/posts/2019/08/blog-post-21/)
 
 Ordinary differential equations (ODEs) are a convenient mathematical framework for modelling the temporal dynamics of a system in disciplines from engineering to ecology. Though most analyses focus on bifurcations and stability of fixed points, parameter and uncertainty estimates are more salient in systems of practical interest, such as population pharmacokinetics and pharmacodynamics.
 
 
-Both parameter estimation and uncertainty propagation are handled elegantly by the Bayesian framework.  In this notebook, I showcase how PyMC3 can be used to do inference for differential equations using the `ode` submodule. While the current implementation is quite flexible and well integrated, more complex models can easily become slow to estimate. A new package that integrates the much faster `sundials` package into PyMC3 called `sunode` can be found [here](https://github.com/aseyboldt/sunode). 
+Both parameter estimation and uncertainty propagation are handled elegantly by the Bayesian framework.  In this notebook, I showcase how PyMC can be used to do inference for differential equations using the `ode` submodule. While the current implementation is quite flexible and well integrated, more complex models can easily become slow to estimate. A new package that integrates the much faster `sundials` package into PyMC called `sunode` can be found [here](https://github.com/aseyboldt/sunode). 
 
 
 ## Catching Up On Differential Equations
@@ -47,10 +47,10 @@ Only a small subset of differential equations have an analytical solution.  For 
 
 ## Doing Bayesian Inference With Differential Equations
 
-PyMC3 uses Hamiltonian Monte Carlo (HMC) to obtain samples from the posterior distribution.  HMC requires derivatives of the ODE's solution with respect to the parameters $p$.  The `ode` submodual automatically computes appropriate derivatives so you don't have to.  All you have to do is 
+PyMC uses Hamiltonian Monte Carlo (HMC) to obtain samples from the posterior distribution.  HMC requires derivatives of the ODE's solution with respect to the parameters $p$.  The `ode` submodual automatically computes appropriate derivatives so you don't have to.  All you have to do is 
 
 * Write the differential equation as a python function
-* Write the model in PyMC3
+* Write the model in PyMC
 * Hit the Inference Button $^{\text{TM}}$
 
 Let's see how this is done in practice with a small example.
@@ -121,7 +121,7 @@ with pm.Model() as model:
     trace = pm.sample(2000, tune=1000, cores=1)
     posterior_predictive = pm.sample_posterior_predictive(trace)
 
-    data = az.from_pymc3(trace=trace, prior=prior, posterior_predictive=posterior_predictive)
+    data = pm.to_inference_data(trace=trace, prior=prior, posterior_predictive=posterior_predictive)
 ```
 
 ```{code-cell} ipython3
@@ -148,7 +148,7 @@ with pm.Model() as model2:
     trace = pm.sample(2000, tune=1000, target_accept=0.9, cores=1)
     posterior_predictive = pm.sample_posterior_predictive(trace)
 
-    data = az.from_pymc3(trace=trace, prior=prior, posterior_predictive=posterior_predictive)
+    data = pm.to_inference_data(trace=trace, prior=prior, posterior_predictive=posterior_predictive)
 ```
 
 ```{code-cell} ipython3
@@ -177,7 +177,7 @@ with pm.Model() as model3:
     trace = pm.sample(2000, tune=1000, target_accept=0.9, cores=1)
     posterior_predictive = pm.sample_posterior_predictive(trace)
 
-    data = az.from_pymc3(trace=trace, prior=prior, posterior_predictive=posterior_predictive)
+    data = pm.to_inference_data(trace=trace, prior=prior, posterior_predictive=posterior_predictive)
 ```
 
 ```{code-cell} ipython3
@@ -265,7 +265,7 @@ with pm.Model() as model4:
     Y = pm.Lognormal("Y", mu=pm.math.log(sir_curves), sigma=sigma, observed=yobs)
 
     trace = pm.sample(2000, tune=1000, target_accept=0.9, cores=1)
-    data = az.from_pymc3(trace=trace)
+    data = pm.to_inference_data(trace=trace)
 ```
 
 ```{code-cell} ipython3
@@ -278,7 +278,7 @@ As can be seen from the posterior plots, $\beta$ is well estimated by leveraging
 
 ## Conclusions & Final Thoughts
 
-ODEs are a really good model for continuous temporal evolution.  With the addition of `DifferentialEquation` to PyMC3, we can now use bayesian methods to estimate the parameters of ODEs.
+ODEs are a really good model for continuous temporal evolution.  With the addition of `DifferentialEquation` to PyMC, we can now use bayesian methods to estimate the parameters of ODEs.
 
 `DifferentialEquation` is not as fast as compared to Stan's `integrate_ode_bdf`.  However, the ease of use of `DifferentialEquation` will allow practitioners to get up and running much quicker with Bayesian estimation for ODEs than Stan (which has a steep learning curve).
 

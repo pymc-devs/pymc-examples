@@ -6,9 +6,9 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python (PyMC3 Dev)
+  display_name: Python (PyMC Dev)
   language: python
-  name: pymc3-dev
+  name: pymc-dev
 ---
 
 ```{code-cell} ipython3
@@ -25,22 +25,22 @@ os.environ["THEANO_FLAGS"] = "floatX=float64"
 ```{code-cell} ipython3
 import logging
 
+import aesara
+import aesara.tensor as at
 import arviz
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano
-import theano.tensor as tt
+import pymc as pm
 
 from scipy.integrate import odeint
 
 # this notebook show DEBUG log messages
-logging.getLogger("pymc3").setLevel(logging.DEBUG)
+logging.getLogger("pymc").setLevel(logging.DEBUG)
 
 import IPython.display
 ```
 
-# pymc3.ode: Shapes and benchmarking
+# pymc.ode: Shapes and benchmarking
 
 +++
 
@@ -93,9 +93,9 @@ plt.show()
 
 ```{code-cell} ipython3
 # To demonstrate that test-value computation works, but also for debugging
-theano.config.compute_test_value = "raise"
-theano.config.exception_verbosity = "high"
-theano.config.traceback.limit = 100
+aesara.config.compute_test_value = "raise"
+aesara.config.exception_verbosity = "high"
+aesara.config.traceback.limit = 100
 ```
 
 ```{code-cell} ipython3
@@ -129,22 +129,22 @@ def make_benchmark():
 
     # create a test function for evaluating the logp value
     print("Compiling f_logpt")
-    f_logpt = theano.function(
+    f_logpt = aesara.function(
         inputs=t_inputs,
         outputs=[pmodel.logpt],
         # with float32, allow downcast because the forward integration is always float64
-        allow_input_downcast=(theano.config.floatX == "float32"),
+        allow_input_downcast=(aesara.config.floatX == "float32"),
     )
     print(f"Test logpt:")
     print(f_logpt(*test_inputs))
 
     # and another test function for evaluating the gradient
     print("Compiling f_logpt")
-    f_grad = theano.function(
+    f_grad = aesara.function(
         inputs=t_inputs,
-        outputs=tt.grad(pmodel.logpt, t_inputs),
+        outputs=at.grad(pmodel.logpt, t_inputs),
         # with float32, allow downcast because the forward integration is always float64
-        allow_input_downcast=(theano.config.floatX == "float32"),
+        allow_input_downcast=(aesara.config.floatX == "float32"),
     )
     print(f"Test gradient:")
     print(f_grad(*test_inputs))
@@ -187,7 +187,7 @@ pip install pydot
 ```
 
 ```{code-cell} ipython3
-from theano import d3viz
+from aesara import d3viz
 
 d3viz.d3viz(model.logpt, "ODE_API_shapes_and_benchmarking.html")
 ```

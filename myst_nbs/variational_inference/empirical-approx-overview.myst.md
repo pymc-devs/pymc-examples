@@ -6,25 +6,25 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python PyMC3 (Dev)
+  display_name: Python PyMC (Dev)
   language: python
-  name: pymc3-dev-py38
+  name: pymc-dev-py38
 ---
 
 # Empirical Approximation overview
 
-For most models we use sampling MCMC algorithms like Metropolis or NUTS. In PyMC3 we got used to store traces of MCMC samples and then do analysis using them. There is a similar concept for the variational inference submodule in PyMC3: *Empirical*. This type of approximation stores particles for the SVGD sampler. There is no difference between independent SVGD particles and MCMC samples. *Empirical* acts as a bridge between MCMC sampling output and full-fledged VI utils like `apply_replacements` or `sample_node`. For the interface description, see [variational_api_quickstart](variational_api_quickstart.ipynb). Here we will just focus on `Emprical` and give an overview of specific things for the *Empirical* approximation
+For most models we use sampling MCMC algorithms like Metropolis or NUTS. In PyMC we got used to store traces of MCMC samples and then do analysis using them. There is a similar concept for the variational inference submodule in PyMC: *Empirical*. This type of approximation stores particles for the SVGD sampler. There is no difference between independent SVGD particles and MCMC samples. *Empirical* acts as a bridge between MCMC sampling output and full-fledged VI utils like `apply_replacements` or `sample_node`. For the interface description, see [variational_api_quickstart](variational_api_quickstart.ipynb). Here we will just focus on `Emprical` and give an overview of specific things for the *Empirical* approximation
 
 ```{code-cell} ipython3
+import aesara
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano
+import pymc as pm
 
 from pandas import DataFrame
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -43,7 +43,7 @@ mu = pm.floatX([-0.3, 0.5])
 sd = pm.floatX([0.1, 0.1])
 
 with pm.Model() as model:
-    x = pm.NormalMixture("x", w=w, mu=mu, sigma=sd, dtype=theano.config.floatX)
+    x = pm.NormalMixture("x", w=w, mu=mu, sigma=sd, dtype=aesara.config.floatX)
     trace = pm.sample(50000)
 ```
 
@@ -66,7 +66,7 @@ with model:
 approx
 ```
 
-This type of approximation has it's own underlying storage for samples that is `theano.shared` itself
+This type of approximation has it's own underlying storage for samples that is `aesara.shared` itself
 
 ```{code-cell} ipython3
 approx.histogram

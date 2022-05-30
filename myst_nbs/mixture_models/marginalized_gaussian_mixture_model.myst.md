@@ -16,7 +16,7 @@ kernelspec:
 # Marginalized Gaussian Mixture Model
 
 :::{post} Sept 18, 2021
-:tags: mixture model, pymc3.Dirichlet, pymc3.Gamma, pymc3.Model, pymc3.Normal, pymc3.NormalMixture
+:tags: mixture model, pymc.Dirichlet, pymc.Gamma, pymc.Model, pymc.Normal, pymc.NormalMixture
 :category: intermediate
 :::
 
@@ -32,12 +32,12 @@ tags: []
 ---
 import arviz as az
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
 
 from matplotlib import pyplot as plt
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -126,7 +126,7 @@ x\ |\ z
 \end{align*}
 $$
 
-An implementation of this parameterization in PyMC3 is available at {doc}`gaussian_mixture_model`.  A drawback of this parameterization is that is posterior relies on sampling the discrete latent variable $z$.  This reliance can cause slow mixing and ineffective exploration of the tails of the distribution.
+An implementation of this parameterization in PyMC is available at {doc}`gaussian_mixture_model`.  A drawback of this parameterization is that is posterior relies on sampling the discrete latent variable $z$.  This reliance can cause slow mixing and ineffective exploration of the tails of the distribution.
 
 An alternative, equivalent parameterization that addresses these problems is to marginalize over $z$.  The marginalized model is
 
@@ -151,7 +151,7 @@ is the probability density function of the normal distribution.
 
 Marginalizing $z$ out of the model generally leads to faster mixing and better exploration of the tails of the posterior distribution.  Marginalization over discrete parameters is a common trick in the [Stan](http://mc-stan.org/) community, since Stan does not support sampling from discrete distributions.  For further details on marginalization and several worked examples, see the [_Stan User's Guide and Reference Manual_](http://www.uvm.edu/~bbeckage/Teaching/DataAnalysis/Manuals/stan-reference-2.8.0.pdf).
 
-PyMC3 supports marginalized Gaussian mixture models through its `NormalMixture` class.  (It also supports marginalized general mixture models through its `Mixture` class)  Below we specify and fit a marginalized Gaussian mixture model to this data in PyMC3.
+PyMC supports marginalized Gaussian mixture models through its `NormalMixture` class.  (It also supports marginalized general mixture models through its `Mixture` class)  Below we specify and fit a marginalized Gaussian mixture model to this data in PyMC.
 
 ```{code-cell} ipython3
 ---
@@ -190,7 +190,7 @@ papermill:
 tags: []
 ---
 with model:
-    trace = pm.sample(5000, n_init=10000, tune=1000, return_inferencedata=True)
+    trace = pm.sample(5000, n_init=10000, tune=1000)
 
     # sample posterior predictive samples
     ppc_trace = pm.sample_posterior_predictive(trace, var_names=["x_obs"], keep_size=True)
@@ -235,5 +235,5 @@ papermill:
 tags: []
 ---
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p aesara,xarray
 ```

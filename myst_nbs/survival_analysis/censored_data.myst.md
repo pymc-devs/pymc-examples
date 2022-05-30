@@ -20,7 +20,7 @@ from copy import copy
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
 
 from numpy.random import default_rng
@@ -54,7 +54,7 @@ Censored data arises in many modelling problems. Two common examples are:
    range of temperatures.
 
 This example notebook presents two different ways of dealing with censored data
-in PyMC3:
+in PyMC:
 
 1. An imputed censored model, which represents censored data as parameters and
    makes up plausible values for all censored values. As a result of this
@@ -118,7 +118,7 @@ We should predict that running the uncensored model on uncensored data, we will 
 ```{code-cell} ipython3
 uncensored_model_1 = uncensored_model(samples)
 with uncensored_model_1:
-    trace = pm.sample(tune=1000, return_inferencedata=True)
+    trace = pm.sample(tune=1000)
     az.plot_posterior(trace, ref_val=[true_mu, true_sigma], round_to=3);
 ```
 
@@ -133,7 +133,7 @@ np.mean(censored), np.std(censored)
 ```{code-cell} ipython3
 uncensored_model_2 = uncensored_model(censored)
 with uncensored_model_2:
-    trace = pm.sample(tune=1000, return_inferencedata=True)
+    trace = pm.sample(tune=1000)
     az.plot_posterior(trace, ref_val=[true_mu, true_sigma], round_to=3);
 ```
 
@@ -156,7 +156,7 @@ assert len(uncensored) == n_observed
 
 In this model, we impute the censored values from the same distribution as the uncensored data. Sampling from the posterior generates possible uncensored data sets.
 
-This model makes use of [PyMC3's bounded variables](https://docs.pymc.io/api/bounds.html).
+This model makes use of [PyMC's bounded variables](https://docs.pymc.io/api/bounds.html).
 
 ```{code-cell} ipython3
 with pm.Model() as imputed_censored_model:
@@ -173,7 +173,7 @@ with pm.Model() as imputed_censored_model:
 
 ```{code-cell} ipython3
 with imputed_censored_model:
-    trace = pm.sample(return_inferencedata=True)
+    trace = pm.sample()
     az.plot_posterior(trace, var_names=["mu", "sigma"], ref_val=[true_mu, true_sigma], round_to=3);
 ```
 
@@ -185,13 +185,13 @@ We can see that the bias in the estimates of the mean and variance (present in t
 
 In this model, we do not impute censored data, but instead integrate them out through the likelihood.
 
-The implementations of the likelihoods are non-trivial. See the [Stan manual](https://github.com/stan-dev/stan/releases/download/v2.14.0/stan-reference-2.14.0.pdf) (section 11.3 on censored data) and the [original PyMC3 issue on GitHub](https://github.com/pymc-devs/pymc3/issues/1833) for more information.
+The implementations of the likelihoods are non-trivial. See the [Stan manual](https://github.com/stan-dev/stan/releases/download/v2.14.0/stan-reference-2.14.0.pdf) (section 11.3 on censored data) and the [original PyMC issue on GitHub](https://github.com/pymc-devs/pymc/issues/1833) for more information.
 
-This model makes use of [PyMC3's `Potential`](https://docs.pymc.io/api/model.html#pymc3.model.Potential).
+This model makes use of [PyMC's `Potential`](https://docs.pymc.io/api/model.html#pymc.model.Potential).
 
 ```{code-cell} ipython3
-# Import the log cdf and log complementary cdf of the normal Distribution from PyMC3
-from pymc3.distributions.dist_math import normal_lccdf, normal_lcdf
+# Import the log cdf and log complementary cdf of the normal Distribution from PyMC
+from pymc.distributions.dist_math import normal_lccdf, normal_lcdf
 
 
 # Helper functions for unimputed censored model
@@ -227,7 +227,7 @@ Sampling
 
 ```{code-cell} ipython3
 with unimputed_censored_model:
-    trace = pm.sample(tune=1000, return_inferencedata=True)
+    trace = pm.sample(tune=1000)
     az.plot_posterior(trace, var_names=["mu", "sigma"], ref_val=[true_mu, true_sigma], round_to=3);
 ```
 
@@ -249,5 +249,5 @@ As we can see, both censored models appear to capture the mean and variance of t
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p aesara,xarray
 ```

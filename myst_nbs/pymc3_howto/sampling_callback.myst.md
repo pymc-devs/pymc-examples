@@ -27,7 +27,7 @@ We'll start with defining a simple model
 
 ```{code-cell} ipython3
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 
 X = np.array([1, 2, 3, 4, 5])
 y = X * 2 + np.random.randn(len(X))

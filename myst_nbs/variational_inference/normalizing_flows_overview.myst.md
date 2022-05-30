@@ -17,18 +17,18 @@ kernelspec:
 
 Normalizing Flows is a rich family of distributions. They were described by [Rezende and Mohamed](https://arxiv.org/abs/1505.05770), and their experiments proved the importance of studying them further. Some extensions like that of [Tomczak and Welling](https://arxiv.org/abs/1611.09630) made partially/full rank Gaussian approximations for high dimensional spaces computationally tractable. 
 
-This notebook reveals some tips and tricks for using normalizing flows effectively in PyMC3.
+This notebook reveals some tips and tricks for using normalizing flows effectively in PyMC.
 
 ```{code-cell} ipython3
 %matplotlib inline
 from collections import Counter
 
+import aesara
+import aesara.tensor as at
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
-import theano
-import theano.tensor as tt
 
 pm.set_tt_rng(42)
 np.random.seed(42)
@@ -52,7 +52,7 @@ In this case, we get a mean field approximation if $z_0 \sim \mathcal{N}(0, 1)$
 
 ## Flow Formulas
 
-In PyMC3 there are flexible ways to define flows with formulas. There are currently 5 types defined:
+In PyMC there are flexible ways to define flows with formulas. There are currently 5 types defined:
 
 * Loc (`loc`): $z' = z + \mu$
 * Scale (`scale`): $z' = \sigma * z$
@@ -64,7 +64,7 @@ In PyMC3 there are flexible ways to define flows with formulas. There are curren
 
 Formulae can be composed as a string, e.g. `'scale-loc'`, `'scale-hh*4-loc'`, `'planar*10'`. Each step is separated with `'-'`, and repeated flows are defined with `'*'` in the form of `'<flow>*<#repeats>'`.
 
-Flow-based approximations in PyMC3 are based on the `NormalizingFlow` class, with corresponding inference classes named using the `NF` abbreviation (analogous to how `ADVI` and `SVGD` are treated in PyMC3).
+Flow-based approximations in PyMC are based on the `NormalizingFlow` class, with corresponding inference classes named using the `NF` abbreviation (analogous to how `ADVI` and `SVGD` are treated in PyMC).
 
 Concretely, an approximation is represented by:
 
@@ -143,51 +143,51 @@ First, let's specify the potential functions:
 
 ```{code-cell} ipython3
 def w1(z):
-    return tt.sin(2.0 * np.pi * z[0] / 4.0)
+    return at.sin(2.0 * np.pi * z[0] / 4.0)
 
 
 def w2(z):
-    return 3.0 * tt.exp(-0.5 * ((z[0] - 1.0) / 0.6) ** 2)
+    return 3.0 * at.exp(-0.5 * ((z[0] - 1.0) / 0.6) ** 2)
 
 
 def w3(z):
-    return 3.0 * (1 + tt.exp(-(z[0] - 1.0) / 0.3)) ** -1
+    return 3.0 * (1 + at.exp(-(z[0] - 1.0) / 0.3)) ** -1
 
 
 def pot1(z):
     z = z.T
-    return 0.5 * ((z.norm(2, axis=0) - 2.0) / 0.4) ** 2 - tt.log(
-        tt.exp(-0.5 * ((z[0] - 2.0) / 0.6) ** 2) + tt.exp(-0.5 * ((z[0] + 2.0) / 0.6) ** 2)
+    return 0.5 * ((z.norm(2, axis=0) - 2.0) / 0.4) ** 2 - at.log(
+        at.exp(-0.5 * ((z[0] - 2.0) / 0.6) ** 2) + at.exp(-0.5 * ((z[0] + 2.0) / 0.6) ** 2)
     )
 
 
 def pot2(z):
     z = z.T
-    return 0.5 * ((z[1] - w1(z)) / 0.4) ** 2 + 0.1 * tt.abs_(z[0])
+    return 0.5 * ((z[1] - w1(z)) / 0.4) ** 2 + 0.1 * at.abs_(z[0])
 
 
 def pot3(z):
     z = z.T
-    return -tt.log(
-        tt.exp(-0.5 * ((z[1] - w1(z)) / 0.35) ** 2)
-        + tt.exp(-0.5 * ((z[1] - w1(z) + w2(z)) / 0.35) ** 2)
-    ) + 0.1 * tt.abs_(z[0])
+    return -at.log(
+        at.exp(-0.5 * ((z[1] - w1(z)) / 0.35) ** 2)
+        + at.exp(-0.5 * ((z[1] - w1(z) + w2(z)) / 0.35) ** 2)
+    ) + 0.1 * at.abs_(z[0])
 
 
 def pot4(z):
     z = z.T
-    return -tt.log(
-        tt.exp(-0.5 * ((z[1] - w1(z)) / 0.4) ** 2)
-        + tt.exp(-0.5 * ((z[1] - w1(z) + w3(z)) / 0.35) ** 2)
-    ) + 0.1 * tt.abs_(z[0])
+    return -at.log(
+        at.exp(-0.5 * ((z[1] - w1(z)) / 0.4) ** 2)
+        + at.exp(-0.5 * ((z[1] - w1(z) + w3(z)) / 0.35) ** 2)
+    ) + 0.1 * at.abs_(z[0])
 
 
-z = tt.matrix("z")
+z = at.matrix("z")
 z.tag.test_value = pm.floatX([[0.0, 0.0]])
-pot1f = theano.function([z], pot1(z))
-pot2f = theano.function([z], pot2(z))
-pot3f = theano.function([z], pot3(z))
-pot4f = theano.function([z], pot4(z))
+pot1f = aesara.function([z], pot1(z))
+pot2f = aesara.function([z], pot2(z))
+pot3f = aesara.function([z], pot3(z))
+pot4f = aesara.function([z], pot4(z))
 ```
 
 ```{code-cell} ipython3
@@ -221,7 +221,7 @@ fig.tight_layout()
 ## Reproducing first potential function
 
 ```{code-cell} ipython3
-from pymc3.distributions.dist_math import bound
+from pymc.distributions.dist_math import bound
 
 
 def cust_logp(z):
@@ -284,26 +284,26 @@ We also require an objective:
 inference.objective(nmc=None)
 ```
 
-Theano can be used to calculate the gradient of the objective with respect to the parameters:
+Aesara can be used to calculate the gradient of the objective with respect to the parameters:
 
 ```{code-cell} ipython3
-with theano.configparser.change_flags(compute_test_value="off"):
-    grads = tt.grad(inference.objective(None), inference.approx.params)
+with aesara.configparser.change_flags(compute_test_value="off"):
+    grads = at.grad(inference.objective(None), inference.approx.params)
 grads
 ```
 
-If we want to keep track of the gradient changes during the inference, we warp them in a pymc3 callback:
+If we want to keep track of the gradient changes during the inference, we warp them in a pymc callback:
 
 ```{code-cell} ipython3
 from collections import OrderedDict, defaultdict
 from itertools import count
 
 
-@theano.configparser.change_flags(compute_test_value="off")
+@aesara.configparser.change_flags(compute_test_value="off")
 def get_tracker(inference):
     numbers = defaultdict(count)
     params = inference.approx.params
-    grads = tt.grad(inference.objective(None), params)
+    grads = at.grad(inference.objective(None), params)
     names = ["%s_%d" % (v.name, next(numbers[v.name])) for v in inference.approx.params]
     return pm.callbacks.Tracker(
         **OrderedDict(

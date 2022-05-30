@@ -1,9 +1,9 @@
 import numpy as np
-import theano.tensor as tt
+import aesara.tensor as at
 import arviz as az
 from numpy.random import multivariate_normal
 
-import pymc3 as pm
+import pymc as pm
 
 # Generate some multivariate normal data:
 n_obs = 1000
@@ -38,11 +38,11 @@ with pm.Model() as model:
     packed_chol = pm.LKJCholeskyCov("chol_cov", n=n_var, eta=1, sd_dist=sd_dist)
     # compute the covariance matrix
     chol = pm.expand_packed_triangular(n_var, packed_chol, lower=True)
-    cov = tt.dot(chol, chol.T)
+    cov = at.dot(chol, chol.T)
 
     # Extract the standard deviations etc
-    sd = pm.Deterministic("sd", tt.sqrt(tt.diag(cov)))
-    corr = tt.diag(sd**-1).dot(cov.dot(tt.diag(sd**-1)))
+    sd = pm.Deterministic("sd", at.sqrt(at.diag(cov)))
+    corr = at.diag(sd**-1).dot(cov.dot(at.diag(sd**-1)))
     r = pm.Deterministic("r", corr[np.triu_indices(n_var, k=1)])
 
     like = pm.MvNormal("likelihood", mu=mu, chol=chol, observed=dataset)

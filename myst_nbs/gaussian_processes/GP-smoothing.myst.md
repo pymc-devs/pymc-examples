@@ -91,14 +91,14 @@ When we estimate the maximum likelihood values of the hidden process $z_i$ at ea
 
 +++
 
-### Let's describe the above GP-smoothing model in PyMC3
+### Let's describe the above GP-smoothing model in PyMC
 
 ```{code-cell} ipython3
-import pymc3 as pm
+import pymc as pm
 
-from pymc3.distributions.timeseries import GaussianRandomWalk
+from aesara import shared
+from pymc.distributions.timeseries import GaussianRandomWalk
 from scipy import optimize
-from theano import shared
 ```
 
 Let's create a model with a shared parameter for specifying different levels of smoothing. We use very wide priors for the "mu" and "tau" parameters of the hidden Brownian motion, which you can adjust according to your application.

@@ -6,9 +6,9 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python (PyMC3 Dev)
+  display_name: Python (PyMC Dev)
   language: python
-  name: pymc3-dev
+  name: pymc-dev
 ---
 
 # Latent Variable Implementation
@@ -33,7 +33,7 @@ where the vector $\mathbf{m}$ and the matrix $\mathbf{K}_{xx}$ are the mean vect
 
 ```python
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 
 # A one dimensional column vector of inputs.
 X = np.linspace(0, 1, 10)[:,None]
@@ -49,7 +49,7 @@ with pm.Model() as latent_gp_model:
     f = gp.prior("f", X=X)
 ```
 
-By default, PyMC3 reparameterizes the prior on `f` under the hood by rotating it with the Cholesky factor of its covariance matrix.  This helps to reduce covariances in the posterior of the transformed random variable, `v`.  The reparameterized model is,
+By default, PyMC reparameterizes the prior on `f` under the hood by rotating it with the Cholesky factor of its covariance matrix.  This helps to reduce covariances in the posterior of the transformed random variable, `v`.  The reparameterized model is,
 
 $$
 \begin{aligned}
@@ -93,11 +93,11 @@ The following is an example showing how to specify a simple model with a GP prio
 ```{code-cell} ipython3
 import warnings
 
+import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano.tensor as tt
+import pymc as pm
 ```
 
 ```{code-cell} ipython3
@@ -108,7 +108,7 @@ az.style.use("arviz-darkgrid")
 ```
 
 ```{code-cell} ipython3
-# mute future warnings from theano
+# mute future warnings from aesara
 warnings.simplefilter(action="ignore", category=FutureWarning)
 ```
 
@@ -129,7 +129,7 @@ cov_func = η_true**2 * pm.gp.cov.Matern52(1, ℓ_true)
 mean_func = pm.gp.mean.Zero()
 
 # The latent function values are one sample from a multivariate normal
-# Note that we have to call `eval()` because PyMC3 built on top of Theano
+# Note that we have to call `eval()` because PyMC built on top of Aesara
 f_true = np.random.multivariate_normal(
     mean_func(X).eval(), cov_func(X).eval() + 1e-8 * np.eye(n), 1
 ).flatten()
@@ -152,9 +152,9 @@ plt.legend();
 
 The data above shows the observations, marked with black dots, of the unknown function $f(x)$ that has been corrupted by noise.  The true function is in blue.  
 
-### Coding the model in PyMC3
+### Coding the model in PyMC
 
-Here's the model in PyMC3.  We use a $\text{Gamma}(2, 1)$ prior over the lengthscale parameter, and weakly informative $\text{HalfCauchy}(5)$ priors over the covariance function scale, and noise scale.  A $\text{Gamma}(2, 0.1)$ prior is assigned to the degrees of freedom parameter of the noise.  Finally, a GP prior is placed on the unknown function.  For more information on choosing priors in Gaussian process models, check out some of [recommendations by the Stan folks](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations).
+Here's the model in PyMC.  We use a $\text{Gamma}(2, 1)$ prior over the lengthscale parameter, and weakly informative $\text{HalfCauchy}(5)$ priors over the covariance function scale, and noise scale.  A $\text{Gamma}(2, 0.1)$ prior is assigned to the degrees of freedom parameter of the noise.  Finally, a GP prior is placed on the unknown function.  For more information on choosing priors in Gaussian process models, check out some of [recommendations by the Stan folks](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations).
 
 ```{code-cell} ipython3
 ---
@@ -174,7 +174,7 @@ with pm.Model() as model:
     ν = pm.Gamma("ν", alpha=2, beta=0.1)
     y_ = pm.StudentT("y", mu=f, lam=1.0 / σ, nu=ν, observed=y)
 
-    trace = pm.sample(1000, chains=2, cores=1, return_inferencedata=True)
+    trace = pm.sample(1000, chains=2, cores=1)
 ```
 
 ```{code-cell} ipython3
@@ -231,7 +231,7 @@ fig = plt.figure(figsize=(12, 5))
 ax = fig.gca()
 
 # plot the samples from the gp posterior with samples and shading
-from pymc3.gp.util import plot_gp_dist
+from pymc.gp.util import plot_gp_dist
 
 plot_gp_dist(ax, trace.posterior["f"][0, :, :], X)
 
@@ -363,7 +363,7 @@ with pm.Model() as model:
     p = pm.Deterministic("p", pm.math.invlogit(f))
     y_ = pm.Bernoulli("y", p=p, observed=y)
 
-    trace = pm.sample(1000, chains=2, cores=1, return_inferencedata=True)
+    trace = pm.sample(1000, chains=2, cores=1)
 ```
 
 ```{code-cell} ipython3

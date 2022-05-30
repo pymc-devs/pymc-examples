@@ -14,13 +14,13 @@ kernelspec:
 # Reparameterizing the Weibull Accelerated Failure Time Model
 
 ```{code-cell} ipython3
+import aesara.tensor as at
 import arviz as az
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 import statsmodels.api as sm
-import theano.tensor as tt
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -84,8 +84,8 @@ with pm.Model() as model_1:
 
     mu = pm.Normal("mu", mu=0, sigma=100)
     alpha_raw = pm.Normal("a0", mu=0, sigma=0.1)
-    alpha = pm.Deterministic("alpha", tt.exp(alpha_sd * alpha_raw))
-    beta = pm.Deterministic("beta", tt.exp(mu / alpha))
+    alpha = pm.Deterministic("alpha", at.exp(alpha_sd * alpha_raw))
+    beta = pm.Deterministic("beta", at.exp(mu / alpha))
 
     y_obs = pm.Weibull("y_obs", alpha=alpha, beta=beta, observed=y[~censored])
     y_cens = pm.Potential("y_cens", weibull_lccdf(y[censored], alpha, beta))
@@ -94,7 +94,7 @@ with pm.Model() as model_1:
 ```{code-cell} ipython3
 with model_1:
     # Change init to avoid divergences
-    data_1 = pm.sample(target_accept=0.9, init="adapt_diag", return_inferencedata=True)
+    data_1 = pm.sample(target_accept=0.9, init="adapt_diag")
 ```
 
 ```{code-cell} ipython3
@@ -115,7 +115,7 @@ For more information, see [this Stan example model](https://github.com/stan-dev/
 with pm.Model() as model_2:
     alpha = pm.Normal("alpha", mu=0, sigma=10)
     r = pm.Gamma("r", alpha=1, beta=0.001, testval=0.25)
-    beta = pm.Deterministic("beta", tt.exp(-alpha / r))
+    beta = pm.Deterministic("beta", at.exp(-alpha / r))
 
     y_obs = pm.Weibull("y_obs", alpha=r, beta=beta, observed=y[~censored])
     y_cens = pm.Potential("y_cens", weibull_lccdf(y[censored], r, beta))
@@ -124,7 +124,7 @@ with pm.Model() as model_2:
 ```{code-cell} ipython3
 with model_2:
     # Increase target_accept to avoid divergences
-    data_2 = pm.sample(target_accept=0.9, return_inferencedata=True)
+    data_2 = pm.sample(target_accept=0.9)
 ```
 
 ```{code-cell} ipython3
@@ -145,7 +145,7 @@ logtime = np.log(y)
 
 def gumbel_sf(y, mu, sigma):
     """Gumbel survival function."""
-    return 1.0 - tt.exp(-tt.exp(-(y - mu) / sigma))
+    return 1.0 - at.exp(-at.exp(-(y - mu) / sigma))
 ```
 
 ```{code-cell} ipython3
@@ -160,7 +160,7 @@ with pm.Model() as model_3:
 ```{code-cell} ipython3
 with model_3:
     # Change init to avoid divergences
-    data_3 = pm.sample(init="adapt_diag", return_inferencedata=True)
+    data_3 = pm.sample(init="adapt_diag")
 ```
 
 ```{code-cell} ipython3
@@ -173,7 +173,7 @@ az.summary(data_3, round_to=2)
 
 ## Authors
 
-- Originally collated by [Junpeng Lao](https://junpenglao.xyz/) on Apr 21, 2018. See original code [here](https://github.com/junpenglao/Planet_Sakaar_Data_Science/blob/65447fdb431c78b15fbeaef51b8c059f46c9e8d6/PyMC3QnA/discourse_1107.ipynb).
+- Originally collated by [Junpeng Lao](https://junpenglao.xyz/) on Apr 21, 2018. See original code [here](https://github.com/junpenglao/Planet_Sakaar_Data_Science/blob/65447fdb431c78b15fbeaef51b8c059f46c9e8d6/PyMCQnA/discourse_1107.ipynb).
 - Authored and ported to Jupyter notebook by [George Ho](https://eigenfoo.xyz/) on Jul 15, 2018.
 
 ```{code-cell} ipython3

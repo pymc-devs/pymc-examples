@@ -45,7 +45,7 @@ import xarray as xr
 
 from xarray_einstats.stats import XrContinuousRV
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3

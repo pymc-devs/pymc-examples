@@ -25,19 +25,19 @@ papermill:
   status: completed
 tags: []
 ---
+import aesara
 import arviz as az
 import bambi as bmb
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
-import theano
 import xarray as xr
 
 from formulae import design_matrices
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -61,7 +61,7 @@ az.style.use("arviz-darkgrid")
 
 This is a minimal reproducible example of Poisson regression to predict counts using dummy data.
 
-This Notebook is basically an excuse to demo Poisson regression using PyMC3, both manually and using `bambi` to demo interactions using the `formulae` library. We will create some dummy data, Poisson distributed according to a linear model, and try to recover the coefficients of that linear model through inference.
+This Notebook is basically an excuse to demo Poisson regression using PyMC, both manually and using `bambi` to demo interactions using the `formulae` library. We will create some dummy data, Poisson distributed according to a linear model, and try to recover the coefficients of that linear model through inference.
 
 For more statistical detail see:
 
@@ -322,7 +322,7 @@ papermill:
 tags: []
 ---
 with mdl_fish:
-    inf_fish = pm.sample(1000, tune=1000, cores=4, return_inferencedata=True)
+    inf_fish = pm.sample(1000, tune=1000, cores=4)
 ```
 
 +++ {"papermill": {"duration": 0.118023, "end_time": "2021-02-23T11:29:24.142987", "exception": false, "start_time": "2021-02-23T11:29:24.024964", "status": "completed"}, "tags": []}

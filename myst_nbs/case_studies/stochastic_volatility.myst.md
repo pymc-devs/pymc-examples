@@ -20,7 +20,7 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 
 rng = np.random.default_rng(0)
 az.style.use("arviz-darkgrid")
@@ -67,7 +67,7 @@ ax.set(xlabel="time", ylabel="returns")
 ax.legend();
 ```
 
-Specifying the model in `PyMC3` mirrors its statistical specification.
+Specifying the model in `PyMC` mirrors its statistical specification.
 
 ```{code-cell} ipython3
 def make_stochastic_volatility_model(data):
@@ -96,7 +96,7 @@ pm.model_to_graphviz(stochastic_vol_model)
 
 ```{code-cell} ipython3
 with stochastic_vol_model:
-    trace = az.from_pymc3(prior=pm.sample_prior_predictive(500))
+    trace = pm.to_inference_data(prior=pm.sample_prior_predictive(500))
 
 prior_predictive = trace.prior_predictive.stack(pooled_chain=("chain", "draw"))
 ```
@@ -130,7 +130,7 @@ Once we are happy with our model, we can sample from the posterior. This is a so
 
 ```{code-cell} ipython3
 with stochastic_vol_model:
-    trace.extend(pm.sample(2000, tune=2000, return_inferencedata=True))
+    trace.extend(pm.sample(2000, tune=2000))
 
 posterior = trace.posterior.stack(pooled_chain=("chain", "draw"))
 posterior["exp_volatility"] = np.exp(posterior["volatility"])
@@ -138,7 +138,7 @@ posterior["exp_volatility"] = np.exp(posterior["volatility"])
 
 ```{code-cell} ipython3
 with stochastic_vol_model:
-    trace.extend(az.from_pymc3(posterior_predictive=pm.sample_posterior_predictive(trace)))
+    trace.extend(pm.to_inference_data(posterior_predictive=pm.sample_posterior_predictive(trace)))
 
 posterior_predictive = trace.posterior_predictive.stack(pooled_chain=("chain", "draw"))
 ```
@@ -186,5 +186,5 @@ axes[1].set_title("Posterior volatility");
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p aesara,xarray
 ```

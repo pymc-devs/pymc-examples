@@ -15,7 +15,7 @@ kernelspec:
 # Using a "black box" likelihood function (numpy)
 
 :::{post} Dec 16, 2021
-:tags: case study, external likelihood, pymc.Model, pymc.Normal, pymc.Potential, pymc.Uniform, pymc3.Model, pymc3.Normal, pymc3.Potential, pymc3.Uniform
+:tags: case study, external likelihood, pymc.Model, pymc.Normal, pymc.Potential, pymc.Uniform, pymc.Model, pymc.Normal, pymc.Potential, pymc.Uniform
 :category: beginner
 :author: Matt Pitkin, Jørgen Midtbø, Oriol Abril
 :::
@@ -350,7 +350,7 @@ with pm.Model() as opmodel:
     # use a Potential
     pm.Potential("likelihood", logl(theta))
 
-    idata_grad = pm.sample()
+    idata_grad = pm.sample(return_inferencedata=False)
 
 # plot the traces
 _ = az.plot_trace(idata_grad, lines=[("m", {}, mtrue), ("c", {}, ctrue)])
@@ -371,7 +371,7 @@ with pm.Model() as pymodel:
     # use a Normal distribution
     pm.Normal("likelihood", mu=(m * x + c), sd=sigma, observed=data)
 
-    idata = pm.sample()
+    idata = pm.sample(return_inferencedata=False)
 
 # plot the traces
 az.plot_trace(idata, lines=[("m", {}, mtrue), ("c", {}, ctrue)]);

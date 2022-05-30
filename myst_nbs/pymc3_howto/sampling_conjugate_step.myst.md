@@ -6,9 +6,9 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python (PyMC3 Dev)
+  display_name: Python (PyMC Dev)
   language: python
-  name: pymc3-dev
+  name: pymc-dev
 ---
 
 # Using a custom step method for sampling from locally conjugate posterior distributions
@@ -19,11 +19,11 @@ kernelspec:
 
 +++
 
-Sampling methods based on Monte Carlo are extremely widely used in Bayesian inference, and PyMC3 uses a powerful version of Hamiltonian Monte Carlo (HMC) to efficiently sample from posterior distributions over many hundreds or thousands of parameters. HMC is a generic inference algorithm in the sense that you do not need to assume specific prior distributions (like an inverse-Gamma prior on the conditional variance of a regression model) or likelihood functions. In general, the product of a prior and likelihood will not easily be integrated in closed form, so we can't derive the form of the posterior with pen and paper. HMC is widely regarded as a major improvement over previous Markov chain Monte Carlo (MCMC) algorithms because it uses gradients of the model's log posterior density to make informed proposals in parameter space.
+Sampling methods based on Monte Carlo are extremely widely used in Bayesian inference, and PyMC uses a powerful version of Hamiltonian Monte Carlo (HMC) to efficiently sample from posterior distributions over many hundreds or thousands of parameters. HMC is a generic inference algorithm in the sense that you do not need to assume specific prior distributions (like an inverse-Gamma prior on the conditional variance of a regression model) or likelihood functions. In general, the product of a prior and likelihood will not easily be integrated in closed form, so we can't derive the form of the posterior with pen and paper. HMC is widely regarded as a major improvement over previous Markov chain Monte Carlo (MCMC) algorithms because it uses gradients of the model's log posterior density to make informed proposals in parameter space.
 
 However, these gradient computations can often be expensive for models with especially complicated functional dependencies between variables and observed data. When this is the case, we may wish to find a faster sampling scheme by making use of additional structure in some portions of the model. When a number of variables within the model are *conjugate*, the conditional posterior--that is, the posterior distribution holding all other model variables fixed--can often be sampled from very easily. This suggests using a HMC-within-Gibbs step in which we alternate between using cheap conjugate sampling for variables when possible, and using more expensive HMC for the rest. 
 
-Generally, it is not advisable to pick *any* alternative sampling method and use it to replace HMC. This combination often yields much worse performance in terms of *effective* sampling rates, even if the individual samples are drawn much more rapidly. In this notebook, we show how to implement a conjugate sampling scheme in PyMC3 and compare it against a full-HMC (or, in this case, NUTS) approach. For this case, we find that using conjugate sampling can dramatically speed up computations for a Dirichlet-multinomial model.
+Generally, it is not advisable to pick *any* alternative sampling method and use it to replace HMC. This combination often yields much worse performance in terms of *effective* sampling rates, even if the individual samples are drawn much more rapidly. In this notebook, we show how to implement a conjugate sampling scheme in PyMC and compare it against a full-HMC (or, in this case, NUTS) approach. For this case, we find that using conjugate sampling can dramatically speed up computations for a Dirichlet-multinomial model.
 
 +++
 
@@ -51,11 +51,11 @@ Adding a conjugate sampler as part of our compound sampling approach is straight
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 
-from pymc3.distributions.transforms import stick_breaking
-from pymc3.model import modelcontext
-from pymc3.step_methods.arraystep import BlockedStep
+from pymc.distributions.transforms import stick_breaking
+from pymc.model import modelcontext
+from pymc.step_methods.arraystep import BlockedStep
 ```
 
 ```{code-cell} ipython3
@@ -78,7 +78,7 @@ def sample_dirichlet(c):
 
 Next, we define the step object used to replace NUTS for part of the computation. It must have a `step` method that receives a dict called `point` containing the current state of the Markov chain. We'll modify it in place.
 
-There is an extra complication here as PyMC3 does not track the state of the Dirichlet random variable in the form $\mathbf{p}=(p_1, p_2 ,..., p_J)$ with the constraint $\sum_j p_j = 1$. Rather, it uses an inverse stick breaking transformation of the variable which is easier to use with NUTS. This transformation removes the constraint that all entries must sum to 1 and are positive.
+There is an extra complication here as PyMC does not track the state of the Dirichlet random variable in the form $\mathbf{p}=(p_1, p_2 ,..., p_J)$ with the constraint $\sum_j p_j = 1$. Rather, it uses an inverse stick breaking transformation of the variable which is easier to use with NUTS. This transformation removes the constraint that all entries must sum to 1 and are positive.
 
 ```{code-cell} ipython3
 class ConjugateStep(BlockedStep):
@@ -97,7 +97,7 @@ class ConjugateStep(BlockedStep):
 
         # Since our new_p is not in the transformed / unconstrained space,
         # we apply the transformation so that our new value
-        # is consistent with PyMC3's internal representation of p
+        # is consistent with PyMC's internal representation of p
         point[self.name] = stick_breaking.forward_val(draw)
 
         return point
@@ -105,7 +105,7 @@ class ConjugateStep(BlockedStep):
 
 The usage of `point` and its indexing variables can be confusing here. The expression `point[self.conc_prior.transformed.name]` in particular is quite long. This expression is necessary because when `step` is called, it is passed a dictionary `point` with string variable names as keys. 
 
-However, the prior parameter's name won't be stored directly in the keys for `point` because PyMC3 stores a transformed variable instead. Thus, we will need to query `point` using the *transformed name* and then undo that transformation.
+However, the prior parameter's name won't be stored directly in the keys for `point` because PyMC stores a transformed variable instead. Thus, we will need to query `point` using the *transformed name* and then undo that transformation.
 
 To identify the correct variable to query into `point`, we need to take an argument during initialization that tells the sampling step where to find the prior parameter. Thus, we pass `var` into `ConjugateStep` so that the sampler can find the name of the transformed variable (`var.transformed.name`) later.
 
@@ -158,7 +158,7 @@ for use_conjugate in [True, False]:
             x = pm.Multinomial("x", n=ncounts, p=p, observed=counts)
             step = []
 
-        trace = pm.sample(step=step, chains=2, cores=1, return_inferencedata=True)
+        trace = pm.sample(step=step, chains=2, cores=1)
         traces.append(trace)
 
     assert all(az.summary(trace)["r_hat"] < 1.1)

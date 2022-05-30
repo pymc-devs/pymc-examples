@@ -12,7 +12,7 @@ kernelspec:
 ---
 
 # DEMetropolis(Z): tune_drop_fraction
-The implementation of `DEMetropolisZ` in PyMC3 uses a different tuning scheme than described by [ter Braak & Vrugt, 2008](https://doi.org/10.1007/s11222-008-9104-9).
+The implementation of `DEMetropolisZ` in PyMC uses a different tuning scheme than described by [ter Braak & Vrugt, 2008](https://doi.org/10.1007/s11222-008-9104-9).
 In our tuning scheme, the first `tune_drop_fraction * 100` % of the history from the tuning phase is dropped when the tune iterations end and sampling begins.
 
 In this notebook, a D-dimenstional multivariate normal target densities is sampled with `DEMetropolisZ` at different `tune_drop_fraction` settings to show why the setting was introduced.
@@ -24,12 +24,12 @@ import arviz as az
 import ipywidgets
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 
 from matplotlib import cm, gridspec
 from matplotlib import pyplot as plt
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -91,7 +91,7 @@ for drop_fraction in (0, 0.5, 0.9, 1):
                 step=step,
                 start={"x": [7.0] * D},
                 discard_tuned_samples=False,
-                return_inferencedata=True,
+                ,
                 # the replicates (r) have different seeds, but they are comparable across
                 # the drop_fractions. The tuning will be identical, they'll divergen in sampling.
                 random_seed=2020 + r,

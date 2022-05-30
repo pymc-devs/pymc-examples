@@ -6,9 +6,9 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python [conda env:pymc3]
+  display_name: Python [conda env:pymc]
   language: python
-  name: conda-env-pymc3-py
+  name: conda-env-pymc-py
 ---
 
 # Heteroskedastic Gaussian Processes
@@ -26,11 +26,11 @@ This notebook will work through several approaches to heteroskedastic modeling w
 ## Data
 
 ```{code-cell} ipython3
+import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano.tensor as tt
+import pymc as pm
 
 from scipy.spatial.distance import pdist
 
@@ -180,7 +180,7 @@ def plot_total(ax, mean_samples, var_samples=None, bootstrap=True, n_boots=100):
 
 +++
 
-First let's fit a standard homoskedastic GP using PyMC3's `Marginal Likelihood` implementation. Here and throughout this notebook we'll use an informative prior for length scale as suggested by [Michael Betancourt](https://betanalpha.github.io/assets/case_studies/gp_part3/part3.html#4_adding_an_informative_prior_for_the_length_scale). We could use `pm.find_MAP()` and `.predict`for even faster inference and prediction, with similar results, but for direct comparison to the other models we'll use NUTS and `.conditional` instead, which run fast enough.
+First let's fit a standard homoskedastic GP using PyMC's `Marginal Likelihood` implementation. Here and throughout this notebook we'll use an informative prior for length scale as suggested by [Michael Betancourt](https://betanalpha.github.io/assets/case_studies/gp_part3/part3.html#4_adding_an_informative_prior_for_the_length_scale). We could use `pm.find_MAP()` and `.predict`for even faster inference and prediction, with similar results, but for direct comparison to the other models we'll use NUTS and `.conditional` instead, which run fast enough.
 
 ```{code-cell} ipython3
 with pm.Model() as model_hm:
@@ -194,7 +194,7 @@ with pm.Model() as model_hm:
 
     ml_hm = gp_hm.marginal_likelihood("ml_hm", X=X_obs, y=y_obs_, noise=σ)
 
-    trace_hm = pm.sample(return_inferencedata=True, random_seed=SEED)
+    trace_hm = pm.sample(random_seed=SEED)
 
 with model_hm:
     mu_pred_hm = gp_hm.conditional("mu_pred_hm", Xnew=Xnew)
@@ -231,7 +231,7 @@ with pm.Model() as model_wt:
 
     ml_wt = gp_wt.marginal_likelihood("ml_wt", X=X, y=y, noise=y_err)
 
-    trace_wt = pm.sample(return_inferencedata=True, random_seed=SEED)
+    trace_wt = pm.sample(random_seed=SEED)
 
 with model_wt:
     mu_pred_wt = gp_wt.conditional("mu_pred_wt", Xnew=Xnew)
@@ -255,7 +255,7 @@ This approach captured slightly more nuance in the overall uncertainty than the 
 
 +++
 
-Now let's model the mean and the log of the variance as separate GPs through PyMC3's `Latent` implementation, feeding both into a `Normal` likelihood. Note that we add a small amount of diagonal noise to the individual covariances in order to stabilize them for inversion.
+Now let's model the mean and the log of the variance as separate GPs through PyMC's `Latent` implementation, feeding both into a `Normal` likelihood. Note that we add a small amount of diagonal noise to the individual covariances in order to stabilize them for inversion.
 
 ```{code-cell} ipython3
 with pm.Model() as model_ht:
@@ -276,7 +276,7 @@ with pm.Model() as model_ht:
 
     lik_ht = pm.Normal("lik_ht", mu=μ_f, sd=σ_f, observed=y_obs_)
 
-    trace_ht = pm.sample(target_accept=0.95, chains=2, return_inferencedata=True, random_seed=SEED)
+    trace_ht = pm.sample(target_accept=0.95, chains=2, random_seed=SEED)
 
 with model_ht:
     μ_pred_ht = gp_ht.conditional("μ_pred_ht", Xnew=Xnew)
@@ -301,7 +301,7 @@ That looks much better! We've accurately captured the mean behavior of our syste
 
 +++
 
-Sparse approximations to GPs use a small set of *inducing points* to condition the model, vastly improve speed of inference and somewhat improving memory consumption. PyMC3 doesn't have an implementation for sparse latent GPs ([yet](https://github.com/pymc-devs/pymc3/pull/2951)), but we can throw together our own real quick using Bill Engel's [DTC latent GP example](https://gist.github.com/bwengals/a0357d75d2083657a2eac85947381a44). These inducing points can be specified in a variety of ways, such as via the popular k-means initialization or even optimized as part of the model, but since our observations are evenly distributed we can make do with simply a subset of our unique input values.
+Sparse approximations to GPs use a small set of *inducing points* to condition the model, vastly improve speed of inference and somewhat improving memory consumption. PyMC doesn't have an implementation for sparse latent GPs ([yet](https://github.com/pymc-devs/pymc/pull/2951)), but we can throw together our own real quick using Bill Engel's [DTC latent GP example](https://gist.github.com/bwengals/a0357d75d2083657a2eac85947381a44). These inducing points can be specified in a variety of ways, such as via the popular k-means initialization or even optimized as part of the model, but since our observations are evenly distributed we can make do with simply a subset of our unique input values.
 
 ```{code-cell} ipython3
 class SparseLatent:
@@ -313,20 +313,20 @@ class SparseLatent:
         self.L = pm.gp.util.cholesky(pm.gp.util.stabilize(Kuu))
 
         self.v = pm.Normal(f"u_rotated_{name}", mu=0.0, sd=1.0, shape=len(Xu))
-        self.u = pm.Deterministic(f"u_{name}", tt.dot(self.L, self.v))
+        self.u = pm.Deterministic(f"u_{name}", at.dot(self.L, self.v))
 
         Kfu = self.cov(X, Xu)
-        self.Kuiu = tt.slinalg.solve_upper_triangular(
-            self.L.T, tt.slinalg.solve_lower_triangular(self.L, self.u)
+        self.Kuiu = at.slinalg.solve_upper_triangular(
+            self.L.T, at.slinalg.solve_lower_triangular(self.L, self.u)
         )
-        self.mu = pm.Deterministic(f"mu_{name}", tt.dot(Kfu, self.Kuiu))
+        self.mu = pm.Deterministic(f"mu_{name}", at.dot(Kfu, self.Kuiu))
         return self.mu
 
     def conditional(self, name, Xnew, Xu):
         Ksu = self.cov(Xnew, Xu)
-        mus = tt.dot(Ksu, self.Kuiu)
-        tmp = tt.slinalg.solve_lower_triangular(self.L, Ksu.T)
-        Qss = tt.dot(tmp.T, tmp)  # Qss = tt.dot(tt.dot(Ksu, tt.nlinalg.pinv(Kuu)), Ksu.T)
+        mus = at.dot(Ksu, self.Kuiu)
+        tmp = at.slinalg.solve_lower_triangular(self.L, Ksu.T)
+        Qss = at.dot(tmp.T, tmp)  # Qss = at.dot(at.dot(Ksu, at.nlinalg.pinv(Kuu)), Ksu.T)
         Kss = self.cov(Xnew)
         Lss = pm.gp.util.cholesky(pm.gp.util.stabilize(Kss - Qss))
         mu_pred = pm.MvNormal(name, mu=mus, chol=Lss, shape=len(Xnew))
@@ -354,7 +354,7 @@ with pm.Model() as model_hts:
     σ_f = pm.Deterministic("σ_f", pm.math.exp(lg_σ_f))
 
     lik_hts = pm.Normal("lik_hts", mu=μ_f, sd=σ_f, observed=y_obs_)
-    trace_hts = pm.sample(target_accept=0.95, return_inferencedata=True, random_seed=SEED)
+    trace_hts = pm.sample(target_accept=0.95, random_seed=SEED)
 
 with model_hts:
     μ_pred = μ_gp.conditional("μ_pred", Xnew, Xu)
@@ -412,7 +412,7 @@ with pm.Model() as model_htsc:
     σ_f = pm.Deterministic("σ_f", pm.math.exp(lg_σ_f))
 
     lik_htsc = pm.Normal("lik_htsc", mu=μ_f, sd=σ_f, observed=y_obs_)
-    trace_htsc = pm.sample(target_accept=0.95, return_inferencedata=True, random_seed=SEED)
+    trace_htsc = pm.sample(target_accept=0.95, random_seed=SEED)
 
 with model_htsc:
     c_mu_pred = gp_LMC.conditional("c_mu_pred", Xnew_c, Xu_c)

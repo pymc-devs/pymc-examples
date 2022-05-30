@@ -11,11 +11,11 @@ kernelspec:
   name: python3
 ---
 
-# Convolutional variational autoencoder with PyMC3 and Keras
+# Convolutional variational autoencoder with PyMC and Keras
 
 +++
 
-In this document, I will show how autoencoding variational Bayes (AEVB) works in PyMC3's automatic differentiation variational inference (ADVI). The example here is borrowed from [Keras example](https://github.com/fchollet/keras/blob/master/examples/variational_autoencoder_deconv.py), where convolutional variational autoencoder is applied to the MNIST dataset. The network architecture of the encoder and decoder are the same. However, PyMC3 allows us to define a probabilistic model, which combines the encoder and decoder, in the same way as other probabilistic models (e.g., generalized linear models), rather than directly implementing of Monte Carlo sampling and the loss function, as is done in the Keras example. Thus the framework of AEVB in PyMC3 can be extended to more complex models such as [latent dirichlet allocation](https://taku-y.github.io/notebook/20160928/lda-advi-ae.html).
+In this document, I will show how autoencoding variational Bayes (AEVB) works in PyMC's automatic differentiation variational inference (ADVI). The example here is borrowed from [Keras example](https://github.com/fchollet/keras/blob/master/examples/variational_autoencoder_deconv.py), where convolutional variational autoencoder is applied to the MNIST dataset. The network architecture of the encoder and decoder are the same. However, PyMC allows us to define a probabilistic model, which combines the encoder and decoder, in the same way as other probabilistic models (e.g., generalized linear models), rather than directly implementing of Monte Carlo sampling and the loss function, as is done in the Keras example. Thus the framework of AEVB in PyMC can be extended to more complex models such as [latent dirichlet allocation](https://taku-y.github.io/notebook/20160928/lda-advi-ae.html).
 
 +++
 
@@ -23,11 +23,11 @@ In this document, I will show how autoencoding variational Bayes (AEVB) works in
 
 +++
 
-To use Keras with PyMC3, we need to choose [Theano](http://deeplearning.net/software/theano/) as the backend for Keras.
+To use Keras with PyMC, we need to choose [Aesara](http://deeplearning.net/software/aesara/) as the backend for Keras.
 
 ```{code-cell} ipython3
 %autosave 0
-%env KERAS_BACKEND=theano
+%env KERAS_BACKEND=aesara
 %env THEANO_FLAGS=device=cuda3,floatX=float32,optimizer=fast_run
 
 import os
@@ -35,15 +35,16 @@ import sys
 
 from collections import OrderedDict
 
+import aesara.tensor as at
 import arviz as az
 import keras
 import matplotlib
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano.tensor as tt
+import pymc as pm
 
+from aesara import clone, config, function, pp, shared
 from keras import backend as K
 from keras.layers import (
     Activation,
@@ -55,9 +56,8 @@ from keras.layers import (
     InputLayer,
     Reshape,
 )
-from theano import clone, config, function, pp, shared
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -78,9 +78,9 @@ data /= np.max(data)
 ```
 
 ## Use Keras
-We define a utility function to get parameters from Keras models. Since we have set the backend to Theano, parameter objects are obtained as shared variables of Theano. 
+We define a utility function to get parameters from Keras models. Since we have set the backend to Aesara, parameter objects are obtained as shared variables of Aesara. 
 
-In the code, 'updates' are expected to include update objects (dictionary of pairs of shared variables and update equation) of scaling parameters of batch normalization. While not using batch normalization in this example, if we want to use it, we need to pass these update objects as an argument of `theano.function()` inside the PyMC3 ADVI function. The current version of PyMC3 does not support it, it is easy to modify (I want to send PR in future). 
+In the code, 'updates' are expected to include update objects (dictionary of pairs of shared variables and update equation) of scaling parameters of batch normalization. While not using batch normalization in this example, if we want to use it, we need to pass these update objects as an argument of `aesara.function()` inside the PyMC ADVI function. The current version of PyMC does not support it, it is easy to modify (I want to send PR in future). 
 
 The learning phase below is used for Keras to known the learning phase, training or test. This information is important also for batch normalization.
 
@@ -105,7 +105,7 @@ def get_params(model):
         # Shared variables
         for attr_str in attrs:
             attr = getattr(l, attr_str)
-            if isinstance(attr, tt.compile.SharedVariable):
+            if isinstance(attr, at.compile.SharedVariable):
                 if attr is not model.get_input_at(0):
                     params.append(attr)
 
@@ -113,7 +113,7 @@ def get_params(model):
 
 
 # This code is required when using BatchNormalization layer
-keras.backend.theano_backend._LEARNING_PHASE = shared(np.uint8(1), name="keras_learning_phase")
+keras.backend.aesara_backend._LEARNING_PHASE = shared(np.uint8(1), name="keras_learning_phase")
 ```
 
 ## Encoder and decoder
@@ -128,7 +128,7 @@ def cnn_enc(xs, latent_dim, nb_filters=64, nb_conv=3, intermediate_dim=128):
 
     Parameters
     ----------
-    xs : theano.TensorVariable
+    xs : aesara.TensorVariable
         Input tensor.
     latent_dim : int
         Dimension of latent vector.
@@ -161,7 +161,7 @@ class Encoder:
 
     Parameters
     ----------
-    xs : theano.tensor.sharedvar.TensorSharedVariable
+    xs : aesara.tensor.sharedvar.TensorSharedVariable
         Placeholder of input images.
     dim_hidden : int
         The number of hidden variables.
@@ -183,7 +183,7 @@ class Encoder:
 
     def _get_enc_func(self):
         if self.enc_func is None:
-            xs = tt.tensor4()
+            xs = at.tensor4()
             means = clone(self.means, {self.xs: xs})
             rhos = clone(self.rhos, {self.xs: xs})
             self.enc_func = function([xs], [means, rhos])
@@ -192,7 +192,7 @@ class Encoder:
 
     def encode(self, xs):
         # Used in test phase
-        keras.backend.theano_backend._LEARNING_PHASE.set_value(np.uint8(0))
+        keras.backend.aesara_backend._LEARNING_PHASE.set_value(np.uint8(0))
 
         enc_func = self._get_enc_func()
         means, _ = enc_func(xs)
@@ -208,7 +208,7 @@ class Encoder:
             Images.
         """
         # Used in test phase
-        keras.backend.theano_backend._LEARNING_PHASE.set_value(np.uint8(0))
+        keras.backend.aesara_backend._LEARNING_PHASE.set_value(np.uint8(0))
 
         enc_func = self._get_enc_func()
         means, rhos = enc_func(xs)
@@ -228,7 +228,7 @@ def cnn_dec(zs, nb_filters=64, nb_conv=3, output_shape=(1, 28, 28)):
 
     Parameters
     ----------
-    zs : theano.tensor.var.TensorVariable
+    zs : aesara.tensor.var.TensorVariable
         Input tensor.
     """
     minibatch_size, dim_hidden = zs.tag.test_value.shape
@@ -261,7 +261,7 @@ class Decoder:
 
     Parameters
     ----------
-    zs : Theano tensor
+    zs : Aesara tensor
         Hidden variables.
     """
 
@@ -275,7 +275,7 @@ class Decoder:
 
     def _get_dec_func(self):
         if self.dec_func is None:
-            zs = tt.matrix()
+            zs = at.matrix()
             xs = clone(self.out, {self.zs: zs})
             self.dec_func = function([zs], xs)
 
@@ -292,13 +292,13 @@ class Decoder:
             Hidden variables.
         """
         # Used in test phase
-        keras.backend.theano_backend._LEARNING_PHASE.set_value(np.uint8(0))
+        keras.backend.aesara_backend._LEARNING_PHASE.set_value(np.uint8(0))
 
         return self._get_dec_func()(zs)
 ```
 
 ## Generative model
-We can construct the generative model with the PyMC3 API and the functions and classes defined above. We set the size of mini-batches to 100 and the dimension of the latent space to 2 for visualization.
+We can construct the generative model with the PyMC API and the functions and classes defined above. We set the size of mini-batches to 100 and the dimension of the latent space to 2 for visualization.
 
 ```{code-cell} ipython3
 # Constants
@@ -310,7 +310,7 @@ We require a placeholder for images, into which mini-batches of images will be p
 
 ```{code-cell} ipython3
 # Placeholder of images
-xs_t = tt.tensor4(name="xs_t")
+xs_t = at.tensor4(name="xs_t")
 xs_t.tag.test_value = np.zeros((minibatch_size, 1, 28, 28)).astype("float32")
 # Encoder
 enc = Encoder(xs_t, dim_hidden, net=cnn_enc)
@@ -340,13 +340,13 @@ with pm.Model() as model:
     )
 ```
 
-In the generative model above, we do not know how the decoded variational parameters are passed to $q(\mathbf{z}|\mathbf{x})$. To do this, we will set the argument `local_RVs` in the ADVI function of PyMC3.
+In the generative model above, we do not know how the decoded variational parameters are passed to $q(\mathbf{z}|\mathbf{x})$. To do this, we will set the argument `local_RVs` in the ADVI function of PyMC.
 
 ```{code-cell} ipython3
 local_RVs = OrderedDict({zs: dict(mu=enc.means, rho=enc.rhos)})
 ```
 
-This argument is an `OrderedDict` whose keys are random variables to which the decoded variational parameters are set (`zs` in this model). Each value of the dictionary contains two Theano expressions representing variational mean (`enc.means`) and rhos (`enc.rhos`). A scaling constant (`len(data) / float(minibatch_size)`) is set automatically (as we specified it in the model saying what's the `total_size`) to compensate for the size of mini-batches of the corresponding log probability terms in the evidence lower bound (ELBO), the objective of the variational inference. 
+This argument is an `OrderedDict` whose keys are random variables to which the decoded variational parameters are set (`zs` in this model). Each value of the dictionary contains two Aesara expressions representing variational mean (`enc.means`) and rhos (`enc.rhos`). A scaling constant (`len(data) / float(minibatch_size)`) is set automatically (as we specified it in the model saying what's the `total_size`) to compensate for the size of mini-batches of the corresponding log probability terms in the evidence lower bound (ELBO), the objective of the variational inference. 
 
 The scaling constant for the observed random variables is set in the same way.
 

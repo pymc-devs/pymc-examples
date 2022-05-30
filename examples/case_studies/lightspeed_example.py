@@ -1,6 +1,6 @@
 import numpy as np
 import arviz as az
-import pymc3 as pm
+import pymc as pm
 
 light_speed = np.array(
     [
@@ -77,7 +77,7 @@ model_1 = pm.Model()
 
 with model_1:
     # priors as specified in stan model
-    # mu = pm.Uniform('mu', lower = -tt.inf, upper= np.inf)
+    # mu = pm.Uniform('mu', lower = -at.inf, upper= np.inf)
     # sigma = pm.Uniform('sigma', lower = 0, upper= np.inf)
 
     # using vague priors works

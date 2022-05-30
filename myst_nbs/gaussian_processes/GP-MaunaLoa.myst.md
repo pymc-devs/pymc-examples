@@ -58,7 +58,7 @@ Let's load in the data, tidy it up, and have a look.  The [raw data set is locat
 ```{code-cell} ipython3
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 
 from bokeh.io import output_notebook
 from bokeh.models import BoxAnnotation, Label, Legend, Span
@@ -135,7 +135,7 @@ data_monthly = data_monthly.assign(t=t)
 data_monthly = data_monthly.assign(y_n=y_n)
 ```
 
-This data might be familiar to you, since it was used as an example in the [Gaussian Processes for Machine Learning](http://www.gaussianprocess.org/gpml/) book by {cite:t}`rasmussen2003gaussian`.  The version of the data set they use starts in the late 1950's, but stops at the end of 2003.  So that our PyMC3 example is somewhat comparable to their example, we use the stretch of data from before 2004 as the "training" set.  The data from 2004 to 2022 we'll use to test our predictions.
+This data might be familiar to you, since it was used as an example in the [Gaussian Processes for Machine Learning](http://www.gaussianprocess.org/gpml/) book by {cite:t}`rasmussen2003gaussian`.  The version of the data set they use starts in the late 1950's, but stops at the end of 2003.  So that our PyMC example is somewhat comparable to their example, we use the stretch of data from before 2004 as the "training" set.  The data from 2004 to 2022 we'll use to test our predictions.
 
 ```{code-cell} ipython3
 # split into training and test set
@@ -312,7 +312,7 @@ For all of the scale priors we use distributions that shrink the scale towards z
 
 +++
 
-## The model in PyMC3
+## The model in PyMC
 
 Below is the actual model.  Each of the three component GPs is constructed separately.  Since we are doing MAP, we use `Marginal` GPs and lastly call the `.marginal_likelihood` method to specify the marginal posterior.
 
@@ -579,7 +579,7 @@ Having a zero mean GP prior is causing the prediction to be pretty far off.  Som
 
 Also, using only historical CO$_2$ data may not be the best predictor.  In addition to looking at the underlying behavior of what determines CO$_2$ levels using a GP fit, we could also incorporate other information, such as the amount of CO$_2$ that is released by fossil fuel burning.   
 
-Next, we'll see about using PyMC3's GP functionality to improve the model, look at full posteriors, and incorporate other sources of data on drivers of CO$_2$ levels.
+Next, we'll see about using PyMC's GP functionality to improve the model, look at full posteriors, and incorporate other sources of data on drivers of CO$_2$ levels.
 
 +++
 

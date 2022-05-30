@@ -6,9 +6,9 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python PyMC3 (Dev)
+  display_name: Python PyMC (Dev)
   language: python
-  name: pymc3-dev-py38
+  name: pymc-dev-py38
 ---
 
 # Multilevel Gravity Survey with MLDA
@@ -16,13 +16,13 @@ kernelspec:
 +++
 
 ### The MLDA sampler
-This notebook is designed to demonstrate the Multi-Level Delayed Acceptance MCMC algorithm (MLDA) proposed in Dodwell (2019), as implemented within PyMC3. If you are using MLDA for the first time, we recommend first running the `MLDA_simple_linear_regression.ipynb` notebook in the same folder.
+This notebook is designed to demonstrate the Multi-Level Delayed Acceptance MCMC algorithm (MLDA) proposed in Dodwell (2019), as implemented within PyMC. If you are using MLDA for the first time, we recommend first running the `MLDA_simple_linear_regression.ipynb` notebook in the same folder.
 
 The MLDA sampler can be more efficient than other MCMC samplers when dealing with computationally intensive problems where we have access not only to the desired (fine) posterior distribution but also to a set of approximate (coarse) posteriors of decreasing accuracy and decreasing computational cost. In simple terms, we can use multiple chains on different coarseness levels and coarser chains' samples are used as proposals for the finer chains. This has been shown to improve the effective sample size of the finest chain and this allows us to reduce the number of expensive fine-chain likelihood evaluations. 
 
-The notebook initially defines the necessary classes that describe the model. These classes use scipy to do the numerical solve in the forward model. It then instantiates models in two levels (with different granularities) and generates data for inference. Finally, the model classes are passed to two pymc3 models using Theano Ops and inference is done using three different MCMC methods (including MLDA). Some summary results and comparison plots are shown at the end to demonstrate the results. The use of Theano Ops is common when users want to use external code to calculate their likelihood (e.g. some fast PDE solver) and this example is designed to serve as a starting point for users to employ MLDA in their own problems.
+The notebook initially defines the necessary classes that describe the model. These classes use scipy to do the numerical solve in the forward model. It then instantiates models in two levels (with different granularities) and generates data for inference. Finally, the model classes are passed to two pymc models using Aesara Ops and inference is done using three different MCMC methods (including MLDA). Some summary results and comparison plots are shown at the end to demonstrate the results. The use of Aesara Ops is common when users want to use external code to calculate their likelihood (e.g. some fast PDE solver) and this example is designed to serve as a starting point for users to employ MLDA in their own problems.
 
-Please note that the MLDA sampler is new in PyMC3. The user should be extra critical about the results and report any problems as issues in the pymc3's github repository.
+Please note that the MLDA sampler is new in PyMC. The user should be extra critical about the results and report any problems as issues in the pymc's github repository.
 
 The notebook results shown below were generated on a MacBook Pro with a 2.6 GHz 6-core Intel Core i7, 32 GB DDR4 and macOS 10.15.4.
 
@@ -93,13 +93,13 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"  # Set environment variable
 import sys as sys
 import time as time
 
+import aesara
+import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
-import theano
-import theano.tensor as tt
+import pymc as pm
 
 from numpy.linalg import inv
 from scipy.interpolate import RectBivariateSpline
@@ -119,8 +119,8 @@ az.style.use("arviz-darkgrid")
 
 ```{code-cell} ipython3
 # Checking versions
-print(f"Theano version: {theano.__version__}")
-print(f"PyMC3 version: {pm.__version__}")
+print(f"Aesara version: {aesara.__version__}")
+print(f"PyMC version: {pm.__version__}")
 ```
 
 ## Define Matern52 kernel for modelling Gaussian Random Field
@@ -550,8 +550,8 @@ sigma = 1.0
 sampling_seed = RANDOM_SEED
 ```
 
-## Define a Theano Op for the likelihood
-This creates the theano op needed to pass the above model to the PyMC3 sampler
+## Define a Aesara Op for the likelihood
+This creates the aesara op needed to pass the above model to the PyMC sampler
 
 ```{code-cell} ipython3
 def my_loglik(my_model, theta, data, sigma):
@@ -565,21 +565,21 @@ def my_loglik(my_model, theta, data, sigma):
     return -(0.5 / sigma**2) * np.sum((output - data) ** 2)
 
 
-class LogLike(tt.Op):
+class LogLike(at.Op):
     """
-    Theano Op that wraps the log-likelihood computation, necessary to
-    pass "black-box" code into pymc3.
+    Aesara Op that wraps the log-likelihood computation, necessary to
+    pass "black-box" code into pymc.
     Based on the work in:
     https://docs.pymc.io/notebooks/blackbox_external_likelihood.html
-    https://docs.pymc.io/Advanced_usage_of_Theano_in_PyMC3.html
+    https://docs.pymc.io/Advanced_usage_of_Aesara_in_PyMC.html
     """
 
     # Specify what type of object will be passed and returned to the Op when it is
     # called. In our case we will be passing it a vector of values (the parameters
     # that define our model and a model object) and returning a single "scalar"
     # value (the log-likelihood)
-    itypes = [tt.dvector]  # expects a vector of parameter values when called
-    otypes = [tt.dscalar]  # outputs a single scalar value (the log likelihood)
+    itypes = [at.dvector]  # expects a vector of parameter values when called
+    otypes = [at.dscalar]  # outputs a single scalar value (the log likelihood)
 
     def __init__(self, my_model, loglike, data, sigma):
         """
@@ -621,16 +621,16 @@ class LogLike(tt.Op):
 ```
 
 ```{code-cell} ipython3
-# create Theano Ops to wrap likelihoods of all model levels and store them in list
+# create Aesara Ops to wrap likelihoods of all model levels and store them in list
 logl = []
 for i, m_i in enumerate(my_models):
     logl.append(LogLike(m_i, my_loglik, data, sigma))
 ```
 
-## Create coarse model in PyMC3
+## Create coarse model in PyMC
 
 ```{code-cell} ipython3
-# Set up models in pymc3 for each level - excluding finest model level
+# Set up models in pymc for each level - excluding finest model level
 coarse_models = []
 for j in range(len(my_models) - 1):
     with pm.Model() as model:
@@ -648,7 +648,7 @@ for j in range(len(my_models) - 1):
 Note that we sample using all three methods and that we use the MAP as the starting point for sampling
 
 ```{code-cell} ipython3
-# Set up finest model and perform inference with PyMC3, using the MLDA algorithm
+# Set up finest model and perform inference with PyMC, using the MLDA algorithm
 # and passing the coarse_models list created above.
 method_names = []
 traces = []
@@ -733,7 +733,7 @@ with pm.Model() as model:
 
 +++
 
-#### Print MAP estimate and pymc3 sampling summary
+#### Print MAP estimate and pymc sampling summary
 
 ```{code-cell} ipython3
 with model:

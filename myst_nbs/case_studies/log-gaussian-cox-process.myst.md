@@ -30,7 +30,7 @@ where $GP(\mu(s), K(s,s'))$ denotes a Gaussian process with mean function $\mu(s
 * What would randomly sampled patterns with the same statistical properties look like?
 * Is there a statistical correlation between the *frequency* and *magnitude* of point events?
 
-In this notebook, we'll use a grid-based approximation to the full LGCP with PyMC3 to fit a model and analyze its posterior summaries. We will also explore the usage of a marked Poisson process, an extension of this model to account for the distribution of *marks* associated with each data point.
+In this notebook, we'll use a grid-based approximation to the full LGCP with PyMC to fit a model and analyze its posterior summaries. We will also explore the usage of a marked Poisson process, an extension of this model to account for the distribution of *marks* associated with each data point.
 
 +++
 
@@ -47,7 +47,7 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 
 from numpy.random import default_rng
 ```
@@ -131,7 +131,7 @@ for i, row in enumerate(centroids):
 plt.title("Anemone counts per grid cell"), plt.colorbar(label="Anemone size");
 ```
 
-We can see that all of the counts are fairly low and range from zero to five. With all of our data prepared, we can go ahead and start writing out our probabilistic model in PyMC3. We are going to treat each of the per-cell counts $Y_1,...Y_M$ above as a Poisson random variable.
+We can see that all of the counts are fairly low and range from zero to five. With all of our data prepared, we can go ahead and start writing out our probabilistic model in PyMC. We are going to treat each of the per-cell counts $Y_1,...Y_M$ above as a Poisson random variable.
 
 +++
 
@@ -167,7 +167,7 @@ With the model fully specified, we can start sampling from the posterior using t
 
 ```{code-cell} ipython3
 with lgcp_model:
-    trace = pm.sample(target_accept=0.95, chains=4, return_inferencedata=True)
+    trace = pm.sample(target_accept=0.95, chains=4)
 ```
 
 # Interpreting the results
@@ -326,7 +326,7 @@ It is important to note that this model takes much longer to run because using M
 
 ```{code-cell} ipython3
 with mark_model:
-    trace = pm.sample(target_accept=0.95, return_inferencedata=True)
+    trace = pm.sample(target_accept=0.95)
 ```
 
 The posterior summaries indicate that most of the probability mass for $\beta$ is on negative values. This gives us a high posterior probability that the intensity field (i.e. the number of anemones) is anti-correlated with the size of each anemone!

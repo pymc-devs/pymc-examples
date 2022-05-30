@@ -12,7 +12,7 @@ kernelspec:
 ---
 
 (custom_distribution)=
-# Defining a Custom Distribution in PyMC3
+# Defining a Custom Distribution in PyMC
 
 +++
 
@@ -20,7 +20,7 @@ In this notebook, we are going to walk through how to create a custom distributi
 
 +++
 
-There are 3 main steps required to define a custom distribution in PyMC3:
+There are 3 main steps required to define a custom distribution in PyMC:
 1. Define the log probability function
 2. Define the random generator function
 3. Define the class for the distribution
@@ -56,15 +56,15 @@ import os
 
 from datetime import date, timedelta
 
+import aesara.tensor as at
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
-import theano.tensor as tt
+import pymc as pm
 
-from pymc3.distributions.dist_math import bound, factln, logpow
-from pymc3.distributions.distribution import draw_values, generate_samples
-from pymc3.theanof import intX
+from pymc.aesaraf import intX
+from pymc.distributions.dist_math import bound, factln, logpow
+from pymc.distributions.distribution import draw_values, generate_samples
 ```
 
 ## 1. Log Probability Function
@@ -92,7 +92,7 @@ def genpoisson_logp(theta, lam, value):
 
     # Probability is 0 when value > m, where m is the largest positive integer for which
     # theta + m * lam > 0 (when lam < 0).
-    log_prob = tt.switch(theta_lam_value <= 0, -np.inf, log_prob)
+    log_prob = at.switch(theta_lam_value <= 0, -np.inf, log_prob)
 
     return bound(log_prob, value >= 0, theta > 0, abs(lam) <= 1, -theta / 4 <= lam)
 ```
@@ -147,7 +147,7 @@ def genpoisson_rvs(theta, lam, size=None):
 
 ## 3. Class Definition
 
-Every PyMC3 distribution requires the following basic format. A few things to keep in mind:
+Every PyMC distribution requires the following basic format. A few things to keep in mind:
 - Your class should have the parent class `pm.Discrete` if your distribution is discrete, or `pm.Continuous` if your distriution is continuous.
 - For continuous distributions you also have to define the default transform, or inherit from a more specific class like `PositiveContinuous` which specifies what the default transform should be.
 - You'll need specify at least one "default value" for the distribution during `init` such as `self.mode`, `self.median`, or `self.mean` (the latter only for continuous distributions). This is used by some samplers or other compound distributions.
@@ -158,7 +158,7 @@ class GenPoisson(pm.Discrete):
         super().__init__(*args, **kwargs)
         self.theta = theta
         self.lam = lam
-        self.mode = intX(tt.floor(theta / (1 - lam)))
+        self.mode = intX(at.floor(theta / (1 - lam)))
 
     def logp(self, value):
         theta = self.theta
@@ -200,7 +200,7 @@ ax[1][1].set_title("Generalized Poisson with Overdispersion\n($\\theta=5, \\lamb
 
 ## Using our custom distribution in our model
 
-Now that we have defined our custom distribution, we can use it in our PyMC3 model as we would use any other pre-defined distribution.
+Now that we have defined our custom distribution, we can use it in our PyMC model as we would use any other pre-defined distribution.
 
 +++
 
@@ -253,7 +253,7 @@ with pm.Model() as model:
 
     lam = pm.TruncatedNormal("lam", mu=0, sigma=0.1, lower=-1, upper=1)
 
-    y_past = GenPoisson("y_past", theta=tt.exp(f[:T]), lam=lam, observed=y_tr)
+    y_past = GenPoisson("y_past", theta=at.exp(f[:T]), lam=lam, observed=y_tr)
 ```
 
 ```{code-cell} ipython3
@@ -276,7 +276,7 @@ pm.traceplot(trace);
 
 ```{code-cell} ipython3
 with model:
-    y_future = GenPoisson("y_future", theta=tt.exp(f[-F:]), lam=lam, shape=F)
+    y_future = GenPoisson("y_future", theta=at.exp(f[-F:]), lam=lam, shape=F)
     forecasts = pm.sample_posterior_predictive(trace, vars=[y_future], random_seed=42)
 samples = forecasts["y_future"]
 ```
@@ -331,5 +331,5 @@ Resources on the Generalized Poisson distribution:
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p aesara,xarray
 ```

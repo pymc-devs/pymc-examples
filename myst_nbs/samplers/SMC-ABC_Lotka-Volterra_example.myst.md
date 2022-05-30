@@ -6,16 +6,16 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python (PyMC3 Dev)
+  display_name: Python (PyMC Dev)
   language: python
-  name: pymc3-dev
+  name: pymc-dev
 ---
 
 ```{code-cell} ipython3
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 ```
 
 ```{code-cell} ipython3
@@ -60,7 +60,7 @@ _(Lintusaari, 2016), (Toni, T., 2008), (Nuñez, Prangle, 2015)_
 
 # Old good Gaussian fit
 
-To illustrate how to use ABC within PyMC3 we are going to start with a very simple example estimating the mean and standard deviation of Gaussian data.
+To illustrate how to use ABC within PyMC we are going to start with a very simple example estimating the mean and standard deviation of Gaussian data.
 
 ```{code-cell} ipython3
 data = np.random.normal(loc=0, scale=1, size=1000)
@@ -73,7 +73,7 @@ def normal_sim(a, b):
     return np.random.normal(a, b, 1000)
 ```
 
-Defining an ABC model in PyMC3 is in general, very similar to defining other PyMC3 models. The two important differences are: we need to define a `Simulator` _distribution_ and we need to use `sample_smc` with `kernel="ABC"`. The `Simulator` works as a generic interface to pass the synthetic data generating function (_normal_sim_ in this example), its parameters, the observed data and optionally a distance function and a summary statistics. In the following code we are using the default distance, `gaussian_kernel`, and the `sort` summary_statistic. As the name suggests `sort` sorts the data before computing the distance.
+Defining an ABC model in PyMC is in general, very similar to defining other PyMC models. The two important differences are: we need to define a `Simulator` _distribution_ and we need to use `sample_smc` with `kernel="ABC"`. The `Simulator` works as a generic interface to pass the synthetic data generating function (_normal_sim_ in this example), its parameters, the observed data and optionally a distance function and a summary statistics. In the following code we are using the default distance, `gaussian_kernel`, and the `sort` summary_statistic. As the name suggests `sort` sorts the data before computing the distance.
 
 Finally, SMC-ABC offers the option to store the simulated data. This can he handy as simulators can be expensive to evaluate and we may want to use the simulated data for example for posterior predictive checks.
 
@@ -84,7 +84,7 @@ with pm.Model() as example:
     s = pm.Simulator("s", normal_sim, params=(a, b), sum_stat="sort", epsilon=1, observed=data)
 
     trace, sim_data = pm.sample_smc(kernel="ABC", parallel=True, save_sim_data=True)
-    idata = az.from_pymc3(trace, posterior_predictive=sim_data)
+    idata = pm.to_inference_data(trace, posterior_predictive=sim_data)
 ```
 
 Judging by `plot_trace` the sampler did its job very well, which is not surprising given this is a very simple model. Anyway, it is always reassuring to look at a flat rank plot :-)
@@ -175,7 +175,7 @@ with pm.Model() as model_lv:
     sim = pm.Simulator("sim", competition_model, params=(a, b), epsilon=10, observed=observed)
 
     trace_lv = pm.sample_smc(kernel="ABC", parallel=True)
-    idata_lv = az.from_pymc3(trace_lv)
+    idata_lv = pm.to_inference_data(trace_lv)
 ```
 
 ```{code-cell} ipython3

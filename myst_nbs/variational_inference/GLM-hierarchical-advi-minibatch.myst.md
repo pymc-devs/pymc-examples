@@ -14,7 +14,7 @@ kernelspec:
 # GLM: Mini-batch ADVI on hierarchical regression model
 
 :::{post} Sept 23, 2021
-:tags: generalized linear model, hierarchical model, pymc3.Minibatch, pymc3.Model, pymc3.NUTS, pymc3.Normal, pymc3.Uniform, variational inference
+:tags: generalized linear model, hierarchical model, pymc.Minibatch, pymc.Model, pymc.NUTS, pymc.Normal, pymc.Uniform, variational inference
 :category: intermediate
 :::
 
@@ -27,18 +27,18 @@ Unlike Gaussian mixture models, (hierarchical) regression models have independen
 
 import os
 
+import aesara
+import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
-import theano
-import theano.tensor as tt
 
 from scipy import stats
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -127,7 +127,7 @@ Then, run ADVI with mini-batch.
 ```{code-cell} ipython3
 with hierarchical_model:
     approx = pm.fit(100000, callbacks=[pm.callbacks.CheckParametersConvergence(tolerance=1e-4)])
-    idata_advi = az.from_pymc3(approx.sample(500))
+    idata_advi = pm.to_inference_data(approx.sample(500))
 ```
 
 Check the trace of ELBO and compare the result with MCMC.
@@ -157,9 +157,7 @@ with pm.Model(coords=coords):
 
     # essentially, this is what init='advi' does
     step = pm.NUTS(scaling=approx.cov.eval(), is_cov=True)
-    hierarchical_trace = pm.sample(
-        2000, step, start=approx.sample()[0], progressbar=True, return_inferencedata=True
-    )
+    hierarchical_trace = pm.sample(2000, step, start=approx.sample()[0], progressbar=True)
 ```
 
 ```{code-cell} ipython3

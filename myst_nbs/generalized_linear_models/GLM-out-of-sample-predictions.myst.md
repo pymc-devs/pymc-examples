@@ -13,14 +13,14 @@ kernelspec:
   name: python3
 ---
 
-# GLM in PyMC3: Out-Of-Sample Predictions
+# GLM in PyMC: Out-Of-Sample Predictions
 
-In this notebook I explore the [glm](https://docs.pymc.io/api/glm.html) module of [PyMC3](https://docs.pymc.io/). I am particularly interested in the model definition using [patsy](https://patsy.readthedocs.io/en/latest/) formulas, as it makes the model evaluation loop faster (easier to include features and/or interactions). There are many good resources on this subject, but most of them evaluate the model in-sample. For many applications we require doing predictions on out-of-sample data. This experiment was motivated by the discussion of the thread ["Out of sample" predictions with the GLM sub-module](https://discourse.pymc.io/t/out-of-sample-predictions-with-the-glm-sub-module/773) on the (great!) forum [discourse.pymc.io/](https://discourse.pymc.io/), thank you all for your input!
+In this notebook I explore the [glm](https://docs.pymc.io/api/glm.html) module of [PyMC](https://docs.pymc.io/). I am particularly interested in the model definition using [patsy](https://patsy.readthedocs.io/en/latest/) formulas, as it makes the model evaluation loop faster (easier to include features and/or interactions). There are many good resources on this subject, but most of them evaluate the model in-sample. For many applications we require doing predictions on out-of-sample data. This experiment was motivated by the discussion of the thread ["Out of sample" predictions with the GLM sub-module](https://discourse.pymc.io/t/out-of-sample-predictions-with-the-glm-sub-module/773) on the (great!) forum [discourse.pymc.io/](https://discourse.pymc.io/), thank you all for your input!
 
 **Resources**
 
 
-- [PyMC3 Docs: Example Notebooks](https://docs.pymc.io/nb_examples/index.html)
+- [PyMC Docs: Example Notebooks](https://docs.pymc.io/nb_examples/index.html)
     
     - In particular check [GLM: Logistic Regression](https://docs.pymc.io/notebooks/GLM-logistic.html)
 
@@ -45,9 +45,9 @@ sns_c = sns.color_palette(palette="deep")
 
 import arviz as az
 import patsy
-import pymc3 as pm
+import pymc as pm
 
-from pymc3 import glm
+from pymc import glm
 
 plt.rcParams["figure.figsize"] = [7, 6]
 plt.rcParams["figure.dpi"] = 100
@@ -103,7 +103,7 @@ ax.set(title="Sample Data", xlim=(-9, 9), ylim=(-9, 9));
 
 ## Prepare Data for Modeling
 
-I wanted to use the *`classmethod`* `from_formula` (see [documentation](https://docs.pymc.io/api/glm.html)), but I was not able to generate out-of-sample predictions with this approach (if you find a way please let me know!). As a workaround, I created the features from a formula using [patsy](https://patsy.readthedocs.io/en/latest/) directly and then use *`class`* `pymc3.glm.linear.GLM` (this was motivated by going into the [source code](https://github.com/pymc-devs/pymc3/blob/master/pymc3/glm/linear.py)).
+I wanted to use the *`classmethod`* `from_formula` (see [documentation](https://docs.pymc.io/api/glm.html)), but I was not able to generate out-of-sample predictions with this approach (if you find a way please let me know!). As a workaround, I created the features from a formula using [patsy](https://patsy.readthedocs.io/en/latest/) directly and then use *`class`* `pymc.glm.linear.GLM` (this was motivated by going into the [source code](https://github.com/pymc-devs/pymc/blob/master/pymc/glm/linear.py)).
 
 ```{code-cell} ipython3
 # Define model formula.
@@ -131,7 +131,7 @@ x_train, x_test, y_train, y_test = train_test_split(x, y, train_size=0.7, random
 
 ## Define and Fit the Model
 
-We now specify the model in PyMC3.
+We now specify the model in PyMC.
 
 ```{code-cell} ipython3
 with pm.Model() as model:

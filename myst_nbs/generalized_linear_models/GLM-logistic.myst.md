@@ -27,22 +27,22 @@ import warnings
 from collections import OrderedDict
 from time import time
 
+import aesara as thno
+import aesara.tensor as T
 import arviz as az
 import bambi as bmb
 import matplotlib.lines as mlines
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import seaborn
-import theano as thno
-import theano.tensor as T
 
 from formulae import design_matrices
 from scipy import integrate
 from scipy.optimize import fmin_powell
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -57,7 +57,7 @@ az.style.use("arviz-darkgrid")
 def run_models(df, upper_order=5):
     """
     Convenience function:
-    Fit a range of pymc3 models of increasing polynomial complexity.
+    Fit a range of pymc models of increasing polynomial complexity.
     Suggest limit to max order 5 since calculation time is exponential.
     """
 
@@ -214,7 +214,7 @@ We see here not many strong correlations. The highest is 0.30 according to this 
 
 ## The model
 We will use a simple model, which assumes that the probability of making more than $50K 
-is a function of age, years of education and hours worked per week. We will use PyMC3 
+is a function of age, years of education and hours worked per week. We will use PyMC 
 do inference. 
 
 In Bayesian statistics, we treat everything as a random variable and we want to know the posterior probability distribution of the parameters
@@ -225,14 +225,14 @@ Because the denominator is a notoriously difficult integral, $p(D) = \int p(D | 
 
 What this means in practice is that we only need to worry about the numerator. 
 
-Getting back to logistic regression, we need to specify a prior and a likelihood in order to draw samples from the posterior. We could use sociological knowledge about the effects of age and education on income, but instead, let's use the default prior specification for GLM coefficients that PyMC3 gives us, which is $p(θ)=N(0,10^{12}I)$. This is a very vague prior that will let the data speak for themselves.
+Getting back to logistic regression, we need to specify a prior and a likelihood in order to draw samples from the posterior. We could use sociological knowledge about the effects of age and education on income, but instead, let's use the default prior specification for GLM coefficients that PyMC gives us, which is $p(θ)=N(0,10^{12}I)$. This is a very vague prior that will let the data speak for themselves.
 
 The likelihood is the product of n Bernoulli trials, $\prod^{n}_{i=1} p_{i}^{y} (1 - p_{i})^{1-y_{i}}$,
 where $p_i = \frac{1}{1 + e^{-z_i}}$, 
 
 $z_{i} = \beta_{0} + \beta_{1}(age)_{i} + \beta_2(age)^{2}_{i} + \beta_{3}(educ)_{i} + \beta_{4}(hours)_{i}$ and $y_{i} = 1$ if income is greater than 50K and $y_{i} = 0$ otherwise. 
 
-With the math out of the way we can get back to the data. Here I use PyMC3 to draw samples from the posterior. The sampling algorithm used is NUTS, which is a form of Hamiltonian Monte Carlo, in which parameteres are tuned automatically. Notice, that we get to borrow the syntax of specifying GLM's from R, very convenient! I use a convenience function from above to plot the trace information from the first 1000 parameters.
+With the math out of the way we can get back to the data. Here I use PyMC to draw samples from the posterior. The sampling algorithm used is NUTS, which is a form of Hamiltonian Monte Carlo, in which parameteres are tuned automatically. Notice, that we get to borrow the syntax of specifying GLM's from R, very convenient! I use a convenience function from above to plot the trace information from the first 1000 parameters.
 
 ```{code-cell} ipython3
 model = bmb.Model("income ~ age + age2 + educ + hours", data, family="bernoulli")
@@ -262,7 +262,7 @@ az.plot_pair(
 
 So how do age and education affect the probability of making more than \$50K? 
 
-To answer this question, we can show how the probability of making more than \$50K changes with age for a few different education levels. Here, we assume that the number of hours worked per week is fixed at 50. PyMC3 gives us a convenient way to plot the posterior predictive distribution. We need to give the function a linear model and a set of points to evaluate. We will pass in three different linear models: 
+To answer this question, we can show how the probability of making more than \$50K changes with age for a few different education levels. Here, we assume that the number of hours worked per week is fixed at 50. PyMC gives us a convenient way to plot the posterior predictive distribution. We need to give the function a linear model and a set of points to evaluate. We will pass in three different linear models: 
 - one with educ == 12 (finished high school)
 - one with educ == 16 (finished undergrad) 
 - one with educ == 19 (three years of grad school).

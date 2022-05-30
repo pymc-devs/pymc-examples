@@ -6,14 +6,14 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: pymc3-dev-py38
+  display_name: pymc-dev-py38
   language: python
-  name: pymc3-dev-py38
+  name: pymc-dev-py38
 ---
 
 # Air passengers - Prophet-like model
 
-We're going to look at the "air passengers" dataset, which tracks the monthly totals of a US airline passengers from 1949 to 1960. We could fit this using the [Prophet](https://facebook.github.io/prophet/) model (indeed, this dataset is one of the examples they provide in their documentation), but instead we'll make our own Prophet-like model in PyMC3. This will make it a lot easier to inspect the model's components and to do prior predictive checks (an integral component of the [Bayesian workflow](https://arxiv.org/abs/2011.01808)).
+We're going to look at the "air passengers" dataset, which tracks the monthly totals of a US airline passengers from 1949 to 1960. We could fit this using the [Prophet](https://facebook.github.io/prophet/) model (indeed, this dataset is one of the examples they provide in their documentation), but instead we'll make our own Prophet-like model in PyMC. This will make it a lot easier to inspect the model's components and to do prior predictive checks (an integral component of the [Bayesian workflow](https://arxiv.org/abs/2011.01808)).
 
 ```{code-cell} ipython3
 import arviz as az
@@ -21,9 +21,9 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -145,7 +145,7 @@ Cool. Before going on to anything more complicated, let's try conditioning on th
 
 ```{code-cell} ipython3
 with linear:
-    linear_trace = pm.sample(return_inferencedata=True)
+    linear_trace = pm.sample()
     linear_posterior_predictive = pm.sample_posterior_predictive(trace=linear_trace)
 
 fig, ax = plt.subplots(nrows=2, ncols=1, sharex=True)
@@ -282,7 +282,7 @@ Seems a lot more believable. Time for a posterior predictive check:
 
 ```{code-cell} ipython3
 with linear_with_seasonality:
-    linear_with_seasonality_trace = pm.sample(return_inferencedata=True)
+    linear_with_seasonality_trace = pm.sample()
     linear_with_seasonality_posterior_predictive = pm.sample_posterior_predictive(
         trace=linear_with_seasonality_trace
     )
@@ -324,7 +324,7 @@ Neat!
 We saw how we could implement a Prophet-like model ourselves and fit it to the air passengers dataset. Prophet is an awesome library and a net-positive to the community, but by implementing it ourselves, however, we can take whichever components of it we think are relevant to our problem, customise them, and carry out the Bayesian workflow. Next time you have a time series problem, I hope you will try implementing your own probabilistic model rather than using Prophet as a "black-box" whose arguments are tuneable hyperparameters.
 
 For reference, you might also want to check out:
-- [TimeSeeers](https://github.com/MBrouns/timeseers), a hierarchical Bayesian Time Series model based on Facebooks Prophet, written in PyMC3
+- [TimeSeeers](https://github.com/MBrouns/timeseers), a hierarchical Bayesian Time Series model based on Facebooks Prophet, written in PyMC
 - [pmprophet](https://github.com/luke14free/pm-prophet), Pymc3-based universal time series prediction and decomposition library inspired by Facebook Prophet
 
 ----
