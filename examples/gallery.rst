@@ -1,7 +1,20 @@
 Gallery
 =======
 
-Case studies
+
+(Generalized) Linear and Hierarchical Linear Models
+-------------------------
+
+.. nbgallery::
+    :caption: This is a thumbnail gallery:
+    :name: generalized_linear_models
+    :glob:
+    :reversed:
+
+    generalized_linear_models/*
+
+
+Case Studies
 ------------
 
 .. nbgallery::
@@ -12,16 +25,17 @@ Case studies
 
     case_studies/*
 
-Generalized Linear Models
--------------------------
+Diagnostics and Model Criticism
+-------------------------------
 
 .. nbgallery::
     :caption: This is a thumbnail gallery:
-    :name: generalized_linear_models
+    :name: diagnostics_and_criticism
     :glob:
     :reversed:
 
-    generalized_linear_models/*
+    diagnostics_and_criticism/*
+
 
 Gaussian Processes
 ------------------
@@ -33,3 +47,69 @@ Gaussian Processes
     :reversed:
 
     gaussian_processes/*
+
+Inference in ODE models
+-----------------------
+
+.. nbgallery::
+    :caption: This is a thumbnail gallery:
+    :name: ode_models
+    :glob:
+    :reversed:
+
+    ode_models/*
+
+MCMC
+----
+
+.. nbgallery::
+    :caption: This is a thumbnail gallery:
+    :name: samplers
+    :glob:
+    :reversed:
+
+    samplers/*
+
+Mixture Models
+--------------
+
+.. nbgallery::
+    :caption: This is a thumbnail gallery:
+    :name: mixture_models
+    :glob:
+    :reversed:
+
+    mixture_models/*
+
+Survival Analysis
+-----------------
+
+.. nbgallery::
+    :caption: This is a thumbnail gallery:
+    :name: survival_analysis
+    :glob:
+    :reversed:
+
+    survival_analysis/*
+
+Time Series
+-----------
+
+.. nbgallery::
+    :caption: This is a thumbnail gallery:
+    :name: time_series
+    :glob:
+    :reversed:
+
+    time_series/*
+
+Variational Inference
+---------------------
+
+.. nbgallery::
+    :caption: This is a thumbnail gallery:
+    :name: variational_inference
+    :glob:
+    :reversed:
+
+    variational_inference/*

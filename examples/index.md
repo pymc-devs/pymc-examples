@@ -71,18 +71,6 @@ The left sidebar shows all tags at all times. Like categories, they can be click
 on to reach the page listing all notebooks that contain the tag. If a notebook
 has tags in its metadata they are listed on the right sidebar after the {fas}`tags` icon.
 
-## NB Gallery
-
-```nbgallery
----
-caption: This is a thumbnail gallery:
-name: rst-gallery
-glob:
-reversed:
----
-case_studies/*
-```
-
 :::{toctree}
 :maxdepth: 1
 :hidden:
