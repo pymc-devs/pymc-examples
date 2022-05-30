@@ -6,26 +6,33 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: pymc-dev
+  display_name: Python 3
   language: python
-  name: pymc-dev
+  name: python3
+substitutions:
+  extra_dependencies: bokeh
 ---
 
-# Example: CO2 at Mauna Loa
+(GP-MaunaLoa)=
+# Gaussian Process for CO2 at Mauna Loa
+
+:::{post} April, 2022
+:tags: gaussian process, CO2
+:category: intermediate
+:author: Bill Engels, Chris Fonnesbeck
+:::
 
 +++
 
-This GP example shows how to
+This Gaussian Process (GP) example shows how to:
 
 - Design combinations of covariance functions
 - Use additive GPs whose individual components can be used for prediction
-- Perform maximum a-posteriori (MAP)
+- Perform maximum a-posteriori (MAP) estimation
 
 +++
 
-Since the late 1950's, the Mauna Loa observatory has been taking regular measurments of atmospheric CO$_2$.  It is the longest 
-
-In the late 1950's Charles Keeling invented a accurate way to measure atmospheric CO$_2$ concentration.
+Since the late 1950's, the Mauna Loa observatory has been taking regular measurments of atmospheric CO$_2$. In the late 1950's Charles Keeling invented a accurate way to measure atmospheric CO$_2$ concentration.
 Since then, CO$_2$ measurements have been recorded nearly continuously at the Mauna Loa observatory.  Check out last hours measurement result [here](https://www.co2.earth/daily-co2).  
 
 ![](http://sites.gsu.edu/geog1112/files/2014/07/MaunaLoaObservatory_small-2g29jvt.png)
@@ -36,7 +43,6 @@ The history behind these measurements and their influence on climatology today a
 
 - http://scrippsco2.ucsd.edu/history_legacy/early_keeling_curve#
 - https://scripps.ucsd.edu/programs/keelingcurve/2016/05/23/why-has-a-drop-in-global-co2-emissions-not-caused-co2-levels-in-the-atmosphere-to-stabilize/#more-1412
-- http://cdiac.ornl.gov/
 
 Let's load in the data, tidy it up, and have a look.  The [raw data set is located here](http://scrippsco2.ucsd.edu/data/atmospheric_co2/mlo).  This notebook uses the [Bokeh package](http://bokeh.pydata.org/en/latest/) for plots that benefit from interactivity.
 
@@ -44,12 +50,15 @@ Let's load in the data, tidy it up, and have a look.  The [raw data set is locat
 
 ## Preparing the data
 
++++
+
+:::{include} ../extra_installs.md
+:::
+
 ```{code-cell} ipython3
-import arviz as az
 import numpy as np
 import pandas as pd
 import pymc3 as pm
-import theano.tensor as tt
 
 from bokeh.io import output_notebook
 from bokeh.models import BoxAnnotation, Label, Legend, Span
@@ -62,14 +71,17 @@ output_notebook()
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
 RANDOM_SEED = 8927
-np.random.seed(RANDOM_SEED)
-az.style.use("arviz-darkgrid")
+rng = np.random.default_rng(RANDOM_SEED)
 ```
 
 ```{code-cell} ipython3
-data_monthly = pd.read_csv(pm.get_data("monthly_in_situ_co2_mlo.csv"), header=56)
+# get data
+try:
+    data_monthly = pd.read_csv("../data/monthly_in_situ_co2_mlo.csv", header=56)
+except FileNotFoundError:
+    data_monthly = pd.read_csv(pm.get_data("monthly_in_situ_co2_mlo.csv"), header=56)
 
-# - replace -99.99 with NaN
+# replace -99.99 with NaN
 data_monthly.replace(to_replace=-99.99, value=np.nan, inplace=True)
 
 # fix column names
@@ -104,10 +116,7 @@ data_monthly.head(5)
 ```
 
 ```{code-cell} ipython3
-# function to convert datetimes to numbers that are useful to algorithms
-#   this will be useful later when doing prediction
-
-
+# function to convert datetimes to indexed numbers that are useful for later prediction
 def dates_to_idx(timelist):
     reference_time = pd.to_datetime("1958-03-15")
     t = (timelist - reference_time) / pd.Timedelta(365, "D")
@@ -126,7 +135,7 @@ data_monthly = data_monthly.assign(t=t)
 data_monthly = data_monthly.assign(y_n=y_n)
 ```
 
-This data might be familiar to you, since it was used as an example in the [Gaussian Processes for Machine Learning](http://www.gaussianprocess.org/gpml/) book by Rasmussen & Williams.  The version of the data set they use starts in the late 1950's, but stops at the end of 2003.  So that our PyMC3 example is somewhat comparable to their example, we use the stretch of data from before 2004 as the "training" set.  The data from 2004 to current we'll use to test our predictions.
+This data might be familiar to you, since it was used as an example in the [Gaussian Processes for Machine Learning](http://www.gaussianprocess.org/gpml/) book by {cite:t}`rasmussen2003gaussian`.  The version of the data set they use starts in the late 1950's, but stops at the end of 2003.  So that our PyMC3 example is somewhat comparable to their example, we use the stretch of data from before 2004 as the "training" set.  The data from 2004 to 2022 we'll use to test our predictions.
 
 ```{code-cell} ipython3
 # split into training and test set
@@ -136,8 +145,7 @@ data_later = data_monthly.iloc[sep_idx:, :]
 ```
 
 ```{code-cell} ipython3
-# make plot
-
+# plot training and test data
 p = figure(
     x_axis_type="datetime",
     title="Monthly CO2 Readings from Mauna Loa",
@@ -190,9 +198,9 @@ The 400 ppm level is highlighted with a dashed line.  In addition to fitting a d
 
 ## Modeling the Keeling Curve using GPs
 
-As a starting point, we use the GP model described in Rasmussen & Williams.  Instead of using flat priors on covariance function hyperparameters and then maximizing the marginal likelihood like is done in the textbook, we place somewhat informative priors on the hyperparameters and use optimization to find the MAP point.  We use the `gp.Marginal` since Gaussian noise is assumed.
+As a starting point, we use the GP model described in {cite:t}`rasmussen2003gaussian`.  Instead of using flat priors on covariance function hyperparameters and then maximizing the marginal likelihood like is done in the textbook, we place somewhat informative priors on the hyperparameters and use optimization to find the MAP point.  We use the `gp.Marginal` since Gaussian noise is assumed.
 
-The R+W model is a sum of three GPs for the signal, and one GP for the noise.
+The R&W {cite:p}`rasmussen2003gaussian` model is a sum of three GPs for the signal, and one GP for the noise.
 
 1. A long term smooth rising trend represented by an exponentiated quadratic kernel.
 2. A periodic term that decays away from exact periodicity.  This is represented by the product of a `Periodic` and a `Matern52` covariance functions.
@@ -205,7 +213,7 @@ $$
 f(t) \sim \mathcal{GP}_{\text{slow}}(0,\, k_1(t, t')) + 
           \mathcal{GP}_{\text{med}}(0,\,  k_2(t, t')) + 
           \mathcal{GP}_{\text{per}}(0,\,  k_3(t, t')) +
-          \mathcal{GP}_{\text{noise}}(0,\,  k_n(t, t'))
+          \mathcal{GP}_{\text{noise}}(0,\,  k_4(t, t'))
 $$
 
 ## Hyperparameter priors
@@ -250,7 +258,7 @@ show(p)
 
 - `ℓ_psmooth`: The smoothness of the periodic component.  It controls how "sinusoidal" the periodicity is.  The plot of the data shows that seasonality is not an exact sine wave, but its not terribly different from one.  We use a Gamma whose mode is at one, and doesn't have too large of a variance, with most of the prior mass from around 0.5 and 2.
 
-- `period`: The period.  We put a very strong prior on $p$, the period that is centered at one.  R+W fix $p=1$, since the period is annual.  
+- `period`: The period.  We put a very strong prior on $p$, the period that is centered at one. R&W fix $p=1$, since the period is annual.  
 
 - `ℓ_med`: This is the lengthscale for the short to medium long variations.  This prior has most of its mass below 6 years.
 
@@ -272,7 +280,7 @@ priors = [
     (
         "η_trend",
         pm.HalfCauchy.dist(beta=3),
-    ),  # will use beta=2, but 2.2 is visible on plot
+    ),  # will use beta=2, but beta=3 is visible on plot
     ("σ", pm.HalfNormal.dist(sigma=0.25)),
     ("η_noise", pm.HalfNormal.dist(sigma=0.5)),
 ]
@@ -366,7 +374,7 @@ At first glance the results look reasonable.  The lengthscale that determines ho
 
 ## Examining the fit of each of the additive GP components
 
-The code below looks at the fit of the total GP, and each component individually.  The total fit and its $2\sigma$ uncertainty is shown in red.
+The code below looks at the fit of the total GP, and each component individually.  The total fit and its $2\sigma$ uncertainty are shown in red.
 
 ```{code-cell} ipython3
 # predict at a 15 day granularity
@@ -500,12 +508,12 @@ This plot makes it clear that there is a broadening over time.  So it would seem
 
 ## What day will the CO2 level break 400 ppm?
 
-How well do our forecasts look?  Clearly the observed data trends up and the seasonal effect is very pronounced.  Does our GP model capture this well enough to make reasonable extrapolations?  Our "training" set went up until the end of 2003, so we are going to predict from January 2014 out to the end of 2017.  
+How well do our forecasts look?  Clearly the observed data trends up and the seasonal effect is very pronounced.  Does our GP model capture this well enough to make reasonable extrapolations?  Our "training" set went up until the end of 2003, so we are going to predict from January 2004 out to the end of 2022.  
 
 Although there isn't any particular significance to this event other than it being a nice round number, our side goal was to see how well we could predict the date when the 400 ppm mark is first crossed.  [This event first occurred during May, 2013](https://scripps.ucsd.edu/programs/keelingcurve/2013/05/20/now-what/#more-741) and there were a few [news articles about other significant milestones](https://www.usatoday.com/story/tech/sciencefair/2016/09/29/carbon-dioxide-levels-400-ppm-scripps-mauna-loa-global-warming/91279952/).
 
 ```{code-cell} ipython3
-dates = pd.date_range(start="11/15/2003", end="12/15/2020", freq="10D")
+dates = pd.date_range(start="11/15/2003", end="12/15/2022", freq="10D")
 tnew = dates_to_idx(dates)[:, None]
 
 print("Sampling gp predictions ...")
@@ -513,17 +521,17 @@ mu_pred, cov_pred = gp.predict(tnew, point=mp)
 
 # draw samples, and rescale
 n_samples = 2000
-samples = pm.MvNormal.dist(mu=mu_pred, cov=cov_pred).random(size=n_samples)
+samples = pm.MvNormal.dist(mu=mu_pred, cov=cov_pred, shape=(n_samples, len(tnew))).random()
 samples = samples * std_co2 + first_co2
 ```
 
 ```{code-cell} ipython3
-### make plot
+# make plot
 p = figure(x_axis_type="datetime", plot_width=700, plot_height=300)
 p.yaxis.axis_label = "CO2 [ppm]"
 p.xaxis.axis_label = "Date"
 
-### plot mean and 2σ region of total prediction
+# plot mean and 2σ region of total prediction
 # scale mean and var
 mu_pred_sc = mu_pred * std_co2 + first_co2
 sd_pred_sc = np.sqrt(np.diag(cov_pred) * std_co2**2)
@@ -545,9 +553,8 @@ p.multi_line(
     alpha=0.5,
     line_width=0.5,
 )
+
 # true value
-# p.line(data_later.index, data_later['CO2'],
-#       line_width=2, line_color="black", legend="Observed data")
 p.circle(data_later.index, data_later["CO2"], color="black", legend_label="Observed data")
 
 ppm400 = Span(
@@ -574,7 +581,24 @@ Also, using only historical CO$_2$ data may not be the best predictor.  In addit
 
 Next, we'll see about using PyMC3's GP functionality to improve the model, look at full posteriors, and incorporate other sources of data on drivers of CO$_2$ levels.
 
++++
+
+## Authors
+* Authored by Bill Engels in September, 2017 ([pymc#2444](https://github.com/pymc-devs/pymc/pull/2444))
+* Updated by Chris Fonnesbeck in December, 2020
+* Re-executed by Danh Phan in May, 2022 ([pymc-examples#316](https://github.com/pymc-devs/pymc-examples/pull/316))
+
++++
+
+## References
+:::{bibliography}
+:filter: docname in docnames
+:::
+
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w
+%watermark -n -u -v -iv -w -p bokeh
 ```
+
+:::{include} ../page_footer.md
+:::
