@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3.9.10 ('pymc-dev-py39')
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -15,8 +15,8 @@ kernelspec:
 
 +++
 
-:::{post} Apr 25, 2022
-:tags: pymc.ADVI, pymc.Bernoulli, pymc.Data, pymc.Minibatch, pymc.Model, pymc.Normal, variational inference
+:::{post} May 30, 2022
+:tags: neural networks, perceptron, variational inference, minibatch
 :category: intermediate
 :author: Thomas Wiecki, updated by Chris Fonnesbeck
 :::
@@ -28,7 +28,7 @@ kernelspec:
 **Probabilistic Programming**, **Deep Learning** and "**Big Data**" are among the biggest topics in machine learning. Inside of PP, a lot of innovation is focused on making things scale using **Variational Inference**. In this example, I will show how to use **Variational Inference** in PyMC to fit a simple Bayesian Neural Network. I will also discuss how bridging Probabilistic Programming and Deep Learning can open up very interesting avenues to explore in future research.
 
 ### Probabilistic Programming at scale
-**Probabilistic Programming** allows very flexible creation of custom probabilistic models and is mainly concerned with **inference** and learning from your data. The approach is inherently **Bayesian** so we can specify **priors** to inform and constrain our models and get uncertainty estimation in form of a **posterior** distribution. Using [MCMC sampling algorithms](http://twiecki.github.io/blog/2015/11/10/mcmc-sampling/) we can draw samples from this posterior to very flexibly estimate these models. PyMC, [NumPyro](https://github.com/pyro-ppl/numpyro), and [Stan](http://mc-stan.org/) are the current state-of-the-art tools for consructing and estimating these models. One major drawback of sampling, however, is that it's often slow, especially for high-dimensional models and large datasets. That's why more recently, **variational inference** algorithms have been developed that are almost as flexible as MCMC but much faster. Instead of drawing samples from the posterior, these algorithms instead fit a distribution (*e.g.* normal) to the posterior turning a sampling problem into and optimization problem. Automatic Differentation Variational Inference {cite:p}`kucukelbir2015automatic` is implemented in PyMC, NumPyro and Stan. 
+**Probabilistic Programming** allows very flexible creation of custom probabilistic models and is mainly concerned with **inference** and learning from your data. The approach is inherently **Bayesian** so we can specify **priors** to inform and constrain our models and get uncertainty estimation in form of a **posterior** distribution. Using {ref}`MCMC sampling algorithms <multilevel_modeling>` we can draw samples from this posterior to very flexibly estimate these models. PyMC, [NumPyro](https://github.com/pyro-ppl/numpyro), and [Stan](http://mc-stan.org/) are the current state-of-the-art tools for consructing and estimating these models. One major drawback of sampling, however, is that it's often slow, especially for high-dimensional models and large datasets. That's why more recently, **variational inference** algorithms have been developed that are almost as flexible as MCMC but much faster. Instead of drawing samples from the posterior, these algorithms instead fit a distribution (*e.g.* normal) to the posterior turning a sampling problem into and optimization problem. Automatic Differentation Variational Inference {cite:p}`kucukelbir2015automatic` is implemented in several probabilistic programming packages including PyMC, NumPyro and Stan. 
 
 Unfortunately, when it comes to traditional ML problems like classification or (non-linear) regression, Probabilistic Programming often plays second fiddle (in terms of accuracy and scalability) to more algorithmic approaches like [ensemble learning](https://en.wikipedia.org/wiki/Ensemble_learning) (e.g. [random forests](https://en.wikipedia.org/wiki/Random_forest) or [gradient boosted regression trees](https://en.wikipedia.org/wiki/Boosting_(machine_learning)).
 
@@ -177,9 +177,9 @@ That's not so bad. The `Normal` priors help regularize the weights. Usually we w
 
 ### Variational Inference: Scaling model complexity
 
-We could now just run a MCMC sampler like {class}`~pymc.step_methods.hmc.nuts.NUTS` which works pretty well in this case, but was already mentioned, this will become very slow as we scale our model up to deeper architectures with more layers.
+We could now just run a MCMC sampler like {class}`pymc.NUTS` which works pretty well in this case, but was already mentioned, this will become very slow as we scale our model up to deeper architectures with more layers.
 
-Instead, we will use the {class}`~pymc.variational.inference.ADVI` variational inference algorithm. This is much faster and will scale better. Note, that this is a mean-field approximation so we ignore correlations in the posterior.
+Instead, we will use the {class}`pymc.ADVI` variational inference algorithm. This is much faster and will scale better. Note, that this is a mean-field approximation so we ignore correlations in the posterior.
 
 ```{code-cell} ipython3
 %%time
@@ -200,7 +200,7 @@ plt.xlabel("iteration");
 trace = approx.sample(draws=5000)
 ```
 
-Now that we trained our model, lets predict on the hold-out set using a posterior predictive check (PPC). We can use {func}`~pymc.sampling.sample_posterior_predictive` to generate new data (in this case class predictions) from the posterior (sampled from the variational estimation).
+Now that we trained our model, lets predict on the hold-out set using a posterior predictive check (PPC). We can use {func}`~pymc.sample_posterior_predictive` to generate new data (in this case class predictions) from the posterior (sampled from the variational estimation).
 
 ```{code-cell} ipython3
 ---
@@ -216,7 +216,7 @@ with neural_network:
 We can average the predictions for each observation to estimate the underlying probability of class 1.
 
 ```{code-cell} ipython3
-pred = ppc.posterior_predictive["out"].squeeze().mean(axis=0) > 0.5
+pred = ppc.posterior_predictive["out"].mean(("chain", "draw")) > 0.5
 ```
 
 ```{code-cell} ipython3
@@ -270,7 +270,7 @@ y_pred = ppc.posterior_predictive["out"]
 cmap = sns.diverging_palette(250, 12, s=85, l=25, as_cmap=True)
 fig, ax = plt.subplots(figsize=(16, 9))
 contour = ax.contourf(
-    grid[0], grid[1], y_pred.squeeze().values.mean(axis=0).reshape(100, 100), cmap=cmap
+    grid[0], grid[1], y_pred.mean(("chain", "draw")).values.reshape(100, 100), cmap=cmap
 )
 ax.scatter(X_test[pred == 0, 0], X_test[pred == 0, 1], color="C0")
 ax.scatter(X_test[pred == 1, 0], X_test[pred == 1, 1], color="C1")
