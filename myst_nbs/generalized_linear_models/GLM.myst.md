@@ -6,12 +6,12 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: pymc_env
   language: python
-  name: python3
+  name: pymc_env
 ---
 
-# (Generalized) Linear and Hierarchical Linear Models in PyMC3
+# (Generalized) Linear and Hierarchical Linear Models in PyMC
 
 ```{code-cell} ipython3
 import os
@@ -21,20 +21,15 @@ import bambi
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
-import theano
+import pymc as pm
 import xarray as xr
-
-from numpy.random import default_rng
-
-print(f"Running on PyMC3 v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
 # Initialize random number generator
 RANDOM_SEED = 8927
-rng = default_rng(RANDOM_SEED)
+rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
 
@@ -58,7 +53,7 @@ We construct a model using Bambi(it uses formula based input), If no priors are 
 
 ```{code-cell} ipython3
 model = bambi.Model("y ~ x", data)
-fitted = model.fit(draws=1000)
+fitted = model.fit()
 ```
 
 ```{code-cell} ipython3
@@ -84,7 +79,7 @@ data_outlier = pd.DataFrame({"x": x_out, "y": y_out})
 
 ```{code-cell} ipython3
 model = bambi.Model("y ~ x", data_outlier)
-fitted = model.fit(draws=1000)
+fitted = model.fit()
 fitted
 ```
 
@@ -105,26 +100,14 @@ plt.plot(x_axis, mu_plot.isel(sample=random_subset), color="black", alpha=0.025)
 plt.plot(x_axis, mu_mean, color="C1");
 ```
 
-Because the Normal distribution does not have a lot of mass in the tails, an outlier will affect the fit strongly. Instead, we can replace the Normal likelihood with a Student T distribution which has heavier tails and is more robust towards outliers. Bambi does not support passing family="StudentT" yet to indicate a StudentT likelihood, but we can make our own custom [Family object](https://bambinos.github.io/bambi/master/notebooks/getting_started.html#Families)
-
-```{code-cell} ipython3
-family = bambi.Family(
-    "t", prior=bambi.Prior("StudentT", lam=1, nu=1.5), link="identity", parent="mu"
-)
-```
-
-`link = "identity"` implies that no transformation is applied to the linear predictor. </br>
-
-`parent = "mu"` means the linear predictor is modeling the `mu` parameter of the Student T distribution.
-
-Here `common` key in priors dict defines the prior for all common effects at the same time. As explained in a section below, Bambi supports two types of effects, common and group effects.
+Because the Normal distribution does not have a lot of mass in the tails, an outlier will affect the fit strongly. Instead, we can replace the Normal likelihood with a Student T distribution which has heavier tails and is more robust towards outliers. We can do this by adding `family="t"`.
 
 ```{code-cell} ipython3
 model = bambi.Model(
     "y ~ x",
     data_outlier,
     priors={"common": bambi.Prior("HalfNormal", sigma=10)},
-    family=family,
+    family="t",
 )
 ```
 
@@ -228,7 +211,7 @@ az.plot_pair(results);
 ```{code-cell} ipython3
 lp = pm.Laplace.dist(mu=0, b=0.05)
 x_eval = np.linspace(-0.5, 0.5, 300)
-plt.plot(x_eval, theano.tensor.exp(lp.logp(x_eval)).eval())
+plt.plot(x_eval, pm.math.exp(pm.logp(lp, x_eval)).eval())
 plt.xlabel("x")
 plt.ylabel("Probability")
 plt.title("Laplace distribution");
@@ -250,7 +233,9 @@ az.summary(results)
 az.plot_pair(results);
 ```
 
+## Watermark
+
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p graphviz
+%watermark -n -u -v -iv -w -p aesara,aeppl
 ```
