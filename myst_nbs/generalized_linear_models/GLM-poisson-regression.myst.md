@@ -6,9 +6,9 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: pymc_env
   language: python
-  name: python3
+  name: pymc_env
 ---
 
 +++ {"papermill": {"duration": 0.043172, "end_time": "2021-02-23T11:26:55.064791", "exception": false, "start_time": "2021-02-23T11:26:55.021619", "status": "completed"}, "tags": []}
@@ -30,14 +30,10 @@ import bambi as bmb
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
-import theano
-import xarray as xr
 
 from formulae import design_matrices
-
-print(f"Running on PyMC3 v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -301,10 +297,15 @@ with pm.Model() as mdl_fish:
     b3 = pm.Normal("alcohol:nomeds", mu=0, sigma=10)
 
     # define linear model and exp link function
-    theta = b0 + b1 * mx_ex["alcohol"] + b2 * mx_ex["nomeds"] + b3 * mx_ex["alcohol:nomeds"]
+    theta = (
+        b0
+        + b1 * mx_ex["alcohol"].values
+        + b2 * mx_ex["nomeds"].values
+        + b3 * mx_ex["alcohol:nomeds"].values
+    )
 
     ## Define Poisson likelihood
-    y = pm.Poisson("y", mu=np.exp(theta), observed=mx_en["nsneeze"].values)
+    y = pm.Poisson("y", mu=pm.math.exp(theta), observed=mx_en["nsneeze"].values)
 ```
 
 +++ {"papermill": {"duration": 0.049445, "end_time": "2021-02-23T11:27:35.720870", "exception": false, "start_time": "2021-02-23T11:27:35.671425", "status": "completed"}, "tags": []}
@@ -322,7 +323,8 @@ papermill:
 tags: []
 ---
 with mdl_fish:
-    inf_fish = pm.sample(1000, tune=1000, cores=4, return_inferencedata=True)
+    inf_fish = pm.sample()
+    # inf_fish.extend(pm.sample_posterior_predictive(inf_fish))
 ```
 
 +++ {"papermill": {"duration": 0.118023, "end_time": "2021-02-23T11:29:24.142987", "exception": false, "start_time": "2021-02-23T11:29:24.024964", "status": "completed"}, "tags": []}
@@ -443,7 +445,7 @@ papermill:
   status: completed
 tags: []
 ---
-inf_fish_alt = model.fit(draws=2000, tune=2000)
+inf_fish_alt = model.fit()
 ```
 
 +++ {"papermill": {"duration": 0.075564, "end_time": "2021-02-23T11:31:30.375433", "exception": false, "start_time": "2021-02-23T11:31:30.299869", "status": "completed"}, "tags": []}
@@ -480,7 +482,9 @@ az.summary(np.exp(inf_fish_alt.posterior), kind="stats")
 + Note that the posterior predictive samples have an extreme skew
 
 ```{code-cell} ipython3
-model.posterior_predictive(inf_fish_alt, draws=None)
+:tags: []
+
+posterior_predictive = model.predict(inf_fish_alt, kind="pps")
 ```
 
 We can use `az.plot_ppc()` to check that the posterior predictive samples are similar to the observed data.
@@ -488,13 +492,18 @@ We can use `az.plot_ppc()` to check that the posterior predictive samples are si
 For more information on posterior predictive checks, we can refer to https://docs.pymc.io/notebooks/posterior_predictive.html.
 
 ```{code-cell} ipython3
-az.plot_ppc(inf_fish_alt, num_pp_samples=200);
+az.plot_ppc(inf_fish_alt);
 ```
 
 +++ {"papermill": {"duration": 0.106366, "end_time": "2021-02-23T11:31:34.956844", "exception": false, "start_time": "2021-02-23T11:31:34.850478", "status": "completed"}, "tags": []}
 
----
-Example originally contributed by Jonathan Sedar 2016-05-15 [github.com/jonsedar](https://github.com/jonsedar)
+## Authors
+- Example originally contributed by Jonathan Sedar 2016-05-15 [github.com/jonsedar](https://github.com/jonsedar)
+- Updated to PyMC v4 by [Benjamin Vincent](https://github.com/drbenvincent) May 2022.
+
++++
+
+## Watermark
 
 ```{code-cell} ipython3
 ---
@@ -507,5 +516,5 @@ papermill:
 tags: []
 ---
 %load_ext watermark
-%watermark -n -u -v -iv -w
+%watermark -n -u -v -iv -w -p aesara,aeppl
 ```
