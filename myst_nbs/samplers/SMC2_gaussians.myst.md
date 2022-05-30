@@ -127,7 +127,7 @@ with pm.Model() as model:
         shape=n,
         lower=-2.0 * np.ones_like(mu1),
         upper=2.0 * np.ones_like(mu1),
-        testval=-1.0 * np.ones_like(mu1),
+        initval=-1.0 * np.ones_like(mu1),
     )
     llk = pm.Potential("llk", two_gaussians(X))
     idata_04 = pm.sample_smc(2000)
@@ -190,7 +190,7 @@ with pm.Model() as model:
         shape=n,
         lower=-2.0 * np.ones_like(mu1),
         upper=2.0 * np.ones_like(mu1),
-        testval=-1.0 * np.ones_like(mu1),
+        initval=-1.0 * np.ones_like(mu1),
     )
     llk = pm.Potential("llk", two_gaussians(X))
     idata_80 = pm.sample_smc(2000)
