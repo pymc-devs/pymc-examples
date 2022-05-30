@@ -1,7 +1,20 @@
 Gallery
 =======
 
-Case studies
+
+(Generalized) Linear and Hierarchical Linear Models
+-------------------------
+
+.. nbgallery::
+    :caption: This is a thumbnail gallery:
+    :name: generalized_linear_models
+    :glob:
+    :reversed:
+
+    generalized_linear_models/*
+
+
+Case Studies
 ------------
 
 .. nbgallery::
@@ -12,16 +25,17 @@ Case studies
 
     case_studies/*
 
-Generalized Linear Models
--------------------------
+Diagnostics and Model Criticism
+-------------------------------
 
 .. nbgallery::
     :caption: This is a thumbnail gallery:
-    :name: generalized_linear_models
+    :name: diagnostics_and_criticism
     :glob:
     :reversed:
 
-    generalized_linear_models/*
+    diagnostics_and_criticism/*
+
 
 Gaussian Processes
 ------------------
