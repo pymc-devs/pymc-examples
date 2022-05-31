@@ -8,3 +8,6 @@ ablog
 sphinxext-opengraph
 sphinx-codeautolink
 sphinx-notfound-page
+nbsphinx
+sphinx-gallery
+matplotlib
