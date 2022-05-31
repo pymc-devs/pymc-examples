@@ -1,4 +1,4 @@
-import os, sys
+import os
 from sphinx.application import Sphinx
 
 # -- Project information -----------------------------------------------------
@@ -7,8 +7,6 @@ copyright = "2022, PyMC Community"
 author = "PyMC Community"
 
 # -- General configuration ---------------------------------------------------
-
-sys.path.insert(0, os.path.abspath("../sphinxext"))
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -25,7 +23,6 @@ extensions = [
     "sphinx_codeautolink",
     "notfound.extension",
     "sphinx_gallery.load_style",
-    "gallery_generator",
 ]
 
 # List of patterns, relative to source directory, that match files and
