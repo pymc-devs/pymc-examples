@@ -134,7 +134,7 @@ And that is exactly what we find.
 The problem however, is that in censored data contexts, we do not have access to the true values. If we were to use the same uncensored model on the censored data, we would anticipate that our parameter estimates will be biased. If we calculate point estimates for the mean and std, then we can see that we are likely to underestimate the mean and std for this particular dataset and censor bounds.
 
 ```{code-cell} ipython3
-np.mean(censored), np.std(censored)
+print(f"mean={np.mean(censored):.2f}; std={np.std(censored):.2f}")
 ```
 
 ```{code-cell} ipython3
@@ -157,8 +157,6 @@ The models below show 2 approaches to dealing with censored data. First, we need
 ### Model 1 - Imputed Censored Model of Censored Data
 
 In this model, we impute the censored values from the same distribution as the uncensored data. Sampling from the posterior generates possible uncensored data sets.
-
-This model makes use of [PyMC3's bounded variables](https://docs.pymc.io/api/bounds.html).
 
 ```{code-cell} ipython3
 n_right_censored = sum(censored >= high)
