@@ -6,23 +6,30 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python PyMC3 (Dev)
+  display_name: Python 3.9.7 ('base')
   language: python
-  name: pymc3-dev-py38
+  name: python3
 ---
 
+(Bayes_factor)=
 # Bayes Factors and Marginal Likelihood
+:::{post} Dec 21, 2021
+:tags: BART, Bayesian additive regression trees, non-parametric, regression
+:category: beginner, explanation
+:author: Osvaldo Martin
+:::
 
 ```{code-cell} ipython3
 import arviz as az
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 
 from matplotlib import pyplot as plt
+from matplotlib.ticker import FormatStrFormatter
 from scipy.special import betaln
 from scipy.stats import beta
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -44,7 +51,7 @@ Usually when doing inference we do not need to compute this normalizing constant
 
 $$p (\theta \mid y, M_k ) \propto p(y \mid \theta, M_k) p(\theta \mid M_k)$$
 
-However, for model comparison and model averaging the marginal likelihood is an important quantity. Although, it's not the only way to perform these tasks, you can read about model averaging and model selection using alternative methods [here](model_comparison.ipynb), [there](model_averaging.ipynb) and [elsewhere](GLM-model-selection.ipynb).
+However, for model comparison and model averaging the marginal likelihood is an important quantity. Although, it's not the only way to perform these tasks, you can read about model averaging and model selection using alternative methods [here](model_comparison.ipynb), [there](model_averaging.ipynb) and [elsewhere](GLM-model-selection.ipynb). Actually, these alternative methods are most often than not a better choice compared with using the marginal likelihood.
 
 +++
 
@@ -201,32 +208,31 @@ The [Sequential Monte Carlo](SMC2_gaussians.ipynb) sampler is a method that basi
 
 ```{code-cell} ipython3
 models = []
-traces = []
+idatas = []
 for alpha, beta in priors:
     with pm.Model() as model:
         a = pm.Beta("a", alpha, beta)
         yl = pm.Bernoulli("yl", a, observed=y)
-        trace = pm.sample_smc(1000, random_seed=42)
+        idata = pm.sample_smc(random_seed=42)
         models.append(model)
-        traces.append(trace)
+        idatas.append(idata)
 ```
 
 ```{code-cell} ipython3
-BF_smc = np.exp(traces[1].report.log_marginal_likelihood - traces[0].report.log_marginal_likelihood)
+BF_smc = np.exp(
+    idatas[1].sample_stats["log_marginal_likelihood"].mean()
+    - idatas[0].sample_stats["log_marginal_likelihood"].mean()
+)
 np.round(BF_smc)
 ```
 
 As we can see from the previous cell, SMC gives essentially the same answer as the analytical calculation! 
 
-We obtain an array with two values, one per SMC run. As with other samplers PyMC3 attempts to run the sampler more than one time. Having independent samples may help diagnose the performance of the sampler.
+Note: In the cell above we compute a difference (instead of a division) because we are on the log-scale, for the same reason we take the exponential before returning the result. Finally, the reason we compute the mean, is because we get one value log marginal likelihood value per chain. 
 
-The advantage of using SMC to compute the (log) marginal likelihood is that we can use it for a wider range of models as a closed-form expression is no longer needed. The cost we pay for this flexibility is a more expensive computation. Notice that SMC (with a metropolis kernel as implemented in PyMC3) is not as efficient or robust as gradient-based samplers like NUTS. As the dimensionality of the problem increases a more accurate estimation of the posterior and the _marginal likelihood_ will require a larger number of `draws`. Additionally, a larger number of `n_steps` may help, specially if after stage 1 we notice that SMC uses a number of steps that are close to `n_steps`, i.e. SMC is having trouble to automatically reduce this number.
+The advantage of using SMC to compute the (log) marginal likelihood is that we can use it for a wider range of models as a closed-form expression is no longer needed. The cost we pay for this flexibility is a more expensive computation. Notice that SMC (with an independent Metropolis kernel as implemented in PyMC) is not as efficient or robust as gradient-based samplers like NUTS. As the dimensionality of the problem increases a more accurate estimation of the posterior and the _marginal likelihood_ will require a larger number of `draws`, rank-plots can be of help to diagnose sampling problems with SMC.
 
-You can check the number of steps per stage by doing:
-
-```{code-cell} ipython3
-traces[0].report.nsteps
-```
++++
 
 ## Bayes factors and inference
 
@@ -235,34 +241,55 @@ In this example we have used Bayes factors to judge which model seems to be bett
 But what about the posterior we get from these models? How different they are?
 
 ```{code-cell} ipython3
-az.summary(traces[0], var_names="a", kind="stats").round(2)
+az.summary(idatas[0], var_names="a", kind="stats").round(2)
 ```
 
 ```{code-cell} ipython3
-az.summary(traces[1], var_names="a", kind="stats").round(2)
+az.summary(idatas[1], var_names="a", kind="stats").round(2)
 ```
 
 We may argue that the results are pretty similar, we have the same mean value for $\theta$, and a slightly wider posterior for `model_0`, as expected since this model has a wider prior. We can also check the posterior predictive distribution to see how similar they are.
 
 ```{code-cell} ipython3
-traces[0]
+ppc_0 = pm.sample_posterior_predictive(idatas[0], model=models[0]).posterior_predictive
+ppc_1 = pm.sample_posterior_predictive(idatas[1], model=models[1]).posterior_predictive
 ```
 
 ```{code-cell} ipython3
 _, ax = plt.subplots(figsize=(9, 6))
-ppc_0 = pm.sample_posterior_predictive(traces[0], 100, models[0], size=(len(y), 20))
-ppc_1 = pm.sample_posterior_predictive(traces[1], 100, models[1], size=(len(y), 20))
-for m_0, m_1 in zip(ppc_0["yl"].T, ppc_1["yl"].T):
-    az.plot_kde(np.mean(m_0, 0), ax=ax, plot_kwargs={"color": "C0"})
-    az.plot_kde(np.mean(m_1, 0), ax=ax, plot_kwargs={"color": "C1"})
-ax.plot([], label="model_0")
-ax.plot([], label="model_1")
+
+bins = np.linspace(0.2, 0.8, 8)
+ax = az.plot_dist(
+    ppc_0["yl"].mean("yl_dim_0"),
+    label="model_0",
+    kind="hist",
+    hist_kwargs={"alpha": 0.5, "bins": bins},
+)
+ax = az.plot_dist(
+    ppc_1["yl"].mean("yl_dim_0"),
+    label="model_1",
+    color="C1",
+    kind="hist",
+    hist_kwargs={"alpha": 0.5, "bins": bins},
+    ax=ax,
+)
 ax.legend()
 ax.set_xlabel("$\\theta$")
+ax.xaxis.set_major_formatter(FormatStrFormatter("%0.1f"))
 ax.set_yticks([]);
 ```
 
-In this example the observed data $y$ is more consistent with `model_1` (because the prior is concentrated around the correct value of $\theta$) than `model_0` (which assigns equal probability to every possible value of $\theta$), and this difference is captured by the Bayes factors. We could say Bayes factors are measuring which model, as a whole, is better, including details of the prior that may be irrelevant for parameter inference. In fact in this example we can also see that it is possible to have two different models, with different Bayes factors, but nevertheless get very similar predictions. The reason is that the data is informative enough to reduce the effect of the prior up to the point of inducing a very similar posterior. As predictions are computed from the posterior we also get very similar predictions. In most scenarios when comparing models what we really care is the predictive accuracy of the models, if two models have similar predictive accuracy we consider both models as similar. To estimate the predictive accuracy we can use tools like WAIC, LOO or cross-validation.
+In this example the observed data $y$ is more consistent with `model_1` (because the prior is concentrated around the correct value of $\theta$) than `model_0` (which assigns equal probability to every possible value of $\theta$), and this difference is captured by the Bayes factor. We could say Bayes factors are measuring which model, as a whole, is better, including details of the prior that may be irrelevant for parameter inference. In fact in this example we can also see that it is possible to have two different models, with different Bayes factors, but nevertheless get very similar predictions. The reason is that the data is informative enough to reduce the effect of the prior up to the point of inducing a very similar posterior. As predictions are computed from the posterior we also get very similar predictions. In most scenarios when comparing models what we really care is the predictive accuracy of the models, if two models have similar predictive accuracy we consider both models as similar. To estimate the predictive accuracy we can use tools like PSIS-LOO-CV (`az.loo`), WAIC (`az.waic`), or cross-validation.
+
++++
+
+## Authors
+* Authored by Osvaldo Martin
+* Updated by Osvaldo Martin in May, 2022
+
++++
+
+## Watermark
 
 ```{code-cell} ipython3
 %load_ext watermark
