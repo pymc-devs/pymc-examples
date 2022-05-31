@@ -17,7 +17,7 @@ kernelspec:
 :::{post} June, 2022
 :tags: generalized linear model, robust regression, regularization
 :category: beginner
-:author: Benjamin T. Vincent
+:author: Oriol Abril-Pla, Kavya Jaiswal, Meenal Jhajharia, Benjamin T. Vincent
 :::
 
 ```{code-cell} ipython3
@@ -239,6 +239,15 @@ az.summary(results)
 ```{code-cell} ipython3
 az.plot_pair(results);
 ```
+
+## Authors
+* Updated by [Oriol Abril-Pla](https://github.com/OriolAbril) February 2021
+* Updated by [Kavya Jaiswal](https://github.com/KavyaJaiswal) May 2021
+* Updated by [Meenal Jhajharia](https://github.com/mjhajharia) June 2021
+* Updated by [Meenal Jhajharia](https://github.com/mjhajharia) July 2021
+* Updated by [Benjamin T Vincent](https://github.com/drbenvincent) May 2022
+
++++
 
 ## Watermark
 
