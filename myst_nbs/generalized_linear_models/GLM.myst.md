@@ -11,7 +11,14 @@ kernelspec:
   name: pymc_env
 ---
 
+(GLM)=
 # (Generalized) Linear and Hierarchical Linear Models in PyMC
+
+:::{post} June, 2022
+:tags: generalized linear model, robust regression, regularization
+:category: beginner
+:author: Benjamin T. Vincent
+:::
 
 ```{code-cell} ipython3
 import os
