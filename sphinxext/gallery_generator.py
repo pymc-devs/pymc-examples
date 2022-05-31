@@ -72,16 +72,6 @@ class NotebookGenerator:
             return base64.b64decode(pic)
         return None
 
-    def find_last_pic_cell(self):
-        """By default, just uses the last image in the notebook."""
-        pic = None
-        for cell in self.json_source["cells"]:
-            for output in cell.get("outputs", []):
-                if "image/png" in output.get("data", []):
-                    cell["metadata"]["tags"] = ["nbsphinx-thumbnail"]
-                    pic = cell
-        return pic
-
     def gen_previews(self):
         preview = self.extract_preview_pic()
         if preview is not None:
