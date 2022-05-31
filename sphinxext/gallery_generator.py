@@ -6,10 +6,7 @@ Modified from the seaborn project, which modified the mpld3 project.
 import base64
 import json
 import os
-import runpy
 import shutil
-
-from pathlib import Path
 
 import matplotlib
 
