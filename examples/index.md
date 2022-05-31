@@ -74,7 +74,7 @@ has tags in its metadata they are listed on the right sidebar after the {fas}`ta
 :::{toctree}
 :maxdepth: 1
 :hidden:
-
+gallery
 blog
 object_index/index
 :::

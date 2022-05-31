@@ -1,11 +1,14 @@
-import os
+import os, sys
+from sphinx.application import Sphinx
 
 # -- Project information -----------------------------------------------------
 project = "PyMC"
-copyright = "2021, PyMC Community"
+copyright = "2022, PyMC Community"
 author = "PyMC Community"
 
 # -- General configuration ---------------------------------------------------
+
+sys.path.insert(0, os.path.abspath("../sphinxext"))
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -21,6 +24,8 @@ extensions = [
     "sphinxcontrib.bibtex",
     "sphinx_codeautolink",
     "notfound.extension",
+    "sphinx_gallery.load_style",
+    "gallery_generator",
 ]
 
 # List of patterns, relative to source directory, that match files and
@@ -35,6 +40,53 @@ exclude_patterns = [
     "extra_installs.md",
     "page_footer.md",
 ]
+
+
+def hack_nbsphinx(app: Sphinx) -> None:
+    from nbsphinx import (
+        depart_gallery_html,
+        doctree_resolved,
+        GalleryNode,
+        NbGallery,
+        patched_toctree_resolve,
+    )
+    from sphinx.environment.adapters import toctree
+
+    from glob import glob
+
+    nb_paths = glob("examples/*/*.ipynb")
+    nbsphinx_thumbnails = {}
+    for nb_path in nb_paths:
+        png_file = os.path.join("_static", os.path.splitext(os.path.split(nb_path)[-1])[0] + ".png")
+        nb_path_rel = os.path.splitext(
+            os.path.join(*os.path.normpath(nb_path).split(os.path.sep)[1:])
+        )[0]
+        nbsphinx_thumbnails[nb_path_rel] = png_file
+
+    def builder_inited(app: Sphinx):
+        if not hasattr(app.env, "nbsphinx_thumbnails"):
+            app.env.nbsphinx_thumbnails = {}
+
+    def do_nothing(*node):
+        pass
+
+    app.add_config_value("nbsphinx_thumbnails", nbsphinx_thumbnails, rebuild="html")
+    app.add_directive("nbgallery", NbGallery)
+    app.add_node(
+        GalleryNode,
+        html=(do_nothing, depart_gallery_html),
+        latex=(do_nothing, do_nothing),
+        text=(do_nothing, do_nothing),
+    )
+    app.connect("builder-inited", builder_inited)
+    app.connect("doctree-resolved", doctree_resolved)
+
+    # Monkey-patch Sphinx TocTree adapter
+    toctree.TocTree.resolve = patched_toctree_resolve
+
+
+def setup(app: Sphinx):
+    hack_nbsphinx(app)
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -93,7 +145,7 @@ html_logo = "../_static/PyMC.png"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["../_static"]
+html_static_path = ["../_static", "../_images", "../_templates"]
 html_css_files = ["custom.css"]
 templates_path = ["../_templates"]
 html_sidebars = {

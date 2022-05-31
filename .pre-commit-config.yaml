@@ -45,7 +45,6 @@ repos:
     - id: bibtex-tidy
       files: examples/references.bib
       args: ["--sort=key", --quiet]
-      language_version: 15.14.0
 - repo: local
   hooks:
     - id: watermark
