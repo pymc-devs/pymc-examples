@@ -1,4 +1,4 @@
-import os
+import os, sys
 from sphinx.application import Sphinx
 
 # -- Project information -----------------------------------------------------
@@ -7,6 +7,8 @@ copyright = "2022, PyMC Community"
 author = "PyMC Community"
 
 # -- General configuration ---------------------------------------------------
+
+sys.path.insert(0, os.path.abspath("../sphinxext"))
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -23,6 +25,7 @@ extensions = [
     "sphinx_codeautolink",
     "notfound.extension",
     "sphinx_gallery.load_style",
+    "gallery_generator",
 ]
 
 # List of patterns, relative to source directory, that match files and
@@ -46,8 +49,22 @@ def hack_nbsphinx(app: Sphinx) -> None:
         GalleryNode,
         NbGallery,
         patched_toctree_resolve,
+        NotebookParser,
+        NbInput,
+        NbOutput,
+        NbInfo,
+        NbWarning,
+        CodeAreaNode,
+        depart_codearea_html,
+        visit_codearea_latex,
+        depart_codearea_latex,
+        GetSizeFromImages,
     )
     from sphinx.environment.adapters import toctree
+
+    nbsphinx_thumbnails = {
+        "case_studies/stochastic_volatility": "_static/stochastic_volatility.png",
+    }
 
     def builder_inited(app: Sphinx):
         if not hasattr(app.env, "nbsphinx_thumbnails"):
@@ -56,7 +73,47 @@ def hack_nbsphinx(app: Sphinx) -> None:
     def do_nothing(*node):
         pass
 
-    app.add_config_value("nbsphinx_thumbnails", {}, rebuild="html")
+    app.add_source_parser(NotebookParser)
+    # app.add_config_value('nbsphinx_execute', 'auto', rebuild='env')
+    app.add_config_value("nbsphinx_kernel_name", "", rebuild="env")
+    app.add_config_value("nbsphinx_execute_arguments", [], rebuild="env")
+    app.add_config_value("nbsphinx_allow_errors", False, rebuild="")
+    app.add_config_value("nbsphinx_timeout", None, rebuild="")
+    app.add_config_value("nbsphinx_codecell_lexer", "none", rebuild="env")
+    app.add_config_value("nbsphinx_prompt_width", "4.5ex", rebuild="html")
+    app.add_config_value("nbsphinx_responsive_width", "540px", rebuild="html")
+    app.add_config_value("nbsphinx_prolog", None, rebuild="env")
+    app.add_config_value("nbsphinx_epilog", None, rebuild="env")
+    app.add_config_value("nbsphinx_input_prompt", "[%s]:", rebuild="env")
+    app.add_config_value("nbsphinx_output_prompt", "[%s]:", rebuild="env")
+    app.add_config_value("nbsphinx_custom_formats", {}, rebuild="env")
+    # Default value is set in config_inited():
+    app.add_config_value("nbsphinx_requirejs_path", None, rebuild="html")
+    # Default value is set in config_inited():
+    app.add_config_value("nbsphinx_requirejs_options", None, rebuild="html")
+    # This will be updated in env_updated():
+    app.add_config_value("nbsphinx_widgets_path", None, rebuild="html")
+    app.add_config_value("nbsphinx_widgets_options", {}, rebuild="html")
+    # app.add_config_value('nbsphinx_thumbnails', {}, rebuild='html')
+    app.add_config_value("nbsphinx_assume_equations", True, rebuild="env")
+
+    app.add_directive("nbinput", NbInput)
+    app.add_directive("nboutput", NbOutput)
+    app.add_directive("nbinfo", NbInfo)
+    app.add_directive("nbwarning", NbWarning)
+    app.add_directive("nbgallery", NbGallery)
+    app.add_node(
+        CodeAreaNode,
+        html=(do_nothing, depart_codearea_html),
+        latex=(visit_codearea_latex, depart_codearea_latex),
+        text=(do_nothing, do_nothing),
+    )
+    app.connect("builder-inited", builder_inited)
+    app.connect("doctree-resolved", doctree_resolved)
+    app.add_post_transform(GetSizeFromImages)
+
+    app.add_config_value("nbsphinx_execute", "auto", rebuild="env")
+    app.add_config_value("nbsphinx_thumbnails", nbsphinx_thumbnails, rebuild="html")
     app.add_directive("nbgallery", NbGallery)
     app.add_node(
         GalleryNode,
