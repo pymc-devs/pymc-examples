@@ -25,7 +25,7 @@ extensions = [
     "sphinx_codeautolink",
     "notfound.extension",
     "sphinx_gallery.load_style",
-    "gallery_generator",
+    "thumbnail_extractor",
 ]
 
 # List of patterns, relative to source directory, that match files and
@@ -57,7 +57,9 @@ def hack_nbsphinx(app: Sphinx) -> None:
     nb_paths = glob("examples/*/*.ipynb")
     nbsphinx_thumbnails = {}
     for nb_path in nb_paths:
-        png_file = os.path.join("_static", os.path.splitext(os.path.split(nb_path)[-1])[0] + ".png")
+        png_file = os.path.join(
+            "thumbnails", os.path.splitext(os.path.split(nb_path)[-1])[0] + ".png"
+        )
         nb_path_rel = os.path.splitext(
             os.path.join(*os.path.normpath(nb_path).split(os.path.sep)[1:])
         )[0]
@@ -145,7 +147,8 @@ html_logo = "../_static/PyMC.png"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["../_static", "../_images", "../_templates"]
+html_static_path = ["../_static"]
+html_extra_path = ["../_thumbnails"]
 html_css_files = ["custom.css"]
 templates_path = ["../_templates"]
 html_sidebars = {
