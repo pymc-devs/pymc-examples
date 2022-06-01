@@ -27,7 +27,6 @@ extensions = [
     "notfound.extension",
     "sphinx_gallery.load_style",
     "thumbnail_extractor",
-    "gallery_generator",
     "sphinxext.rediraffe",
     "sphinx_remove_toctrees",
 ]
