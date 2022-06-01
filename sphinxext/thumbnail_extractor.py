@@ -15,8 +15,12 @@ import matplotlib.pyplot as plt
 
 from matplotlib import image
 
-DOC_SRC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_IMG_LOC = os.path.join(os.path.dirname(DOC_SRC), "pymc-examples/_static", "PyMC.png")
+import sphinx
+
+logger = sphinx.util.logging.getLogger(__name__)
+
+DOC_SRC = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_IMG_LOC = os.path.join(os.path.dirname(DOC_SRC), "_static", "PyMC.png")
 
 
 def create_thumbnail(infile, width=275, height=275, cx=0.5, cy=0.5, border=4):
@@ -52,7 +56,7 @@ class NotebookGenerator:
     def __init__(self, filename, target_dir):
         self.basename = os.path.basename(filename)
         stripped_name = os.path.splitext(self.basename)[0]
-        self.image_dir = os.path.join(target_dir, "_static")
+        self.image_dir = os.path.join(target_dir, "_thumbnails", "thumbnails")
         self.png_path = os.path.join(self.image_dir, f"{stripped_name}.png")
         with open(filename) as fid:
             self.json_source = json.load(fid)
@@ -75,18 +79,21 @@ class NotebookGenerator:
             with open(self.png_path, "wb") as buff:
                 buff.write(preview)
         else:
-            print(f"didn't find for {self.png_path}")
+            logger.warning(
+                f"Didn't find any pictures in {self.basename}", type="thumbnail_extractor"
+            )
             shutil.copy(self.default_image_loc, self.png_path)
         create_thumbnail(self.png_path)
 
 
 def main(app):
+    logger.info("Starting thumbnail extractor.")
     from glob import glob
 
-    nb_paths = glob("examples/*/*.ipynb")
+    nb_paths = glob("*/*.ipynb")
 
     for nb_path in nb_paths:
-        nbg = NotebookGenerator(nb_path, "")
+        nbg = NotebookGenerator(nb_path, "..")
         nbg.gen_previews()
 
 
