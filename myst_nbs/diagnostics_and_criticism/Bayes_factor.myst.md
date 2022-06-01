@@ -13,8 +13,8 @@ kernelspec:
 
 (Bayes_factor)=
 # Bayes Factors and Marginal Likelihood
-:::{post} Dec 21, 2021
-:tags: BART, Bayesian additive regression trees, non-parametric, regression
+:::{post} Jun 1, 2022
+:tags: Bayes Factors, model comparison
 :category: beginner, explanation
 :author: Osvaldo Martin
 :::
