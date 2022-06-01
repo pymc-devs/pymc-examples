@@ -17,7 +17,7 @@ kernelspec:
 :::{post} June, 2022
 :tags: generalized linear model, robust regression, regularization
 :category: beginner
-:author: Oriol Abril-Pla, Kavya Jaiswal, Meenal Jhajharia, Benjamin T. Vincent
+:author: Oriol Abril-Pla, Kavya Jaiswal, Meenal Jhajharia, Benjamin T. Vincent, Thomas Wiecki
 :::
 
 ```{code-cell} ipython3
@@ -241,6 +241,7 @@ az.plot_pair(results);
 ```
 
 ## Authors
+* Created by [Thomas Wiecki](https://github.com/twiecki/)
 * Updated by [Oriol Abril-Pla](https://github.com/OriolAbril) February 2021
 * Updated by [Kavya Jaiswal](https://github.com/KavyaJaiswal) May 2021
 * Updated by [Meenal Jhajharia](https://github.com/mjhajharia) June 2021
