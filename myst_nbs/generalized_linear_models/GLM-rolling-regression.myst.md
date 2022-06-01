@@ -28,6 +28,7 @@ kernelspec:
 
 ```{code-cell} ipython3
 import os
+import warnings
 
 import arviz as az
 import matplotlib.pyplot as plt
@@ -36,9 +37,10 @@ import numpy as np
 import pandas as pd
 import pymc as pm
 import xarray as xr
-import warnings
+
 from matplotlib import MatplotlibDeprecationWarning
-warnings.filterwarnings(action='ignore', category=MatplotlibDeprecationWarning)
+
+warnings.filterwarnings(action="ignore", category=MatplotlibDeprecationWarning)
 ```
 
 ```{code-cell} ipython3
