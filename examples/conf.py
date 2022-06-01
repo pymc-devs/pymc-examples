@@ -54,16 +54,18 @@ def hack_nbsphinx(app: Sphinx) -> None:
 
     from glob import glob
 
-    nb_paths = glob("examples/*/*.ipynb")
+    nb_paths = glob("*/*.ipynb")
     nbsphinx_thumbnails = {}
     for nb_path in nb_paths:
         png_file = os.path.join(
             "thumbnails", os.path.splitext(os.path.split(nb_path)[-1])[0] + ".png"
         )
-        nb_path_rel = os.path.splitext(
-            os.path.join(*os.path.normpath(nb_path).split(os.path.sep)[1:])
-        )[0]
+        nb_path_rel = os.path.splitext(nb_path)[0]
         nbsphinx_thumbnails[nb_path_rel] = png_file
+    print(nbsphinx_thumbnails)
+    import pdb
+
+    pdb.set_trace
 
     def builder_inited(app: Sphinx):
         if not hasattr(app.env, "nbsphinx_thumbnails"):

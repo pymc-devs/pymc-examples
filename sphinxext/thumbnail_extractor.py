@@ -90,10 +90,10 @@ def main(app):
     logger.info("Starting thumbnail extractor.")
     from glob import glob
 
-    nb_paths = glob("examples/*/*.ipynb")
+    nb_paths = glob("*/*.ipynb")
 
     for nb_path in nb_paths:
-        nbg = NotebookGenerator(nb_path, "")
+        nbg = NotebookGenerator(nb_path, "..")
         nbg.gen_previews()
 
 
