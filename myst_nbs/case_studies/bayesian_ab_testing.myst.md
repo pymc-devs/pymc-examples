@@ -22,8 +22,6 @@ import pandas as pd
 import pymc as pm
 
 from scipy.stats import bernoulli, expon
-
-print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
