@@ -30,15 +30,12 @@ kernelspec:
 import os
 
 import arviz as az
-import bambi as bmb
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
 import pymc as pm
 import xarray as xr
-
-from matplotlib import cm
 
 print(f"Running on PyMC v{pm.__version__}")
 ```
@@ -88,7 +85,7 @@ with pm.Model() as model:  # model specifications in PyMC are wrapped in a with-
     sigma = pm.HalfCauchy("sigma", beta=10)
     alpha = pm.Normal("alpha", mu=0, sigma=20)
     beta = pm.Normal("beta", mu=0, sigma=20)
-    
+
     mu = pm.Deterministic("mu", alpha + beta * prices_zscored.GFI.to_numpy())
 
     # Define likelihood
@@ -111,8 +108,24 @@ ax = fig.add_subplot(
 sc = ax.scatter(prices_zscored.GFI, prices_zscored.GLD, c=colors, cmap=mymap, lw=0)
 
 xi = xr.DataArray(prices_zscored.GFI.values)
-az.plot_hdi(xi, trace_reg.posterior.mu, color="k", hdi_prob=0.95, ax=ax, fill_kwargs={'alpha':0.25}, smooth=False)
-az.plot_hdi(xi, trace_reg.posterior.mu, color="k", hdi_prob=0.5, ax=ax, fill_kwargs={'alpha':0.25}, smooth=False)
+az.plot_hdi(
+    xi,
+    trace_reg.posterior.mu,
+    color="k",
+    hdi_prob=0.95,
+    ax=ax,
+    fill_kwargs={"alpha": 0.25},
+    smooth=False,
+)
+az.plot_hdi(
+    xi,
+    trace_reg.posterior.mu,
+    color="k",
+    hdi_prob=0.5,
+    ax=ax,
+    fill_kwargs={"alpha": 0.25},
+    smooth=False,
+)
 
 cb = plt.colorbar(sc, ticks=ticks)
 cb.ax.set_yticklabels(ticklabels);
