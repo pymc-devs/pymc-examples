@@ -1,4 +1,5 @@
 import os, sys
+from pathlib import Path
 from sphinx.application import Sphinx
 
 # -- Project information -----------------------------------------------------
@@ -25,7 +26,9 @@ extensions = [
     "sphinx_codeautolink",
     "notfound.extension",
     "sphinx_gallery.load_style",
-    "gallery_generator",
+    "thumbnail_extractor",
+    "sphinxext.rediraffe",
+    "sphinx_remove_toctrees",
 ]
 
 # List of patterns, relative to source directory, that match files and
@@ -54,13 +57,13 @@ def hack_nbsphinx(app: Sphinx) -> None:
 
     from glob import glob
 
-    nb_paths = glob("examples/*/*.ipynb")
+    nb_paths = glob("*/*.ipynb")
     nbsphinx_thumbnails = {}
     for nb_path in nb_paths:
-        png_file = os.path.join("_static", os.path.splitext(os.path.split(nb_path)[-1])[0] + ".png")
-        nb_path_rel = os.path.splitext(
-            os.path.join(*os.path.normpath(nb_path).split(os.path.sep)[1:])
-        )[0]
+        png_file = os.path.join(
+            "thumbnails", os.path.splitext(os.path.split(nb_path)[-1])[0] + ".png"
+        )
+        nb_path_rel = os.path.splitext(nb_path)[0]
         nbsphinx_thumbnails[nb_path_rel] = png_file
 
     def builder_inited(app: Sphinx):
@@ -85,8 +88,22 @@ def hack_nbsphinx(app: Sphinx) -> None:
     toctree.TocTree.resolve = patched_toctree_resolve
 
 
+def remove_index(app):
+    """
+    This removes the index pages so rediraffe generates the redirect placeholder
+    It needs to be present initially for the toctree as it defines the navbar.
+    """
+
+    index_file = Path(app.outdir) / "index.html"
+    index_file.unlink()
+
+    app.env.project.docnames -= {"index"}
+    yield "", {}, "layout.html"
+
+
 def setup(app: Sphinx):
     hack_nbsphinx(app)
+    app.connect("html-collect-pages", remove_index, 100)
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -109,6 +126,11 @@ html_theme_options = {
             "icon": "fab fa-twitter-square",
         },
         {
+            "name": "YouTube",
+            "url": "https://www.youtube.com/c/PyMCDevelopers",
+            "icon": "fab fa-youtube",
+        },
+        {
             "name": "Discourse",
             "url": "https://discourse.pymc.io",
             "icon": "fab fa-discourse",
@@ -116,13 +138,9 @@ html_theme_options = {
     ],
     "search_bar_text": "Search...",
     "navbar_end": ["search-field.html", "navbar-icon-links.html"],
-    "external_links": [
-        {"name": "Contributing", "url": "https://docs.pymc.io/en/latest/contributing/index.html"},
-        {"name": "docs.pymc.io", "url": "https://docs.pymc.io"},
-        {"name": "pymc.io", "url": "https://www.pymc.io"},
-    ],
-    "page_sidebar_items": ["postcard", "page-toc", "edit-this-page"],
+    "page_sidebar_items": ["postcard", "page-toc", "edit-this-page", "donate"],
     "google_analytics_id": "G-6KPRBTE6WV",
+    "logo_link": "https://www.pymc.io",
 }
 version = os.environ.get("READTHEDOCS_VERSION", "")
 version = version if "." in version else "main"
@@ -141,16 +159,18 @@ html_context = {
 
 html_favicon = "../_static/PyMC.ico"
 html_logo = "../_static/PyMC.png"
+html_title = "PyMC example gallery"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["../_static", "../_images", "../_templates"]
+html_static_path = ["../_static"]
+html_extra_path = ["../_thumbnails"]
 html_css_files = ["custom.css"]
 templates_path = ["../_templates"]
 html_sidebars = {
     "**": [
-        # "sidebar-nav-bs.html",
+        "sidebar-nav-bs.html",
         "postcard_categories.html",
         "tagcloud.html",
     ],
@@ -191,6 +211,25 @@ myst_substitutions = {
     "citation_code": citation_code,
 }
 jupyter_execute_notebooks = "off"
+
+rediraffe_redirects = {
+    "index.md": "gallery.md",
+}
+remove_from_toctrees = [
+    "BART/*",
+    "case_studies/*",
+    "diagnostics_and_criticism/*",
+    "gaussian_processes/*",
+    "generalized_linear_models/*",
+    "mixture_models/*",
+    "ode_models/*",
+    "pymc3_howto/*",
+    "samplers/*",
+    "splines/*",
+    "survival_analysis/*",
+    "time_series/*",
+    "variational_inference/*",
+]
 
 # bibtex config
 bibtex_bibfiles = ["references.bib"]

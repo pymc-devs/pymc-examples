@@ -1,12 +1,15 @@
-Gallery
-=======
+PyMC Example Gallery
+====================
 
+.. toctree::
+   :hidden:
+
+   object_index/index
 
 (Generalized) Linear and Hierarchical Linear Models
 -------------------------
 
 .. nbgallery::
-    :caption: This is a thumbnail gallery:
     :name: generalized_linear_models
     :glob:
     :reversed:
@@ -18,7 +21,6 @@ Case Studies
 ------------
 
 .. nbgallery::
-    :caption: This is a thumbnail gallery:
     :name: case_studies
     :glob:
     :reversed:
@@ -29,7 +31,6 @@ Diagnostics and Model Criticism
 -------------------------------
 
 .. nbgallery::
-    :caption: This is a thumbnail gallery:
     :name: diagnostics_and_criticism
     :glob:
     :reversed:
@@ -41,7 +42,6 @@ Gaussian Processes
 ------------------
 
 .. nbgallery::
-    :caption: This is a thumbnail gallery:
     :name: gaussian_processes
     :glob:
     :reversed:
@@ -52,7 +52,6 @@ Inference in ODE models
 -----------------------
 
 .. nbgallery::
-    :caption: This is a thumbnail gallery:
     :name: ode_models
     :glob:
     :reversed:
@@ -63,7 +62,6 @@ MCMC
 ----
 
 .. nbgallery::
-    :caption: This is a thumbnail gallery:
     :name: samplers
     :glob:
     :reversed:
@@ -74,7 +72,6 @@ Mixture Models
 --------------
 
 .. nbgallery::
-    :caption: This is a thumbnail gallery:
     :name: mixture_models
     :glob:
     :reversed:
@@ -85,7 +82,6 @@ Survival Analysis
 -----------------
 
 .. nbgallery::
-    :caption: This is a thumbnail gallery:
     :name: survival_analysis
     :glob:
     :reversed:
@@ -96,7 +92,6 @@ Time Series
 -----------
 
 .. nbgallery::
-    :caption: This is a thumbnail gallery:
     :name: time_series
     :glob:
     :reversed:
@@ -107,7 +102,6 @@ Variational Inference
 ---------------------
 
 .. nbgallery::
-    :caption: This is a thumbnail gallery:
     :name: variational_inference
     :glob:
     :reversed:
