@@ -5,10 +5,6 @@ jupytext:
     format_name: myst
     format_version: 0.13
     jupytext_version: 1.13.7
-kernelspec:
-  display_name: Python 3 (ipykernel)
-  language: python
-  name: python3
 ---
 
 ```{code-cell} ipython3
@@ -19,12 +15,12 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
-import pymc3.math as pmm
+import pymc as pm
+import pymc.math as pmm
 
 from scipy.stats import bernoulli, expon
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -76,13 +72,13 @@ $$y_A \sim \mathrm{Binomial}(n = N_A, p = \theta_A), y_B \sim \mathrm{Binomial}(
 
 With this, we can sample from the joint posterior of $\theta_A, \theta_B$. 
 
-You may have noticed that the Beta distribution is the conjugate prior for the Binomial, so we don't need MCMC sampling to estimate the posterior (the exact solution can be found in the VWO paper). We'll still demonstrate how sampling can be done with PyMC3 though, and doing this makes it easier to extend the model with different priors, dependency assumptions, etc.
+You may have noticed that the Beta distribution is the conjugate prior for the Binomial, so we don't need MCMC sampling to estimate the posterior (the exact solution can be found in the VWO paper). We'll still demonstrate how sampling can be done with PyMC though, and doing this makes it easier to extend the model with different priors, dependency assumptions, etc.
 
 Finally, remember that our outcome of interest is whether B is better than A. A common measure in practice for whether B is better than is the _relative uplift in conversion rates_, i.e. the percentage difference of $\theta_B$ over $\theta_A$:
 
 $$\mathrm{reluplift}_B = \theta_B / \theta_A - 1$$
 
-We'll implement this model setup in PyMC3 below.
+We'll implement this model setup in PyMC below.
 
 ```{code-cell} ipython3
 @dataclass
@@ -127,7 +123,7 @@ We illustrate these points with prior predictive checks.
 
 +++
 
-Note that we can pass in arbitrary values for the observed data in these prior predictive checks. PyMC3 will not use that data when sampling from the prior predictive distribution.
+Note that we can pass in arbitrary values for the observed data in these prior predictive checks. PyMC will not use that data when sampling from the prior predictive distribution.
 
 ```{code-cell} ipython3
 weak_prior = ConversionModelTwoVariant(BetaPrior(alpha=100, beta=100))
@@ -139,12 +135,12 @@ strong_prior = ConversionModelTwoVariant(BetaPrior(alpha=10000, beta=10000))
 
 ```{code-cell} ipython3
 with weak_prior.create_model(data=[BinomialData(1, 1), BinomialData(1, 1)]):
-    weak_prior_predictive = pm.sample_prior_predictive(samples=10000)
+    weak_prior_predictive = pm.sample_prior_predictive(samples=10000, return_inferencedata=False)
 ```
 
 ```{code-cell} ipython3
 with strong_prior.create_model(data=[BinomialData(1, 1), BinomialData(1, 1)]):
-    strong_prior_predictive = pm.sample_prior_predictive(samples=10000)
+    strong_prior_predictive = pm.sample_prior_predictive(samples=10000, return_inferencedata=False)
 ```
 
 ```{code-cell} ipython3
@@ -204,9 +200,9 @@ def run_scenario_twovariant(
     generated = generate_binomial_data(variants, true_rates, samples_per_variant)
     data = [BinomialData(**generated[v].to_dict()) for v in variants]
     with ConversionModelTwoVariant(priors=weak_prior).create_model(data):
-        trace_weak = pm.sample(draws=5000, return_inferencedata=True, cores=1, chains=2)
+        trace_weak = pm.sample(draws=5000, cores=1, chains=2)
     with ConversionModelTwoVariant(priors=strong_prior).create_model(data):
-        trace_strong = pm.sample(draws=5000, return_inferencedata=True, cores=1, chains=2)
+        trace_strong = pm.sample(draws=5000, cores=1, chains=2)
 
     true_rel_uplift = true_rates[1] / true_rates[0] - 1
 
@@ -310,7 +306,7 @@ def run_scenario_bernoulli(
     generated = generate_binomial_data(variants, true_rates, samples_per_variant)
     data = [BinomialData(**generated[v].to_dict()) for v in variants]
     with ConversionModel(priors).create_model(data=data, comparison_method=comparison_method):
-        trace = pm.sample(draws=5000, return_inferencedata=True, chains=2, cores=1)
+        trace = pm.sample(draws=5000, chains=2, cores=1)
 
     n_plots = len(variants)
     fig, axs = plt.subplots(nrows=n_plots, ncols=1, figsize=(3 * n_plots, 7), sharex=True)
@@ -492,7 +488,7 @@ data = [
 
 ```{code-cell} ipython3
 with RevenueModel(c_prior, mp_prior).create_model(data, "best_of_rest"):
-    revenue_prior_predictive = pm.sample_prior_predictive(samples=10000)
+    revenue_prior_predictive = pm.sample_prior_predictive(samples=10000, return_inferencedata=False)
 ```
 
 ```{code-cell} ipython3
@@ -553,7 +549,7 @@ def run_scenario_value(
     with RevenueModel(conversion_rate_prior, mean_purchase_prior).create_model(
         data, comparison_method
     ):
-        trace = pm.sample(draws=5000, return_inferencedata=True, chains=2, cores=1)
+        trace = pm.sample(draws=5000, chains=2, cores=1)
 
     n_plots = len(variants)
     fig, axs = plt.subplots(nrows=n_plots, ncols=1, figsize=(3 * n_plots, 7), sharex=True)
@@ -655,9 +651,9 @@ There are many other considerations to implementing a Bayesian framework to anal
 * How do we plan the length and size of A/B tests using power analysis, if we're using Bayesian models to analyse the results?
 * Outside of the conversion rates (bernoulli random variables for each visitor), many value distributions in online software cannot be fit with nice densities like Normal, Gamma, etc. How do we model these?
 
-Various textbooks and online resources dive into these areas in more detail. [Doing Bayesian Data Analysis](http://doingbayesiandataanalysis.blogspot.com/) by John Kruschke is a great resource, and has been translated to PyMC3 here: https://github.com/JWarmenhoven/DBDA-python.
+Various textbooks and online resources dive into these areas in more detail. [Doing Bayesian Data Analysis](http://doingbayesiandataanalysis.blogspot.com/) by John Kruschke is a great resource, and has been translated to PyMC here: https://github.com/JWarmenhoven/DBDA-python.
 
-We also plan to create more PyMC3 tutorials on these topics, so stay tuned!
+We also plan to create more PyMC tutorials on these topics, so stay tuned!
 
 ---
 
@@ -669,5 +665,5 @@ Author: [Cuong Duong](https://github.com/tcuongd) (2021-05-23)
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p aesara,xarray
 ```
