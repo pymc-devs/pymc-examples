@@ -36,8 +36,9 @@ import numpy as np
 import pandas as pd
 import pymc as pm
 import xarray as xr
-
-print(f"Running on PyMC v{pm.__version__}")
+import warnings
+from matplotlib import MatplotlibDeprecationWarning
+warnings.filterwarnings(action='ignore', category=MatplotlibDeprecationWarning)
 ```
 
 ```{code-cell} ipython3
