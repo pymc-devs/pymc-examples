@@ -19,8 +19,8 @@ import sphinx
 
 logger = sphinx.util.logging.getLogger(__name__)
 
-DOC_SRC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_IMG_LOC = os.path.join(os.path.dirname(DOC_SRC), "pymc-examples/_static", "PyMC.png")
+DOC_SRC = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_IMG_LOC = os.path.join(os.path.dirname(DOC_SRC), "_static", "PyMC.png")
 
 
 def create_thumbnail(infile, width=275, height=275, cx=0.5, cy=0.5, border=4):

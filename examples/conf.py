@@ -62,10 +62,6 @@ def hack_nbsphinx(app: Sphinx) -> None:
         )
         nb_path_rel = os.path.splitext(nb_path)[0]
         nbsphinx_thumbnails[nb_path_rel] = png_file
-    print(nbsphinx_thumbnails)
-    import pdb
-
-    pdb.set_trace
 
     def builder_inited(app: Sphinx):
         if not hasattr(app.env, "nbsphinx_thumbnails"):
