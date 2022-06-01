@@ -5,6 +5,10 @@ jupytext:
     format_name: myst
     format_version: 0.13
     jupytext_version: 1.13.7
+kernelspec:
+  display_name: Python 3 (ipykernel)
+  language: python
+  name: python3
 ---
 
 ```{code-cell} ipython3
@@ -16,7 +20,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
-import pymc.math as pmm
 
 from scipy.stats import bernoulli, expon
 
@@ -29,6 +32,12 @@ rng = np.random.default_rng(RANDOM_SEED)
 
 %config InlineBackend.figure_format = 'retina'
 az.style.use("arviz-darkgrid")
+
+plotting_defaults = dict(
+    bins=50,
+    kind="hist",
+    textsize=10,
+)
 ```
 
 This notebook demonstrates how to implement a Bayesian analysis of an A/B test. We implement the models discussed in VWO's [Bayesian A/B Testing Whitepaper](https://vwo.com/downloads/VWO_SmartStats_technical_whitepaper.pdf), and discuss the effect of different prior choices for these models. This notebook does _not_ discuss other related topics like how to choose a prior, early stopping, and power analysis.
@@ -145,12 +154,12 @@ with strong_prior.create_model(data=[BinomialData(1, 1), BinomialData(1, 1)]):
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(2, 1, figsize=(7, 7), sharex=True)
-az.plot_posterior(weak_prior_predictive["reluplift_b"], textsize=10, ax=axs[0], kind="hist")
+az.plot_posterior(weak_prior_predictive["reluplift_b"], ax=axs[0], **plotting_defaults)
 axs[0].set_title(f"B vs. A Rel Uplift Prior Predictive, {weak_prior.priors}", fontsize=10)
 axs[0].axvline(x=0, color="red")
-az.plot_posterior(strong_prior_predictive["reluplift_b"], textsize=10, ax=axs[1], kind="hist")
+az.plot_posterior(strong_prior_predictive["reluplift_b"], ax=axs[1], **plotting_defaults)
 axs[1].set_title(f"B vs. A Rel Uplift Prior Predictive, {strong_prior.priors}", fontsize=10)
-axs[1].axvline(x=0, color="red")
+axs[1].axvline(x=0, color="red");
 ```
 
 With the weak prior our 94% HDI for the relative uplift for B over A is roughly [-20%, +20%], whereas it is roughly [-2%, +2%] with the strong prior. This is effectively the "starting point" for the relative uplift distribution, and will affect how the observed conversions translate to the posterior distribution.
@@ -200,26 +209,27 @@ def run_scenario_twovariant(
     generated = generate_binomial_data(variants, true_rates, samples_per_variant)
     data = [BinomialData(**generated[v].to_dict()) for v in variants]
     with ConversionModelTwoVariant(priors=weak_prior).create_model(data):
-        trace_weak = pm.sample(draws=5000, cores=1, chains=2)
+        trace_weak = pm.sample(draws=5000)
     with ConversionModelTwoVariant(priors=strong_prior).create_model(data):
-        trace_strong = pm.sample(draws=5000, cores=1, chains=2)
+        trace_strong = pm.sample(draws=5000)
 
     true_rel_uplift = true_rates[1] / true_rates[0] - 1
 
     fig, axs = plt.subplots(2, 1, figsize=(7, 7), sharex=True)
-    az.plot_posterior(trace_weak.posterior["reluplift_b"], textsize=10, ax=axs[0], kind="hist")
+    az.plot_posterior(trace_weak.posterior["reluplift_b"], ax=axs[0], **plotting_defaults)
     axs[0].set_title(f"True Rel Uplift = {true_rel_uplift:.1%}, {weak_prior}", fontsize=10)
     axs[0].axvline(x=0, color="red")
-    az.plot_posterior(trace_strong.posterior["reluplift_b"], textsize=10, ax=axs[1], kind="hist")
+    az.plot_posterior(trace_strong.posterior["reluplift_b"], ax=axs[1], **plotting_defaults)
     axs[1].set_title(f"True Rel Uplift = {true_rel_uplift:.1%}, {strong_prior}", fontsize=10)
     axs[1].axvline(x=0, color="red")
     fig.suptitle("B vs. A Rel Uplift")
+    return trace_weak, trace_strong
 ```
 
 #### Scenario 1 - same underlying conversion rates
 
 ```{code-cell} ipython3
-run_scenario_twovariant(
+trace_weak, trace_strong = run_scenario_twovariant(
     variants=["A", "B"],
     true_rates=[0.23, 0.23],
     samples_per_variant=100000,
@@ -286,7 +296,7 @@ class ConversionModel:
                 elif comparison_method == "best_of_rest":
                     others = [p[j] for j in range(num_variants) if j != i]
                     if len(others) > 1:
-                        comparison = pmm.maximum(*others)
+                        comparison = pm.math.maximum(*others)
                     else:
                         comparison = others[0]
                 else:
@@ -306,7 +316,7 @@ def run_scenario_bernoulli(
     generated = generate_binomial_data(variants, true_rates, samples_per_variant)
     data = [BinomialData(**generated[v].to_dict()) for v in variants]
     with ConversionModel(priors).create_model(data=data, comparison_method=comparison_method):
-        trace = pm.sample(draws=5000, chains=2, cores=1)
+        trace = pm.sample(draws=5000)
 
     n_plots = len(variants)
     fig, axs = plt.subplots(nrows=n_plots, ncols=1, figsize=(3 * n_plots, 7), sharex=True)
@@ -314,9 +324,7 @@ def run_scenario_bernoulli(
         if i == 0 and comparison_method == "compare_to_control":
             axs[i].set_yticks([])
         else:
-            az.plot_posterior(
-                trace.posterior[f"reluplift_{i}"], textsize=10, ax=axs[i], kind="hist"
-            )
+            az.plot_posterior(trace.posterior[f"reluplift_{i}"], ax=axs[i], **plotting_defaults)
         axs[i].set_title(f"Rel Uplift {variant}, True Rate = {true_rates[i]:.2%}", fontsize=10)
         axs[i].axvline(x=0, color="red")
     fig.suptitle(f"Method {comparison_method}, {priors}")
@@ -447,9 +455,9 @@ class RevenueModel:
                     others_lam = [1 / lam[j] for j in range(num_variants) if j != i]
                     others_rpv = [revenue_per_visitor[j] for j in range(num_variants) if j != i]
                     if len(others_rpv) > 1:
-                        comparison_theta = pmm.maximum(*others_theta)
-                        comparison_lam = pmm.maximum(*others_lam)
-                        comparison_rpv = pmm.maximum(*others_rpv)
+                        comparison_theta = pm.math.maximum(*others_theta)
+                        comparison_lam = pm.math.maximum(*others_lam)
+                        comparison_rpv = pm.math.maximum(*others_rpv)
                     else:
                         comparison_theta = others_theta[0]
                         comparison_lam = others_lam[0]
@@ -493,9 +501,9 @@ with RevenueModel(c_prior, mp_prior).create_model(data, "best_of_rest"):
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots()
-az.plot_posterior(revenue_prior_predictive["reluplift_1"], textsize=10, ax=ax, kind="hist")
+az.plot_posterior(revenue_prior_predictive["reluplift_1"], ax=ax, **plotting_defaults)
 ax.set_title(f"Revenue Rel Uplift Prior Predictive, {c_prior}, {mp_prior}", fontsize=10)
-ax.axvline(x=0, color="red")
+ax.axvline(x=0, color="red");
 ```
 
 Similar to the model for Bernoulli conversions, the width of the prior predictive uplift distribution will depend on the strength of our priors. See the Bernoulli conversions section for a discussion of the benefits and disadvantages of using a weak vs. strong prior.
@@ -557,9 +565,7 @@ def run_scenario_value(
         if i == 0 and comparison_method == "compare_to_control":
             axs[i].set_yticks([])
         else:
-            az.plot_posterior(
-                trace.posterior[f"reluplift_{i}"], textsize=10, ax=axs[i], kind="hist"
-            )
+            az.plot_posterior(trace.posterior[f"reluplift_{i}"], ax=axs[i], **plotting_defaults)
         true_rpv = true_conversion_rates[i] * true_mean_purchase[i]
         axs[i].set_title(f"Rel Uplift {variant}, True RPV = {true_rpv:.2f}", fontsize=10)
         axs[i].axvline(x=0, color="red")
@@ -607,8 +613,7 @@ scenario_value_2 = run_scenario_value(
 axs = az.plot_posterior(
     scenario_value_2,
     var_names=["theta_reluplift_1", "reciprocal_lam_reluplift_1"],
-    textsize=10,
-    kind="hist",
+    **plotting_defaults,
 )
 axs[0].set_title(f"Conversion Rate Uplift B, True Uplift = {(0.04 / 0.05 - 1):.2%}", fontsize=10)
 axs[0].axvline(x=0, color="red")
