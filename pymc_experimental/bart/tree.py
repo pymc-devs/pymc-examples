@@ -68,10 +68,8 @@ class Tree:
         if isinstance(node, LeafNode):
             self.idx_leaf_nodes.append(index)
 
-    def delete_node(self, index):
-        current_node = self.get_node(index)
-        if isinstance(current_node, LeafNode):
-            self.idx_leaf_nodes.remove(index)
+    def delete_leaf_node(self, index):
+        self.idx_leaf_nodes.remove(index)
         del self.tree_structure[index]
 
     def trim(self):
