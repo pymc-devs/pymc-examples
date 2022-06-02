@@ -15,9 +15,9 @@ kernelspec:
 
 The tutorial is the second of a three-part series on Bayesian *generalized linear models (GLMs)*, that first appeared on [Thomas Wiecki's blog](https://twiecki.io/):
 
-  1. [Linear Regression](https://docs.pymc.io/en/v3/pymc-examples/examples/generalized_linear_models/GLM-linear.html)
-  2. [Robust Linear Regression](https://docs.pymc.io/en/v3/pymc-examples/examples/generalized_linear_models/GLM-robust.html)
-  3. [Hierarchical Linear Regression](https://docs.pymc.io/en/v3/pymc-examples/examples/generalized_linear_models/GLM-hierarchical.html)
+  1. {ref}`Linear Regression <pymc:GLM_linear>`
+  2. {ref}`Robust Linear Regression <GLM-robust>`
+  3. {ref}`Hierarchical Linear Regression <GLM-hierarchical>`
   
 In this blog post I will write about:
 
