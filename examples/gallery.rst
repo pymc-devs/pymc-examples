@@ -7,7 +7,7 @@ PyMC Example Gallery
    object_index/index
 
 (Generalized) Linear and Hierarchical Linear Models
--------------------------
+---------------------------------------------------
 
 .. nbgallery::
     :name: generalized_linear_models
@@ -119,7 +119,7 @@ Variational Inference
     variational_inference/*
 
 ODE's
----------------------
+-----
 
 .. nbgallery::
     :name: ode_models
