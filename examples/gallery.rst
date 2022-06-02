@@ -115,3 +115,5 @@ How to
     :name: howto
     :glob:
     :reversed:
+
+    howto/*
