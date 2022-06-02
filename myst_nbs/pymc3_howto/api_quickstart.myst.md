@@ -89,14 +89,14 @@ help(pm.Normal)
 
 In the PyMC module, the structure for probability distributions looks like this:
 
-{ref}`_api_distributions`
-- {ref}`Continuous`
-- {ref}`Discrete`
-- {ref}`Multivariate`
-- {ref}`Mixture`
-- {ref}`Timeseries`
-- {ref}`Censored`
-- {ref}`Simulator`
+{ref}`pymc:api_distributions`
+- {ref}`pymc:api_distributions_continuous`
+- {ref}`pymc:api_distributions_discrete`
+- {ref}`pymc:api_distributions_multivariate`
+- {ref}`pymc:api_distributions_mixture`
+- {ref}`pymc:api_distributions_rimeseries`
+- {ref}`pymc:api_distributions_censored`
+- {ref}`pymc:api_distributions_simulator`
 
 ```{code-cell} ipython3
 dir(pm.distributions.mixture)
