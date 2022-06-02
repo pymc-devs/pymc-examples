@@ -223,7 +223,7 @@ remove_from_toctrees = [
     "generalized_linear_models/*",
     "mixture_models/*",
     "ode_models/*",
-    "pymc3_howto/*",
+    "howto/*",
     "samplers/*",
     "splines/*",
     "survival_analysis/*",

@@ -7,7 +7,7 @@ PyMC Example Gallery
    object_index/index
 
 (Generalized) Linear and Hierarchical Linear Models
--------------------------
+---------------------------------------------------
 
 .. nbgallery::
     :name: generalized_linear_models
@@ -47,6 +47,16 @@ Gaussian Processes
     :reversed:
 
     gaussian_processes/*
+
+BART
+----
+
+.. nbgallery::
+    :name: BART
+    :glob:
+    :reversed:
+
+    BART/*
 
 Inference in ODE models
 -----------------------
@@ -107,3 +117,23 @@ Variational Inference
     :reversed:
 
     variational_inference/*
+
+How to
+------
+
+.. nbgallery::
+    :name: howto
+    :glob:
+    :reversed:
+
+    howto/*
+
+Splines
+-------
+
+.. nbgallery::
+    :name: splines
+    :glob:
+    :reversed:
+
+    splines/*

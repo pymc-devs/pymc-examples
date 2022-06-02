@@ -6,7 +6,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3.9.7 ('pymc3_stable')
   language: python
   name: python3
 ---
