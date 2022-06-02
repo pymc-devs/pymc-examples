@@ -132,11 +132,11 @@ How to
 ------
 
 .. nbgallery::
-    :name: pymc_howto
+    :name: howto
     :glob:
     :reversed:
 
-    pymc_howto/*
+    howto/*
 
 Samplers
 --------
