@@ -118,16 +118,6 @@ Variational Inference
 
     variational_inference/*
 
-ODE's
------
-
-.. nbgallery::
-    :name: ode_models
-    :glob:
-    :reversed:
-
-    ode_models/*
-
 How to
 ------
 
