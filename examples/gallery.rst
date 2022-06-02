@@ -138,16 +138,6 @@ How to
 
     howto/*
 
-Samplers
---------
-
-.. nbgallery::
-    :name: samplers
-    :glob:
-    :reversed:
-
-    samplers/*
-
 Splines
 -------
 
