@@ -48,6 +48,16 @@ Gaussian Processes
 
     gaussian_processes/*
 
+BART
+----
+
+.. nbgallery::
+    :name: BART
+    :glob:
+    :reversed:
+
+    BART/*
+
 Inference in ODE models
 -----------------------
 
@@ -107,3 +117,43 @@ Variational Inference
     :reversed:
 
     variational_inference/*
+
+ODE's
+---------------------
+
+.. nbgallery::
+    :name: ode_models
+    :glob:
+    :reversed:
+
+    ode_models/*
+
+How to
+------
+
+.. nbgallery::
+    :name: pymc_howto
+    :glob:
+    :reversed:
+
+    pymc_howto/*
+
+Samplers
+--------
+
+.. nbgallery::
+    :name: samplers
+    :glob:
+    :reversed:
+
+    samplers/*
+
+Splines
+-------
+
+.. nbgallery::
+    :name: splines
+    :glob:
+    :reversed:
+
+    splines/*
