@@ -351,7 +351,9 @@ with pm.Model() as model:
 ```{code-cell} ipython3
 plt.figure()
 idata = approx.sample(10000)
-az.plot_kde(idata.posterior["x"].sel(chain=0, x_dim_0=0), idata.posterior["x"].sel(chain=0, x_dim_0=1));
+az.plot_kde(
+    idata.posterior["x"].sel(chain=0, x_dim_0=0), idata.posterior["x"].sel(chain=0, x_dim_0=1)
+);
 ```
 
 Stein Variational Gradient Descent (SVGD) uses particles to estimate the posterior:
@@ -444,7 +446,7 @@ with model:
 ```
 
 ```{code-cell} ipython3
-idata.posterior_predictive["obs"].mean(dim=["draw","chain"])
+idata.posterior_predictive["obs"].mean(dim=["draw", "chain"])
 ```
 
 ## References
