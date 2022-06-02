@@ -13,18 +13,18 @@ kernelspec:
 
 # GLM: Robust Linear Regression
 
-This tutorial first appeard as a post in small series on Bayesian GLMs on:
+The tutorial is the second of a three-part series on Bayesian *generalized linear models (GLMs)*, that first appeared on [Thomas Wiecki's blog](https://twiecki.io/):
 
-  1. [The Inference Button: Bayesian GLMs made easy with PyMC](http://twiecki.github.com/blog/2013/08/12/bayesian-glms-1/)
-  2. [This world is far from Normal(ly distributed): Robust Regression in PyMC](http://twiecki.github.io/blog/2013/08/27/bayesian-glms-2/)
-  3. [The Best Of Both Worlds: Hierarchical Linear Regression in PyMC](http://twiecki.github.io/blog/2014/03/17/bayesian-glms-3/)
+  1. [Linear Regression](https://docs.pymc.io/en/v3/pymc-examples/examples/generalized_linear_models/GLM-linear.html)
+  2. [Robust Linear Regression](https://docs.pymc.io/en/v3/pymc-examples/examples/generalized_linear_models/GLM-robust.html)
+  3. [Hierarchical Linear Regression](https://docs.pymc.io/en/v3/pymc-examples/examples/generalized_linear_models/GLM-hierarchical.html)
   
 In this blog post I will write about:
 
  - How a few outliers can largely affect the fit of linear regression models.
  - How replacing the normal likelihood with Student T distribution produces robust regression.
 
-This is the second part of a series on Bayesian GLMs (click [here for part I about linear regression](http://twiecki.github.io/blog/2013/08/12/bayesian-glms-1/)). In this prior post I described how minimizing the squared distance of the regression line is the same as maximizing the likelihood of a Normal distribution with the mean coming from the regression line. This latter probabilistic expression allows us to easily formulate a Bayesian linear regression model.
+In the [linear regression tutorial](https://docs.pymc.io/en/v3/pymc-examples/examples/generalized_linear_models/GLM-linear.html), I described how minimizing the squared distance of the regression line is the same as maximizing the likelihood of a Normal distribution with the mean coming from the regression line. This latter probabilistic expression allows us to easily formulate a Bayesian linear regression model.
 
 This worked splendidly on simulated data. The problem with simulated data though is that it's, well, simulated. In the real world things tend to get more messy and assumptions like normality are easily violated by a few outliers. 
 
@@ -37,14 +37,14 @@ Again, import our modules.
 ```{code-cell} ipython3
 %matplotlib inline
 
+import aesara
+import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
 import xarray as xr
-import aesara
-import aesara.tensor as at
 ```
 
 ```{code-cell} ipython3
@@ -96,12 +96,12 @@ with pm.Model() as model:
     intercept = pm.Normal("intercept", mu=0, sigma=1)
     slope = pm.Normal("slope", mu=0, sigma=1)
     sigma = pm.HalfCauchy("sigma", beta=10)
-    
+
     mu = pm.Deterministic("mu", intercept + slope * x_out)
 
-    # define likelihood 
+    # define likelihood
     likelihood = pm.Normal("y", mu=mu, sigma=sigma, observed=y_out)
-    
+
     # inference
     trace = pm.sample(tune=2000)
 ```
@@ -110,16 +110,16 @@ We now want to generate from the [*posterior predictive*](https://en.wikipedia.o
 
 ```{code-cell} ipython3
 with model:
-    posterior_predictive = pm.sample_posterior_predictive(trace, var_names=["mu"], random_seed=RANDOM_SEED)
+    pm.sample_posterior_predictive(
+        trace, var_names=["mu"], random_seed=RANDOM_SEED, extend_inferencedata=True
+    )
 ```
 
 ```{code-cell} ipython3
-# 2-d nparray of posterior predictive samples
-pp = posterior_predictive.posterior_predictive.mu.to_numpy().flatten().reshape(4000, len(x_out))
+pp = az.extract_dataset(trace, group="posterior_predictive", num_samples=500)["mu"]
 
 plt.scatter(x_out, y_out, label="data")
-for i in range(0, 3999):
-    plt.plot(x_out, pp[i], alpha=0.01)
+plt.plot(x_out, pp, alpha=0.02)
 plt.plot(x, true_regression_line, label="true regression line", lw=3.0, c="r")
 plt.legend(loc=0)
 plt.title("Posterior predictive for normal likelihood")
@@ -158,25 +158,25 @@ with pm.Model() as robust_model:
 
     mu = pm.Deterministic("mu", intercept + slope * x_out)
 
-    # define likelihood 
+    # define likelihood
     likelihood = pm.StudentT("y", mu=mu, sigma=sigma, nu=3, observed=y_out)
-    
+
     # inference
     robust_trace = pm.sample(tune=4000)
 ```
 
 ```{code-cell} ipython3
 with robust_model:
-    robust_posterior_predictive = pm.sample_posterior_predictive(robust_trace, var_names=["mu"], random_seed=RANDOM_SEED)
+    pm.sample_posterior_predictive(
+        robust_trace, var_names=["mu"], random_seed=RANDOM_SEED, extend_inferencedata=True
+    )
 ```
 
 ```{code-cell} ipython3
-# 2d-nparray of posterior predictive samples
-robust_pp = robust_posterior_predictive.posterior_predictive.mu.to_numpy().flatten().reshape(4000, len(x_out))
+robust_pp = az.extract_dataset(robust_trace, group="posterior_predictive", num_samples=500)["mu"]
 
 plt.scatter(x_out, y_out, label="data")
-for i in range(0, 3999):
-    plt.plot(x_out, robust_pp[i], alpha=0.01)
+plt.plot(x_out, robust_pp, alpha=0.02)
 plt.plot(x, true_regression_line, label="true regression line", lw=3.0, c="r")
 plt.legend(loc=0)
 plt.title("Posterior predictive for Student-T likelihood")
