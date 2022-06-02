@@ -6,9 +6,9 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: pymc
   language: python
-  name: python3
+  name: pymc
 ---
 
 # GLM: Mini-batch ADVI on hierarchical regression model
@@ -23,28 +23,29 @@ kernelspec:
 Unlike Gaussian mixture models, (hierarchical) regression models have independent variables. These variables affect the likelihood function, but are not random variables. When using mini-batch, we should take care of that.
 
 ```{code-cell} ipython3
-%env THEANO_FLAGS=device=cpu, floatX=float32, warn_float64=ignore
+%env AESARA_FLAGS=device=cpu, floatX=float32, warn_float64=ignore
 
 import os
 
+import aesara
+import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
-import theano
-import theano.tensor as tt
 
 from scipy import stats
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
 RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
+pm.set_at_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
 
@@ -127,7 +128,7 @@ Then, run ADVI with mini-batch.
 ```{code-cell} ipython3
 with hierarchical_model:
     approx = pm.fit(100000, callbacks=[pm.callbacks.CheckParametersConvergence(tolerance=1e-4)])
-    idata_advi = az.from_pymc3(approx.sample(500))
+    idata_advi = approx.sample(500)
 ```
 
 Check the trace of ELBO and compare the result with MCMC.
@@ -158,7 +159,12 @@ with pm.Model(coords=coords):
     # essentially, this is what init='advi' does
     step = pm.NUTS(scaling=approx.cov.eval(), is_cov=True)
     hierarchical_trace = pm.sample(
-        2000, step, start=approx.sample()[0], progressbar=True, return_inferencedata=True
+        2000,
+        step,
+        # sampling different initial values from the trace
+        initvals=list(approx.sample(return_inferencedata=False, size=4)[i] for i in range(4)),
+        progressbar=True,
+        return_inferencedata=True,
     )
 ```
 

@@ -6,18 +6,20 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python (PyMC3 Dev)
+  display_name: pymc
   language: python
-  name: pymc3-dev
+  name: pymc
 ---
 
 # Variational API quickstart
+
+:tags: variational inference
 
 The variational inference (VI) API is focused on approximating posterior distributions for Bayesian models. Common use cases to which this module can be applied include:
 
 * Sampling from model posterior and computing arbitrary expressions
 * Conduct Monte Carlo approximation of expectation, variance, and other statistics
-* Remove symbolic dependence on PyMC3 random nodes and evaluate expressions (using `eval`)
+* Remove symbolic dependence on PyMC random nodes and evaluate expressions (using `eval`)
 * Provide a bridge to arbitrary Theano code
 
 Sounds good, doesn't it?
@@ -26,14 +28,14 @@ The module provides an interface to a variety of inference methods, so you are f
 
 ```{code-cell} ipython3
 %matplotlib inline
+import aesara
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano
+import pymc as pm
 
 np.random.seed(42)
-pm.set_tt_rng(42)
+pm.set_at_rng(42)
 ```
 
 ## Basic setup
@@ -46,7 +48,7 @@ mu = pm.floatX([-0.3, 0.5])
 sd = pm.floatX([0.1, 0.1])
 
 with pm.Model() as model:
-    x = pm.NormalMixture("x", w=w, mu=mu, sigma=sd, dtype=theano.config.floatX)
+    x = pm.NormalMixture("x", w=w, mu=mu, sigma=sd)
     x2 = x**2
     sin_x = pm.math.sin(x)
 ```
@@ -79,7 +81,7 @@ Let's use the same model:
 ```{code-cell} ipython3
 with pm.Model() as model:
 
-    x = pm.NormalMixture("x", w=w, mu=mu, sigma=sd, dtype=theano.config.floatX)
+    x = pm.NormalMixture("x", w=w, mu=mu, sigma=sd)
     x2 = x**2
     sin_x = pm.math.sin(x)
 ```
@@ -106,7 +108,7 @@ help(pm.callbacks.CheckParametersConvergence)
 Let's use the default arguments for `CheckParametersConvergence` as they seem to be reasonable.
 
 ```{code-cell} ipython3
-from pymc3.variational.callbacks import CheckParametersConvergence
+from pymc.variational.callbacks import CheckParametersConvergence
 
 with model:
     mean_field = pm.fit(method="advi", callbacks=[CheckParametersConvergence()])
@@ -220,8 +222,8 @@ Let's compare results with the NUTS output:
 ```{code-cell} ipython3
 import seaborn as sns
 
-ax = sns.kdeplot(trace["x"], label="NUTS")
-sns.kdeplot(approx.sample(10000)["x"], label="ADVI");
+ax = sns.kdeplot(trace.posterior["x"].values.flatten(), label="NUTS")
+sns.kdeplot(approx.sample(10000).posterior["x"].values.flatten(), label="ADVI");
 ```
 
 Again, we see that ADVI is not able to cope with multimodality; we can instead use SVGD, which generates an approximation based on a large number of particles.
@@ -237,9 +239,9 @@ with model:
 ```
 
 ```{code-cell} ipython3
-ax = sns.kdeplot(trace["x"], label="NUTS")
-sns.kdeplot(approx.sample(10000)["x"], label="ADVI")
-sns.kdeplot(svgd_approx.sample(2000)["x"], label="SVGD");
+ax = sns.kdeplot(trace.posterior["x"].values.flatten(), label="NUTS")
+sns.kdeplot(approx.sample(10000).posterior["x"].values.flatten(), label="ADVI")
+sns.kdeplot(svgd_approx.sample(2000).posterior["x"].values.flatten(), label="SVGD");
 ```
 
 That did the trick, as we now have a multimodal approximation using SVGD. 
@@ -264,6 +266,10 @@ a_sample.eval()
 ```
 
 ```{code-cell} ipython3
+aesara.dprint(a)
+```
+
+```{code-cell} ipython3
 a_sample.eval()
 ```
 
@@ -273,7 +279,7 @@ a_sample.eval()
 
 Every call yields a different value from the same theano node. This is because it is **stochastic**. 
 
-By applying replacements, we are now free of the dependence on the PyMC3 model; instead, we now depend on the approximation. Changing it will change the distribution for stochastic nodes:
+By applying replacements, we are now free of the dependence on the PyMC model; instead, we now depend on the approximation. Changing it will change the distribution for stochastic nodes:
 
 ```{code-cell} ipython3
 sns.kdeplot(np.array([a_sample.eval() for _ in range(2000)]))
@@ -373,7 +379,7 @@ with pm.Model() as iris_model:
 ```
 
 ### Applying replacements in practice
-PyMC3 models have symbolic inputs for latent variables. To evaluate an espression that requires knowledge of latent variables, one needs to provide fixed values. We can use values approximated by VI for this purpose. The function `sample_node` removes the symbolic dependenices. 
+PyMC models have symbolic inputs for latent variables. To evaluate an espression that requires knowledge of latent variables, one needs to provide fixed values. We can use values approximated by VI for this purpose. The function `sample_node` removes the symbolic dependenices. 
 
 `sample_node` will use the whole distribution at each step, so we will use it here. We can apply more replacements in single function call using the `more_replacements` keyword argument in both replacement functions.
 
@@ -459,7 +465,7 @@ So, `Tracker` allows us to monitor our approximation and choose good training sc
 ## Minibatches
 When dealing with large datasets, using minibatch training can drastically speed up and improve approximation performance. Large datasets impose a hefty cost on the computation of gradients. 
 
-There is a nice API in pymc3 to handle these cases, which is available through the `pm.Minibatch` class. The minibatch is just a highly specialized Theano tensor:
+There is a nice API in pymc to handle these cases, which is available through the `pm.Minibatch` class. The minibatch is just a highly specialized Theano tensor:
 
 ```{code-cell} ipython3
 issubclass(pm.Minibatch, theano.tensor.TensorVariable)
@@ -504,7 +510,7 @@ Now let's use minibatches. At every iteration, we will draw 500 random values:
 
 > Remember to set `total_size` in observed
 
-**total_size** is an important parameter that allows pymc3 to infer the right way of rescaling densities. If it is not set, you are likely to get completely wrong results. For more information please refer to the comprehensive documentation of `pm.Minibatch`.
+**total_size** is an important parameter that allows pymc to infer the right way of rescaling densities. If it is not set, you are likely to get completely wrong results. For more information please refer to the comprehensive documentation of `pm.Minibatch`.
 
 ```{code-cell} ipython3
 X = pm.Minibatch(data, batch_size=500)
