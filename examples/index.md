@@ -5,7 +5,7 @@
 
 Home <https://www.pymc.io>
 Examples <gallery>
-User guide <https://www.pymc.io/projects/docs/en/latest/learning.html>
+Learn <https://www.pymc.io/projects/docs/en/latest/learn.html>
 API <https://www.pymc.io/projects/docs/en/latest/api.html>
 Community <https://www.pymc.io/community/index.html>
 Contributing <https://www.pymc.io/projects/docs/en/latest/contributing/index.html>
