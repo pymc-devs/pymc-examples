@@ -48,16 +48,6 @@ Gaussian Processes
 
     gaussian_processes/*
 
-BART
-----
-
-.. nbgallery::
-    :name: BART
-    :glob:
-    :reversed:
-
-    BART/*
-
 Inference in ODE models
 -----------------------
 
@@ -127,13 +117,3 @@ How to
     :reversed:
 
     howto/*
-
-Splines
--------
-
-.. nbgallery::
-    :name: splines
-    :glob:
-    :reversed:
-
-    splines/*
