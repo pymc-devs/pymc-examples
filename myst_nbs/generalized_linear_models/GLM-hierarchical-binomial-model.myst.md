@@ -6,7 +6,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: Python 3.9.7 ('base')
   language: python
   name: python3
 ---
@@ -171,7 +171,7 @@ ax.annotate(
     xytext=(-1.6, 3.5),
     ha="center",
     fontsize=16,
-    color="black",
+    color="white",
     arrowprops={"facecolor": "white"},
 );
 ```
@@ -215,7 +215,7 @@ def logp_ab(value):
 
 with pm.Model(coords=coords) as model:
     # Uninformative prior for alpha and beta
-    n_val = pm.Data("n_val", n)
+    n_val = pm.ConstantData("n_val", n)
     ab = pm.HalfNormal("ab", sigma=10, dims="param")
     pm.Potential("p(a, b)", logp_ab(ab))
 
@@ -225,7 +225,7 @@ with pm.Model(coords=coords) as model:
     theta = pm.Beta("theta", alpha=ab[0], beta=ab[1], dims="obs_id")
 
     p = pm.Binomial("y", p=theta, observed=y, n=n_val)
-    trace = pm.sample(draws=1000, tune=2000, target_accept=0.95)
+    trace = pm.sample(draws=2000, tune=2000, target_accept=0.95)
 ```
 
 ```{code-cell} ipython3
