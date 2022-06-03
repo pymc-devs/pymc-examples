@@ -181,7 +181,7 @@ with model:
     x.dot(x.T)  # linear algebra is supported
 ```
 
-### Initialization with test_values
+### Initialize Random Variables
 
 Though PyMC automatically initializes models, it is sometimes helpful to define initial values for RVs. This can be done via the `initval` kwarg:
 
