@@ -253,7 +253,7 @@ intersphinx_mapping = {
     "mpl": ("https://matplotlib.org/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
-    "pymc": ("https://www.pymc.io/projects/docs/en/latest/", None),
+    "pymc": ("https://www.pymc.io/projects/docs/en/stable/", None),
     "pmx": ("https://www.pymc.io/projects/experimental/en/latest/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
     "xarray": ("http://docs.xarray.dev/en/stable/", None),
