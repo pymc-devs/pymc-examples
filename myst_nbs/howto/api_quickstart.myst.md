@@ -167,7 +167,7 @@ with pm.Model():
 This works, but it is slow and not recommended. Instead, we can use {ref}`coordinates <pymc:dimensionality>`:
 
 ```{code-cell} ipython3
-coords = {"cities":["Santiago", "Mumbai", "Tokyo"]}
+coords = {"cities": ["Santiago", "Mumbai", "Tokyo"]}
 with pm.Model(coords=coords) as model:
     # good:
     x = pm.Normal("x", mu=0, sigma=1, dims="cities")
@@ -322,7 +322,7 @@ The `variational` submodule offers a lot of flexibility in which VI to use and f
 ```{code-cell} ipython3
 mu = pm.floatX([0.0, 0.0])
 cov = pm.floatX([[1, 0.5], [0.5, 1.0]])
-with pm.Model(coords={"idx":np.arange(2)}) as model:
+with pm.Model(coords={"idx": np.arange(2)}) as model:
     pm.MvNormal("x", mu=mu, cov=cov, dims="idx")
     approx = pm.fit(method="fullrank_advi")
 ```
@@ -432,7 +432,7 @@ with model:
             # use dummy values with the same shape:
             "y_obs": [0, 0, 0],
         },
-        coords={"idx": [1001, 1002, 1003]}
+        coords={"idx": [1001, 1002, 1003]},
     )
 
     idata.extend(pm.sample_posterior_predictive(idata))
