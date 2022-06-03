@@ -4,7 +4,7 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.13.7
+    jupytext_version: 1.13.8
 kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
@@ -13,7 +13,6 @@ kernelspec:
 
 # Hierarchical Binomial Model: Rat Tumor Example
 :::{post} Nov 11, 2021
-:tags: generalized linear model, hierarchical model, pymc.Beta, pymc.Binomial, pymc.Data, pymc.Deterministic, pymc.HalfNormal, pymc.Model, pymc.Potential
 :category: intermediate
 :author: Demetri Pananos, Junpeng Lao, Raúl Maldonado, Farhan Reynaldo
 :::
