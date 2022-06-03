@@ -189,6 +189,8 @@ fontawesome_included = True
 # post_auto_image = 1
 # post_auto_excerpt = 2
 
+notfound_urls_prefix = "/projects/examples/en/latest/"
+
 # MyST config
 myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "amsmath", "substitution"]
 citation_code = f"""
@@ -251,7 +253,8 @@ intersphinx_mapping = {
     "mpl": ("https://matplotlib.org/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
-    "pymc": ("https://docs.pymc.io/en/latest/", None),
+    "pymc": ("https://www.pymc.io/projects/docs/en/stable/", None),
+    "pmx": ("https://www.pymc.io/projects/experimental/en/latest/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
     "xarray": ("http://docs.xarray.dev/en/stable/", None),
 }
