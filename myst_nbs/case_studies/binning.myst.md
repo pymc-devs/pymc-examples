@@ -70,14 +70,16 @@ In ordinal regression, the cutpoints are treated as latent variables and the par
 We are now in a position to sketch out a generative PyMC model:
 
 ```python
+import aesara.tensor as at
+
 with pm.Model() as model:
     # priors
     mu = pm.Normal("mu")
     sigma = pm.HalfNormal("sigma")
     # generative process
-    probs = aesara.tensor.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), cutpoints))
-    probs = aesara.tensor.concatenate([[0], probs, [1]])
-    probs = aesara.tensor.extra_ops.diff(probs)
+    probs = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), cutpoints))
+    probs = pm.concatenate([[0], probs, [1]])
+    probs = at.extra_ops.diff(probs)
     # likelihood
     pm.Multinomial("counts", p=probs, n=sum(counts), observed=counts)
 ```
@@ -85,16 +87,16 @@ with pm.Model() as model:
 The exact way we implement the models below differs only very slightly from this, but let's decompose how this works.
 Firstly we define priors over the `mu` and `sigma` parameters of the latent distribution. Then we have 3 lines which calculate the probability that any observed datum falls in a given bin. The first line of this
 ```python
-probs = aesara.tensor.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), cutpoints))
+probs = probs = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), cutpoints))
 ```
 calculates the cumulative density at each of the cutpoints. The second line 
 ```python
-probs = aesara.tensor.concatenate([[0], probs, [1]])
+probs = pm.concatenate([[0], probs, [1]])
 ```
 simply concatenates the cumulative density at $-\infty$ (which is zero) and at $\infty$ (which is 1).
 The third line
 ```python
-probs = aesara.tensor.extra_ops.diff(probs)
+probs = at.extra_ops.diff(probs)
 ```
 calculates the difference between consecutive cumulative densities to give the actual probability of a datum falling in any given bin.
 
@@ -107,6 +109,8 @@ The approach was illustrated with a Gaussian distribution, and below we show a n
 ```{code-cell} ipython3
 :tags: []
 
+import warnings
+
 import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
@@ -114,12 +118,8 @@ import numpy as np
 import pandas as pd
 import pymc as pm
 import seaborn as sns
-import warnings
 
-warnings.filterwarnings(
-    action='ignore',
-    category=UserWarning
-)
+warnings.filterwarnings(action="ignore", category=UserWarning)
 ```
 
 ```{code-cell} ipython3
@@ -226,7 +226,7 @@ with pm.Model() as model1:
     sigma = pm.HalfNormal("sigma")
     mu = pm.Normal("mu")
 
-    probs1 = at.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), d1))
+    probs1 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), d1))
     probs1 = at.extra_ops.diff(at.concatenate([[0], probs1, [1]]))
     pm.Multinomial("counts1", p=probs1, n=c1.sum(), observed=c1.values)
 ```
@@ -331,7 +331,7 @@ with pm.Model() as model2:
     sigma = pm.HalfNormal("sigma")
     mu = pm.Normal("mu")
 
-    probs2 = at.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), d2))
+    probs2 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), d2))
     probs2 = at.extra_ops.diff(at.concatenate([[0], probs2, [1]]))
     pm.Multinomial("counts2", p=probs2, n=c2.sum(), observed=c2.values)
 ```
@@ -360,7 +360,7 @@ with model2:
     ppc = pm.sample_posterior_predictive(trace2)
 ```
 
-`ppc` is a dictionary where the keys are the parameters and the values are arrays of samples. So the line below looks at the mean bin posterior predictive bin counts, averaged over samples.
+We calculate the mean bin posterior predictive bin counts, averaged over samples.
 
 ```{code-cell} ipython3
 :tags: []
@@ -426,12 +426,12 @@ with pm.Model() as model3:
     sigma = pm.HalfNormal("sigma")
     mu = pm.Normal("mu")
 
-    probs1 = at.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), d1))
-    probs1 = at.extra_ops.diff(at.concatenate([np.array([0]), probs1, np.array([1])]))
+    probs1 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), d1))
+    probs1 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs1, np.array([1])]))
     probs1 = pm.Deterministic("normal1_cdf", probs1)
 
-    probs2 = at.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), d2))
-    probs2 = at.extra_ops.diff(at.concatenate([np.array([0]), probs2, np.array([1])]))
+    probs2 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), d2))
+    probs2 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs2, np.array([1])]))
     probs2 = pm.Deterministic("normal2_cdf", probs2)
 
     pm.Multinomial("counts1", p=probs1, n=c1.sum(), observed=c1.values)
@@ -519,8 +519,8 @@ with pm.Model() as model4:
     sigma = pm.HalfNormal("sigma")
     mu = pm.Normal("mu")
     # study 1
-    probs1 = at.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), d1))
-    probs1 = at.extra_ops.diff(at.concatenate([np.array([0]), probs1, np.array([1])]))
+    probs1 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), d1))
+    probs1 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs1, np.array([1])]))
     probs1 = pm.Deterministic("normal1_cdf", probs1)
     pm.Multinomial("counts1", p=probs1, n=c1.sum(), observed=c1.values)
     # study 2
@@ -612,13 +612,13 @@ with pm.Model(coords=coords) as model5:
     )
 
     # Study 1
-    probs1 = at.exp(pm.logcdf(pm.Normal.dist(mu=mu[0], sigma=sigma[0]), d1))
-    probs1 = at.extra_ops.diff(at.concatenate([np.array([0]), probs1, np.array([1])]))
+    probs1 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu[0], sigma=sigma[0]), d1))
+    probs1 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs1, np.array([1])]))
     probs1 = pm.Deterministic("normal1_cdf", probs1, dims="bin1")
 
     # Study 2
-    probs2 = at.exp(pm.logcdf(pm.Normal.dist(mu=mu[1], sigma=sigma[1]), d2))
-    probs2 = at.extra_ops.diff(at.concatenate([np.array([0]), probs2, np.array([1])]))
+    probs2 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu[1], sigma=sigma[1]), d2))
+    probs2 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs2, np.array([1])]))
     probs2 = pm.Deterministic("normal2_cdf", probs2, dims="bin2")
 
     # Likelihood
@@ -645,13 +645,13 @@ with pm.Model(coords=coords) as model5:
     sigma = pm.Gamma("sigma", alpha=2, beta=1, dims="study")
 
     # Study 1
-    probs1 = at.exp(pm.logcdf(pm.Normal.dist(mu=mu[0], sigma=sigma[0]), d1))
-    probs1 = at.extra_ops.diff(at.concatenate([np.array([0]), probs1, np.array([1])]))
+    probs1 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu[0], sigma=sigma[0]), d1))
+    probs1 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs1, np.array([1])]))
     probs1 = pm.Deterministic("normal1_cdf", probs1, dims="bin1")
 
     # Study 2
-    probs2 = at.exp(pm.logcdf(pm.Normal.dist(mu=mu[1], sigma=sigma[1]), d2))
-    probs2 = at.extra_ops.diff(at.concatenate([np.array([0]), probs2, np.array([1])]))
+    probs2 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu[1], sigma=sigma[1]), d2))
+    probs2 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs2, np.array([1])]))
     probs2 = pm.Deterministic("normal2_cdf", probs2, dims="bin2")
 
     # Likelihood
@@ -748,13 +748,13 @@ with pm.Model(coords=coords) as model5:
     sigma = pm.HalfNormal("sigma", dims='study')
     
     # Study 1
-    probs1 = at.exp(pm.logcdf(pm.Normal.dist(mu=mu[0], sigma=sigma[0]), d1))
-    probs1 = at.extra_ops.diff(at.concatenate([np.array([0]), probs1, np.array([1])]))
+    probs1 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu[0], sigma=sigma[0]), d1))
+    probs1 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs1, np.array([1])]))
     probs1 = pm.Deterministic("normal1_cdf", probs1, dims='bin1')
 
     # Study 2
-    probs2 = at.exp(pm.logcdf(pm.Normal.dist(mu=mu[1], sigma=sigma[1]), d2))
-    probs2 = at.extra_ops.diff(at.concatenate([np.array([0]), probs2, np.array([1])]))
+    probs2 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu[1], sigma=sigma[1]), d2))
+    probs2 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs2, np.array([1])]))
     probs2 = pm.Deterministic("normal2_cdf", probs2, dims='bin2')
 
     # Likelihood
@@ -855,12 +855,12 @@ with pm.Model() as model6:
     mu = pm.Normal("mu", 20, 5)
     beta = pm.HalfNormal("beta", 10)
 
-    probs1 = at.exp(pm.logcdf(pm.Gumbel.dist(mu=mu, beta=beta), d1))
-    probs1 = at.extra_ops.diff(at.concatenate([np.array([0]), probs1, np.array([1])]))
+    probs1 = pm.math.exp(pm.logcdf(pm.Gumbel.dist(mu=mu, beta=beta), d1))
+    probs1 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs1, np.array([1])]))
     probs1 = pm.Deterministic("gumbel_cdf1", probs1)
 
-    probs2 = at.exp(pm.logcdf(pm.Gumbel.dist(mu=mu, beta=beta), d2))
-    probs2 = at.extra_ops.diff(at.concatenate([np.array([0]), probs2, np.array([1])]))
+    probs2 = pm.math.exp(pm.logcdf(pm.Gumbel.dist(mu=mu, beta=beta), d2))
+    probs2 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs2, np.array([1])]))
     probs2 = pm.Deterministic("gumbel_cdf2", probs2)
 
     pm.Multinomial("counts1", p=probs1, n=c1.sum(), observed=c1.values)
@@ -945,7 +945,7 @@ We have presented a range of different examples here which makes clear that the 
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,xarray
+%watermark -n -u -v -iv -w -p aeppl,xarray
 ```
 
 :::{include} ../page_footer.md
