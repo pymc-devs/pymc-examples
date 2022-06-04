@@ -222,7 +222,7 @@ with pm.Model() as model1:
     sigma = pm.HalfNormal("sigma")
     mu = pm.Normal("mu")
 
-    probs1 = at.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma),d1))
+    probs1 = at.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), d1))
     probs1 = at.extra_ops.diff(at.concatenate([[0], probs1, [1]]))
     pm.Multinomial("counts1", p=probs1, n=c1.sum(), observed=c1.values)
 ```
@@ -327,7 +327,7 @@ with pm.Model() as model2:
     sigma = pm.HalfNormal("sigma")
     mu = pm.Normal("mu")
 
-    probs2 = at.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma),d2))
+    probs2 = at.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), d2))
     probs2 = at.extra_ops.diff(at.concatenate([[0], probs2, [1]]))
     pm.Multinomial("counts2", p=probs2, n=c2.sum(), observed=c2.values)
 ```
@@ -561,7 +561,9 @@ ax[1].set(title="Posterior predictive: Study 2", xlabel="$x$", ylabel="density")
 We can calculate the mean and standard deviation of the posterior predictive distribution for study 2 and see that they are close to our true parameters.
 
 ```{code-cell} ipython3
-np.mean(ppc.posterior_predictive.y.values.flatten()), np.std(ppc.posterior_predictive.y.values.flatten())
+np.mean(ppc.posterior_predictive.y.values.flatten()), np.std(
+    ppc.posterior_predictive.y.values.flatten()
+)
 ```
 
 ### Recovering parameters
@@ -601,7 +603,9 @@ with pm.Model(coords=coords) as model5:
 
     # Study level priors
     mu = pm.Normal("mu", mu=mu_pop_mean, sigma=mu_pop_variance, dims="study")
-    sigma = pm.TruncatedNormal("sigma", mu=sigma_pop_mean, sigma=sigma_pop_sigma, lower=0, dims="study")
+    sigma = pm.TruncatedNormal(
+        "sigma", mu=sigma_pop_mean, sigma=sigma_pop_sigma, lower=0, dims="study"
+    )
 
     # Study 1
     probs1 = at.exp(pm.logcdf(pm.Normal.dist(mu=mu[0], sigma=sigma[0]), d1))
@@ -942,7 +946,3 @@ We have presented a range of different examples here which makes clear that the 
 
 :::{include} ../page_footer.md
 :::
-
-```{code-cell} ipython3
-
-```
