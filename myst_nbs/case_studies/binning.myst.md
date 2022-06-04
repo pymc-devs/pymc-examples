@@ -14,7 +14,7 @@ kernelspec:
 (awkward_binning)=
 # Estimating parameters of a distribution from awkwardly binned data
 :::{post} Oct 23, 2021
-:tags: binned data, case study, parameter estimation, pymc.Bound, pymc.Deterministic, pymc.Gamma, pymc.HalfNormal, pymc.Model, pymc.Multinomial, pymc.Normal
+:tags: binned data, case study, parameter estimation
 :category: intermediate
 :author: Eric Ma, Benjamin T. Vincent
 :::
@@ -114,8 +114,12 @@ import numpy as np
 import pandas as pd
 import pymc as pm
 import seaborn as sns
+import warnings
 
-print(f"Running on PyMC v{pm.__version__}")
+warnings.filterwarnings(
+    action='ignore',
+    category=UserWarning
+)
 ```
 
 ```{code-cell} ipython3
