@@ -11,12 +11,12 @@ kernelspec:
   name: python3
 ---
 
-# Splines in PyMC3
+# Splines in PyMC
 
 :::{post} May 6, 2022 
-:tags: patsy, pymc.Deterministic, pymc.Exponential, pymc.Model, pymc.Normal, regression, spline
+:tags: patsy, regression, spline
 :category: beginner
-:author: Joshua Cook updated by Tyler James Burch, Chris Fonnesbeck
+:author: Joshua Cook updated by Tyler James Burch, Chris Fonnesbeck, Benjamin Vincent
 :::
 
 +++ {"tags": []}
