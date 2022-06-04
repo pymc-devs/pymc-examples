@@ -78,7 +78,7 @@ with pm.Model() as model:
     sigma = pm.HalfNormal("sigma")
     # generative process
     probs = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), cutpoints))
-    probs = pm.concatenate([[0], probs, [1]])
+    probs = pm.math.concatenate([[0], probs, [1]])
     probs = at.extra_ops.diff(probs)
     # likelihood
     pm.Multinomial("counts", p=probs, n=sum(counts), observed=counts)
@@ -87,11 +87,11 @@ with pm.Model() as model:
 The exact way we implement the models below differs only very slightly from this, but let's decompose how this works.
 Firstly we define priors over the `mu` and `sigma` parameters of the latent distribution. Then we have 3 lines which calculate the probability that any observed datum falls in a given bin. The first line of this
 ```python
-probs = probs = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), cutpoints))
+probs = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), cutpoints))
 ```
 calculates the cumulative density at each of the cutpoints. The second line 
 ```python
-probs = pm.concatenate([[0], probs, [1]])
+probs = pm.math.concatenate([[0], probs, [1]])
 ```
 simply concatenates the cumulative density at $-\infty$ (which is zero) and at $\infty$ (which is 1).
 The third line
@@ -227,7 +227,7 @@ with pm.Model() as model1:
     mu = pm.Normal("mu")
 
     probs1 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), d1))
-    probs1 = at.extra_ops.diff(at.concatenate([[0], probs1, [1]]))
+    probs1 = at.extra_ops.diff(pm.math.concatenate([[0], probs1, [1]]))
     pm.Multinomial("counts1", p=probs1, n=c1.sum(), observed=c1.values)
 ```
 
@@ -332,7 +332,7 @@ with pm.Model() as model2:
     mu = pm.Normal("mu")
 
     probs2 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), d2))
-    probs2 = at.extra_ops.diff(at.concatenate([[0], probs2, [1]]))
+    probs2 = at.extra_ops.diff(pm.math.concatenate([[0], probs2, [1]]))
     pm.Multinomial("counts2", p=probs2, n=c2.sum(), observed=c2.values)
 ```
 
