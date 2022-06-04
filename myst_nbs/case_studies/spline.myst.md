@@ -11,12 +11,13 @@ kernelspec:
   name: python3
 ---
 
-# Splines in PyMC
+(spline)=
+# Splines
 
-:::{post} May 6, 2022 
+:::{post} June 4, 2022 
 :tags: patsy, regression, spline
 :category: beginner
-:author: Joshua Cook updated by Tyler James Burch, Chris Fonnesbeck, Benjamin Vincent
+:author: Joshua Cook, Tyler James Burch, Chris Fonnesbeck, Benjamin Vincent
 :::
 
 +++ {"tags": []}
