@@ -17,7 +17,7 @@ kernelspec:
 :::{post} May, 2022
 :tags: censoring, survival analysis
 :category: intermediate, how-to
-:author: Luis Mario Domenzain, George Ho, Benjamin T. Vincent
+:author: Luis Mario Domenzain
 :::
 
 ```{code-cell} ipython3

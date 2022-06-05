@@ -17,7 +17,7 @@ kernelspec:
 :::{post} June, 2022
 :tags: generalized linear model, regression
 :category: intermediate
-:author: Thomas Wiecki, Benjamin T. Vincent
+:author: Thomas Wiecki
 :::
 
 +++
