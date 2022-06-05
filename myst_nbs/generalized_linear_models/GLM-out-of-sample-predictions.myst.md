@@ -24,15 +24,16 @@ kernelspec:
 For many applications we require doing predictions on out-of-sample data. This experiment was motivated by the discussion of the thread ["Out of sample" predictions with the GLM sub-module](https://discourse.pymc.io/t/out-of-sample-predictions-with-the-glm-sub-module/773) on the (great!) forum [discourse.pymc.io/](https://discourse.pymc.io/), thank you all for your input! But note that this GLM sub-module was deprecated in favour of [`bambi`](https://github.com/bambinos/bambi). But this notebook implements a 'raw' PyMC model.
 
 ```{code-cell} ipython3
+import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
-import arviz as az
 import patsy
 import pymc as pm
+import seaborn as sns
+
 from scipy.special import expit as inverse_logit
-from sklearn.metrics import RocCurveDisplay, auc, roc_curve, accuracy_score
+from sklearn.metrics import RocCurveDisplay, accuracy_score, auc, roc_curve
 from sklearn.model_selection import train_test_split
 ```
 
@@ -109,16 +110,16 @@ x_train, x_test, y_train, y_test = train_test_split(x, y, train_size=0.7)
 We now specify the model in PyMC.
 
 ```{code-cell} ipython3
-COORDS ={'coeffs': labels}
+COORDS = {"coeffs": labels}
 
 with pm.Model(coords=COORDS) as model:
     # data containers
     X = pm.MutableData("X", x_train)
     y = pm.MutableData("y", y_train)
     # priors
-    b = pm.Normal("b", mu=0, sigma=1, dims='coeffs')
+    b = pm.Normal("b", mu=0, sigma=1, dims="coeffs")
     # linear model
-    mu = pm.math.dot(X,b)
+    mu = pm.math.dot(X, b)
     # link function
     p = pm.Deterministic("p", pm.math.invlogit(mu))
     # likelihood
@@ -133,7 +134,7 @@ with model:
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(idata, var_names='b', compact=False);
+az.plot_trace(idata, var_names="b", compact=False);
 ```
 
 The chains look good.
@@ -145,7 +146,9 @@ az.summary(idata, var_names="b")
 And we do a good job of recovering the true parameters for this simulated dataset.
 
 ```{code-cell} ipython3
-az.plot_posterior(idata, var_names=["b"], ref_val=[intercept, beta_x1, beta_x2, beta_interaction], figsize=(15, 4));
+az.plot_posterior(
+    idata, var_names=["b"], ref_val=[intercept, beta_x1, beta_x2, beta_interaction], figsize=(15, 4)
+);
 ```
 
 ## Generate Out-Of-Sample Predictions
@@ -222,6 +225,7 @@ def make_grid():
     x_grid = np.stack(arrays=[x1_mesh.flatten(), x2_mesh.flatten()], axis=1)
     return x1_grid, x2_grid, x_grid
 
+
 x1_grid, x2_grid, x_grid = make_grid()
 
 with model:
@@ -231,13 +235,13 @@ with model:
     # set the observed variables
     pm.set_data({"X": x_grid_ext})
     # calculate pushforward values of `p`
-    ppc_grid = pm.sample_posterior_predictive(idata, var_names=['p'])
+    ppc_grid = pm.sample_posterior_predictive(idata, var_names=["p"])
 ```
 
 ```{code-cell} ipython3
 # grid of predictions
 grid_df = pd.DataFrame(x_grid, columns=["x1", "x2"])
-grid_df["p"] = ppc_grid.posterior_predictive.p.mean(dim=['chain','draw'])
+grid_df["p"] = ppc_grid.posterior_predictive.p.mean(dim=["chain", "draw"])
 # grid_df.sort_values("p", inplace=True)
 p_grid = grid_df.pivot(index="x2", columns="x1", values="p").to_numpy()
 ```
@@ -247,12 +251,12 @@ Now we compute the model decision boundary on the grid for visualization purpose
 ```{code-cell} ipython3
 def calc_decision_boundary(idata, x1_grid):
     # posterior mean of coefficients
-    intercept = idata.posterior.b.sel(coeffs='Intercept').mean().data
-    x1 = idata.posterior.b.sel(coeffs='x1').mean().data
-    x2 = idata.posterior.b.sel(coeffs='x2').mean().data
-    x1x2 = idata.posterior.b.sel(coeffs='x1:x2').mean().data
+    intercept = idata.posterior.b.sel(coeffs="Intercept").mean().data
+    x1 = idata.posterior.b.sel(coeffs="x1").mean().data
+    x2 = idata.posterior.b.sel(coeffs="x2").mean().data
+    x1x2 = idata.posterior.b.sel(coeffs="x1:x2").mean().data
     # decision boundary equation
-    return - (intercept + x1 * x1_grid) / (x2 + x1x2 * x1_grid)
+    return -(intercept + x1 * x1_grid) / (x2 + x1x2 * x1_grid)
 ```
 
 We finally get the plot and the predictions on the test set:
@@ -277,7 +281,6 @@ ax.plot(x1_grid, calc_decision_boundary(idata, x1_grid), color="black", linestyl
 ax.contourf(x1_grid, x2_grid, p_grid, alpha=0.3, cmap=cmap)
 
 ax.legend(title="y", loc="center left", bbox_to_anchor=(1, 0.5))
-# ax.lines[0].set_linestyle("dotted")
 ax.set(title="Model Decision Boundary", xlim=(-9, 9), ylim=(-9, 9), xlabel="x1", ylabel="x2");
 ```
 
