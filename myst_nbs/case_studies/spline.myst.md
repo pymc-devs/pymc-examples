@@ -6,7 +6,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3.9.10 ('pymc-dev-py39')
+  display_name: Python 3.10.4 ('pymc_env')
   language: python
   name: python3
 ---
@@ -17,7 +17,7 @@ kernelspec:
 :::{post} June 4, 2022 
 :tags: patsy, regression, spline
 :category: beginner
-:author: Joshua Cook, Tyler James Burch, Chris Fonnesbeck, Benjamin Vincent
+:author: Joshua Cook
 :::
 
 +++ {"tags": []}
@@ -273,6 +273,14 @@ plt.fill_between(
 :::{bibliography}
 :filter: docname in docnames
 :::
+
++++
+
+## Authors
+
+- Created by Joshua Cook
+- Updated by Tyler James Burch
+- Updated by Chris Fonnesbeck
 
 +++
 
