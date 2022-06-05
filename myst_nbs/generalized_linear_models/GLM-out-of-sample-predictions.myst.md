@@ -78,8 +78,7 @@ sns.pairplot(data=df, kind="scatter");
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots()
-sns_c_div = sns.diverging_palette(240, 10, n=2)
-sns.scatterplot(x="x1", y="x2", data=df, hue="y", palette=[sns_c_div[0], sns_c_div[-1]])
+sns.scatterplot(x="x1", y="x2", data=df, hue="y")
 ax.legend(title="y")
 ax.set(title="Sample Data", xlim=(-9, 9), ylim=(-9, 9));
 ```
@@ -236,7 +235,6 @@ with model:
 # grid of predictions
 grid_df = pd.DataFrame(x_grid, columns=["x1", "x2"])
 grid_df["p"] = ppc_grid.posterior_predictive.p.mean(dim=["chain", "draw"])
-# grid_df.sort_values("p", inplace=True)
 p_grid = grid_df.pivot(index="x2", columns="x1", values="p").to_numpy()
 ```
 
@@ -245,26 +243,24 @@ Now we compute the model decision boundary on the grid for visualization purpose
 ```{code-cell} ipython3
 def calc_decision_boundary(idata, x1_grid):
     # posterior mean of coefficients
-    intercept = idata.posterior.b.sel(coeffs="b0").mean().data
-    x1 = idata.posterior.b.sel(coeffs="b1").mean().data
-    x2 = idata.posterior.b.sel(coeffs="b2").mean().data
-    x1x2 = idata.posterior.b.sel(coeffs="b1:b2").mean().data
+    intercept = idata.posterior["b"].sel(coeffs="b0").mean().data
+    b1 = idata.posterior["b"].sel(coeffs="b1").mean().data
+    b2 = idata.posterior["b"].sel(coeffs="b2").mean().data
+    b1b2 = idata.posterior["b"].sel(coeffs="b1:b2").mean().data
     # decision boundary equation
-    return -(intercept + x1 * x1_grid) / (x2 + x1x2 * x1_grid)
+    return -(intercept + b1 * x1_grid) / (b2 + b1b2 * x1_grid)
 ```
 
 We finally get the plot and the predictions on the test set:
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots()
-cmap = sns.diverging_palette(240, 10, n=50, as_cmap=True)
 
 # data
 sns.scatterplot(
     x=x_test[:, 1].flatten(),
     y=x_test[:, 2].flatten(),
     hue=y_test,
-    palette=[sns_c_div[0], sns_c_div[-1]],
     ax=ax,
 )
 
@@ -272,7 +268,7 @@ sns.scatterplot(
 ax.plot(x1_grid, calc_decision_boundary(idata, x1_grid), color="black", linestyle=":")
 
 # grid of predictions
-ax.contourf(x1_grid, x2_grid, p_grid, alpha=0.3, cmap=cmap)
+ax.contourf(x1_grid, x2_grid, p_grid, alpha=0.3)
 
 ax.legend(title="y", loc="center left", bbox_to_anchor=(1, 0.5))
 ax.set(title="Model Decision Boundary", xlim=(-9, 9), ylim=(-9, 9), xlabel="x1", ylabel="x2");
