@@ -17,7 +17,7 @@ kernelspec:
 :::{post} April, 2022
 :tags: mixture model, classification
 :category: beginner
-:author: Benjamin T. Vincent
+:author: Abe Flaxman
 :::
 
 A [mixture model](https://en.wikipedia.org/wiki/Mixture_model) allows us to make inferences about the component contributors to a distribution of data. More specifically, a Gaussian Mixture Model allows us to make inferences about the means and standard deviations of a specified number of underlying component Gaussian distributions.
