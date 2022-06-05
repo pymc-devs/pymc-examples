@@ -38,9 +38,9 @@ from sklearn.model_selection import train_test_split
 ```
 
 ```{code-cell} ipython3
-%config InlineBackend.figure_format = 'retina'
+RANDOM_SEED = 8927
+rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
-rng = np.random.default_rng(1234)
 ```
 
 ## Generate Sample Data
@@ -93,12 +93,6 @@ labels = x.design_info.column_names
 x = np.asarray(x)
 ```
 
-As pointed out on the [thread](https://discourse.pymc.io/t/out-of-sample-predictions-with-the-glm-sub-module/773) (thank you @Nicky!), we need to keep the labels of the features in the design matrix.
-
-```{code-cell} ipython3
-print(f"labels = {labels}")
-```
-
 Now we do a train-test split.
 
 ```{code-cell} ipython3
@@ -110,7 +104,7 @@ x_train, x_test, y_train, y_test = train_test_split(x, y, train_size=0.7)
 We now specify the model in PyMC.
 
 ```{code-cell} ipython3
-COORDS = {"coeffs": labels}
+COORDS = {"coeffs": ["b0", "b1", "b2", "b1:b2"]}
 
 with pm.Model(coords=COORDS) as model:
     # data containers
@@ -163,7 +157,7 @@ with model:
 
 ```{code-cell} ipython3
 # Compute the point prediction by taking the mean and defining the category via a threshold.
-p_test_pred = idata.posterior_predictive.obs.mean(dim=["chain", "draw"])
+p_test_pred = idata.posterior_predictive["obs"].mean(dim=["chain", "draw"])
 y_test_pred = (p_test_pred >= 0.5).astype("int")
 ```
 
@@ -284,7 +278,7 @@ ax.legend(title="y", loc="center left", bbox_to_anchor=(1, 0.5))
 ax.set(title="Model Decision Boundary", xlim=(-9, 9), ylim=(-9, 9), xlabel="x1", ylabel="x2");
 ```
 
-**Remark:** Note that we have computed the model decision boundary by using the mean of the posterior samples. However, we can generate a better (and more informative!) plot if we use the complete distribution (similarly for other metrics like accuracy and auc). One way of doing this is by storing and computing it inside the model definition as a `Deterministic` variable as in [Bayesian Analysis with Python (Second edition) - Chapter 4](https://github.com/aloctavodia/BAP/blob/master/code/Chp4/04_Generalizing_linear_models.ipynb).
+Note that we have computed the model decision boundary by using the mean of the posterior samples. However, we can generate a better (and more informative!) plot if we use the complete distribution (similarly for other metrics like accuracy and AUC).
 
 +++
 
