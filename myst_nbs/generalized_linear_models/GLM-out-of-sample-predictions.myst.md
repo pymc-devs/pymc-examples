@@ -245,10 +245,10 @@ Now we compute the model decision boundary on the grid for visualization purpose
 ```{code-cell} ipython3
 def calc_decision_boundary(idata, x1_grid):
     # posterior mean of coefficients
-    intercept = idata.posterior.b.sel(coeffs="Intercept").mean().data
-    x1 = idata.posterior.b.sel(coeffs="x1").mean().data
-    x2 = idata.posterior.b.sel(coeffs="x2").mean().data
-    x1x2 = idata.posterior.b.sel(coeffs="x1:x2").mean().data
+    intercept = idata.posterior.b.sel(coeffs="b0").mean().data
+    x1 = idata.posterior.b.sel(coeffs="b1").mean().data
+    x2 = idata.posterior.b.sel(coeffs="b2").mean().data
+    x1x2 = idata.posterior.b.sel(coeffs="b1:b2").mean().data
     # decision boundary equation
     return -(intercept + x1 * x1_grid) / (x2 + x1x2 * x1_grid)
 ```
