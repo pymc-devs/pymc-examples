@@ -85,7 +85,7 @@ y_i & \sim \mathcal{N}(z_i, \alpha\cdot\sigma^2)
 \end{aligned}
 \end{equation}
 
-where $z$ is the hidden Brownian motion, $y$ is the observed data, and the total variance $\sigma^2$ of each ovservation is split between the hidden Brownian motion and the noise in proportions of $1 - \alpha$ and $\alpha$ respectively, with parameter $0 < \alpha < 1$ specifying the degree of smoothing.
+where $z$ is the hidden Brownian motion, $y$ is the observed data, and the total variance $\sigma^2$ of each observation is split between the hidden Brownian motion and the noise in proportions of $1 - \alpha$ and $\alpha$ respectively, with parameter $0 < \alpha < 1$ specifying the degree of smoothing.
 
 When we estimate the maximum likelihood values of the hidden process $z_i$ at each of the data points, $i=1,\dots,N$, these values provide an approximation of the functional dependency $y=f(x)$ as $\mathrm{E}\,[f(x_i)] = z_i$ at the original data points $x_i$ only. Therefore, again, the method is called smoothing and not regression.
 
@@ -155,7 +155,7 @@ title(f"Smoothing={smoothing}");
 
 ### Smoothing "to the limits"
 
-By increading the smoothing parameter, we can gradually make the inferred values of the hidden Brownian motion approach the average value of the data. This is because as we increase the smoothing parameter, we allow less and less of the variance to be allocated to the Brownian motion, so eventually it aproaches the process which almost doesn't change over the domain of $x$:
+By increasing the smoothing parameter, we can gradually make the inferred values of the hidden Brownian motion approach the average value of the data. This is because as we increase the smoothing parameter, we allow less and less of the variance to be allocated to the Brownian motion, so eventually it approaches the process which almost doesn't change over the domain of $x$:
 
 ```{code-cell} ipython3
 fig, axes = subplots(2, 2)

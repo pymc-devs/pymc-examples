@@ -107,12 +107,12 @@ I will start by introducing the forward sensitivity analysis.
 
 ## ODE sensitivity analysis
 
-For a coupled ODE system $\frac{d X(t)}{dt} = \boldsymbol{f}(X(t),\boldsymbol{\theta})$, the local sensitivity of the solution to a parameter is defined by how much the solution would change by changes in the parameter, i.e. the sensitivity of the the $k$-th state is simply put the time evolution of its graident w.r.t. the $d$-th parameter. This quantitiy, denoted as $Z_{kd}(t)$, is given by
+For a coupled ODE system $\frac{d X(t)}{dt} = \boldsymbol{f}(X(t),\boldsymbol{\theta})$, the local sensitivity of the solution to a parameter is defined by how much the solution would change by changes in the parameter, i.e. the sensitivity of the the $k$-th state is simply put the time evolution of its graident w.r.t. the $d$-th parameter. This quantity, denoted as $Z_{kd}(t)$, is given by
 $$Z_{kd}(t)=\frac{d }{d t} \left\{\frac{\partial X_k (t)}{\partial \theta_d}\right\} = \sum_{i=1}^K \frac{\partial f_k}{\partial X_i (t)}\frac{\partial X_i (t)}{\partial \theta_d} + \frac{\partial f_k}{\partial \theta_d}.$$
 
 Using forward sensitivity analysis we can obtain both the state $X(t)$ and its derivative w.r.t the parameters, at each time point, as the solution to an initial value problem by augmenting the original ODE system with the sensitivity equations $Z_{kd}$. The augmented ODE system $\big(X(t), Z(t)\big)$ can then be solved together using a chosen numerical method. The augmented ODE system needs the initial values for the sensitivity equations. All of these should be set to zero except the ones where the sensitivity of a state w.r.t. its own initial value is sought, that is $  \frac{\partial X_k(t)}{\partial X_k (0)} =1 $. Note that in order to solve this augmented system we have to embark in the tedious process of deriving $ \frac{\partial f_k}{\partial X_i (t)}$, also known as the Jacobian of an ODE, and $\frac{\partial f_k}{\partial \theta_d}$ terms. Thankfully, many ODE solvers calculate these terms and solve the augmented system when asked for by the user. An example would be the [SUNDIAL CVODES solver suite](https://computation.llnl.gov/projects/sundials/cvodes). A Python wrapper for CVODES can be found [here](https://jmodelica.org/assimulo/). 
 
-However, for this tutorial I would go ahead and derive the terms mentioned above, manually, and solve the Lotka-Volterra ODEs alongwith the sensitivites in the following code block. The functions `jac` and `dfdp` below calculate $ \frac{\partial f_k}{\partial X_i (t)}$ and $\frac{\partial f_k}{\partial \theta_d}$ respectively for the Lotka-Volterra model. For conveniance I have transformed the sensitivity equation in a matrix form. Here I extended the solver code snippet above to include sensitivities when asked for.
+However, for this tutorial I would go ahead and derive the terms mentioned above, manually, and solve the Lotka-Volterra ODEs alongwith the sensitivites in the following code block. The functions `jac` and `dfdp` below calculate $ \frac{\partial f_k}{\partial X_i (t)}$ and $\frac{\partial f_k}{\partial \theta_d}$ respectively for the Lotka-Volterra model. For convenience I have transformed the sensitivity equation in a matrix form. Here I extended the solver code snippet above to include sensitivities when asked for.
 
 ```{code-cell} ipython3
 n_states = 2
@@ -198,7 +198,7 @@ For this model I have set the relative and absolute tolerances to $10^{-6}$ and 
 
 ## Custom ODE Op
 
-In order to define the custom `Op` I have written down two `theano.Op` classes `ODEGradop`, `ODEop`. `ODEop` essentially wraps the ODE solution and will be called by PyMC3. The `ODEGradop` wraps the numerical VSP and this op is then in turn used inside the `grad` method in the `ODEop` to return the VSP. Note that we pass in two functions: `state`, `numpy_vsp` as arguments to respective Ops. I will define these functions later. These functions act as shims using which we connect the python code for numerical solution of sate and VSP to Theano and thus PyMC3.
+In order to define the custom `Op` I have written down two `theano.Op` classes `ODEGradop`, `ODEop`. `ODEop` essentially wraps the ODE solution and will be called by PyMC3. The `ODEGradop` wraps the numerical VSP and this op is then in turn used inside the `grad` method in the `ODEop` to return the VSP. Note that we pass in two functions: `state`, `numpy_vsp` as arguments to respective Ops. I will define these functions later. These functions act as shims using which we connect the python code for numerical solution of state and VSP to Theano and thus PyMC3.
 
 ```{code-cell} ipython3
 class ODEGradop(theano.tensor.Op):
@@ -318,7 +318,7 @@ plt.xticks(Year, rotation=45)
 plt.title("Lynx (predator) - Hare (prey): oscillatory dynamics", fontsize=25);
 ```
 
-## The probablistic model
+## The probabilistic model
 
 I have now got all the ingredients needed in order to define the probabilistic model in PyMC3. As I have mentioned previously I will set up the probabilistic model with the exact same likelihood and priors used in the Stan example. The observed data is defined as follows:
 

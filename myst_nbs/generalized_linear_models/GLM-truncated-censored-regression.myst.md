@@ -132,7 +132,7 @@ def linear_regression(x, y):
     return model
 ```
 
-So we can run this on our truncated and our censored data, seperately.
+So we can run this on our truncated and our censored data, separately.
 
 ```{code-cell} ipython3
 :tags: []
@@ -356,12 +356,12 @@ This brings an end to our guide on truncated and censored data and truncated and
 ## Further topics
 It is also possible to treat the bounds as unknown latent parameters. If these are not known exactly and it is possible to fomulate a prior over these bounds, then it would be possible to infer what the bounds are. This could be argued as overkill however - depending on your data analysis context it may be entirely sufficient to extract 'good enough' point estimates of the bounds in order to get reasonable regression estimates.
 
-The censored regression model presented above takes one particular approach, and there are others. For example, it did not attempt to infer posterior beliefs over the true latent `y` values of the censored data. It is possible to build censored regression models which do impute these censored `y` values, but we did not address that here as the topic of [imputation](https://en.wikipedia.org/wiki/Imputation_(statistics)) deserves its own focussed treatment. The PyMC {ref}`censored_data` example also covers this topic, with a particular {ref}`example model to impute censored data <censored_data/model1>`.
+The censored regression model presented above takes one particular approach, and there are others. For example, it did not attempt to infer posterior beliefs over the true latent `y` values of the censored data. It is possible to build censored regression models which do impute these censored `y` values, but we did not address that here as the topic of [imputation](https://en.wikipedia.org/wiki/Imputation_(statistics)) deserves its own focused treatment. The PyMC {ref}`censored_data` example also covers this topic, with a particular {ref}`example model to impute censored data <censored_data/model1>`.
 
 +++
 
 ## Further reading
-When looking into this topic, I found that most of the material out there focusses on maximum likelihood estimation approaches, with focus on mathematical derivation rather than practical implementation. One good concise mathematical 80 page booklet by {cite:t}`breen1996regression` covers truncated and censored as well as other missing data scenarios. That said, a few pages are given over to this topic in Bayesian Data Analysis by {cite:t}`gelman2013bayesian`, and {cite:t}`gelman2020regression`.
+When looking into this topic, I found that most of the material out there focuses on maximum likelihood estimation approaches, with focus on mathematical derivation rather than practical implementation. One good concise mathematical 80 page booklet by {cite:t}`breen1996regression` covers truncated and censored as well as other missing data scenarios. That said, a few pages are given over to this topic in Bayesian Data Analysis by {cite:t}`gelman2013bayesian`, and {cite:t}`gelman2020regression`.
 
 +++
 

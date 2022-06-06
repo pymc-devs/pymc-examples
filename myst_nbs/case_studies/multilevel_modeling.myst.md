@@ -6,15 +6,16 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: Python 3.9.10 ('pymc-dev-py39')
   language: python
   name: python3
 ---
 
+(multilevel_modeling)=
 # A Primer on Bayesian Methods for Multilevel Modeling
 
-:::{post} 9 Nov, 2021
-:tags: hierarchical, pymc3.Data, pymc3.Deterministic, pymc3.Exponential, pymc3.LKJCholeskyCov, pymc3.Model, pymc3.MvNormal, pymc3.Normal
+:::{post} 27 February, 2022
+:tags: hierarchical model, case study
 :category: intermediate
 :author: Chris Fonnesbeck, Colin Carroll, Alex Andorra, Oriol Abril, Farhan Reynaldo
 :::
@@ -53,16 +54,15 @@ First, we import the data from a local file, and extract Minnesota's data.
 ```{code-cell} ipython3
 import os
 
+import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import xarray as xr
 
-from theano import tensor as tt
-
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -155,9 +155,9 @@ We'll start by estimating the slope and intercept for the complete pooling model
 Now for the model:
 
 ```{code-cell} ipython3
-coords = {"Level": ["Basement", "Floor"], "obs_id": np.arange(floor.size)}
-with pm.Model(coords=coords) as pooled_model:
-    floor_idx = pm.Data("floor_idx", floor, dims="obs_id")
+coords = {"Level": ["Basement", "Floor"]}
+with pm.Model(coords=coords, rng_seeder=RANDOM_SEED) as pooled_model:
+    floor_idx = pm.Data("floor_idx", floor, dims="obs_id", mutable=True)
     a = pm.Normal("a", 0.0, sigma=10.0, dims="Level")
 
     theta = a[floor_idx]
@@ -168,19 +168,18 @@ with pm.Model(coords=coords) as pooled_model:
 pm.model_to_graphviz(pooled_model)
 ```
 
-You may be wondering why we are using the `pm.Data` container above even though the variable `floor_idx` is not an observed variable nor a parameter of the model. As you'll see, this will make our lives much easier when we'll plot and diagnose our model. In short, this will tell [ArviZ](https://arviz-devs.github.io/arviz/index.html) that `floor_idx` is information used by the model to index variables. ArviZ will thus include `floor_idx` as a variable in the `constant_data` group of the resulting [`InferenceData`](https://arviz-devs.github.io/arviz/notebooks/XarrayforArviZ.html) object. Moreover, including `floor_idx` in the `InferenceData` object makes sharing and reproducing analysis much easier, all the data needed to analyze or rerun the model is stored there.
+You may be wondering why we are using the `pm.Data` container above even though the variable `floor_idx` is not an observed variable nor a parameter of the model. As you'll see, this will make our lives much easier when we'll plot and diagnose our model. In short, this will tell {doc}`Arviz <arviz:index>` that `floor_idx` is information used by the model to index variables. ArviZ will thus include `floor_idx` as a variable in the `constant_data` group of the resulting {ref}`InferenceData <xarray_for_arviz>` object. Moreover, including `floor_idx` in the `InferenceData` object makes sharing and reproducing analysis much easier, all the data needed to analyze or rerun the model is stored there.
 
 +++
 
-Before running the model let's do some prior predictive checks. Indeed, having sensible priors is not only a way to incorporate scientific knowledge into the model, it can also help and make the MCMC machinery faster -- here we are dealing with a simple linear regression, so no link function comes and distorts the outcome space; but one day this will happen to you and you'll need to think hard about your priors to help your MCMC sampler. So, better to train ourselves when it's quite easy than having to learn when it's very hard... There is a really neat function to do that in PyMC3:
+Before running the model let's do some prior predictive checks. Indeed, having sensible priors is not only a way to incorporate scientific knowledge into the model, it can also help and make the MCMC machinery faster -- here we are dealing with a simple linear regression, so no link function comes and distorts the outcome space; but one day this will happen to you and you'll need to think hard about your priors to help your MCMC sampler. So, better to train ourselves when it's quite easy than having to learn when it's very hard... There is a really neat function to do that in PyMC:
 
 ```{code-cell} ipython3
 with pooled_model:
-    prior_checks = pm.sample_prior_predictive(random_seed=RANDOM_SEED)
-    idata_prior = az.from_pymc3(prior=prior_checks)
+    prior_checks = pm.sample_prior_predictive()
 
 _, ax = plt.subplots()
-idata_prior.prior.plot.scatter(x="Level", y="a", color="k", alpha=0.2, ax=ax)
+prior_checks.prior.plot.scatter(x="Level", y="a", color="k", alpha=0.2, ax=ax)
 ax.set_ylabel("Mean log radon level");
 ```
 
@@ -188,7 +187,7 @@ ArviZ `InferenceData` uses `xarray.Dataset`s under the hood, which give access t
 
 +++
 
-I'm no expert in radon levels, but, before seing the data, these priors seem to allow for quite a wide range of the mean log radon level. But don't worry, we can always change these priors if sampling gives us hints that they might not be appropriate -- after all, priors are assumptions, not oaths; and as most assumptions, they can be tested.
+I'm no expert in radon levels, but, before seeing the data, these priors seem to allow for quite a wide range of the mean log radon level. But don't worry, we can always change these priors if sampling gives us hints that they might not be appropriate -- after all, priors are assumptions, not oaths; and as with most assumptions, they can be tested.
 
 However, we can already think of an improvement. Do you see it? Remember what we said at the beginning: radon levels tend to be higher in basements, so we could incorporate this prior scientific knowledge into our model by giving $a_{basement}$ a higher mean than $a_{floor}$. Here, there are so much data that the prior should be washed out anyway, but we should keep this fact in mind -- for future cases or if sampling proves more difficult than expected...
 
@@ -196,9 +195,10 @@ Speaking of sampling, let's fire up the Bayesian machinery!
 
 ```{code-cell} ipython3
 with pooled_model:
-    pooled_trace = pm.sample(random_seed=RANDOM_SEED, return_inferencedata=False)
-    pooled_idata = az.from_pymc3(pooled_trace)
-az.summary(pooled_idata, round_to=2)
+    pooled_trace = pm.sample()
+
+pooled_trace.extend(prior_checks)
+az.summary(pooled_trace, round_to=2)
 ```
 
 No divergences and a sampling that only took seconds -- this is the Flash of samplers! Here the chains look very good (good R hat, good effective sample size, small sd), but remember to check your chains after sampling -- `az.plot_trace` is usually a good start.
@@ -207,8 +207,7 @@ Let's see what it means on the outcome space: did the model pick-up the negative
 
 ```{code-cell} ipython3
 with pooled_model:
-    ppc = pm.sample_posterior_predictive(pooled_trace, random_seed=RANDOM_SEED)
-    pooled_idata = az.from_pymc3(pooled_trace, posterior_predictive=ppc, prior=prior_checks)
+    ppc = pm.sample_posterior_predictive(pooled_trace)
 ```
 
 +++ {"raw_mimetype": "text/html"}
@@ -216,7 +215,7 @@ with pooled_model:
 We have now converted our trace and posterior predictive samples into an `arviz.InferenceData` object. `InferenceData` is specifically designed to centralize all the relevant quantities of a Bayesian inference workflow into a single object. This will also make the rendering of plots and diagnostics faster -- otherwise ArviZ will need to convert your trace to InferenceData each time you call it.
 
 ```{code-cell} ipython3
-pooled_idata
+pooled_trace.extend(ppc)
 ```
 
 +++ {"raw_mimetype": "text/html"}
@@ -230,7 +229,7 @@ Now that we have some context on reducing dims in ArviZ and xarray, let's move t
 ```{code-cell} ipython3
 hdi_helper = lambda ds: az.hdi(ds, input_core_dims=[["chain", "draw", "obs_id"]])
 hdi_ppc = (
-    pooled_idata.posterior_predictive.y.groupby(pooled_idata.constant_data.floor_idx)
+    pooled_trace.posterior_predictive.y.groupby(pooled_trace.constant_data.floor_idx)
     .apply(hdi_helper)
     .y
 )
@@ -244,8 +243,8 @@ In addition, ArviZ has also included the `hdi_prob` as an attribute of the `hdi`
 We will now add one extra coordinate to the `observed_data` group: the `Level` labels (not indices). This will allow xarray to automatically generate the correct xlabel and xticklabels so we don't have to worry about labeling too much. In this particular case we will only do one plot, which makes the adding of a coordinate a bit of an overkill. In many cases however, we will have several plots and using this approach will automate labeling for _all_ plots. Eventually, we will sort by Level coordinate to make sure `Basement` is the first value and goes at the left of the plot.
 
 ```{code-cell} ipython3
-level_labels = pooled_idata.posterior.Level[pooled_idata.constant_data.floor_idx]
-pooled_idata.observed_data = pooled_idata.observed_data.assign_coords(Level=level_labels).sortby(
+level_labels = pooled_trace.posterior.Level[pooled_trace.constant_data.floor_idx]
+pooled_trace.observed_data = pooled_trace.observed_data.assign_coords(Level=level_labels).sortby(
     "Level"
 )
 ```
@@ -253,10 +252,10 @@ pooled_idata.observed_data = pooled_idata.observed_data.assign_coords(Level=leve
 We can then use these samples in our plot:
 
 ```{code-cell} ipython3
-pooled_means = pooled_idata.posterior.mean(dim=("chain", "draw"))
+pooled_means = pooled_trace.posterior.mean(dim=("chain", "draw"))
 
 _, ax = plt.subplots()
-pooled_idata.observed_data.plot.scatter(x="Level", y="y", label="Observations", alpha=0.4, ax=ax)
+pooled_trace.observed_data.plot.scatter(x="Level", y="y", label="Observations", alpha=0.4, ax=ax)
 
 az.plot_hdi(
     [0, 1],
@@ -266,7 +265,7 @@ az.plot_hdi(
 )
 
 az.plot_hdi(
-    [0, 1], pooled_idata.posterior.a, fill_kwargs={"alpha": 0.5, "label": "Exp. mean HPD"}, ax=ax
+    [0, 1], pooled_trace.posterior.a, fill_kwargs={"alpha": 0.5, "label": "Exp. mean HPD"}, ax=ax
 )
 ax.plot([0, 1], pooled_means.a, label="Exp. mean")
 
@@ -280,9 +279,9 @@ Let's compare it to the unpooled model, where we estimate the radon level for ea
 
 ```{code-cell} ipython3
 coords["County"] = mn_counties
-with pm.Model(coords=coords) as unpooled_model:
-    floor_idx = pm.Data("floor_idx", floor, dims="obs_id")
-    county_idx = pm.Data("county_idx", county, dims="obs_id")
+with pm.Model(coords=coords, rng_seeder=RANDOM_SEED) as unpooled_model:
+    floor_idx = pm.Data("floor_idx", floor, dims="obs_id", mutable=True)
+    county_idx = pm.Data("county_idx", county, dims="obs_id", mutable=True)
     a = pm.Normal("a", 0.0, sigma=10.0, dims=("County", "Level"))
 
     theta = a[county_idx, floor_idx]
@@ -294,14 +293,14 @@ pm.model_to_graphviz(unpooled_model)
 
 ```{code-cell} ipython3
 with unpooled_model:
-    unpooled_idata = pm.sample(return_inferencedata=True, random_seed=RANDOM_SEED)
+    unpooled_trace = pm.sample()
 ```
 
 Sampling went fine again. Let's look at the expected values for both basement (dimension 0) and floor (dimension 1) in each county:
 
 ```{code-cell} ipython3
 az.plot_forest(
-    unpooled_idata, var_names="a", figsize=(6, 32), r_hat=True, combined=True, textsize=8
+    unpooled_trace, var_names="a", figsize=(6, 32), r_hat=True, combined=True, textsize=8
 );
 ```
 
@@ -310,8 +309,8 @@ Sampling was good for all counties, but you can see that some are more uncertain
 To identify counties with high radon levels, we can plot the ordered mean estimates, as well as their 94% HPD:
 
 ```{code-cell} ipython3
-unpooled_means = unpooled_idata.posterior.mean(dim=("chain", "draw"))
-unpooled_hdi = az.hdi(unpooled_idata)
+unpooled_means = unpooled_trace.posterior.mean(dim=("chain", "draw"))
+unpooled_hdi = az.hdi(unpooled_trace)
 ```
 
 We will now take advantage of label based indexing for Datasets with the `sel` method and of automagical sorting capabilities. We first sort using the values of a specific 1D variable `a`. Then, thanks to `unpooled_means` and `unpooled_hdi` both having the `County` dimension, we can pass a 1D DataArray to sort the second dataset too.
@@ -372,22 +371,22 @@ SAMPLE_COUNTIES = (
     "ST LOUIS",
 )
 
-unpooled_idata.observed_data = unpooled_idata.observed_data.assign_coords(
+unpooled_trace.observed_data = unpooled_trace.observed_data.assign_coords(
     {
-        "County": ("obs_id", mn_counties[unpooled_idata.constant_data.county_idx]),
+        "County": ("obs_id", mn_counties[unpooled_trace.constant_data.county_idx]),
         "Level": (
             "obs_id",
-            np.array(["Basement", "Floor"])[unpooled_idata.constant_data.floor_idx],
+            np.array(["Basement", "Floor"])[unpooled_trace.constant_data.floor_idx],
         ),
     }
 )
 
 fig, axes = plt.subplots(2, 4, figsize=(12, 6), sharey=True, sharex=True)
 for ax, c in zip(axes.ravel(), SAMPLE_COUNTIES):
-    sample_county_mask = unpooled_idata.observed_data.County.isin([c])
+    sample_county_mask = unpooled_trace.observed_data.County.isin([c])
 
     # plot obs:
-    unpooled_idata.observed_data.where(sample_county_mask, drop=True).sortby("Level").plot.scatter(
+    unpooled_trace.observed_data.where(sample_county_mask, drop=True).sortby("Level").plot.scatter(
         x="Level", y="y", ax=ax, alpha=0.4
     )
 
@@ -415,15 +414,15 @@ But how do we do that? Well, ladies and gentlemen, let me introduce you to... hi
 
 When we pool our data, we imply that they are sampled from the same model. This ignores any variation among sampling units (other than sampling variance) -- we assume that counties are all the same:
 
-![pooled](http://f.cl.ly/items/0R1W063h1h0W2M2C0S3M/Screen%20Shot%202013-10-10%20at%208.22.21%20AM.png)
+![pooled](pooled_model.png)
 
 When we analyze data unpooled, we imply that they are sampled independently from separate models. At the opposite extreme from the pooled case, this approach claims that differences between sampling units are too large to combine them -- we assume that counties have no similarity whatsoever:
 
-![unpooled](http://f.cl.ly/items/38020n2t2Y2b1p3t0B0e/Screen%20Shot%202013-10-10%20at%208.23.36%20AM.png)
+![unpooled](unpooled_model.png)
 
 In a hierarchical model, parameters are viewed as a sample from a population distribution of parameters. Thus, we view them as being neither entirely different or exactly the same. This is ***partial pooling***:
 
-![hierarchical](http://f.cl.ly/items/1B3U223i002y3V2W3r0W/Screen%20Shot%202013-10-10%20at%208.25.05%20AM.png)
+![hierarchical](partial_pooled_model.png)
 
 We can use PyMC to easily specify multilevel models, and fit them using Markov chain Monte Carlo.
 
@@ -440,8 +439,8 @@ Estimates for counties with smaller sample sizes will shrink towards the state-w
 Estimates for counties with larger sample sizes will be closer to the unpooled county estimates and will influence the the state-wide average.
 
 ```{code-cell} ipython3
-with pm.Model(coords=coords) as partial_pooling:
-    county_idx = pm.Data("county_idx", county, dims="obs_id")
+with pm.Model(coords=coords, rng_seeder=RANDOM_SEED) as partial_pooling:
+    county_idx = pm.Data("county_idx", county, dims="obs_id", mutable=True)
     # Hyperpriors:
     a = pm.Normal("a", mu=0.0, sigma=10.0)
     sigma_a = pm.Exponential("sigma_a", 1.0)
@@ -460,14 +459,14 @@ pm.model_to_graphviz(partial_pooling)
 
 ```{code-cell} ipython3
 with partial_pooling:
-    partial_pooling_idata = pm.sample(tune=2000, return_inferencedata=True, random_seed=RANDOM_SEED)
+    partial_pooling_trace = pm.sample(tune=2000)
 ```
 
 To compare partial-pooling and no-pooling estimates, let's run the unpooled model without the `floor` predictor:
 
 ```{code-cell} ipython3
-with pm.Model(coords=coords) as unpooled_bis:
-    county_idx = pm.Data("county_idx", county, dims="obs_id")
+with pm.Model(coords=coords, rng_seeder=RANDOM_SEED) as unpooled_bis:
+    county_idx = pm.Data("county_idx", county, dims="obs_id", mutable=True)
     a_county = pm.Normal("a_county", 0.0, sigma=10.0, dims="County")
 
     theta = a_county[county_idx]
@@ -475,7 +474,7 @@ with pm.Model(coords=coords) as unpooled_bis:
 
     y = pm.Normal("y", theta, sigma=sigma, observed=log_radon, dims="obs_id")
 
-    unpooled_idata_bis = pm.sample(tune=2000, return_inferencedata=True, random_seed=RANDOM_SEED)
+    unpooled_trace_bis = pm.sample(tune=2000)
 ```
 
 Now let's compare both models' estimates for all 85 counties. We'll plot the estimates against each county's sample size, to let you see more clearly what hierarchical models bring to the table:
@@ -484,20 +483,20 @@ Now let's compare both models' estimates for all 85 counties. We'll plot the est
 N_county = srrs_mn.groupby("county")["idnum"].count().values
 
 fig, axes = plt.subplots(1, 2, figsize=(10, 4), sharex=True, sharey=True)
-for ax, idata, level in zip(
+for ax, trace, level in zip(
     axes,
-    (unpooled_idata_bis, partial_pooling_idata),
+    (unpooled_trace_bis, partial_pooling_trace),
     ("no pooling", "partial pooling"),
 ):
 
     # add variable with x values to xarray dataset
-    idata.posterior = idata.posterior.assign_coords({"N_county": ("County", N_county)})
+    trace.posterior = trace.posterior.assign_coords({"N_county": ("County", N_county)})
     # plot means
-    idata.posterior.mean(dim=("chain", "draw")).plot.scatter(
+    trace.posterior.mean(dim=("chain", "draw")).plot.scatter(
         x="N_county", y="a_county", ax=ax, alpha=0.9
     )
     ax.hlines(
-        partial_pooling_idata.posterior.a.mean(),
+        partial_pooling_trace.posterior.a.mean(),
         0.9,
         max(N_county) + 1,
         alpha=0.4,
@@ -506,7 +505,7 @@ for ax, idata, level in zip(
     )
 
     # plot hdi
-    hdi = az.hdi(idata).a_county
+    hdi = az.hdi(trace).a_county
     ax.vlines(N_county, hdi.sel(hdi="lower"), hdi.sel(hdi="higher"), color="orange", alpha=0.5)
 
     ax.set(
@@ -541,9 +540,9 @@ $$\alpha_{j[i]} \sim N(\mu_{\alpha}, \sigma_{\alpha}^2)$$
 As with the the no-pooling model, we set a separate intercept for each county, but rather than fitting separate regression models for each county, multilevel modeling **shares strength** among counties, allowing for more reasonable inference in counties with little data. Here is what that looks in code:
 
 ```{code-cell} ipython3
-with pm.Model(coords=coords) as varying_intercept:
-    floor_idx = pm.Data("floor_idx", floor, dims="obs_id")
-    county_idx = pm.Data("county_idx", county, dims="obs_id")
+with pm.Model(coords=coords, rng_seeder=RANDOM_SEED) as varying_intercept:
+    floor_idx = pm.Data("floor_idx", floor, dims="obs_id", mutable=True)
+    county_idx = pm.Data("county_idx", county, dims="obs_id", mutable=True)
     # Hyperpriors:
     a = pm.Normal("a", mu=0.0, sigma=10.0)
     sigma_a = pm.Exponential("sigma_a", 1.0)
@@ -566,23 +565,21 @@ Let's fit this bad boy with MCMC:
 
 ```{code-cell} ipython3
 with varying_intercept:
-    varying_intercept_idata = pm.sample(
-        tune=2000, init="adapt_diag", random_seed=RANDOM_SEED, return_inferencedata=True
-    )
+    varying_intercept_trace = pm.sample(tune=2000, init="adapt_diag")
 ```
 
 ```{code-cell} ipython3
 az.plot_forest(
-    varying_intercept_idata, var_names=["a", "a_county"], r_hat=True, combined=True, textsize=9
+    varying_intercept_trace, var_names=["a", "a_county"], r_hat=True, combined=True, textsize=9
 );
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(varying_intercept_idata, var_names=["a", "sigma_a", "b", "sigma"]);
+az.plot_trace(varying_intercept_trace, var_names=["a", "sigma_a", "b", "sigma"]);
 ```
 
 ```{code-cell} ipython3
-az.summary(varying_intercept_idata, var_names=["a", "sigma_a", "b", "sigma"], round_to=2)
+az.summary(varying_intercept_trace, var_names=["a", "sigma_a", "b", "sigma"], round_to=2)
 ```
 
 As we suspected, the estimate for the `floor` coefficient is reliably negative and centered around -0.66. This can be interpreted as houses without basements having about half ($\exp(-0.66) = 0.52$) the radon levels of those with basements, after accounting for county. Note that this is only the *relative* effect of floor on radon levels: conditional on being in a given county, radon is expected to be half lower in houses without basements than in houses with. To see how much difference a basement makes on the *absolute* level of radon, we'd have to push the parameters through the model, as we do with posterior predictive checks and as we'll do just now.
@@ -593,7 +590,7 @@ To do so, we will take advantage of automatic broadcasting with xarray. We want 
 
 ```{code-cell} ipython3
 xvals = xr.DataArray([0, 1], dims="Level", coords={"Level": ["Basement", "Floor"]})
-post = varying_intercept_idata.posterior  # alias for readability
+post = varying_intercept_trace.posterior  # alias for readability
 theta = (
     (post.a_county + post.b * xvals).mean(dim=("chain", "draw")).to_dataset(name="Mean log radon")
 )
@@ -614,10 +611,10 @@ That being said, it is easy to show that the partial pooling model provides more
 ```{code-cell} ipython3
 fig, axes = plt.subplots(2, 4, figsize=(12, 6), sharey=True, sharex=True)
 for ax, c in zip(axes.ravel(), SAMPLE_COUNTIES):
-    sample_county_mask = unpooled_idata.observed_data.County.isin([c])
+    sample_county_mask = unpooled_trace.observed_data.County.isin([c])
 
     # plot obs:
-    unpooled_idata.observed_data.where(sample_county_mask, drop=True).sortby("Level").plot.scatter(
+    unpooled_trace.observed_data.where(sample_county_mask, drop=True).sortby("Level").plot.scatter(
         x="Level", y="y", ax=ax, alpha=0.4
     )
 
@@ -639,7 +636,7 @@ axes[0, 0].legend(fontsize=8, frameon=True), axes[1, 0].legend(fontsize=8, frame
 
 Here we clearly see the notion that partial-pooling is a compromise between no pooling and complete pooling, as its mean estimates are usually between the other models' estimates. And interestingly, the bigger (smaller) the sample size in a given county, the closer the partial-pooling estimates are to the no-pooling (complete-pooling) estimates.
 
-We see however that counties vary by more than just their baseline rates: the effect of floor seems to be different from one county to another. It would be great if our model could take that into account, wouldn't it? Well to do that, we need to allow the slope to vary by county -- not only the intercept -- and here is how you can do it with PyMC3.
+We see however that counties vary by more than just their baseline rates: the effect of floor seems to be different from one county to another. It would be great if our model could take that into account, wouldn't it? Well to do that, we need to allow the slope to vary by county -- not only the intercept -- and here is how you can do it with PyMC.
 
 +++
 
@@ -650,9 +647,9 @@ The most general model allows both the intercept and slope to vary by county:
 $$y_i = \alpha_{j[i]} + \beta_{j[i]} x_{i} + \epsilon_i$$
 
 ```{code-cell} ipython3
-with pm.Model(coords=coords) as varying_intercept_slope:
-    floor_idx = pm.Data("floor_idx", floor, dims="obs_id")
-    county_idx = pm.Data("county_idx", county, dims="obs_id")
+with pm.Model(coords=coords, rng_seeder=RANDOM_SEED) as varying_intercept_slope:
+    floor_idx = pm.Data("floor_idx", floor, dims="obs_id", mutable=True)
+    county_idx = pm.Data("county_idx", county, dims="obs_id", mutable=True)
 
     # Hyperpriors:
     a = pm.Normal("a", mu=0.0, sigma=5.0)
@@ -677,9 +674,9 @@ pm.model_to_graphviz(varying_intercept_slope)
 Now, if you run this model, you'll get divergences (some or a lot, depending on your random seed). We don't want that -- divergences are your Voldemort to your models. In these situations it's usually wise to reparametrize your model using the "non-centered parametrization" (I know, it's really not a great term, but please indulge me). We're not gonna explain it here, but there are [great resources out there](https://twiecki.io/blog/2017/02/08/bayesian-hierchical-non-centered/). In a nutshell, it's an algebraic trick that helps computation but leaves the model unchanged -- the model is statistically equivalent to the "centered" version. In that case, here is what it would look like:
 
 ```{code-cell} ipython3
-with pm.Model(coords=coords) as varying_intercept_slope:
-    floor_idx = pm.Data("floor_idx", floor, dims="obs_id")
-    county_idx = pm.Data("county_idx", county, dims="obs_id")
+with pm.Model(coords=coords, rng_seeder=RANDOM_SEED) as varying_intercept_slope:
+    floor_idx = pm.Data("floor_idx", floor, dims="obs_id", mutable=True)
+    county_idx = pm.Data("county_idx", county, dims="obs_id", mutable=True)
 
     # Hyperpriors:
     a = pm.Normal("a", mu=0.0, sigma=5.0)
@@ -699,9 +696,7 @@ with pm.Model(coords=coords) as varying_intercept_slope:
 
     y = pm.Normal("y", theta, sigma=sigma, observed=log_radon, dims="obs_id")
 
-    varying_intercept_slope_idata = pm.sample(
-        2000, tune=2000, target_accept=0.99, random_seed=RANDOM_SEED, return_inferencedata=True
-    )
+    varying_intercept_slope_trace = pm.sample(1000, tune=2000, target_accept=0.99)
 ```
 
 True, the code is uglier (for you, not for the computer), but:
@@ -711,10 +706,10 @@ True, the code is uglier (for you, not for the computer), but:
 Notice however that we had to increase the number of tuning steps. Looking at the trace helps us understand why:
 
 ```{code-cell} ipython3
-az.plot_trace(varying_intercept_slope_idata, compact=True, chain_prop={"ls": "-"});
+az.plot_trace(varying_intercept_slope_trace, compact=True, chain_prop={"ls": "-"});
 ```
 
-All chains look good and we get a negative `b` coefficient, illustrating the mean downward effect of no-basement on radon levels at the state level. But notice that `sigma_b` often gets very near zero -- which would indicate that counties don't vary that much in their answer to the `floor` "treatment". That's probably what bugged MCMC when using the centered parametrization: these situations usually yield a weird geometry for the sampler, causing the divergences. In other words, the non-centered form often perfoms better when one of the sigmas gets close to zero. But here, even with the non-centered model the sampler is not that comfortable with `sigma_b`: in fact if you look at the estimates with `az.summary` you'll probably see that the number of effective samples is quite low for `sigma_b`.
+All chains look good and we get a negative `b` coefficient, illustrating the mean downward effect of no-basement on radon levels at the state level. But notice that `sigma_b` often gets very near zero -- which would indicate that counties don't vary that much in their answer to the `floor` "treatment". That's probably what bugged MCMC when using the centered parametrization: these situations usually yield a weird geometry for the sampler, causing the divergences. In other words, the non-centered form often performs better when one of the sigmas gets close to zero. But here, even with the non-centered model the sampler is not that comfortable with `sigma_b`: in fact if you look at the estimates with `az.summary` you'll probably see that the number of effective samples is quite low for `sigma_b`.
 
 Also note that `sigma_a` is not that big either -- i.e counties do differ in their baseline radon levels, but not by a lot. However we don't have that much of a problem to sample from this distribution because it's much narrower than `sigma_b` and doesn't get dangerously close to 0.
 
@@ -722,7 +717,7 @@ To wrap up this model, let's plot the relationship between radon and floor for e
 
 ```{code-cell} ipython3
 xvals = xr.DataArray([0, 1], dims="Level", coords={"Level": ["Basement", "Floor"]})
-post = varying_intercept_slope_idata.posterior  # alias for readability
+post = varying_intercept_slope_trace.posterior  # alias for readability
 avg_a_county = (post.a + post.za_county * post.sigma_a).mean(dim=("chain", "draw"))
 avg_b_county = (post.b + post.zb_county * post.sigma_b).mean(dim=("chain", "draw"))
 theta = (avg_a_county + avg_b_county * xvals).to_dataset(name="Mean log radon")
@@ -750,27 +745,27 @@ $$\Sigma = \begin{pmatrix} \sigma_{\alpha} & 0 \\ 0 & \sigma_{\beta} \end{pmatri
      
 where $\alpha$ and $\beta$ are the mean intercept and slope respectively, $\sigma_{\alpha}$ and $\sigma_{\beta}$ represent the variation in intercepts and slopes respectively, and $P$ is the correlation matrix of intercepts and slopes. In this case, as their is only one slope, $P$ contains only one relevant figure: the correlation between $\alpha$ and $\beta$.
 
-This translates quite easily in PyMC3:
+This translates quite easily in PyMC:
 
 ```{code-cell} ipython3
 coords["param"] = ["a", "b"]
 coords["param_bis"] = ["a", "b"]
-with pm.Model(coords=coords) as covariation_intercept_slope:
-    floor_idx = pm.Data("floor_idx", floor, dims="obs_id")
-    county_idx = pm.Data("county_idx", county, dims="obs_id")
+with pm.Model(coords=coords, rng_seeder=RANDOM_SEED) as covariation_intercept_slope:
+    floor_idx = pm.Data("floor_idx", floor, dims="obs_id", mutable=True)
+    county_idx = pm.Data("county_idx", county, dims="obs_id", mutable=True)
 
     # prior stddev in intercepts & slopes (variation across counties):
-    sd_dist = pm.Exponential.dist(0.5)
+    sd_dist = pm.Exponential.dist(0.5, shape=(2,))
 
     # get back standard deviations and rho:
-    chol, corr, stds = pm.LKJCholeskyCov("chol", n=2, eta=2.0, sd_dist=sd_dist, compute_corr=True)
+    chol, corr, stds = pm.LKJCholeskyCov("chol", n=2, eta=2.0, sd_dist=sd_dist)
 
     # prior for average intercept:
     a = pm.Normal("a", mu=0.0, sigma=5.0)
     # prior for average slope:
     b = pm.Normal("b", mu=0.0, sigma=1.0)
     # population of varying effects:
-    ab_county = pm.MvNormal("ab_county", mu=tt.stack([a, b]), chol=chol, dims=("County", "param"))
+    ab_county = pm.MvNormal("ab_county", mu=at.stack([a, b]), chol=chol, dims=("County", "param"))
 
     # Expected value per county:
     theta = ab_county[county_idx, 0] + ab_county[county_idx, 1] * floor_idx
@@ -778,21 +773,20 @@ with pm.Model(coords=coords) as covariation_intercept_slope:
     sigma = pm.Exponential("sigma", 1.0)
 
     y = pm.Normal("y", theta, sigma=sigma, observed=log_radon, dims="obs_id")
-pm.model_to_graphviz(covariation_intercept_slope)
 ```
 
 This is by far the most complex model we've done so far, so it's normal if you're confused. Just take some time to let it sink in. The centered version mirrors the mathematical notions very closely, so you should be able to get the gist of it. Of course, you guessed it, we're gonna need the non-centered version. There is actually just one change:
 
 ```{code-cell} ipython3
-with pm.Model(coords=coords) as covariation_intercept_slope:
-    floor_idx = pm.Data("floor_idx", floor, dims="obs_id")
-    county_idx = pm.Data("county_idx", county, dims="obs_id")
+with pm.Model(coords=coords, rng_seeder=RANDOM_SEED) as covariation_intercept_slope:
+    floor_idx = pm.Data("floor_idx", floor, dims="obs_id", mutable=True)
+    county_idx = pm.Data("county_idx", county, dims="obs_id", mutable=True)
 
     # prior stddev in intercepts & slopes (variation across counties):
-    sd_dist = pm.Exponential.dist(0.5)
+    sd_dist = pm.Exponential.dist(0.5, shape=(2,))
 
     # get back standard deviations and rho:
-    chol, corr, stds = pm.LKJCholeskyCov("chol", n=2, eta=2.0, sd_dist=sd_dist, compute_corr=True)
+    chol, corr, stds = pm.LKJCholeskyCov("chol", n=2, eta=2, sd_dist=sd_dist)
 
     # prior for average intercept:
     a = pm.Normal("a", mu=0.0, sigma=5.0)
@@ -800,7 +794,7 @@ with pm.Model(coords=coords) as covariation_intercept_slope:
     b = pm.Normal("b", mu=0.0, sigma=1.0)
     # population of varying effects:
     z = pm.Normal("z", 0.0, 1.0, dims=("param", "County"))
-    ab_county = pm.Deterministic("ab_county", tt.dot(chol, z).T, dims=("County", "param"))
+    ab_county = pm.Deterministic("ab_county", at.dot(chol, z).T, dims=("County", "param"))
 
     # Expected value per county:
     theta = a + ab_county[county_idx, 0] + (b + ab_county[county_idx, 1]) * floor_idx
@@ -809,19 +803,17 @@ with pm.Model(coords=coords) as covariation_intercept_slope:
 
     y = pm.Normal("y", theta, sigma=sigma, observed=log_radon, dims="obs_id")
 
-    covariation_intercept_slope_idata = pm.sample(
-        2000,
-        tune=2000,
-        target_accept=0.99,
-        random_seed=RANDOM_SEED,
-        return_inferencedata=True,
+    covariation_intercept_slope_trace = pm.sample(
+        1000,
+        tune=3000,
+        target_accept=0.95,
         idata_kwargs={"dims": {"chol_stds": ["param"], "chol_corr": ["param", "param_bis"]}},
     )
 ```
 
 ```{code-cell} ipython3
 az.plot_trace(
-    covariation_intercept_slope_idata,
+    covariation_intercept_slope_trace,
     var_names=["~z", "~chol", "~chol_corr"],
     compact=True,
     chain_prop={"ls": "-"},
@@ -830,7 +822,7 @@ az.plot_trace(
 
 ```{code-cell} ipython3
 az.plot_trace(
-    covariation_intercept_slope_idata,
+    covariation_intercept_slope_trace,
     var_names="chol_corr",
     lines=[("chol_corr", {}, 0.0)],
     compact=True,
@@ -848,7 +840,7 @@ And how much variation is there across counties? It's not easy to read `sigma_ab
 
 ```{code-cell} ipython3
 az.plot_forest(
-    [varying_intercept_slope_idata, covariation_intercept_slope_idata],
+    [varying_intercept_slope_trace, covariation_intercept_slope_trace],
     model_names=["No covariation", "With covariation"],
     var_names=["a", "b", "sigma_a", "sigma_b", "chol_stds", "chol_corr"],
     combined=True,
@@ -861,12 +853,12 @@ The estimates are very close to each other, both for the means and the standard 
 ```{code-cell} ipython3
 # posterior means of covariation model:
 a_county_cov = (
-    covariation_intercept_slope_idata.posterior["a"]
-    + covariation_intercept_slope_idata.posterior["ab_county"].sel(param="a")
+    covariation_intercept_slope_trace.posterior["a"]
+    + covariation_intercept_slope_trace.posterior["ab_county"].sel(param="a")
 ).mean(dim=("chain", "draw"))
 b_county_cov = (
-    covariation_intercept_slope_idata.posterior["b"]
-    + covariation_intercept_slope_idata.posterior["ab_county"].sel(param="b")
+    covariation_intercept_slope_trace.posterior["b"]
+    + covariation_intercept_slope_trace.posterior["ab_county"].sel(param="b")
 ).mean(dim=("chain", "draw"))
 
 # plot both and connect with lines
@@ -912,13 +904,13 @@ Note that the model has both indicator variables for each county, plus a county-
 
 Group-level predictors also serve to reduce group-level variation, $\sigma_{\alpha}$ (here it would be the variation across counties, `sigma_a`). An important implication of this is that the group-level estimate induces stronger pooling -- by definition, a smaller $\sigma_{\alpha}$ means a stronger shrinkage of counties parameters towards the overall state mean. 
 
-This is fairly straightforward to implement in PyMC3 -- we just add another level:
+This is fairly straightforward to implement in PyMC -- we just add another level:
 
 ```{code-cell} ipython3
-with pm.Model(coords=coords) as hierarchical_intercept:
-    floor_idx = pm.Data("floor_idx", floor, dims="obs_id")
-    county_idx = pm.Data("county_idx", county, dims="obs_id")
-    uranium = pm.Data("uranium", u, dims="County")
+with pm.Model(coords=coords, rng_seeder=RANDOM_SEED) as hierarchical_intercept:
+    floor_idx = pm.Data("floor_idx", floor, dims="obs_id", mutable=True)
+    county_idx = pm.Data("county_idx", county, dims="obs_id", mutable=True)
+    uranium = pm.Data("uranium", u, dims="County", mutable=True)
 
     # Hyperpriors:
     g = pm.Normal("g", mu=0.0, sigma=10.0, shape=2)
@@ -942,10 +934,10 @@ pm.model_to_graphviz(hierarchical_intercept)
 Do you see the new level, with `sigma_a` and `g`, which is two-dimensional because it contains the linear model for `a_county`? Now, if we run this model we're gonna get... divergences, you guessed it! So we're gonna switch to the non-centered form again:
 
 ```{code-cell} ipython3
-with pm.Model(coords=coords) as hierarchical_intercept:
-    floor_idx = pm.Data("floor_idx", floor, dims="obs_id")
-    county_idx = pm.Data("county_idx", county, dims="obs_id")
-    uranium = pm.Data("uranium", u, dims="County")
+with pm.Model(coords=coords, rng_seeder=RANDOM_SEED) as hierarchical_intercept:
+    floor_idx = pm.Data("floor_idx", floor, dims="obs_id", mutable=True)
+    county_idx = pm.Data("county_idx", county, dims="obs_id", mutable=True)
+    uranium = pm.Data("uranium", u, dims="County", mutable=True)
 
     # Hyperpriors:
     g = pm.Normal("g", mu=0.0, sigma=10.0, shape=2)
@@ -965,14 +957,12 @@ with pm.Model(coords=coords) as hierarchical_intercept:
 
     y = pm.Normal("y", theta, sigma=sigma, observed=log_radon, dims="obs_id")
 
-    hierarchical_intercept_idata = pm.sample(
-        2000, tune=2000, target_accept=0.99, random_seed=RANDOM_SEED, return_inferencedata=True
-    )
+    hierarchical_intercept_trace = pm.sample(1000, tune=2000, target_accept=0.99)
 ```
 
 ```{code-cell} ipython3
-uranium = hierarchical_intercept_idata.constant_data.uranium
-post = hierarchical_intercept_idata.posterior.assign_coords(uranium=uranium)
+uranium = hierarchical_intercept_trace.constant_data.uranium
+post = hierarchical_intercept_trace.posterior.assign_coords(uranium=uranium)
 avg_a = post["a"].mean(dim=("chain", "draw")).sortby("uranium")
 avg_a_county = post["a_county"].mean(dim=("chain", "draw"))
 avg_a_county_hdi = az.hdi(post, var_names="a_county")["a_county"]
@@ -1004,7 +994,7 @@ If we compare the county-intercepts for this model with those of the partial-poo
 
 ```{code-cell} ipython3
 az.plot_forest(
-    [varying_intercept_idata, hierarchical_intercept_idata],
+    [varying_intercept_trace, hierarchical_intercept_trace],
     model_names=["W/t. county pred.", "With county pred."],
     var_names=["a_county"],
     combined=True,
@@ -1030,11 +1020,11 @@ To add these effects to our model, let's create a new variable containing the me
 ```{code-cell} ipython3
 avg_floor_data = srrs_mn.groupby("county")["floor"].mean().rename(county_lookup).values
 
-with pm.Model(coords=coords) as contextual_effect:
-    floor_idx = pm.Data("floor_idx", floor, dims="obs_id")
-    county_idx = pm.Data("county_idx", county, dims="obs_id")
-    uranium = pm.Data("uranium", u, dims="County")
-    avg_floor = pm.Data("avg_floor", avg_floor_data, dims="County")
+with pm.Model(coords=coords, rng_seeder=RANDOM_SEED) as contextual_effect:
+    floor_idx = pm.Data("floor_idx", floor, mutable=True)
+    county_idx = pm.Data("county_idx", county, mutable=True)
+    uranium = pm.Data("uranium", u, dims="County", mutable=True)
+    avg_floor = pm.Data("avg_floor", avg_floor_data, dims="County", mutable=True)
 
     # Hyperpriors:
     g = pm.Normal("g", mu=0.0, sigma=10.0, shape=3)
@@ -1052,20 +1042,18 @@ with pm.Model(coords=coords) as contextual_effect:
     # Model error:
     sigma = pm.Exponential("sigma", 1.0)
 
-    y = pm.Normal("y", theta, sigma=sigma, observed=log_radon, dims="obs_id")
+    y = pm.Normal("y", theta, sigma=sigma, observed=log_radon)
 
-    contextual_effect_idata = pm.sample(
-        2000, tune=2000, target_accept=0.99, random_seed=RANDOM_SEED, return_inferencedata=True
-    )
+    contextual_effect_trace = pm.sample(1000, tune=2000, target_accept=0.99)
 ```
 
 ```{code-cell} ipython3
-az.summary(contextual_effect_idata, var_names=["g"], round_to=2)
+az.summary(contextual_effect_trace, var_names=["g"], round_to=2)
 ```
 
 So we might infer from this that counties with higher proportions of houses without basements tend to have higher baseline levels of radon. This seems to be new, as up to this point we saw that `floor` was *negatively* associated with radon levels. But remember this was at the household-level: radon tends to be higher in houses with basements. But at the county-level it seems that the less basements on average in the county, the more radon. So it's not that contradictory. What's more, the estimate for $\gamma_2$ is quite uncertain and overlaps with zero, so it's possible that the relationship is not that strong. And finally, let's note that $\gamma_2$ estimates something else than uranium's effect, as this is already taken into account by $\gamma_1$ -- it answers the question "once we know uranium level in the county, is there any value in learning about the proportion of houses without basements?".
 
-All of this is to say that we shouldn't interpret this causally: there is no credible mecanism by which a basement (or absence thereof) *causes* radon emissions. More probably, our causal graph is missing something: a confounding variable, one that influences both basement construction and radon levels, is lurking somewhere in the dark... Perhaps is it the type of soil, which might influence what type of structures are built *and* the level of radon? Maybe adding this to our model would help with causal inference.
+All of this is to say that we shouldn't interpret this causally: there is no credible mechanism by which a basement (or absence thereof) *causes* radon emissions. More probably, our causal graph is missing something: a confounding variable, one that influences both basement construction and radon levels, is lurking somewhere in the dark... Perhaps is it the type of soil, which might influence what type of structures are built *and* the level of radon? Maybe adding this to our model would help with causal inference.
 
 +++
 
@@ -1100,16 +1088,13 @@ Because we judiciously set the county index and floor values as shared variables
 prediction_coords = {"obs_id": ["ST LOUIS", "KANABEC"]}
 with contextual_effect:
     pm.set_data({"county_idx": np.array([69, 31]), "floor_idx": np.array([1, 1])})
-    stl_pred = pm.fast_sample_posterior_predictive(
-        contextual_effect_idata.posterior, random_seed=RANDOM_SEED
-    )
-    az.from_pymc3_predictions(
-        stl_pred, idata_orig=contextual_effect_idata, inplace=True, coords=prediction_coords
-    )
+    contextual_effect_trace = pm.sample_posterior_predictive(
+        contextual_effect_trace, predictions=True, extend_inferencedata=True
+    );
 ```
 
 ```{code-cell} ipython3
-az.plot_posterior(contextual_effect_idata, group="predictions");
+az.plot_posterior(contextual_effect_trace, group="predictions");
 ```
 
 ## Benefits of Multilevel Models
@@ -1140,6 +1125,7 @@ mcelreath2018statistical
 * Updated by Alex Andorra in January, 2020 ([pymc#3765](https://github.com/pymc-devs/pymc/pull/3765))
 * Updated by Oriol Abril in June, 2020 ([pymc#3963](https://github.com/pymc-devs/pymc/pull/3963))
 * Updated by Farhan Reynaldo in November 2021 ([pymc-examples#246](https://github.com/pymc-devs/pymc-examples/pull/246))
+* Updated by Chris Fonnesbeck in Februry 2022 ([pymc-examples#285](https://github.com/pymc-devs/pymc-examples/pull/285)
 
 +++
 
@@ -1150,6 +1136,5 @@ mcelreath2018statistical
 %watermark -n -u -v -iv -w
 ```
 
-```{code-cell} ipython3
-
-```
+:::{include} ../page_footer.md
+:::

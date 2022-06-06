@@ -17,7 +17,7 @@ kernelspec:
 :::{post} April, 2022
 :tags: mixture model, classification
 :category: beginner
-:author: Benjamin T. Vincent
+:author: Abe Flaxman
 :::
 
 A [mixture model](https://en.wikipedia.org/wiki/Mixture_model) allows us to make inferences about the component contributors to a distribution of data. More specifically, a Gaussian Mixture Model allows us to make inferences about the means and standard deviations of a specified number of underlying component Gaussian distributions.
@@ -56,7 +56,7 @@ x = rng.normal(loc=centers[idx], scale=sds[idx], size=ndata)
 plt.hist(x, 40);
 ```
 
-In the PyMC model, we will estimate one $\mu$ and one $\sigma$ for each of the 3 clusters. Writing a Gaussian Mixture Model got significantly easier from PyMC 4.0.0b6 onwards with the introduction of `pm.NormalMixture`.
+In the PyMC model, we will estimate one $\mu$ and one $\sigma$ for each of the 3 clusters. Writing a Gaussian Mixture Model is very easy with the `pm.NormalMixture` distribution.
 
 ```{code-cell} ipython3
 with pm.Model(coords={"cluster": range(k)}) as model:

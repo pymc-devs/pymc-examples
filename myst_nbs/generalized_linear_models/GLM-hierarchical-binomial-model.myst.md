@@ -6,29 +6,27 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python PyMC3 (Dev)
+  display_name: Python 3.9.7 ('base')
   language: python
   name: python3
 ---
 
 # Hierarchical Binomial Model: Rat Tumor Example
 :::{post} Nov 11, 2021
-:tags: generalized linear model, hierarchical model, pymc3.Beta, pymc3.Binomial, pymc3.Data, pymc3.Deterministic, pymc3.HalfNormal, pymc3.Model, pymc3.Potential
+:tags: generalized linear model, hierarchical model
 :category: intermediate
 :author: Demetri Pananos, Junpeng Lao, Raúl Maldonado, Farhan Reynaldo
 :::
 
 ```{code-cell} ipython3
+import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
-import theano.tensor as tt
+import pymc as pm
 
 from scipy.special import gammaln
-
-print(f"Running on PyMC3 v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -36,7 +34,7 @@ print(f"Running on PyMC3 v{pm.__version__}")
 az.style.use("arviz-darkgrid")
 ```
 
-This short tutorial demonstrates how to use PyMC3 to do inference for the rat tumour example found in chapter 5 of *Bayesian Data Analysis 3rd Edition* {cite:p}`gelman2013bayesian`. Readers should already be familliar with the PyMC3 API.
+This short tutorial demonstrates how to use PyMC to do inference for the rat tumour example found in chapter 5 of *Bayesian Data Analysis 3rd Edition* {cite:p}`gelman2013bayesian`. Readers should already be familiar with the PyMC API.
 
 Suppose we are interested in the probability that a lab rat develops endometrial stromal polyps. We have data from 71 previously performed trials and would like to use this data to perform inference.
 
@@ -76,7 +74,7 @@ p(\alpha, \beta)
 
 See BDA3 pg. 110 for a more information on the deriving the marginal posterior distribution. With a little determination, we can plot the marginal posterior and estimate the means of $\alpha$ and $\beta$ without having to resort to MCMC. We will see, however, that this requires considerable effort.
 
-The authors of BDA3 choose to plot the surface under the paramterization $(\log(\alpha/\beta), \log(\alpha+\beta))$.  We do so as well. Through the remainder of the example let $x = \log(\alpha/\beta)$ and $z = \log(\alpha+\beta)$.
+The authors of BDA3 choose to plot the surface under the parameterization $(\log(\alpha/\beta), \log(\alpha+\beta))$.  We do so as well. Through the remainder of the example let $x = \log(\alpha/\beta)$ and $z = \log(\alpha+\beta)$.
 
 ```{code-cell} ipython3
 # rat data (BDA3, p. 102)
@@ -173,7 +171,7 @@ ax.annotate(
     xytext=(-1.6, 3.5),
     ha="center",
     fontsize=16,
-    color="black",
+    color="white",
     arrowprops={"facecolor": "white"},
 );
 ```
@@ -196,11 +194,11 @@ $$ \operatorname{E}(\beta \lvert y) \text{   is estimated by   }
 (df.beta * df.normed_exp_trans).sum().round(3)
 ```
 
-## Computing the Posterior using PyMC3
+## Computing the Posterior using PyMC
 
 Computing the marginal posterior directly is a lot of work, and is not always possible for sufficiently complex models. 
 
-On the other hand, creating hierarchical models in PyMC3 is simple.  We can use the samples obtained from the posterior to estimate the means of $\alpha$ and $\beta$.
+On the other hand, creating hierarchical models in PyMC is simple.  We can use the samples obtained from the posterior to estimate the means of $\alpha$ and $\beta$.
 
 ```{code-cell} ipython3
 coords = {
@@ -212,22 +210,22 @@ coords = {
 ```{code-cell} ipython3
 def logp_ab(value):
     """prior density"""
-    return tt.log(tt.pow(tt.sum(value), -5 / 2))
+    return at.log(at.pow(at.sum(value), -5 / 2))
 
 
 with pm.Model(coords=coords) as model:
     # Uninformative prior for alpha and beta
-    n_val = pm.Data("n_val", n)
+    n_val = pm.ConstantData("n_val", n)
     ab = pm.HalfNormal("ab", sigma=10, dims="param")
     pm.Potential("p(a, b)", logp_ab(ab))
 
-    X = pm.Deterministic("X", tt.log(ab[0] / ab[1]))
-    Z = pm.Deterministic("Z", tt.log(tt.sum(ab)))
+    X = pm.Deterministic("X", at.log(ab[0] / ab[1]))
+    Z = pm.Deterministic("Z", at.log(at.sum(ab)))
 
     theta = pm.Beta("theta", alpha=ab[0], beta=ab[1], dims="obs_id")
 
     p = pm.Binomial("y", p=theta, observed=y, n=n_val)
-    trace = pm.sample(draws=1000, tune=2000, target_accept=0.95, return_inferencedata=True)
+    trace = pm.sample(draws=2000, tune=2000, target_accept=0.95)
 ```
 
 ```{code-cell} ipython3
@@ -235,7 +233,7 @@ with pm.Model(coords=coords) as model:
 az.plot_trace(trace, var_names=["ab", "X", "Z"], compact=False);
 ```
 
-We can plot a kernel density estimate for $x$ and $y$. It looks rather similar to our countour plot made from the analytic marginal posterior density.  That's a good sign, and required far less effort.
+We can plot a kernel density estimate for $x$ and $y$. It looks rather similar to our contour plot made from the analytic marginal posterior density.  That's a good sign, and required far less effort.
 
 ```{code-cell} ipython3
 az.plot_pair(trace, var_names=["X", "Z"], kind="kde");
@@ -254,7 +252,7 @@ trace.posterior["ab"].mean(("chain", "draw"))
 
 ## Conclusion
 
-Analytically calculating statistics for posterior distributions is difficult if not impossible for some models.  PyMC3 provides an easy way drawing samples from your model's posterior with only a few lines of code.  Here, we used PyMC3 to obtain estimates of the posterior mean for the rat tumor example in chapter 5 of BDA3. The estimates obtained from PyMC3 are encouragingly close to the estimates obtained from the analytical posterior density.
+Analytically calculating statistics for posterior distributions is difficult if not impossible for some models.  PyMC provides an easy way drawing samples from your model's posterior with only a few lines of code.  Here, we used PyMC to obtain estimates of the posterior mean for the rat tumor example in chapter 5 of BDA3. The estimates obtained from PyMC are encouragingly close to the estimates obtained from the analytical posterior density.
 
 +++
 

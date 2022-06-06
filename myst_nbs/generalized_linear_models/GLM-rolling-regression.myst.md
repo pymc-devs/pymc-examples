@@ -6,16 +6,18 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
 
+(GLM-rolling-regression)=
 # Rolling Regression
 
-:::{post} Sept 15, 2021
-:tags: generalized linear model, pymc3.Exponential, pymc3.GaussianRandomWalk, pymc3.HalfCauchy, pymc3.HalfNormal, pymc3.Model, pymc3.Normal, regression
+:::{post} June, 2022
+:tags: generalized linear model, regression
 :category: intermediate
+:author: Thomas Wiecki
 :::
 
 +++
@@ -25,28 +27,25 @@ kernelspec:
 * One common example is the price of gold (GLD) and the price of gold mining operations (GFI).
 
 ```{code-cell} ipython3
-%matplotlib inline
-
 import os
+import warnings
 
 import arviz as az
-import bambi as bmb
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import xarray as xr
 
-from matplotlib import cm
+from matplotlib import MatplotlibDeprecationWarning
 
-print(f"Running on PyMC3 v{pm.__version__}")
+warnings.filterwarnings(action="ignore", category=MatplotlibDeprecationWarning)
 ```
 
 ```{code-cell} ipython3
 RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
-
 %config InlineBackend.figure_format = 'retina'
 az.style.use("arviz-darkgrid")
 ```
@@ -84,19 +83,19 @@ cb.ax.set_yticklabels(ticklabels);
 A naive approach would be to estimate a linear model and ignore the time domain.
 
 ```{code-cell} ipython3
-with pm.Model() as model:  # model specifications in PyMC3 are wrapped in a with-statement
+with pm.Model() as model:  # model specifications in PyMC are wrapped in a with-statement
     # Define priors
-    sigma = pm.HalfCauchy("sigma", beta=10, testval=1.0)
+    sigma = pm.HalfCauchy("sigma", beta=10)
     alpha = pm.Normal("alpha", mu=0, sigma=20)
     beta = pm.Normal("beta", mu=0, sigma=20)
 
+    mu = pm.Deterministic("mu", alpha + beta * prices_zscored.GFI.to_numpy())
+
     # Define likelihood
-    likelihood = pm.Normal(
-        "y", mu=alpha + beta * prices_zscored.GFI, sigma=sigma, observed=prices_zscored.GLD
-    )
+    likelihood = pm.Normal("y", mu=mu, sigma=sigma, observed=prices_zscored.GLD.to_numpy())
 
     # Inference
-    trace_reg = pm.sample(tune=2000, return_inferencedata=True)
+    trace_reg = pm.sample(tune=2000)
 ```
 
 The posterior predictive plot shows how bad the fit is.
@@ -110,16 +109,29 @@ ax = fig.add_subplot(
     title="Posterior predictive regression lines",
 )
 sc = ax.scatter(prices_zscored.GFI, prices_zscored.GLD, c=colors, cmap=mymap, lw=0)
-pm.plot_posterior_predictive_glm(
-    trace_reg,
-    samples=100,
-    label="posterior predictive regression lines",
-    lm=lambda x, sample: sample["alpha"] + sample["beta"] * x,
-    eval=np.linspace(prices_zscored.GFI.min(), prices_zscored.GFI.max(), 100),
+
+xi = xr.DataArray(prices_zscored.GFI.values)
+az.plot_hdi(
+    xi,
+    trace_reg.posterior.mu,
+    color="k",
+    hdi_prob=0.95,
+    ax=ax,
+    fill_kwargs={"alpha": 0.25},
+    smooth=False,
 )
+az.plot_hdi(
+    xi,
+    trace_reg.posterior.mu,
+    color="k",
+    hdi_prob=0.5,
+    ax=ax,
+    fill_kwargs={"alpha": 0.25},
+    smooth=False,
+)
+
 cb = plt.colorbar(sc, ticks=ticks)
-cb.ax.set_yticklabels(ticklabels)
-ax.legend(loc=0);
+cb.ax.set_yticklabels(ticklabels);
 ```
 
 ## Rolling regression
@@ -148,18 +160,18 @@ Perform the regression given coefficients and data and link to the data via the 
 ```{code-cell} ipython3
 with model_randomwalk:
     # Define regression
-    regression = alpha + beta * prices_zscored.GFI
+    regression = alpha + beta * prices_zscored.GFI.values
 
     # Assume prices are Normally distributed, the mean comes from the regression.
     sd = pm.HalfNormal("sd", sigma=0.1)
-    likelihood = pm.Normal("y", mu=regression, sigma=sd, observed=prices_zscored.GLD)
+    likelihood = pm.Normal("y", mu=regression, sigma=sd, observed=prices_zscored.GLD.to_numpy())
 ```
 
 Inference. Despite this being quite a complex model, NUTS handles it wells.
 
 ```{code-cell} ipython3
 with model_randomwalk:
-    trace_rw = pm.sample(tune=2000, cores=4, target_accept=0.9, return_inferencedata=True)
+    trace_rw = pm.sample(tune=2000, target_accept=0.9)
 ```
 
 Increasing the tree-depth does indeed help but it makes sampling very slow. The results look identical with this run, however.
@@ -231,7 +243,10 @@ cb = plt.colorbar(sc, ticks=ticks)
 cb.ax.set_yticklabels(ticklabels);
 ```
 
-Author: Thomas Wiecki
+## Authors
+
+- Created by [Thomas Wiecki](https://github.com/twiecki/)
+- Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) June 2022
 
 +++
 
@@ -239,5 +254,5 @@ Author: Thomas Wiecki
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano
+%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
 ```

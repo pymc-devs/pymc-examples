@@ -6,13 +6,19 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc_env
   language: python
-  name: python3
+  name: pymc_env
 ---
 
 (censored_data)=
 # Censored Data Models
+
+:::{post} May, 2022
+:tags: censoring, survival analysis
+:category: intermediate, how-to
+:author: Luis Mario Domenzain
+:::
 
 ```{code-cell} ipython3
 from copy import copy
@@ -20,7 +26,7 @@ from copy import copy
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
 
 from numpy.random import default_rng
@@ -118,8 +124,9 @@ We should predict that running the uncensored model on uncensored data, we will 
 ```{code-cell} ipython3
 uncensored_model_1 = uncensored_model(samples)
 with uncensored_model_1:
-    trace = pm.sample(tune=1000, return_inferencedata=True)
-    az.plot_posterior(trace, ref_val=[true_mu, true_sigma], round_to=3);
+    idata = pm.sample()
+
+az.plot_posterior(idata, ref_val=[true_mu, true_sigma], round_to=3);
 ```
 
 And that is exactly what we find. 
@@ -127,14 +134,15 @@ And that is exactly what we find.
 The problem however, is that in censored data contexts, we do not have access to the true values. If we were to use the same uncensored model on the censored data, we would anticipate that our parameter estimates will be biased. If we calculate point estimates for the mean and std, then we can see that we are likely to underestimate the mean and std for this particular dataset and censor bounds.
 
 ```{code-cell} ipython3
-np.mean(censored), np.std(censored)
+print(f"mean={np.mean(censored):.2f}; std={np.std(censored):.2f}")
 ```
 
 ```{code-cell} ipython3
 uncensored_model_2 = uncensored_model(censored)
 with uncensored_model_2:
-    trace = pm.sample(tune=1000, return_inferencedata=True)
-    az.plot_posterior(trace, ref_val=[true_mu, true_sigma], round_to=3);
+    idata = pm.sample()
+
+az.plot_posterior(idata, ref_val=[true_mu, true_sigma], round_to=3);
 ```
 
 The figure above confirms this.
@@ -142,6 +150,13 @@ The figure above confirms this.
 ## Censored data models
 
 The models below show 2 approaches to dealing with censored data. First, we need to do a bit of data pre-processing to count the number of observations that are left or right censored. We also also need to extract just the non-censored data that we observe.
+
++++
+
+(censored_data/model1)=
+### Model 1 - Imputed Censored Model of Censored Data
+
+In this model, we impute the censored values from the same distribution as the uncensored data. Sampling from the posterior generates possible uncensored data sets.
 
 ```{code-cell} ipython3
 n_right_censored = sum(censored >= high)
@@ -151,30 +166,30 @@ uncensored = censored[(censored > low) & (censored < high)]
 assert len(uncensored) == n_observed
 ```
 
-(censored_data/model1)=
-### Model 1 - Imputed Censored Model of Censored Data
-
-In this model, we impute the censored values from the same distribution as the uncensored data. Sampling from the posterior generates possible uncensored data sets.
-
-This model makes use of [PyMC3's bounded variables](https://docs.pymc.io/api/bounds.html).
-
 ```{code-cell} ipython3
 with pm.Model() as imputed_censored_model:
     mu = pm.Normal("mu", mu=((high - low) / 2) + low, sigma=(high - low))
     sigma = pm.HalfNormal("sigma", sigma=(high - low) / 2.0)
-    right_censored = pm.Bound(pm.Normal, lower=high)(
-        "right_censored", mu=mu, sigma=sigma, shape=n_right_censored
+    right_censored = pm.Normal(
+        "right_censored",
+        mu,
+        sigma,
+        transform=pm.distributions.transforms.Interval(high, None),
+        shape=int(n_right_censored),
+        initval=np.full(n_right_censored, high + 1),
     )
-    left_censored = pm.Bound(pm.Normal, upper=low)(
-        "left_censored", mu=mu, sigma=sigma, shape=n_left_censored
+    left_censored = pm.Normal(
+        "left_censored",
+        mu,
+        sigma,
+        transform=pm.distributions.transforms.Interval(None, low),
+        shape=int(n_left_censored),
+        initval=np.full(n_left_censored, low - 1),
     )
-    observed = pm.Normal("observed", mu=mu, sigma=sigma, observed=uncensored, shape=n_observed)
-```
+    observed = pm.Normal("observed", mu=mu, sigma=sigma, observed=uncensored, shape=int(n_observed))
+    idata = pm.sample()
 
-```{code-cell} ipython3
-with imputed_censored_model:
-    trace = pm.sample(return_inferencedata=True)
-    az.plot_posterior(trace, var_names=["mu", "sigma"], ref_val=[true_mu, true_sigma], round_to=3);
+az.plot_posterior(idata, var_names=["mu", "sigma"], ref_val=[true_mu, true_sigma], round_to=3);
 ```
 
 We can see that the bias in the estimates of the mean and variance (present in the uncensored model) have been largely removed.
@@ -183,52 +198,23 @@ We can see that the bias in the estimates of the mean and variance (present in t
 
 ### Model 2 - Unimputed Censored Model of Censored Data
 
-In this model, we do not impute censored data, but instead integrate them out through the likelihood.
-
-The implementations of the likelihoods are non-trivial. See the [Stan manual](https://github.com/stan-dev/stan/releases/download/v2.14.0/stan-reference-2.14.0.pdf) (section 11.3 on censored data) and the [original PyMC3 issue on GitHub](https://github.com/pymc-devs/pymc3/issues/1833) for more information.
-
-This model makes use of [PyMC3's `Potential`](https://docs.pymc.io/api/model.html#pymc3.model.Potential).
-
-```{code-cell} ipython3
-# Import the log cdf and log complementary cdf of the normal Distribution from PyMC3
-from pymc3.distributions.dist_math import normal_lccdf, normal_lcdf
-
-
-# Helper functions for unimputed censored model
-def left_censored_likelihood(mu, sigma, n_left_censored, lower_bound):
-    """Likelihood of left-censored data."""
-    return n_left_censored * normal_lcdf(mu, sigma, lower_bound)
-
-
-def right_censored_likelihood(mu, sigma, n_right_censored, upper_bound):
-    """Likelihood of right-censored data."""
-    return n_right_censored * normal_lccdf(mu, sigma, upper_bound)
-```
+Here we can make use of `pm.Censored`.
 
 ```{code-cell} ipython3
 with pm.Model() as unimputed_censored_model:
     mu = pm.Normal("mu", mu=0.0, sigma=(high - low) / 2.0)
     sigma = pm.HalfNormal("sigma", sigma=(high - low) / 2.0)
-    observed = pm.Normal(
-        "observed",
-        mu=mu,
-        sigma=sigma,
-        observed=uncensored,
-    )
-    left_censored = pm.Potential(
-        "left_censored", left_censored_likelihood(mu, sigma, n_left_censored, low)
-    )
-    right_censored = pm.Potential(
-        "right_censored", right_censored_likelihood(mu, sigma, n_right_censored, high)
-    )
+    y_latent = pm.Normal.dist(mu=mu, sigma=sigma)
+    obs = pm.Censored("obs", y_latent, lower=low, upper=high, observed=censored)
 ```
 
 Sampling
 
 ```{code-cell} ipython3
 with unimputed_censored_model:
-    trace = pm.sample(tune=1000, return_inferencedata=True)
-    az.plot_posterior(trace, var_names=["mu", "sigma"], ref_val=[true_mu, true_sigma], round_to=3);
+    idata = pm.sample()
+
+az.plot_posterior(idata, var_names=["mu", "sigma"], ref_val=[true_mu, true_sigma], round_to=3);
 ```
 
 Again, the bias in the estimates of the mean and variance (present in the uncensored model) have been largely removed.
@@ -246,8 +232,13 @@ As we can see, both censored models appear to capture the mean and variance of t
 - Originally authored by [Luis Mario Domenzain](https://github.com/domenzain) on Mar 7, 2017.
 - Updated by [George Ho](https://github.com/eigenfoo) on Jul 14, 2018.
 - Updated by [Benjamin Vincent](https://github.com/drbenvincent) in May 2021.
+- Updated by [Benjamin Vincent](https://github.com/drbenvincent) in May 2022 to PyMC v4.
+
++++
+
+## Watermark
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p aesara,aeppl
 ```

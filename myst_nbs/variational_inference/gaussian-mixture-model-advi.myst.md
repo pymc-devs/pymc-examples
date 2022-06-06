@@ -71,7 +71,7 @@ plt.scatter(ms[1, 0], ms[1, 1], c="b", s=100);
 
 Gaussian mixture models are usually constructed with categorical random variables. However, any discrete rvs does not fit ADVI. Here, class assignment variables are marginalized out, giving weighted sum of the probability for the gaussian components. The log likelihood of the total probability is calculated using logsumexp, which is a standard technique for making this kind of calculation stable. 
 
-In the below code, DensityDist class is used as the likelihood term. The second argument, logp_gmix(mus, pi, np.eye(2)), is a python function which recieves observations (denoted by 'value') and returns the tensor representation of the log-likelihood.
+In the below code, DensityDist class is used as the likelihood term. The second argument, logp_gmix(mus, pi, np.eye(2)), is a python function which receives observations (denoted by 'value') and returns the tensor representation of the log-likelihood.
 
 ```{code-cell} ipython3
 from pymc3.math import logsumexp
@@ -152,7 +152,7 @@ cov = approx.cov.eval()
 sds = approx.bij.rmap(np.diag(cov) ** 0.5)
 ```
 
-The function returns three variables. 'means' and 'sds' are the mean and standart deviations of the variational posterior. Note that these values are in the transformed space, not in the original space. For random variables in the real line, e.g., means of the Gaussian components, no transformation is applied. Then we can see the variational posterior in the original space.
+The function returns three variables. 'means' and 'sds' are the mean and standard deviations of the variational posterior. Note that these values are in the transformed space, not in the original space. For random variables in the real line, e.g., means of the Gaussian components, no transformation is applied. Then we can see the variational posterior in the original space.
 
 ```{code-cell} ipython3
 from copy import deepcopy

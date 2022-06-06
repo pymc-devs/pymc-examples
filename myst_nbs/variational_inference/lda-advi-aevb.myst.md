@@ -145,7 +145,7 @@ In the last line of the below cell, `DensityDist` class is used to define the lo
 
 ```{code-cell} ipython3
 n_topics = 10
-# we have sparse dataset. It's better to have dence batch so that all words accure there
+# we have sparse dataset. It's better to have dense batch so that all words accrue there
 minibatch_size = 128
 
 # defining minibatch
