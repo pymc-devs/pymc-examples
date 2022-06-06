@@ -103,7 +103,7 @@ x_train, x_test, y_train, y_test = train_test_split(x, y, train_size=0.7)
 We now specify the model in PyMC.
 
 ```{code-cell} ipython3
-COORDS = {"coeffs": ["b0", "b1", "b2", "b1:b2"]}
+COORDS = {"coeffs": labels}
 
 with pm.Model(coords=COORDS) as model:
     # data containers
@@ -243,10 +243,10 @@ Now we compute the model decision boundary on the grid for visualization purpose
 ```{code-cell} ipython3
 def calc_decision_boundary(idata, x1_grid):
     # posterior mean of coefficients
-    intercept = idata.posterior["b"].sel(coeffs="b0").mean().data
-    b1 = idata.posterior["b"].sel(coeffs="b1").mean().data
-    b2 = idata.posterior["b"].sel(coeffs="b2").mean().data
-    b1b2 = idata.posterior["b"].sel(coeffs="b1:b2").mean().data
+    intercept = idata.posterior["b"].sel(coeffs="Intercept").mean().data
+    b1 = idata.posterior["b"].sel(coeffs="x1").mean().data
+    b2 = idata.posterior["b"].sel(coeffs="x2").mean().data
+    b1b2 = idata.posterior["b"].sel(coeffs="x1:x2").mean().data
     # decision boundary equation
     return -(intercept + b1 * x1_grid) / (b2 + b1b2 * x1_grid)
 ```
