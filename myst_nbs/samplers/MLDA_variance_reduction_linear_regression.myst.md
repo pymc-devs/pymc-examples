@@ -29,13 +29,13 @@ In a usual MCMC algorithm we would sample from the posterior and use the samples
 
 The technique we use is similar to the idea of a telescopic sum. Instead of estimating $Q$ directly, we estimate differences of $Q$-estimates between levels and add those differences (i.e. we estimate the correction with respect to the next lower level). 
 
-Specifically, we have a set of approximate forward models $F_l$ and posteriors $P_l, l \in \{0,1,...,L-1\}$, where $L$ is the number of levels in MLDA, $F_{L-1} = F$ and $P_{L-1} = P$. MLDA in level $l$ produces the samples $\theta_{1:N_l}^l$ from posterior $P_l$, where $N_l$ is the number of samples at that level (each level generates a different number of samples, with $N_l$ decreasing with $l$). This also results in the quantitiy of interest functions $Q_l = Q(F_l(\theta))$ for each level $l$ (where $\theta$ indexes are ommited. We use the following equation to estimate the quanity of interest (by combining the above functions):
+Specifically, we have a set of approximate forward models $F_l$ and posteriors $P_l, l \in \{0,1,...,L-1\}$, where $L$ is the number of levels in MLDA, $F_{L-1} = F$ and $P_{L-1} = P$. MLDA in level $l$ produces the samples $\theta_{1:N_l}^l$ from posterior $P_l$, where $N_l$ is the number of samples at that level (each level generates a different number of samples, with $N_l$ decreasing with $l$). This also results in the quantity of interest functions $Q_l = Q(F_l(\theta))$ for each level $l$ (where $\theta$ indexes are omitted. We use the following equation to estimate the quanity of interest (by combining the above functions):
 $E_{VR}[Q] = E_{P_0}[Q_0] + \Sigma_{l=1}^{L-1} (E_{P_l}[Q_l] - E_{P_{l-1}}[Q_{l-1}])$. 
 
 The first term in the right hand side can be estimated using the samples from level 0. For the second term in the right hand side which contains all the differences, we estimate using the following process: In level $l$, and for each sample $\theta_n^l$ in that level where $n \in {1,...,N_l}$, we use the sample $\theta_{s+R}^{l-1}$ from level $l-1$, which is a random sample in the block of $K$ samples generated in level $l-1$ to propose a sample for level $l$, where $s$ is the starting sample of the block. In other words $K$ is the subsampling rate at level $l$ and R is the index of the randomly selected sample ($R$ can range from 1 to $K$). Having this sample, we calculate the following quantity: $Y_n^l = Q_l(F_l(\theta_n^l)) - Q_{l-1}(F_{l-1}(\theta_(s+R)^{l-1}))$. We do the same thing for all $N_l$ samples in level $l$ and finally use them to calculate $E_{P_l}[Q_l] - E_{P_{l-1}}[Q_{l-1}] = {1 \over N_l} \Sigma Y_n^l$. We do the same to estimate the remaining differences and add them all together to get $E_{VR}[Q]$.
 
 #### Note on asymptotic variance results
-$E_{VR}[Q]$ is shown to have asymptotically lower variance than $E_P[Q]$ in [1], as long as the subsampling rate $K$ in level $l$ is larger than the MCMC autocorrelation length in level $l-1$ (and if this is true for all levels). When this condition does not hold, we still see reasonably good variance reduction in experiments, although there is no theoretical gurantee of asymptotically lower variance. Users are advices to do pre-runs to detect the autocorrelation length of all chains in MLDA and then set the subsampling rates accordingly.
+$E_{VR}[Q]$ is shown to have asymptotically lower variance than $E_P[Q]$ in [1], as long as the subsampling rate $K$ in level $l$ is larger than the MCMC autocorrelation length in level $l-1$ (and if this is true for all levels). When this condition does not hold, we still see reasonably good variance reduction in experiments, although there is no theoretical guarantee of asymptotically lower variance. Users are advices to do pre-runs to detect the autocorrelation length of all chains in MLDA and then set the subsampling rates accordingly.
 
 #### Using variance reductioon in PyMC3
 The code in this notebook demonstrates how the user can employ the variance reduction technique within the PyMC3 implementation of MLDA. We run two samplers, one with VR and one without and calculate the resulting variances in the estimates.
@@ -183,7 +183,7 @@ with pm.Model() as coarse_model_0:
     # convert thetas to a tensor vector
     theta = tt.as_tensor_variable([intercept, x_coeff])
 
-    # Here we instatiate a Likelihood obhect using the class defined above
+    # Here we instantiate a Likelihood object using the class defined above
     # and we add to the mout list. We pass the coarse data x_coarse_0 and y_coarse_0
     # and the coarse pymc3 model coarse_model_0. This creates a coarse likelihood.
     mout.append(Likelihood(x_coarse_0, y_coarse_0, coarse_model_0))
@@ -206,7 +206,7 @@ with pm.Model() as coarse_model_1:
     # convert thetas to a tensor vector
     theta = tt.as_tensor_variable([intercept, x_coeff])
 
-    # Here we instatiate a Likelihood obhect using the class defined above
+    # Here we instantiate a Likelihood object using the class defined above
     # and we add to the mout list. We pass the coarse data x_coarse_1 and y_coarse_1
     # and the coarse pymc3 model coarse_model_1. This creates a coarse likelihood.
     mout.append(Likelihood(x_coarse_1, y_coarse_1, coarse_model_1))
@@ -236,7 +236,7 @@ with pm.Model() as model:
     # convert thetas to a tensor vector
     theta = tt.as_tensor_variable([intercept, x_coeff])
 
-    # Here we instatiate a Likelihood object using the class defined above
+    # Here we instantiate a Likelihood object using the class defined above
     # and we add to the mout list. We pass the fine data x and y
     # and the fine pymc3 model model. This creates a fine likelihood.
     mout.append(Likelihood(x, y, model))

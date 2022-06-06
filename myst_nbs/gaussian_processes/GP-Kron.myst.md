@@ -167,7 +167,7 @@ Like the `gp.Latent` implementation, the `LatentKron` implementation specifies a
 
 ### Example 1
 
-To compare with `MarginalLikelihood`, we use same example as before where the noise is normal, but the GP itself is not marginalized out.  Instead, it is sampled directly using NUTS.  It is very important to note that `LatentKron` does not require a Gaussian likelihood like `MarginalKron`; rather, any likelihood is admissable.
+To compare with `MarginalLikelihood`, we use same example as before where the noise is normal, but the GP itself is not marginalized out.  Instead, it is sampled directly using NUTS.  It is very important to note that `LatentKron` does not require a Gaussian likelihood like `MarginalKron`; rather, any likelihood is admissible.
 
 ```{code-cell} ipython3
 with pm.Model() as model:

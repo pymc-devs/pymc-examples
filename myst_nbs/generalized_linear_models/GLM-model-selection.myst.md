@@ -45,7 +45,7 @@ plt.rcParams["figure.constrained_layout.use"] = False
 ```
 
 ## Introduction
-A fairly minimal reproducable example of Model Selection using WAIC, and LOO as currently implemented in PyMC3. 
+A fairly minimal reproducible example of Model Selection using WAIC, and LOO as currently implemented in PyMC3. 
 
 This example creates two toy datasets under linear and quadratic models, and then tests the fit of a range of polynomial linear models upon those datasets by using Widely Applicable Information Criterion (WAIC), and leave-one-out (LOO) cross-validation using Pareto-smoothed importance sampling (PSIS). 
 
@@ -297,7 +297,7 @@ plot_datasets(df_lin, df_quad, dfp_lin, dfp_quad)
 
 + We now have two datasets `df_lin` and `df_quad` created by a linear model and quadratic model respectively.
 + You can see this raw data, the ideal model fit and the effect of the latent noise in the scatterplots above
-+ In the folowing plots in this Notebook, the linear-generated data will be shown in Blue and the quadratic in Green.
++ In the following plots in this Notebook, the linear-generated data will be shown in Blue and the quadratic in Green.
 
 +++
 
@@ -528,7 +528,7 @@ ax.set_title("Quadratic data");
 
 ## Compare leave-one-out Cross-Validation [LOO]
 
-Leave-One-Out Cross-Validation or K-fold Cross-Validation is another quite universal approach for model selection. However, to implement K-fold cross-validation we need to paritition the data repeatly and fit the model on every partition. It can be very time consumming (computation time increase roughly as a factor of K). Here we are applying the numerical approach using the posterior trace as suggested in {cite:t}`vehtari2017practical`
+Leave-One-Out Cross-Validation or K-fold Cross-Validation is another quite universal approach for model selection. However, to implement K-fold cross-validation we need to partition the data repeatedly and fit the model on every partition. It can be very time consumming (computation time increase roughly as a factor of K). Here we are applying the numerical approach using the posterior trace as suggested in {cite:t}`vehtari2017practical`
 
 ```{code-cell} ipython3
 dfloo_lin = az.compare(idatas_lin, ic="LOO")

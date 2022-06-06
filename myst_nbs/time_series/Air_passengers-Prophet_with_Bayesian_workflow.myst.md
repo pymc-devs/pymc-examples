@@ -6,14 +6,23 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: pymc3-dev-py38
+  display_name: Python 3 (ipykernel)
   language: python
-  name: pymc3-dev-py38
+  name: python3
 ---
 
+(Air_passengers-Prophet_with_Bayesian_workflow)=
 # Air passengers - Prophet-like model
 
-We're going to look at the "air passengers" dataset, which tracks the monthly totals of a US airline passengers from 1949 to 1960. We could fit this using the [Prophet](https://facebook.github.io/prophet/) model (indeed, this dataset is one of the examples they provide in their documentation), but instead we'll make our own Prophet-like model in PyMC3. This will make it a lot easier to inspect the model's components and to do prior predictive checks (an integral component of the [Bayesian workflow](https://arxiv.org/abs/2011.01808)).
+:::{post} April, 2022
+:tags: time series, prophet
+:category: intermediate
+:author: Marco Gorelli, Danh Phan
+:::
+
++++
+
+We're going to look at the "air passengers" dataset, which tracks the monthly totals of a US airline passengers from 1949 to 1960. We could fit this using the [Prophet](https://facebook.github.io/prophet/) model {cite:p}`taylor2018forecasting` (indeed, this dataset is one of the examples they provide in their documentation), but instead we'll make our own Prophet-like model in PyMC3. This will make it a lot easier to inspect the model's components and to do prior predictive checks (an integral component of the [Bayesian workflow](https://arxiv.org/abs/2011.01808) {cite:p}`gelman2020bayesian`).
 
 ```{code-cell} ipython3
 import arviz as az
@@ -21,31 +30,22 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
-
-print(f"Running on PyMC3 v{pm.__version__}")
+import pymc as pm
 ```
 
 ```{code-cell} ipython3
-RANDOM_SEED = 4000
+RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
-
-%config InlineBackend.figure_format = 'retina'
 az.style.use("arviz-darkgrid")
+%config InlineBackend.figure_format = 'retina'
 ```
 
 ```{code-cell} ipython3
+# get data
 try:
     df = pd.read_csv("../data/AirPassengers.csv", parse_dates=["Month"])
 except FileNotFoundError:
-    df = pm.get_data("AirPassengers.csv", parse_dates=["Month"])
-```
-
-```{code-cell} ipython3
-def _sample(array, n_samples):
-    """Little utility function, sample n_samples with replacement"""
-    idx = np.random.choice(np.arange(len(array)), n_samples, replace=True)
-    return array[idx]
+    df = pd.read_csv(pm.get_data("AirPassengers.csv"), parse_dates=["Month"])
 ```
 
 ## Before we begin: visualise the data
@@ -65,7 +65,7 @@ There's an increasing trend, with multiplicative seasonality. We'll fit a linear
 First, we'll scale time to be between 0 and 1:
 
 ```{code-cell} ipython3
-t = (df["Month"] - pd.Timestamp("1900-01-01")).dt.total_seconds().to_numpy()
+t = (df["Month"] - pd.Timestamp("1900-01-01")).dt.days.to_numpy()
 t_min = np.min(t)
 t_max = np.max(t)
 t = (t - t_min) / (t_max - t_min)
@@ -95,19 +95,23 @@ with pm.Model(check_bounds=False) as linear:
     trend = pm.Deterministic("trend", α + β * t)
     pm.Normal("likelihood", mu=trend, sigma=σ, observed=y)
 
-    linear_prior_predictive = pm.sample_prior_predictive()
+    linear_prior = pm.sample_prior_predictive()
 
 fig, ax = plt.subplots(nrows=2, ncols=1, sharex=True)
 ax[0].plot(
     df["Month"],
-    _sample(linear_prior_predictive["likelihood"], 100).T * y_max,
+    az.extract_dataset(linear_prior, group="prior_predictive", num_samples=100)["likelihood"]
+    * y_max,
     color="blue",
     alpha=0.05,
 )
 df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[0])
 ax[0].set_title("Prior predictive")
 ax[1].plot(
-    df["Month"], _sample(linear_prior_predictive["trend"], 100).T * y_max, color="blue", alpha=0.05
+    df["Month"],
+    az.extract_dataset(linear_prior, group="prior", num_samples=100)["trend"] * y_max,
+    color="blue",
+    alpha=0.05,
 )
 df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[1])
 ax[1].set_title("Prior trend lines");
@@ -123,19 +127,23 @@ with pm.Model(check_bounds=False) as linear:
     trend = pm.Deterministic("trend", α + β * t)
     pm.Normal("likelihood", mu=trend, sigma=σ, observed=y)
 
-    linear_prior_predictive = pm.sample_prior_predictive(samples=100)
+    linear_prior = pm.sample_prior_predictive(samples=100)
 
 fig, ax = plt.subplots(nrows=2, ncols=1, sharex=True)
 ax[0].plot(
     df["Month"],
-    _sample(linear_prior_predictive["likelihood"], 100).T * y_max,
+    az.extract_dataset(linear_prior, group="prior_predictive", num_samples=100)["likelihood"]
+    * y_max,
     color="blue",
     alpha=0.05,
 )
 df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[0])
 ax[0].set_title("Prior predictive")
 ax[1].plot(
-    df["Month"], _sample(linear_prior_predictive["trend"], 100).T * y_max, color="blue", alpha=0.05
+    df["Month"],
+    az.extract_dataset(linear_prior, group="prior", num_samples=100)["trend"] * y_max,
+    color="blue",
+    alpha=0.05,
 )
 df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[1])
 ax[1].set_title("Prior trend lines");
@@ -146,32 +154,38 @@ Cool. Before going on to anything more complicated, let's try conditioning on th
 ```{code-cell} ipython3
 with linear:
     linear_trace = pm.sample(return_inferencedata=True)
-    linear_posterior_predictive = pm.sample_posterior_predictive(trace=linear_trace)
+    linear_prior = pm.sample_posterior_predictive(trace=linear_trace)
 
 fig, ax = plt.subplots(nrows=2, ncols=1, sharex=True)
 ax[0].plot(
     df["Month"],
-    _sample(linear_posterior_predictive["likelihood"], 100).T * y_max,
+    az.extract_dataset(linear_prior, group="posterior_predictive", num_samples=100)["likelihood"]
+    * y_max,
     color="blue",
     alpha=0.01,
 )
 df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[0])
 ax[0].set_title("Posterior predictive")
-posterior_trend = linear_trace.posterior["trend"].stack(sample=("draw", "chain")).T
-ax[1].plot(df["Month"], _sample(posterior_trend, 100).T * y_max, color="blue", alpha=0.01)
+ax[1].plot(
+    df["Month"],
+    az.extract_dataset(linear_trace, group="posterior", num_samples=100)["trend"] * y_max,
+    color="blue",
+    alpha=0.01,
+)
 df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[1])
 ax[1].set_title("Posterior trend lines");
 ```
 
 ## Part 2: enter seasonality
 
-To model seasonality, we'll "borrow" the approach taken by Prophet - see [the paper](https://peerj.com/preprints/3190/) for details, but the idea is to make a matrix of Fourier features which get multiplied by a vector of coefficients. As we'll be using multiplicative seasonality, the final model will be
+To model seasonality, we'll "borrow" the approach taken by Prophet - see [the Prophet paper](https://peerj.com/preprints/3190/) {cite:p}`taylor2018forecasting` for details, but the idea is to make a matrix of Fourier features which get multiplied by a vector of coefficients. As we'll be using multiplicative seasonality, the final model will be
 
 $$\text{Passengers} \sim (\alpha + \beta\ \text{time}) (1 + \text{seasonality})$$
 
 ```{code-cell} ipython3
 n_order = 10
-periods = df["Month"].dt.dayofyear / 365.25
+periods = (df["Month"] - pd.Timestamp("1900-01-01")).dt.days / 365.25
+
 fourier_features = pd.DataFrame(
     {
         f"{func}_order_{order}": getattr(np, func)(2 * np.pi * periods * order)
@@ -198,12 +212,15 @@ with pm.Model(check_bounds=False, coords=coords) as linear_with_seasonality:
     μ = trend * (1 + seasonality)
     pm.Normal("likelihood", mu=μ, sigma=σ, observed=y)
 
-    linear_with_seasonality_prior_predictive = pm.sample_prior_predictive()
+    linear_seasonality_prior = pm.sample_prior_predictive()
 
-fig, ax = plt.subplots(nrows=3, ncols=1, sharex=False)
+fig, ax = plt.subplots(nrows=3, ncols=1, sharex=False, figsize=(8, 6))
 ax[0].plot(
     df["Month"],
-    _sample(linear_with_seasonality_prior_predictive["likelihood"], 100).T * y_max,
+    az.extract_dataset(linear_seasonality_prior, group="prior_predictive", num_samples=100)[
+        "likelihood"
+    ]
+    * y_max,
     color="blue",
     alpha=0.05,
 )
@@ -211,7 +228,7 @@ df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[0])
 ax[0].set_title("Prior predictive")
 ax[1].plot(
     df["Month"],
-    _sample(linear_with_seasonality_prior_predictive["trend"], 100).T * y_max,
+    az.extract_dataset(linear_seasonality_prior, group="prior", num_samples=100)["trend"] * y_max,
     color="blue",
     alpha=0.05,
 )
@@ -219,7 +236,8 @@ df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[1])
 ax[1].set_title("Prior trend lines")
 ax[2].plot(
     df["Month"].iloc[:12],
-    _sample(linear_with_seasonality_prior_predictive["seasonality"][:, :12], 100).T * 100,
+    az.extract_dataset(linear_seasonality_prior, group="prior", num_samples=100)["seasonality"][:12]
+    * 100,
     color="blue",
     alpha=0.05,
 )
@@ -247,12 +265,15 @@ with pm.Model(check_bounds=False, coords=coords) as linear_with_seasonality:
     σ = pm.HalfNormal("σ", sigma=0.1)
     pm.Normal("likelihood", mu=μ, sigma=σ, observed=y)
 
-    linear_with_seasonality_prior_predictive = pm.sample_prior_predictive()
+    linear_seasonality_prior = pm.sample_prior_predictive()
 
-fig, ax = plt.subplots(nrows=3, ncols=1, sharex=False)
+fig, ax = plt.subplots(nrows=3, ncols=1, sharex=False, figsize=(8, 6))
 ax[0].plot(
     df["Month"],
-    _sample(linear_with_seasonality_prior_predictive["likelihood"], 100).T * y_max,
+    az.extract_dataset(linear_seasonality_prior, group="prior_predictive", num_samples=100)[
+        "likelihood"
+    ]
+    * y_max,
     color="blue",
     alpha=0.05,
 )
@@ -260,7 +281,7 @@ df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[0])
 ax[0].set_title("Prior predictive")
 ax[1].plot(
     df["Month"],
-    _sample(linear_with_seasonality_prior_predictive["trend"], 100).T * y_max,
+    az.extract_dataset(linear_seasonality_prior, group="prior", num_samples=100)["trend"] * y_max,
     color="blue",
     alpha=0.05,
 )
@@ -268,7 +289,8 @@ df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[1])
 ax[1].set_title("Prior trend lines")
 ax[2].plot(
     df["Month"].iloc[:12],
-    _sample(linear_with_seasonality_prior_predictive["seasonality"][:, :12], 100).T * 100,
+    az.extract_dataset(linear_seasonality_prior, group="prior", num_samples=100)["seasonality"][:12]
+    * 100,
     color="blue",
     alpha=0.05,
 )
@@ -282,30 +304,35 @@ Seems a lot more believable. Time for a posterior predictive check:
 
 ```{code-cell} ipython3
 with linear_with_seasonality:
-    linear_with_seasonality_trace = pm.sample(return_inferencedata=True)
-    linear_with_seasonality_posterior_predictive = pm.sample_posterior_predictive(
-        trace=linear_with_seasonality_trace
-    )
+    linear_seasonality_trace = pm.sample(return_inferencedata=True)
+    linear_seasonality_posterior = pm.sample_posterior_predictive(trace=linear_seasonality_trace)
 
-fig, ax = plt.subplots(nrows=3, ncols=1, sharex=False)
+fig, ax = plt.subplots(nrows=3, ncols=1, sharex=False, figsize=(8, 6))
 ax[0].plot(
     df["Month"],
-    _sample(linear_with_seasonality_posterior_predictive["likelihood"], 100).T * y_max,
+    az.extract_dataset(linear_seasonality_posterior, group="posterior_predictive", num_samples=100)[
+        "likelihood"
+    ]
+    * y_max,
     color="blue",
     alpha=0.05,
 )
 df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[0])
 ax[0].set_title("Posterior predictive")
-posterior_trend = linear_trace.posterior["trend"].stack(sample=("draw", "chain")).T
-ax[1].plot(df["Month"], _sample(posterior_trend, 100).T * y_max, color="blue", alpha=0.05)
+ax[1].plot(
+    df["Month"],
+    az.extract_dataset(linear_trace, group="posterior", num_samples=100)["trend"] * y_max,
+    color="blue",
+    alpha=0.05,
+)
 df.plot.scatter(x="Month", y="#Passengers", color="k", ax=ax[1])
 ax[1].set_title("Posterior trend lines")
-posterior_seasonality = (
-    linear_with_seasonality_trace.posterior["seasonality"].stack(sample=("draw", "chain")).T
-)
 ax[2].plot(
     df["Month"].iloc[:12],
-    _sample(posterior_seasonality[:, :12], 100).T * 100,
+    az.extract_dataset(linear_seasonality_trace, group="posterior", num_samples=100)["seasonality"][
+        :12
+    ]
+    * 100,
     color="blue",
     alpha=0.05,
 )
@@ -321,21 +348,29 @@ Neat!
 
 ## Conclusion
 
-We saw how we could implement a Prophet-like model ourselves and fit it to the air passengers dataset. Prophet is an awesome library and a net-positive to the community, but by implementing it ourselves, however, we can take whichever components of it we think are relevant to our problem, customise them, and carry out the Bayesian workflow. Next time you have a time series problem, I hope you will try implementing your own probabilistic model rather than using Prophet as a "black-box" whose arguments are tuneable hyperparameters.
+We saw how we could implement a Prophet-like model ourselves and fit it to the air passengers dataset. Prophet is an awesome library and a net-positive to the community, but by implementing it ourselves, however, we can take whichever components of it we think are relevant to our problem, customise them, and carry out the Bayesian workflow {cite:p}`gelman2020bayesian`). Next time you have a time series problem, I hope you will try implementing your own probabilistic model rather than using Prophet as a "black-box" whose arguments are tuneable hyperparameters.
 
 For reference, you might also want to check out:
 - [TimeSeeers](https://github.com/MBrouns/timeseers), a hierarchical Bayesian Time Series model based on Facebooks Prophet, written in PyMC3
-- [pmprophet](https://github.com/luke14free/pm-prophet), Pymc3-based universal time series prediction and decomposition library inspired by Facebook Prophet
+- [PM-Prophet](https://github.com/luke14free/pm-prophet), a Pymc3-based universal time series prediction and decomposition library inspired by Facebook Prophet
 
-----
++++
 
-Author: [Marco Gorelli](https://github.com/MarcoGorelli)
+## Authors
+* Authored by [Marco Gorelli](https://github.com/MarcoGorelli) in June, 2021 ([pymc-examples#183](https://github.com/pymc-devs/pymc-examples/pull/183))
+* Updated by Danh Phan in May, 2022 ([pymc-examples#320](https://github.com/pymc-devs/pymc-examples/pull/320))
+
++++
+
+## References
+:::{bibliography}
+:filter: docname in docnames
+:::
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,xarray
+%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
 ```
 
-```{code-cell} ipython3
-
-```
+:::{include} ../page_footer.md
+:::

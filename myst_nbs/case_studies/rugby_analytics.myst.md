@@ -77,7 +77,7 @@ except:
 
 ## What do we want to infer?
 
-* We want to infer the latent paremeters (every team's strength) that are generating the data we observe (the scorelines).
+* We want to infer the latent parameters (every team's strength) that are generating the data we observe (the scorelines).
 * Moreover, we know that the scorelines are a noisy measurement of team strength, so ideally, we want a model that makes it easy to quantify our uncertainty about the underlying strengths.
 * Often we don't know what the Bayesian Model is explicitly, so we have to 'estimate' the Bayesian Model'
 * If we can't solve something, approximate it.
@@ -468,7 +468,7 @@ We see according to this model that Ireland finishes with the most points about 
 
 > As an Irish rugby fan - I like this model. However it indicates some problems with shrinkage, and bias. Since recent form suggests England will win.
 
-Nevertheless the point of this model was to illustrate how a Hierachical model could be applied to a sports analytics problem, and illustrate the power of PyMC.
+Nevertheless the point of this model was to illustrate how a Hierarchical model could be applied to a sports analytics problem, and illustrate the power of PyMC.
 
 +++
 

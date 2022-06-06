@@ -135,7 +135,7 @@ df_temp
 ```
 
 ## Visualizing Effective Sample Size
-In this diagram, we'll plot the relative effective sample size agains the number of chains.
+In this diagram, we'll plot the relative effective sample size against the number of chains.
 
 Because our computation above ran everything with $N_{cores}=1$, we can't make a realistic comparison of effective sampling rates.
 
