@@ -231,7 +231,9 @@ with pm.Model(coords=coords) as model:
 
     beta = pm.Normal("beta", 0, sigma=1000)
 
-    lambda_ = pm.Deterministic("lambda_", at.outer(pm.math.exp(beta * df.metastasized.values), lambda0))
+    lambda_ = pm.Deterministic(
+        "lambda_", at.outer(pm.math.exp(beta * df.metastasized.values), lambda0)
+    )
     mu = pm.Deterministic("mu", exposure * lambda_)
 
     obs = pm.Poisson("obs", mu, observed=death)
