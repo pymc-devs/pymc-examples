@@ -11,8 +11,7 @@ kernelspec:
   name: pymc
 ---
 
-```{raw-cell}
-(notebook_name)=
+(gp_latent)=
 # Gaussian Processes: Latent Variable Implementation
 
 :::{post} Jun 4, 2022
@@ -20,9 +19,8 @@ kernelspec:
 :category: reference, intermediate
 :author: Bill Engels
 :::
-```
 
-# Latent Variable Implementation
++++
 
 The `gp.Latent` class is a direct implementation of a Gaussian process without approximation.  Given a mean and covariance function, we can place a prior on the function $f(x)$,
 
@@ -79,7 +77,7 @@ with latent_gp_model:
 
 +++
 
-# Example 1: Regression with Student-T distributed noise
+## Example 1: Regression with Student-T distributed noise
 
 The following is an example showing how to specify a simple model with a GP prior using the `gp.Latent` class.  We use a GP to generate the data so we can verify that the inference we perform is correct.  Note that the likelihood is not normal, but IID Student-T.  For a more efficient implementation when the likelihood is Gaussian, use `pm.gp.Marginal`.
 
@@ -140,7 +138,7 @@ plt.legend(frameon=True);
 
 The data above shows the observations, marked with black dots, of the unknown function $f(x)$ that has been corrupted by noise.  The true function is in blue.  
 
-## Coding the model in PyMC
+### Coding the model in PyMC
 
 Here's the model in PyMC.  We use an informative $\text{Gamma}(\alpha = 2\,, \beta=1)$ prior over the lengthscale parameter, and weakly informative $\text{HalfNormal}(\sigma=5)$ priors over the covariance function scale, and noise scale.  A $\text{Gamma}(2, 0.5)$ prior is assigned to the degrees of freedom parameter of the noise.  Finally, a GP prior is placed on the unknown function.  For more information on choosing priors in Gaussian process models, check out some of [recommendations by the Stan folks](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations#priors-for-gaussian-processes).
 
@@ -179,7 +177,7 @@ else:
     print(f"The MCMC chains for {n_nonconverged} RVs appear not to have converged.")
 ```
 
-## Results
+### Results
 
 The joint posterior of the two covariance function hyperparameters is plotted below in the left panel.  In the right panel is the joint posterior of the standard deviation of the noise, and the degrees of freedom parameter of the likelihood.  The light blue lines show the true values that were used to draw the function from the GP.
 
@@ -243,7 +241,7 @@ plt.legend();
 
 As you can see by the red shading, the posterior of the GP prior over the function does a great job of representing both the fit, and the uncertainty caused by the additive noise.  The result also doesn't over fit due to outliers from the Student-T noise model.
 
-## Prediction using `.conditional`
+### Prediction using `.conditional`
 
 Next, we extend the model by adding the conditional distribution so we can predict at new $x$ locations.  Lets see how the extrapolation looks out to higher $x$.  To do this, we extend our `model` with the `conditional` distribution of the GP.  Then, we can sample from it using the `trace` and the `sample_posterior_predictive` function.  This is similar to how Stan uses its `generated quantities {...}` blocks.  We could have included `gp.conditional` in the model *before* we did the NUTS sampling, but it is more efficient to separate these steps.
 
@@ -440,8 +438,5 @@ plt.legend(loc=(0.32, 0.65), frameon=True);
 %watermark -n -u -v -iv -w
 ```
 
-```{raw-cell}
-
 :::{include} ../page_footer.md
 :::
-```
