@@ -15,7 +15,7 @@ kernelspec:
 # Censored Data Models
 
 :::{post} May, 2022
-:tags: censoring, survival analysis
+:tags: censoring, survival analysis 
 :category: intermediate, how-to
 :author: Luis Mario Domenzain
 :::

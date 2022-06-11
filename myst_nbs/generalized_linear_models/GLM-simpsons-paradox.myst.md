@@ -15,7 +15,7 @@ kernelspec:
 # Simpson's paradox and mixed models
 
 :::{post} March, 2022
-:tags: regression, hierarchical model, linear model, multi level model, posterior predictive, Simpson's paradox
+:tags: regression, hierarchical model, linear model, multi level model, posterior predictive, Simpson's paradox 
 :category: beginner
 :author: Benjamin T. Vincent
 :::

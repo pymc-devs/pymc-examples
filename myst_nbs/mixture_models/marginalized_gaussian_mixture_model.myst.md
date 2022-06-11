@@ -16,7 +16,7 @@ kernelspec:
 # Marginalized Gaussian Mixture Model
 
 :::{post} Sept 18, 2021
-:tags: mixture model, pymc3.Dirichlet, pymc3.Gamma, pymc3.Model, pymc3.Normal, pymc3.NormalMixture
+:tags: mixture model, 
 :category: intermediate
 :::
 

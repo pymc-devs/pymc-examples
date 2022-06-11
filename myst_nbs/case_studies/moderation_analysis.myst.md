@@ -15,7 +15,7 @@ kernelspec:
 # Bayesian moderation analysis
 
 :::{post} March, 2022
-:tags: moderation, path analysis,
+:tags: moderation, path analysis, 
 :category: beginner
 :author: Benjamin T. Vincent
 :::

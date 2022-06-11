@@ -15,7 +15,7 @@ kernelspec:
 # NBA Foul Analysis with Item Response Theory
 
 :::{post} Apr 17, 2022
-:tags: hierarchical model, case study, generalized linear model
+:tags: hierarchical model, case study, generalized linear model 
 :category: intermediate, tutorial
 :author:  Austin Rochford, Lorenzo Toniazzi
 :::

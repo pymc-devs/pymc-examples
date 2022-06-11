@@ -13,7 +13,7 @@ kernelspec:
 
 # Hierarchical Binomial Model: Rat Tumor Example
 :::{post} Nov 11, 2021
-:tags: generalized linear model, hierarchical model
+:tags: generalized linear model, hierarchical model 
 :category: intermediate
 :author: Demetri Pananos, Junpeng Lao, Raúl Maldonado, Farhan Reynaldo
 :::

@@ -15,7 +15,7 @@ kernelspec:
 # Bayesian mediation analysis
 
 :::{post} February, 2022
-:tags: mediation, path analysis, regression
+:tags: mediation, path analysis, regression 
 :category: beginner
 :author: Benjamin T. Vincent
 :::

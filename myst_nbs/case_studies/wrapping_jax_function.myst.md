@@ -17,7 +17,7 @@ substitutions:
 # How to wrap a JAX function for use in PyMC
 
 :::{post} Mar 24, 2022
-:tags: Aesara, hidden markov model, JAX
+:tags: Aesara, hidden markov model, JAX 
 :category: advanced, how-to
 :author: Ricardo Vieira
 :::

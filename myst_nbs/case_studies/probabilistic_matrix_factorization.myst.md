@@ -14,7 +14,7 @@ kernelspec:
 # Probabilistic Matrix Factorization for Making Personalized Recommendations
 
 :::{post} Sept 20, 2021
-:tags: case study, pymc3.Model, pymc3.MvNormal, pymc3.Normal
+:tags: case study, 
 :category: intermediate
 :::
 
