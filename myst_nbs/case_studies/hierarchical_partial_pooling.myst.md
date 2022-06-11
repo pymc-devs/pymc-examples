@@ -14,7 +14,7 @@ kernelspec:
 # Hierarchical Partial Pooling
 
 :::{post} Oct 07, 2021
-:tags: hierarchical model, pymc.Beta, pymc.Binomial, pymc.Deterministic, pymc.Exponential, pymc.Model, pymc.Uniform, pymc3.Beta, pymc3.Binomial, pymc3.Deterministic, pymc3.Exponential, pymc3.Model, pymc3.Uniform
+:tags: hierarchical model, 
 :category: intermediate
 :::
 

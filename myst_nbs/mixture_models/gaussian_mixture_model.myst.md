@@ -15,7 +15,7 @@ kernelspec:
 # Gaussian Mixture Model
 
 :::{post} April, 2022
-:tags: mixture model, classification
+:tags: mixture model, classification 
 :category: beginner
 :author: Abe Flaxman
 :::

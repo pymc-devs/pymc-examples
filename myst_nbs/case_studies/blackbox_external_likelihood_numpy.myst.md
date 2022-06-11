@@ -15,7 +15,7 @@ kernelspec:
 # Using a "black box" likelihood function (numpy)
 
 :::{post} Dec 16, 2021
-:tags: case study, external likelihood, pymc.Model, pymc.Normal, pymc.Potential, pymc.Uniform, pymc3.Model, pymc3.Normal, pymc3.Potential, pymc3.Uniform
+:tags: case study, external likelihood, 
 :category: beginner
 :author: Matt Pitkin, Jørgen Midtbø, Oriol Abril
 :::

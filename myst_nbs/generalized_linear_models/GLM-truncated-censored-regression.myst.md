@@ -15,7 +15,7 @@ kernelspec:
 # Bayesian regression with truncated or censored data
 
 :::{post} January, 2022
-:tags: censored, censoring, generalized linear model, pymc3.Censored, pymc3.HalfNormal, pymc3.Model, pymc3.Normal, pymc3.TruncatedNormal, regression, truncated, truncation
+:tags: censored, censoring, generalized linear model, regression, truncated, truncation 
 :category: beginner
 :author: Benjamin T. Vincent
 :::

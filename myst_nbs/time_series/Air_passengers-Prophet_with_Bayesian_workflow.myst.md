@@ -15,7 +15,7 @@ kernelspec:
 # Air passengers - Prophet-like model
 
 :::{post} April, 2022
-:tags: time series, prophet
+:tags: time series, prophet 
 :category: intermediate
 :author: Marco Gorelli, Danh Phan
 :::
