@@ -18,7 +18,7 @@ substitutions:
 # Factor analysis
 
 :::{post} 19 Mar, 2022
-:tags: factor analysis, matrix factorization, pca
+:tags: factor analysis, matrix factorization, pca 
 :category: advanced, how-to
 :author: Chris Hartl,  Christopher Krapu, Oriol Abril-Pla
 :::

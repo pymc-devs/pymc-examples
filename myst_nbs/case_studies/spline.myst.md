@@ -15,7 +15,7 @@ kernelspec:
 # Splines
 
 :::{post} June 4, 2022 
-:tags: patsy, regression, spline
+:tags: patsy, regression, spline 
 :category: beginner
 :author: Joshua Cook
 :::

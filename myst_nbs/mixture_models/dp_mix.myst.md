@@ -15,7 +15,7 @@ kernelspec:
 # Dirichlet process mixtures for density estimation
 
 :::{post} Sept 16, 2021
-:tags: mixture model, pymc3.Beta, pymc3.Deterministic, pymc3.Gamma, pymc3.Mixture, pymc3.Model, pymc3.Normal, pymc3.NormalMixture
+:tags: mixture model, 
 :category: advanced
 :author: Austin Rochford, Abhipsha Das
 :::

@@ -16,7 +16,7 @@ substitutions:
 # A Hierarchical model for Rugby prediction
 
 :::{post} 19 Mar, 2022
-:tags: hierarchical, sports
+:tags: hierarchical, sports 
 :category: intermediate, how-to
 :author: Peadar Coyle, Meenal Jhajharia, Oriol Abril-Pla
 :::

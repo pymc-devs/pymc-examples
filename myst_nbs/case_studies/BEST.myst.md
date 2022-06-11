@@ -15,7 +15,7 @@ kernelspec:
 # Bayesian Estimation Supersedes the T-Test
 
 :::{post} Jan 07, 2022
-:tags: hypothesis testing, model comparison, pymc3.Deterministic, pymc3.Exponential, pymc3.Model, pymc3.Normal, pymc3.StudentT, pymc3.Uniform
+:tags: hypothesis testing, model comparison, 
 :category: beginner
 :author: Andrew Straw, Thomas Wiecki, Chris Fonnesbeck, Andrés suárez
 :::

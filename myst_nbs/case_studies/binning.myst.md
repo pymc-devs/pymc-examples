@@ -14,7 +14,7 @@ kernelspec:
 (awkward_binning)=
 # Estimating parameters of a distribution from awkwardly binned data
 :::{post} Oct 23, 2021
-:tags: binned data, case study, parameter estimation, pymc3.Bound, pymc3.Deterministic, pymc3.Gamma, pymc3.HalfNormal, pymc3.Model, pymc3.Multinomial, pymc3.Normal
+:tags: binned data, case study, parameter estimation, 
 :category: intermediate
 :author: Eric Ma, Benjamin T. Vincent
 :::

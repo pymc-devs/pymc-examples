@@ -15,7 +15,7 @@ kernelspec:
 # Rolling Regression
 
 :::{post} June, 2022
-:tags: generalized linear model, regression
+:tags: generalized linear model, regression 
 :category: intermediate
 :author: Thomas Wiecki
 :::

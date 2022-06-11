@@ -14,7 +14,7 @@ kernelspec:
 (ABC_introduction)=
 # Approximate Bayesian Computation
 :::{post} May 31, 2022
-:tags: SMC, ABC
+:tags: SMC, ABC 
 :category: beginner, explanation
 :::
 

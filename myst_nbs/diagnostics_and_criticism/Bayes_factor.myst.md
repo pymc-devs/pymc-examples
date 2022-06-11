@@ -14,7 +14,7 @@ kernelspec:
 (Bayes_factor)=
 # Bayes Factors and Marginal Likelihood
 :::{post} Jun 1, 2022
-:tags: Bayes Factors, model comparison
+:tags: Bayes Factors, model comparison 
 :category: beginner, explanation
 :author: Osvaldo Martin
 :::

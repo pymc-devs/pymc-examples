@@ -17,7 +17,7 @@ substitutions:
 # GLM: Robust Regression using Custom Likelihood for Outlier Classification
 
 :::{post} 17 Nov, 2021
-:tags: pymc3.Bernoulli, pymc3.Data, pymc3.Deterministic, pymc3.DiscreteUniform, pymc3.Exponential, pymc3.GaussianRandomWalk, pymc3.HalfNormal, pymc3.InverseGamma, pymc3.Model, pymc3.Normal, pymc3.Poisson, pymc3.Potential, pymc3.Slice, pymc3.StudentT, pymc3.Uniform, regression, robust analysis
+:tags: regression, robust analysis 
 :category: intermediate
 :author: Jon Sedar, Thomas Wiecki, Raul Maldonado, Oriol Abril
 :::

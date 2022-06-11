@@ -15,7 +15,7 @@ kernelspec:
 # GLM: Model Selection
 
 :::{post} Jan 8, 2022
-:tags: cross validation, generalized linear models, loo, model comparison, pymc3.HalfCauchy, pymc3.Model, pymc3.Normal, waic
+:tags: cross validation, generalized linear models, loo, model comparison, waic 
 :category: intermediate
 :author: Jon Sedar, Junpeng Lao, Abhipsha Das, Oriol Abril-Pla
 :::

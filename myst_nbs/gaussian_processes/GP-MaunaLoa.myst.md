@@ -17,7 +17,7 @@ substitutions:
 # Gaussian Process for CO2 at Mauna Loa
 
 :::{post} April, 2022
-:tags: gaussian process, CO2
+:tags: gaussian process, CO2 
 :category: intermediate
 :author: Bill Engels, Chris Fonnesbeck
 :::
