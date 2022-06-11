@@ -6,7 +6,6 @@ from pymc.gp.util import (
     JITTER_DEFAULT,
     cholesky,
     conditioned_vars,
-    infer_size,
     replace_with_values,
     solve_lower,
     solve_upper,
@@ -30,7 +29,7 @@ class ProjectedProcess(pm.gp.Latent):
         Kuu = self.cov_func(Xu)
         L = cholesky(stabilize(Kuu, jitter))
         
-        n_inducing_points = infer_size(Xu, kwargs.pop("size", None))
+        n_inducing_points = np.shape(Xu)[0]
         v = pm.Normal(name + "_u_rotated_", mu=0.0, sigma=1.0, size=n_inducing_points, **kwargs)
         u = pm.Deterministic(name + "_u", L @ v)
         
@@ -97,7 +96,7 @@ class HSGP(pm.gp.Latent):
         return Phi, omega
 
     def _build_prior(self, name, X, **kwargs):
-        n_obs = pm.gp.util.infer_size(X, kwargs.get("n_obs"))
+        n_obs = np.shape(X)[0]
 
         # standardize input scale
         X = at.as_tensor_variable(X)
