@@ -7,5 +7,7 @@ dependencies:
 - pytest-cov>=2.5
 - pytest>=3.0
 - python=3.7
+- dask
+- xhistogram
 - pip:
   - "git+https://github.com/pymc-devs/pymc.git@main"

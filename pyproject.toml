@@ -1,6 +1,7 @@
 [tool.pytest.ini_options]
 minversion = "6.0"
 xfail_strict=true
+addopts = "--doctest-modules pymc_experimental"
 
 [tool.black]
 line-length = 100
