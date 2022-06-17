@@ -154,6 +154,7 @@ html_context = {
     "sandbox_repo": f"pymc-devs/pymc-sandbox/{version}",
     "doi_url": f"https://doi.org/{doi_code}",
     "doi_code": doi_code,
+    "default_mode": "light",
 }
 
 

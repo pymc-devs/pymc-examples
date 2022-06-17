@@ -6,29 +6,27 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
 
+(probabilistic_matrix_factorization)=
 # Probabilistic Matrix Factorization for Making Personalized Recommendations
 
-:::{post} Sept 20, 2021
-:tags: case study, 
+:::{post} June 3, 2022
+:tags: case study, product recommendation, matrix factorization
 :category: intermediate
+:author: Ruslan Salakhutdinov, Andriy Mnih, Mack Sweeney, Colin Carroll, Rob Zinkov
 :::
 
 ```{code-cell} ipython3
-%matplotlib inline
-
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import xarray as xr
-
-print(f"Running on PyMC3 v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -42,7 +40,7 @@ az.style.use("arviz-darkgrid")
 
 So you are browsing for something to watch on Netflix and just not liking the suggestions. You just know you can do better. All you need to do is collect some ratings data from yourself and friends and build a recommendation algorithm. This notebook will guide you in doing just that!
 
-We'll start out by getting some intuition for how our model will work. Then we'll formalize our intuition. Afterwards, we'll examine the dataset we are going to use. Once we have some notion of what our data looks like, we'll define some baseline methods for predicting preferences for movies. Following that, we'll look at Probabilistic Matrix Factorization (PMF), which is a more sophisticated Bayesian method for predicting preferences. Having detailed the PMF model, we'll use PyMC3 for MAP estimation and MCMC inference. Finally, we'll compare the results obtained with PMF to those obtained from our baseline methods and discuss the outcome.
+We'll start out by getting some intuition for how our model will work. Then we'll formalize our intuition. Afterwards, we'll examine the dataset we are going to use. Once we have some notion of what our data looks like, we'll define some baseline methods for predicting preferences for movies. Following that, we'll look at Probabilistic Matrix Factorization (PMF), which is a more sophisticated Bayesian method for predicting preferences. Having detailed the PMF model, we'll use PyMC for MAP estimation and MCMC inference. Finally, we'll compare the results obtained with PMF to those obtained from our baseline methods and discuss the outcome.
 
 ## Intuition
 
@@ -305,12 +303,12 @@ Given small precision parameters, the priors on $U$ and $V$ ensure our latent va
 import logging
 import time
 
+import aesara
 import scipy as sp
-import theano
 
 # Enable on-the-fly graph computations, but ignore
 # absence of intermediate test values.
-theano.config.compute_test_value = "ignore"
+aesara.config.compute_test_value = "ignore"
 
 # Set up logging.
 logger = logging.getLogger()
@@ -318,10 +316,10 @@ logger.setLevel(logging.INFO)
 
 
 class PMF:
-    """Probabilistic Matrix Factorization model using pymc3."""
+    """Probabilistic Matrix Factorization model using pymc."""
 
     def __init__(self, train, dim, alpha=2, std=0.01, bounds=(1, 5)):
-        """Build the Probabilistic Matrix Factorization model using pymc3.
+        """Build the Probabilistic Matrix Factorization model using pymc.
 
         :param np.ndarray train: The training data to use for learning the model.
         :param int dim: Dimensionality of the model; number of latent factors.
@@ -362,14 +360,14 @@ class PMF:
                 mu=0,
                 tau=self.alpha_u * np.eye(dim),
                 dims=("users", "latent_factors"),
-                testval=rng.standard_normal(size=(n, dim)) * std,
+                initval=rng.standard_normal(size=(n, dim)) * std,
             )
             V = pm.MvNormal(
                 "V",
                 mu=0,
                 tau=self.alpha_v * np.eye(dim),
                 dims=("movies", "latent_factors"),
-                testval=rng.standard_normal(size=(m, dim)) * std,
+                initval=rng.standard_normal(size=(m, dim)) * std,
             )
             R = pm.Normal(
                 "R",
@@ -390,7 +388,7 @@ We'll also need functions for calculating the MAP and performing sampling on our
 
 $$ E = \frac{1}{2} \sum_{i=1}^N \sum_{j=1}^M I_{ij} (R_{ij} - U_i V_j^T)^2 + \frac{\lambda_U}{2} \sum_{i=1}^N \|U\|_{Fro}^2 + \frac{\lambda_V}{2} \sum_{j=1}^M \|V\|_{Fro}^2, $$
 
-where $\lambda_U = \alpha_U / \alpha$, $\lambda_V = \alpha_V / \alpha$, and $\|\cdot\|_{Fro}^2$ denotes the Frobenius norm {cite:p}`mnih2008advances`. Minimizing this objective function gives a local minimum, which is essentially a maximum a posteriori (MAP) estimate. While it is possible to use a fast Stochastic Gradient Descent procedure to find this MAP, we'll be finding it using the utilities built into `pymc3`. In particular, we'll use `find_MAP` with Powell optimization (`scipy.optimize.fmin_powell`). Having found this MAP estimate, we can use it as our starting point for MCMC sampling.
+where $\lambda_U = \alpha_U / \alpha$, $\lambda_V = \alpha_V / \alpha$, and $\|\cdot\|_{Fro}^2$ denotes the Frobenius norm {cite:p}`mnih2008advances`. Minimizing this objective function gives a local minimum, which is essentially a maximum a posteriori (MAP) estimate. While it is possible to use a fast Stochastic Gradient Descent procedure to find this MAP, we'll be finding it using the utilities built into `pymc`. In particular, we'll use `find_MAP` with Powell optimization (`scipy.optimize.fmin_powell`). Having found this MAP estimate, we can use it as our starting point for MCMC sampling.
 
 Since it is a reasonably complex model, we expect the MAP estimation to take some time. So let's save it after we've found it. Note that we define a function for finding the MAP below, assuming it will receive a namespace with some variables in it. Then we attach that function to the PMF class, where it will have such a namespace after initialization. The PMF class is defined in pieces this way so I can say a few things between each piece to make it clearer.
 
@@ -424,9 +422,9 @@ So now our PMF class has a `map` `property` which will either be found using Pow
 ```{code-cell} ipython3
 # Draw MCMC samples.
 def _draw_samples(self, **kwargs):
-    kwargs.setdefault("chains", 1)
+    # kwargs.setdefault("chains", 1)
     with self.model:
-        self.trace = pm.sample(**kwargs, return_inferencedata=True)
+        self.trace = pm.sample(**kwargs)
 
 
 # Update our class with the sampling infrastructure.
@@ -748,15 +746,17 @@ ax.set_ylabel("RMSE");
 
 ## Summary
 
-We set out to predict user preferences for unseen movies. First we discussed the intuitive notion behind the user-user and item-item neighborhood approaches to collaborative filtering. Then we formalized our intuitions. With a firm understanding of our problem context, we moved on to exploring our subset of the Movielens data. After discovering some general patterns, we defined three baseline methods: uniform random, global mean, and mean of means. With the goal of besting our baseline methods, we implemented the basic version of Probabilistic Matrix Factorization (PMF) using `pymc3`.
+We set out to predict user preferences for unseen movies. First we discussed the intuitive notion behind the user-user and item-item neighborhood approaches to collaborative filtering. Then we formalized our intuitions. With a firm understanding of our problem context, we moved on to exploring our subset of the Movielens data. After discovering some general patterns, we defined three baseline methods: uniform random, global mean, and mean of means. With the goal of besting our baseline methods, we implemented the basic version of Probabilistic Matrix Factorization (PMF) using `pymc`.
 
 Our results demonstrate that the mean of means method is our best baseline on our prediction task. As expected, we are able to obtain a significant decrease in RMSE using the PMF MAP estimate obtained via Powell optimization. We illustrated one way to monitor convergence of an MCMC sampler with a high-dimensionality sampling space using the Frobenius norms of the sampled variables. The traceplots using this method seem to indicate that our sampler converged to the posterior. Results using this posterior showed that attempting to improve the MAP estimation using MCMC sampling actually overfit the training data and increased test RMSE. This was likely caused by the constraining of the posterior via fixed precision parameters $\alpha$, $\alpha_U$, and $\alpha_V$.
 
-As a followup to this analysis, it would be interesting to also implement the logistic and constrained versions of PMF. We expect both models to outperform the basic PMF model. We could also implement the fully Bayesian version of PMF (BPMF) {cite:p}`salakhutdinov2008bayesian`, which places hyperpriors on the model parameters to automatically learn ideal mean and precision parameters for $U$ and $V$. This would likely resolve the issue we faced in this analysis. We would expect BPMF to improve upon the MAP estimation produced here by learning more suitable hyperparameters and parameters. For a basic (but working!) implementation of BPMF in `pymc3`, see [this gist](https://gist.github.com/macks22/00a17b1d374dfc267a9a).
+As a followup to this analysis, it would be interesting to also implement the logistic and constrained versions of PMF. We expect both models to outperform the basic PMF model. We could also implement the fully Bayesian version of PMF (BPMF) {cite:p}`salakhutdinov2008bayesian`, which places hyperpriors on the model parameters to automatically learn ideal mean and precision parameters for $U$ and $V$. This would likely resolve the issue we faced in this analysis. We would expect BPMF to improve upon the MAP estimation produced here by learning more suitable hyperparameters and parameters. For a basic (but working!) implementation of BPMF in `pymc`, see [this gist](https://gist.github.com/macks22/00a17b1d374dfc267a9a).
 
 If you made it this far, then congratulations! You now have some idea of how to build a basic recommender system. These same ideas and methods can be used on many different recommendation tasks. Items can be movies, products, advertisements, courses, or even other people. Any time you can build yourself a user-item matrix with user preferences in the cells, you can use these types of collaborative filtering algorithms to predict the missing values. If you want to learn more about recommender systems, the first reference is a good place to start.
 
 +++
+
+## Authors
 
 The model discussed in this analysis was developed by Ruslan Salakhutdinov and Andriy Mnih. Code and supporting text are the original work of [Mack Sweeney](https://www.linkedin.com/in/macksweeney) with changes made to adapt the code and text for the MovieLens dataset by Colin Carroll and Rob Zinkov.
 
@@ -776,5 +776,8 @@ goldberg2001eigentaste
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w
+%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
 ```
+
+:::{include} ../page_footer.md
+:::
