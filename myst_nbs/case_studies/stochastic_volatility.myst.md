@@ -17,7 +17,7 @@ kernelspec:
 :::{post} June 17, 2022
 :tags: time series
 :category: basic
-:author: 
+:author: Thomas Wiecki
 :::
 
 ```{code-cell} ipython3
@@ -202,6 +202,7 @@ axes[1].set_title("Posterior volatility");
 
 +++
 
+* Written by Thomas Wiecki in 2013
 * Updated by Abhipsha Das on July 24, 2021 ([pymc-examples#155](https://github.com/pymc-devs/pymc-examples/pull/155))
 * Updated by Michael Osthege on June 1, 2022 ([pymc-examples#343](https://github.com/pymc-devs/pymc-examples/pull/343))
 * Updated by Christopher Krapu on June 17, 2022 ([pymc-examples#XX](https://github.com/pymc-devs/pymc-examples/pull/XX))
