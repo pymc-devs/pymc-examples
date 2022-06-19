@@ -11,13 +11,13 @@ kernelspec:
   name: pymc_env
 ---
 
-(notebook_name)=
+(stochastic_volatility)=
 # Stochastic Volatility model
 
 :::{post} June 17, 2022
-:tags: time series
-:category: basic
-:author: Thomas Wiecki
+:tags: time series, case study
+:category: beginner
+:author: John Salvatier
 :::
 
 ```{code-cell} ipython3
@@ -187,25 +187,32 @@ axes[0].set_title("True log returns (black) and posterior predictive log returns
 axes[1].set_title("Posterior volatility");
 ```
 
+```{code-cell} ipython3
+%load_ext watermark
+%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
+```
+
 ## References
 
 :::{bibliography}
 :filter: docname in docnames
 :::
 
-```{code-cell} ipython3
-%load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,xarray
-```
++++
 
 ## Authors
 
 +++
 
-* Written by Thomas Wiecki in 2013
+* Written by John Salvatier
+* Updated by Kyle Meyer
+* Updated by Thomas Wiecki
+* Updated by Chris Fonnesbeck
+* Updated by Aaron Maxwell on May 18, 2018 ([pymc#2978](https://github.com/pymc-devs/pymc/pull/2978))
+* Updated by Colin Carroll on November 16, 2019 ([pymc#3682](https://github.com/pymc-devs/pymc/pull/3682))
 * Updated by Abhipsha Das on July 24, 2021 ([pymc-examples#155](https://github.com/pymc-devs/pymc-examples/pull/155))
 * Updated by Michael Osthege on June 1, 2022 ([pymc-examples#343](https://github.com/pymc-devs/pymc-examples/pull/343))
-* Updated by Christopher Krapu on June 17, 2022 ([pymc-examples#XX](https://github.com/pymc-devs/pymc-examples/pull/XX))
+* Updated by Christopher Krapu on June 17, 2022 ([pymc-examples#378](https://github.com/pymc-devs/pymc-examples/pull/378))
 
 +++
 
