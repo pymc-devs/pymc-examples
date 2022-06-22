@@ -136,6 +136,7 @@ html_theme_options = {
             "icon": "fab fa-discourse",
         },
     ],
+    "logo_link": "https://www.pymc.io",
     "search_bar_text": "Search...",
     "navbar_end": ["search-field.html", "navbar-icon-links.html"],
     "page_sidebar_items": ["postcard", "page-toc", "edit-this-page", "donate"],
