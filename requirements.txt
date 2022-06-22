@@ -1,2 +1,2 @@
-pymc>=4.0.0b6
+pymc>=4.0.1
 xhistogram
