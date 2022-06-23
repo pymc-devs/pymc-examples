@@ -66,7 +66,7 @@ def discrete_histogram(data: ArrayLike, min_count=None) -> Dict[str, ArrayLike]:
     return dict(mid=mid, count=count)
 
 
-def histogram_approximation(name, dist, *, observed: ArrayLike, **h_kwargs):
+def histogram_approximation(name, dist, *, observed, **h_kwargs):
     """Approximate a distribution with a histogram potential.
 
     Parameters
@@ -76,7 +76,8 @@ def histogram_approximation(name, dist, *, observed: ArrayLike, **h_kwargs):
     dist : aesara.tensor.var.TensorVariable
         The output of pm.Distribution.dist()
     observed : ArrayLike
-        Observed value to construct a histogram. Histogram is computed over 0th axis. Dask is supported.
+        Observed value to construct a histogram. Histogram is computed over 0th axis.
+        Dask is supported.
 
     Returns
     -------
@@ -86,34 +87,37 @@ def histogram_approximation(name, dist, *, observed: ArrayLike, **h_kwargs):
     Examples
     --------
     Discrete variables are reduced to unique repetitions (up to min_count)
+
     >>> import pymc as pm
     >>> import pymc_experimental as pmx
     >>> production = np.random.poisson([1, 2, 5], size=(1000, 3))
     >>> with pm.Model(coords=dict(plant=range(3))):
     ...     lam = pm.Exponential("lam", 1.0, dims="plant")
     ...     pot = pmx.distributions.histogram_approximation(
-    ...         "histogram_potential", pm.Poisson.dist(lam), observed=production, min_count=2
+    ...         "pot", pm.Poisson.dist(lam), observed=production, min_count=2
     ...     )
 
     Continuous variables are discretized into n_quantiles
+
     >>> measurements = np.random.normal([1, 2, 3], [0.1, 0.4, 0.2], size=(10000, 3))
     >>> with pm.Model(coords=dict(tests=range(3))):
     ...     m = pm.Normal("m", dims="tests")
     ...     s = pm.LogNormal("s", dims="tests")
     ...     pot = pmx.distributions.histogram_approximation(
-    ...         "histogram_potential", pm.Normal.dist(m, s),
+    ...         "pot", pm.Normal.dist(m, s),
     ...         observed=measurements, n_quantiles=50
     ...     )
 
     For special cases like Zero Inflation in Continuous variables there is a flag.
     The flag adds a separate bin for zeros
+
     >>> measurements = abs(measurements)
     >>> measurements[100:] = 0
     >>> with pm.Model(coords=dict(tests=range(3))):
     ...     m = pm.Normal("m", dims="tests")
     ...     s = pm.LogNormal("s", dims="tests")
     ...     pot = pmx.distributions.histogram_approximation(
-    ...         "histogram_potential", pm.Normal.dist(m, s),
+    ...         "pot", pm.Normal.dist(m, s),
     ...         observed=measurements, n_quantiles=50, zero_inflation=True
     ...     )
     """

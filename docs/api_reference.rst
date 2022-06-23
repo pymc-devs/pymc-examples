@@ -15,3 +15,10 @@ methods in the current release of PyMC experimental.
 .. automodule:: pymc_experimental.bart
    :members: BART, PGBART, plot_dependence, plot_variable_importance, predict
 
+
+:mod:`pymc_experimental.distributions`
+=============================
+
+.. automodule:: pymc_experimental.distributions.histogram_utils
+   :members: histogram_approximation
+
