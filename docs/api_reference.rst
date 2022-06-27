@@ -22,3 +22,10 @@ methods in the current release of PyMC experimental.
 .. automodule:: pymc_experimental.distributions.histogram_utils
    :members: histogram_approximation
 
+
+:mod:`pymc_experimental.utils`
+=============================
+
+.. automodule:: pymc_experimental.utils.spline
+   :members: bspline_interpolation
+
