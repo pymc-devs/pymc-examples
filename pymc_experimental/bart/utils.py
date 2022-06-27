@@ -39,12 +39,15 @@ def predict(idata, rng, X, size=None, excluded=None):
         flatten_size *= s
 
     idx = rng.randint(len(stacked_trees.trees), size=flatten_size)
+    shape = stacked_trees.isel(trees=0).values[0].predict(X[0]).size
 
-    pred = np.zeros((flatten_size, X.shape[0]))
+    pred = np.zeros((flatten_size, X.shape[0], shape))
+
     for ind, p in enumerate(pred):
         for tree in stacked_trees.isel(trees=idx[ind]).values:
             p += np.array([tree.predict(x, excluded) for x in X])
-    return pred.reshape((*size, -1))
+    pred.reshape((*size, shape, -1))
+    return pred
 
 
 def plot_dependence(
@@ -215,11 +218,14 @@ def plot_dependence(
         y_mins.append(np.min(y_pred))
         new_Y.append(np.array(y_pred).T)
 
+    shape = 1
+    if new_Y[0].ndim == 3:
+        shape = new_Y[0].shape[0]
     if ax is None:
         if grid == "long":
-            fig, axes = plt.subplots(len(var_idx), sharey=sharey, figsize=figsize)
+            fig, axes = plt.subplots(len(var_idx) * shape, sharey=sharey, figsize=figsize)
         elif grid == "wide":
-            fig, axes = plt.subplots(1, len(var_idx), sharey=sharey, figsize=figsize)
+            fig, axes = plt.subplots(1, len(var_idx) * shape, sharey=sharey, figsize=figsize)
         elif isinstance(grid, tuple):
             fig, axes = plt.subplots(grid[0], grid[1], sharey=sharey, figsize=figsize)
         axes = np.ravel(axes)
@@ -227,70 +233,77 @@ def plot_dependence(
         axes = [ax]
         fig = ax.get_figure()
 
-    for i, ax in enumerate(axes):
-        if i >= len(var_idx):
+    x_idx = 0
+    y_idx = 0
+    for ax in axes:
+        if x_idx >= len(var_idx):
             ax.set_axis_off()
             fig.delaxes(ax)
-        else:
-            var = var_idx[i]
-            if var in var_discrete:
-                if kind == "pdp":
-                    y_means = new_Y[i].mean(0)
-                    hdi = az.hdi(new_Y[i])
-                    ax.errorbar(
-                        new_X_target[i],
-                        y_means,
-                        (y_means - hdi[:, 0], hdi[:, 1] - y_means),
-                        fmt=".",
-                        color=color,
-                    )
-                else:
-                    ax.plot(new_X_target[i], new_Y[i], ".", color=color, alpha=alpha)
-                    ax.plot(new_X_target[i], new_Y[i].mean(1), "o", color=color_mean)
-                ax.set_xticks(new_X_target[i])
-            elif smooth:
-                if smooth_kwargs is None:
-                    smooth_kwargs = {}
-                smooth_kwargs.setdefault("window_length", 55)
-                smooth_kwargs.setdefault("polyorder", 2)
-                x_data = np.linspace(np.nanmin(new_X_target[i]), np.nanmax(new_X_target[i]), 200)
-                x_data[0] = (x_data[0] + x_data[1]) / 2
-                if kind == "pdp":
-                    interp = griddata(new_X_target[i], new_Y[i].mean(0), x_data)
-                else:
-                    interp = griddata(new_X_target[i], new_Y[i], x_data)
 
-                y_data = savgol_filter(interp, axis=0, **smooth_kwargs)
+        nyi = new_Y[x_idx][y_idx]
+        nxi = new_X_target[x_idx]
+        var = var_idx[x_idx]
 
-                if kind == "pdp":
-                    az.plot_hdi(
-                        new_X_target[i], new_Y[i], color=color, fill_kwargs={"alpha": alpha}, ax=ax
-                    )
-                    ax.plot(x_data, y_data, color=color_mean)
-                else:
-                    ax.plot(x_data, y_data.mean(1), color=color_mean)
-                    ax.plot(x_data, y_data, color=color, alpha=alpha)
+        ax.set_xlabel(X_labels[x_idx])
+        x_idx += 1
+        if x_idx == len(var_idx):
+            x_idx = 0
+            y_idx += 1
 
+        if var in var_discrete:
+            if kind == "pdp":
+                y_means = nyi.mean(0)
+                hdi = az.hdi(nyi)
+                ax.errorbar(
+                    nxi,
+                    y_means,
+                    (y_means - hdi[:, 0], hdi[:, 1] - y_means),
+                    fmt=".",
+                    color=color,
+                )
             else:
-                idx = np.argsort(new_X_target[i])
-                if kind == "pdp":
-                    az.plot_hdi(
-                        new_X_target[i],
-                        new_Y[i],
-                        smooth=smooth,
-                        fill_kwargs={"alpha": alpha},
-                        ax=ax,
-                    )
-                    ax.plot(new_X_target[i][idx], new_Y[i][idx].mean(0), color=color)
-                else:
-                    ax.plot(new_X_target[i][idx], new_Y[i][idx], color=color, alpha=alpha)
-                    ax.plot(new_X_target[i][idx], new_Y[i][idx].mean(1), color=color_mean)
+                ax.plot(nxi, nyi, ".", color=color, alpha=alpha)
+                ax.plot(nxi, nyi.mean(1), "o", color=color_mean)
+            ax.set_xticks(nxi)
+        elif smooth:
+            if smooth_kwargs is None:
+                smooth_kwargs = {}
+            smooth_kwargs.setdefault("window_length", 55)
+            smooth_kwargs.setdefault("polyorder", 2)
+            x_data = np.linspace(np.nanmin(nxi), np.nanmax(nxi), 200)
+            x_data[0] = (x_data[0] + x_data[1]) / 2
+            if kind == "pdp":
+                interp = griddata(nxi, nyi.mean(0), x_data)
+            else:
+                interp = griddata(nxi, nyi, x_data)
 
-            if rug:
-                lb = np.min(y_mins)
-                ax.plot(X[:, var], np.full_like(X[:, var], lb), "k|")
+            y_data = savgol_filter(interp, axis=0, **smooth_kwargs)
 
-            ax.set_xlabel(X_labels[i])
+            if kind == "pdp":
+                az.plot_hdi(nxi, nyi, color=color, fill_kwargs={"alpha": alpha}, ax=ax)
+                ax.plot(x_data, y_data, color=color_mean)
+            else:
+                ax.plot(x_data, y_data.mean(1), color=color_mean)
+                ax.plot(x_data, y_data, color=color, alpha=alpha)
+
+        else:
+            idx = np.argsort(nxi)
+            if kind == "pdp":
+                az.plot_hdi(
+                    nxi,
+                    nyi,
+                    smooth=smooth,
+                    fill_kwargs={"alpha": alpha},
+                    ax=ax,
+                )
+                ax.plot(nxi[idx], nyi[idx].mean(0), color=color)
+            else:
+                ax.plot(nxi[idx], nyi[idx], color=color, alpha=alpha)
+                ax.plot(nxi[idx], nyi[idx].mean(1), color=color_mean)
+
+        if rug:
+            lb = np.min(y_mins)
+            ax.plot(X[:, var], np.full_like(X[:, var], lb), "k|")
 
     fig.text(-0.05, 0.5, Y_label, va="center", rotation="vertical", fontsize=15)
     return axes
@@ -350,7 +363,7 @@ def plot_variable_importance(idata, X, labels=None, figsize=None, samples=100, r
         predicted_subset = predict(idata, rng, X=X, size=samples, excluded=subset)
         pearson = np.zeros(samples)
         for j in range(samples):
-            pearson[j] = pearsonr(predicted_all[j], predicted_subset[j])[0]
+            pearson[j] = pearsonr(predicted_all[j].flatten(), predicted_subset[j].flatten())[0]
         EV_mean[idx] = np.mean(pearson)
         EV_hdi[idx] = az.hdi(pearson)
 

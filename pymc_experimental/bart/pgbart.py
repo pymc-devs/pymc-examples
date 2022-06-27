@@ -75,10 +75,13 @@ class PGBART(ArrayStepShared):
         self.missing_data = np.any(np.isnan(self.X))
         self.m = self.bart.m
         self.alpha = self.bart.alpha
-        self.alpha_vec = self.bart.split_prior
-        if self.alpha_vec is None:
-            self.alpha_vec = np.ones(self.X.shape[1])
+        shape = initial_values[value_bart.name].shape
+        if len(shape) == 1:
+            self.shape = 1
+        else:
+            self.shape = shape[0]
 
+        self.alpha_vec = self.bart.split_prior
         self.init_mean = self.Y.mean()
         # if data is binary
         Y_unique = np.unique(self.Y)
@@ -92,15 +95,19 @@ class PGBART(ArrayStepShared):
         self.num_variates = self.X.shape[1]
         self.available_predictors = list(range(self.num_variates))
 
-        self.sum_trees = np.full_like(self.Y, self.init_mean).astype(aesara.config.floatX)
+        self.sum_trees = np.full((self.shape, self.Y.shape[0]), self.init_mean).astype(
+            aesara.config.floatX
+        )
+
         self.a_tree = Tree.init_tree(
             leaf_node_value=self.init_mean / self.m,
             idx_data_points=np.arange(self.num_observations, dtype="int32"),
+            shape=self.shape,
         )
         self.mean = fast_mean()
 
-        self.normal = NormalSampler(mu_std)
-        self.uniform = UniformSampler(0.33, 0.75)
+        self.normal = NormalSampler(mu_std, self.shape)
+        self.uniform = UniformSampler(0.33, 0.75, self.shape)
         self.prior_prob_leaf_node = compute_prior_probability(self.alpha)
         self.ssv = SampleSplittingVariable(self.alpha_vec)
 
@@ -120,7 +127,7 @@ class PGBART(ArrayStepShared):
         self.len_indices = len(self.indices)
 
         shared = make_shared_replacements(initial_values, vars, model)
-        self.likelihood_logp = logp(initial_values, [model.datalogpt], vars, shared)
+        self.likelihood_logp = logp(initial_values, [model.datalogp], vars, shared)
         self.all_particles = []
         for _ in range(self.m):
             self.a_tree.leaf_node_value = self.init_mean / self.m
@@ -154,6 +161,7 @@ class PGBART(ArrayStepShared):
                         self.mean,
                         self.m,
                         self.normal,
+                        self.shape,
                     )
                     if tree_grew:
                         self.update_weight(p)
@@ -226,6 +234,7 @@ class PGBART(ArrayStepShared):
             self.mean,
             self.m,
             self.normal,
+            self.shape,
         )
 
         # The old tree and the one with new leafs do not grow so we update the weights only once
@@ -250,7 +259,9 @@ class PGBART(ArrayStepShared):
         Since the prior is used as the proposal,the weights are updated additively as the ratio of
         the new and old log-likelihoods.
         """
-        new_likelihood = self.likelihood_logp(self.sum_trees_noi + particle.tree._predict())
+        new_likelihood = self.likelihood_logp(
+            (self.sum_trees_noi + particle.tree._predict()).flatten()
+        )
         if old:
             particle.log_weight = new_likelihood
             particle.old_likelihood_logp = new_likelihood
@@ -289,6 +300,7 @@ class ParticleTree:
         mean,
         m,
         normal,
+        shape,
     ):
         tree_grew = False
         if self.expansion_nodes:
@@ -309,6 +321,7 @@ class ParticleTree:
                     m,
                     normal,
                     self.kf,
+                    shape,
                 )
                 if index_selected_predictor is not None:
                     new_indexes = self.tree.idx_leaf_nodes[-2:]
@@ -318,18 +331,19 @@ class ParticleTree:
 
         return tree_grew
 
-    def sample_leafs(self, sum_trees, mean, m, normal):
+    def sample_leafs(self, sum_trees, mean, m, normal, shape):
 
         for idx in self.tree.idx_leaf_nodes:
             if idx > 0:
                 leaf = self.tree[idx]
                 idx_data_points = leaf.idx_data_points
                 node_value = draw_leaf_value(
-                    sum_trees[idx_data_points],
+                    sum_trees[:, idx_data_points],
                     mean,
                     m,
                     normal,
                     self.kf,
+                    shape,
                 )
                 leaf.value = node_value
 
@@ -390,6 +404,7 @@ def grow_tree(
     m,
     normal,
     kf,
+    shape,
 ):
     current_node = tree.get_node(index_leaf_node)
     idx_data_points = current_node.idx_data_points
@@ -413,11 +428,12 @@ def grow_tree(
         for idx in range(2):
             idx_data_point = new_idx_data_points[idx]
             node_value = draw_leaf_value(
-                sum_trees[idx_data_point],
+                sum_trees[:, idx_data_point],
                 mean,
                 m,
                 normal,
                 kf,
+                shape,
             )
 
             new_node = LeafNode(
@@ -466,14 +482,14 @@ def get_split_value(available_splitting_values, idx_data_points, missing_data):
         return split_value
 
 
-def draw_leaf_value(Y_mu_pred, mean, m, normal, kf):
+def draw_leaf_value(Y_mu_pred, mean, m, normal, kf, shape):
     """Draw Gaussian distributed leaf values."""
     if Y_mu_pred.size == 0:
-        return 0
+        return np.zeros(shape)
     else:
         norm = normal.random() * kf
         if Y_mu_pred.size == 1:
-            mu_mean = Y_mu_pred.item() / m
+            mu_mean = np.full(shape, Y_mu_pred.item() / m)
         else:
             mu_mean = mean(Y_mu_pred) / m
 
@@ -486,15 +502,25 @@ def fast_mean():
     try:
         from numba import jit
     except ImportError:
-        return np.mean
+        from functools import partial
+
+        return partial(np.mean, axis=1)
 
     @jit
     def mean(a):
-        count = a.shape[0]
-        suma = 0
-        for i in range(count):
-            suma += a[i]
-        return suma / count
+        if a.ndim == 1:
+            count = a.shape[0]
+            suma = 0
+            for i in range(count):
+                suma += a[i]
+            return suma / count
+        elif a.ndim == 2:
+            res = np.zeros(a.shape[0])
+            count = a.shape[1]
+            for j in range(a.shape[0]):
+                for i in range(count):
+                    res[j] += a[j, i]
+            return res / count
 
     return mean
 
@@ -510,36 +536,46 @@ def discrete_uniform_sampler(upper_value):
 class NormalSampler:
     """Cache samples from a standard normal distribution."""
 
-    def __init__(self, scale):
+    def __init__(self, scale, shape):
         self.size = 1000
-        self.cache = []
         self.scale = scale
+        self.shape = shape
+        self.update()
 
     def random(self):
-        if not self.cache:
+        if self.idx == self.size:
             self.update()
-        return self.cache.pop()
+        pop = self.cache[:, self.idx]
+        self.idx += 1
+        return pop
 
     def update(self):
-        self.cache = np.random.normal(loc=0.0, scale=self.scale, size=self.size).tolist()
+        self.idx = 0
+        self.cache = np.random.normal(loc=0.0, scale=self.scale, size=(self.shape, self.size))
 
 
 class UniformSampler:
     """Cache samples from a uniform distribution."""
 
-    def __init__(self, lower_bound, upper_bound):
+    def __init__(self, lower_bound, upper_bound, shape):
         self.size = 1000
-        self.cache = []
-        self.lower_bound = lower_bound
         self.upper_bound = upper_bound
+        self.lower_bound = lower_bound
+        self.shape = shape
+        self.update()
 
     def random(self):
-        if not self.cache:
+        if self.idx == self.size:
             self.update()
-        return self.cache.pop()
+        pop = self.cache[:, self.idx]
+        self.idx += 1
+        return pop
 
     def update(self):
-        self.cache = np.random.uniform(self.lower_bound, self.upper_bound, size=self.size).tolist()
+        self.idx = 0
+        self.cache = np.random.uniform(
+            self.lower_bound, self.upper_bound, size=(self.shape, self.size)
+        )
 
 
 def logp(point, out_vars, vars, shared):
