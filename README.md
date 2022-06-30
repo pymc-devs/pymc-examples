@@ -1,5 +1,5 @@
 # Welcome to `pymc-experimental` 
-<a href="https://gitpod.io/#https://github.com/pymc-devs/pymc-experimental>">
+<a href="https://gitpod.io/#https://github.com/pymc-devs/pymc-experimental">
   <img
     src="https://img.shields.io/badge/Contribute%20with-Gitpod-908a85?logo=gitpod"
     alt="Contribute with Gitpod"
