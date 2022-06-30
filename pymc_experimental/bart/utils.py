@@ -309,7 +309,9 @@ def plot_dependence(
     return axes
 
 
-def plot_variable_importance(idata, X, labels=None, figsize=None, samples=100, random_seed=None):
+def plot_variable_importance(
+    idata, X, labels=None, sort_vars=True, figsize=None, samples=100, random_seed=None
+):
     """
     Estimates variable importance from the BART-posterior.
 
@@ -319,9 +321,11 @@ def plot_variable_importance(idata, X, labels=None, figsize=None, samples=100, r
         InferenceData containing a collection of BART_trees in sample_stats group
     X : array-like
         The covariate matrix.
-    labels: list
+    labels : list
         List of the names of the covariates. If X is a DataFrame the names of the covariables will
         be taken from it and this argument will be ignored.
+    sort_vars : bool
+        Whether to sort the variables according to their variable importance. Defaults to True.
     figsize : tuple
         Figure size. If None it will be defined automatically.
     samples : int
@@ -337,23 +341,29 @@ def plot_variable_importance(idata, X, labels=None, figsize=None, samples=100, r
     _, axes = plt.subplots(2, 1, figsize=figsize)
 
     if hasattr(X, "columns") and hasattr(X, "values"):
-        labels = list(X.columns)
+        labels = X.columns
         X = X.values
 
     VI = idata.sample_stats["variable_inclusion"].mean(("chain", "draw")).values
     if labels is None:
-        labels = range(len(VI))
+        labels = np.arange(len(VI))
+    else:
+        labels = np.array(labels)
 
     ticks = np.arange(len(VI), dtype=int)
     idxs = np.argsort(VI)
     subsets = [idxs[:-i] for i in range(1, len(idxs))]
     subsets.append(None)
 
-    axes[0].plot(VI / VI.sum(), "o-")
+    if sort_vars:
+        indices = idxs[::-1]
+    else:
+        indices = np.arange(len(VI))
+    axes[0].plot((VI / VI.sum())[indices], "o-")
     axes[0].set_xticks(ticks)
-    axes[0].set_xticklabels(labels)
-    axes[0].set_xlabel("variable index")
-    axes[0].set_ylabel("relative importance")
+    axes[0].set_xticklabels(labels[indices])
+    axes[0].set_xlabel("covariables")
+    axes[0].set_ylabel("importance")
 
     predicted_all = predict(idata, rng, X=X, size=samples, excluded=None)
 
@@ -363,7 +373,9 @@ def plot_variable_importance(idata, X, labels=None, figsize=None, samples=100, r
         predicted_subset = predict(idata, rng, X=X, size=samples, excluded=subset)
         pearson = np.zeros(samples)
         for j in range(samples):
-            pearson[j] = pearsonr(predicted_all[j].flatten(), predicted_subset[j].flatten())[0]
+            pearson[j] = (
+                pearsonr(predicted_all[j].flatten(), predicted_subset[j].flatten())[0]
+            ) ** 2
         EV_mean[idx] = np.mean(pearson)
         EV_hdi[idx] = az.hdi(pearson)
 
@@ -371,8 +383,8 @@ def plot_variable_importance(idata, X, labels=None, figsize=None, samples=100, r
 
     axes[1].set_xticks(ticks)
     axes[1].set_xticklabels(ticks + 1)
-    axes[1].set_xlabel("number of components")
-    axes[1].set_ylabel("correlation")
+    axes[1].set_xlabel("number of covariables")
+    axes[1].set_ylabel("R²", rotation=0, labelpad=12)
     axes[1].set_ylim(0, 1)
 
     axes[0].set_xlim(-0.5, len(VI) - 0.5)

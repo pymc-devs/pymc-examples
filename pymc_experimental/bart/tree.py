@@ -49,10 +49,7 @@ class Tree:
     def __init__(self, num_observations=0, shape=1):
         self.tree_structure = {}
         self.idx_leaf_nodes = []
-        self.shape = shape
-        self.output = (
-            np.zeros((num_observations, self.shape)).astype(aesara.config.floatX).squeeze()
-        )
+        self.output = np.zeros((num_observations, shape)).astype(aesara.config.floatX).squeeze()
 
     def __getitem__(self, index):
         return self.get_node(index)
@@ -93,13 +90,13 @@ class Tree:
             output[leaf_node.idx_data_points] = leaf_node.value
         return output.T
 
-    def predict(self, X, excluded=None):
+    def predict(self, x, excluded=None):
         """
-        Predict output of tree for an (un)observed point X.
+        Predict output of tree for an (un)observed point x.
 
         Parameters
         ----------
-        X : numpy array
+        x : numpy array
             Unobserved point
 
         Returns
@@ -107,15 +104,16 @@ class Tree:
         float
             Value of the leaf value where the unobserved point lies.
         """
-        leaf_node = self._traverse_tree(X, node_index=0)
-        leaf_value = leaf_node.value
-        if excluded is not None:
-            parent_node = leaf_node.get_idx_parent_node()
-            if self.get_node(parent_node).idx_split_variable in excluded:
-                leaf_value = np.zeros(self.shape)
+        if excluded is None:
+            excluded = []
+        node = self._traverse_tree(x, 0, excluded)
+        if isinstance(node, LeafNode):
+            leaf_value = node.value
+        else:
+            leaf_value = node
         return leaf_value
 
-    def _traverse_tree(self, x, node_index=0):
+    def _traverse_tree(self, x, node_index, excluded):
         """
         Traverse the tree starting from a particular node given an unobserved point.
 
@@ -126,17 +124,43 @@ class Tree:
 
         Returns
         -------
-        LeafNode
+        LeafNode or mean of leaf node values
         """
         current_node = self.get_node(node_index)
         if isinstance(current_node, SplitNode):
+            if current_node.idx_split_variable in excluded:
+                leaf_values = []
+                self._traverse_leaf_values(leaf_values, node_index)
+                return np.mean(leaf_values, 0)
+
             if x[current_node.idx_split_variable] <= current_node.split_value:
                 left_child = current_node.get_idx_left_child()
-                current_node = self._traverse_tree(x, left_child)
+                current_node = self._traverse_tree(x, left_child, excluded)
             else:
                 right_child = current_node.get_idx_right_child()
-                current_node = self._traverse_tree(x, right_child)
+                current_node = self._traverse_tree(x, right_child, excluded)
         return current_node
+
+    def _traverse_leaf_values(self, leaf_values, node_index):
+        """
+        Traverse the tree appending leaf values starting from a particular node.
+
+        Parameters
+        ----------
+        node_index : int
+
+        Returns
+        -------
+        List of leaf node values
+        """
+        current_node = self.get_node(node_index)
+        if isinstance(current_node, SplitNode):
+            left_child = current_node.get_idx_left_child()
+            self._traverse_leaf_values(leaf_values, left_child)
+            right_child = current_node.get_idx_right_child()
+            self._traverse_leaf_values(leaf_values, right_child)
+        else:
+            leaf_values.append(current_node.value)
 
     @staticmethod
     def init_tree(leaf_node_value, idx_data_points, shape):
