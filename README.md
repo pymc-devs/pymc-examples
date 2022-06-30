@@ -1,4 +1,10 @@
-# Welcome to `pymc-experimental`
+# Welcome to `pymc-experimental` 
+<a href="https://gitpod.io/#https://github.com/pymc-devs/pymc-experimental>">
+  <img
+    src="https://img.shields.io/badge/Contribute%20with-Gitpod-908a85?logo=gitpod"
+    alt="Contribute with Gitpod"
+  />
+</a>
 
 As PyMC continues to mature and expand its functionality to accommodate more domains of application, we increasingly see cutting-edge methodologies, highly specialized statistical distributions, and complex models appear.
 While this adds to the functionality and relevance of the project, it can also introduce instability and impose a burden on testing and quality control.
@@ -52,5 +58,3 @@ Please get involved!
   * Proposal: No default imports of WIP/unstable submodules. By importing manually we can avoid breaking the package if a submodule breaks, for example because of an updated dependency.
 * How can we minimize the additional burden of additional project repositories?
 * ToDo: Setting up a basic CI pipeline
-
-

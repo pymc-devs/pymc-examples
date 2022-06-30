@@ -1,0 +1,37 @@
+tasks:
+  - name: initialize
+    init: |
+      mkdir -p .vscode
+      mkdir -p ~/.local/bin/
+      echo '{"python.defaultInterpreterPath": "/home/gitpod/micromamba/envs/pymc-test-py39/bin/python"}' > .vscode/settings.json
+      curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj -C ~/.local/ bin/micromamba
+      ~/.local/bin/micromamba shell init -s bash -p ~/micromamba
+      source ~/.bashrc
+      micromamba create -yf conda-envs/environment-test-py39.yml
+      pip install -r requirements-dev.txt
+    command: |
+      micromamba activate pymc-test-py39
+      pip install -e .
+vscode:
+  extensions:
+    - eamodio.gitlens
+    - ms-python.python
+
+github:
+  prebuilds:
+    # enable for master branch
+    master: true
+    # enable for other branches (defaults to false)
+    branches: true
+    # enable for pull requests coming from this repo (defaults to true)
+    pullRequests: true
+    # enable for pull requests coming from forks (defaults to false)
+    pullRequestsFromForks: false
+    # add a check to pull requests (defaults to true)
+    addCheck: true
+    # add a "Review in Gitpod" button as a comment to pull requests (defaults to false)
+    addComment: false
+    # add a "Review in Gitpod" button to the pull request's description (defaults to false)
+    addBadge: false
+    # add a label once the prebuild is ready to pull requests (defaults to false)
+    addLabel: false
