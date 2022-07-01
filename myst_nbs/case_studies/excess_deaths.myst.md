@@ -58,7 +58,7 @@ But because the focus of this case study is on the counterfactual reasoning rath
 
 I should provide a health warning. Readers should be aware that there are of course limits to the causal claims we can make here. If we were dealing with a marketing example were we ran a promotion for a period of time and wanted to make inferences about _excess sales_ then we could only make strong causal claims if we had done our due diligence in accounting for other factors which may have also taken place during our promotion period. 
 
-Similarly, there are many other things that changed since January 2020 (the well documented time of the first Covid-19 cases) in England and Wales. So if we wanted to be rock solid then we should account for other feasibly relevant factors.
+Similarly, there are [many other things that changed in the UK since January 2020](https://en.wikipedia.org/wiki/2020_in_the_United_Kingdom#Events) (the well documented time of the first Covid-19 cases) in England and Wales. So if we wanted to be rock solid then we should account for other feasibly relevant factors.
 
 Finally, we are _not_ claiming that $x$ people died directly from the Covid-19 viris. The beauty of the concept of excess deaths is that it captures deaths from all causes that are in excess of what we would expect. As such, it covers not only those who died directly from the Covid-19 virus, but also from all downstream effects of the virus and the mitigation strategies.
 
@@ -92,6 +92,27 @@ def format_x_axis(ax):
     ax.grid(which="major", linestyle="-", axis="x")
     for label in ax.get_xticklabels(which="both"):
         label.set(rotation=70, horizontalalignment="right")
+        
+def plot_xY(x, Y, ax):
+    quantiles = Y.quantile(
+        (0.025, 0.25, 0.5, 0.75, 0.975), dim=("chain", "draw")
+    ).transpose()
+
+    az.plot_hdi(
+        x,
+        hdi_data=quantiles.sel(quantile=[0.025, 0.975]),
+        fill_kwargs={"alpha": 0.25},
+        smooth=False,
+        ax=ax,
+    )
+    az.plot_hdi(
+        x,
+        hdi_data=quantiles.sel(quantile=[0.25, 0.75]),
+        fill_kwargs={"alpha": 0.5},
+        smooth=False,
+        ax=ax,
+    )
+    ax.plot(x, quantiles.sel(quantile=0.5), color="C1", lw=3)
 
 
 # set default figure sizes
@@ -290,20 +311,13 @@ with model:
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(10, 5))
-x = np.arange(pre.shape[0])
 
-# prior predictive
-az.plot_hdi(x, idata.prior_predictive["obs"], hdi_prob=0.50, smooth=False)
-az.plot_hdi(x, idata.prior_predictive["obs"], hdi_prob=0.95, smooth=False)
-
-ax.plot(x, pre["deaths"], label="observed")
+plot_xY(pre.index, idata.prior_predictive["obs"], ax)
+format_x_axis(ax)
+ax.plot(pre.index, pre["deaths"], label="observed")
 ax.set(title="Prior predictive distribution in the pre Covid-19 era")
 plt.legend();
 ```
-
-**TODO: Better formatting of x-axis. `az.plot_hdi` can't deal with time series inputs on the x-axis**
-
-+++
 
 This seems reasonable:
 - The _a priori_ number of deaths looks centred on the observed numbers.
@@ -339,17 +353,15 @@ with model:
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(15, 6))
-x = np.arange(pre.shape[0])
-az.plot_hdi(x, idata.posterior_predictive["obs"], hdi_prob=0.5, smooth=False)
-az.plot_hdi(x, idata.posterior_predictive["obs"], hdi_prob=0.95, smooth=False)
-ax.plot(x, pre["deaths"], label="observed")
+
+az.plot_hdi(pre.index, idata.posterior_predictive["obs"], hdi_prob=0.5, smooth=False)
+az.plot_hdi(pre.index, idata.posterior_predictive["obs"], hdi_prob=0.95, smooth=False)
+ax.plot(pre.index, pre["deaths"], label="observed")
 ax.set(title="Posterior predictive distribution in the pre Covid-19 era")
 plt.legend();
 ```
 
-**TODO: Better formatting of x-axis. `az.plot_hdi` can't deal with time series inputs on the x-axis**
-
-**EXPLAIN PLOT BELOW**\
+**EXPLAIN PLOT BELOW**
 
 ```{code-cell} ipython3
 az.plot_forest(idata.posterior, var_names="month mu");
@@ -384,17 +396,13 @@ deaths = xr.DataArray(pre["deaths"].to_numpy(), dims=["t"])
 excess_deaths = deaths - idata.posterior_predictive["obs"]
 
 fig, ax = plt.subplots(figsize=(15, 5))
-x = np.arange(pre.shape[0])
 # the transpose is to keep arviz happy, ordering the dimensions as (chain, draw, t)
-az.plot_hdi(x, excess_deaths.transpose(..., "t"), hdi_prob=0.5, smooth=False)
-az.plot_hdi(x, excess_deaths.transpose(..., "t"), hdi_prob=0.95, smooth=False)
+az.plot_hdi(pre.index, excess_deaths.transpose(..., "t"), hdi_prob=0.5, smooth=False)
+az.plot_hdi(pre.index, excess_deaths.transpose(..., "t"), hdi_prob=0.95, smooth=False)
+format_x_axis(ax)
 ax.axhline(y=0, color="k")
 ax.set(title="Excess deaths, pre Covid-19");
 ```
-
-**TODO: Better formatting of x-axis. `az.plot_hdi` can't deal with time series inputs on the x-axis**
-
-+++
 
 We can see that we have a few spikes here where the number of excess deaths is plausibly greater than zero. Such occasions are above and beyond what we could expect from: a) seasonal effects, b) the linearly increasing trend, b) the effect of cold winters. 
 
@@ -427,15 +435,13 @@ with model:
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(15, 6))
-x = np.arange(post.shape[0])
-az.plot_hdi(x, counterfactual.posterior_predictive["obs"], hdi_prob=0.5, smooth=False)
-az.plot_hdi(x, counterfactual.posterior_predictive["obs"], hdi_prob=0.95, smooth=False)
-ax.plot(x, post["deaths"], label="observed")
+
+plot_xY(post.index, counterfactual.posterior_predictive["obs"], ax)
+format_x_axis(ax)
+ax.plot(post.index, post["deaths"], label="observed")
 ax.set(title="Posterior predictive distribution since Covid-19 onset in the UK")
 plt.legend();
 ```
-
-**TODO: Better formatting of x-axis. `az.plot_hdi` can't deal with time series inputs on the x-axis**
 
 **EXPLAIN**
 
@@ -466,23 +472,20 @@ cumsum = excess_deaths.cumsum(dim="t")
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(2, 1, figsize=(15, 9))
-x = np.arange(post.shape[0])
 
 # Plot the excess deaths
 # the transpose is to keep arviz happy, ordering the dimensions as (chain, draw, t)
-az.plot_hdi(x, excess_deaths.transpose(..., "t"), hdi_prob=0.5, smooth=False, ax=ax[0])
-az.plot_hdi(x, excess_deaths.transpose(..., "t"), hdi_prob=0.95, smooth=False, ax=ax[0])
+plot_xY(post.index, excess_deaths.transpose(..., "t"), ax[0])
+format_x_axis(ax[0])
 ax[0].axhline(y=0, color="k")
 ax[0].set(title="Excess deaths, since Covid-19 onset")
 
 # Plot the cumulative excess deaths
-az.plot_hdi(x, cumsum.transpose(..., "t"), hdi_prob=0.5, smooth=False, ax=ax[1])
-az.plot_hdi(x, cumsum.transpose(..., "t"), hdi_prob=0.95, smooth=False, ax=ax[1])
+plot_xY(post.index, cumsum.transpose(..., "t"), ax[1])
+format_x_axis(ax[1])
 ax[1].axhline(y=0, color="k")
 ax[1].set(title="Cumulative excess deaths, since Covid-19 onset");
 ```
-
-**TODO: Better formatting of x-axis. `az.plot_hdi` can't deal with time series inputs on the x-axis**
 
 And that is it! **SUMMARY HERE**
 
