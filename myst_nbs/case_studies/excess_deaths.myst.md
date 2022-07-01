@@ -92,11 +92,10 @@ def format_x_axis(ax):
     ax.grid(which="major", linestyle="-", axis="x")
     for label in ax.get_xticklabels(which="both"):
         label.set(rotation=70, horizontalalignment="right")
-        
+
+
 def plot_xY(x, Y, ax):
-    quantiles = Y.quantile(
-        (0.025, 0.25, 0.5, 0.75, 0.975), dim=("chain", "draw")
-    ).transpose()
+    quantiles = Y.quantile((0.025, 0.25, 0.5, 0.75, 0.975), dim=("chain", "draw")).transpose()
 
     az.plot_hdi(
         x,
@@ -357,6 +356,7 @@ fig, ax = plt.subplots(figsize=(15, 6))
 az.plot_hdi(pre.index, idata.posterior_predictive["obs"], hdi_prob=0.5, smooth=False)
 az.plot_hdi(pre.index, idata.posterior_predictive["obs"], hdi_prob=0.95, smooth=False)
 ax.plot(pre.index, pre["deaths"], label="observed")
+format_x_axis(ax)
 ax.set(title="Posterior predictive distribution in the pre Covid-19 era")
 plt.legend();
 ```
