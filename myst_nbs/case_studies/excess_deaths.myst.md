@@ -102,8 +102,8 @@ def format_x_axis(ax, minor=False):
     # rotate labels
     for label in ax.get_xticklabels(which="both"):
         label.set(rotation=70, horizontalalignment="right")
-        
-        
+
+
 def plot_xY(x, Y, ax):
     quantiles = Y.quantile((0.025, 0.25, 0.5, 0.75, 0.975), dim=("chain", "draw")).transpose()
 
@@ -367,7 +367,7 @@ Let's do another check now, but focussing on the seasonal effect. We will replic
 
 ```{code-cell} ipython3
 temp = idata.posterior["mu"].mean(dim=["chain", "draw"]).to_dataframe()
-pre = pre.assign(deaths_predicted = temp["mu"].values)
+pre = pre.assign(deaths_predicted=temp["mu"].values)
 
 fig, ax = plt.subplots(1, 2, figsize=figsize, sharey=True)
 sns.lineplot(data=pre, x="month", y="deaths", hue="year", ax=ax[0], lw=3)
