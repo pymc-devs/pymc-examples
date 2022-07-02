@@ -60,7 +60,7 @@ Readers should be aware that there are of course limits to the causal claims we 
 
 Similarly, there are [many other things that changed in the UK since January 2020](https://en.wikipedia.org/wiki/2020_in_the_United_Kingdom#Events) (the well documented time of the first Covid-19 cases) in England and Wales. So if we wanted to be rock solid then we should account for other feasibly relevant factors.
 
-Finally, we are _not_ claiming that $x$ people died directly from the Covid-19 viris. The beauty of the concept of excess deaths is that it captures deaths from all causes that are in excess of what we would expect. As such, it covers not only those who died directly from the Covid-19 virus, but also from all downstream effects of the virus and availability of care, for example.
+Finally, we are _not_ claiming that $x$ people died directly from the Covid-19 virus. The beauty of the concept of excess deaths is that it captures deaths from all causes that are in excess of what we would expect. As such, it covers not only those who died directly from the Covid-19 virus, but also from all downstream effects of the virus and availability of care, for example.
 
 ```{code-cell} ipython3
 import calendar
@@ -132,7 +132,7 @@ month_strings = calendar.month_name[1:]
 ```
 
 ## Import data
-For our purposes we will obtain number of deaths (per month) reported in England and Wales. This data is available from the Office of National Statistics dataset [Deaths registered monthly in England and Wales](https://www.ons.gov.uk/peoplepopulationandcommunity/birthsdeathsandmarriages/deaths/datasets/monthlyfiguresondeathsregisteredbyareaofusualresidence). I manually downloaded this data for the years 2006-2022 and aggregated it into a single `.csv` file. Below we import this and create columns for the year, the month and the observation number.
+For our purposes we will obtain number of deaths (per month) reported in England and Wales. This data is available from the Office of National Statistics dataset [Deaths registered monthly in England and Wales](https://www.owns.gov.uk/peoplepopulationandcommunity/birthsdeathsandmarriages/deaths/datasets/monthlyfiguresondeathsregisteredbyareaofusualresidence). I manually downloaded this data for the years 2006-2022 and aggregated it into a single `.csv` file. Below we import this and create columns for the year, the month and the observation number.
 
 ```{code-cell} ipython3
 try:
@@ -385,7 +385,7 @@ The model is doing a pretty good job of capturing the properties of the data. On
 This step is not strictly necessary, but we can apply the excess deaths formula to the models' predictions for the `pre` period. This is useful because we can examine how good the model is.
 
 ```{code-cell} ipython3
-:tags: [hide-cell]
+:tags: [hide-input]
 
 # convert deaths into an XArray object with a labelled dimension to help in the next step
 deaths = xr.DataArray(pre["deaths"].to_numpy(), dims=["t"])
@@ -432,6 +432,8 @@ with model:
 ```
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 fig, ax = plt.subplots(figsize=figsize)
 
 plot_xY(post.index, counterfactual.posterior_predictive["obs"], ax)
@@ -467,7 +469,7 @@ cumsum = excess_deaths.cumsum(dim="t")
 ```
 
 ```{code-cell} ipython3
-:tags: [hide-cell]
+:tags: [hide-input]
 
 fig, ax = plt.subplots(2, 1, figsize=(figsize[0], 9), sharex=True)
 
