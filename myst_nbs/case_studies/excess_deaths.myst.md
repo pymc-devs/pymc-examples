@@ -30,7 +30,7 @@ $$
   - \underbrace{\text{Expected Deaths}}_{\text{unmeasurable counterfactual}}
 $$
 
-Making a claim about excess deaths requires causal/counterfactual reasoning. While the reported number of deaths is nothing but a (maybe noisy and/or lagged) measure of a real observable fact in the world, _expected deaths_ is unmeasurable because these are never realised in our timeline. That is, the expected deaths is a counterfactual thought experiment where can ask "What would/will hapeen if?"
+Making a claim about excess deaths requires causal/counterfactual reasoning. While the reported number of deaths is nothing but a (maybe noisy and/or lagged) measure of a real observable fact in the world, _expected deaths_ is unmeasurable because these are never realised in our timeline. That is, the expected deaths is a counterfactual thought experiment where can ask "What would/will happen if?"
 
 +++
 
@@ -41,7 +41,7 @@ How do we go about this, practically? We will follow this strategy:
     - month of the year, which we use to model seasonal effects
     - and time which is used to model any underlying linear trend.
 2. Split into `pre` and `post` covid datasets. This is an important step. We want to come up with a model based upon what we know _before_ Covid-19 so that we can construct our counterfactual predictions based on data before Covid-19 had any impact.
-3. Estimate model parameters based on the `pre` dataset. From this we can calculate the number of deaths expected by the model in the pre period. This is not a counterfactual, but actus to tell us how capable the model is at accounting for the already observed data.
+3. Estimate model parameters based on the `pre` dataset. From this we can calculate the number of deaths expected by the model in the pre Covid-19 period. This is not a counterfactual, but acts to tell us how capable the model is at accounting for the already observed data.
 4. Counterfactual inference - we use our model to construct a counterfactual forecast. What would we expect to see in the future if there was no Covid-19? Practically, we do this with posterior prediction on out-of-sample data. 
 5. Calculate the excess deaths by comparing the reported deaths with our counterfactual (expected number of deaths).
 
@@ -50,17 +50,17 @@ How do we go about this, practically? We will follow this strategy:
 ## Modelling strategy
 We could take many different approaches to the modelling. Because we are dealing with time series data, then it would be very sensible to use a time series modelling approach. For example, Google's [CausalImpact](https://google.github.io/CausalImpact/CausalImpact.html) uses a [Bayesian structural time-series](https://en.wikipedia.org/wiki/Bayesian_structural_time_series) model, but there are many alternative time series models we could choose. 
 
-But because the focus of this case study is on the counterfactual reasoning rather than the specifics of time-series modelling, I chose the simpler approach of linear regression as time-series model (see {cite:t}`martin2021bayesian` for more on this).
+But because the focus of this case study is on the counterfactual reasoning rather than the specifics of time-series modelling, I chose the simpler approach of linear regression for time-series model (see {cite:t}`martin2021bayesian` for more on this).
 
 +++ {"tags": []}
 
-## Disclaimer
+## Causal inference disclaimer
 
-I should provide a health warning. Readers should be aware that there are of course limits to the causal claims we can make here. If we were dealing with a marketing example were we ran a promotion for a period of time and wanted to make inferences about _excess sales_ then we could only make strong causal claims if we had done our due diligence in accounting for other factors which may have also taken place during our promotion period. 
+Readers should be aware that there are of course limits to the causal claims we can make here. If we were dealing with a marketing example were we ran a promotion for a period of time and wanted to make inferences about _excess sales_, then we could only make strong causal claims if we had done our due diligence in accounting for other factors which may have also taken place during our promotion period. 
 
 Similarly, there are [many other things that changed in the UK since January 2020](https://en.wikipedia.org/wiki/2020_in_the_United_Kingdom#Events) (the well documented time of the first Covid-19 cases) in England and Wales. So if we wanted to be rock solid then we should account for other feasibly relevant factors.
 
-Finally, we are _not_ claiming that $x$ people died directly from the Covid-19 viris. The beauty of the concept of excess deaths is that it captures deaths from all causes that are in excess of what we would expect. As such, it covers not only those who died directly from the Covid-19 virus, but also from all downstream effects of the virus and the mitigation strategies.
+Finally, we are _not_ claiming that $x$ people died directly from the Covid-19 viris. The beauty of the concept of excess deaths is that it captures deaths from all causes that are in excess of what we would expect. As such, it covers not only those who died directly from the Covid-19 virus, but also from all downstream effects of the virus and availability of care, for example.
 
 ```{code-cell} ipython3
 import calendar
@@ -89,18 +89,23 @@ Now let's define some helper functions
 ```{code-cell} ipython3
 :tags: [hide-cell]
 
-def format_x_axis(ax):
+def format_x_axis(ax, minor=False):
+    # major ticks
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y %b"))
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.grid(which="major", linestyle="-", axis="x")
+    # minor ticks
+    if minor:
+        ax.xaxis.set_minor_formatter(mdates.DateFormatter("%Y %b"))
+        ax.xaxis.set_minor_locator(mdates.MonthLocator())
+        ax.grid(which="minor", linestyle=":", axis="x")
+    # rotate labels
     for label in ax.get_xticklabels(which="both"):
         label.set(rotation=70, horizontalalignment="right")
-
-
+        
+        
 def plot_xY(x, Y, ax):
-    quantiles = Y.quantile(
-        (0.025, 0.25, 0.5, 0.75, 0.975), dim=("chain", "draw")
-    ).transpose()
+    quantiles = Y.quantile((0.025, 0.25, 0.5, 0.75, 0.975), dim=("chain", "draw")).transpose()
 
     az.plot_hdi(
         x,
@@ -175,10 +180,7 @@ w = pd.melt(
 )
 w["date"] = w["year"].map(str) + "-" + w["month"].map(str)
 w["date"] = pd.to_datetime(w["date"])
-w = (w.drop(["month", "year"], axis=1)
-     .sort_values("date")
-     .set_index("date")
-     .dropna())
+w = w.drop(["month", "year"], axis=1).sort_values("date").set_index("date").dropna()
 display(w)
 ```
 
@@ -213,7 +215,7 @@ format_x_axis(ax)
 
 Let's take a closer look at the seasonal pattern (just of the pre-covid data) by plotting deaths as a function of month, and we will color code the year. This confirms our suspicion of a seasonal trend in numbers of deaths with there being more deaths in the winter season than the summer. We can also see a large number of deaths in January, followed by a slight dip in February which bounces back in March. This could be due to a combination of:
 - `push-back` of deaths that actually occurred in December being registered in January
-- or `pull-forward` where money of the vulnerable people who would have died in February ended up dying in January, potentially due to the cold conditions.
+- or `pull-forward` where many of the vulnerable people who would have died in February ended up dying in January, potentially due to the cold conditions.
 
 The colour coding supports our suspicion that there is a positive main effect of year - that the baseline number of deaths per year is increasing.
 
@@ -251,13 +253,13 @@ slope, intercept = np.polyfit(pre["temp"], pre["deaths"], 1)
 print(f"{slope:.0f} deaths/degree")
 ```
 
-Based on this, if we focus only on the relationship between temperature and deaths, we expect there to be 764 _fewer_ deaths for every $1^\circ C$ increase in average monthly temperature. So we can use this figure to guide our prior, but we will include a very high sigma on this prior.
+Based on this, if we focus only on the relationship between temperature and deaths, we expect there to be 764 _fewer_ deaths for every $1^\circ C$ increase in average monthly temperature. So we can use this figure when it comes to defining a prior over the coefficient for the temperature effect.
 
 +++
 
 ## Modelling
 
-We are going to estimate reported deaths over time with an intercept, a linear trend, seasonal deflections (for each month), and average temperature. So this is a pretty straightforward linear model. The only thing of interest is that we transform the normally distributed monthly deflections to have a mean of zero in order to reduce the degrees of freedom of the model by one, which should help with parameter identifiability.
+We are going to estimate reported deaths over time with an intercept, a linear trend, seasonal deflections (for each month), and average monthly temperature. So this is a pretty straightforward linear model. The only thing of note is that we transform the normally distributed monthly deflections to have a mean of zero in order to reduce the degrees of freedom of the model by one, which should help with parameter identifiability.
 
 ```{code-cell} ipython3
 with pm.Model(coords={"month": month_strings}) as model:
@@ -302,8 +304,8 @@ As part of the Bayesian workflow, we will plot our prior predictions to see what
 ```{code-cell} ipython3
 with model:
     idata = pm.sample_prior_predictive(random_seed=RANDOM_SEED)
-    
-    
+
+
 fig, ax = plt.subplots(figsize=figsize)
 
 plot_xY(pre.index, idata.prior_predictive["obs"], ax)
@@ -349,8 +351,8 @@ Another important aspect of the Bayesian workflow is to plot the model's posteri
 ```{code-cell} ipython3
 with model:
     idata.extend(pm.sample_posterior_predictive(idata, random_seed=RANDOM_SEED))
-    
-    
+
+
 fig, ax = plt.subplots(figsize=figsize)
 
 az.plot_hdi(pre.index, idata.posterior_predictive["obs"], hdi_prob=0.5, smooth=False)
@@ -361,11 +363,11 @@ ax.set(title="Posterior predictive distribution in the pre Covid-19 era")
 plt.legend();
 ```
 
-**EXPLAIN WHAT WE ARE DOING**
+Let's do another check now, but focussing on the seasonal effect. We will replicate the plot that we had above of deaths as a function of month of the year. And in order to keep the plot from being a complete mess, we will just plot the posterior mean. As such this is not a posterior _predictive_ check, but a check of the posterior.
 
 ```{code-cell} ipython3
 temp = idata.posterior["mu"].mean(dim=["chain", "draw"]).to_dataframe()
-pre["deaths_predicted"] = temp["mu"].values
+pre = pre.assign(deaths_predicted = temp["mu"].values)
 
 fig, ax = plt.subplots(1, 2, figsize=figsize, sharey=True)
 sns.lineplot(data=pre, x="month", y="deaths", hue="year", ax=ax[0], lw=3)
@@ -374,7 +376,7 @@ sns.lineplot(data=pre, x="month", y="deaths_predicted", hue="year", ax=ax[1], lw
 ax[1].set(title="Model predicted mean");
 ```
 
-The model is doing a pretty good job of capturing the properties of the data. On the right, we can clearly see the main effect of `month` and of `year`. However, we can see that there is something interesting happening in the data (left) in January which the model is not capturing. This might be able to be captured in the model by adding an interaction between `month` and `year`, but this is left as an exercise for the reader.
+The model is doing a pretty good job of capturing the properties of the data. On the right, we can clearly see the main effects of `month` and `year`. However, we can see that there is something interesting happening in the data (left) in January which the model is not capturing. This might be able to be captured in the model by adding an interaction between `month` and `year`, but this is left as an exercise for the reader.
 
 +++
 
@@ -383,6 +385,8 @@ The model is doing a pretty good job of capturing the properties of the data. On
 This step is not strictly necessary, but we can apply the excess deaths formula to the models' predictions for the `pre` period. This is useful because we can examine how good the model is. 
 
 ```{code-cell} ipython3
+:tags: [hide-cell]
+
 # convert deaths into an XArray object with a labelled dimension to help in the next step
 deaths = xr.DataArray(pre["deaths"].to_numpy(), dims=["t"])
 
@@ -431,13 +435,13 @@ with model:
 fig, ax = plt.subplots(figsize=figsize)
 
 plot_xY(post.index, counterfactual.posterior_predictive["obs"], ax)
-format_x_axis(ax)
-ax.plot(post.index, post["deaths"], label="observed")
+format_x_axis(ax, minor=True)
+ax.plot(post.index, post["deaths"], label="reported deaths")
 ax.set(title="Posterior predictive distribution since Covid-19 onset in the UK")
 plt.legend();
 ```
 
-There we go, we now have the ingredients needed to calculate excess deaths. Namely, the reported number of deaths, and the Bayesian counterfactual prediction of how many would have died if nothing had changed from the pre to post Covid-19 era.
+We now have the ingredients needed to calculate excess deaths. Namely, the reported number of deaths, and the Bayesian counterfactual prediction of how many would have died if nothing had changed from the pre to post Covid-19 era.
 
 +++
 
@@ -463,27 +467,31 @@ cumsum = excess_deaths.cumsum(dim="t")
 ```
 
 ```{code-cell} ipython3
+:tags: [hide-cell]
+
 fig, ax = plt.subplots(2, 1, figsize=(figsize[0], 9), sharex=True)
 
 # Plot the excess deaths
-# the transpose is to keep arviz happy, ordering the dimensions as (chain, draw, t)
+# The transpose is to keep arviz happy, ordering the dimensions as (chain, draw, t)
 plot_xY(post.index, excess_deaths.transpose(..., "t"), ax[0])
-format_x_axis(ax[0])
+format_x_axis(ax[0], minor=True)
 ax[0].axhline(y=0, color="k")
 ax[0].set(title="Excess deaths, since Covid-19 onset")
 
 # Plot the cumulative excess deaths
 plot_xY(post.index, cumsum.transpose(..., "t"), ax[1])
-format_x_axis(ax[1])
+format_x_axis(ax[1], minor=True)
 ax[1].axhline(y=0, color="k")
 ax[1].set(title="Cumulative excess deaths, since Covid-19 onset");
 ```
 
-And there we have it! We've done some Bayesian counterfactual inference in PyMC in just a few steps. We:
+And there we have it - we've done some Bayesian counterfactual inference in PyMC! In just a few steps we've:
 - Built a simple linear regression model.
 - Inferred the model parameters based on pre Covid-19 data, running prior and posterior predictive checks. We note that the model is pretty good, but as always there might be ways to improve the model in the future.
 - Used the model to create counterfactual predictions of what would happen in the future (Covid-19 era) if nothing had changed.
-- Calculated the excess deaths by comparing the reported deaths to our counterfactual expected number of deaths.
+- Calculated the excess deaths (and cumulative excess deaths) by comparing the reported deaths to our counterfactual expected number of deaths.
+
+The bad news of course, is that as of the last data point (May 2022) the number of excess deaths in England and Wales has started to rise again.
 
 +++
 
