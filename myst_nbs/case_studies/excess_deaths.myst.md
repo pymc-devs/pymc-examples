@@ -382,7 +382,7 @@ The model is doing a pretty good job of capturing the properties of the data. On
 
 ## Excess deaths: Pre-Covid
 
-This step is not strictly necessary, but we can apply the excess deaths formula to the models' predictions for the `pre` period. This is useful because we can examine how good the model is. 
+This step is not strictly necessary, but we can apply the excess deaths formula to the models' predictions for the `pre` period. This is useful because we can examine how good the model is.
 
 ```{code-cell} ipython3
 :tags: [hide-cell]
