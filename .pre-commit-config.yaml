@@ -108,4 +108,4 @@ repos:
   hooks:
   - id: codespell
     files: myst_nbs/
-    args: ["--write-changes", "--ignore-words-list", "hist,fpr,fro,lik", "--uri-ignore-words-list", "*"]
+    args: ["--write-changes", "--ignore-words-list", "hist,fpr,fro,lik"]
