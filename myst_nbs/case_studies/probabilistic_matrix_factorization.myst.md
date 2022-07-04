@@ -14,8 +14,8 @@ kernelspec:
 (probabilistic_matrix_factorization)=
 # Probabilistic Matrix Factorization for Making Personalized Recommendations
 
-:::{post} June 3, 2022
-:tags: case study, product recommendation, matrix factorization
+:::{post} Sept 20, 2021
+:tags: case study, 
 :category: intermediate
 :author: Ruslan Salakhutdinov, Andriy Mnih, Mack Sweeney, Colin Carroll, Rob Zinkov
 :::
