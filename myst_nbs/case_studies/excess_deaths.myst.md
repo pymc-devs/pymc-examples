@@ -15,7 +15,7 @@ kernelspec:
 # Counterfactual inference: calculating excess deaths due to Covid-19
 
 :::{post} July, 2022
-:tags: counterfactuals, causal inference, time series, case study, Bayesian workflow, forecasting, causal impact
+:tags: counterfactuals, causal inference, time series, case study, Bayesian workflow, forecasting, causal impact, regression, posterior predictive
 :category: intermediate
 :author: Benjamin T. Vincent
 :::
