@@ -6,17 +6,16 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: Python 3.10.5 ('pymc-dev')
   language: python
   name: python3
 ---
 
 (notebook_name)=
 # Hierarchical Partial Pooling
-
 :::{post} Oct 07, 2021
 :tags: hierarchical model, 
-:category: intermediate
+:category: intermediate,
 :author: Chris Fonnesbeck,
 :::
 
@@ -154,6 +153,8 @@ az.plot_trace(idata, var_names=["theta_new"]);
 ```
 
 Notice that, despite the fact our additional player did not get any hits, the estimate of his average is not zero -- zero is not even a highly-probably value. This is because we are assuming that the player is drawn from a *population* of players with a distribution specified by our estimated hyperparemeters. However, the estimated mean for this player is toward the low end of the means for the players in our dataset, indicating that the 4 at-bats contributed some information toward the estimate.
+
++++
 
 ## References
 
