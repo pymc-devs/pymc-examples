@@ -89,6 +89,44 @@ Now let's define some helper functions
 ```{code-cell} ipython3
 :tags: [hide-cell]
 
+def ZeroSumNormal(name, *, sigma=None, active_dims=None, dims, model=None):
+    model = pm.modelcontext(model=model)
+
+    if isinstance(dims, str):
+        dims = [dims]
+
+    if isinstance(active_dims, str):
+        active_dims = [active_dims]
+
+    if active_dims is None:
+        active_dims = dims[-1]
+
+    def extend_axis(value, axis):
+        n_out = value.shape[axis] + 1
+        sum_vals = value.sum(axis, keepdims=True)
+        norm = sum_vals / (at.sqrt(n_out) + n_out)
+        fill_val = norm - sum_vals / at.sqrt(n_out)
+        out = at.concatenate([value, fill_val], axis=axis)
+        return out - norm
+
+    dims_reduced = []
+    active_axes = []
+    for i, dim in enumerate(dims):
+        if dim in active_dims:
+            active_axes.append(i)
+            dim_name = f"{dim}_reduced"
+            if name not in model.coords:
+                model.add_coord(dim_name, length=len(model.coords[dim]) - 1, mutable=False)
+            dims_reduced.append(dim_name)
+        else:
+            dims_reduced.append(dim)
+
+    raw = pm.Normal(f"{name}_raw", sigma=sigma, dims=dims_reduced)
+    for axis in active_axes:
+        raw = extend_axis(raw, axis)
+    return pm.Deterministic(name, raw, dims=dims)
+
+
 def format_x_axis(ax, minor=False):
     # major ticks
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y %b"))
@@ -132,69 +170,18 @@ month_strings = calendar.month_name[1:]
 ```
 
 ## Import data
-For our purposes we will obtain number of deaths (per month) reported in England and Wales. This data is available from the Office of National Statistics dataset [Deaths registered monthly in England and Wales](https://www.ons.gov.uk/peoplepopulationandcommunity/birthsdeathsandmarriages/deaths/datasets/monthlyfiguresondeathsregisteredbyareaofusualresidence). I manually downloaded this data for the years 2006-2022 and aggregated it into a single `.csv` file. Below we import this and create columns for the year, the month and the observation number.
+For our purposes we will obtain number of deaths (per month) reported in England and Wales. This data is available from the Office of National Statistics dataset [Deaths registered monthly in England and Wales](https://www.ons.gov.uk/peoplepopulationandcommunity/birthsdeathsandmarriages/deaths/datasets/monthlyfiguresondeathsregisteredbyareaofusualresidence). I manually downloaded this data for the years 2006-2022 and aggregated it into a single `.csv` file. I also added the average UK monthly temperature data as a predictor, obtained from the [average UK temperature from the Met Office](https://www.metoffice.gov.uk/research/climate/maps-and-data/uk-and-regional-series) dataset.
 
 ```{code-cell} ipython3
 try:
-    df = pd.read_csv(os.path.join("..", "data", "total_deaths.csv"))
+    df = pd.read_csv(os.path.join("..", "data", "deaths_and_temps_england_wales.csv"))
 except FileNotFoundError:
-    df = pd.read_csv(pm.get_data("total_deaths.csv"))
+    df = pd.read_csv(pm.get_data("deaths_and_temps_england_wales.csv"))
 
-df = df.assign(
-    date=pd.to_datetime(df["date"], format="%m-%Y"),
-    year=lambda x: x["date"].dt.year,
-    month=lambda x: x["date"].dt.month,
-    t=df.index,
-).set_index("date")
-df["pre"] = df.index < "2020"
-display(df)
-```
+df["date"] = pd.to_datetime(df["date"])
+df = df.set_index("date")
 
-We are also going to use temperature data as a predictor. So below we import [average UK temperature from the Met Office](https://www.metoffice.gov.uk/research/climate/maps-and-data/uk-and-regional-series) by month and do some processing to get it into the right format.
-
-```{code-cell} ipython3
-try:
-    w = pd.read_csv(os.path.join("..", "data", "weather.csv"))
-except FileNotFoundError:
-    w = pd.read_csv(pm.get_data("weather.csv"))
-
-w = pd.melt(
-    w,
-    id_vars="year",
-    value_vars=[
-        "jan",
-        "feb",
-        "mar",
-        "apr",
-        "may",
-        "jun",
-        "jul",
-        "aug",
-        "sep",
-        "oct",
-        "nov",
-        "dec",
-    ],
-    var_name="month",
-    value_name="temp",
-)
-w["date"] = w["year"].map(str) + "-" + w["month"].map(str)
-w["date"] = pd.to_datetime(w["date"])
-w = w.drop(["month", "year"], axis=1).sort_values("date").set_index("date").dropna()
-display(w)
-```
-
-We merge these two data sources into a single dataframe.
-
-```{code-cell} ipython3
-df = w.merge(df, on="date", how="inner")
-df = df.rename(columns={"temp_x": "temp"})
-display(df)
-```
-
-Finally, we split into `pre` and `post` COVID-19 onset dataframes. It is documented that the first COVID-19 cases appeared in the UK in January 2020, so we will take this time point as the cutoff for the pre vs. post COVID-19 era.
-
-```{code-cell} ipython3
+# split into separate dataframes for pre and post onset of COVID-19
 pre = df[df.index < "2020"]
 post = df[df.index >= "2020"]
 ```
@@ -272,13 +259,7 @@ with pm.Model(coords={"month": month_strings}) as model:
 
     # priors
     intercept = pm.Normal("intercept", 40_000, 10_000)
-    _month_mu = pm.Normal("_month_mu", 0, 3000, dims="month")
-    # remove a degree of freedom by subtracting mean
-    month_mu = pm.Deterministic(
-        "month mu",
-        _month_mu - at.mean(_month_mu),
-        dims="month",
-    )
+    month_mu = ZeroSumNormal("month mu", sigma=3000, dims="month")
     linear_trend = pm.TruncatedNormal("linear trend", 0, 50, lower=0)
     temp_coeff = pm.Normal("temp coeff", 0, 200)
 
@@ -331,11 +312,11 @@ Draw samples for the posterior distribution, and remember we are doing this for 
 
 ```{code-cell} ipython3
 with model:
-    idata.extend(pm.sample(tune=2000, target_accept=0.85, random_seed=RANDOM_SEED))
+    idata.extend(pm.sample(random_seed=RANDOM_SEED))
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(idata, var_names=["~mu", "~_month_mu"]);
+az.plot_trace(idata, var_names=["~mu", "~month mu_raw"]);
 ```
 
 Let's also look at the posterior estimates of the monthly deflections, in a different way to focus on the seasonal effect.
@@ -439,7 +420,7 @@ fig, ax = plt.subplots(figsize=figsize)
 plot_xY(post.index, counterfactual.posterior_predictive["obs"], ax)
 format_x_axis(ax, minor=True)
 ax.plot(post.index, post["deaths"], label="reported deaths")
-ax.set(title="Posterior predictive distribution since COVID-19 onset in the UK")
+ax.set(title="Counterfactual: Posterior predictive forecast of deaths if COVID-19 had not appeared")
 plt.legend();
 ```
 
