@@ -41,9 +41,10 @@ How do we go about this, practically? We will follow this strategy:
     - month of the year, which we use to model seasonal effects
     - and time which is used to model any underlying linear trend.
 2. Split into `pre` and `post` covid datasets. This is an important step. We want to come up with a model based upon what we know _before_ COVID-19 so that we can construct our counterfactual predictions based on data before COVID-19 had any impact.
-3. Estimate model parameters based on the `pre` dataset. From this we can calculate the number of deaths expected by the model in the pre COVID-19 period. This is not a counterfactual, but acts to tell us how capable the model is at accounting for the already observed data.
-4. Counterfactual inference - we use our model to construct a counterfactual forecast. What would we expect to see in the future if there was no COVID-19? Practically, we do this with posterior prediction on out-of-sample data. 
-5. Calculate the excess deaths by comparing the reported deaths with our counterfactual (expected number of deaths).
+3. Estimate model parameters based on the `pre` dataset. 
+4. [Retrodict](https://en.wikipedia.org/wiki/Retrodiction) the number of deaths expected by the model in the pre COVID-19 period. This is not a counterfactual, but acts to tell us how capable the model is at accounting for the already observed data.
+5. Counterfactual inference - we use our model to construct a counterfactual forecast. What would we expect to see in the future if there was no COVID-19? This can be achieved by using the famous do-operator Practically, we do this with posterior prediction on out-of-sample data. 
+6. Calculate the excess deaths by comparing the reported deaths with our counterfactual (expected number of deaths).
 
 +++
 
@@ -327,7 +328,7 @@ az.plot_forest(idata.posterior, var_names="month mu", figsize=figsize);
 
 ## Posterior predictive check
 
-Another important aspect of the Bayesian workflow is to plot the model's posterior predictions, allowing us to see how well the model can account for the already observed data. It is at this point that we can decide whether the model is too simple (then we'd build more complexity into the model) or if it's fine.
+Another important aspect of the Bayesian workflow is to plot the model's posterior predictions, allowing us to see how well the model can retrodict the already observed data. It is at this point that we can decide whether the model is too simple (then we'd build more complexity into the model) or if it's fine.
 
 ```{code-cell} ipython3
 with model:
@@ -363,7 +364,7 @@ The model is doing a pretty good job of capturing the properties of the data. On
 
 ## Excess deaths: Pre-Covid
 
-This step is not strictly necessary, but we can apply the excess deaths formula to the models' predictions for the `pre` period. This is useful because we can examine how good the model is.
+This step is not strictly necessary, but we can apply the excess deaths formula to the models' retrodictions for the `pre` period. This is useful because we can examine how good the model is.
 
 ```{code-cell} ipython3
 :tags: [hide-input]
