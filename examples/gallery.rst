@@ -29,7 +29,7 @@ Case Studies
 
 
 Causal Inference
-------------
+----------------
 
 .. nbgallery::
     :name: causal_inference
