@@ -27,6 +27,17 @@ Case Studies
 
     case_studies/*
 
+
+Causal Inference
+----------------
+
+.. nbgallery::
+    :name: causal_inference
+    :glob:
+    :reversed:
+
+    causal_inference/*
+
 Diagnostics and Model Criticism
 -------------------------------
 
