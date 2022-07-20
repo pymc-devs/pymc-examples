@@ -6,7 +6,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3.9.7 ('base')
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -283,9 +283,9 @@ In this example the observed data $y$ is more consistent with `model_1` (because
 
 +++
 
-## Authors
-* Authored by Osvaldo Martin
-* Updated by Osvaldo Martin in May, 2022
+* Authored by Osvaldo Martin in September, 2017 ([pymc#2563](https://github.com/pymc-devs/pymc/pull/2563))
+* Updated by Osvaldo Martin in August, 2018 ([pymc#3124](https://github.com/pymc-devs/pymc/pull/3124))
+* Updated by Osvaldo Martin in May, 2022 ([pymc-examples#342](https://github.com/pymc-devs/pymc-examples/pull/342))
 
 +++
 
@@ -294,4 +294,11 @@ In this example the observed data $y$ is more consistent with `model_1` (because
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w
+```
+
+:::{include} ../page_footer.md
+:::
+
+```{code-cell} ipython3
+
 ```
