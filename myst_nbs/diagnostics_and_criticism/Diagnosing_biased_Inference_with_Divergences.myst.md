@@ -6,13 +6,19 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python PyMC3 (Dev)
+  display_name: Python 3 (ipykernel)
   language: python
-  name: pymc3-dev-py38
+  name: python3
 ---
 
 (diagnosing_with_divergences)=
 # Diagnosing Biased Inference with Divergences
+
+:::{post} Feb, 2018
+:tags: hierarchical
+:category: intermediate
+:author: Agustina Arroyuelo
+:::
 
 ```{code-cell} ipython3
 from collections import defaultdict
@@ -32,13 +38,13 @@ az.style.use("arviz-darkgrid")
 SEED = [20100420, 20134234]
 ```
 
-This notebook is a PyMC3 port of [Michael Betancourt's post on ms-stan](http://mc-stan.org/documentation/case-studies/divergences_and_bias.html). For detailed explanation of the underlying mechanism please check [the original post](http://mc-stan.org/documentation/case-studies/divergences_and_bias.html) and Betancourt's [excellent paper](https://arxiv.org/abs/1701.02434).
+This notebook is a PyMC3 port of [Michael Betancourt's post on ms-stan](http://mc-stan.org/documentation/case-studies/divergences_and_bias.html). For detailed explanation of the underlying mechanism please check the original post, [Diagnosing Biased Inference with Divergences](http://mc-stan.org/documentation/case-studies/divergences_and_bias.html) and Betancourt's excellent paper, [A Conceptual Introduction to Hamiltonian Monte Carlo](https://arxiv.org/abs/1701.02434).
 
 +++
 
-Bayesian statistics is all about building a model and estimating the parameters in that model. However, a naive or direct parameterization of our probability model can sometimes be ineffective, you can check out [Thomas Wiecki's blog post](http://twiecki.github.io/blog/2017/02/08/bayesian-hierchical-non-centered/) on the same issue in PyMC3. Suboptimal parameterization often leads to slow sampling, and more problematic, biased MCMC estimators. 
+Bayesian statistics is all about building a model and estimating the parameters in that model. However, a naive or direct parameterization of our probability model can sometimes be ineffective, you can check out Thomas Wiecki's blog post, [Why hierarchical models are awesome, tricky, and Bayesian](http://twiecki.github.io/blog/2017/02/08/bayesian-hierchical-non-centered/) on the same issue in PyMC3. Suboptimal parameterization often leads to slow sampling, and more problematic, biased MCMC estimators. 
 
-More formally, as explained in [the original post](http://mc-stan.org/documentation/case-studies/divergences_and_bias.html):
+More formally, as explained in the original post, [Diagnosing Biased Inference with Divergences](http://mc-stan.org/documentation/case-studies/divergences_and_bias.html):
 
 Markov chain Monte Carlo (MCMC) approximates expectations with respect to a given target distribution, 
 
@@ -136,7 +142,7 @@ The Gelman-Rubin diagnostic $\hat{R}$ doesn’t indicate any problem (values are
 az.summary(short_trace).round(2)
 ```
 
-Moreover, the trace plots all look fine. Let's consider, for example, the hierarchical standard deviation $\tau$, or more specifically, its logarithm, $log(\tau)$. Because $\tau$ is constrained to be positive, its logarithm will allow us to better resolve behavior for small values. Indeed the chains seems to be exploring both small and large values reasonably well,
+Moreover, the trace plots all look fine. Let's consider, for example, the hierarchical standard deviation $\tau$, or more specifically, its logarithm, $log(\tau)$. Because $\tau$ is constrained to be positive, its logarithm will allow us to better resolve behavior for small values. Indeed the chains seems to be exploring both small and large values reasonably well.
 
 ```{code-cell} ipython3
 # plot the trace of log(tau)
@@ -495,7 +501,7 @@ As shown above, the effective sample size per iteration has drastically improved
 report_trace(fit_ncp80)
 ```
 
-As expected of false positives, we can remove the divergences entirely by decreasing the step size,
+As expected of false positives, we can remove the divergences entirely by decreasing the step size.
 
 ```{code-cell} ipython3
 with NonCentered_eight:
@@ -506,7 +512,7 @@ divergent = fit_ncp90["diverging"]
 print("Number of Divergent %d" % divergent.nonzero()[0].size)
 ```
 
-The more agreeable geometry of the non-centered implementation allows the Markov chain to explore deep into the neck of the funnel, capturing even the smallest values of $\tau$ that are consistent with the measurements. Consequently, MCMC estimators from the non-centered chain rapidly converge towards their true expectation values.
+The more agreeable geometry of the non-centered implementation allows the Markov chain to explore deep into the neck of the funnel, capturing even the smallest values of `tau` ($\tau$) that are consistent with the measurements. Consequently, MCMC estimators from the non-centered chain rapidly converge towards their true expectation values.
 
 ```{code-cell} ipython3
 _, ax = plt.subplots(1, 1, figsize=(10, 6))
@@ -538,7 +544,21 @@ plt.title("MCMC estimation of log(tau)")
 plt.legend();
 ```
 
+Adapted from Michael Betancourt's post [Diagnosing Biased Inference with Divergences](https://mc-stan.org/users/documentation/case-studies/divergences_and_bias.html), January 2017
+
++++
+
+* Updated by Agustina Arroyuelo in February, 2018 ([pymc#2861](https://github.com/pymc-devs/pymc/pull/2861))
+* Updated by [@CloudChaoszero](https://github.com/CloudChaoszero) in January, 2021 ([pymc-examples#25](https://github.com/pymc-devs/pymc-examples/pull/25))
+
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w
+```
+
+:::{include} ../page_footer.md
+:::
+
+```{code-cell} ipython3
+
 ```
