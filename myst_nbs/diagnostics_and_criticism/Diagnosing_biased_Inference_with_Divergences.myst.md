@@ -15,7 +15,7 @@ kernelspec:
 # Diagnosing Biased Inference with Divergences
 
 :::{post} Feb, 2018
-:tags: hierarchical
+:tags: hierarchical model, diagnostics
 :category: intermediate
 :author: Agustina Arroyuelo
 :::
@@ -38,7 +38,7 @@ az.style.use("arviz-darkgrid")
 SEED = [20100420, 20134234]
 ```
 
-This notebook is a PyMC3 port of [Michael Betancourt's post on ms-stan](http://mc-stan.org/documentation/case-studies/divergences_and_bias.html). For detailed explanation of the underlying mechanism please check the original post, [Diagnosing Biased Inference with Divergences](http://mc-stan.org/documentation/case-studies/divergences_and_bias.html) and Betancourt's excellent paper, [A Conceptual Introduction to Hamiltonian Monte Carlo](https://arxiv.org/abs/1701.02434).
+This notebook is a PyMC3 port of [Michael Betancourt's post on mc-stan](http://mc-stan.org/documentation/case-studies/divergences_and_bias.html). For detailed explanation of the underlying mechanism please check the original post, [Diagnosing Biased Inference with Divergences](http://mc-stan.org/documentation/case-studies/divergences_and_bias.html) and Betancourt's excellent paper, [A Conceptual Introduction to Hamiltonian Monte Carlo](https://arxiv.org/abs/1701.02434).
 
 +++
 
@@ -145,8 +145,26 @@ az.summary(short_trace).round(2)
 Moreover, the trace plots all look fine. Let's consider, for example, the hierarchical standard deviation $\tau$, or more specifically, its logarithm, $log(\tau)$. Because $\tau$ is constrained to be positive, its logarithm will allow us to better resolve behavior for small values. Indeed the chains seems to be exploring both small and large values reasonably well.
 
 ```{code-cell} ipython3
+---
+mystnb:
+  figure:
+    caption: Trace plot of log(tau)
+    name: nb-divergence-traceplot
+  image:
+    alt: log-tau
+---
 # plot the trace of log(tau)
-az.plot_trace({"log(tau)": short_trace.get_values(varname="tau_log__", combine=False)});
+ax=az.plot_trace({"log(tau)": short_trace.get_values(varname="tau_log__", combine=False)}, legend=True)
+ax[0, 1].set_xlabel("Draw")
+ax[0, 1].set_ylabel("log(tau)")
+ax[0, 1].set_title("")
+
+ax[0, 0].set_xlabel("log(tau)")
+ax[0, 0].set_title("Probability density function of log(tau)");
+```
+
+```{code-cell} ipython3
+ax[0, 0]
 ```
 
 Unfortunately, the resulting estimate for the mean of $log(\tau)$ is strongly biased away from the true value, here shown in grey.
@@ -544,10 +562,8 @@ plt.title("MCMC estimation of log(tau)")
 plt.legend();
 ```
 
-Adapted from Michael Betancourt's post [Diagnosing Biased Inference with Divergences](https://mc-stan.org/users/documentation/case-studies/divergences_and_bias.html), January 2017
-
-+++
-
+## Authors
+* Adapted from Michael Betancourt's post [Diagnosing Biased Inference with Divergences](https://mc-stan.org/users/documentation/case-studies/divergences_and_bias.html), January 2017
 * Updated by Agustina Arroyuelo in February, 2018 ([pymc#2861](https://github.com/pymc-devs/pymc/pull/2861))
 * Updated by [@CloudChaoszero](https://github.com/CloudChaoszero) in January, 2021 ([pymc-examples#25](https://github.com/pymc-devs/pymc-examples/pull/25))
 
