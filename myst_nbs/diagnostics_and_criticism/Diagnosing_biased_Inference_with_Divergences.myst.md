@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 import pymc3 as pm
 
-print(f"Runing on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC3 v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -306,7 +306,7 @@ def report_trace(trace):
     print("Percentage of Divergent %.1f" % divperc)
 
     # scatter plot between log(tau) and theta[0]
-    # for the identifcation of the problematic neighborhoods in parameter space
+    # for the identification of the problematic neighborhoods in parameter space
     pairplot_divergence(trace);
 ```
 

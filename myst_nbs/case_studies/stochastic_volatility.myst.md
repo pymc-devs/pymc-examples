@@ -6,7 +6,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -20,9 +20,9 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 
-rng = np.random.default_rng(0)
+rng = np.random.RandomState(1234)
 az.style.use("arviz-darkgrid")
 ```
 
@@ -67,7 +67,7 @@ ax.set(xlabel="time", ylabel="returns")
 ax.legend();
 ```
 
-Specifying the model in `PyMC3` mirrors its statistical specification.
+Specifying the model in `PyMC` mirrors its statistical specification.
 
 ```{code-cell} ipython3
 def make_stochastic_volatility_model(data):
@@ -96,9 +96,9 @@ pm.model_to_graphviz(stochastic_vol_model)
 
 ```{code-cell} ipython3
 with stochastic_vol_model:
-    trace = az.from_pymc3(prior=pm.sample_prior_predictive(500))
+    idata = pm.sample_prior_predictive(500, random_seed=rng)
 
-prior_predictive = trace.prior_predictive.stack(pooled_chain=("chain", "draw"))
+prior_predictive = idata.prior_predictive.stack(pooled_chain=("chain", "draw"))
 ```
 
 We plot and inspect the prior predictive. This is *many* orders of magnitude larger than the actual returns we observed. In fact, I cherry-picked a few draws to keep the plot from looking silly. This may suggest changing our priors: a return that our model considers plausible would violate all sorts of constraints by a huge margin: the total value of all goods and services the world produces is ~$\$10^9$, so we might reasonably *not* expect any returns above that magnitude.
@@ -130,23 +130,23 @@ Once we are happy with our model, we can sample from the posterior. This is a so
 
 ```{code-cell} ipython3
 with stochastic_vol_model:
-    trace.extend(pm.sample(2000, tune=2000, return_inferencedata=True))
+    idata.extend(pm.sample(2000, tune=2000, random_seed=rng))
 
-posterior = trace.posterior.stack(pooled_chain=("chain", "draw"))
+posterior = idata.posterior.stack(pooled_chain=("chain", "draw"))
 posterior["exp_volatility"] = np.exp(posterior["volatility"])
 ```
 
 ```{code-cell} ipython3
 with stochastic_vol_model:
-    trace.extend(az.from_pymc3(posterior_predictive=pm.sample_posterior_predictive(trace)))
+    idata.extend(pm.sample_posterior_predictive(idata, random_seed=rng))
 
-posterior_predictive = trace.posterior_predictive.stack(pooled_chain=("chain", "draw"))
+posterior_predictive = idata.posterior_predictive.stack(pooled_chain=("chain", "draw"))
 ```
 
 Note that the `step_size` parameter does not look perfect: the different chains look somewhat different. This again indicates some weakness in our model: it may make sense to allow the step_size to change over time, especially over this 11 year time span.
 
 ```{code-cell} ipython3
-az.plot_trace(trace, var_names=["step_size", "nu"]);
+az.plot_trace(idata, var_names=["step_size", "nu"]);
 ```
 
 Now we can look at our posterior estimates of the volatility in S&P 500 returns over time.
@@ -186,5 +186,5 @@ axes[1].set_title("Posterior volatility");
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p aesara,xarray
 ```

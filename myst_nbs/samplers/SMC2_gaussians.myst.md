@@ -6,7 +6,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: Python 3.9.7 ('base')
   language: python
   name: python3
 ---
@@ -14,17 +14,15 @@ kernelspec:
 # Sequential Monte Carlo
 
 :::{post} Oct 19, 2021
-:tags: SMC, pymc3.Model, pymc3.Potential, pymc3.Uniform, pymc3.sample_smc
+:tags: SMC 
 :category: beginner
 :::
 
 ```{code-cell} ipython3
-%matplotlib inline
+import aesara.tensor as at
 import arviz as az
-import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano.tensor as tt
+import pymc as pm
 
 print(f"Running on PyMC v{pm.__version__}")
 ```
@@ -46,7 +44,7 @@ When $\beta=0$ we have that $p(\theta \mid y)_{\beta=0}$ is the prior distributi
 A summary of the algorithm is:
 
 1. Initialize $\beta$ at zero and stage at zero.
-2. Generate N samples $S_\text{\beta}$ from the prior (because when $\beta = 0$ the tempered posterior is the prior).
+2. Generate N samples $S_{\beta}$ from the prior (because when $\beta = 0$ the tempered posterior is the prior).
 3. Increase $\beta$ in order to make the effective sample size equals some predefined value (we use $Nt$, where $t$ is 0.5 by default).
 4. Compute a set of N importance weights $W$. The weights are computed as the ratio of the likelihoods of a sample at stage $i+1$ and stage $i$.
 5. Obtain $S_{w}$ by re-sampling according to $W$.
@@ -110,16 +108,16 @@ w2 = 1 - w1  # the other mode with 0.9 of the mass
 
 def two_gaussians(x):
     log_like1 = (
-        -0.5 * n * tt.log(2 * np.pi)
-        - 0.5 * tt.log(dsigma)
+        -0.5 * n * at.log(2 * np.pi)
+        - 0.5 * at.log(dsigma)
         - 0.5 * (x - mu1).T.dot(isigma).dot(x - mu1)
     )
     log_like2 = (
-        -0.5 * n * tt.log(2 * np.pi)
-        - 0.5 * tt.log(dsigma)
+        -0.5 * n * at.log(2 * np.pi)
+        - 0.5 * at.log(dsigma)
         - 0.5 * (x - mu2).T.dot(isigma).dot(x - mu2)
     )
-    return pm.math.logsumexp([tt.log(w1) + log_like1, tt.log(w2) + log_like2])
+    return pm.math.logsumexp([at.log(w1) + log_like1, at.log(w2) + log_like2])
 ```
 
 ```{code-cell} ipython3
@@ -129,11 +127,10 @@ with pm.Model() as model:
         shape=n,
         lower=-2.0 * np.ones_like(mu1),
         upper=2.0 * np.ones_like(mu1),
-        testval=-1.0 * np.ones_like(mu1),
+        initval=-1.0 * np.ones_like(mu1),
     )
     llk = pm.Potential("llk", two_gaussians(X))
-    trace_04 = pm.sample_smc(2000, parallel=True)
-    idata_04 = az.from_pymc3(trace_04)
+    idata_04 = pm.sample_smc(2000)
 ```
 
 We can see from the message that PyMC is running four **SMC chains** in parallel. As explained before this is useful for diagnostics. As with other samplers one useful diagnostics is the `plot_trace`, here we use `kind="rank_vlines"` as rank plots as generally more useful than the classical "trace"
@@ -142,7 +139,7 @@ We can see from the message that PyMC is running four **SMC chains** in parallel
 ax = az.plot_trace(idata_04, compact=True, kind="rank_vlines")
 ax[0, 0].axvline(-0.5, 0, 0.9, color="k")
 ax[0, 0].axvline(0.5, 0, 0.1, color="k")
-f'Estimated w1 = {np.mean(idata_04.posterior["X"] > 0).item():.3f}'
+f'Estimated w1 = {np.mean(idata_04.posterior["X"] < 0).item():.3f}'
 ```
 
 From the KDE we can see that we recover the modes and even the relative weights seems pretty good. The rank plot on the right looks good too. One SMC chain is represented in blue and the other in orange. The vertical lines indicate deviation from the ideal expected value, which is represented with a black dashed line. If a vertical line is above the reference black dashed line we have more samples than expected, if the vertical line is below the sampler is getting less samples than expected. Deviations like the ones in the figure above are fine and not a reason for concern.
@@ -155,7 +152,7 @@ As previously said SMC internally computes an estimation of the ESS (from import
 
 SMC is not free of problems, sampling can deteriorate as the dimensionality of the problem increases, in particular for multimodal posterior or _weird_ geometries as in hierarchical models. To some extent increasing the number of draws could help. Increasing the value of the argument `p_acc_rate` is also a good idea. This parameter controls how the number of steps is computed at each stage. To access the number of steps per stage you can check `trace.report.nsteps`. Ideally SMC will take a number of steps lower than `n_steps`. But if the actual number of steps per stage is `n_steps`, for a few stages, this may be signaling that we should also increase `n_steps`. 
 
-Let's see the performace of SMC when we run the same model as before, but increasing the dimensionality from 4 to 80.
+Let's see the performance of SMC when we run the same model as before, but increasing the dimensionality from 4 to 80.
 
 ```{code-cell} ipython3
 n = 80
@@ -168,45 +165,44 @@ sigma = np.power(stdev, 2) * np.eye(n)
 isigma = np.linalg.inv(sigma)
 dsigma = np.linalg.det(sigma)
 
-w1 = 0.1
-w2 = 1 - w1
-```
+w1 = 0.1  # one mode with 0.1 of the mass
+w2 = 1 - w1  # the other mode with 0.9 of the mass
 
-```{code-cell} ipython3
+
 def two_gaussians(x):
     log_like1 = (
-        -0.5 * n * tt.log(2 * np.pi)
-        - 0.5 * tt.log(dsigma)
+        -0.5 * n * at.log(2 * np.pi)
+        - 0.5 * at.log(dsigma)
         - 0.5 * (x - mu1).T.dot(isigma).dot(x - mu1)
     )
     log_like2 = (
-        -0.5 * n * tt.log(2 * np.pi)
-        - 0.5 * tt.log(dsigma)
+        -0.5 * n * at.log(2 * np.pi)
+        - 0.5 * at.log(dsigma)
         - 0.5 * (x - mu2).T.dot(isigma).dot(x - mu2)
     )
-    return pm.math.logsumexp([tt.log(w1) + log_like1, tt.log(w2) + log_like2])
+    return pm.math.logsumexp([at.log(w1) + log_like1, at.log(w2) + log_like2])
+```
 
-
+```{code-cell} ipython3
 with pm.Model() as model:
     X = pm.Uniform(
         "X",
         shape=n,
         lower=-2.0 * np.ones_like(mu1),
         upper=2.0 * np.ones_like(mu1),
-        testval=-1.0 * np.ones_like(mu1),
+        initval=-1.0 * np.ones_like(mu1),
     )
     llk = pm.Potential("llk", two_gaussians(X))
-    trace_80 = pm.sample_smc(2000, parallel=True)
-    idata_80 = az.from_pymc3(trace_80)
+    idata_80 = pm.sample_smc(2000)
 ```
 
-We see that SMC recognizes this is a harder problem and increases the number of stages. We can see that SMC still sample from both modes but now the model with less weight is being subsampled (we get a relative weight way lower than 0.1). Notice how the rank plot looks worse than when n=4.
+We see that SMC recognizes this is a harder problem and increases the number of stages. We can see that SMC still sample from both modes but now the model with higher weight is being oversampled (we get a relative weight of 0.99 instead of 0.9). Notice how the rank plot looks worse than when n=4.
 
 ```{code-cell} ipython3
 ax = az.plot_trace(idata_80, compact=True, kind="rank_vlines")
 ax[0, 0].axvline(-0.5, 0, 0.9, color="k")
 ax[0, 0].axvline(0.5, 0, 0.1, color="k")
-f'Estimated w1 = {np.mean(idata_80.posterior["X"] > 0).item():.3f}'
+f'Estimated w1 = {np.mean(idata_80.posterior["X"] < 0).item():.3f}'
 ```
 
 You may want to repeat the SMC sampling for n=80, and change one or more of the default parameters too see if you can improve the sampling and how much time the sampler takes to compute the posterior.

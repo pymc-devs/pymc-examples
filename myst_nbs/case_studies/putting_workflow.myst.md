@@ -18,7 +18,7 @@ substitutions:
 # Model building and expansion for golf putting
 
 :::{post} Apr 2, 2022
-:tags: bayesian workflow, model expansion, sports
+:tags: bayesian workflow, model expansion, sports 
 :category: intermediate, how-to
 :author: Colin Carroll, Marco Gorelli, Oriol Abril-Pla
 :::

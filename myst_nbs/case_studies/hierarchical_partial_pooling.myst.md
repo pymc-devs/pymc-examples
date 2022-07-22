@@ -6,16 +6,17 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: Python 3.10.5 ('pymc-dev')
   language: python
   name: python3
 ---
 
+(hierarchical_partial_pooling)=
 # Hierarchical Partial Pooling
-
 :::{post} Oct 07, 2021
-:tags: hierarchical model, pymc.Beta, pymc.Binomial, pymc.Deterministic, pymc.Exponential, pymc.Model, pymc.Uniform, pymc3.Beta, pymc3.Binomial, pymc3.Deterministic, pymc3.Exponential, pymc3.Model, pymc3.Uniform
-:category: intermediate
+:tags: hierarchical model, 
+:category: intermediate,
+:author: Vladislavs Dovgalecs, Adrian Seybolt, Christian Luhmann
 :::
 
 +++
@@ -24,7 +25,7 @@ Suppose you are tasked with estimating baseball batting skills for several playe
 
 So, suppose a player came to bat only 4 times, and never hit the ball. Are they a bad player?
 
-As a disclaimer, the author of this notebook assumes little to non-existant knowledge about baseball and its rules. The number of times at bat in his entire life is around "4".
+As a disclaimer, the author of this notebook assumes little to non-existent knowledge about baseball and its rules. The number of times at bat in his entire life is around "4".
 
 
 ## Data
@@ -153,13 +154,29 @@ az.plot_trace(idata, var_names=["theta_new"]);
 
 Notice that, despite the fact our additional player did not get any hits, the estimate of his average is not zero -- zero is not even a highly-probably value. This is because we are assuming that the player is drawn from a *population* of players with a distribution specified by our estimated hyperparemeters. However, the estimated mean for this player is toward the low end of the means for the players in our dataset, indicating that the 4 at-bats contributed some information toward the estimate.
 
-```{code-cell} ipython3
-%load_ext watermark
-%watermark -n -u -v -iv -w -p xarray
-```
++++
+
+## Authors
+* authored by Vladislavs Dovgalecs in November, 2016 ([pymc#1546](https://github.com/pymc-devs/pymc/pull/1546))
+* updated by Adrian Seybolt in June, 2017 ([pymc#2288](https://github.com/pymc-devs/pymc/pull/2288))
+* updated by Christian Luhmann in August, 2020 ([pymc#4068](https://github.com/pymc-devs/pymc/pull/4068))
+
++++
 
 ## References
 
 :::{bibliography}
 :filter: docname in docnames
+:::
+
++++
+
+## Watermark
+
+```{code-cell} ipython3
+%load_ext watermark
+%watermark -n -u -v -iv -w -p aesera,aeppl,xarray
+```
+
+:::{include} ../page_footer.md
 :::

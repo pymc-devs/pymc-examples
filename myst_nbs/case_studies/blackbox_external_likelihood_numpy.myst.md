@@ -15,7 +15,7 @@ kernelspec:
 # Using a "black box" likelihood function (numpy)
 
 :::{post} Dec 16, 2021
-:tags: case study, external likelihood, pymc.Model, pymc.Normal, pymc.Potential, pymc.Uniform, pymc3.Model, pymc3.Normal, pymc3.Potential, pymc3.Uniform
+:tags: case study, external likelihood, 
 :category: beginner
 :author: Matt Pitkin, Jørgen Midtbø, Oriol Abril
 :::
@@ -206,7 +206,7 @@ az.plot_trace(idata_mh, lines=[("m", {}, mtrue), ("c", {}, ctrue)]);
 
 What if we wanted to use NUTS or HMC? If we knew the analytical derivatives of the model/likelihood function then we could add a [grad() method](http://deeplearning.net/software/aesara/extending/op.html#grad) to the Op using that analytical form.
 
-But, what if we don't know the analytical form. If our model/likelihood is purely Python and made up of standard maths operators and Numpy functions, then the [autograd](https://github.com/HIPS/autograd) module could potentially be used to find gradients (also, see [here](https://github.com/ActiveState/code/blob/master/recipes/Python/580610_Auto_differentiation/recipe-580610.py) for a nice Python example of automatic differentiation). But, if our model/likelihood truely is a "black box" then we can just use the good-old-fashioned [finite difference](https://en.wikipedia.org/wiki/Finite_difference) to find the gradients - this can be slow, especially if there are a large number of variables, or the model takes a long time to evaluate. Below, a function to find gradients has been defined that uses the finite difference (the central difference) - it uses an iterative method with successively smaller interval sizes to check that the gradient converges. But, you could do something far simpler and just use, for example, the SciPy [approx_fprime](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.approx_fprime.html) function.
+But, what if we don't know the analytical form. If our model/likelihood is purely Python and made up of standard maths operators and Numpy functions, then the [autograd](https://github.com/HIPS/autograd) module could potentially be used to find gradients (also, see [here](https://github.com/ActiveState/code/blob/master/recipes/Python/580610_Auto_differentiation/recipe-580610.py) for a nice Python example of automatic differentiation). But, if our model/likelihood truly is a "black box" then we can just use the good-old-fashioned [finite difference](https://en.wikipedia.org/wiki/Finite_difference) to find the gradients - this can be slow, especially if there are a large number of variables, or the model takes a long time to evaluate. Below, a function to find gradients has been defined that uses the finite difference (the central difference) - it uses an iterative method with successively smaller interval sizes to check that the gradient converges. But, you could do something far simpler and just use, for example, the SciPy [approx_fprime](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.approx_fprime.html) function.
 
 Note that since PyMC 3.11.0, normalization constants are dropped from the computation, thus, we will do the same to ensure both gradients return exactly the same value (which will be checked below). As `sigma=1` in this case the dropped factor is only a factor 2, but for completeness, the term is shown as a comment. Try to see what happens if you uncomment this term and rerun the whole notebook.
 
@@ -447,7 +447,7 @@ with test_model:
 print(f'Gradient returned by PyMC "Normal" distribution: {grad_vals_pymc}')
 ```
 
-We could also do some profiling to compare performace between implementations. The {ref}`profiling` notebook shows how to do it.
+We could also do some profiling to compare performance between implementations. The {ref}`profiling` notebook shows how to do it.
 
 +++
 

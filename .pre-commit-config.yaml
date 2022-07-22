@@ -29,7 +29,7 @@ repos:
             |examples/gaussian_processes/GP-Latent\.ipynb$
             |examples/gaussian_processes/GP-MaunaLoa2\.ipynb$
             |examples/samplers/MLDA_gravity_surveying\.ipynb$
-            |examples/pymc3_howto/sampling_callback\.ipynb$
+            |examples/howto/sampling_callback\.ipynb$
             |examples/case_studies/blackbox_external_likelihood\.ipynb$
             |examples/samplers/GLM-hierarchical-jax\.ipynb$
             |examples/variational_inference/convolutional_vae_keras_advi\.ipynb$
@@ -45,7 +45,6 @@ repos:
     - id: bibtex-tidy
       files: examples/references.bib
       args: ["--sort=key", --quiet]
-      language_version: 15.14.0
 - repo: local
   hooks:
     - id: watermark
@@ -69,7 +68,6 @@ repos:
                examples/case_studies/blackbox_external_likelihood.ipynb|
                examples/case_studies/blackbox_external_likelihood_numpy.ipynb|
                examples/case_studies/item_response_nba.ipynb|
-               examples/case_studies/multilevel_modeling.ipynb|
                examples/diagnostics_and_criticism/sampler-stats.ipynb|
                examples/gaussian_processes/GP-MaunaLoa2.ipynb|
                examples/generalized_linear_models/GLM-logistic.ipynb|
@@ -78,7 +76,7 @@ repos:
                examples/generalized_linear_models/GLM-robust.ipynb|
                examples/generalized_linear_models/GLM-rolling-regression.ipynb|
                examples/generalized_linear_models/GLM-simpsons-paradox.ipynb|
-               examples/pymc3_howto/api_quickstart.ipynb|
+               examples/howto/api_quickstart.ipynb|
                examples/samplers/MLDA_gravity_surveying.ipynb|
                examples/samplers/MLDA_simple_linear_regression.ipynb|
                examples/samplers/SMC-ABC_Lotka-Volterra_example.ipynb|
@@ -105,3 +103,9 @@ repos:
   - id: jupytext
     files: ^examples/.+\.ipynb$
     args: ["--sync"]
+- repo: https://github.com/codespell-project/codespell
+  rev: v2.1.0
+  hooks:
+  - id: codespell
+    files: myst_nbs/
+    args: ["--write-changes", "--ignore-words-list", "hist,fpr,fro,lik", "--uri-ignore-words-list", "*"]

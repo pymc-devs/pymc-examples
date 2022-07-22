@@ -1,34 +1,41 @@
 ---
 jupytext:
+  notebook_metadata_filter: substitutions
   text_representation:
     extension: .md
     format_name: myst
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
 
-# Sampler statistics
+(sampler_stats)=
+# Sampler Statistics
 
 When checking for convergence or when debugging a badly behaving
 sampler, it is often helpful to take a closer look at what the
 sampler is doing. For this purpose some samplers export
 statistics for each generated sample.
 
+:::{post} May 31, 2022
+:tags: diagnostics 
+:category: beginner
+:author: Meenal Jhajharia, Christian Luhmann
+:::
+
 ```{code-cell} ipython3
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
-import seaborn as sns
+import pymc as pm
 
 %matplotlib inline
 
-print(f"Runing on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -47,13 +54,13 @@ with model:
 ```{code-cell} ipython3
 with model:
     step = pm.NUTS()
-    trace = pm.sample(2000, tune=1000, init=None, step=step, cores=2, return_inferencedata=True)
+    idata = pm.sample(2000, tune=1000, init=None, step=step, chains=4)
 ```
 
 - `Note`: NUTS provides the following statistics( these are internal statistics that the sampler uses, you don't need to do anything with them when using PyMC3, to learn more about them, [check this page](https://docs.pymc.io/api/inference.html#module-pymc3.step_methods.hmc.nuts).
 
 ```{code-cell} ipython3
-trace.sample_stats
+idata.sample_stats
 ```
 
 The sample statistics variables are defined as follows:
@@ -91,19 +98,19 @@ Some points to `Note`:
 - `InferenceData` also stores additional info like the date, versions used, sampling time and tuning steps as attributes.
 
 ```{code-cell} ipython3
-trace.sample_stats["tree_depth"].plot(col="chain", ls="none", marker=".", alpha=0.3);
+idata.sample_stats["tree_depth"].plot(col="chain", ls="none", marker=".", alpha=0.3);
 ```
 
 ```{code-cell} ipython3
 az.plot_posterior(
-    trace, group="sample_stats", var_names="acceptance_rate", hdi_prob="hide", kind="hist"
+    idata, group="sample_stats", var_names="acceptance_rate", hdi_prob="hide", kind="hist"
 );
 ```
 
 We check if there are any divergences, if yes, how many?
 
 ```{code-cell} ipython3
-trace.sample_stats["diverging"].sum()
+idata.sample_stats["diverging"].sum()
 ```
 
 In this case no divergences are found. If there are any, check [this notebook](https://github.com/pymc-devs/pymc-examples/blob/main/examples/diagnostics_and_criticism/Diagnosing_biased_Inference_with_Divergences.ipynb) for  information on handling divergences.
@@ -115,7 +122,7 @@ energy levels with the change of energy between successive samples.
 Ideally, they should be very similar:
 
 ```{code-cell} ipython3
-az.plot_energy(trace, figsize=(6, 4));
+az.plot_energy(idata, figsize=(6, 4));
 ```
 
 If the overall distribution of energy levels has longer tails, the efficiency of the sampler will deteriorate quickly.
@@ -139,26 +146,25 @@ with pm.Model(coords=coords) as model:
 with model:
     step1 = pm.BinaryMetropolis([mu1])
     step2 = pm.Metropolis([mu2])
-    trace = pm.sample(
+    idata = pm.sample(
         10000,
         init=None,
         step=[step1, step2],
-        cores=2,
+        chains=4,
         tune=1000,
-        return_inferencedata=True,
         idata_kwargs={"dims": dims, "coords": coords},
     )
 ```
 
 ```{code-cell} ipython3
-list(trace.sample_stats.data_vars)
+list(idata.sample_stats.data_vars)
 ```
 
 Both samplers export `accept`, so we get one acceptance probability for each sampler:
 
 ```{code-cell} ipython3
 az.plot_posterior(
-    trace,
+    idata,
     group="sample_stats",
     var_names="accept",
     hdi_prob="hide",
@@ -170,13 +176,13 @@ We notice that `accept` sometimes takes really high values (jumps from regions o
 
 ```{code-cell} ipython3
 # Range of accept values
-trace.sample_stats["accept"].max("draw") - trace.sample_stats["accept"].min("draw")
+idata.sample_stats["accept"].max("draw") - idata.sample_stats["accept"].min("draw")
 ```
 
 ```{code-cell} ipython3
 # We can try plotting the density and view the high density intervals to understand the variable better
 az.plot_density(
-    trace,
+    idata,
     group="sample_stats",
     var_names="accept",
     point_estimate="mean",
@@ -188,4 +194,10 @@ az.plot_density(
 %watermark -n -u -v -iv -w
 ```
 
-Updated by Meenal Jhajharia
+* Updated by Meenal Jhajharia
+* Updated by Christian Luhmann
+
++++
+
+:::{include} ../page_footer.md
+:::

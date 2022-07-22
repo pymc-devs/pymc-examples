@@ -15,7 +15,7 @@ kernelspec:
 # NBA Foul Analysis with Item Response Theory
 
 :::{post} Apr 17, 2022
-:tags: hierarchical model, case study, generalized linear model
+:tags: hierarchical model, case study, generalized linear model 
 :category: intermediate, tutorial
 :author:  Austin Rochford, Lorenzo Toniazzi
 :::
@@ -48,7 +48,7 @@ Our scenario is that we observe a binary outcome (a foul being called or not) fr
 
 So how can we study this common and complex __multi-agent interaction__ scenario, with __hierarchical__ structures between  more than a thousand individuals? 
 
-Despite the scenario's overwhelming complexity, Bayesian Item Response Theory combined with modern powerful statistical softwares allows for quite elegant and effective modeling options. One of these options employs a {term}`Generalized Linear Model` called [Rasch model](https://en.wikipedia.org/wiki/Rasch_model), which we now discuss in more detail.
+Despite the scenario's overwhelming complexity, Bayesian Item Response Theory combined with modern powerful statistical software allows for quite elegant and effective modeling options. One of these options employs a {term}`Generalized Linear Model` called [Rasch model](https://en.wikipedia.org/wiki/Rasch_model), which we now discuss in more detail.
 
 
 ### Rasch Model
@@ -291,7 +291,7 @@ df_committing = pd.DataFrame(
 df_disadvantaged = df_disadvantaged.assign(obs_disadvantaged=df["disadvantaged"].value_counts())
 df_committing = df_committing.assign(obs_committing=df["committing"].value_counts())
 
-# Plot the difference between raw and posterior means as a funciton of
+# Plot the difference between raw and posterior means as a function of
 # the number of observations
 fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
 fig.suptitle(
@@ -465,7 +465,7 @@ else:
 ```
 
 These plots suggest that scoring high in `theta` does not correlate with high or low scores in `b`. Moreover, with a little knowledge of NBA basketball, one can visually note that a higher score in `b` is expected from players playing center or forward rather than guards or point guards. 
-Given the last observation, we decide to plot a histogram for the occurence of different positions for top disadvantaged (`theta`) and committing (`b`) players. Interestingly, we see below that the largest share of best disadvantaged players are guards, meanwhile, the largest share of best committing players are centers (and at the same time a very small share of guards).
+Given the last observation, we decide to plot a histogram for the occurrence of different positions for top disadvantaged (`theta`) and committing (`b`) players. Interestingly, we see below that the largest share of best disadvantaged players are guards, meanwhile, the largest share of best committing players are centers (and at the same time a very small share of guards).
 
 ```{code-cell} ipython3
 :tags: []

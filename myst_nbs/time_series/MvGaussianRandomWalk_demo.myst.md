@@ -13,7 +13,7 @@ kernelspec:
 
 # Multivariate Gaussian Random Walk
 :::{post} Sep 25, 2021
-:tags: linear model, pymc3.HalfNormal, pymc3.LKJCholeskyCov, pymc3.Model, pymc3.MvGaussianRandomWalk, pymc3.Normal, regression, time series
+:tags: linear model, regression, time series 
 :category: beginner
 :::
 

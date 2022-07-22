@@ -284,7 +284,7 @@ We also require an objective:
 inference.objective(nmc=None)
 ```
 
-Theano can be used to calcuate the gradient of the objective with respect to the parameters:
+Theano can be used to calculate the gradient of the objective with respect to the parameters:
 
 ```{code-cell} ipython3
 with theano.configparser.change_flags(compute_test_value="off"):

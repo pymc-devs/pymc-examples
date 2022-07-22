@@ -15,7 +15,7 @@ kernelspec:
 # Dirichlet mixtures of multinomials
 
 :::{post} Jan 8, 2022
-:tags: mixture model, pymc3.Dirichlet, pymc3.DirichletMultinomial, pymc3.Lognormal, pymc3.Model, pymc3.Multinomial
+:tags: mixture model, 
 :category: advanced
 :author: Byron J. Smith, Abhipsha Das, Oriol Abril-Pla
 :::
@@ -292,7 +292,7 @@ conditioned on the posterior distribution.
 This is particularly obvious for (e.g.) species-2 where we have one observation of more than 20
 trees of this species, despite the posterior predicitive mass being concentrated far below that.
 
-This is overdispersion at work, and a clear sign that we need to adjust our model to accomodate it.
+This is overdispersion at work, and a clear sign that we need to adjust our model to accommodate it.
 
 Posterior predictive checks are one of the best ways to diagnose model misspecification,
 and this example is no different.

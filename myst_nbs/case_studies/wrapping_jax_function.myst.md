@@ -17,7 +17,7 @@ substitutions:
 # How to wrap a JAX function for use in PyMC
 
 :::{post} Mar 24, 2022
-:tags: Aesara, hidden markov model, JAX
+:tags: Aesara, hidden markov model, JAX 
 :category: advanced, how-to
 :author: Ricardo Vieira
 :::
@@ -246,7 +246,7 @@ def hmm_logp(
     return jsp.special.logsumexp(log_alpha)
 ```
 
-Let's test it with the true parameters and the first simulated HMM proccess
+Let's test it with the true parameters and the first simulated HMM process
 
 ```{code-cell} ipython3
 hmm_logp(
@@ -363,7 +363,7 @@ class HMMLogpOp(Op):
         # Aesara raises an error if the dtype of the returned output is not
         # exactly the one expected from the Apply node (in this case
         # `dscalar`, which stands for float64 scalar), so we make sure
-        # to convert to the expected dtype. To avoid unecessary conversions
+        # to convert to the expected dtype. To avoid unnecessary conversions
         # you should make sure the expected output defined in `make_node`
         # is already of the correct dtype
         outputs[0][0] = np.asarray(result, dtype=node.outputs[0].dtype)
@@ -405,7 +405,7 @@ class HMMLogpGradOp(Op):
             at.as_tensor_variable(logp_initial_state),
             at.as_tensor_variable(logp_transition),
         ]
-        # This `Op` wil return one gradient per input. For simplicity, we assume
+        # This `Op` will return one gradient per input. For simplicity, we assume
         # each output is of the same type as the input. In practice, you should use
         # the exact dtype to avoid overhead when saving the results of the computation
         # in `perform`

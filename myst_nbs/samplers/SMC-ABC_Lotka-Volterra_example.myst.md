@@ -6,16 +6,25 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python (PyMC3 Dev)
+  display_name: Python 3.9.7 ('base')
   language: python
-  name: pymc3-dev
+  name: python3
 ---
+
+(ABC_introduction)=
+# Approximate Bayesian Computation
+:::{post} May 31, 2022
+:tags: SMC, ABC 
+:category: beginner, explanation
+:::
 
 ```{code-cell} ipython3
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
+import pymc as pm
+
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -69,8 +78,8 @@ data = np.random.normal(loc=0, scale=1, size=1000)
 Clearly under normal circumstances using a Gaussian likelihood will do the job very well. But that would defeat the purpose of this example, the notebook would end here and everything would be very boring. So, instead of that we are going to define a simulator. A very straightforward simulator for normal data is a pseudo random number generator, in real life our simulator will be most likely something fancier.
 
 ```{code-cell} ipython3
-def normal_sim(a, b):
-    return np.random.normal(a, b, 1000)
+def normal_sim(rng, a, b, size=1000):
+    return rng.normal(a, b, size=size)
 ```
 
 Defining an ABC model in PyMC3 is in general, very similar to defining other PyMC3 models. The two important differences are: we need to define a `Simulator` _distribution_ and we need to use `sample_smc` with `kernel="ABC"`. The `Simulator` works as a generic interface to pass the synthetic data generating function (_normal_sim_ in this example), its parameters, the observed data and optionally a distance function and a summary statistics. In the following code we are using the default distance, `gaussian_kernel`, and the `sort` summary_statistic. As the name suggests `sort` sorts the data before computing the distance.
@@ -83,8 +92,8 @@ with pm.Model() as example:
     b = pm.HalfNormal("b", sigma=1)
     s = pm.Simulator("s", normal_sim, params=(a, b), sum_stat="sort", epsilon=1, observed=data)
 
-    trace, sim_data = pm.sample_smc(kernel="ABC", parallel=True, save_sim_data=True)
-    idata = az.from_pymc3(trace, posterior_predictive=sim_data)
+    idata = pm.sample_smc()
+    idata.extend(pm.sample_posterior_predictive(idata))
 ```
 
 Judging by `plot_trace` the sampler did its job very well, which is not surprising given this is a very simple model. Anyway, it is always reassuring to look at a flat rank plot :-)
@@ -100,7 +109,7 @@ az.summary(idata, kind="stats")
 The posterior predictive check shows that we have an overall good fit, but the synthetic data has heavier tails than the observed one. You may want to decrease the value of epsilon, and see if you can get a tighter fit.
 
 ```{code-cell} ipython3
-az.plot_ppc(idata);
+az.plot_ppc(idata, num_pp_samples=500);
 ```
 
 ## Lotka–Volterra
@@ -139,7 +148,7 @@ def dX_dt(X, t, a, b, c, d):
 
 
 # simulator function
-def competition_model(a, b):
+def competition_model(rng, a, b, size=None):
     return odeint(dX_dt, y0=X0, t=t, rtol=0.01, args=(a, b, c, d))
 ```
 
@@ -147,15 +156,15 @@ Using the simulator function we will obtain a dataset with some noise added, for
 
 ```{code-cell} ipython3
 # function for generating noisy data to be used as observed data.
-def add_noise(a, b, c, d):
+def add_noise(a, b):
     noise = np.random.normal(size=(size, 2))
-    simulated = competition_model(a, b) + noise
+    simulated = competition_model(None, a, b) + noise
     return simulated
 ```
 
 ```{code-cell} ipython3
 # plotting observed data.
-observed = add_noise(a, b, c, d)
+observed = add_noise(a, b)
 _, ax = plt.subplots(figsize=(12, 4))
 ax.plot(observed[:, 0], "x", label="prey")
 ax.plot(observed[:, 1], "x", label="predator")
@@ -174,8 +183,7 @@ with pm.Model() as model_lv:
 
     sim = pm.Simulator("sim", competition_model, params=(a, b), epsilon=10, observed=observed)
 
-    trace_lv = pm.sample_smc(kernel="ABC", parallel=True)
-    idata_lv = az.from_pymc3(trace_lv)
+    idata_lv = pm.sample_smc()
 ```
 
 ```{code-cell} ipython3
@@ -189,11 +197,12 @@ az.plot_posterior(idata_lv);
 ```{code-cell} ipython3
 # plot results
 _, ax = plt.subplots(figsize=(14, 6))
+posterior = idata_lv.posterior.stack(samples=("draw", "chain"))
 ax.plot(observed[:, 0], "o", label="prey", c="C0", mec="k")
 ax.plot(observed[:, 1], "o", label="predator", c="C1", mec="k")
-ax.plot(competition_model(trace_lv["a"].mean(), trace_lv["b"].mean()), linewidth=3)
+ax.plot(competition_model(None, posterior["a"].mean(), posterior["b"].mean()), linewidth=3)
 for i in np.random.randint(0, size, 75):
-    sim = competition_model(trace_lv["a"][i], trace_lv["b"][i])
+    sim = competition_model(None, posterior["a"][i], posterior["b"][i])
     ax.plot(sim[:, 0], alpha=0.1, c="C0")
     ax.plot(sim[:, 1], alpha=0.1, c="C1")
 ax.set_xlabel("time")
@@ -201,6 +210,17 @@ ax.set_ylabel("population")
 ax.legend();
 ```
 
+## References
+
+:::{bibliography}
+:filter: docname in docnames
+
+martin2021bayesian
+:::
+
 ```{code-cell} ipython3
 %watermark -n -u -v -iv -w
 ```
+
+:::{include} ../page_footer.md
+:::
