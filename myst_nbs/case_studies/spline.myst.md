@@ -1,11 +1,10 @@
 ---
 jupytext:
-  formats: ipynb,.myst.md:myst
   text_representation:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.14.0
+    jupytext_version: 1.13.7
 kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
@@ -30,6 +29,8 @@ Instead, the parameters of the model are expected to vary over $x$.
 There are multiple ways to handle this situation, one of which is to fit a *spline*.
 Spline fit is effectively a sum of multiple individual curves (piecewise polynomials), each fit to a different section of $x$, that are tied together at their boundaries, often called *knots*.
 
+The spline is effectively multiple individual lines, each fit to a different section of $x$, that are tied together at their boundaries, often called *knots*.
+
 Below is a full working example of how to fit a spline using PyMC. The data and model are taken from [*Statistical Rethinking* 2e](https://xcelab.net/rm/statistical-rethinking/) by [Richard McElreath's](https://xcelab.net/rm/) {cite:p}`mcelreath2018statistical`.
 
 For more information on this method of non-linear modeling, I suggesting beginning with [chapter 5 of Bayesian Modeling and Computation in Python](https://bayesiancomputationbook.com/markdown/chp_05.html) {cite:p}`martin2021bayesian`.
@@ -42,9 +43,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
-from patsy import dmatrix
 
-print(f"Running on PyMC v{pm.__version__}")
+from patsy import dmatrix
 ```
 
 ```{code-cell} ipython3
@@ -58,7 +58,7 @@ az.style.use("arviz-darkgrid")
 ## Cherry blossom data
 
 The data for this example is the number of days (`doy` for "days of year") that the cherry trees were in bloom in each year (`year`). 
-For convenience, years missing a `doy` were dropped (which is a bad idea to deal with missing data in general!)
+For convenience, years missing a `doy` were dropped (which is a bad idea to deal with missing data in general!).
 
 ```{code-cell} ipython3
 try:
