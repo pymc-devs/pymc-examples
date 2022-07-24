@@ -1,9 +1,10 @@
-from typing import TypedDict, Optional, Union, Tuple, Sequence, Dict, List
+from typing import Dict, List, Optional, Sequence, Tuple, TypedDict, Union
+
 import aeppl.transforms
-import arviz
-import pymc as pm
 import aesara.tensor as at
+import arviz
 import numpy as np
+import pymc as pm
 
 
 class ParamCfg(TypedDict):

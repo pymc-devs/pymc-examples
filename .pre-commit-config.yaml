@@ -1,0 +1,45 @@
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.3.0
+  hooks:
+    -   id: check-merge-conflict
+    -   id: check-toml
+    -   id: check-yaml
+    -   id: debug-statements
+    -   id: end-of-file-fixer
+    -   id: no-commit-to-branch
+        args: [--branch, main]
+    -   id: trailing-whitespace
+- repo: https://github.com/PyCQA/isort
+  rev: 5.10.1
+  hooks:
+    - id: isort
+      name: isort
+- repo: https://github.com/asottile/pyupgrade
+  rev: v2.37.1
+  hooks:
+    - id: pyupgrade
+      args: [--py37-plus]
+- repo: https://github.com/psf/black
+  rev: 22.6.0
+  hooks:
+    - id: black
+    - id: black-jupyter
+- repo: https://github.com/PyCQA/pylint
+  rev: v2.14.5
+  hooks:
+    - id: pylint
+      args: [--rcfile=.pylintrc]
+      files: ^pymc_experimental/
+- repo: https://github.com/MarcoGorelli/madforhooks
+  rev: 0.3.0
+  hooks:
+    - id: no-print-statements
+      files: ^pymc_experimental/
+- repo: local
+  hooks:
+    - id: no-relative-imports
+      name: No relative imports
+      entry: from \.[\.\w]* import
+      types: [python]
+      language: pygrep

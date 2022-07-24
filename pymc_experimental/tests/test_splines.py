@@ -1,8 +1,9 @@
 import aesara
-import pymc_experimental as pmx
 import aesara.tensor as at
 import numpy as np
 import pytest
+
+import pymc_experimental as pmx
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])

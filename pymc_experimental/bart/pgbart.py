@@ -13,19 +13,17 @@
 #   limitations under the License.
 
 import logging
-
 from copy import copy
 
 import aesara
 import numpy as np
-
 from aesara import function as aesara_function
-
 from pymc.aesaraf import inputvars, join_nonshared_inputs, make_shared_replacements
-from pymc_experimental.bart.bart import BARTRV
-from pymc_experimental.bart.tree import LeafNode, SplitNode, Tree
 from pymc.model import modelcontext
 from pymc.step_methods.arraystep import ArrayStepShared, Competence
+
+from pymc_experimental.bart.bart import BARTRV
+from pymc_experimental.bart.tree import LeafNode, SplitNode, Tree
 
 _log = logging.getLogger("pymc")
 

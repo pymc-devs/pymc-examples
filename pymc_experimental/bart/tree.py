@@ -13,7 +13,6 @@
 #   limitations under the License.
 
 import math
-
 from copy import deepcopy
 
 import aesara

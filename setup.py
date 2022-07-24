@@ -13,7 +13,6 @@
 #   limitations under the License.
 
 import re
-
 from codecs import open
 from os.path import dirname, join, realpath
 

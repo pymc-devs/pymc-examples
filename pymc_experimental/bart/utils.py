@@ -3,7 +3,6 @@
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-
 from numpy.random import RandomState
 from scipy.interpolate import griddata
 from scipy.signal import savgol_filter

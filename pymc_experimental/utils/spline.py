@@ -1,9 +1,9 @@
 import aesara
+import aesara.sparse
+import aesara.tensor as at
 import numpy as np
 import scipy.interpolate
-from aesara.graph.op import Op, Apply
-import aesara.tensor as at
-import aesara.sparse
+from aesara.graph.op import Apply, Op
 
 
 def numpy_bspline_basis(eval_points: np.ndarray, k: int, degree=3):

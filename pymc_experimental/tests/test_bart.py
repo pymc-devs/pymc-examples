@@ -1,13 +1,11 @@
 import numpy as np
+import pymc as pm
 import pytest
-
 from numpy.random import RandomState
 from numpy.testing import assert_almost_equal, assert_array_equal
-
-import pymc as pm
-import pymc_experimental as pmx
-
 from pymc.tests.test_distributions_moments import assert_moment_is_expected
+
+import pymc_experimental as pmx
 
 
 def test_split_node():

@@ -12,6 +12,9 @@ exclude_lines = [
   "if TYPE_CHECKING:",
 ]
 
+[tool.isort]
+profile = "black"
+
 [tool.nbqa.mutate]
 isort = 1
 black = 1

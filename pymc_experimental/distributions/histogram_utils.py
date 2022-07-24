@@ -1,12 +1,13 @@
-import numpy as np
-from numpy.typing import ArrayLike
 from typing import Dict
+
+import numpy as np
 import pymc as pm
 import xhistogram.core
+from numpy.typing import ArrayLike
 
 try:
-    import dask.dataframe
     import dask.array
+    import dask.dataframe
 except ImportError:
     dask = None
 

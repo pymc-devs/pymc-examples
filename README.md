@@ -1,4 +1,4 @@
-# Welcome to `pymc-experimental` 
+# Welcome to `pymc-experimental`
 <a href="https://gitpod.io/#https://github.com/pymc-devs/pymc-experimental">
   <img
     src="https://img.shields.io/badge/Contribute%20with-Gitpod-908a85?logo=gitpod"
@@ -24,7 +24,7 @@ import pymc_experimental as pmx
 with pm.Model():
 
     alpha = pmx.ParabolicFractal('alpha', b=1, c=1)
-    
+
     ...
 
 ```

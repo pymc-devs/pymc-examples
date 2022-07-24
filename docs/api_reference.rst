@@ -31,4 +31,3 @@ methods in the current release of PyMC experimental.
 
 .. automodule:: pymc_experimental.utils.prior
    :members: prior_from_idata
-

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Configuration file for the Sphinx documentation builder.
 #
@@ -137,7 +136,13 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "pymc_experimental.tex", "pymc_experimental Documentation", "The developers of pymc_experimental", "manual"),
+    (
+        master_doc,
+        "pymc_experimental.tex",
+        "pymc_experimental Documentation",
+        "The developers of pymc_experimental",
+        "manual",
+    ),
 ]
 
 

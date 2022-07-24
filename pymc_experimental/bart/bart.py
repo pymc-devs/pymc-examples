@@ -14,11 +14,9 @@
 
 import aesara.tensor as at
 import numpy as np
-
 from aeppl.logprob import _logprob
 from aesara.tensor.random.op import RandomVariable
 from pandas import DataFrame, Series
-
 from pymc.distributions.distribution import NoDistribution, _moment
 
 __all__ = ["BART"]
