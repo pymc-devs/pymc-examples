@@ -24,7 +24,7 @@ kernelspec:
 
 Example of simple Gaussian Process fit, adapted from Stan's [example-models repository](https://github.com/stan-dev/example-models/blob/master/misc/gaussian-process/gp-fit.stan).
 
-This example builds a Gaussian process from scratch, to illustrate the underlying model. PyMC now includes a dedicated Gaussian Process submodule which is going to be more usable for a wider variety of problems.
+For illustrative and divulgative purposes, this example builds a Gaussian process from scratch. However, PyMC includes a {mod}`module dedicated to Gaussian Processes <pymc.gp>` which is recommended instead of coding everything from scratch.
 
 ```{code-cell} ipython3
 import aesara.tensor as at
@@ -33,9 +33,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
 import seaborn as sns
-
-from aesara import shared
-from aesara.tensor.nlinalg import matrix_inverse
 
 print(f"Running on PyMC v{pm.__version__}")
 ```
@@ -91,9 +88,7 @@ N = len(y)
 We will use a squared exponential covariance function, which relies on the squared distances between observed points in the data.
 
 ```{code-cell} ipython3
-squared_distance = lambda x, y: np.array(
-    [[(x[i] - y[j]) ** 2 for i in range(len(x))] for j in range(len(y))]
-)
+squared_distance = lambda x, y: (x[None, :] - y[:, None]) ** 2
 ```
 
 ```{code-cell} ipython3
@@ -134,11 +129,14 @@ with gp_fit:
     sigma_off_diag = eta_sq * at.exp(-rho_sq * D_off_diag)
 
     # Posterior mean
-    mu_post = pm.Deterministic("mu_post", at.dot(at.dot(sigma_off_diag, matrix_inverse(sigma)), y))
+    mu_post = pm.Deterministic(
+        "mu_post", at.dot(at.dot(sigma_off_diag, pm.math.matrix_inverse(sigma)), y)
+    )
     # Posterior covariance
     sigma_post = pm.Deterministic(
         "sigma_post",
-        sigma_pred - at.dot(at.dot(sigma_off_diag, matrix_inverse(sigma)), sigma_off_diag.T),
+        sigma_pred
+        - at.dot(at.dot(sigma_off_diag, pm.math.matrix_inverse(sigma)), sigma_off_diag.T),
     )
 ```
 
@@ -148,7 +146,7 @@ with gp_fit:
 ```
 
 ```{code-cell} ipython3
-gp_trace = svgd_approx.sample(1000).stack(sample=("chain", "draw"))
+gp_trace = svgd_approx.sample(1000)
 ```
 
 ```{code-cell} ipython3
@@ -158,10 +156,8 @@ az.plot_trace(gp_trace, var_names=["eta_sq", "rho_sq", "sigma_sq"]);
 Sample from the posterior Gaussian Process
 
 ```{code-cell} ipython3
-y_pred = [
-    np.random.multivariate_normal(m, S)
-    for m, S in zip(gp_trace.posterior["mu_post"].T, gp_trace.posterior["sigma_post"].T)
-]
+multivariate = np.vectorize(np.random.multivariate_normal, signature="(n),(n, n)->(n)")
+y_pred = multivariate(gp_trace.posterior["mu_post"][-1], gp_trace.posterior["sigma_post"][-1])
 ```
 
 ```{code-cell} ipython3
@@ -170,8 +166,9 @@ for yp in y_pred:
 plt.plot(x, y, "r.");
 ```
 
+## Authors
 *  Adapted from Stan's [example-models repository](https://github.com/stan-dev/example-models/blob/master/misc/gaussian-process/gp-fit.stan) by Chris Fonnesbeck in 2016
-* Updated by Ana Rita Santos and Sandra Meneses in July, 2022 ([pymc#xxx](https://github.com/pymc-devs/pymc/pull/xxxx))
+* Updated by Ana Rita Santos and Sandra Meneses in July, 2022 ([pymc#404](https://github.com/pymc-devs/pymc/pull/404))
 
 ```{code-cell} ipython3
 %load_ext watermark
