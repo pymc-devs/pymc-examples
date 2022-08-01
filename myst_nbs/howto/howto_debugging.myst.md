@@ -14,10 +14,10 @@ kernelspec:
 (howto_debugging)=
 # How to debug a model
 
-:::{post} July 23, 2022
+:::{post} July 11, 2016
 :tags: 
 :category: beginner
-:author: Igor Kuvychko
+:author: Thomas Wiecki
 :::
 
 +++
