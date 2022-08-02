@@ -154,7 +154,9 @@ mystnb:
     alt: log-tau
 ---
 # plot the trace of log(tau)
-ax=az.plot_trace({"log(tau)": short_trace.get_values(varname="tau_log__", combine=False)}, legend=True)
+ax = az.plot_trace(
+    {"log(tau)": short_trace.get_values(varname="tau_log__", combine=False)}, legend=True
+)
 ax[0, 1].set_xlabel("Draw")
 ax[0, 1].set_ylabel("log(tau)")
 ax[0, 1].set_title("")
