@@ -14,10 +14,10 @@ kernelspec:
 (howto_debugging)=
 # How to debug a model
 
-:::{post} July 11, 2016
-:tags: 
+:::{post} August 2, 2022
+:tags: debugging, aesara
 :category: beginner
-:author: Thomas Wiecki
+:author: Thomas Wiecki, Igor Kuvychko
 :::
 
 +++
@@ -43,7 +43,7 @@ RANDOM_SEED = 8927
 ```
 
 ### How to print intermediate values of `Aesara` functions
-Since `Aesara` functions are compiled to C, you have to use `aesara.printing.Print` class to print intermediate values (imported  below as `Print`). Python `print` function will not work. Below is a simple example of using `Print`.
+Since `Aesara` functions are compiled to C, you have to use `aesara.printing.Print` class to print intermediate values (imported  below as `Print`). Python `print` function will not work. Below is a simple example of using `Print`. For more information, see {ref}`Debugging Aesara <aesara:debug_faq>`.
 
 ```{code-cell} ipython3
 import aesara.tensor as at
@@ -117,7 +117,7 @@ pm.model_to_graphviz(model)
 ```{code-cell} ipython3
 with model:
     step = pm.Metropolis()
-    trace = pm.sample(5, step, tune=0, chains=1, progressbar=False)
+    trace = pm.sample(5, step, tune=0, chains=1, progressbar=False, random_seed=RANDOM_SEED)
 ```
 
 Exception handling of PyMC v4 has improved, so now SamplingError exception prints out the intermediate values of `mu` and `sd` which led to likelihood of `-inf`. However, this technique of printing intermediate values with `aeasara.printing.Print` can be valuable in more complicated cases.
@@ -141,7 +141,7 @@ with pm.Model() as model:
     obs = pm.Normal("obs", mu=mu, sigma=sd_print, observed=y)
 
     # limiting number of samples and chains to simplify output
-    trace = pm.sample(draws=10, tune=0, chains=1, progressbar=False)
+    trace = pm.sample(draws=10, tune=0, chains=1, progressbar=False, random_seed=RANDOM_SEED)
 
 output = mystdout.getvalue()
 sys.stdout = old_stdout  # setting sys.stdout back
@@ -180,9 +180,18 @@ Notice that we requested 5 draws, but got 34 sets of $a/b$ values. The reason is
 output.shape
 ```
 
+## Authors
+
+* Authored by Thomas Wiecki in July, 2016
+* Updated by Igor Kuvychko in August, 2022 ([pymc#406] (https://github.com/pymc-devs/pymc-examples/pull/406))
+
++++
+
+## Watermark
+
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,xarray,patsy
+%watermark -n -u -v -iv -w -p aesara,xarray
 ```
 
 :::{include} ../page_footer.md
