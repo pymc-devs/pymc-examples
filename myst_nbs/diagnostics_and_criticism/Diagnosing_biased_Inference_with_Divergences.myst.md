@@ -565,9 +565,9 @@ plt.legend();
 ```
 
 ## Authors
-* Adapted from Michael Betancourt's post [Diagnosing Biased Inference with Divergences](https://mc-stan.org/users/documentation/case-studies/divergences_and_bias.html), January 2017
-* Updated by Agustina Arroyuelo in February, 2018 ([pymc#2861](https://github.com/pymc-devs/pymc/pull/2861))
-* Updated by [@CloudChaoszero](https://github.com/CloudChaoszero) in January, 2021 ([pymc-examples#25](https://github.com/pymc-devs/pymc-examples/pull/25))
+* Adapted from Michael Betancourt's post January 2017, [Diagnosing Biased Inference with Divergences](https://mc-stan.org/users/documentation/case-studies/divergences_and_bias.html)
+* Updated by Agustina Arroyuelo in February 2018, ([pymc#2861](https://github.com/pymc-devs/pymc/pull/2861))
+* Updated by [@CloudChaoszero](https://github.com/CloudChaoszero) in January 2021, ([pymc-examples#25](https://github.com/pymc-devs/pymc-examples/pull/25))
 
 ```{code-cell} ipython3
 %load_ext watermark
