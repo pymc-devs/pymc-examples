@@ -14,10 +14,10 @@ kernelspec:
 (gaussian_process)=
 # Gaussian Processes using numpy kernel
 
-:::{post} 2016
+:::{post} Jul 31, 2022
 :tags: gaussian processes, 
 :category: advanced
-:author: Chris Fonnesbeck
+:author: Chris Fonnesbeck, Ana Rita Santos and Sandra Meneses
 :::
 
 +++
@@ -33,6 +33,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
 import seaborn as sns
+
+from xarray_einstats.stats import multivariate_normal
 
 print(f"Running on PyMC v{pm.__version__}")
 ```
@@ -117,26 +119,28 @@ sns.heatmap(sigma.eval(), xticklabels=False, yticklabels=False);
 The following generates predictions from the Gaussian Process model in a grid of values:
 
 ```{code-cell} ipython3
-with gp_fit:
+# Prediction over grid
+xgrid = np.linspace(-6, 6)
+D_pred = squared_distance(xgrid, xgrid)
+D_off_diag = squared_distance(x, xgrid)
 
-    # Prediction over grid
-    xgrid = np.linspace(-6, 6)
-    D_pred = squared_distance(xgrid, xgrid)
-    D_off_diag = squared_distance(x, xgrid)
+gp_fit.add_coords({"pred_id": xgrid, "pred_id2": xgrid})
 
+with gp_fit as gp:
     # Covariance matrices for prediction
     sigma_pred = eta_sq * at.exp(-rho_sq * D_pred)
     sigma_off_diag = eta_sq * at.exp(-rho_sq * D_off_diag)
 
     # Posterior mean
     mu_post = pm.Deterministic(
-        "mu_post", at.dot(at.dot(sigma_off_diag, pm.math.matrix_inverse(sigma)), y)
+        "mu_post", at.dot(at.dot(sigma_off_diag, pm.math.matrix_inverse(sigma)), y), dims="pred_id"
     )
     # Posterior covariance
     sigma_post = pm.Deterministic(
         "sigma_post",
         sigma_pred
         - at.dot(at.dot(sigma_off_diag, pm.math.matrix_inverse(sigma)), sigma_off_diag.T),
+        dims=("pred_id", "pred_id2"),
     )
 ```
 
@@ -156,14 +160,17 @@ az.plot_trace(gp_trace, var_names=["eta_sq", "rho_sq", "sigma_sq"]);
 Sample from the posterior Gaussian Process
 
 ```{code-cell} ipython3
-multivariate = np.vectorize(np.random.multivariate_normal, signature="(n),(n, n)->(n)")
-y_pred = multivariate(gp_trace.posterior["mu_post"][-1], gp_trace.posterior["sigma_post"][-1])
+post = az.extract(gp_trace, num_samples=200)
+
+y_pred = multivariate_normal(
+    post["mu_post"], post["sigma_post"], dims=("pred_id", "pred_id2")
+).rvs()
 ```
 
 ```{code-cell} ipython3
-for yp in y_pred:
-    plt.plot(np.linspace(-6, 6), yp, "c-", alpha=0.1)
-plt.plot(x, y, "r.");
+_, ax = plt.subplots(figsize=(12, 8))
+ax.plot(xgrid, y_pred.transpose(..., "sample"), "c-", alpha=0.1)
+ax.plot(x, y, "r.");
 ```
 
 ## Authors
@@ -172,7 +179,7 @@ plt.plot(x, y, "r.");
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
+%watermark -n -u -v -iv -w -p aesara,aeppl,xarray,xarray_einstats
 ```
 
 :::{include} ../page_footer.md
