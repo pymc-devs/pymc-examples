@@ -177,6 +177,10 @@ ax.plot(x, y, "r.");
 *  Adapted from Stan's [example-models repository](https://github.com/stan-dev/example-models/blob/master/misc/gaussian-process/gp-fit.stan) by Chris Fonnesbeck in 2016
 * Updated by Ana Rita Santos and Sandra Meneses in July, 2022 ([pymc#404](https://github.com/pymc-devs/pymc/pull/404))
 
++++
+
+## Watermark
+
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w -p aesara,aeppl,xarray,xarray_einstats
