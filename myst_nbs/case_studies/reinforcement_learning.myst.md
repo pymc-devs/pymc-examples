@@ -119,13 +119,13 @@ actions, rewards, Qs = generate_data(rng, true_alpha, true_beta, n)
 ```
 
 ```{code-cell} ipython3
-:tags: [hide-cell]
 ---
 colab:
   base_uri: https://localhost:8080/
   height: 208
 id: MDhJI8vOXZeU
 outputId: 60f7ee37-2d1f-44ad-afff-b9ba7d82a8d8
+tags: [hide-cell]
 ---
 _, ax = plt.subplots(figsize=(12, 5))
 x = np.arange(len(actions))
