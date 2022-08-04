@@ -119,6 +119,7 @@ actions, rewards, Qs = generate_data(rng, true_alpha, true_beta, n)
 ```
 
 ```{code-cell} ipython3
+:tags: [hide-cell]
 ---
 colab:
   base_uri: https://localhost:8080/
