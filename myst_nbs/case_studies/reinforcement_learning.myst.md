@@ -125,7 +125,7 @@ colab:
   height: 208
 id: MDhJI8vOXZeU
 outputId: 60f7ee37-2d1f-44ad-afff-b9ba7d82a8d8
-tags: [hide-cell]
+tags: [hide-input]
 ---
 _, ax = plt.subplots(figsize=(12, 5))
 x = np.arange(len(actions))
