@@ -6,7 +6,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3.9.13 ('website_projects-1IZj_WTw')
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -14,7 +14,7 @@ kernelspec:
 +++ {"id": "Pq7u0kdRwDje"}
 
 (reinforcement_learning)=
-# Fitting a Two Variable Reinforcement Learning Model to Behavioral Data with PyMC
+# Fitting a Two Action Reinforcement Learning Model to Behavioral Data with PyMC
 
 :::{post} Aug 5, 2022
 :tags: Aesara, Reinforcement Learning
@@ -62,6 +62,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
 import scipy
+
+from matplotlib.lines import Line2D
 ```
 
 ```{code-cell} ipython3
@@ -150,15 +152,13 @@ ax.set_ylim(-1, 2)
 ax.set_ylabel("action")
 ax.set_xlabel("trial")
 
-ax.scatter(0, 20, c="k", s=50, lw=lw, label="Reward")
-ax.scatter(0, 20, c="w", ec="k", s=50, lw=lw, label="No reward")
-ax.plot([0, 1], [20, 20], c="k", lw=3, alpha=0.3, label="Qvalue (centered)")
+reward_artist = Line2D([], [], c="k", ls="none", marker="o", ms=s, mew=lw, label="Reward")
+no_reward_artist = Line2D(
+    [], [], ls="none", marker="o", mfc="w", mec="k", ms=s, mew=lw, label="No reward"
+)
+Qvalue_artist = Line2D([], [], c="k", ls="-", lw=3, alpha=0.3, label="Qvalue (centered)")
 
-handles, labels = ax.get_legend_handles_labels()
-order = (1, 2, 0)
-handles = [handles[idx] for idx in order]
-labels = [labels[idx] for idx in order]
-ax.legend(handles, labels, fontsize=12, loc=(1.01, 0.27));
+ax.legend(handles=[no_reward_artist, Qvalue_artist, reward_artist], fontsize=12, loc=(1.01, 0.27));
 ```
 
 +++ {"id": "6RNLAtqDXgG_"}
