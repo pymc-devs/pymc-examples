@@ -14,7 +14,7 @@ kernelspec:
 +++ {"id": "Pq7u0kdRwDje"}
 
 (reinforcement_learning)=
-# Fitting a simple Reinforcement Learning model to behavioral data with PyMC
+# Fitting a Two Variable Reinforcement Learning Model to Behavioral Data with PyMC
 
 :::{post} Aug 5, 2022
 :tags: Aesara, Reinforcement Learning
@@ -62,60 +62,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
 import scipy
-import seaborn as sns
-
-az.style.use("arviz-darkgrid")
 ```
 
 ```{code-cell} ipython3
-:id: YuX-31cMC3u7
-
-sns.set(font_scale=1.5)
 seed = sum(map(ord, "RL_PyMC"))
 rng = np.random.default_rng(seed)
-```
-
-```{code-cell} ipython3
-:id: -BmQhhxi6Ol5
-
-def plot_data(actions, rewards, Qs):
-    plt.figure(figsize=(15, 5), layout="constrained")
-    x = np.arange(len(actions))
-
-    plt.plot(x, Qs[:, 0] - 0.5 + 0, c="C0", lw=3, alpha=0.3)
-    plt.plot(x, Qs[:, 1] - 0.5 + 1, c="C1", lw=3, alpha=0.3)
-
-    s = 50
-    lw = 2
-
-    cond = (actions == 0) & (rewards == 0)
-    plt.scatter(x[cond], actions[cond], s=s, c="None", ec="C0", lw=lw)
-
-    cond = (actions == 0) & (rewards == 1)
-    plt.scatter(x[cond], actions[cond], s=s, c="C0", ec="C0", lw=lw)
-
-    cond = (actions == 1) & (rewards == 0)
-    plt.scatter(x[cond], actions[cond], s=s, c="None", ec="C1", lw=lw)
-
-    cond = (actions == 1) & (rewards == 1)
-    plt.scatter(x[cond], actions[cond], s=s, c="C1", ec="C1", lw=lw)
-
-    plt.scatter(0, 20, c="k", s=s, lw=lw, label="Reward")
-    plt.scatter(0, 20, c="w", ec="k", s=s, lw=lw, label="No reward")
-    plt.plot([0, 1], [20, 20], c="k", lw=3, alpha=0.3, label="Qvalue (centered)")
-
-    plt.yticks([0, 1], ["left", "right"])
-    plt.ylim(-1, 2)
-
-    plt.ylabel("action")
-    plt.xlabel("trial")
-
-    handles, labels = plt.gca().get_legend_handles_labels()
-    order = (1, 2, 0)
-    handles = [handles[idx] for idx in order]
-    labels = [labels[idx] for idx in order]
-
-    plt.legend(handles, labels, fontsize=12, loc=(1.01, 0.27))
+az.style.use("arviz-darkgrid")
+%config InlineBackend.figure_format = "retina"
 ```
 
 +++ {"id": "aG_Nxvr5wC4B"}
@@ -125,7 +78,9 @@ def plot_data(actions, rewards, Qs):
 ```{code-cell} ipython3
 :id: hcPVL7kZ8Zs2
 
-def generate_data(rng, alpha, beta, n=100, p_r=[0.4, 0.6]):
+def generate_data(rng, alpha, beta, n=100, p_r=None):
+    if p_r is None:
+        p_r = [0.4, 0.6]
     actions = np.zeros(n, dtype="int")
     rewards = np.zeros(n, dtype="int")
     Qs = np.zeros((n, 2))
@@ -169,7 +124,41 @@ colab:
 id: MDhJI8vOXZeU
 outputId: 60f7ee37-2d1f-44ad-afff-b9ba7d82a8d8
 ---
-plot_data(actions, rewards, Qs)
+_, ax = plt.subplots(figsize=(12, 5))
+x = np.arange(len(actions))
+
+ax.plot(x, Qs[:, 0] - 0.5 + 0, c="C0", lw=3, alpha=0.3)
+ax.plot(x, Qs[:, 1] - 0.5 + 1, c="C1", lw=3, alpha=0.3)
+
+s = 7
+lw = 2
+
+cond = (actions == 0) & (rewards == 0)
+ax.plot(x[cond], actions[cond], "o", ms=s, mfc="None", mec="C0", mew=lw)
+
+cond = (actions == 0) & (rewards == 1)
+ax.plot(x[cond], actions[cond], "o", ms=s, mfc="C0", mec="C0", mew=lw)
+
+cond = (actions == 1) & (rewards == 0)
+ax.plot(x[cond], actions[cond], "o", ms=s, mfc="None", mec="C1", mew=lw)
+
+cond = (actions == 1) & (rewards == 1)
+ax.plot(x[cond], actions[cond], "o", ms=s, mfc="C1", mec="C1", mew=lw)
+
+ax.set_yticks([0, 1], ["left", "right"])
+ax.set_ylim(-1, 2)
+ax.set_ylabel("action")
+ax.set_xlabel("trial")
+
+ax.scatter(0, 20, c="k", s=50, lw=lw, label="Reward")
+ax.scatter(0, 20, c="w", ec="k", s=50, lw=lw, label="No reward")
+ax.plot([0, 1], [20, 20], c="k", lw=3, alpha=0.3, label="Qvalue (centered)")
+
+handles, labels = ax.get_legend_handles_labels()
+order = (1, 2, 0)
+handles = [handles[idx] for idx in order]
+labels = [labels[idx] for idx in order]
+ax.legend(handles, labels, fontsize=12, loc=(1.01, 0.27));
 ```
 
 +++ {"id": "6RNLAtqDXgG_"}
@@ -527,9 +516,11 @@ az.plot_trace(data=tr_alt);
 az.plot_posterior(data=tr_alt, ref_val=[true_alpha, true_beta]);
 ```
 
+## Watermark
+
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,pymc
+%watermark -n -u -v -iv -w -p aeppl,xarray
 ```
 
 ## References
@@ -540,9 +531,9 @@ az.plot_posterior(data=tr_alt, ref_val=[true_alpha, true_beta]);
 
 +++
 
-## Authors
+## Credits
 
-* Written by Ricardo Vieira
+* Authored by Ricardo Vieira in June 2022
 
 +++
 
