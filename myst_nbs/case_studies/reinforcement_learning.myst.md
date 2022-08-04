@@ -16,7 +16,7 @@ kernelspec:
 (reinforcement_learning)=
 # Fitting a simple Reinforcement Learning model to behavioral data with PyMC
 
-:::{post} Mar 24, 2022
+:::{post} Aug 5, 2022
 :tags: Aesara, Reinforcement Learning
 :category: advanced
 :author: Ricardo Vieira
@@ -79,7 +79,7 @@ rng = np.random.default_rng(seed)
 :id: -BmQhhxi6Ol5
 
 def plot_data(actions, rewards, Qs):
-    plt.figure(figsize=(15, 5))
+    plt.figure(figsize=(15, 5), layout="constrained")
     x = np.arange(len(actions))
 
     plt.plot(x, Qs[:, 0] - 0.5 + 0, c="C0", lw=3, alpha=0.3)
@@ -116,7 +116,6 @@ def plot_data(actions, rewards, Qs):
     labels = [labels[idx] for idx in order]
 
     plt.legend(handles, labels, fontsize=12, loc=(1.01, 0.27))
-    plt.tight_layout()
 ```
 
 +++ {"id": "aG_Nxvr5wC4B"}
@@ -530,7 +529,7 @@ az.plot_posterior(data=tr_alt, ref_val=[true_alpha, true_beta]);
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara, pymc
+%watermark -n -u -v -iv -w -p aesara,pymc
 ```
 
 ## References
@@ -538,6 +537,12 @@ az.plot_posterior(data=tr_alt, ref_val=[true_alpha, true_beta]);
 :::{bibliography}
 :filter: docname in docnames
 :::
+
++++
+
+## Authors
+
+* Written by Ricardo Vieira
 
 +++
 
