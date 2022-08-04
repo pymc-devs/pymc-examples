@@ -119,7 +119,6 @@ actions, rewards, Qs = generate_data(rng, true_alpha, true_beta, n)
 ```
 
 ```{code-cell} ipython3
-:tags: [hide-cell]
 ---
 colab:
   base_uri: https://localhost:8080/
@@ -168,9 +167,7 @@ The plot above shows a simulated run of 150 trials, with parameters $\alpha = .5
 
 Solid and empty dots indicate actions followed by rewards and no-rewards, respectively. The solid line shows the estimated $Q$ value for each action centered around the respective colored dots (the line is above its dots when the respective $Q$ value is above $.5$, and below otherwise). It can be seen that this value increases with rewards (solid dots) and decreases with non-rewards (empty dots). 
 
-The change in line height following each outcome is directly related to the $\alpha$ pamater. The influence of the $\beta$ parameter is more difficult to grasp, but one way to think about it is that the higher its value, the higher the probability of flipping between actions regardless of their estimated values. 
-
-We can also see that the value of the unchosen action is not altered by the outcome of the chosen action. This is a strong assumption of this model, which could be tested by comparing it to an alternative model where this is not the case.
+The change in line height following each outcome is directly related to the $\alpha$ parameter. The influence of the $\beta$ parameter is more difficult to grasp, but one way to think about it is that the higher its value, the more an agent will stick to the action that has the highest estimated value, even if the difference between the two is quite small. Conversely, as this value approaches zero, the agent will start picking randomly between the two actions, regardless of their estimated values.
 
 +++ {"id": "LUTfha8Hc1ap"}
 
