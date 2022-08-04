@@ -6,48 +6,42 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3.10.5 ('pymc-dev')
   language: python
   name: python3
 ---
 
+(gaussian_process)=
 # Gaussian Processes using numpy kernel
 
-(c) 2016 by Chris Fonnesbeck
+:::{post} Jul 31, 2022
+:tags: gaussian processes, 
+:category: advanced
+:author: Chris Fonnesbeck, Ana Rita Santos and Sandra Meneses
+:::
 
 +++
 
-Example of simple GP fit, adapted from Stan's [example-models repository](https://github.com/stan-dev/example-models/blob/master/misc/gaussian-process/gp-fit.stan).
+Example of simple Gaussian Process fit, adapted from Stan's [example-models repository](https://github.com/stan-dev/example-models/blob/master/misc/gaussian-process/gp-fit.stan).
 
-This example builds a Gaussian process from scratch, to illustrate the underlying model. PyMC3 now includes a dedicated GP submodule which is going to be more usable for a wider variety of problems.
+For illustrative and divulgative purposes, this example builds a Gaussian process from scratch. However, PyMC includes a {mod}`module dedicated to Gaussian Processes <pymc.gp>` which is recommended instead of coding everything from scratch.
 
 ```{code-cell} ipython3
+import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
-import theano.tensor as T
 
-from pymc3 import (
-    NUTS,
-    Deterministic,
-    HalfCauchy,
-    Model,
-    MvNormal,
-    find_MAP,
-    sample,
-    summary,
-    traceplot,
-)
-from theano import shared
-from theano.tensor.nlinalg import matrix_inverse
+from xarray_einstats.stats import multivariate_normal
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
-%config InlineBackend.figure_format = 'retina'
+RANDOM_SEED = 8927
+rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
 
@@ -96,59 +90,63 @@ N = len(y)
 We will use a squared exponential covariance function, which relies on the squared distances between observed points in the data.
 
 ```{code-cell} ipython3
-squared_distance = lambda x, y: np.array(
-    [[(x[i] - y[j]) ** 2 for i in range(len(x))] for j in range(len(y))]
-)
+squared_distance = lambda x, y: (x[None, :] - y[:, None]) ** 2
 ```
 
 ```{code-cell} ipython3
-with Model() as gp_fit:
+with pm.Model() as gp_fit:
 
-    μ = np.zeros(N)
+    mu = np.zeros(N)
 
-    η_sq = HalfCauchy("η_sq", 5)
-    ρ_sq = HalfCauchy("ρ_sq", 5)
-    σ_sq = HalfCauchy("σ_sq", 5)
+    eta_sq = pm.HalfCauchy("eta_sq", 5)
+    rho_sq = pm.HalfCauchy("rho_sq", 5)
+    sigma_sq = pm.HalfCauchy("sigma_sq", 5)
 
     D = squared_distance(x, x)
 
     # Squared exponential
-    Σ = T.fill_diagonal(η_sq * T.exp(-ρ_sq * D), η_sq + σ_sq)
+    sigma = at.fill_diagonal(eta_sq * at.exp(-rho_sq * D), eta_sq + sigma_sq)
 
-    obs = MvNormal("obs", μ, Σ, observed=y)
+    obs = pm.MvNormal("obs", mu, sigma, observed=y)
 ```
 
 This is what our initial covariance matrix looks like. Intuitively, every data point's Y-value correlates with points according to their squared distances.
 
 ```{code-cell} ipython3
-sns.heatmap(Σ.tag.test_value, xticklabels=False, yticklabels=False)
+sns.heatmap(sigma.eval(), xticklabels=False, yticklabels=False);
 ```
 
-The following generates predictions from the GP model in a grid of values:
+The following generates predictions from the Gaussian Process model in a grid of values:
 
 ```{code-cell} ipython3
-with gp_fit:
+# Prediction over grid
+xgrid = np.linspace(-6, 6)
+D_pred = squared_distance(xgrid, xgrid)
+D_off_diag = squared_distance(x, xgrid)
 
-    # Prediction over grid
-    xgrid = np.linspace(-6, 6)
-    D_pred = squared_distance(xgrid, xgrid)
-    D_off_diag = squared_distance(x, xgrid)
+gp_fit.add_coords({"pred_id": xgrid, "pred_id2": xgrid})
 
+with gp_fit as gp:
     # Covariance matrices for prediction
-    Σ_pred = η_sq * T.exp(-ρ_sq * D_pred)
-    Σ_off_diag = η_sq * T.exp(-ρ_sq * D_off_diag)
+    sigma_pred = eta_sq * at.exp(-rho_sq * D_pred)
+    sigma_off_diag = eta_sq * at.exp(-rho_sq * D_off_diag)
 
     # Posterior mean
-    μ_post = Deterministic("μ_post", T.dot(T.dot(Σ_off_diag, matrix_inverse(Σ)), y))
+    mu_post = pm.Deterministic(
+        "mu_post", at.dot(at.dot(sigma_off_diag, pm.math.matrix_inverse(sigma)), y), dims="pred_id"
+    )
     # Posterior covariance
-    Σ_post = Deterministic(
-        "Σ_post", Σ_pred - T.dot(T.dot(Σ_off_diag, matrix_inverse(Σ)), Σ_off_diag.T)
+    sigma_post = pm.Deterministic(
+        "sigma_post",
+        sigma_pred
+        - at.dot(at.dot(sigma_off_diag, pm.math.matrix_inverse(sigma)), sigma_off_diag.T),
+        dims=("pred_id", "pred_id2"),
     )
 ```
 
 ```{code-cell} ipython3
 with gp_fit:
-    svgd_approx = pm.fit(400, method="svgd", inf_kwargs=dict(n_particles=500))
+    svgd_approx = pm.fit(400, method="svgd", inf_kwargs=dict(n_particles=100))
 ```
 
 ```{code-cell} ipython3
@@ -156,24 +154,37 @@ gp_trace = svgd_approx.sample(1000)
 ```
 
 ```{code-cell} ipython3
-traceplot(gp_trace, var_names=["η_sq", "ρ_sq", "σ_sq"]);
+az.plot_trace(gp_trace, var_names=["eta_sq", "rho_sq", "sigma_sq"]);
 ```
 
-Sample from the posterior GP
-
-```{code-cell} ipython3
-y_pred = [
-    np.random.multivariate_normal(m, S) for m, S in zip(gp_trace["μ_post"], gp_trace["Σ_post"])
-]
-```
+Sample from the posterior Gaussian Process
 
 ```{code-cell} ipython3
-for yp in y_pred:
-    plt.plot(np.linspace(-6, 6), yp, "c-", alpha=0.1)
-plt.plot(x, y, "r.")
+post = az.extract(gp_trace, num_samples=200)
+
+y_pred = multivariate_normal(
+    post["mu_post"], post["sigma_post"], dims=("pred_id", "pred_id2")
+).rvs()
 ```
+
+```{code-cell} ipython3
+_, ax = plt.subplots(figsize=(12, 8))
+ax.plot(xgrid, y_pred.transpose(..., "sample"), "c-", alpha=0.1)
+ax.plot(x, y, "r.");
+```
+
+## Authors
+*  Adapted from Stan's [example-models repository](https://github.com/stan-dev/example-models/blob/master/misc/gaussian-process/gp-fit.stan) by Chris Fonnesbeck in 2016
+* Updated by Ana Rita Santos and Sandra Meneses in July, 2022 ([pymc#404](https://github.com/pymc-devs/pymc/pull/404))
+
++++
+
+## Watermark
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w
+%watermark -n -u -v -iv -w -p aesara,aeppl,xarray,xarray_einstats
 ```
+
+:::{include} ../page_footer.md
+:::
