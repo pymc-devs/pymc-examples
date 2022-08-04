@@ -165,10 +165,6 @@ ax[0, 0].set_xlabel("log(tau)")
 ax[0, 0].set_title("Probability density function of log(tau)");
 ```
 
-```{code-cell} ipython3
-ax[0, 0]
-```
-
 Unfortunately, the resulting estimate for the mean of $log(\tau)$ is strongly biased away from the true value, here shown in grey.
 
 ```{code-cell} ipython3
