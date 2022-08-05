@@ -530,11 +530,5 @@ az.plot_posterior(data=tr_alt, ref_val=[true_alpha, true_beta]);
 
 +++
 
-## Credits
-
-* Authored by Ricardo Vieira in June 2022
-
-+++
-
 :::{include} ../page_footer.md
 :::
