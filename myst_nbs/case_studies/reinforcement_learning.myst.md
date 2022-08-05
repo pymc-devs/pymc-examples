@@ -46,12 +46,6 @@ $$ P(a = \text{right}) = \frac{\exp(\beta Q_{\text{right}})}{\exp(\beta Q_{\text
 
 where the $\beta \in (0, +\infty)$ parameter determines the level of noise in the agent choices. Larger values will be associated with more deterministic choices and smaller values with increasingly random choices.
 
-***
-
-### Credits
-* The PyMC code was adapted from that of Maria Eckstein ([GitHub](https://github.com/MariaEckstein/SLCN), [PyMC Discourse](https://discourse.pymc.io/t/modeling-reinforcement-learning-of-human-participant-using-pymc3/1735))
-* The MLE code was adapted from that of Robert Wilson and Anne Collins {cite:p}`collinswilson2019` ([GitHub](https://github.com/AnneCollins/TenSimpleRulesModeling))
-
 ```{code-cell} ipython3
 :id: QTq-0HMw7dBK
 
@@ -527,6 +521,18 @@ az.plot_posterior(data=tr_alt, ref_val=[true_alpha, true_beta]);
 :::{bibliography}
 :filter: docname in docnames
 :::
+
++++
+
+## Credits
+
+* Authored by [Ricardo Vieira](https://github.com/ricardov94) in June 2022
+
+* Adapted PyMC code from Maria Eckstein ([GitHub](https://github.com/MariaEckstein/SLCN), [PyMC Discourse](https://discourse.pymc.io/t/modeling-reinforcement-learning-of-human-participant-using-pymc3/1735))
+
+* Adapted MLE code from Robert Wilson and Anne Collins {cite:p}`collinswilson2019` ([GitHub](https://github.com/AnneCollins/TenSimpleRulesModeling))
+
+* Re-executed by [Juan Orduz](https://juanitorduz.github.io/)
 
 +++
 
