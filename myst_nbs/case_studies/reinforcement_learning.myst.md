@@ -532,7 +532,7 @@ az.plot_posterior(data=tr_alt, ref_val=[true_alpha, true_beta]);
 
 * Adapted MLE code from Robert Wilson and Anne Collins {cite:p}`collinswilson2019` ([GitHub](https://github.com/AnneCollins/TenSimpleRulesModeling))
 
-* Re-executed by [Juan Orduz](https://juanitorduz.github.io/) in June 2022 ([pymc-examples#410](https://github.com/pymc-devs/pymc-examples/pull/410))
+* Re-executed by [Juan Orduz](https://juanitorduz.github.io/) in August 2022 ([pymc-examples#410](https://github.com/pymc-devs/pymc-examples/pull/410))
 
 +++
 
