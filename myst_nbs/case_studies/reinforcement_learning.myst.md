@@ -14,7 +14,7 @@ kernelspec:
 +++ {"id": "Pq7u0kdRwDje"}
 
 (reinforcement_learning)=
-# Fitting a Two Action Reinforcement Learning Model to Behavioral Data with PyMC
+# Fitting a Reinforcement Learning Model to Behavioral Data with PyMC
 
 :::{post} Aug 5, 2022
 :tags: Aesara, Reinforcement Learning
