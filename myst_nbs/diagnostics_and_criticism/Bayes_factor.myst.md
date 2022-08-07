@@ -283,9 +283,14 @@ In this example the observed data $y$ is more consistent with `model_1` (because
 
 +++
 
+<<<<<<< HEAD
+* Authored by Osvaldo Martin ([pymc#xxxx](https://github.com/pymc-devs/pymc/pull/ ))
+* Updated by Osvaldo Martin in May, 2022 ([pymc#xxxx](https://github.com/pymc-devs/pymc/pull/ ))
+=======
 * Authored by Osvaldo Martin in September, 2017 ([pymc#2563](https://github.com/pymc-devs/pymc/pull/2563))
 * Updated by Osvaldo Martin in August, 2018 ([pymc#3124](https://github.com/pymc-devs/pymc/pull/3124))
 * Updated by Osvaldo Martin in May, 2022 ([pymc-examples#342](https://github.com/pymc-devs/pymc-examples/pull/342))
+>>>>>>> 49751c4d45d1c69448169d9adba701e000d7ee7a
 
 +++
 
