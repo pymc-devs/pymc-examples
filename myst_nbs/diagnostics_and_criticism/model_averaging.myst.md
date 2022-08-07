@@ -362,7 +362,7 @@ Besides averaging discrete models we can sometimes think of continuous versions 
 * Updated by Marco Gorelli in November 2020 ([pymc#4271](https://github.com/pymc-devs/pymc/pull/4271))
 * Moved from pymc to pymc-examples repo in December 2020 ([pymc-examples#8](https://github.com/pymc-devs/pymc-examples/pull/8))
 * Updated by Raul Maldonado in February 2021 ([pymc#25](https://github.com/pymc-devs/pymc-examples/pull/25))
-* Updated Markdown and styling by @reshamas in August 2022, ([pymc-examples#402](https://github.com/pymc-devs/pymc-examples/pull/402))
+* Updated Markdown and styling by @reshamas in August 2022, ([pymc-examples#411](https://github.com/pymc-devs/pymc-examples/pull/411))
 
 ```{code-cell} ipython3
 ---
