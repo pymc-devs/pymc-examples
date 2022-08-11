@@ -1,15 +1,14 @@
-image: mambaorg/micromamba:latest
+image: numpy/numpy-gitpod:latest
 tasks:
   - name: initialize
-    before: |
-      mkdir -p .vscode
-      echo '{"python.defaultInterpreterPath": "/home/gitpod/micromamba/envs/pymc-test-py39/bin/python"}' > .vscode/settings.json
     init: |
-      micromamba create -yf conda-envs/environment-test-py39.yml
+      mkdir -p .vscode
+      echo '{"python.defaultInterpreterPath": "/home/gitpod/mambaforge3/envs/pymc-test-py39/bin/python"}' > .vscode/settings.json
+      conda create -yf conda-envs/environment-test-py39.yml
+      conda activate pymc-test-py39
       pip install -r requirements-dev.txt
       pip install -e .
-    command: |
-      micromamba activate pymc-test-py39
+
 vscode:
   extensions:
     - eamodio.gitlens
