@@ -1,13 +1,10 @@
+image: mambaorg/micromamba:latest
 tasks:
   - name: initialize
-    before: source ~/.bashrc
-    init: |
+    before: |
       mkdir -p .vscode
-      mkdir -p ~/.local/bin/
       echo '{"python.defaultInterpreterPath": "/home/gitpod/micromamba/envs/pymc-test-py39/bin/python"}' > .vscode/settings.json
-      curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj -C ~/.local/ bin/micromamba
-      ~/.local/bin/micromamba shell init -s bash -p ~/micromamba
-      source ~/.bashrc
+    init: |
       micromamba create -yf conda-envs/environment-test-py39.yml
       pip install -r requirements-dev.txt
       pip install -e .
