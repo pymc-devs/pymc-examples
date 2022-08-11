@@ -1,5 +1,6 @@
 tasks:
   - name: initialize
+    before: source ~/.bashrc
     init: |
       mkdir -p .vscode
       mkdir -p ~/.local/bin/
@@ -9,9 +10,9 @@ tasks:
       source ~/.bashrc
       micromamba create -yf conda-envs/environment-test-py39.yml
       pip install -r requirements-dev.txt
+      pip install -e .
     command: |
       micromamba activate pymc-test-py39
-      pip install -e .
 vscode:
   extensions:
     - eamodio.gitlens
