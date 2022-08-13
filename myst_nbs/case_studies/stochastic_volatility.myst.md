@@ -6,12 +6,19 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc_env
   language: python
-  name: python3
+  name: pymc_env
 ---
 
+(stochastic_volatility)=
 # Stochastic Volatility model
+
+:::{post} June 17, 2022
+:tags: time series, case study
+:category: beginner
+:author: John Salvatier
+:::
 
 ```{code-cell} ipython3
 import os
@@ -26,7 +33,7 @@ rng = np.random.RandomState(1234)
 az.style.use("arviz-darkgrid")
 ```
 
-Asset prices have time-varying volatility (variance of day over day `returns`). In some periods, returns are highly variable, while in others very stable. Stochastic volatility models model this with a latent volatility variable, modeled as a stochastic process. The following model is similar to the one described in the No-U-Turn Sampler paper, Hoffman (2011) p21.
+Asset prices have time-varying volatility (variance of day over day `returns`). In some periods, returns are highly variable, while in others very stable. Stochastic volatility models model this with a latent volatility variable, modeled as a stochastic process. The following model is similar to the one described in the No-U-Turn Sampler paper, {cite:p}`hoffman2014nuts`.
 
 $$ \sigma \sim Exponential(50) $$
 
@@ -34,7 +41,7 @@ $$ \nu \sim Exponential(.1) $$
 
 $$ s_i \sim Normal(s_{i-1}, \sigma^{-2}) $$
 
-$$ log(r_i) \sim t(\nu, 0, exp(-2 s_i)) $$
+$$ \log(r_i) \sim t(\nu, 0, \exp(-2 s_i)) $$
 
 Here, $r$ is the daily return series and $s$ is the latent log volatility process.
 
@@ -180,11 +187,34 @@ axes[0].set_title("True log returns (black) and posterior predictive log returns
 axes[1].set_title("Posterior volatility");
 ```
 
-## References
-
-1. Hoffman & Gelman. (2011). [The No-U-Turn Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte Carlo](http://arxiv.org/abs/1111.4246).
-
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,xarray
+%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
 ```
+
+## References
+
+:::{bibliography}
+:filter: docname in docnames
+:::
+
++++
+
+## Authors
+
++++
+
+* Written by John Salvatier
+* Updated by Kyle Meyer
+* Updated by Thomas Wiecki
+* Updated by Chris Fonnesbeck
+* Updated by Aaron Maxwell on May 18, 2018 ([pymc#2978](https://github.com/pymc-devs/pymc/pull/2978))
+* Updated by Colin Carroll on November 16, 2019 ([pymc#3682](https://github.com/pymc-devs/pymc/pull/3682))
+* Updated by Abhipsha Das on July 24, 2021 ([pymc-examples#155](https://github.com/pymc-devs/pymc-examples/pull/155))
+* Updated by Michael Osthege on June 1, 2022 ([pymc-examples#343](https://github.com/pymc-devs/pymc-examples/pull/343))
+* Updated by Christopher Krapu on June 17, 2022 ([pymc-examples#378](https://github.com/pymc-devs/pymc-examples/pull/378))
+
++++
+
+:::{include} ../page_footer.md
+:::
