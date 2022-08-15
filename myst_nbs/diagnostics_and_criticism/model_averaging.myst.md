@@ -15,7 +15,7 @@ kernelspec:
 # Model Averaging
 
 :::{post} Aug 2022
-:tags: diagnostics, model selection, model comparison
+:tags: model comparison, model averaging
 :category: intermediate
 :author: Osvaldo Martin
 :::
