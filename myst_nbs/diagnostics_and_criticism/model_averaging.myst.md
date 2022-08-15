@@ -56,11 +56,12 @@ az.style.use("arviz-darkgrid")
 
 +++ {"papermill": {"duration": 0.068882, "end_time": "2020-11-29T12:13:08.020372", "exception": false, "start_time": "2020-11-29T12:13:07.951490", "status": "completed"}, "tags": []}
 
-When confronted with more than one model we have several options. One of them is to perform model selection, using for example a given Information Criterion as exemplified the [model comparison notebook](../generalized_linear_models/model_comparison.ipynb) and the [GLM model selection notebook](../generalized_linear_models/GLM-model-selection.ipynb). Model selection is appealing for its simplicity, but we are discarding information about the uncertainty in our models. This is somehow similar to computing the full posterior and then just keep a point-estimate like the posterior mean; we may become overconfident of what we really know.
+When confronted with more than one model we have several options. One of them is to perform model selection, using for example a given Information Criterion as exemplified the [model comparison notebook](https://www.pymc.io/projects/docs/en/stable/learn/core_notebooks/model_comparison.html) and the [GLM model selection notebook](https://www.pymc.io/projects/examples/en/latest/generalized_linear_models/GLM-model-selection.html). Model selection is appealing for its simplicity, but we are discarding information about the uncertainty in our models. This is somehow similar to computing the full posterior and then just keep a point-estimate like the posterior mean; we may become overconfident of what we really know.
 
 One alternative is to perform model selection but discuss all the different models together with the computed values of a given Information Criterion. It is important to put all these numbers and tests in the context of our problem so that we and our audience can have a better feeling of the possible limitations and shortcomings of our methods. If you are in the academic world you can use this approach to add elements to the discussion section of a paper, presentation, thesis, and so on.
 
-Yet another approach is to perform model averaging. The idea now is to generate a meta-model (and meta-predictions) using a weighted average of the models. There are several ways to do this and PyMC includes 3 of them that we are going to briefly discuss, you will find a more thorough explanation in the work by [Yuling Yao et. al.](https://arxiv.org/abs/1704.02030)
+Yet another approach is to perform model averaging. The idea now is to generate a meta-model (and meta-predictions) using a weighted average of the models. There are several ways to do this and PyMC includes 3 of them that we are going to briefly discuss, you will find a more thorough explanation in the work by [Yuling Yao et. al](https://arxiv.org/abs/1704.02030).
+
 
 ## Pseudo Bayesian model averaging
 
@@ -361,6 +362,14 @@ Besides averaging discrete models we can sometimes think of continuous versions 
 * Moved from pymc to pymc-examples repo in December 2020 ([pymc-examples#8](https://github.com/pymc-devs/pymc-examples/pull/8))
 * Updated by Raul Maldonado in February 2021 ([pymc#25](https://github.com/pymc-devs/pymc-examples/pull/25))
 * Updated Markdown and styling by @reshamas in August 2022, ([pymc-examples#411](https://github.com/pymc-devs/pymc-examples/pull/411))
+
++++
+
+## References
+
+:::{bibliography}
+:filter: docname in docnames
+:::
 
 +++
 
