@@ -364,6 +364,10 @@ Besides averaging discrete models we can sometimes think of continuous versions 
 * Updated by Raul Maldonado in February 2021 ([pymc#25](https://github.com/pymc-devs/pymc-examples/pull/25))
 * Updated Markdown and styling by @reshamas in August 2022, ([pymc-examples#411](https://github.com/pymc-devs/pymc-examples/pull/411))
 
++++
+
+## Watermark
+
 ```{code-cell} ipython3
 ---
 papermill:
@@ -377,3 +381,6 @@ tags: []
 %load_ext watermark
 %watermark -n -u -v -iv -w
 ```
+
+:::{include} ../page_footer.md
+:::
