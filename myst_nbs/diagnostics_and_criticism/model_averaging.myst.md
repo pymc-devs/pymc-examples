@@ -56,8 +56,6 @@ az.style.use("arviz-darkgrid")
 
 +++ {"papermill": {"duration": 0.068882, "end_time": "2020-11-29T12:13:08.020372", "exception": false, "start_time": "2020-11-29T12:13:07.951490", "status": "completed"}, "tags": []}
 
-# Model averaging
-
 When confronted with more than one model we have several options. One of them is to perform model selection, using for example a given Information Criterion as exemplified the [model comparison notebook](../generalized_linear_models/model_comparison.ipynb) and the [GLM model selection notebook](../generalized_linear_models/GLM-model-selection.ipynb). Model selection is appealing for its simplicity, but we are discarding information about the uncertainty in our models. This is somehow similar to computing the full posterior and then just keep a point-estimate like the posterior mean; we may become overconfident of what we really know.
 
 One alternative is to perform model selection but discuss all the different models together with the computed values of a given Information Criterion. It is important to put all these numbers and tests in the context of our problem so that we and our audience can have a better feeling of the possible limitations and shortcomings of our methods. If you are in the academic world you can use this approach to add elements to the discussion section of a paper, presentation, thesis, and so on.
@@ -220,7 +218,7 @@ az.plot_forest(traces, figsize=(10, 5));
 
 +++ {"papermill": {"duration": 0.052958, "end_time": "2020-11-29T12:14:55.196722", "exception": false, "start_time": "2020-11-29T12:14:55.143764", "status": "completed"}, "tags": []}
 
-Another option is to plot several traces in a same plot is to use `densityplot`. This plot is somehow similar to a forestplot, but we get truncated KDE (kernel density estimation) plots (by default 95% credible intervals) grouped by variable names together with a point estimate (by default the mean).
+Another option is to plot several traces in a same plot is to use `plot_density`. This plot is somehow similar to a forestplot, but we get truncated KDE (kernel density estimation) plots (by default 95% credible intervals) grouped by variable names together with a point estimate (by default the mean).
 
 ```{code-cell} ipython3
 ---
