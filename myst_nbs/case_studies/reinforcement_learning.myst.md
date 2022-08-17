@@ -513,6 +513,8 @@ az.plot_trace(data=tr_alt);
 az.plot_posterior(data=tr_alt, ref_val=[true_alpha, true_beta]);
 ```
 
+We can now do a model comparison of the posterior distributions of the two models.
+
 ```{code-cell} ipython3
 axes = az.plot_forest(
     data=[tr, tr_alt],
@@ -526,7 +528,13 @@ axes[0].axvline(x=true_beta, ymin=0.44, color="black", linestyle="--")
 plt.gcf().suptitle("Model Comparison", fontsize=18);
 ```
 
+The HDI look very similar!
+
++++
+
+:::{Note}
 One reason why it's useful to use the bernoulli likelihood is that one can then do prior and posterior predictive sampling.
+:::
 
 ```{code-cell} ipython3
 ax = az.plot_ppc(data=posterior_predictive_alt)
