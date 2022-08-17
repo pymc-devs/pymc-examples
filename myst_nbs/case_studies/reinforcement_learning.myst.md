@@ -423,6 +423,7 @@ with pm.Model() as m:
     like = pm.Potential(name="like", var=aesara_llik_td(alpha, beta, actions, rewards))
 
     tr = pm.sample(random_seed=rng)
+    posterior_predictive = pm.sample_posterior_predictive(trace=tr, random_seed=rng)
 ```
 
 ```{code-cell} ipython3
@@ -451,7 +452,9 @@ az.plot_posterior(data=tr, ref_val=[true_alpha, true_beta]);
 
 In this example, the obtained posteriors are nicely centered around the MLE values. What we have gained is an idea of the plausible uncertainty around these values.
 
-### Bonus: Alternative model using Bernoulli for the likelihood
+### Alternative model using Bernoulli for the likelihood
+
+In this last section I provide an alternative implementation of the model using a Bernoulli likelihood.
 
 ```{code-cell} ipython3
 :id: pQdszDk_qYCX
@@ -490,6 +493,7 @@ with pm.Model() as m_alt:
     like = pm.Bernoulli(name="like", p=action_probs, observed=actions[1:])
 
     tr_alt = pm.sample(random_seed=rng)
+    posterior_predictive_alt = pm.sample_posterior_predictive(trace=tr_alt, random_seed=rng)
 ```
 
 ```{code-cell} ipython3
@@ -507,6 +511,32 @@ az.plot_trace(data=tr_alt);
 :id: SDJN2w117eox
 
 az.plot_posterior(data=tr_alt, ref_val=[true_alpha, true_beta]);
+```
+
+```{code-cell} ipython3
+axes = az.plot_forest(
+    data=[tr, tr_alt],
+    combined=True,
+    model_names=["pm.Potential", "pm.Bernoulli"],
+    r_hat=True,
+    ess=True,
+)
+axes[0].axvline(x=true_alpha, ymax=0.43, color="black", linestyle="--")
+axes[0].axvline(x=true_beta, ymin=0.44, color="black", linestyle="--")
+plt.gcf().suptitle("Model Comparison", fontsize=18);
+```
+
+One reason why it's useful to use the bernoulli likelihood is that one can then do prior and posterior predictive sampling.
+
+```{code-cell} ipython3
+ax = az.plot_ppc(data=posterior_predictive_alt)
+ax.set(title="Posterior Predictive Check - Bernoulli Model");
+```
+
+On the other hand note that `posterior_predictive` from the first model is empty.
+
+```{code-cell} ipython3
+posterior_predictive
 ```
 
 ## Watermark
