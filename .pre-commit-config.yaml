@@ -94,7 +94,9 @@ repos:
                docs.python.org|
                xarray.pydata.org
                python.arviz.org|
-               docs.xarray.dev)
+               docs.xarray.dev|
+               www.pymc.io|
+               docs.scipy.org/doc)
       language: pygrep
       types_or: [markdown, rst, jupyter]
 - repo: https://github.com/mwouts/jupytext
