@@ -458,7 +458,7 @@ In this last section I provide an alternative implementation of the model using 
 +++
 
 :::{Note}
-One reason why it's useful to use the Bernoulli likelihood is that one can then do prior and posterior predictive sampling as well as model comparison. With `pm.Potential` you cannot do it, because PyMC does not know what is likelihood and what is prior. With a `pm.Bernoulli` likelihood you can.
+One reason why it's useful to use the Bernoulli likelihood is that one can then do prior and posterior predictive sampling as well as model comparison. With `pm.Potential` you cannot do it, because PyMC does not know what is likelihood and what is prior nor how to generate random draws. Neither of this is a problem when using a `pm.Bernoulli` likelihood.
 :::
 
 ```{code-cell} ipython3
