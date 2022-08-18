@@ -18,7 +18,7 @@ kernelspec:
 
 :::{post} Aug 5, 2022
 :tags: Aesara, Reinforcement Learning
-:category: advanced
+:category: advanced, how-to
 :author: Ricardo Vieira
 :::
 
@@ -536,9 +536,9 @@ az.plot_posterior(data=tr_alt, ref_val=[true_alpha, true_beta]);
 
 * Authored by [Ricardo Vieira](https://github.com/ricardov94) in June 2022
 
-* Adapted PyMC code from Maria Eckstein ([GitHub](https://github.com/MariaEckstein/SLCN), [PyMC Discourse](https://discourse.pymc.io/t/modeling-reinforcement-learning-of-human-participant-using-pymc3/1735))
+  * Adapted PyMC code from Maria Eckstein ([GitHub](https://github.com/MariaEckstein/SLCN), [PyMC Discourse](https://discourse.pymc.io/t/modeling-reinforcement-learning-of-human-participant-using-pymc3/1735))
 
-* Adapted MLE code from Robert Wilson and Anne Collins {cite:p}`collinswilson2019` ([GitHub](https://github.com/AnneCollins/TenSimpleRulesModeling))
+  * Adapted MLE code from Robert Wilson and Anne Collins {cite:p}`collinswilson2019` ([GitHub](https://github.com/AnneCollins/TenSimpleRulesModeling))
 
 * Re-executed by [Juan Orduz](https://juanitorduz.github.io/) in August 2022 ([pymc-examples#410](https://github.com/pymc-devs/pymc-examples/pull/410))
 
