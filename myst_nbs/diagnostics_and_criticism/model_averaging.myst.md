@@ -56,11 +56,11 @@ az.style.use("arviz-darkgrid")
 
 +++ {"papermill": {"duration": 0.068882, "end_time": "2020-11-29T12:13:08.020372", "exception": false, "start_time": "2020-11-29T12:13:07.951490", "status": "completed"}, "tags": []}
 
-When confronted with more than one model we have several options. One of them is to perform model selection, using for example a given Information Criterion as exemplified the [model comparison notebook](https://www.pymc.io/projects/docs/en/stable/learn/core_notebooks/model_comparison.html) and the [GLM model selection notebook](https://www.pymc.io/projects/examples/en/latest/generalized_linear_models/GLM-model-selection.html). Model selection is appealing for its simplicity, but we are discarding information about the uncertainty in our models. This is somehow similar to computing the full posterior and then just keep a point-estimate like the posterior mean; we may become overconfident of what we really know.
+When confronted with more than one model we have several options. One of them is to perform model selection, using for example a given Information Criterion as exemplified the PyMC examples {ref}`pymc:model_comparison` and the {ref}`GLM-model-selection`. Model selection is appealing for its simplicity, but we are discarding information about the uncertainty in our models. This is somehow similar to computing the full posterior and then just keep a point-estimate like the posterior mean; we may become overconfident of what we really know. You can also browse the {doc}`blog/tag/model-comparison` tag to find related posts. 
 
 One alternative is to perform model selection but discuss all the different models together with the computed values of a given Information Criterion. It is important to put all these numbers and tests in the context of our problem so that we and our audience can have a better feeling of the possible limitations and shortcomings of our methods. If you are in the academic world you can use this approach to add elements to the discussion section of a paper, presentation, thesis, and so on.
 
-Yet another approach is to perform model averaging. The idea now is to generate a meta-model (and meta-predictions) using a weighted average of the models. There are several ways to do this and PyMC includes 3 of them that we are going to briefly discuss, you will find a more thorough explanation in the work by [Yuling Yao et. al](https://arxiv.org/abs/1704.02030).
+Yet another approach is to perform model averaging. The idea now is to generate a meta-model (and meta-predictions) using a weighted average of the models. There are several ways to do this and PyMC includes 3 of them that we are going to briefly discuss, you will find a more thorough explanation in the work by {cite:t}`Yao_2018`. PyMC integrates with ArviZ for model comparison. 
 
 
 ## Pseudo Bayesian model averaging
@@ -79,7 +79,7 @@ The above formula for computing weights is a very nice and simple approach, but 
 
 ## Stacking
 
-The third approach implemented in PyMC is known as [_stacking of predictive distributions_](https://arxiv.org/abs/1704.02030). We want to combine several models in a metamodel in order to minimize the divergence between the meta-model and the _true_ generating model, when using a logarithmic scoring rule this is equivalent to:
+The third approach implemented in PyMC is known as _stacking of predictive distributions_ by {cite:t}`Yao_2018`. We want to combine several models in a metamodel in order to minimize the divergence between the meta-model and the _true_ generating model, when using a logarithmic scoring rule this is equivalent to:
 
 $$\max_{w} \frac{1}{n} \sum_{i=1}^{n}log\sum_{k=1}^{K} w_k p(y_i|y_{-i}, M_k)$$
 
@@ -91,7 +91,7 @@ The quantity $p(y_i|y_{-i}, M_k)$ is the leave-one-out predictive distribution f
 
 Once we have computed the weights, using any of the above 3 methods,  we can use them to get a weighted posterior predictive samples. PyMC offers functions to perform these steps in a simple way, so let see them in action using an example.
 
-The following example is taken from the superb book [Statistical Rethinking](http://xcelab.net/rm/statistical-rethinking/) by Richard McElreath. You will find more PyMC examples from this book in this [repository](https://github.com/aloctavodia/Statistical-Rethinking-with-Python-and-PyMC3). We are going to explore a simplified version of it. Check the book for the whole example and a more thorough discussion of both, the biological motivation for this problem and a theoretical/practical discussion of using Information Criteria to compare, select and average models.
+The following example is taken from the superb book {cite:t}`mcelreath2018statistical` by Richard McElreath. You will find more PyMC examples from this book in the repository [Statistical-Rethinking-with-Python-and-PyMC](https://github.com/pymc-devs/pymc-resources/tree/main/Rethinking_2). We are going to explore a simplified version of it. Check the book for the whole example and a more thorough discussion of both, the biological motivation for this problem and a theoretical/practical discussion of using Information Criteria to compare, select and average models.
 
 Briefly, our problem is as follows: We want to explore the composition of milk across several primate species, it is hypothesized that females from species of primates with larger brains produce more _nutritious_ milk (loosely speaking this is done _in order to_ support the development of such big brains). This is an important question for evolutionary biologists and try to give an answer we will use 3 variables, two predictor variables: the proportion of neocortex compare to the total mass of the brain and the logarithm of the body mass of the mothers. And for predicted variable, the kilocalories per gram of milk. With these variables we are going to build 3 different linear models:
  
@@ -249,7 +249,7 @@ ax[0, 1].set_title("95% Credible Intervals: sigma")
 
 +++ {"papermill": {"duration": 0.055089, "end_time": "2020-11-29T12:14:57.977616", "exception": false, "start_time": "2020-11-29T12:14:57.922527", "status": "completed"}, "tags": []}
 
-Now that we have sampled the posterior for the 3 models, we are going to use WAIC (Widely applicable information criterion) to compare the 3 models. We can do this using the `compare` function included with PyMC.
+Now that we have sampled the posterior for the 3 models, we are going to use WAIC (Widely applicable information criterion) to compare the 3 models. We can do this using the `compare` function included with ArviZ.
 
 ```{code-cell} ipython3
 ---
@@ -268,7 +268,7 @@ comp
 
 +++ {"papermill": {"duration": 0.056609, "end_time": "2020-11-29T12:14:58.387481", "exception": false, "start_time": "2020-11-29T12:14:58.330872", "status": "completed"}, "tags": []}
 
-We can see that the best model is `model_2`, the one with both predictor variables. Notice the DataFrame is ordered from lowest to highest WAIC (_i.e_ from _better_ to _worst_ model). Check [model_comparison notebook](model_comparison.ipynb) for a more detailed discussion on model comparison.
+We can see that the best model is `model_2`, the one with both predictor variables. Notice the DataFrame is ordered from lowest to highest WAIC (_i.e_ from _better_ to _worst_ model). Check the {ref}`pymc:model_comparison` for a more detailed discussion on model comparison.
 
 We can also see that we get a column with the relative `weight` for each model (according to the first equation at the beginning of this notebook). This weights can be _vaguely_ interpreted as the probability that each model will make the correct predictions on future data. Of course this interpretation is conditional on the models used to compute the weights, if we add or remove models the weights will change. And also is dependent on the assumptions behind WAIC (or any other Information Criterion used). So try to not overinterpret these `weights`. 
 
@@ -361,7 +361,7 @@ Besides averaging discrete models we can sometimes think of continuous versions 
 * Updated by Marco Gorelli in November 2020 ([pymc#4271](https://github.com/pymc-devs/pymc/pull/4271))
 * Moved from pymc to pymc-examples repo in December 2020 ([pymc-examples#8](https://github.com/pymc-devs/pymc-examples/pull/8))
 * Updated by Raul Maldonado in February 2021 ([pymc#25](https://github.com/pymc-devs/pymc-examples/pull/25))
-* Updated Markdown and styling by @reshamas in August 2022, ([pymc-examples#411](https://github.com/pymc-devs/pymc-examples/pull/411))
+* Updated Markdown and styling by @reshamas in August 2022, ([pymc-examples#414](https://github.com/pymc-devs/pymc-examples/pull/414))
 
 +++
 
