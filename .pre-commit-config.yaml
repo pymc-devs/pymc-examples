@@ -92,7 +92,7 @@ repos:
                numpy.org/doc|
                pymc-examples.readthedocs.io|
                docs.python.org|
-               xarray.pydata.org
+               xarray.pydata.org|
                python.arviz.org|
                docs.xarray.dev|
                www.pymc.io|
