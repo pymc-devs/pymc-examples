@@ -3,14 +3,14 @@ tasks:
   - name: initialize
     init: |
       mkdir -p .vscode
-      echo '{"python.defaultInterpreterPath": "/home/gitpod/.conda/envs/pymc-test-py39/bin/python"}' > .vscode/settings.json
+      echo '{"python.defaultInterpreterPath": "/workspace/pymc-experimental/env/bin/python"}' > .vscode/settings.json
       conda init bash && source ~/.bashrc
-      conda env update -f conda-envs/environment-test-py39.yml
-      conda activate pymc-test-py39
+      conda env update -f conda-envs/environment-test-py39.yml -p env
+      conda activate /workspace/pymc-experimental/env
       pip install -r requirements-dev.txt
       pip install -e .
     command: |
-      conda init bash && echo "conda activate pymc-test-py39" >> ~/.bashrc && source ~/.bashrc && conda activate pymc-test-py39
+      conda init bash && echo "conda activate /workspace/pymc-experimental/env" >> ~/.bashrc && source ~/.bashrc
 
 vscode:
   extensions:
