@@ -19,6 +19,8 @@ jobs:
       matrix:
         os: [ubuntu-18.04]
         floatx: [float32, float64]
+        test-subset:
+          - pymc_experimental/tests
       fail-fast: false
     runs-on: ${{ matrix.os }}
     env:
@@ -80,6 +82,8 @@ jobs:
       matrix:
         os: [windows-latest]
         floatx: [float32, float64]
+        test-subset:
+          - pymc_experimental/tests
       fail-fast: false
     runs-on: ${{ matrix.os }}
     env:

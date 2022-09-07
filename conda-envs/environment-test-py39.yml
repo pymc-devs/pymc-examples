@@ -11,3 +11,4 @@ dependencies:
 - xhistogram
 - pip:
   - "git+https://github.com/pymc-devs/pymc.git@main"
+  - blackjax
