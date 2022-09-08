@@ -191,8 +191,8 @@ pmb.plot_variable_importance(idata_bikes, X.values, labels, samples=100);
 :::{bibliography}
 :filter: docname in docnames
 
-martin2018bayesian
 martin2021bayesian
+quiroga2022bart
 :::
 
 +++
