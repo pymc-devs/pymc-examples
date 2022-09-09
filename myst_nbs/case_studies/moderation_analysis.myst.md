@@ -6,9 +6,9 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc-dev-py39
   language: python
-  name: python3
+  name: pymc-dev-py39
 ---
 
 (moderation_analysis)=
