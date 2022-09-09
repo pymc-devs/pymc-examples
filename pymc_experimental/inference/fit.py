@@ -13,17 +13,25 @@
 #   limitations under the License.
 
 
-from pymc_experimental.bart.bart import BART
-from pymc_experimental.bart.pgbart import PGBART
-from pymc_experimental.bart.utils import (
-    plot_dependence,
-    plot_variable_importance,
-    predict,
-)
+def fit(method, **kwargs):
+    """
+    Fit a model with an inference algorithm
 
-__all__ = ["BART", "PGBART"]
+    Parameters
+    ----------
+    method : str
+        Which inference method to run.
+        Supported: pathfinder
 
+    kwargs are passed on.
 
-import pymc as pm
-
-pm.STEP_METHODS = list(pm.STEP_METHODS) + [PGBART]
+    Returns
+    -------
+    arviz.InferenceData
+    """
+    if method == "pathfinder":
+        try:
+            from pymc_experimental.inference.pathfinder import fit_pathfinder
+        except ImportError as exc:
+            raise RuntimeError("Need BlackJAX to use `pathfinder`") from exc
+        return fit_pathfinder(**kwargs)
