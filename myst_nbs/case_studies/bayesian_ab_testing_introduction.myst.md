@@ -6,7 +6,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: Python 3.9.5 64-bit ('3.9.5')
   language: python
   name: python3
 ---
@@ -15,7 +15,7 @@ kernelspec:
 # Introduction to Bayesian A/B Testing
 
 :::{post} May 23, 2021
-:tags: case study
+:tags: case study, ab test
 :category: beginner, tutorial
 :author: Cuong Duong
 :::
@@ -487,7 +487,7 @@ class RevenueModel:
 
 For the Beta prior, we can set a similar prior to before - centered around 0.5, with the magnitude of `alpha` and `beta` determining how "thin" the distribution is.
 
-We need to be a bit more careful about the Gamma prior. The mean of the Gamma prior is $\dfrac{\alpha_G}{\beta_G}$, and needs to be set to a reasonable value given existing mean purchase values. For example, if `alpha` and `beta` were set such that the mean was \\$1, but the average revenue per visitor for a website is much higher at \\$100, this could affect our inference.
+We need to be a bit more careful about the Gamma prior. The mean of the Gamma prior is $\dfrac{\alpha_G}{\beta_G}$, and needs to be set to a reasonable value given existing mean purchase values. For example, if `alpha` and `beta` were set such that the mean was 1 dollar, but the average revenue per visitor for a website is much higher at 100 dollars, his could affect our inference.
 
 ```{code-cell} ipython3
 c_prior = BetaPrior(alpha=5000, beta=5000)
@@ -663,7 +663,7 @@ There are many other considerations to implementing a Bayesian framework to anal
 * How do we plan the length and size of A/B tests using power analysis, if we're using Bayesian models to analyse the results?
 * Outside of the conversion rates (bernoulli random variables for each visitor), many value distributions in online software cannot be fit with nice densities like Normal, Gamma, etc. How do we model these?
 
-Various textbooks and online resources dive into these areas in more detail. [Doing Bayesian Data Analysis](http://doingbayesiandataanalysis.blogspot.com/) by John Kruschke is a great resource, and has been translated to PyMC [here](https://github.com/JWarmenhoven/DBDA-python).
+Various textbooks and online resources dive into these areas in more detail. Doing Bayesian Data Analysis {cite:p}`kruschke2014doing` by John Kruschke is a great resource, and has been translated to PyMC [here](https://github.com/JWarmenhoven/DBDA-python).
 
 We also plan to create more PyMC tutorials on these topics, so stay tuned!
 
@@ -681,6 +681,10 @@ We also plan to create more PyMC tutorials on these topics, so stay tuned!
 :::{bibliography}
 :filter: docname in docnames
 :::
+
++++
+
+## Watermark
 
 ```{code-cell} ipython3
 %load_ext watermark
