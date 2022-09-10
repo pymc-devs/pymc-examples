@@ -6,13 +6,19 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python PyMC3 (Dev)
+  display_name: Python 3 (ipykernel)
   language: python
-  name: pymc3-dev-py38
+  name: python3
 ---
 
 (diagnosing_with_divergences)=
 # Diagnosing Biased Inference with Divergences
+
+:::{post} Feb, 2018
+:tags: hierarchical model, diagnostics
+:category: intermediate
+:author: Agustina Arroyuelo
+:::
 
 ```{code-cell} ipython3
 from collections import defaultdict
@@ -32,13 +38,13 @@ az.style.use("arviz-darkgrid")
 SEED = [20100420, 20134234]
 ```
 
-This notebook is a PyMC3 port of [Michael Betancourt's post on ms-stan](http://mc-stan.org/documentation/case-studies/divergences_and_bias.html). For detailed explanation of the underlying mechanism please check [the original post](http://mc-stan.org/documentation/case-studies/divergences_and_bias.html) and Betancourt's [excellent paper](https://arxiv.org/abs/1701.02434).
+This notebook is a PyMC3 port of [Michael Betancourt's post on mc-stan](http://mc-stan.org/documentation/case-studies/divergences_and_bias.html). For detailed explanation of the underlying mechanism please check the original post, [Diagnosing Biased Inference with Divergences](http://mc-stan.org/documentation/case-studies/divergences_and_bias.html) and Betancourt's excellent paper, [A Conceptual Introduction to Hamiltonian Monte Carlo](https://arxiv.org/abs/1701.02434).
 
 +++
 
-Bayesian statistics is all about building a model and estimating the parameters in that model. However, a naive or direct parameterization of our probability model can sometimes be ineffective, you can check out [Thomas Wiecki's blog post](http://twiecki.github.io/blog/2017/02/08/bayesian-hierchical-non-centered/) on the same issue in PyMC3. Suboptimal parameterization often leads to slow sampling, and more problematic, biased MCMC estimators. 
+Bayesian statistics is all about building a model and estimating the parameters in that model. However, a naive or direct parameterization of our probability model can sometimes be ineffective, you can check out Thomas Wiecki's blog post, [Why hierarchical models are awesome, tricky, and Bayesian](http://twiecki.github.io/blog/2017/02/08/bayesian-hierchical-non-centered/) on the same issue in PyMC3. Suboptimal parameterization often leads to slow sampling, and more problematic, biased MCMC estimators. 
 
-More formally, as explained in [the original post](http://mc-stan.org/documentation/case-studies/divergences_and_bias.html):
+More formally, as explained in the original post, [Diagnosing Biased Inference with Divergences](http://mc-stan.org/documentation/case-studies/divergences_and_bias.html):
 
 Markov chain Monte Carlo (MCMC) approximates expectations with respect to a given target distribution, 
 
@@ -136,11 +142,27 @@ The Gelman-Rubin diagnostic $\hat{R}$ doesn’t indicate any problem (values are
 az.summary(short_trace).round(2)
 ```
 
-Moreover, the trace plots all look fine. Let's consider, for example, the hierarchical standard deviation $\tau$, or more specifically, its logarithm, $log(\tau)$. Because $\tau$ is constrained to be positive, its logarithm will allow us to better resolve behavior for small values. Indeed the chains seems to be exploring both small and large values reasonably well,
+Moreover, the trace plots all look fine. Let's consider, for example, the hierarchical standard deviation $\tau$, or more specifically, its logarithm, $log(\tau)$. Because $\tau$ is constrained to be positive, its logarithm will allow us to better resolve behavior for small values. Indeed the chains seems to be exploring both small and large values reasonably well.
 
 ```{code-cell} ipython3
+---
+mystnb:
+  figure:
+    caption: Trace plot of log(tau)
+    name: nb-divergence-traceplot
+  image:
+    alt: log-tau
+---
 # plot the trace of log(tau)
-az.plot_trace({"log(tau)": short_trace.get_values(varname="tau_log__", combine=False)});
+ax = az.plot_trace(
+    {"log(tau)": short_trace.get_values(varname="tau_log__", combine=False)}, legend=True
+)
+ax[0, 1].set_xlabel("Draw")
+ax[0, 1].set_ylabel("log(tau)")
+ax[0, 1].set_title("")
+
+ax[0, 0].set_xlabel("log(tau)")
+ax[0, 0].set_title("Probability density function of log(tau)");
 ```
 
 Unfortunately, the resulting estimate for the mean of $log(\tau)$ is strongly biased away from the true value, here shown in grey.
@@ -495,7 +517,7 @@ As shown above, the effective sample size per iteration has drastically improved
 report_trace(fit_ncp80)
 ```
 
-As expected of false positives, we can remove the divergences entirely by decreasing the step size,
+As expected of false positives, we can remove the divergences entirely by decreasing the step size.
 
 ```{code-cell} ipython3
 with NonCentered_eight:
@@ -506,7 +528,7 @@ divergent = fit_ncp90["diverging"]
 print("Number of Divergent %d" % divergent.nonzero()[0].size)
 ```
 
-The more agreeable geometry of the non-centered implementation allows the Markov chain to explore deep into the neck of the funnel, capturing even the smallest values of $\tau$ that are consistent with the measurements. Consequently, MCMC estimators from the non-centered chain rapidly converge towards their true expectation values.
+The more agreeable geometry of the non-centered implementation allows the Markov chain to explore deep into the neck of the funnel, capturing even the smallest values of `tau` ($\tau$) that are consistent with the measurements. Consequently, MCMC estimators from the non-centered chain rapidly converge towards their true expectation values.
 
 ```{code-cell} ipython3
 _, ax = plt.subplots(1, 1, figsize=(10, 6))
@@ -538,7 +560,20 @@ plt.title("MCMC estimation of log(tau)")
 plt.legend();
 ```
 
+## Authors
+* Adapted from Michael Betancourt's post January 2017, [Diagnosing Biased Inference with Divergences](https://mc-stan.org/users/documentation/case-studies/divergences_and_bias.html)
+* Updated by Agustina Arroyuelo in February 2018, ([pymc#2861](https://github.com/pymc-devs/pymc/pull/2861))
+* Updated by [@CloudChaoszero](https://github.com/CloudChaoszero) in January 2021, ([pymc-examples#25](https://github.com/pymc-devs/pymc-examples/pull/25))
+* Updated Markdown and styling by @reshamas in August 2022, ([pymc-examples#402](https://github.com/pymc-devs/pymc-examples/pull/402))
+
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w
+```
+
+:::{include} ../page_footer.md
+:::
+
+```{code-cell} ipython3
+
 ```

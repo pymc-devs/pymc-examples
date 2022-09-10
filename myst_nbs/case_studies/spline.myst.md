@@ -6,7 +6,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3.10.4 ('pymc_env')
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -27,6 +27,8 @@ kernelspec:
 Often, the model we want to fit is not a perfect line between some $x$ and $y$.
 Instead, the parameters of the model are expected to vary over $x$.
 There are multiple ways to handle this situation, one of which is to fit a *spline*.
+Spline fit is effectively a sum of multiple individual curves (piecewise polynomials), each fit to a different section of $x$, that are tied together at their boundaries, often called *knots*.
+
 The spline is effectively multiple individual lines, each fit to a different section of $x$, that are tied together at their boundaries, often called *knots*.
 
 Below is a full working example of how to fit a spline using PyMC. The data and model are taken from [*Statistical Rethinking* 2e](https://xcelab.net/rm/statistical-rethinking/) by [Richard McElreath's](https://xcelab.net/rm/) {cite:p}`mcelreath2018statistical`.
@@ -158,7 +160,7 @@ Finally, the model can be built using PyMC. A graphical diagram shows the organi
 
 ```{code-cell} ipython3
 COORDS = {"splines": np.arange(B.shape[1])}
-with pm.Model(coords=COORDS, rng_seeder=RANDOM_SEED) as spline_model:
+with pm.Model(coords=COORDS) as spline_model:
     a = pm.Normal("a", 100, 5)
     w = pm.Normal("w", mu=0, sigma=3, size=B.shape[1], dims="splines")
     mu = pm.Deterministic("mu", a + pm.math.dot(np.asarray(B, order="F"), w.T))
