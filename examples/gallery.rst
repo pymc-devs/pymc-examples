@@ -9,13 +9,6 @@ PyMC Example Gallery
 Core notebooks
 --------------
 
-.. note::
-
-   Unlike the rest of the notebooks below, these notebooks are not inside the "Examples" navbar section.
-
-   This subset of notebooks is kept separated and automatically executed so they are versioned
-   along with the API and learning documentation.
-
 .. grid:: 1 2 3 3
    :gutter: 4
 
