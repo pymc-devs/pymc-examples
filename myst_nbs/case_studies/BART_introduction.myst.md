@@ -6,7 +6,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3.9.7 ('base')
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
-import pymc_experimental as pmx
+import pymc_bart as pmb
 
 print(f"Running on PyMC v{pm.__version__}")
 ```
@@ -86,7 +86,7 @@ In PyMC a BART variable can be defined very similar to other random variables. O
 
 ```{code-cell} ipython3
 with pm.Model() as model_coal:
-    μ_ = pmx.BART("μ_", X=x_data, Y=y_data, m=20)
+    μ_ = pmb.BART("μ_", X=x_data, Y=y_data, m=20)
     μ = pm.Deterministic("μ", np.abs(μ_))
     y_pred = pm.Poisson("y_pred", mu=μ, observed=y_data)
     idata_coal = pm.sample(random_seed=RANDOM_SEED)
@@ -113,7 +113,7 @@ In the previous plot the white line is the median over 4000 posterior draws, and
 The following figure shows two samples from the posterior of $\mu$. We can see that these functions are not smooth. This is fine and is a direct consequence of using regression trees. Trees can be seen as a way to represent stepwise functions, and a sum of stepwise functions is just another stepwise function. Thus, when using BART we just need to know that we are assuming that a stepwise function is a good enough approximation for our problem. In practice this is often the case because we sum over many trees, usually values like 50, 100 or 200. Additionally, we often average over the posterior distribution. All this makes the "steps smoother", even when we never really have an smooth function as for example with Gaussian processes (splines). A nice theoretical result, tells us that in the limit of $m \to \infty$ the BART prior converges to a [nowheredifferentiable](https://en.wikipedia.org/wiki/Weierstrass_function) Gaussian process.
 
 ```{code-cell} ipython3
-plt.step(x_data, np.exp(pmx.bart.predict(idata_coal, rng, x_data, size=2).T));
+plt.step(x_data, np.exp(pmb.predict(idata_coal, rng, x_data, size=2).squeeze().T));
 ```
 
 To gain further intuition the next figures show 3 of the `m` trees. As we can see these are definitely not very good approximators by themselves. inspecting individuals trees is generally not necessary. We are just showing them here to generate intuition about BART.
@@ -143,7 +143,7 @@ Y = bikes["count"]
 ```{code-cell} ipython3
 with pm.Model() as model_bikes:
     σ = pm.HalfNormal("σ", Y.std())
-    μ = pmx.BART("μ", X, Y, m=50)
+    μ = pmb.BART("μ", X, Y, m=50)
     y = pm.Normal("y", μ, σ, observed=Y)
     idata_bikes = pm.sample(random_seed=RANDOM_SEED)
 ```
@@ -155,7 +155,7 @@ with pm.Model() as model_bikes:
 To help us interpret the results of our model we are going to use partial dependence plot. This is a type of plot that shows the marginal effect that one covariate has on the predicted variable. That is, what is the effect that a covariate $X_i$ has of $Y$ while we average over all the other covariates ($X_j, \forall j \not = i$). This type of plot are not exclusive of BART. But they are often used in the BART literature. PyMC provides an utility function to make this plot from the inference data.
 
 ```{code-cell} ipython3
-pmx.bart.plot_dependence(idata_bikes, X=X, Y=Y, grid=(2, 2), var_discrete=[3]);
+pmb.plot_dependence(idata_bikes, X=X, Y=Y, grid=(2, 2), var_discrete=[3]);
 ```
 
 From this plot we can see the main effect of each covariate on the predicted value. This is very useful we can recover complex relationship beyond monotonic increasing or decreasing effects. For example for the `hour` covariate we can see two peaks around 8 and and 17 hs and a minimum at midnight.
@@ -176,12 +176,13 @@ Additionally, we provide a novel method to assess the variable importance. You c
 
 ```{code-cell} ipython3
 labels = ["hour", "temperature", "humidity", "workingday"]
-pmx.bart.utils.plot_variable_importance(idata_bikes, X.values, labels, samples=100);
+pmb.plot_variable_importance(idata_bikes, X.values, labels, samples=100);
 ```
 
 ## Authors
 * Authored by Osvaldo Martin in Dec, 2021 ([pymc-examples#259](https://github.com/pymc-devs/pymc-examples/pull/259))
 * Updated by Osvaldo Martin in May, 2022  ([pymc-examples#323](https://github.com/pymc-devs/pymc-examples/pull/323))
+* Updated by Osvaldo Martin in Sep, 2022
 
 +++
 
@@ -190,8 +191,8 @@ pmx.bart.utils.plot_variable_importance(idata_bikes, X.values, labels, samples=1
 :::{bibliography}
 :filter: docname in docnames
 
-martin2018bayesian
 martin2021bayesian
+quiroga2022bart
 :::
 
 +++
