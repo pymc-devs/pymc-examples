@@ -6,16 +6,13 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: pymc
+  display_name: Python 3 (ipykernel)
   language: python
-  name: pymc
+  name: python3
 ---
 
 # Using ModelBuilder class for deploying PyMC models 
-:post: Sep 12, 2022 <br>
-:tags: model builder class, model class, linear model <br>
-:category: Beginner <br>
-:author: Shashank Kirtania, Thomas Wiecki 
+::: {post} Sep 12, 2022 :tags: model builder class, model class, linear model :category: Beginner :author: Shashank Kirtania, Thomas Wiecki:::
 
 +++
 
@@ -33,11 +30,11 @@ Let's learn more about using an example <br>
 First, we import libraries. We need to deploy a model
 
 ```{code-cell} ipython3
+import pymc as pm
+import pandas as pd
+import numpy as np
 import arviz as az
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import pymc as pm
 ```
 
 Now we import the `ModelBuilder` present in the model_builder.py file
@@ -57,21 +54,21 @@ To define our desired model we inherit the `ModelBuilder` class to our new model
 
 ```{code-cell} ipython3
 class LinearModel(ModelBuilder):
-    _model_type = "LinearModel"
-    version = "0.1"
-
+    _model_type = 'LinearModel'
+    version = '0.1'
+    
     @classmethod
     def build_model(self, model_config, data=None):
         if data is not None:
-            x = pm.MutableData("x", data["input"].values)
-            y_data = pm.MutableData("y_data", data["output"].values)
+            x = pm.MutableData('x', data['input'].values)
+            y_data = pm.MutableData('y_data', data['output'].values)
 
         # prior parameters
-        a_loc = model_config["a_loc"]
-        a_scale = model_config["a_scale"]
-        b_loc = model_config["b_loc"]
-        b_scale = model_config["b_scale"]
-        obs_error = model_config["obs_error"]
+        a_loc = model_config['a_loc']
+        a_scale = model_config['a_scale']
+        b_loc = model_config['b_loc']
+        b_scale = model_config['b_scale']
+        obs_error = model_config['obs_error']
 
         # priors
         a = pm.Normal("a", a_loc, sigma=a_scale)
@@ -80,7 +77,9 @@ class LinearModel(ModelBuilder):
 
         # observed data
         if data is not None:
-            y_model = pm.Normal("y_model", a + b * x, obs_error, shape=x.shape, observed=y_data)
+            y_model = pm.Normal('y_model', a + b * x, obs_error, shape=x.shape, observed=y_data)
+
+
 
     def _data_setter(self, data: pd.DataFrame):
         with self.model:
@@ -88,26 +87,27 @@ class LinearModel(ModelBuilder):
             if "output" in data.columns:
                 pm.set_data({"y_data": data["output"].values})
 
+
     @classmethod
     def create_sample_input(cls):
         x = np.linspace(start=0, stop=1, num=100)
         y = 5 * x + 3
         y = y + np.random.normal(0, 1, len(x))
-        data = pd.DataFrame({"input": x, "output": y})
+        data = pd.DataFrame({'input': x, 'output': y})
 
         model_config = {
-            "a_loc": 0,
-            "a_scale": 10,
-            "b_loc": 0,
-            "b_scale": 10,
-            "obs_error": 2,
+        'a_loc': 0,
+        'a_scale': 10,
+        'b_loc': 0,
+        'b_scale': 10,
+        'obs_error': 2,
         }
 
         sampler_config = {
-            "draws": 1_000,
-            "tune": 1_000,
-            "chains": 3,
-            "target_accept": 0.95,
+        'draws': 1_000,
+        'tune': 1_000,
+        'chains': 3,
+        'target_accept': 0.95,
         }
 
         return data, model_config, sampler_config
@@ -120,8 +120,8 @@ Making the object is the same as making an object of a python class. We first de
 We can do that using the `create_sample_input()` method described above.
 
 ```{code-cell} ipython3
-data, model_config, sampler_config = LinearModel.create_sample_input()
-model = LinearModel(model_config, sampler_config, data)
+data, model_config, sampler_config = LinearModel.create_sample_input() 
+model = LinearModel(model_config, sampler_config,data)
 ```
 
 After making the object of class `LinearModel` we can fit the model using the `.fit()` method.
@@ -140,7 +140,7 @@ idata = model.fit()
 ```
 
 After fitting the model, we can probably save it to share the model as a file so one can use it again.
-To `save` or `load`, we can quickly call methods for respective tasks with the following syntax. 
+To `save` or `load`, we can quickly call methods for respective tasks with the following syntax.
 
 ```{code-cell} ipython3
 :tags: []
@@ -158,8 +158,8 @@ Now we create a new model named `model_2` which is same as `model` but instead o
 
 ```{code-cell} ipython3
 data, model_config, sampler_config = LinearModel.create_sample_input()
-model_2 = LinearModel(model_config, sampler_config, data)
-# loading
+model_2 = LinearModel(model_config, sampler_config,data)
+#loading
 new_idata = LinearModel.load(fname)
 model_2.idata = new_idata
 ```
@@ -169,7 +169,7 @@ Our first task is to create data on which we need to predict.
 
 ```{code-cell} ipython3
 x_pred = np.random.uniform(low=0, high=1, size=100)
-prediction_data = pd.DataFrame({"input": x_pred})
+prediction_data = pd.DataFrame({'input':x_pred})
 ```
 
 Now we predict with `model_2` and save the mean and samples in `pred_mean` and `pred_samples` respectively
@@ -188,19 +188,15 @@ For which we plot our results
 
 ```{code-cell} ipython3
 plt.figure(figsize=(7, 7))
-plt.plot(data["input"], data["output"], "x", label="data")
-plt.plot(prediction_data.input, pred_mean["y_model"], "bo", label="predict", color="r")
-plt.title("Posterior predictive regression lines")
+plt.plot(data['input'], data['output'], 'x', label='data')
+plt.plot(prediction_data.input, pred_mean['y_model'],'bo',label='predict',color='r')
+plt.title('Posterior predictive regression lines')
 plt.legend(loc=0)
-plt.xlabel("x")
-plt.ylabel("y");
+plt.xlabel('x')
+plt.ylabel('y');
 ```
 
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w
-```
-
-```{code-cell} ipython3
-
 ```
