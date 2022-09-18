@@ -6,13 +6,13 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc
   language: python
-  name: python3
+  name: pymc
 ---
 
 # Using ModelBuilder class for deploying PyMC models 
-::: {post} Sep 12, 2022 :tags: model builder class, model class, linear model :category: Beginner :author: Shashank Kirtania, Thomas Wiecki:::
+:::post: Sep 12, 2022:tags: model builder class, model class, linear model:category: Beginner:author: Shashank Kirtania, Thomas Wiecki:::
 
 +++
 
@@ -142,7 +142,7 @@ To `save` or `load`, we can quickly call methods for respective tasks with the f
 ```{code-cell} ipython3
 :tags: []
 
-fname = "./mymodel.nc"
+fname = "/Users/mac/Desktop/mymodel.nc"
 model.save(fname)
 ```
 
@@ -196,4 +196,8 @@ plt.ylabel("y");
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w
+```
+
+```{code-cell} ipython3
+
 ```
