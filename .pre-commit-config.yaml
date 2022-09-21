@@ -82,7 +82,8 @@ repos:
                examples/samplers/SMC-ABC_Lotka-Volterra_example.ipynb|
                examples/splines/spline.ipynb|
                examples/survival_analysis/censored_data.ipynb|
-               examples/survival_analysis/weibull_aft.ipynb)
+               examples/survival_analysis/weibull_aft.ipynb|
+               examples/howto/custom_distribution.ipynb)
       entry: >
           (?x)(arviz-devs.github.io|
                aesara.readthedocs.io|
@@ -94,7 +95,9 @@ repos:
                docs.python.org|
                xarray.pydata.org
                python.arviz.org|
-               docs.xarray.dev)
+               docs.xarray.dev|
+               www.pymc.io|
+               docs.scipy.org/doc)
       language: pygrep
       types_or: [markdown, rst, jupyter]
 - repo: https://github.com/mwouts/jupytext
