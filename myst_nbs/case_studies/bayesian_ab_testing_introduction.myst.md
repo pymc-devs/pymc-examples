@@ -6,10 +6,19 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: Python 3.8.10 ('pymc-examples-ipRlw-UN')
   language: python
   name: python3
 ---
+
+(bayesian_ab_testing_intro)=
+# Introduction to Bayesian A/B Testing
+
+:::{post} May 23, 2021
+:tags: case study, ab test
+:category: beginner, tutorial
+:author: Cuong Duong
+:::
 
 ```{code-cell} ipython3
 from dataclasses import dataclass
@@ -38,7 +47,7 @@ plotting_defaults = dict(
 )
 ```
 
-This notebook demonstrates how to implement a Bayesian analysis of an A/B test. We implement the models discussed in VWO's [Bayesian A/B Testing Whitepaper](https://vwo.com/downloads/VWO_SmartStats_technical_whitepaper.pdf), and discuss the effect of different prior choices for these models. This notebook does _not_ discuss other related topics like how to choose a prior, early stopping, and power analysis.
+This notebook demonstrates how to implement a Bayesian analysis of an A/B test. We implement the models discussed in VWO's Bayesian A/B Testing Whitepaper {cite:p}`stucchio2015bayesian`, and discuss the effect of different prior choices for these models. This notebook does _not_ discuss other related topics like how to choose a prior, early stopping, and power analysis.
 
 #### What is A/B testing?
 
@@ -478,7 +487,7 @@ class RevenueModel:
 
 For the Beta prior, we can set a similar prior to before - centered around 0.5, with the magnitude of `alpha` and `beta` determining how "thin" the distribution is.
 
-We need to be a bit more careful about the Gamma prior. The mean of the Gamma prior is $\dfrac{\alpha_G}{\beta_G}$, and needs to be set to a reasonable value given existing mean purchase values. For example, if `alpha` and `beta` were set such that the mean was \\$1, but the average revenue per visitor for a website is much higher at \\$100, this could affect our inference.
+We need to be a bit more careful about the Gamma prior. The mean of the Gamma prior is $\dfrac{\alpha_G}{\beta_G}$, and needs to be set to a reasonable value given existing mean purchase values. For example, if `alpha` and `beta` were set such that the mean was 1 dollar, but the average revenue per visitor for a website is much higher at 100 dollars, his could affect our inference.
 
 ```{code-cell} ipython3
 c_prior = BetaPrior(alpha=5000, beta=5000)
@@ -654,19 +663,33 @@ There are many other considerations to implementing a Bayesian framework to anal
 * How do we plan the length and size of A/B tests using power analysis, if we're using Bayesian models to analyse the results?
 * Outside of the conversion rates (bernoulli random variables for each visitor), many value distributions in online software cannot be fit with nice densities like Normal, Gamma, etc. How do we model these?
 
-Various textbooks and online resources dive into these areas in more detail. [Doing Bayesian Data Analysis](http://doingbayesiandataanalysis.blogspot.com/) by John Kruschke is a great resource, and has been translated to PyMC here: https://github.com/JWarmenhoven/DBDA-python.
+Various textbooks and online resources dive into these areas in more detail. Doing Bayesian Data Analysis {cite:p}`kruschke2014doing` by John Kruschke is a great resource, and has been translated to PyMC [here](https://github.com/JWarmenhoven/DBDA-python).
 
 We also plan to create more PyMC tutorials on these topics, so stay tuned!
 
----
++++
 
-Author: [Cuong Duong](https://github.com/tcuongd) (2021-05-23)
+## Authors
 
-### References
+* Authored by [Cuong Duong](https://github.com/tcuongd) in May, 2021 ([pymc-examples#164](https://github.com/pymc-devs/pymc-examples/pull/164))
+* Re-executed by [percevalve](https://github.com/percevalve) in May, 2022 ([pymc-examples#351](https://github.com/pymc-devs/pymc-examples/pull/351))
 
-* [Stucchio, C. (2015) _Bayesian A/B Testing at VWO_](https://vwo.com/downloads/VWO_SmartStats_technical_whitepaper.pdf)
++++
+
+## References
+
+:::{bibliography}
+:filter: docname in docnames
+:::
+
++++
+
+## Watermark
 
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w -p aesara,xarray
 ```
+
+:::{include} ../page_footer.md
+:::
