@@ -58,7 +58,7 @@ Note that our desire to estimate the causal impact of a treatment involves [coun
 
 ### Causal DAG
 
-The causal DAG for difference in differences is given below. We are primarily interested in the effect of the treatment upon the outcome and how this changes over time (pre to post treatment). If we only focused on treatment, time and outcome on the treatment group (i.e. not have a control group), then we would be unable to attribute changes in the outcome to the treatment rather than any number of other factors occurring over time to the treatment group. Another way of saying this is that treatment would be fully determined by time, so there is no way to dissociate the changes in the pre and post outcome measures as being caused by treatment or time. 
+The causal DAG for difference in differences is given below. We are primarily interested in the effect of the treatment upon the outcome and how this changes over time (pre to post treatment). If we only focussed on treatment, time and outcome on the treatment group (i.e. not have a control group), then we would be unable to attribute changes in the outcome to the treatment rather than any number of other factors occurring over time to the treatment group. Another way of saying this is that treatment would be fully determined by time, so there is no way to dissociate the changes in the pre and post outcome measures as being caused by treatment or time. 
 
 ![](DAG_difference_in_differences.png)
 
