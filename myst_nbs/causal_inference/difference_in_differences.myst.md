@@ -353,7 +353,7 @@ with model:
         {
             "t": t_counterfactual,
             "group": group,
-            "treated": [0] * len(t_counterfactual),  # THIS IS OUT COUNTERFACTUAL
+            "treated": [0] * len(t_counterfactual),  # THIS IS OUR COUNTERFACTUAL
         }
     )
     ppc_counterfactual = pm.sample_posterior_predictive(idata, var_names=["mu"])
