@@ -1,11 +1,7 @@
 import daft
 import matplotlib.pyplot as plt
 
-plt.rcParams.update(
-    {
-        "text.usetex": True,
-    }
-)
+plt.rcParams.update({"text.usetex": True})
 
 pgm = daft.PGM()
 pgm.add_node("treat", "treatment", 0, 0.5, aspect=1.8)

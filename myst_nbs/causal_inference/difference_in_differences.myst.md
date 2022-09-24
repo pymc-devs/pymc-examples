@@ -16,14 +16,9 @@ kernelspec:
 
 :::{post} Sept, 2022
 :tags: counterfactuals, causal inference, time series, regression, posterior predictive, difference in differences, quasi experiments
-:category: beginner
+:category: intermediate
 :author: Benjamin T. Vincent
 :::
-
-+++
-
-## XXX
-Some introduction here
 
 ```{code-cell} ipython3
 import aesara.tensor as at
@@ -45,23 +40,44 @@ rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
 
-## Difference in Differences
+## Introduction
 
-### Causal DAG
+This notebook provides a brief overview of the difference in differences approach to causal inference, and shows a working example of how to conduct this type of analysis under the Bayesian framework, using PyMC. While the notebooks provides a high level overview of the approach, I recommend consulting two excellent textbooks on causal inference. Both [The Effect](https://theeffectbook.net/) {cite:p}`huntington2021effect` and [Causal Inference: The Mixtape](https://mixtape.scunning.com) {cite:p}`cunningham2021causal` have chapters devoted to difference in differences.
 
-TODO
+Difference in differences would be a good approach to take for causal inference if:
+* you want to know the causal imapact of a treatment/intervention
+* you have pre and post treatment measures
+* you have both a treatment and a control group
+* the treatment was _not_ allocated by randomisation.
+
+Otherwise there are likely better suited approaches you could use.
+
+Note that our desire to estimate the causal impact of a treatment involves [counterfactual thinking](https://en.wikipedia.org/wiki/Counterfactual_thinking). This is because we are asking "What would the post-treatment outcome be of the treatment group be _if_ treatment had not been administered?" but we can never observe this.
 
 +++
 
+### Causal DAG
+
+The causal DAG for difference in differences is given below. We are primarily interested in the effect of the treatment upon the outcome and how this changes over time (pre to post treatment). If we only focussed on treatment, time and outcome on the treatment group (i.e. not have a control group), then we would be unable to attribute changes in the outcome to the treatment rather than any number of other factors occuring over time to the treatment group. Another way of saying this is that treatment would be fully determined by time, so there is no way to dissociate the changes in the pre and post outcome measures as being caused by treatment or time. 
+
 ![](DAG_difference_in_differences.png)
 
-Without `Group` then `Time` is a confounder of the `Treatment` $\rightarrow$ `Outcome` relationship
+But by adding a control group, we are able to compare the changes in time of the control group and the changes in time of the treatment group. One of the key assumptions in the differences in differences approach is the _parallel trends assumption_ - that both groups change in similar ways over time. Another way of saying this is that _if_ the control and treatment groups change in similar ways over time, then we can be fairly convinced that differences in differences in groups over time is due to the treatment.
 
 +++
 
 ### Define the difference in differences model
 
-I'm defining this model slightly differently compared to what you might find in other sources. This is to facilitate counterfactual inference later on in the notebook.
+**Note:** I'm defining this model slightly differently compared to what you might find in other sources. This is to facilitate counterfactual inference later on in the notebook, and to emphasise the assumptions about trends over continuous time.
+
+First, let's a Python function to calculate the expected value of the outcome:
+
+```{code-cell} ipython3
+def outcome(t, control_intercept, treat_intercept_delta, trend, Δ, group, treated):
+    return control_intercept + (treat_intercept_delta * group) + (t * trend) + (Δ * treated * group)
+```
+
+But we should take a closer look at this with mathematical notation:
 
 $$
 \mu_i = \beta_{c} 
@@ -77,38 +93,33 @@ where there are the following predictor variables:
 * $\Delta$ is the causal impact of the treatment
 
 and the following observed data points:
-* $t$ is time, scaled conveniently so that the pre-intervention measurement time is at $t=0$ and the post-intervention measurement time is $t=1$
-* $\mathrm{group}$ is a dummary variable for control ($g=0$) or treatment ($g=1$) group
+* $t_i$ is time, scaled conveniently so that the pre-intervention measurement time is at $t=0$ and the post-intervention measurement time is $t=1$
+* $\mathrm{group}_i$ is a dummary variable for control ($g=0$) or treatment ($g=1$) group
 * $\mathrm{trend}$ is the slope, and a core assumption of the model is that the slopes are identical for both groups
-* $\mathrm{treated}_i$ is a binary indicator variable for untreated or treated
+* $\mathrm{treated}_i$ is a binary indicator variable for untreated or treated. And this is function of both time and group: $\mathrm{treated}_i = f(t_i, \mathrm{group}_i)$.
+
+We can underline this latter point that treatment is causally influenced by time and group by looking at the DAG above, and by writing a Python function to define this function.
 
 ```{code-cell} ipython3
 def is_treated(t, intervention_time, group):
-    """Treatment is dermined both by the group and whether t>intervention time
-    - group = {0, 1}"""
     return (t > intervention_time) * group
-
-
-def outcome(t, control_intercept, treat_intercept_delta, trend, Δ, group, treated):
-    mu = control_intercept + (treat_intercept_delta * group) + (t * trend) + (Δ * treated * group)
-    return mu
 ```
 
 ### Visualise the difference in differences model
+Very often a picture is worth a thousand words, so if the description above was confusing, then I'd recommend re-reading it after getting some more visual intuition from the plot below.
 
 ```{code-cell} ipython3
 # true parameters
 control_intercept = 1
 treat_intercept_delta = 0.25
 trend = 1
-Δ = 1
+Δ = 0.5
 intervention_time = 0.5
+t = np.linspace(-0.5, 1.5, 1000)
 ```
 
 ```{code-cell} ipython3
 :tags: [hide-input]
-
-t = np.linspace(-0.5, 1.5, 1000)
 
 fig, ax = plt.subplots()
 ax.plot(
@@ -194,9 +205,20 @@ ax.set(
 ax.legend();
 ```
 
-This is a good point to mention some of the other aspects of the difference in differences approach:
-* You want the control and treatment groups to be as similar to each other as possible (i.e. $\beta_\Delta \rightarrow 0$). A large difference in the pre-treatment measures suggests that the groups are _not_ that similar. This opens up the possibility that there are unobserved confounders that could provide an alternative explanation to any treatment effect detected.
-* The _parallel trends assumption_ is a major one! if we draw lines through the pre and post treatment outcomes for each group individually then we get 2 slopes. If the slopes are very different, then the _only_ way we can attribute that to a treatment effect is to assume that the slopes (change in groups over time) are identical. Ideally we would be able to measure at multiple time points, but this then turns the approach into more of an interrupted time series design. Without that, you have to carefully examine and justify if the parallel trends assumption is reasonable to make in your case.
+So we can summarise the intuition of differences in differences by looking at this plot:
+* We assume that the treatment and control groups are evolving over time in a similar manner.
+* We can easily estimate the slope of the control group from pre to post treatment.
+* We can engage in counterfactual thinking and can ask:
+
+> What would the post-treatment outcome of the treatment group be _if_ they had not been treated?
+
+If we can answer that question and estimate this counterfactual quantity, then we can ask:
+
+> What is the causal impact of the treatment?
+
+And we can answer this question by comparing the observed post treatment outcome of the treatment group against the counterfactual quantity.
+
+We can think about this visually and state another way... By looking at the pre/post difference in the control group, we can attribute any differences in the pre/post differences of the control and treatment groups to the causal effect of the treatment.
 
 +++
 
@@ -220,15 +242,46 @@ df["y"] += norm(0, 0.1).rvs(df.shape[0])
 df.head()
 ```
 
+So we see that we have [panel data](https://en.wikipedia.org/wiki/Panel_data) with just two points in time: the pre ($t=0$) and post ($t=1$) intervention measurement times.
+
 ```{code-cell} ipython3
 sns.scatterplot(df, x="t", y="y", hue="group");
 ```
+
+If we wanted, we could calculate a point estimate of the differences in differences (in a non-regression approach) like this.
+
+```{code-cell} ipython3
+diff_control = (
+    df.loc[(df["t"] == 1) & (df["group"] == 0)]["y"].mean()
+    - df.loc[(df["t"] == 0) & (df["group"] == 0)]["y"].mean()
+)
+print(f"Pre/post difference in control group = {diff_control:.2f}")
+
+diff_treat = (
+    df.loc[(df["t"] == 1) & (df["group"] == 1)]["y"].mean()
+    - df.loc[(df["t"] == 0) & (df["group"] == 1)]["y"].mean()
+)
+
+print(f"Pre/post difference in treatment group = {diff_treat:.2f}")
+
+diff_in_diff = diff_treat - diff_control
+print(f"Difference in differences = {diff_in_diff:.2f}")
+```
+
+But hang on, we are Bayesians! Let's Bayes...
+
++++
 
 ## Bayesian difference in differences
 
 +++
 
 ### PyMC model
+For those already well-versed in PyMC, you can see that this model is pretty simple. We just have a few components:
+* Define data nodes. This is optional, but useful later when we run posterior predictive checks and counterfactual inference
+* Define priors
+* Evaluate the model expectation using the `outcome` function that we already defined above
+* Define a normal likelihood distribution.
 
 ```{code-cell} ipython3
 with pm.Model() as model:
@@ -267,8 +320,8 @@ with model:
 az.plot_trace(idata, var_names="~mu");
 ```
 
-## Posterior prediction
-NOTE: Technically we are doing 'pushforward prediction' for $\mu$ as this is a deterministic function of it's inputs.
+### Posterior prediction
+NOTE: Technically we are doing 'pushforward prediction' for $\mu$ as this is a deterministic function of it's inputs. Posterior prediction would be a more appropriate label if we generated predicted observations - these would be stochastic based on the normal likelihood we've specified for our data. Nevertheless, this section is called 'posterior prediction' to emphasise the fact that we are following the Bayesian workflow.
 
 ```{code-cell} ipython3
 t = np.linspace(-0.5, 1.5, 100)
@@ -292,10 +345,9 @@ with model:
     )
     ppc_treatment = pm.sample_posterior_predictive(idata, var_names=["mu"])
 
-# counterfactual: what do we predict of the treatment group if they had _not_ been treated
-t_counterfactual = np.linspace(
-    0.5, 1.5, 100
-)  # we want to know about just the post intervention times
+# counterfactual: what do we predict of the treatment group (after the intervention) if
+# they had _not_ been treated?
+t_counterfactual = np.linspace(0.5, 1.5, 100)
 with model:
     group = [1] * len(t_counterfactual)  # must be integers
     pm.set_data(
@@ -307,6 +359,9 @@ with model:
     )
     ppc_counterfactual = pm.sample_posterior_predictive(idata, var_names=["mu"])
 ```
+
+## Wrapping up
+We can plot what we've learnt below:
 
 ```{code-cell} ipython3
 :tags: [hide-input]
@@ -355,9 +410,13 @@ This is an awesome plot, but there are quite a few things going on here, so let'
 * The difference between this counterfactual expectation and the observed values (post treatment in the treatment condition) represents our inferred causal impact of the treatment. Let's take a look at that posterior distribution in more detail:
 
 ```{code-cell} ipython3
-ax = az.plot_posterior(idata.posterior["Δ"], figsize=(10, 3))
+ax = az.plot_posterior(idata.posterior["Δ"], ref_val=Δ, figsize=(10, 3))
 ax.set(title=r"Posterior distribution of causal impact of treatment, $\Delta$");
 ```
+
+So there we have it, we have a full posterior distribution over our estimated causal impact using the difference in differences approach.
+
++++
 
 ## References
 
