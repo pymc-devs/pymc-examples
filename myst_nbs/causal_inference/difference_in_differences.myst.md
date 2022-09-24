@@ -410,7 +410,7 @@ ax.legend();
 This is an awesome plot, but there are quite a few things going on here, so let's go through it:
 * Blue shaded region represents credible regions for the expected value of the control group
 * Orange shaded region represents similar regions for the treatment group. We can see how the outcome jumps immediately after the intervention.
-* The green shaded region is something pretty novel, and nice. This represents our counterfactual inference of _what we would expect if_ the treatment group were never given the treatment. By definition, we never made any observations of items in the treatment group that were not treated after the intervention time. Nevertheless, with the model described at the top of the notebook and the Bayesian inference methods outlined, we can region about such _what if_ questions. 
+* The green shaded region is something pretty novel, and nice. This represents our counterfactual inference of _what we would expect if_ the treatment group were never given the treatment. By definition, we never made any observations of items in the treatment group that were not treated after the intervention time. Nevertheless, with the model described at the top of the notebook and the Bayesian inference methods outlined, we can reason about such _what if_ questions. 
 * The difference between this counterfactual expectation and the observed values (post treatment in the treatment condition) represents our inferred causal impact of the treatment. Let's take a look at that posterior distribution in more detail:
 
 ```{code-cell} ipython3
