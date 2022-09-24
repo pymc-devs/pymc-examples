@@ -21,14 +21,12 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
 import seaborn as sns
-import xarray as xr
 
 from scipy.stats import norm
 ```
@@ -224,7 +222,13 @@ We can think about this visually and state another way... By looking at the pre/
 ## Generate a synthetic dataset
 
 ```{code-cell} ipython3
-df = pd.DataFrame({"group": [0, 0, 1, 1] * 10, "t": [0.0, 1.0, 0.0, 1.0] * 10})
+df = pd.DataFrame(
+    {
+        "group": [0, 0, 1, 1] * 10,
+        "t": [0.0, 1.0, 0.0, 1.0] * 10,
+        "unit": np.concatenate([[i] * 2 for i in range(20)]),
+    }
+)
 
 df["treated"] = is_treated(df["t"], intervention_time, df["group"])
 
@@ -244,6 +248,7 @@ df.head()
 So we see that we have [panel data](https://en.wikipedia.org/wiki/Panel_data) with just two points in time: the pre ($t=0$) and post ($t=1$) intervention measurement times.
 
 ```{code-cell} ipython3
+sns.lineplot(df, x="t", y="y", hue="group")
 sns.scatterplot(df, x="t", y="y", hue="group");
 ```
 
