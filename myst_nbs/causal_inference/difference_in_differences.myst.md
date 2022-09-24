@@ -77,7 +77,7 @@ def outcome(t, control_intercept, treat_intercept_delta, trend, Δ, group, treat
     return control_intercept + (treat_intercept_delta * group) + (t * trend) + (Δ * treated * group)
 ```
 
-But we should take a closer look at this with mathematical notation:
+But we should take a closer look at this with mathematical notation. The expected value of the $i^{th}$ observation is $\mu_i$ and is defined by:
 
 $$
 \mu_i = \beta_{c} 
@@ -86,16 +86,15 @@ $$
         + (\Delta \cdot \mathrm{treated}_i \cdot \mathrm{group}_i)
 $$
 
-where there are the following predictor variables:
-* $\mu_i$ is the expected value of the $i^{th}$ observation
+where there are the following parameters:
 * $\beta_c$ is the intercept for the control group
 * $\beta_{\Delta}$ is a deflection of the treatment group intercept from the control group intercept
 * $\Delta$ is the causal impact of the treatment
+* $\mathrm{trend}$ is the slope, and a core assumption of the model is that the slopes are identical for both groups
 
-and the following observed data points:
+and the following observed data:
 * $t_i$ is time, scaled conveniently so that the pre-intervention measurement time is at $t=0$ and the post-intervention measurement time is $t=1$
 * $\mathrm{group}_i$ is a dummary variable for control ($g=0$) or treatment ($g=1$) group
-* $\mathrm{trend}$ is the slope, and a core assumption of the model is that the slopes are identical for both groups
 * $\mathrm{treated}_i$ is a binary indicator variable for untreated or treated. And this is function of both time and group: $\mathrm{treated}_i = f(t_i, \mathrm{group}_i)$.
 
 We can underline this latter point that treatment is causally influenced by time and group by looking at the DAG above, and by writing a Python function to define this function.
