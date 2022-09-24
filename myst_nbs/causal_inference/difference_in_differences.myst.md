@@ -248,7 +248,7 @@ df.head()
 So we see that we have [panel data](https://en.wikipedia.org/wiki/Panel_data) with just two points in time: the pre ($t=0$) and post ($t=1$) intervention measurement times.
 
 ```{code-cell} ipython3
-sns.lineplot(df, x="t", y="y", hue="group")
+sns.lineplot(df, x="t", y="y", hue="group", units="unit", estimator=None)
 sns.scatterplot(df, x="t", y="y", hue="group");
 ```
 
