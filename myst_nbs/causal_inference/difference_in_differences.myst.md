@@ -15,7 +15,7 @@ kernelspec:
 # Difference in differences
 
 :::{post} Sept, 2022
-:tags: counterfactuals, causal inference, time series, regression, posterior predictive, difference in differences, quasi experiments
+:tags: counterfactuals, causal inference, time series, regression, posterior predictive, difference in differences, quasi experiments, panel data
 :category: intermediate
 :author: Benjamin T. Vincent
 :::
