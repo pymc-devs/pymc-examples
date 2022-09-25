@@ -43,20 +43,25 @@ az.style.use("arviz-darkgrid")
 This notebook provides a brief overview of the difference in differences approach to causal inference, and shows a working example of how to conduct this type of analysis under the Bayesian framework, using PyMC. While the notebooks provides a high level overview of the approach, I recommend consulting two excellent textbooks on causal inference. Both [The Effect](https://theeffectbook.net/) {cite:p}`huntington2021effect` and [Causal Inference: The Mixtape](https://mixtape.scunning.com) {cite:p}`cunningham2021causal` have chapters devoted to difference in differences.
 
 Difference in differences would be a good approach to take for causal inference if:
-* you want to know the causal imapact of a treatment/intervention
+* you want to know the causal impact of a treatment/intervention
 * you have pre and post treatment measures
 * you have both a treatment and a control group
 * the treatment was _not_ allocated by randomisation.
 
 Otherwise there are likely better suited approaches you could use.
 
-Note that our desire to estimate the causal impact of a treatment involves [counterfactual thinking](https://en.wikipedia.org/wiki/Counterfactual_thinking). This is because we are asking "What would the post-treatment outcome be of the treatment group be _if_ treatment had not been administered?" but we can never observe this.
+Note that our desire to estimate the causal impact of a treatment involves [counterfactual thinking](https://en.wikipedia.org/wiki/Counterfactual_thinking). This is because we are asking "What would the post-treatment outcome of the treatment group be _if_ treatment had not been administered?" but we can never observe this.
 
 +++
 
 ### Causal DAG
 
-The causal DAG for difference in differences is given below. We are primarily interested in the effect of the treatment upon the outcome and how this changes over time (pre to post treatment). If we only focused on treatment, time and outcome on the treatment group (i.e. not have a control group), then we would be unable to attribute changes in the outcome to the treatment rather than any number of other factors occurring over time to the treatment group. Another way of saying this is that treatment would be fully determined by time, so there is no way to dissociate the changes in the pre and post outcome measures as being caused by treatment or time. 
+The causal DAG for difference in differences is given below. It says:
+* Treatment status of an observation is causally influenced by group and time. Note that treatment and group are different things. Group is either experimental or control, but the experimental group is only 'treated' after the intervention time, hence treatment status depends on both group and time.
+* The outcome measured is causally influenced by time, group, and treatment.
+* No additional causal influences are considered.
+
+We are primarily interested in the effect of the treatment upon the outcome and how this changes over time (pre to post treatment). If we only focused on treatment, time and outcome on the treatment group (i.e. not have a control group), then we would be unable to attribute changes in the outcome to the treatment rather than any number of other factors occurring over time to the treatment group. Another way of saying this is that treatment would be fully determined by time, so there is no way to disambiguate the changes in the pre and post outcome measures as being caused by treatment or time. 
 
 ![](DAG_difference_in_differences.png)
 
@@ -68,7 +73,7 @@ But by adding a control group, we are able to compare the changes in time of the
 
 **Note:** I'm defining this model slightly differently compared to what you might find in other sources. This is to facilitate counterfactual inference later on in the notebook, and to emphasise the assumptions about trends over continuous time.
 
-First, let's a Python function to calculate the expected value of the outcome:
+First, let's define a Python function to calculate the expected value of the outcome:
 
 ```{code-cell} ipython3
 def outcome(t, control_intercept, treat_intercept_delta, trend, Δ, group, treated):
@@ -92,7 +97,7 @@ where there are the following parameters:
 
 and the following observed data:
 * $t_i$ is time, scaled conveniently so that the pre-intervention measurement time is at $t=0$ and the post-intervention measurement time is $t=1$
-* $\mathrm{group}_i$ is a dummary variable for control ($g=0$) or treatment ($g=1$) group
+* $\mathrm{group}_i$ is a dummy variable for control ($g=0$) or treatment ($g=1$) group
 * $\mathrm{treated}_i$ is a binary indicator variable for untreated or treated. And this is function of both time and group: $\mathrm{treated}_i = f(t_i, \mathrm{group}_i)$.
 
 We can underline this latter point that treatment is causally influenced by time and group by looking at the DAG above, and by writing a Python function to define this function.
@@ -112,52 +117,52 @@ treat_intercept_delta = 0.25
 trend = 1
 Δ = 0.5
 intervention_time = 0.5
-t = np.linspace(-0.5, 1.5, 1000)
 ```
 
 ```{code-cell} ipython3
 :tags: [hide-input]
 
 fig, ax = plt.subplots()
+ti = np.linspace(-0.5, 1.5, 1000)
 ax.plot(
-    t,
+    ti,
     outcome(
-        t,
+        ti,
         control_intercept,
         treat_intercept_delta,
         trend,
         Δ=0,
         group=1,
-        treated=is_treated(t, intervention_time, group=1),
+        treated=is_treated(ti, intervention_time, group=1),
     ),
     color="blue",
     label="counterfactual",
     ls=":",
 )
 ax.plot(
-    t,
+    ti,
     outcome(
-        t,
+        ti,
         control_intercept,
         treat_intercept_delta,
         trend,
         Δ,
         group=1,
-        treated=is_treated(t, intervention_time, group=1),
+        treated=is_treated(ti, intervention_time, group=1),
     ),
     color="blue",
     label="treatment group",
 )
 ax.plot(
-    t,
+    ti,
     outcome(
-        t,
+        ti,
         control_intercept,
         treat_intercept_delta,
         trend,
         Δ,
         group=0,
-        treated=is_treated(t, intervention_time, group=0),
+        treated=is_treated(ti, intervention_time, group=0),
     ),
     color="C1",
     label="control group",
@@ -195,7 +200,7 @@ ax.plot(
 ax.set(
     xlabel="time",
     ylabel="metric",
-    xticks=[0, 1],
+    xticks=t,
     xticklabels=["pre", "post"],
     title="Difference in Differences",
 )
@@ -328,30 +333,28 @@ az.plot_trace(idata, var_names="~mu");
 NOTE: Technically we are doing 'pushforward prediction' for $\mu$ as this is a deterministic function of it's inputs. Posterior prediction would be a more appropriate label if we generated predicted observations - these would be stochastic based on the normal likelihood we've specified for our data. Nevertheless, this section is called 'posterior prediction' to emphasise the fact that we are following the Bayesian workflow.
 
 ```{code-cell} ipython3
-t = np.linspace(-0.5, 1.5, 100)
-
 # pushforward predictions for control group
 with model:
-    group_control = [0] * len(t)  # must be integers
-    treated = [0] * len(t)  # must be integers
-    pm.set_data({"t": t, "group": group_control, "treated": treated})
+    group_control = [0] * len(ti)  # must be integers
+    treated = [0] * len(ti)  # must be integers
+    pm.set_data({"t": ti, "group": group_control, "treated": treated})
     ppc_control = pm.sample_posterior_predictive(idata, var_names=["mu"])
 
 # pushforward predictions for treatment group
 with model:
-    group = [1] * len(t)  # must be integers
+    group = [1] * len(ti)  # must be integers
     pm.set_data(
         {
-            "t": t,
+            "t": ti,
             "group": group,
-            "treated": is_treated(t, intervention_time, group),
+            "treated": is_treated(ti, intervention_time, group),
         }
     )
     ppc_treatment = pm.sample_posterior_predictive(idata, var_names=["mu"])
 
 # counterfactual: what do we predict of the treatment group (after the intervention) if
 # they had _not_ been treated?
-t_counterfactual = np.linspace(0.5, 1.5, 100)
+t_counterfactual = np.linspace(intervention_time, 1.5, 100)
 with model:
     group = [1] * len(t_counterfactual)  # must be integers
     pm.set_data(
@@ -373,7 +376,7 @@ We can plot what we've learnt below:
 ax = sns.scatterplot(df, x="t", y="y", hue="group")
 
 az.plot_hdi(
-    t,
+    ti,
     ppc_control.posterior_predictive["mu"],
     smooth=False,
     ax=ax,
@@ -381,7 +384,7 @@ az.plot_hdi(
     fill_kwargs={"label": "control HDI"},
 )
 az.plot_hdi(
-    t,
+    ti,
     ppc_treatment.posterior_predictive["mu"],
     smooth=False,
     ax=ax,
