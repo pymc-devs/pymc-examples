@@ -27,8 +27,6 @@ import numpy as np
 import pandas as pd
 import pymc as pm
 import seaborn as sns
-
-from scipy.stats import norm
 ```
 
 ```{code-cell} ipython3
@@ -246,7 +244,7 @@ df["y"] = outcome(
     df["group"],
     df["treated"],
 )
-df["y"] += norm(0, 0.1).rvs(df.shape[0])
+df["y"] += rng.normal(0, 0.1, df.shape[0])
 df.head()
 ```
 
