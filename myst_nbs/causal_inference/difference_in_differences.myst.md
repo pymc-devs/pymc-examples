@@ -65,7 +65,7 @@ We are primarily interested in the effect of the treatment upon the outcome and 
 
 ![](DAG_difference_in_differences.png)
 
-But by adding a control group, we are able to compare the changes in time of the control group and the changes in time of the treatment group. One of the key assumptions in the differences in differences approach is the _parallel trends assumption_ - that both groups change in similar ways over time. Another way of saying this is that _if_ the control and treatment groups change in similar ways over time, then we can be fairly convinced that differences in differences in groups over time is due to the treatment.
+But by adding a control group, we are able to compare the changes in time of the control group and the changes in time of the treatment group. One of the key assumptions in the difference in differences approach is the _parallel trends assumption_ - that both groups change in similar ways over time. Another way of saying this is that _if_ the control and treatment groups change in similar ways over time, then we can be fairly convinced that difference in differences in groups over time is due to the treatment.
 
 +++
 
@@ -207,7 +207,7 @@ ax.set(
 ax.legend();
 ```
 
-So we can summarise the intuition of differences in differences by looking at this plot:
+So we can summarise the intuition of difference in differences by looking at this plot:
 * We assume that the treatment and control groups are evolving over time in a similar manner.
 * We can easily estimate the slope of the control group from pre to post treatment.
 * We can engage in counterfactual thinking and can ask:
@@ -257,7 +257,7 @@ sns.lineplot(df, x="t", y="y", hue="group", units="unit", estimator=None)
 sns.scatterplot(df, x="t", y="y", hue="group");
 ```
 
-If we wanted, we could calculate a point estimate of the differences in differences (in a non-regression approach) like this.
+If we wanted, we could calculate a point estimate of the difference in differences (in a non-regression approach) like this.
 
 ```{code-cell} ipython3
 diff_control = (
