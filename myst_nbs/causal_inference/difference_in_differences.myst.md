@@ -432,7 +432,7 @@ So there we have it, we have a full posterior distribution over our estimated ca
 +++
 
 ## Authors
-- Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in Sept 2022.
+- Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in Sept 2022 ([#424](https://github.com/pymc-devs/pymc-examples/pull/424)).
 
 +++
 
