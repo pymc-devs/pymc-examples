@@ -15,7 +15,7 @@ kernelspec:
 
 # Generalized Extreme Value Distribution
 
-:::{post} Oct 19, 2021 
+:::{post} Sept 27, 2022
 :tags: extreme, inference, prediction
 :category: beginner 
 :author: Colin Caprani 
@@ -142,7 +142,7 @@ with model:
         chains=4,
         tune=2000,
         initvals={"μ": -0.5, "σ": 1.0, "ξ": -0.1},
-        target_accept=0.95,
+        target_accept=0.98,
     )
 # add trace to existing idata object
 idata.extend(trace)
