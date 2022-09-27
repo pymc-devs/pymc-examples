@@ -40,15 +40,21 @@ az.style.use("arviz-darkgrid")
 
 This notebook provides a brief overview of the difference in differences approach to causal inference, and shows a working example of how to conduct this type of analysis under the Bayesian framework, using PyMC. While the notebooks provides a high level overview of the approach, I recommend consulting two excellent textbooks on causal inference. Both [The Effect](https://theeffectbook.net/) {cite:p}`huntington2021effect` and [Causal Inference: The Mixtape](https://mixtape.scunning.com) {cite:p}`cunningham2021causal` have chapters devoted to difference in differences.
 
-Difference in differences would be a good approach to take for causal inference if:
+Difference in differences](https://en.wikipedia.org/wiki/Difference_in_differences) would be a good approach to take for causal inference if:
 * you want to know the causal impact of a treatment/intervention
 * you have pre and post treatment measures
 * you have both a treatment and a control group
-* the treatment was _not_ allocated by randomisation.
+* the treatment was _not_ allocated by randomisation, that is, you are in a [quasi-experimental](https://en.wikipedia.org/wiki/Quasi-experiment) setting.
 
 Otherwise there are likely better suited approaches you could use.
 
 Note that our desire to estimate the causal impact of a treatment involves [counterfactual thinking](https://en.wikipedia.org/wiki/Counterfactual_thinking). This is because we are asking "What would the post-treatment outcome of the treatment group be _if_ treatment had not been administered?" but we can never observe this.
+
++++
+
+### Example
+
+A classic example is given by a study by {cite:t}`card1993minimum`. This study examined the effects of increasing the minimum wage upon employment in the fast food sector. This is a quasi-experimental setting because the intervention (increase in minimum wages) was not applied to different geographical units (e.g. states) randomly. The intevention was applied to New Jersey in April 1992. If they measured pre and post intervention employment rates in New Jersey only, then they would have failed to control for omitted variables changing over time (e.g. seasonal effects) which could provide alternative causal explanations for changes in employment rates. But by selecting a control state (Pennsylvania), this allows one to infer that changes in employment in Pennsylvania would match the counterfactual - what _would have happened if_ New Jersey had not received the intervention?
 
 +++
 
@@ -420,6 +426,11 @@ ax.set(title=r"Posterior distribution of causal impact of treatment, $\Delta$");
 ```
 
 So there we have it, we have a full posterior distribution over our estimated causal impact using the difference in differences approach.
+
++++
+
+## Summary
+Of course, when using the difference in differences approach for real applications, there is a lot more due diligence that's needed. Readers are encouraged to check out the textbooks listed above in the introduction as well as a useful review paper {cite:p}`wing2018designing` which covers the important contextual issues in more detail. Additionally, {cite:t}`bertrand2004much` takes a skeptical look at the approach as well as proposing solutions to some of the problems they highlight.
 
 +++
 
