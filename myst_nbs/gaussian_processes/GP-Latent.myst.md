@@ -6,15 +6,15 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: pymc
+  display_name: pymc-dev
   language: python
-  name: pymc
+  name: pymc-dev
 ---
 
 (gp_latent)=
 # Gaussian Processes: Latent Variable Implementation
 
-:::{post} Jun 4, 2022
+:::{post} Sept 28, 2022
 :tags: gaussian processes, time series
 :category: reference, intermediate
 :author: Bill Engels
@@ -22,13 +22,13 @@ kernelspec:
 
 +++
 
-The `gp.Latent` class is a direct implementation of a Gaussian process without approximation.  Given a mean and covariance function, we can place a prior on the function $f(x)$,
+The {class}`gp.Latent` class is a direct implementation of a Gaussian process without approximation.  Given a mean and covariance function, we can place a prior on the function $f(x)$,
 
 $$
 f(x) \sim \mathcal{GP}(m(x),\, k(x, x')) \,.
 $$
 
-It is called "Latent" because the GP itself is included in the model as a latent variable, it is not marginalized out as is the case with `gp.Marginal`.  This is the most direct implementation of a GP because it doesn't assume a particular likelihood function or structure in the data or in the covariance matrix.
+It is called "Latent" because the GP itself is included in the model as a latent variable, it is not marginalized out as is the case with {class}`gp.Marginal`.  This is the most direct implementation of a GP because it doesn't assume a particular likelihood function or structure in the data or in the covariance matrix.
 
 +++
 
@@ -79,7 +79,7 @@ with latent_gp_model:
 
 ## Example 1: Regression with Student-T distributed noise
 
-The following is an example showing how to specify a simple model with a GP prior using the `gp.Latent` class.  We use a GP to generate the data so we can verify that the inference we perform is correct.  Note that the likelihood is not normal, but IID Student-T.  For a more efficient implementation when the likelihood is Gaussian, use `pm.gp.Marginal`.
+The following is an example showing how to specify a simple model with a GP prior using the {class}`gp.Latent` class.  We use a GP to generate the data so we can verify that the inference we perform is correct.  Note that the likelihood is not normal, but IID Student-T.  For a more efficient implementation when the likelihood is Gaussian, use {class}`gp.Marginal`.
 
 ```{code-cell} ipython3
 import arviz as az
@@ -102,7 +102,7 @@ az.style.use("arviz-darkgrid")
 jupyter:
   outputs_hidden: false
 ---
-n = 100  # The number of data points
+n = 50  # The number of data points
 X = np.linspace(0, 10, n)[:, None]  # The inputs to the GP must be arranged as a column vector
 
 # Define the true covariance function and its parameters
@@ -121,7 +121,7 @@ f_true = pm.draw(pm.MvNormal.dist(mu=mean_func(X), cov=cov_func(X)), 1, random_s
 # The standard deviation of the noise is `sigma`, and the degrees of freedom is `nu`
 sigma_true = 1.0
 nu_true = 5.0
-y = f_true + sigma_true * rng.standard_t(nu_true, size=n)
+y = f_true + sigma_true * rng.normal(size=n)
 
 ## Plot the data and the unobserved latent function
 fig = plt.figure(figsize=(10, 4))
@@ -137,28 +137,27 @@ The data above shows the observations, marked with black dots, of the unknown fu
 
 ### Coding the model in PyMC
 
-Here's the model in PyMC.  We use an informative $\text{Gamma}(\alpha = 2\,, \beta=1)$ prior over the lengthscale parameter, and weakly informative $\text{HalfNormal}(\sigma=5)$ priors over the covariance function scale, and noise scale.  A $\text{Gamma}(2, 0.5)$ prior is assigned to the degrees of freedom parameter of the noise.  Finally, a GP prior is placed on the unknown function.  For more information on choosing priors in Gaussian process models, check out some of [recommendations by the Stan folks](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations#priors-for-gaussian-processes).
+Here's the model in PyMC.  We use an informative {class}`pm.Gamma(alpha=2, beta=1)` prior over the lengthscale parameter, and weakly informative {class}`pm.HalfNormal(sigma=5)` priors over the covariance function scale, and noise scale.  A `pm.Gamma(2, 0.5)` prior is assigned to the degrees of freedom parameter of the noise.  Finally, a GP prior is placed on the unknown function.  For more information on choosing priors in Gaussian process models, check out some of [recommendations by the Stan folks](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations#priors-for-gaussian-processes).
 
 ```{code-cell} ipython3
 ---
 jupyter:
   outputs_hidden: false
 ---
-coords = {"X": np.arange(len(y))}
-with pm.Model(coords=coords) as model:
+with pm.Model() as model:
     ell = pm.Gamma("ell", alpha=2, beta=1)
     eta = pm.HalfNormal("eta", sigma=5)
 
     cov = eta**2 * pm.gp.cov.ExpQuad(1, ell)
     gp = pm.gp.Latent(cov_func=cov)
 
-    f = gp.prior("f", X=X, dims="X")
+    f = gp.prior("f", X=X)
 
     sigma = pm.HalfNormal("sigma", sigma=2.0)
     nu = 1 + pm.Gamma(
         "nu", alpha=2, beta=0.1
     )  # add one because student t is undefined for degrees of freedom less than one
-    y_ = pm.StudentT("y", mu=f, lam=1.0 / sigma, nu=nu, observed=y, dims="X")
+    y_ = pm.StudentT("y", mu=f, lam=1.0 / sigma, nu=nu, observed=y)
 
     idata = pm.sample(1000, tune=1000, chains=2, cores=1)
 ```
@@ -208,6 +207,11 @@ axs[1].axvline(x=nu_true, color="dodgerblue")
 axs[1].axhline(y=sigma_true, color="dodgerblue");
 ```
 
+```{code-cell} ipython3
+f_post = az.extract(idata, var_names="f").transpose("sample", ...)
+f_post
+```
+
 Below is the posterior of the GP,
 
 ```{code-cell} ipython3
@@ -222,7 +226,7 @@ ax = fig.gca()
 # plot the samples from the gp posterior with samples and shading
 from pymc.gp.util import plot_gp_dist
 
-f_post = idata.posterior["f"].stack(samples=["chain", "draw"]).T
+f_post = az.extract(idata, var_names="f").transpose("sample", ...)
 plot_gp_dist(ax, f_post, X)
 
 # plot the data and the true latent function
@@ -240,7 +244,7 @@ As you can see by the red shading, the posterior of the GP prior over the functi
 
 ### Prediction using `.conditional`
 
-Next, we extend the model by adding the conditional distribution so we can predict at new $x$ locations.  Lets see how the extrapolation looks out to higher $x$.  To do this, we extend our `model` with the `conditional` distribution of the GP.  Then, we can sample from it using the `trace` and the `sample_posterior_predictive` function.  This is similar to how Stan uses its `generated quantities {...}` blocks.  We could have included `gp.conditional` in the model *before* we did the NUTS sampling, but it is more efficient to separate these steps.
+Next, we extend the model by adding the conditional distribution so we can predict at new $x$ locations.  Lets see how the extrapolation looks out to higher $x$.  To do this, we extend our `model` with the `conditional` distribution of the GP.  Then, we can sample from it using the `trace` and the `sample_posterior_predictive` function.  This is similar to how Stan uses its `generated quantities {...}` block.  We could have included `gp.conditional` in the model *before* we did the NUTS sampling, but it is more efficient to separate these steps.
 
 ```{code-cell} ipython3
 ---
@@ -268,7 +272,7 @@ jupyter:
 fig = plt.figure(figsize=(10, 4))
 ax = fig.gca()
 
-f_pred = idata.posterior_predictive["f_pred"].stack(samples=["chain", "draw"]).T
+f_pred = az.extract(idata.posterior_predictive, var_names="f_pred").transpose("sample", ...)
 plot_gp_dist(ax, f_pred, X_new)
 
 ax.plot(X, f_true, "dodgerblue", lw=3, label="True generating function 'f'")
@@ -286,11 +290,11 @@ First we use a GP to generate some data that follows a Bernoulli distribution, w
 
 ```{code-cell} ipython3
 # reset the random seed for the new example
-RANDOM_SEED = 8998
+RANDOM_SEED = 8888
 rng = np.random.default_rng(RANDOM_SEED)
 
 # number of data points
-n = 200
+n = 300
 
 # x locations
 x = np.linspace(0, 10, n)
@@ -334,19 +338,17 @@ plt.legend(loc=(0.35, 0.65), frameon=True);
 jupyter:
   outputs_hidden: false
 ---
-coords = {"X": np.arange(len(y))}
-with pm.Model(coords=coords) as model:
-    # informative priors
-    ell = pm.Gamma("ell", alpha=2, beta=3)
-    eta = pm.HalfNormal("eta", sigma=1)
+with pm.Model() as model:
+    ell = pm.InverseGamma("ell", mu=1.0, sigma=0.5)
+    eta = pm.Exponential("eta", lam=1.0)
     cov = eta**2 * pm.gp.cov.ExpQuad(1, ell)
 
     gp = pm.gp.Latent(cov_func=cov)
-    f = gp.prior("f", X=x[:, None], dims="X")
+    f = gp.prior("f", X=x[:, None])
 
     # logit link and Bernoulli likelihood
-    p = pm.Deterministic("p", pm.math.invlogit(f), dims="X")
-    y_ = pm.Bernoulli("y", p=p, observed=y, dims="X")
+    p = pm.Deterministic("p", pm.math.invlogit(f))
+    y_ = pm.Bernoulli("y", p=p, observed=y)
 
     idata = pm.sample(1000, chains=2, cores=1)
 ```
@@ -400,9 +402,8 @@ jupyter:
 fig = plt.figure(figsize=(10, 4))
 ax = fig.gca()
 
-p_pred = idata.posterior_predictive["y_pred"].stack(samples=["chain", "draw"]).values.T
-
 # plot the samples from the gp posterior with samples and shading
+p_pred = az.extract(idata.posterior_predictive, var_names="p_pred").transpose("sample", ...)
 plot_gp_dist(ax, p_pred, X_new)
 
 # plot the data (with some jitter) and the true latent function
@@ -410,8 +411,8 @@ plt.plot(x, pm.math.invlogit(f_true).eval(), "dodgerblue", lw=3, label="True f")
 plt.plot(
     x,
     y + np.random.randn(y.shape[0]) * 0.01,
-    "ok",
-    ms=3,
+    "kx",
+    ms=6,
     alpha=0.5,
     label="Observed data",
 )
@@ -428,11 +429,15 @@ plt.legend(loc=(0.32, 0.65), frameon=True);
 
 * Created by [Bill Engels](https://github.com/bwengals) in 2017 ([pymc#1674](https://github.com/pymc-devs/pymc/pull/1674)) 
 * Reexecuted by [Colin Caroll](https://github.com/ColCarroll) in 2019 ([pymc#3397](https://github.com/pymc-devs/pymc/pull/3397))
-* Updated for V4 by Bill Engels in June 2022 ([pymc-examples#237](https://github.com/pymc-devs/pymc-examples/pull/237))
+* Updated for V4 by Bill Engels in September 2022 ([pymc-examples#237](https://github.com/pymc-devs/pymc-examples/pull/237))
+
++++
+
+## Watermark
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w
+%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
 ```
 
 :::{include} ../page_footer.md
