@@ -7,18 +7,13 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: Python 3
   language: python
   name: python3
 ---
 
 (sampler_stats)=
 # Sampler Statistics
-
-When checking for convergence or when debugging a badly behaving
-sampler, it is often helpful to take a closer look at what the
-sampler is doing. For this purpose some samplers export
-statistics for each generated sample.
 
 :::{post} May 31, 2022
 :tags: diagnostics 
@@ -43,6 +38,8 @@ az.style.use("arviz-darkgrid")
 plt.rcParams["figure.constrained_layout.use"] = False
 ```
 
+When checking for convergence or when debugging a badly behaving sampler, it is often helpful to take a closer look at what the sampler is doing. For this purpose some samplers export statistics for each generated sample. 
+
 As a minimal example we sample from a standard normal distribution:
 
 ```{code-cell} ipython3
@@ -57,7 +54,7 @@ with model:
     idata = pm.sample(2000, tune=1000, init=None, step=step, chains=4)
 ```
 
-- `Note`: NUTS provides the following statistics( these are internal statistics that the sampler uses, you don't need to do anything with them when using PyMC3, to learn more about them, [check this page](https://docs.pymc.io/api/inference.html#module-pymc3.step_methods.hmc.nuts).
+- `Note`: NUTS provides the following statistics (these are internal statistics that the sampler uses, you don't need to do anything with them when using PyMC, to learn more about them, [`pymc.NUTS`](https://www.pymc.io/projects/docs/en/latest/api/generated/pymc.NUTS.html#pymc.NUTS).
 
 ```{code-cell} ipython3
 idata.sample_stats
@@ -189,15 +186,19 @@ az.plot_density(
 );
 ```
 
+## Authors
+* Moved from pymc to pymc-examples repo in December 2020 ([pymc-examples#8](https://github.com/pymc-devs/pymc-examples/pull/8))
+* Updated by Meenal Jhajharia in April 2021 ([pymc-examples#95](https://github.com/pymc-devs/pymc-examples/pull/95))
+* Updated to v4 by Christian Luhmann in May 2022 ([pymc-examples#338](https://github.com/pymc-devs/pymc-examples/pull/338))
+
++++
+
+## Watermark
+
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w
 ```
-
-* Updated by Meenal Jhajharia
-* Updated by Christian Luhmann
-
-+++
 
 :::{include} ../page_footer.md
 :::
