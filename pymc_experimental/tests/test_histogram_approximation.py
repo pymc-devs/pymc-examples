@@ -72,7 +72,7 @@ def test_histogram_approx_cont(use_dask, ndims):
     with pm.Model():
         m = pm.Normal("m")
         s = pm.HalfNormal("s", size=2 if ndims > 1 else 1)
-        pot = pmx.distributions.histogram_approximation(
+        pot = pmx.distributions.histogram_utils.histogram_approximation(
             "histogram_potential", pm.Normal.dist(m, s), observed=data, n_quantiles=1000
         )
         trace = pm.sample(10, tune=0)  # very fast
@@ -88,7 +88,7 @@ def test_histogram_approx_discrete(use_dask, ndims):
         data = dask_df.from_array(data)
     with pm.Model():
         s = pm.Exponential("s", 1.0, size=2 if ndims > 1 else 1)
-        pot = pmx.distributions.histogram_approximation(
+        pot = pmx.distributions.histogram_utils.histogram_approximation(
             "histogram_potential", pm.Poisson.dist(s), observed=data, min_count=10
         )
         trace = pm.sample(10, tune=0)  # very fast
