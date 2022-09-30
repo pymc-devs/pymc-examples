@@ -24,9 +24,9 @@ kernelspec:
 
 (c) 2016 by Danne Elbers, Thomas Wiecki
 
-This tutorial is adapted from a blog post by [Danne Elbers](http://www.linkedin.com/pub/danne-elbers/69/3a2/7ba) and Thomas Wiecki called ["The Best Of Both Worlds: Hierarchical Linear Regression in PyMC"](http://twiecki.github.io/blog/2014/03/17/bayesian-glms-3/). This was a collaboration when Danne Elbers was doing her masters thesis with Thomas Wiecki on computational psychiatry using Bayesian modeling. This post also borrows heavily from a notebook {ref}`multilevel_modeling` by [Chris Fonnesbeck](http://biostat.mc.vanderbilt.edu/wiki/Main/ChrisFonnesbeck).
+This tutorial is adapted from a blog post by [Danne Elbers](http://www.linkedin.com/pub/danne-elbers/69/3a2/7ba) and Thomas Wiecki called ["The Best Of Both Worlds: Hierarchical Linear Regression in PyMC"](http://twiecki.github.io/blog/2014/03/17/bayesian-glms-3/). It also borrows heavily from a notebook {ref}`multilevel_modeling` by [Chris Fonnesbeck](http://biostat.mc.vanderbilt.edu/wiki/Main/ChrisFonnesbeck).
 
-The power of Bayesian modelling really clicked for Thomas Wiecki when he was first introduced to hierarchical modelling. In this blog post they:
+In this tutorial we:
   
   * provide an intuitive explanation of hierarchical/multi-level Bayesian modeling;
   * show how this type of model can easily be built and estimated in [PyMC](https://github.com/pymc-devs/pymc);
@@ -375,13 +375,9 @@ This type of hierarchical, partial pooling model is known as a [random effects m
 
 ## Summary
 
-In this post, co-authored by Thomas Wiecki and Danne Elbers, we showed how a multi-level hierarchical Bayesian model gives the best of both worlds when we have multiple sets of measurements we expect to have similarity. The naive approach either pools all data together and ignores the individual differences, or treats each set as completely separate leading to noisy estimates, as shown above. By assuming that each individual data set (each county in our case) is distributed according to a group distribution -- which we simultaneously estimate -- we benefit from increased statistical power and smart regularization via the shrinkage effect. Probabilistic Programming in [PyMC](https://github.com/pymc-devs/pymc) then makes Bayesian estimation of this model trivial.
+In this tutorial we showed how a multi-level hierarchical Bayesian model gives the best of both worlds when we have multiple sets of measurements we expect to have similarity. The naive approach either pools all data together and ignores the individual differences, or treats each set as completely separate leading to noisy estimates, as shown above. By assuming that each individual data set (each county in our case) is distributed according to a group distribution -- which we simultaneously estimate -- we benefit from increased statistical power and smart regularization via the shrinkage effect. Probabilistic Programming in [PyMC](https://github.com/pymc-devs/pymc) then makes Bayesian estimation of this model trivial.
 
 As a follow-up we could also include other states into our model. For this we could add yet another layer to the hierarchy where each state is pooled at the country level. Finally, readers of Thomas Wiecki's blog will notice that they didn't use `glm()` here as it does not play nice with hierarchical models yet.
-
-  
-## Acknowledgements
-Thanks to [Imri Sofer](http://serre-lab.clps.brown.edu/person/imri-sofer/) for feedback and teaching the authors about the connections to random-effects models and [Dan Dillon](https://cdasr.mclean.harvard.edu/dillon/) for useful comments on an earlier draft.
 
 +++
 
@@ -390,7 +386,7 @@ Thanks to [Imri Sofer](http://serre-lab.clps.brown.edu/person/imri-sofer/) for f
 * Adapted from the blog post in 2016 called ["The Best Of Both Worlds: Hierarchical Linear Regression in PyMC"](http://twiecki.github.io/blog/2014/03/17/bayesian-glms-3/) by Danne Elbers and Thomas Wiecki
 * Moved from pymc to pymc-examples repo in December 2020 ([pymc-examples#8](https://github.com/pymc-devs/pymc-examples/pull/8))
 * Updated by [@CloudChaoszero](CloudChaoszero) in April 2021 ([pymc-examples#147](https://github.com/pymc-devs/pymc-examples/pull/147))
-* Updated Markdown and styling by @reshamas in September 2022 ([pymc-examples#xxx](https://github.com/pymc-devs/pymc-examples/pull/xxx))
+* Updated Markdown and styling by @reshamas in September 2022 ([pymc-examples#427](https://github.com/pymc-devs/pymc-examples/pull/427))
 
 +++
 
