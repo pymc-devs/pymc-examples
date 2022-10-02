@@ -32,7 +32,7 @@ To install pymc-experimental we can use pip and get the package to use the Model
 +++
 
 Executing following command in your terminal shall do the job <br>
-`pip install pymc-experimental`
+`pip install git+https://github.com/pymc-devs/pymc-experimental`
 
 +++
 
