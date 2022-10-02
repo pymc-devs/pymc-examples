@@ -22,13 +22,13 @@ kernelspec:
 
 +++
 
-The {class}`gp.Latent` class is a direct implementation of a Gaussian process without approximation.  Given a mean and covariance function, we can place a prior on the function $f(x)$,
+The {class}`gp.Latent <pymc.gp.Latent>` class is a direct implementation of a Gaussian process without approximation.  Given a mean and covariance function, we can place a prior on the function $f(x)$,
 
 $$
 f(x) \sim \mathcal{GP}(m(x),\, k(x, x')) \,.
 $$
 
-It is called "Latent" because the GP itself is included in the model as a latent variable, it is not marginalized out as is the case with {class}`gp.Marginal`.  This is the most direct implementation of a GP because it doesn't assume a particular likelihood function or structure in the data or in the covariance matrix.
+It is called "Latent" because the GP itself is included in the model as a latent variable, it is not marginalized out as is the case with {class}`gp.Latent <pymc.gp.Marginal>`.  Unlike `gp.Latent`, you won't find samples from the GP posterior in the trace with `gp.Marginal`.  This is the most direct implementation of a GP because it doesn't assume a particular likelihood function or structure in the data or in the covariance matrix.
 
 +++
 
