@@ -6,27 +6,32 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
 
+(notebook_name)=
 # GLM: Hierarchical Linear Regression
+
+:::{post} May 20, 2022
+:tags: generalized linear model, hierarchical model
+:category: intermediate
+:author: Danne Elbers, Thomas Wiecki, Chris Fonnesbeck
+:::
 
 +++
 
 (c) 2016 by Danne Elbers, Thomas Wiecki
 
-> This tutorial is adapted from a [blog post by Danne Elbers and Thomas Wiecki called "The Best Of Both Worlds: Hierarchical Linear Regression in PyMC"](http://twiecki.github.io/blog/2014/03/17/bayesian-glms-3/).
+This tutorial is adapted from a blog post by [Danne Elbers](http://www.linkedin.com/pub/danne-elbers/69/3a2/7ba) and Thomas Wiecki called ["The Best Of Both Worlds: Hierarchical Linear Regression in PyMC"](http://twiecki.github.io/blog/2014/03/17/bayesian-glms-3/). It also borrows heavily from a notebook {ref}`multilevel_modeling` by [Chris Fonnesbeck](http://biostat.mc.vanderbilt.edu/wiki/Main/ChrisFonnesbeck).
 
-Today's blog post is co-written by [Danne Elbers](http://www.linkedin.com/pub/danne-elbers/69/3a2/7ba) who is doing her masters thesis with me on computational psychiatry using Bayesian modeling. This post also borrows heavily from a [Notebook](http://nbviewer.ipython.org/github/fonnesbeck/multilevel_modeling/blob/master/multilevel_modeling.ipynb?create=1) by [Chris Fonnesbeck](http://biostat.mc.vanderbilt.edu/wiki/Main/ChrisFonnesbeck).
-
-The power of Bayesian modelling really clicked for me when I was first introduced to hierarchical modelling. In this blog post we will:
+In this tutorial we:
   
-  * provide and intuitive explanation of hierarchical/multi-level Bayesian modeling;
+  * provide an intuitive explanation of hierarchical/multi-level Bayesian modeling;
   * show how this type of model can easily be built and estimated in [PyMC](https://github.com/pymc-devs/pymc);
-  * demonstrate the advantage of using hierarchical Bayesian modelling, as opposed to non-hierarchical Bayesian modelling by comparing the two
-  * visualize the "shrinkage effect" (explained below)
+  * demonstrate the advantage of using hierarchical Bayesian modelling, as opposed to non-hierarchical Bayesian; modelling by comparing the two
+  * visualize the "shrinkage effect" (explained below);
   * highlight connections to the frequentist version of this model.
 
 Having multiple sets of related measurements comes up all the time. In mathematical psychology, for example, you test multiple subjects on the same task. We then want to estimate a computational/mathematical model that describes the behavior on the task by a set of parameters. We could thus fit a model to each subject individually, assuming they share no similarities; or, pool all the data and estimate one model assuming all subjects are identical. Hierarchical modeling allows the best of both worlds by modeling subjects' similarities but also allowing estimation of individual parameters. As an aside, software from our lab, [HDDM](http://ski.cog.brown.edu/hddm_docs/), allows hierarchical Bayesian estimation of a widely used decision making model in psychology. In this blog post, however, we will use a more classical example of [hierarchical linear regression](http://en.wikipedia.org/wiki/Hierarchical_linear_modeling) to predict radon levels in houses.
@@ -38,10 +43,11 @@ This is the 3rd blog post on the topic of Bayesian modeling in PyMC, see here fo
 
 ## The Dataset
 
-Gelman et al.'s (2007) radon dataset is a classic for hierarchical modeling. In this dataset the amount of the radioactive gas radon has been measured among different households in all counties of several states. Radon gas is known to be the highest cause of lung cancer in non-smokers. It is believed to be more strongly present in households containing a basement and to differ in amount present among types of soil.
-Here we'll investigate this differences and try to make predictions of radonlevels in different counties based on the county itself and the presence of a basement. In this example we'll look at Minnesota, a state that contains 85 counties in which different measurements are taken, ranging from 2 to 116 measurements per county. 
+Gelman et al.'s (2007) radon dataset is a classic for hierarchical modeling. In this dataset the amount of the radioactive gas radon has been measured among different households in all counties of several states. Radon gas is known to be the highest cause of lung cancer in non-smokers. It is believed to be more strongly present in households containing a basement and to differ in amount present among types of soil.  Here we'll investigate this differences and try to make predictions of radon levels in different counties based on the county itself and the presence of a basement. In this example we'll look at Minnesota, a state that contains 85 counties in which different measurements are taken, ranging from 2 to 116 measurements per county. 
 
-![radon](https://upload.wikimedia.org/wikipedia/commons/b/b9/CNX_Chem_21_06_RadonExpos.png)
+<p>
+<div> <img src="https://upload.wikimedia.org/wikipedia/commons/b/b9/CNX_Chem_21_06_RadonExpos.png" alt="radon exposure" style="width: 500px;"/></div> 
+</p>
 
 +++
 
@@ -88,7 +94,7 @@ Now you might say: "That's easy! I'll just pool all my data and estimate one big
 
 $$radon_{i, c} = \alpha + \beta*\text{floor}_{i, c} + \epsilon$$ 
 
-Where $i$ represents the measurement, $c$ the county and floor contains a 0 or 1 if the house has a basement or not, respectively. If you need a refresher on Linear Regressions in `PyMC`, check out my [previous blog post](http://twiecki.github.io/blog/2013/08/12/bayesian-glms-1/). Critically, we are only estimating *one* intercept and *one* slope for all measurements over all counties pooled together as illustrated in the graphic below ($\theta$ represents $(\alpha, \beta)$ in our case and $y_i$ are the measurements of the $i$th county).
+Where $i$ represents the measurement, $c$ the county and floor contains a 0 or 1 if the house has a basement or not, respectively. If you need a refresher on Linear Regressions in `PyMC`, check out the previous post, [The Inference Button: Bayesian GLMs made easy with PyMC](http://twiecki.github.io/blog/2013/08/12/bayesian-glms-1/). Critically, we are only estimating *one* intercept and *one* slope for all measurements over all counties pooled together as illustrated in the graphic below ($\theta$ represents $(\alpha, \beta)$ in our case and $y_i$ are the measurements of the $i$th county).
 
 ![pooled](http://f.cl.ly/items/0R1W063h1h0W2M2C0S3M/Screen%20Shot%202013-10-10%20at%208.22.21%20AM.png)
 
@@ -138,8 +144,8 @@ coords = {
 with pm.Model(coords=coords) as unpooled_model:
 
     # Independent parameters for each county
-    county_idx = pm.Data("county_idx", county_idxs, dims="obs_id")
-    floor = pm.Data("floor", data.floor.values, dims="obs_id")
+    county_idx = pm.Data("county_idx", county_idxs, dims="obs_id", mutable=True)
+    floor = pm.Data("floor", data.floor.values, dims="obs_id", mutable=True)
 
     a = pm.Normal("a", 0, sigma=100, dims="county")
     b = pm.Normal("b", 0, sigma=100, dims="county")
@@ -163,11 +169,11 @@ with unpooled_model:
 ```
 
 ### Hierarchical Model
-Instead of creating models separatley, the hierarchical model creates group parameters that consider the countys not as completely different but as having an underlying similarity. These distributions are subsequently used to influence the distribution of each county's $\alpha$ and $\beta$.
+Instead of creating models separately, the hierarchical model creates group parameters that consider the counties not as completely different but as having an underlying similarity. These distributions are subsequently used to influence the distribution of each county's $\alpha$ and $\beta$.
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as hierarchical_model:
-    county_idx = pm.Data("county_idx", county_idxs, dims="obs_id")
+    county_idx = pm.Data("county_idx", county_idxs, dims="obs_id", mutable=True)
     # Hyperpriors for group nodes
     mu_a = pm.Normal("mu_a", mu=0.0, sigma=100)
     sigma_a = pm.HalfNormal("sigma_a", 5.0)
@@ -175,7 +181,7 @@ with pm.Model(coords=coords) as hierarchical_model:
     sigma_b = pm.HalfNormal("sigma_b", 5.0)
 
     # Intercept for each county, distributed around group mean mu_a
-    # Above we just set mu and sd to a fixed value while here we
+    # Above we set mu and sd to a fixed value while here we
     # plug in a common group distribution for all a and b (which are
     # vectors of length n_counties).
     a = pm.Normal("a", mu=mu_a, sigma=sigma_a, dims="county")
@@ -313,12 +319,12 @@ In the above plot we have the data points in black of three selected counties. T
 
 When looking at the county 'CASS' we see that the non-hierarchical estimation is strongly biased: as this county's data contains only households with a basement the estimated regression produces the non-sensical result of a giant negative slope meaning that we would expect negative radon levels in a house without basement!
 
-Moreover, in the example county's 'CROW WING' and 'FREEBORN' the non-hierarchical model appears to react more strongly than the hierarchical model to the existence of outliers in the dataset ('CROW WING': no basement upper right. 'FREEBORN': basement upper left). Assuming that there should be a higher amount of radon gas measurable in households with basements opposed to those without, the county 'CROW WING''s non-hierachical model seems off. Having the group-distribution constrain the coefficients we get meaningful estimates in all cases as we apply what we learn from the group to the individuals and vice-versa.
+Moreover, in the example counties 'CROW WING' and 'FREEBORN' the non-hierarchical model appears to react more strongly than the hierarchical model to the existence of outliers in the dataset ('CROW WING': no basement upper right. 'FREEBORN': basement upper left). Assuming that there should be a higher amount of radon gas measurable in households with basements opposed to those without, the county 'CROW WING''s non-hierachical model seems off. By having the group-distribution constrain the coefficients, we get meaningful estimates in all cases as we apply what we learn from the group to the individuals and vice-versa.
 
 +++
 
 ## Shrinkage
-Shrinkage describes the process by which our estimates are "pulled" towards the group-mean as a result of the common group distribution -- county-coefficients very far away from the group mean have very low probability under the normality assumption, moving them closer to the group mean gives them higher probability. In the non-hierachical model every county is allowed to differ completely from the others by just using each county's data, resulting in a model more prone to outliers (as shown above).
+Shrinkage describes the process by which our estimates are "pulled" towards the group-mean as a result of the common group distribution -- county-coefficients very far away from the group mean have very low probability under the normality assumption, moving them closer to the group mean gives them higher probability. In the non-hierachical model every county is allowed to differ completely from the others by using each county's data, resulting in a model more prone to outliers (as shown above).
 
 ```{code-cell} ipython3
 hier_a = hier_post["a"].mean("chain_draw")
@@ -355,38 +361,53 @@ for i in range(len(hier_b)):
 ax.legend();
 ```
 
-In the shrinkage plot above we show the coefficients of each county's non-hierarchical posterior mean (blue) and the hierarchical posterior mean (red). To show the effect of shrinkage on a single coefficient-pair (alpha and beta) we connect the blue and red points belonging to the same county by an arrow. Some non-hierarchical posteriors are so far out that we couldn't display them in this plot (it makes the axes too wide). Interestingly, all hierarchical posteriors of the floor-measure seem to be around -0.6 indicating that having a basement in almost all county's is a clear indicator for heightened radon levels. The intercept (which we take for type of soil) appears to differ among countys. This information would have been difficult to find if we had only used the non-hierarchical model.
+In the shrinkage plot above we show the coefficients of each county's non-hierarchical posterior mean (blue) and the hierarchical posterior mean (red). To show the effect of shrinkage on a single coefficient-pair (alpha and beta) we connect the blue and red points belonging to the same county by an arrow. Some non-hierarchical posteriors are so far out that we couldn't display them in this plot (it makes the axes too wide). Interestingly, all hierarchical posteriors of the floor-measure seem to be around -0.6 indicating that having a basement in almost all counties is a clear indicator for higher radon levels. The intercept (which we take for type of soil) appears to differ among counties. This information would have been difficult to find if we had only used the non-hierarchical model.
 
-Critically, many effects that look quite large and significant in the non-hiearchical model actually turn out to be much smaller when we take the group distribution into account (this point can also well be seen in plot `In[12]` in [Chris' NB](http://nbviewer.ipython.org/github/fonnesbeck/multilevel_modeling/blob/master/multilevel_modeling.ipynb)). Shrinkage can thus be viewed as a form of smart regularization that helps reduce false-positives!
+Critically, many effects that look quite large and significant in the non-hiearchical model actually turn out to be much smaller when we take the group distribution into account (this point can also well be seen in plot `In[12]` in Chris Fonnesbeck's notebook {ref}`multilevel_modeling`. Shrinkage can thus be viewed as a form of smart regularization that helps reduce false-positives!
 
 +++
 
 ### Connections to Frequentist statistics
 
-This type of hierarchical, partial pooling model is known as a [random effects model](https://en.wikipedia.org/wiki/Random_effects_model) in frequentist terms. Interestingly, if we placed uniform priors on the group mean and variance in the above model, the resulting Bayesian model would be equivalent to a random effects model. One might imagine that the difference between a model with uniform or wide normal hyperpriors should not have a huge impact. However, [Gelman says](http://andrewgelman.com/2014/03/15/problematic-interpretations-confidence-intervals/) encourages use of weakly-informative priors (like we did above) over flat priors.
+This type of hierarchical, partial pooling model is known as a [random effects model](https://en.wikipedia.org/wiki/Random_effects_model) in frequentist terms. Interestingly, if we placed uniform priors on the group mean and variance in the above model, the resulting Bayesian model would be equivalent to a random effects model. One might imagine that the difference between a model with uniform or wide normal hyperpriors should not have a huge impact. However, [Gelman](http://andrewgelman.com/2014/03/15/problematic-interpretations-confidence-intervals/) encourages use of weakly-informative priors (like we did above) over flat priors.
 
 +++
 
 ## Summary
 
-In this post, co-authored by Danne Elbers, we showed how a multi-level hierarchical Bayesian model gives the best of both worlds when we have multiple sets of measurements we expect to have similarity. The naive approach either pools all data together and ignores the individual differences, or treats each set as completely separate leading to noisy estimates, as shown above. By assuming that each individual data set (each county in our case) is distributed according to a group distribution -- which we simultaneously estimate -- we benefit from increased statistical power and smart regularization via the shrinkage effect. Probabilistic Programming in [PyMC](https://github.com/pymc-devs/pymc) then makes Bayesian estimation of this model trivial.
+In this tutorial we showed how a multi-level hierarchical Bayesian model gives the best of both worlds when we have multiple sets of measurements we expect to have similarity. The naive approach either pools all data together and ignores the individual differences, or treats each set as completely separate leading to noisy estimates, as shown above. By assuming that each individual data set (each county in our case) is distributed according to a group distribution -- which we simultaneously estimate -- we benefit from increased statistical power and smart regularization via the shrinkage effect. Probabilistic Programming in [PyMC](https://github.com/pymc-devs/pymc) then makes Bayesian estimation of this model trivial.
 
-As a follow-up we could also include other states into our model. For this we could add yet another layer to the hierarchy where each state is pooled at the country level. Finally, readers of my blog will notice that we didn't use `glm()` here as it does not play nice with hierarchical models yet.
+As a follow-up we could also include other states into our model. For this we could add yet another layer to the hierarchy where each state is pooled at the country level. Finally, readers of Thomas Wiecki's blog will notice that they didn't use `glm()` here as it does not play nice with hierarchical models yet.
+
++++
+
+## Authors
+
+* Adapted from the blog post in 2016 called ["The Best Of Both Worlds: Hierarchical Linear Regression in PyMC"](http://twiecki.github.io/blog/2014/03/17/bayesian-glms-3/) by Danne Elbers and Thomas Wiecki
+* Moved from pymc to pymc-examples repo in December 2020 ([pymc-examples#8](https://github.com/pymc-devs/pymc-examples/pull/8))
+* Updated by [@CloudChaoszero](CloudChaoszero) in April 2021 ([pymc-examples#147](https://github.com/pymc-devs/pymc-examples/pull/147))
+* Updated Markdown and styling by @reshamas in September 2022 ([pymc-examples#427](https://github.com/pymc-devs/pymc-examples/pull/427))
+
++++
 
 ## References
-  * [The underlying Notebook of this blog post](https://rawgithub.com/twiecki/WhileMyMCMCGentlySamples/master/content/downloads/notebooks/GLM_hierarchical.ipynb)
+  * Thomas Wiecki: [The underlying Notebook of this blog post](https://rawgithub.com/twiecki/WhileMyMCMCGentlySamples/master/content/downloads/notebooks/GLM_hierarchical.ipynb)
   * Blog post: [The Inference Button: Bayesian GLMs made easy with PyMC](http://twiecki.github.io/blog/2013/08/12/bayesian-glms-1/)
   * Blog post: [This world is far from Normal(ly distributed): Bayesian Robust Regression in PyMC](http://twiecki.github.io/blog/2013/08/27/bayesian-glms-2/)  
   * [Chris Fonnesbeck repo containing a more extensive analysis](https://github.com/fonnesbeck/multilevel_modeling/)
   * Blog post: [Shrinkage in multi-level hierarchical models](http://doingbayesiandataanalysis.blogspot.com/2012/11/shrinkage-in-multi-level-hierarchical.html) by John Kruschke
-  * Gelman, A.; Carlin; Stern; and Rubin, D., 2007, "Replication data for: Bayesian Data Analysis, Second Edition", 
+  * Gelman, A.; Carlin; Stern; and Rubin, D., 2007, "Replication data for: Bayesian Data Analysis, Second Edition" 
   * Gelman, A., & Hill, J. (2006). [Data Analysis Using Regression and Multilevel/Hierarchical Models (1st ed.). Cambridge University Press.](http://www.amazon.com/Analysis-Regression-Multilevel-Hierarchical-Models/dp/052168689X)
   * Gelman, A. (2006). Multilevel (Hierarchical) modeling: what it can and cannot do. Technometrics, 48(3), 432–435.
-  
-### Acknowledgements
-Thanks to [Imri Sofer](http://serre-lab.clps.brown.edu/person/imri-sofer/) for feedback and teaching us about the connections to random-effects models and [Dan Dillon](http://cdasr.mclean.harvard.edu/index.php/about-us/current-lab-members/14-faculty/62-daniel-dillon) for useful comments on an earlier draft.
+
++++
+
+## Watermark
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w
+%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
 ```
+
+:::{include} ../page_footer.md
+:::
