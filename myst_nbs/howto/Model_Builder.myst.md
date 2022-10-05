@@ -27,12 +27,35 @@ Let's learn more about using an example <br>
 
 +++
 
+Let's see the difference in deployment of models with and without ModelBuilder
+
+initialising the model:
+```
+with pm.Model as model:
+    # Data
+    x = np.linspace(start=0, stop=1, num=100)
+    y = 5 * x + 3
+    y = y + np.random.normal(0, 1, len(x))
+    data = pd.DataFrame({"input": x, "output": y})
+    x = pm.MutableData("x", data["input"].values)
+    y_data = pm.MutableData("y_data", data["output"].values)
+    
+    # Fitting
+    idata = pm.sample(1000,1000)
+    idata.extend(pm.sample_prior_predictive())
+    
+    #posterior predict
+    post_pred = pm.sample_posterior_predictive(idata)
+```
+
++++
+
 To install pymc-experimental we can use pip and get the package to use the ModelBuilder
 
 +++
 
 Executing following command in your terminal shall do the job <br>
-`pip install git+https://github.com/pymc-devs/pymc-experimental`
+`pip install pymc-experimental`
 
 +++
 
@@ -62,12 +85,24 @@ az.style.use("arviz-darkgrid")
 To define our desired model we inherit the `ModelBuilder` class to our new model class, here a Linear regression model. We can also define it locally in some other python file and directly import it to our notebook
 
 ```{code-cell} ipython3
+:tags: []
+
 class LinearModel(ModelBuilder):
     _model_type = "LinearModel"
     version = "0.1"
 
     @classmethod
     def build_model(self, model_config, data=None):
+        """
+        build_model creates the model and loads it to memory stack.
+
+        Parameters:
+        model_config: dictionary
+            it is a dictionary with all the parameters of pm.model that we need in our model example:  a_loc, a_scale, b_loc
+        data: Dict[str, Union[np.ndarray, pd.DataFrame, pd.Series]]
+            Default value is None. It is the data we need in our model to fit and other purposes, data can be passed in fit as well.
+        """
+
         if data is not None:
             x = pm.MutableData("x", data["input"].values)
             y_data = pm.MutableData("y_data", data["output"].values)
@@ -89,6 +124,13 @@ class LinearModel(ModelBuilder):
             y_model = pm.Normal("y_model", a + b * x, obs_error, shape=x.shape, observed=y_data)
 
     def _data_setter(self, data: pd.DataFrame):
+        """
+        _data_setter works as a set_data for the model and updates the data whenever we need to.
+        Parameters:
+        data: Dict[str, Union[np.ndarray, pd.DataFrame, pd.Series]]
+            It is the data we need to update for the model.
+        """
+
         with self.model:
             pm.set_data({"x": data["input"].values})
             if "output" in data.columns:
@@ -96,6 +138,10 @@ class LinearModel(ModelBuilder):
 
     @classmethod
     def create_sample_input(cls):
+        """
+        create_sample_input creates the sample input we need for our model, user can either use this or initalise their own parameters acordingly.
+        """
+
         x = np.linspace(start=0, stop=1, num=100)
         y = 5 * x + 3
         y = y + np.random.normal(0, 1, len(x))
