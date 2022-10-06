@@ -214,17 +214,11 @@ ax.legend();
 So we can summarise the intuition of difference in differences by looking at this plot:
 * We assume that the treatment and control groups are evolving over time in a similar manner.
 * We can easily estimate the slope of the control group from pre to post treatment.
-* We can engage in counterfactual thinking and can ask:
+* We can engage in counterfactual thinking and can ask: "What would the post-treatment outcome of the treatment group be _if_ they had not been treated?"
 
-> What would the post-treatment outcome of the treatment group be _if_ they had not been treated?
+If we can answer that question and estimate this counterfactual quantity, then we can ask: "What is the causal impact of the treatment?" And we can answer this question by comparing the observed post treatment outcome of the treatment group against the counterfactual quantity.
 
-If we can answer that question and estimate this counterfactual quantity, then we can ask:
-
-> What is the causal impact of the treatment?
-
-And we can answer this question by comparing the observed post treatment outcome of the treatment group against the counterfactual quantity.
-
-We can think about this visually and state another way... By looking at the pre/post difference in the control group, we can attribute any differences in the pre/post differences of the control and treatment groups to the causal effect of the treatment.
+We can think about this visually and state another way... By looking at the pre/post difference in the control group, we can attribute any differences in the pre/post differences of the control and treatment groups to the causal effect of the treatment. And that is why the method is called difference in differences.
 
 +++
 
