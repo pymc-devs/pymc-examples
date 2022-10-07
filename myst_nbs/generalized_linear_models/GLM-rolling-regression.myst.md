@@ -256,3 +256,6 @@ cb.ax.set_yticklabels(ticklabels);
 %load_ext watermark
 %watermark -n -u -v -iv -w -p aesara,aeppl,xarray
 ```
+
+:::{include} ../page_footer.md
+:::
