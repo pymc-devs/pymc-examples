@@ -6,7 +6,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: Python 3.10.6 ('pymc_env')
   language: python
   name: python3
 ---
@@ -14,7 +14,7 @@ kernelspec:
 (BART_introduction)=
 # Bayesian Additive Regression Trees: Introduction
 :::{post} Dec 21, 2021
-:tags: BART, Bayesian additive regression trees, non-parametric, regression 
+:tags: BART, non-parametric, regression 
 :category: intermediate, explanation
 :author: Osvaldo Martin
 :::

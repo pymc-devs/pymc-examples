@@ -16,7 +16,7 @@ kernelspec:
 # Generalized Extreme Value Distribution
 
 :::{post} Sept 27, 2022
-:tags: extreme, inference, prediction
+:tags: extreme, inference, posterior predictive
 :category: beginner 
 :author: Colin Caprani 
 :::
