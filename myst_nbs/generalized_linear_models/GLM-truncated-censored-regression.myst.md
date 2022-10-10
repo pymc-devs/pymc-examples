@@ -15,7 +15,7 @@ kernelspec:
 # Bayesian regression with truncated or censored data
 
 :::{post} September, 2022
-:tags: censored, censoring, generalized linear model, regression, truncated, truncation 
+:tags: censored, censoring, generalized linear model, regression, truncated 
 :category: beginner
 :author: Benjamin T. Vincent
 :::
