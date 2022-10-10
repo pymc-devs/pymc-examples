@@ -15,7 +15,7 @@ kernelspec:
 # Gaussian Processes using numpy kernel
 
 :::{post} Jul 31, 2022
-:tags: gaussian processes, 
+:tags: gaussian process, 
 :category: advanced
 :author: Chris Fonnesbeck, Ana Rita Santos and Sandra Meneses
 :::
