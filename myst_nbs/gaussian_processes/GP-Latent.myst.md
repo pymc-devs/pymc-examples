@@ -28,7 +28,7 @@ $$
 f(x) \sim \mathcal{GP}(m(x),\, k(x, x')) \,.
 $$
 
-It is called "Latent" because the GP itself is included in the model as a latent variable, it is not marginalized out as is the case with {class}`gp.Latent <pymc.gp.Marginal>`.  Unlike `gp.Latent`, you won't find samples from the GP posterior in the trace with `gp.Marginal`.  This is the most direct implementation of a GP because it doesn't assume a particular likelihood function or structure in the data or in the covariance matrix.
+It is called "Latent" because the GP itself is included in the model as a latent variable, it is not marginalized out as is the case with {class}`gp.Marginal <pymc.gp.Marginal>`.  Unlike `gp.Latent`, you won't find samples from the GP posterior in the trace with `gp.Marginal`.  This is the most direct implementation of a GP because it doesn't assume a particular likelihood function or structure in the data or in the covariance matrix.
 
 +++
 
@@ -133,7 +133,7 @@ ax.set_ylabel("y")
 plt.legend(frameon=True);
 ```
 
-The data above shows the observations, marked with black dots, of the unknown function $f(x)$ that has been corrupted by noise.  The true function is in blue.  
+The data above shows the observations, marked with black dots, of the unknown function $f(x)$ that has been corrupted by noise.  The true function is in blue.
 
 ### Coding the model in PyMC
 
@@ -427,7 +427,7 @@ plt.legend(loc=(0.32, 0.65), frameon=True);
 
 ## Authors
 
-* Created by [Bill Engels](https://github.com/bwengals) in 2017 ([pymc#1674](https://github.com/pymc-devs/pymc/pull/1674)) 
+* Created by [Bill Engels](https://github.com/bwengals) in 2017 ([pymc#1674](https://github.com/pymc-devs/pymc/pull/1674))
 * Reexecuted by [Colin Caroll](https://github.com/ColCarroll) in 2019 ([pymc#3397](https://github.com/pymc-devs/pymc/pull/3397))
 * Updated for V4 by Bill Engels in September 2022 ([pymc-examples#237](https://github.com/pymc-devs/pymc-examples/pull/237))
 
