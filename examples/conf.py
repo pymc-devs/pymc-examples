@@ -222,6 +222,7 @@ rediraffe_redirects = {
 remove_from_toctrees = [
     "BART/*",
     "case_studies/*",
+    "causal_inference/*",
     "diagnostics_and_criticism/*",
     "gaussian_processes/*",
     "generalized_linear_models/*",
