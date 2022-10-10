@@ -139,7 +139,7 @@ class LinearModel(ModelBuilder):
     @classmethod
     def create_sample_input(cls):
         """
-        create_sample_input creates the sample input we need for our model, user can either use this or initalise their own parameters acordingly.
+        create_sample_input creates the sample input we need for our model, user can either use this or initialise their own parameters accordingly.
         """
 
         x = np.linspace(start=0, stop=1, num=100)
