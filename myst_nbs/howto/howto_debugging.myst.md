@@ -15,7 +15,7 @@ kernelspec:
 # How to debug a model
 
 :::{post} August 2, 2022
-:tags: debugging, aesara
+:tags: debugging, Aesara
 :category: beginner
 :author: Thomas Wiecki, Igor Kuvychko
 :::
