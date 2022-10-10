@@ -136,11 +136,11 @@ html_theme_options = {
             "icon": "fab fa-discourse",
         },
     ],
-    "logo_link": "https://www.pymc.io",
     "search_bar_text": "Search...",
     "navbar_end": ["navbar-icon-links.html"],
     "page_sidebar_items": ["postcard", "page-toc", "edit-this-page", "donate"],
     "google_analytics_id": "G-6KPRBTE6WV",
+    "header_links_before_dropdown": 6,
     "logo": {
         "link": "https://www.pymc.io",
     },
