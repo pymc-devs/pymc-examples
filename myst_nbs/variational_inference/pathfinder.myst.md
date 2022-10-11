@@ -4,7 +4,7 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.13.7
+    jupytext_version: 1.14.1
 kernelspec:
   display_name: pymc4
   language: python
@@ -17,13 +17,13 @@ kernelspec:
 
 :::{post} Sept 30, 2022 
 :tags: variational inference, jax 
-:category: advanced 
+:category: advanced, how-to
 :author: Thomas Wiecki
 :::
 
 +++
 
-Pathfinder is a variational inference algorithm that produces samples from the posterior of a Bayesian model. It compares favorably to the widely used ADVI algorithm. On large problems, it should scale better than most MCMC algorithms, including dynamic HMC (i.e. NUTS), at the cost of a more biased estimate of the posterior. For details on the algorithm, see the [arxiv preprint](https://arxiv.org/abs/2108.03782).
+Pathfinder {cite:p}`zhang2021pathfinder` is a variational inference algorithm that produces samples from the posterior of a Bayesian model. It compares favorably to the widely used ADVI algorithm. On large problems, it should scale better than most MCMC algorithms, including dynamic HMC (i.e. NUTS), at the cost of a more biased estimate of the posterior. For details on the algorithm, see the [arxiv preprint](https://arxiv.org/abs/2108.03782).
 
 This algorithm is [implemented](https://github.com/blackjax-devs/blackjax/pull/194) in [BlackJAX](https://github.com/blackjax-devs/blackjax), a library of inference algorithms for [JAX](https://github.com/google/jax). Through PyMC's JAX-backend (through [aesara](https://github.com/aesara-devs/aesara)) we can run BlackJAX's pathfinder on any PyMC model with some simple wrapper code.
 
@@ -37,9 +37,7 @@ You first need to install `pymcx`:
 import arviz as az
 import numpy as np
 import pymc as pm
-
-# Import pymc_experimental
-import pymc_experimental as pmx
+import pymcx as pmx
 
 print(f"Running on PyMC v{pm.__version__}")
 ```
@@ -73,6 +71,20 @@ Just like `pymc.sample()`, this returns an idata with samples from the posterior
 ```{code-cell} ipython3
 az.plot_trace(idata);
 ```
+
+## References
+
+:::{bibliography}
+:filter: docname in docnames
+:::
+
++++
+
+## Authors
+
+* Authored by Thomas Wiecki on Oct 11 2022 ([pymc-examples#429](https://github.com/pymc-devs/pymc-examples/pull/429))
+
++++
 
 ## Watermark
 
