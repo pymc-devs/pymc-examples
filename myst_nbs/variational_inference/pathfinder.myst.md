@@ -27,11 +27,11 @@ Pathfinder is a variational inference algorithm that produces samples from the p
 
 This algorithm is [implemented](https://github.com/blackjax-devs/blackjax/pull/194) in [BlackJAX](https://github.com/blackjax-devs/blackjax), a library of inference algorithms for [JAX](https://github.com/google/jax). Through PyMC's JAX-backend (through [aesara](https://github.com/aesara-devs/aesara)) we can run BlackJAX's pathfinder on any PyMC model with some simple wrapper code.
 
-This wrapper code is implemented in [pymc-experimental](https://github.com/pymc-devs/pymc-experimental/). This tutorial shows how to run Pathfinder on your PyMC model.
+This wrapper code is implemented in [pymcx](https://github.com/pymc-devs/pymcx/). This tutorial shows how to run Pathfinder on your PyMC model.
 
-You first need to install `pymc-experimental`:
+You first need to install `pymcx`:
 
-`pip install git+https://github.com/pymc-devs/pymc-experimental`
+`pip install git+https://github.com/pymc-devs/pymcx`
 
 ```{code-cell} ipython3
 import arviz as az
