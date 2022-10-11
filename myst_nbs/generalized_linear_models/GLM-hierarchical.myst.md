@@ -11,7 +11,7 @@ kernelspec:
   name: python3
 ---
 
-(notebook_name)=
+(GLM-hierarchical)=
 # GLM: Hierarchical Linear Regression
 
 :::{post} May 20, 2022
