@@ -92,3 +92,6 @@ az.plot_trace(idata);
 %load_ext watermark
 %watermark -n -u -v -iv -w -p aesara,xarray
 ```
+
+:::{include} ../page_footer.md
+:::
