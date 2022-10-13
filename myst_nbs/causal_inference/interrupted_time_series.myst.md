@@ -30,6 +30,26 @@ However, if the website change was rolled out to _all_ users of the website then
 
 Interested readers are directed to the excellent textbook [The Effect](https://theeffectbook.net/) {cite:p}`huntington2021effect`. Chapter 17 covers 'event studies' which the author prefers to the interrupted time series terminology.
 
++++
+
+## Causal DAG
+
+A simple causal DAG for the interrupted time series is given below, but see {cite:p}`huntington2021effect` for a more general DAG. In short it says:
+
+* The outcome is causally influenced by time (e.g. other factors that change over time) and by the treatment.
+* The treatment is causally influenced by time.
+
+![](DAG_interrupted_time_series.png)
+
+Intuitively, we could describe the logic of the approach as:
+* We know that the outcome varies over time.
+* If we build a model of how the outcome varies over time _before_ the treatment, then we can predit the counterfactual of what we would expect to happen _if_ the treatment had not occurred.
+* We can compare this counterfactual with the observations from the time of the intervention onwards. If there is a meaningful discrepancy then we can attribute this as a causal impact of the intervention. 
+
+This is reasonable if we have ruled out other plausible causes occurring at the same point in time as (or after) the intervention. This becomes more tricky to justify the more time has passed since the intervention because it is more likely that other relevant events maye have occurred that could provide alternative causal explanations.
+
+If this does not make sense immediately, I recommend checking the example data figure below then revisiting this section.
+
 ```{code-cell} ipython3
 import arviz as az
 import matplotlib.dates as mdates
