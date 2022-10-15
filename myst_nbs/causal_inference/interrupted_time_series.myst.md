@@ -157,6 +157,7 @@ In this simple dataset, we have a noisy linear trend upwards, and because this d
 +++
 
 ## Modelling
+Here we build a simple linear model. Remember that we are building a model of the pre-intervention data with the goal that it would do a reasonable job of forecasting what would have happened if the intervention had not been applied. Put another way, we are _not_ modelling any aspect of the post-intervention observations such as a change in intercept, slope or whether the effect is transient or permenent.
 
 ```{code-cell} ipython3
 with pm.Model() as model:
@@ -224,7 +225,7 @@ ax.set(title="Posterior predictive distribution in the pre intervention era")
 plt.legend();
 ```
 
-The next step is not strictly necessary, but we can calculate the difference between the model retrodictions and the data to look at the errors. This can be useful to identify any unexpected inability to retroduct pre-intervention data.
+The next step is not strictly necessary, but we can calculate the difference between the model retrodictions and the data to look at the errors. This can be useful to identify any unexpected inability to retrodict pre-intervention data.
 
 ```{code-cell} ipython3
 :tags: [hide-input]
