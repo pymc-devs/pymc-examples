@@ -198,6 +198,10 @@ ax.set(title="Prior predictive distribution in the pre intervention era")
 plt.legend();
 ```
 
+This seems reasonable in that the priors over the intercept and slope are broad enough to lead to predicted observations which easily contain the actual data. This means that the particular priors chosen will not unduly constrain the posterior parameter estimates.
+
++++
+
 ## Inference 
 Draw samples for the posterior distribution, and remember we are doing this for the pre intervention data only.
 
