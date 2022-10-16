@@ -285,7 +285,7 @@ ax.set(
 plt.legend();
 ```
 
-We now have the ingredients needed to calculate the causal impact. Namely, the observations, and the Bayesian counterfactual prediction.
+We now have the ingredients needed to calculate the causal impact. This is simply the difference between the Bayesian counterfactual predictions and the observations.
 
 +++
 
