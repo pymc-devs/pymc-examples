@@ -118,30 +118,34 @@ figsize = (10, 5)
 The focus of this example is on making causal claims using the interrupted time series approach. Therefore we will work with some relatively simple synthetic data which only requires a very simple model.
 
 ```{code-cell} ipython3
-treatment_time = "2017-01-01"
-slope = 0.1
+:tags: []
 
+treatment_time = "2017-01-01"
+β0 = 0
+β1 = 0.1
 dates = pd.date_range(
     start=pd.to_datetime("2010-01-01"), end=pd.to_datetime("2020-01-01"), freq="M"
 )
-df = pd.DataFrame(data={"date": dates})
-df = df.assign(
-    linear_trend=df.index,
-).set_index("date", drop=True)
-df["y"] = slope * df["linear_trend"]
-N = df.shape[0]
-df["causal effect"] = (df.index > treatment_time) * 2
-df["y"] += df["causal effect"]
-# add intercept
-df["intercept"] = np.ones(df.shape[0])
-# add observation noise
-df["y"] += norm(0, 0.5).rvs(N)
+N = len(dates)
+
+
+def causal_effect(df):
+    return (df.index > treatment_time) * 2
+
+
+df = (
+    pd.DataFrame()
+    .assign(time=np.arange(N), date=dates)
+    .set_index("date", drop=True)
+    .assign(y=lambda x: β0 + β1 * x.time + causal_effect(x) + norm(0, 0.5).rvs(N))
+)
+df
 ```
 
 ```{code-cell} ipython3
 # Split into pre and post intervention dataframes
-pre = df[df.index < treatment_time].loc[:, ["intercept", "linear_trend", "y"]]
-post = df[df.index >= treatment_time].loc[:, ["intercept", "linear_trend", "y"]]
+pre = df[df.index < treatment_time]
+post = df[df.index >= treatment_time]
 ```
 
 ```{code-cell} ipython3
@@ -162,13 +166,12 @@ Here we build a simple linear model. Remember that we are building a model of th
 ```{code-cell} ipython3
 with pm.Model() as model:
     # observed predictors and outcome
-    intercept = pm.MutableData("intercept", pre["intercept"].to_numpy(), dims="obs_id")
-    linear_trend = pm.MutableData("linear_trend", pre["linear_trend"].to_numpy(), dims="obs_id")
+    time = pm.MutableData("time", pre["time"].to_numpy(), dims="obs_id")
     # priors
     beta0 = pm.Normal("beta0", 0, 1)
     beta1 = pm.Normal("beta1", 0, 0.2)
     # the actual linear model
-    mu = pm.Deterministic("mu", (beta0 * intercept) + (beta1 * linear_trend), dims="obs_id")
+    mu = pm.Deterministic("mu", beta0 + (beta1 * time), dims="obs_id")
     sigma = pm.HalfNormal("sigma", 2)
     # likelihood
     pm.Normal("obs", mu=mu, sigma=sigma, observed=pre["y"].to_numpy(), dims="obs_id")
@@ -250,14 +253,13 @@ ax.set(title="Residuals, pre intervention");
 ## Counterfactual inference
 Now we will use our model to predict the observed outcome in the 'what if?' scenario of no intervention.
 
-So we update the model with the `intercept` and `linear_trend` data from the `post` intervention dataframe and run posterior predictive sampling to predict the observations we would observe in this counterfactual scenario. We could also call this 'forecasting'.
+So we update the model with the `time` data from the `post` intervention dataframe and run posterior predictive sampling to predict the observations we would observe in this counterfactual scenario. We could also call this 'forecasting'.
 
 ```{code-cell} ipython3
 with model:
     pm.set_data(
         {
-            "intercept": post["intercept"].to_numpy(),
-            "linear_trend": post["linear_trend"].to_numpy(),
+            "time": post["time"].to_numpy(),
         }
     )
     counterfactual = pm.sample_posterior_predictive(
