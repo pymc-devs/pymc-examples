@@ -6,7 +6,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: Python 3.10.6 ('pymc_env')
   language: python
   name: python3
 ---
@@ -14,8 +14,8 @@ kernelspec:
 (GLM-truncated-censored-regression)=
 # Bayesian regression with truncated or censored data
 
-:::{post} January, 2022
-:tags: censored, censoring, generalized linear model, regression, truncated, truncation 
+:::{post} September, 2022
+:tags: censored, generalized linear model, regression, truncated 
 :category: beginner
 :author: Benjamin T. Vincent
 :::
@@ -126,7 +126,7 @@ def linear_regression(x, y):
     with pm.Model() as model:
         slope = pm.Normal("slope", mu=0, sigma=1)
         intercept = pm.Normal("intercept", mu=0, sigma=1)
-        σ = pm.HalfNormal("σ", sd=1)
+        σ = pm.HalfNormal("σ", sigma=1)
         pm.Normal("obs", mu=slope * x + intercept, sigma=σ, observed=y)
 
     return model
@@ -163,7 +163,7 @@ az.plot_posterior(trunc_linear_fit, var_names=["slope"], ref_val=slope, ax=ax[0]
 ax[0].set(title="Linear regression\n(truncated data)", xlabel="slope")
 
 az.plot_posterior(cens_linear_fit, var_names=["slope"], ref_val=slope, ax=ax[1])
-ax[1].set(title="Linear regression\n(censored data)", xlabel="slope")
+ax[1].set(title="Linear regression\n(censored data)", xlabel="slope");
 ```
 
 To appreciate the extent of the problem (for this dataset) we can visualise the posterior predictive fits alongside the data.
@@ -217,15 +217,8 @@ def truncated_regression(x, y, bounds):
         slope = pm.Normal("slope", mu=0, sigma=1)
         intercept = pm.Normal("intercept", mu=0, sigma=1)
         σ = pm.HalfNormal("σ", sigma=1)
-
-        pm.TruncatedNormal(
-            "obs",
-            mu=slope * x + intercept,
-            sigma=σ,
-            observed=y,
-            lower=bounds[0],
-            upper=bounds[1],
-        )
+        normal_dist = pm.Normal.dist(mu=slope * x + intercept, sigma=σ)
+        pm.Truncated("obs", normal_dist, lower=bounds[0], upper=bounds[1], observed=y)
     return model
 ```
 
@@ -260,7 +253,7 @@ def censored_regression(x, y, bounds):
     with pm.Model() as model:
         slope = pm.Normal("slope", mu=0, sigma=1)
         intercept = pm.Normal("intercept", mu=0, sigma=1)
-        σ = pm.HalfNormal("σ", sd=1)
+        σ = pm.HalfNormal("σ", sigma=1)
         y_latent = pm.Normal.dist(mu=slope * x + intercept, sigma=σ)
         obs = pm.Censored("obs", y_latent, lower=bounds[0], upper=bounds[1], observed=y)
 
@@ -284,8 +277,8 @@ with pm.Model() as m:
 with pm.Model() as m_censored:
     pm.Censored("y", pm.Normal.dist(0, 2), lower=-1.0, upper=None)
 
-logp_fn = m.logp
-logp_censored_fn = m_censored.logp
+logp_fn = m.compile_logp()
+logp_censored_fn = m_censored.compile_logp()
 
 xi = np.hstack((np.linspace(-6, -1.01), [-1.0], np.linspace(-0.99, 6)))
 
@@ -368,6 +361,7 @@ When looking into this topic, I found that most of the material out there focuse
 ## Authors
 * Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in May 2021
 * Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in January 2022
+* Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in September 2022
 
 +++
 

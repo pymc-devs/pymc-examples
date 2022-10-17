@@ -15,7 +15,7 @@ kernelspec:
 # Using shared variables (`Data` container adaptation)
 
 :::{post} Dec 16, 2021
-:tags: posterior predictive, predictions, shared data 
+:tags: posterior predictive, shared data 
 :category: beginner
 :author: Juan Martin Loyola, Kavya Jaiswal, Oriol Abril
 :::
