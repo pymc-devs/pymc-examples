@@ -151,8 +151,12 @@ with pm.Model(coords={"time": prices.index.values}) as model_randomwalk:
     sigma_alpha = pm.Exponential("sigma_alpha", 50.0)
     sigma_beta = pm.Exponential("sigma_beta", 50.0)
 
-    alpha = pm.GaussianRandomWalk("alpha", sigma=sigma_alpha, dims="time")
-    beta = pm.GaussianRandomWalk("beta", sigma=sigma_beta, dims="time")
+    alpha = pm.GaussianRandomWalk(
+        "alpha", sigma=sigma_alpha, init_dist=pm.Normal.dist(0, 10), dims="time"
+    )
+    beta = pm.GaussianRandomWalk(
+        "beta", sigma=sigma_beta, init_dist=pm.Normal.dist(0, 10), dims="time"
+    )
 ```
 
 Perform the regression given coefficients and data and link to the data via the likelihood.
@@ -256,3 +260,6 @@ cb.ax.set_yticklabels(ticklabels);
 %load_ext watermark
 %watermark -n -u -v -iv -w -p aesara,aeppl,xarray
 ```
+
+:::{include} ../page_footer.md
+:::

@@ -16,7 +16,7 @@ kernelspec:
 # Regression discontinuity design analysis
 
 :::{post} April, 2022
-:tags: regression, causal inference, quasi experimental design, counterfactuals 
+:tags: regression, causal inference, quasi experiments, counterfactuals 
 :category: beginner, explanation
 :author: Benjamin T. Vincent
 :::

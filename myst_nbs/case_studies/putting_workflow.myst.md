@@ -6,7 +6,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: Python 3.10.6 ('pymc_env')
   language: python
   name: python3
 substitutions:
@@ -18,7 +18,7 @@ substitutions:
 # Model building and expansion for golf putting
 
 :::{post} Apr 2, 2022
-:tags: bayesian workflow, model expansion, sports 
+:tags: Bayesian workflow, model expansion, sports 
 :category: intermediate, how-to
 :author: Colin Carroll, Marco Gorelli, Oriol Abril-Pla
 :::

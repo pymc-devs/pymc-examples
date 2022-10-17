@@ -14,7 +14,7 @@ kernelspec:
 # GLM: Mini-batch ADVI on hierarchical regression model
 
 :::{post} Sept 23, 2021
-:tags: generalized linear model, hierarchical model, pymc3.Minibatch, pymc3.Model, pymc3.NUTS, pymc3.Normal, pymc3.Uniform, variational inference
+:tags: generalized linear model, hierarchical model, variational inference
 :category: intermediate
 :::
 
