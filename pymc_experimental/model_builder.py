@@ -287,7 +287,7 @@ class ModelBuilder(pm.Model):
         data_prediction: Dict[str, Union[np.ndarray, pd.DataFrame, pd.Series]] = None,
     ):
         """
-        Uses model to predict samples on unseen data.
+        Uses model to predict samples on unseen data.`
 
         Parameters
         ---------
