@@ -11,8 +11,8 @@ kernelspec:
   name: python3
 ---
 
-(notebook_name)=
-# Forecasting with Structural Timeseries
+(forecasting_with_ar)=
+# Forecasting with Structural AR Timeseries
 
 :::{post} Oct 20, 2022
 :tags: forecasting, autoregressive, bayesian structural timeseries
@@ -24,7 +24,7 @@ kernelspec:
 
 Bayesian structural timeseries models are an interesting way to learn about the structure inherent in any observed timeseries data but the ability project forward the implied predictive distribution gives us another view on forecasting problems. We can treat the learned characteristics of the timeseries data observed to-date as informative about the structure of the unrealised future state of the same measure. 
 
-In this notebook we'll see how to fit an predict a range of auto-regressive structural timeseries models and importantly how to predict future observations of the models. 
+In this notebook we'll see how to fit an predict a range of auto-regressive structural timeseries models and importantly how to predict future observations of the models.
 
 ```{code-cell} ipython3
 import aesara as at
@@ -44,7 +44,7 @@ az.style.use("arviz-darkgrid")
 
 ## Generate Fake Autoregressive Data
 
-First we will generate a simple autoregressive timeseries. We will then show how to specify a model to fit this data and then add a number of complexities to the data and show how they too can be captured with an autoregressive model and used to predict the shape of the future. 
+First we will generate a simple autoregressive timeseries. We will then show how to specify a model to fit this data and then add a number of complexities to the data and show how they too can be captured with an autoregressive model and used to predict the shape of the future.
 
 ```{code-cell} ipython3
 def simulate_ar(intercept, coef1, coef2, noise=0.3, *, warmup=10, steps=200):
@@ -72,7 +72,7 @@ ax.plot(ar1_data);
 
 ## Specifying the Model
 
-We'll walk through the model step by step and then generalise the pattern into a function that can be used to take increasingly complex structural combinations of components. 
+We'll walk through the model step by step and then generalise the pattern into a function that can be used to take increasingly complex structural combinations of components.
 
 ```{code-cell} ipython3
 ## Set up a dictionary for the specification of our priors
@@ -123,7 +123,7 @@ with AR:
 idata_ar
 ```
 
-Lets check the model structure with plate notation and then examine the convergence diagnostics. 
+Lets check the model structure with plate notation and then examine the convergence diagnostics.
 
 ```{code-cell} ipython3
 pm.model_to_graphviz(AR)
@@ -141,7 +141,7 @@ az.summary(idata_ar, var_names=["~ar"])
 
 ## Prediction Step
 
-The next step works much like generating posterior predictive observations for new data in a GLM model but with one additional complication that the AR process also expects "new" data. Or put another we have to tell the model how many prediction steps we want to impute with the model we have just fit. So for the shape handling purposes we have to feed our model the observed data and an appropriate range of null values. 
+The next step works much like generating posterior predictive observations for new data in a GLM model but with one additional complication that the AR process also expects "new" data. Or put another we have to tell the model how many prediction steps we want to impute with the model we have just fit. So for the shape handling purposes we have to feed our model the observed data and an appropriate range of null values.
 
 ```{code-cell} ipython3
 prediction_length = 250
@@ -165,7 +165,7 @@ idata_preds
 
 ## Inspecting model fit and forecast
 
-We can look at the standard posterior predictive fits but since our data is timeseries data we have to also look how draws from the posterior predictive distribution vary over time. 
+We can look at the standard posterior predictive fits but since our data is timeseries data we have to also look how draws from the posterior predictive distribution vary over time.
 
 ```{code-cell} ipython3
 def plot_fits(idata_ar, idata_preds):
@@ -319,7 +319,7 @@ def make_latent_AR_model(ar_data, priors, prediction_steps=250, full_sample=True
     return idata_ar, idata_preds, AR
 ```
 
-Next we'll cycle through a number of prior specifications to show how that impacts the prior predictive distribution. 
+Next we'll cycle through a number of prior specifications to show how that impacts the prior predictive distribution.
 
 ```{code-cell} ipython3
 priors_0 = {
@@ -368,7 +368,7 @@ for i, p in zip(range(3), [priors_0, priors_1, priors_2]):
 plt.suptitle("Prior Predictive Specifications", fontsize=20);
 ```
 
-We can see the manner in which the model struggles to capture the trend line. 
+We can see the manner in which the model struggles to capture the trend line.
 
 ```{code-cell} ipython3
 priors_0 = {
@@ -385,7 +385,7 @@ idata_no_trend, preds_no_trend, model = make_latent_AR_model(y_t, priors_0)
 plot_fits(idata_no_trend, preds_no_trend)
 ```
 
-Forecasting with this model is somewhat hopeless because while the model fit adjusts the variance of the process to include the observed data, it completely fails to capture the structural trend in the data. 
+Forecasting with this model is somewhat hopeless because while the model fit adjusts the variance of the process to include the observed data, it completely fails to capture the structural trend in the data.
 
 +++
 
@@ -461,7 +461,7 @@ def make_latent_AR_trend_model(
     return idata_ar, idata_preds, AR
 ```
 
-We will fit this model by specifying priors on the negative trend and the range of the standard deviation. 
+We will fit this model by specifying priors on the negative trend and the range of the standard deviation.
 
 ```{code-cell} ipython3
 priors_0 = {
@@ -481,7 +481,7 @@ idata_trend, preds_trend, model = make_latent_AR_trend_model(y_t, priors_0, full
 pm.model_to_graphviz(model)
 ```
 
-We can see the structure more clearly with the plate notation, and this additional structure has helped to appropriately fit the directional trend of the timeseries data. 
+We can see the structure more clearly with the plate notation, and this additional structure has helped to appropriately fit the directional trend of the timeseries data.
 
 ```{code-cell} ipython3
 plot_fits(idata_trend, preds_trend);
@@ -620,7 +620,7 @@ priors_0 = {
     "coef_1": {"mu": 0.2, "sigma": 0.03, "size": 2},
     "alpha": {"mu": -4, "sigma": 0.1},
     "beta": {"mu": -0.5, "sigma": 0.1},
-    "beta_fourier": {"mu": 0, "sigma": 0.5},
+    "beta_fourier": {"mu": 0, "sigma": 0.8},
     "sigma": 8,
     "init": {"mu": -4, "sigma": 0.1, "size": 1},
 }
@@ -641,7 +641,7 @@ az.summary(idata_t_s, var_names=["alpha", "beta", "coef_0", "coef_1", "beta_four
 plot_fits(idata_t_s, preds_t_s)
 ```
 
-We can see here how the the model fit again recovers the broad structure and trend of the data, but in addition we have captured the oscillation of the seasonal effect and projected that into the future. 
+We can see here how the the model fit again recovers the broad structure and trend of the data, but in addition we have captured the oscillation of the seasonal effect and projected that into the future.
 
 +++
 
