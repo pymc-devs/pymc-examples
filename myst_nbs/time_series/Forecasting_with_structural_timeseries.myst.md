@@ -641,7 +641,7 @@ az.summary(idata_t_s, var_names=["alpha", "beta", "coef_0", "coef_1", "beta_four
 plot_fits(idata_t_s, preds_t_s)
 ```
 
-We can see here how the the model fit again recovers the broad structure and trend of the data, but in addition we have captured the oscillation of the seasonal effect and projected that into the future.
+We can see here how the model fit again recovers the broad structure and trend of the data, but in addition we have captured the oscillation of the seasonal effect and projected that into the future.
 
 +++
 
