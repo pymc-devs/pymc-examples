@@ -243,7 +243,7 @@ def plot_fits(idata_ar, idata_preds):
 plot_fits(idata_ar, idata_preds)
 ```
 
-Here we can that although the model converged and ends up with a reasonable fit to the existing the data, and a **plausible  projection** for future values, we have set the prior specification very poorly in allowing an absurdly broad range of due to the kind of compoudning logic of the auto-regressive function. For this reason it's very important to be able to inspect and tailor your model with prior predictive checks. 
+Here we can see that although the model converged and ends up with a reasonable fit to the existing the data, and a **plausible  projection** for future values, we have set the prior specification very poorly in allowing an absurdly broad range of observations due to the kind of compoudning logic of the auto-regressive function. For this reason it's very important to be able to inspect and tailor your model with prior predictive checks. 
 
 ## Complicating the Picture
 
