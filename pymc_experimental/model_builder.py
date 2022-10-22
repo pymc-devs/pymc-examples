@@ -245,10 +245,49 @@ class ModelBuilder(pm.Model):
     def predict(
         self,
         data_prediction: Dict[str, Union[np.ndarray, pd.DataFrame, pd.Series]] = None,
-        point_estimate: bool = True,
     ):
         """
-        Uses model to predict on unseen data.
+        Uses model to predict on unseen data and return point prediction of all the samples
+
+        Parameters
+        ---------
+        data_prediction : Dictionary of string and either of numpy array, pandas dataframe or pandas Series
+            It is the data we need to make prediction on using the model.
+
+        Returns
+        -------
+        returns dictionary of sample's mean of posterior predict.
+
+        Examples
+        --------
+        >>> data, model_config, sampler_config = LinearModel.create_sample_input()
+        >>> model = LinearModel(model_config, sampler_config)
+        >>> idata = model.fit(data)
+        >>> x_pred = []
+        >>> prediction_data = pd.DataFrame({'input':x_pred})
+        # point predict
+        >>> pred_mean = model.predict(prediction_data)
+        """
+
+        if data_prediction is not None:  # set new input data
+            self._data_setter(data_prediction)
+
+        with self.model:  # sample with new input data
+            post_pred = pm.sample_posterior_predictive(self.idata)
+
+        # reshape output
+        post_pred = self._extract_samples(post_pred)
+        for key in post_pred:
+            post_pred[key] = post_pred[key].mean(axis=0)
+
+        return post_pred
+
+    def predict_posterior(
+        self,
+        data_prediction: Dict[str, Union[np.ndarray, pd.DataFrame, pd.Series]] = None,
+    ):
+        """
+        Uses model to predict samples on unseen data.
 
         Parameters
         ---------
@@ -268,10 +307,8 @@ class ModelBuilder(pm.Model):
         >>> idata = model.fit(data)
         >>> x_pred = []
         >>> prediction_data = pd.DataFrame({'input':x_pred})
-        # only point estimate
-        >>> pred_mean = model.predict(prediction_data)
         # samples
-        >>> pred_samples = model.predict(prediction_data, point_estimate=False)
+        >>> pred_mean = model.predict_posterior(prediction_data)
         """
 
         if data_prediction is not None:  # set new input data
@@ -282,9 +319,6 @@ class ModelBuilder(pm.Model):
 
         # reshape output
         post_pred = self._extract_samples(post_pred)
-        if point_estimate:  # average, if point-like estimate desired
-            for key in post_pred:
-                post_pred[key] = post_pred[key].mean(axis=0)
 
         return post_pred
 
