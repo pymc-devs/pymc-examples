@@ -22,7 +22,7 @@ kernelspec:
 
 +++
 
-Bayesian structural timeseries models are an interesting way to learn about the structure inherent in any observed timeseries data but the ability project forward the implied predictive distribution gives us another view on forecasting problems. We can treat the learned characteristics of the timeseries data observed to-date as informative about the structure of the unrealised future state of the same measure. 
+Bayesian structural timeseries models are an interesting way to learn about the structure inherent in any observed timeseries data. It also gives us the ability to project forward the implied predictive distribution granting us another view on forecasting problems. We can treat the learned characteristics of the timeseries data observed to-date as informative about the structure of the unrealised future state of the same measure. 
 
 In this notebook we'll see how to fit an predict a range of auto-regressive structural timeseries models and importantly how to predict future observations of the models.
 
@@ -66,7 +66,7 @@ def simulate_ar(intercept, coef1, coef2, noise=0.3, *, warmup=10, steps=200):
 ar1_data = simulate_ar(10, -0.9, 0)
 
 fig, ax = plt.subplots(figsize=(10, 3))
-ax.set_title("Genrated Autoregressive Timeseries", fontsize=15)
+ax.set_title("Generated Autoregressive Timeseries", fontsize=15)
 ax.plot(ar1_data);
 ```
 
@@ -141,7 +141,7 @@ az.summary(idata_ar, var_names=["~ar"])
 
 ## Prediction Step
 
-The next step works much like generating posterior predictive observations for new data in a GLM model but with one additional complication that the AR process also expects "new" data. Or put another we have to tell the model how many prediction steps we want to impute with the model we have just fit. So for the shape handling purposes we have to feed our model the observed data and an appropriate range of null values.
+The next step works much like generating posterior predictive observations for new data in a GLM model but with one additional complication that the AR process also expects "new" data. Or put another way, we have to tell the model how many prediction steps we want to impute with the model we have just fit. So for the shape handling purposes we have to feed our model the observed data and an appropriate range of null values.
 
 ```{code-cell} ipython3
 prediction_length = 250
@@ -385,7 +385,7 @@ idata_no_trend, preds_no_trend, model = make_latent_AR_model(y_t, priors_0)
 plot_fits(idata_no_trend, preds_no_trend)
 ```
 
-Forecasting with this model is somewhat hopeless because while the model fit adjusts the variance of the process to include the observed data, it completely fails to capture the structural trend in the data.
+Forecasting with this model is somewhat hopeless because, while the model fit adjusts the variance of the process to include the observed data, it completely fails to capture the structural trend in the data.
 
 +++
 
@@ -461,7 +461,7 @@ def make_latent_AR_trend_model(
     return idata_ar, idata_preds, AR
 ```
 
-We will fit this model by specifying priors on the negative trend and the range of the standard deviation.
+We will fit this model by specifying priors on the negative trend and the range of the standard deviation to respect the direction of the data drift.
 
 ```{code-cell} ipython3
 priors_0 = {
