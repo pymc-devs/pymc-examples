@@ -24,7 +24,7 @@ kernelspec:
 
 Bayesian structural timeseries models are an interesting way to learn about the structure inherent in any observed timeseries data. It also gives us the ability to project forward the implied predictive distribution granting us another view on forecasting problems. We can treat the learned characteristics of the timeseries data observed to-date as informative about the structure of the unrealised future state of the same measure. 
 
-In this notebook we'll see how to fit an predict a range of auto-regressive structural timeseries models and importantly how to predict future observations of the models.
+In this notebook we'll see how to fit a range of auto-regressive structural timeseries models and importantly how to predict future observations of the models.
 
 ```{code-cell} ipython3
 import aesara as at
