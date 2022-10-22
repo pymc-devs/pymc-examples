@@ -24,7 +24,7 @@ kernelspec:
 
 Bayesian structural timeseries models are an interesting way to learn about the structure inherent in any observed timeseries data. It also gives us the ability to project forward the implied predictive distribution granting us another view on forecasting problems. We can treat the learned characteristics of the timeseries data observed to-date as informative about the structure of the unrealised future state of the same measure. 
 
-In this notebook we'll see how to fit a range of auto-regressive structural timeseries models and importantly how to predict future observations of the models.
+In this notebook we'll see how to fit an predict a range of auto-regressive structural timeseries models and importantly how to predict future observations of the models.
 
 ```{code-cell} ipython3
 import aesara as at
@@ -78,7 +78,12 @@ We'll walk through the model step by step and then generalise the pattern into a
 ## Set up a dictionary for the specification of our priors
 ## We set up the dictionary to specify size of the AR coefficients in
 ## case we want to vary the AR lags.
-priors = {"coefs": {"mu": 0, "size": 2}, "sigma": 1, "init": {"mu": 8, "sigma": 1, "size": 1}}
+priors = {
+    "coef_0": {"mu": 10, "sigma": 0.1, "size": 2},
+    "coef_1": {"mu": 0.2, "sigma": 0.1, "size": 2},
+    "sigma": 8,
+    "init": {"mu": 9, "sigma": 0.1, "size": 1},
+}
 
 ## Initialise the model
 with pm.Model() as AR:
@@ -95,7 +100,8 @@ with AR:
     y = pm.MutableData("y", ar1_data, dims="obs_id")
 
     # The first coefficient will be the constant term but we need to set priors for each coefficient in the AR process
-    coefs = pm.Normal("coefs", priors["coefs"]["mu"], size=priors["coefs"]["size"])
+    coefs_0 = pm.Normal("coef_0", priors["coef_0"]["mu"], priors["coef_0"]["sigma"])
+    coef_1 = pm.Normal("coef_1", priors["coef_1"]["mu"], priors["coef_1"]["sigma"])
     sigma = pm.HalfNormal("sigma", priors["sigma"])
     # We need one init variable for each lag, hence size is variable too
     init = pm.Normal.dist(
@@ -104,11 +110,11 @@ with AR:
     # Steps of the AR model minus the lags required
     ar1 = pm.AR(
         "ar",
-        coefs,
+        at.tensor.as_tensor_variable([coefs_0, coef_1]),
         sigma=sigma,
         init_dist=init,
         constant=True,
-        steps=t.shape[0] - (priors["coefs"]["size"] - 1),
+        steps=t.shape[0] - (priors["coef_0"]["size"] - 1),
     )
 
     # The Likelihood
@@ -126,10 +132,6 @@ idata_ar
 Lets check the model structure with plate notation and then examine the convergence diagnostics.
 
 ```{code-cell} ipython3
-pm.model_to_graphviz(AR)
-```
-
-```{code-cell} ipython3
 az.plot_trace(idata_ar, figsize=(10, 6), kind="rank_vlines");
 ```
 
@@ -137,6 +139,14 @@ Next we'll check the summary estimates for the to AR coefficients and the sigma 
 
 ```{code-cell} ipython3
 az.summary(idata_ar, var_names=["~ar"])
+```
+
+```{code-cell} ipython3
+fig, ax = plt.subplots(figsize=(10, 4))
+idata_ar.posterior.ar.mean(["chain", "draw"]).plot(ax=ax, label="Posterior Mean AR level")
+ax.plot(ar1_data, "o", color="black", markersize=2, label="Observed Data")
+ax.legend()
+ax.set_title("Fitted AR process \n and observed data");
 ```
 
 ## Prediction Step
@@ -148,15 +158,30 @@ prediction_length = 250
 n = prediction_length - ar1_data.shape[0]
 obs = list(range(prediction_length))
 with AR:
-    # update values of predictors pass in nans for number of extra predicted steps
-    pm.set_data(
-        new_data={"t": obs, "y": np.concatenate([ar1_data, np.array([np.nan for i in range(n)])])},
-        coords={"obs_id": obs},
+    AR.add_coords({"obs_id_fut": range(ar1_data.shape[0], 250, 1)})
+    # condition on the learned values of the AR process
+    # initialise the future AR process precisely at the last observed value in the AR process
+    # using the special feature of the dirac delta distribution to be 0 everywhere else.
+    ar1_fut = pm.AR(
+        "ar1_fut",
+        init_dist=pm.DiracDelta.dist(ar1[..., -1]),
+        rho=at.tensor.as_tensor_variable([coefs_0, coef_1]),
+        sigma=sigma,
+        constant=True,
+        dims="obs_id_fut",
     )
+    yhat_fut = pm.Normal("yhat_fut", mu=ar1_fut, sigma=sigma, dims="obs_id_fut")
     # use the updated values and predict outcomes and probabilities:
     idata_preds = pm.sample_posterior_predictive(
-        idata_ar, var_names=["likelihood"], predictions=True, random_seed=100
+        idata_ar, var_names=["likelihood", "yhat_fut"], predictions=True, random_seed=100
     )
+```
+
+It's important to understand the conditional nature of the autoregressive forecast and the manner in which it depends on the observed data. 
+In our two-step model fit and predict process we have learned the posterior distribution for the parameters of an AR process, and then used those parameters to centre our forecasts.
+
+```{code-cell} ipython3
+pm.model_to_graphviz(AR)
 ```
 
 ```{code-cell} ipython3
@@ -174,7 +199,7 @@ def plot_fits(idata_ar, idata_preds):
     percs = np.linspace(51, 99, 100)
     colors = (percs - np.min(percs)) / (np.max(percs) - np.min(percs))
 
-    fig, axs = plt.subplots(1, 3, sharex=False, figsize=(20, 4))
+    fig, axs = plt.subplots(1, 3, sharex=False, figsize=(20, 6))
     axs = axs.flatten()
     for i, p in enumerate(percs[::-1]):
         upper = np.percentile(
@@ -201,7 +226,7 @@ def plot_fits(idata_ar, idata_preds):
             axis=1
         ),
         color="cyan",
-        label="Median Prediction",
+        label="Mean Prediction",
     )
 
     axs[0].scatter(x=idata_ar["constant_data"]["t"], y=idata_ar["constant_data"]["y"], color="k")
@@ -227,23 +252,42 @@ def plot_fits(idata_ar, idata_preds):
             alpha=0.1,
         )
 
+        upper = np.percentile(
+            az.extract_dataset(idata_preds, group="predictions", num_samples=100)["yhat_fut"],
+            p,
+            axis=1,
+        )
+        lower = np.percentile(
+            az.extract_dataset(idata_preds, group="predictions", num_samples=100)["yhat_fut"],
+            100 - p,
+            axis=1,
+        )
+        color_val = colors[i]
+        axs[2].fill_between(
+            x=np.linspace(200, 250, 50),
+            y1=upper.flatten(),
+            y2=lower.flatten(),
+            color=cmap(color_val),
+            alpha=0.1,
+        )
+
     axs[2].plot(
         az.extract_dataset(idata_preds, group="predictions", num_samples=100)["likelihood"].mean(
             axis=1
         ),
         color="cyan",
     )
+    idata_preds.predictions.yhat_fut.mean(["chain", "draw"]).plot(ax=axs[2], color="cyan")
     axs[2].scatter(x=idata_ar["constant_data"]["t"], y=idata_ar["constant_data"]["y"], color="k")
     axs[2].set_title("Posterior Predictions Plotted", fontsize=20)
-    # axs[2].set_ylim(0, 10)
-    # axs[0].set_ylim(0, 10)
+    axs[2].axvline(np.max(idata_ar["constant_data"]["t"]), color="black")
     az.plot_ppc(idata_ar, ax=axs[1])
 
 
 plot_fits(idata_ar, idata_preds)
 ```
 
-Here we can see that although the model converged and ends up with a reasonable fit to the existing the data, and a **plausible  projection** for future values, we have set the prior specification very poorly in allowing an absurdly broad range of observations due to the kind of compoudning logic of the auto-regressive function. For this reason it's very important to be able to inspect and tailor your model with prior predictive checks. 
+Here we can that although the model converged and ends up with a reasonable fit to the existing the data, and a **plausible  projection** for future values, we have set the prior specification very poorly in allowing an absurdly broad range of due to the kind of compoudning logic of the auto-regressive function. For this reason it's very important to be able to inspect and tailor your model with prior predictive checks. 
 
 ## Complicating the Picture
 
@@ -303,17 +347,22 @@ def make_latent_AR_model(ar_data, priors, prediction_steps=250, full_sample=True
     n = prediction_steps - ar_data.shape[0]
 
     with AR:
-        # update values of predictors pass in nans for number of predicted steps
-        pm.set_data(
-            new_data={
-                "t": list(range(prediction_steps)),
-                "y": np.concatenate([ar_data, np.array([np.nan for i in range(n)])]),
-            },
-            coords={"obs_id": list(range(prediction_steps))},
+        AR.add_coords({"obs_id_fut": range(ar1_data.shape[0], 250, 1)})
+        # condition on the learned values of the AR process
+        # initialise the future AR process precisely at the last observed value in the AR process
+        # using the special feature of the dirac delta distribution to be 0 everywhere else.
+        ar1_fut = pm.AR(
+            "ar1_fut",
+            init_dist=pm.DiracDelta.dist(ar1[..., -1] + coefs_0),
+            rho=at.tensor.as_tensor_variable([coefs_0, coef_1]),
+            sigma=sigma,
+            constant=True,
+            dims="obs_id_fut",
         )
+        yhat_fut = pm.Normal("yhat_fut", mu=ar1_fut, sigma=sigma, dims="obs_id_fut")
         # use the updated values and predict outcomes and probabilities:
         idata_preds = pm.sample_posterior_predictive(
-            idata_ar, var_names=["likelihood"], predictions=True, random_seed=100
+            idata_ar, var_names=["likelihood", "yhat_fut"], predictions=True, random_seed=100
         )
 
     return idata_ar, idata_preds, AR
@@ -385,7 +434,7 @@ idata_no_trend, preds_no_trend, model = make_latent_AR_model(y_t, priors_0)
 plot_fits(idata_no_trend, preds_no_trend)
 ```
 
-Forecasting with this model is somewhat hopeless because, while the model fit adjusts the variance of the process to include the observed data, it completely fails to capture the structural trend in the data.
+Forecasting with this model is somewhat hopeless because, while the model fit adjusts well with observed data, but it completely fails to capture the structural trend in the data. So without some structural constraint when we seek to make predictions with this simple AR model, it reverts to the mean level forecast very quickly.
 
 +++
 
@@ -445,17 +494,26 @@ def make_latent_AR_trend_model(
     n = prediction_steps - ar_data.shape[0]
 
     with AR:
-        # update values of predictors pass in nans for number of predicted steps
-        pm.set_data(
-            new_data={
-                "t": list(range(prediction_steps)),
-                "y": np.concatenate([ar_data, np.array([np.nan for i in range(n)])]),
-            },
-            coords={"obs_id": list(range(prediction_steps))},
+        AR.add_coords({"obs_id_fut": range(ar1_data.shape[0], prediction_steps, 1)})
+        t_fut = pm.MutableData("t_fut", list(range(ar1_data.shape[0], prediction_steps, 1)))
+        # condition on the learned values of the AR process
+        # initialise the future AR process precisely at the last observed value in the AR process
+        # using the special feature of the dirac delta distribution to be 0 everywhere else.
+        ar1_fut = pm.AR(
+            "ar1_fut",
+            init_dist=pm.DiracDelta.dist(ar1[..., -1]),
+            rho=at.tensor.as_tensor_variable([coef_0, coef_1]),
+            sigma=sigma,
+            constant=True,
+            dims="obs_id_fut",
         )
+        trend = pm.Deterministic("trend_fut", alpha + beta * t_fut)
+        mu = ar1_fut + trend
+
+        yhat_fut = pm.Normal("yhat_fut", mu=mu, sigma=sigma, dims="obs_id_fut")
         # use the updated values and predict outcomes and probabilities:
         idata_preds = pm.sample_posterior_predictive(
-            idata_ar, var_names=["likelihood"], predictions=True, random_seed=100
+            idata_ar, var_names=["likelihood", "yhat_fut"], predictions=True, random_seed=100
         )
 
     return idata_ar, idata_preds, AR
@@ -515,7 +573,9 @@ ax.plot(y_t_s)
 ax.set_title("AR + Trend + Seasonality");
 ```
 
-The key to fitting this model is to understand that we're now passing in synthetic fourier features and that the model now expects a linear combination of those synthetic features even in the prediction step. As such we need to be able to supply those features even out into the future. This fact remains key for any other type of predictive feature we might want to add e.g. day of the week, holiday flag or any other. 
+The key to fitting this model is to understand that we're now passing in synthetic fourier features to help account for seasonality effects. This works because (roughly speaking) we're trying to fit a complex oscillating phenomena using a weighted combination of sine and cosine waves. So we add these sine waves and consine waves like we would add any other feature variables in a regression model. 
+
+However, since we're using this weighted sum to fit the observed data, the model now expects a linear combination of those synthetic features **also** in the prediction step. As such we need to be able to supply those features even out into the future. This fact remains key for any other type of predictive feature we might want to add e.g. day of the week, holiday flag or any other. If a feature is required to fit the observed data the feature must be available in the prediction step too. 
 
 ### Specifying the Trend + Seasonal Model
 
@@ -586,7 +646,7 @@ def make_latent_AR_trend_seasonal_model(
 
     n = prediction_steps - ar_data.shape[0]
     n_order = 10
-    periods = np.arange(prediction_steps) / 7
+    periods = np.arange(n) / 7
 
     fourier_features_new = pd.DataFrame(
         {
@@ -597,18 +657,28 @@ def make_latent_AR_trend_seasonal_model(
     )
 
     with AR:
-        # update values of predictors pass in nans for number of predicted steps
-        pm.set_data(
-            new_data={
-                "t": list(range(prediction_steps)),
-                "fourier_terms": fourier_features_new.to_numpy().T,
-                "y": np.concatenate([ar_data, np.array([np.nan for i in range(n)])]),
-            },
-            coords={"obs_id": list(range(prediction_steps))},
+        AR.add_coords({"obs_id_fut": range(ar1_data.shape[0], prediction_steps, 1)})
+        t_fut = pm.MutableData("t_fut", list(range(ar1_data.shape[0], prediction_steps, 1)))
+        ff_fut = pm.MutableData("ff_fut", fourier_features_new.to_numpy().T)
+        # condition on the learned values of the AR process
+        # initialise the future AR process precisely at the last observed value in the AR process
+        # using the special feature of the dirac delta distribution to be 0 probability everywhere else.
+        ar1_fut = pm.AR(
+            "ar1_fut",
+            init_dist=pm.DiracDelta.dist(ar1[..., -1]),
+            rho=at.tensor.as_tensor_variable([coef_0, coef_1]),
+            sigma=sigma,
+            constant=True,
+            dims="obs_id_fut",
         )
+        trend = pm.Deterministic("trend_fut", alpha + beta * t_fut)
+        seasonality = pm.Deterministic("seasonality_fut", pm.math.dot(beta_fourier, ff_fut))
+        mu = ar1_fut + trend + seasonality
+
+        yhat_fut = pm.Normal("yhat_fut", mu=mu, sigma=sigma, dims="obs_id_fut")
         # use the updated values and predict outcomes and probabilities:
         idata_preds = pm.sample_posterior_predictive(
-            idata_ar, var_names=["likelihood"], predictions=True, random_seed=100
+            idata_ar, var_names=["likelihood", "yhat_fut"], predictions=True, random_seed=100
         )
 
     return idata_ar, idata_preds, AR
@@ -641,7 +711,13 @@ az.summary(idata_t_s, var_names=["alpha", "beta", "coef_0", "coef_1", "beta_four
 plot_fits(idata_t_s, preds_t_s)
 ```
 
-We can see here how the model fit again recovers the broad structure and trend of the data, but in addition we have captured the oscillation of the seasonal effect and projected that into the future.
+We can see here how the the model fit again recovers the broad structure and trend of the data, but in addition we have captured the oscillation of the seasonal effect and projected that into the future.
+
+# Closing Remarks
+
+The strength of Bayesian model is largely the flexibility it offers for each modelling task. Hopefully this notebook gives a flavour of the variety of combinations worth considering when building a model to suit your use-case. We've seen how the Bayesian structural timeseries approach to forecasting can reveal the structure underlying our data, and be used to project that structure forward in time. We've seen how to encode different assumptions in the data generating model and calibrate our models against the observed data with posterior predictive checks. 
+
+Notably in the case of Auto-regressive modelling we've explicitly relied on the learned posterior distribution of the structural components. In this aspect we think the above is a kind of pure (neatly contained) example of Bayesian learning.
 
 +++
 
