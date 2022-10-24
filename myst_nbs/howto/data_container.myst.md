@@ -15,7 +15,7 @@ kernelspec:
 # Using shared variables (`Data` container adaptation)
 
 :::{post} Dec 16, 2021
-:tags: posterior predictive, predictions, pymc3.Bernoulli, pymc3.Data, pymc3.Deterministic, pymc3.HalfNormal, pymc3.Model, pymc3.Normal, shared data
+:tags: posterior predictive, shared data 
 :category: beginner
 :author: Juan Martin Loyola, Kavya Jaiswal, Oriol Abril
 :::

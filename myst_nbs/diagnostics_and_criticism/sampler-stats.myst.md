@@ -21,7 +21,7 @@ sampler is doing. For this purpose some samplers export
 statistics for each generated sample.
 
 :::{post} May 31, 2022
-:tags: diagnostics
+:tags: diagnostics 
 :category: beginner
 :author: Meenal Jhajharia, Christian Luhmann
 :::

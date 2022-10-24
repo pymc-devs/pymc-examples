@@ -137,10 +137,13 @@ html_theme_options = {
         },
     ],
     "search_bar_text": "Search...",
-    "navbar_end": ["search-field.html", "navbar-icon-links.html"],
+    "navbar_end": ["navbar-icon-links.html"],
     "page_sidebar_items": ["postcard", "page-toc", "edit-this-page", "donate"],
     "google_analytics_id": "G-6KPRBTE6WV",
-    "logo_link": "https://www.pymc.io",
+    "header_links_before_dropdown": 6,
+    "logo": {
+        "link": "https://www.pymc.io",
+    },
 }
 version = os.environ.get("READTHEDOCS_VERSION", "")
 version = version if "." in version else "main"
@@ -154,6 +157,7 @@ html_context = {
     "sandbox_repo": f"pymc-devs/pymc-sandbox/{version}",
     "doi_url": f"https://doi.org/{doi_code}",
     "doi_code": doi_code,
+    "default_mode": "light",
 }
 
 
@@ -220,6 +224,7 @@ rediraffe_redirects = {
 remove_from_toctrees = [
     "BART/*",
     "case_studies/*",
+    "causal_inference/*",
     "diagnostics_and_criticism/*",
     "gaussian_processes/*",
     "generalized_linear_models/*",

@@ -15,7 +15,7 @@ kernelspec:
 # Binomial regression
 
 :::{post} February, 2022
-:tags: binomial regression, generalized linear model, pymc.Binomial, pymc.ConstantData, pymc.Deterministic, pymc.Model, pymc.Normal, pymc3.Binomial, pymc3.ConstantData, pymc3.Deterministic, pymc3.Model, pymc3.Normal
+:tags: binomial regression, generalized linear model, 
 :category: beginner
 :author: Benjamin T. Vincent
 :::
