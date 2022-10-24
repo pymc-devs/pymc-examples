@@ -61,7 +61,7 @@ An object of mass $m$ is brought to some height and allowed to fall freely until
 
 $$ y' = mg - \gamma y $$
 
-The force the object experiences in the downwards direction is $mg$, while the force the object experiences in the opposite direction (due to air resistance) is proportional to how fast the object is presently moving. Let's assume the object starts from rest (that is, that the object's inital velocity is 0).  This may or may not be the case.  To showcase how to do inference on intial conditions, I will first assume the object starts from rest, and then relax that assumption later.
+The force the object experiences in the downwards direction is $mg$, while the force the object experiences in the opposite direction (due to air resistance) is proportional to how fast the object is presently moving. Let's assume the object starts from rest (that is, that the object's initial velocity is 0).  This may or may not be the case.  To showcase how to do inference on initial conditions, I will first assume the object starts from rest, and then relax that assumption later.
 
 Data on this object's speed as a function of time is shown below.  The data may be noisy because of our measurement tools, or because the object is an irregular shape, thus leading to times during freefall when the object is more/less aerodynamic.  Let's use this data to estimate the proportionality constant for air resistance.
 
@@ -99,7 +99,7 @@ To specify and ordinary differential equation with pyMC3, use the `DifferentialE
 
 The argument `func` needs to be written as if `y` and `p` are vectors.  So even when your model has one state and/or one parameter, you should explicitly write `y[0]` and/or `p[0]`.
 
-Once the model is specified, we can use it in our pyMC3 model by passing parameters and inital conditions.  `DifferentialEquation` returns a flattened solution, so you will need to reshape it to the same shape as your observed data in the model.
+Once the model is specified, we can use it in our pyMC3 model by passing parameters and initial conditions.  `DifferentialEquation` returns a flattened solution, so you will need to reshape it to the same shape as your observed data in the model.
 
 Shown below is a model to estimate $\gamma$ in the ODE above.
 
@@ -107,7 +107,7 @@ Shown below is a model to estimate $\gamma$ in the ODE above.
 ode_model = DifferentialEquation(func=freefall, times=times, n_states=1, n_theta=2, t0=0)
 
 with pm.Model() as model:
-    # Specify prior distributions for soem of our model parameters
+    # Specify prior distributions for some of our model parameters
     sigma = pm.HalfCauchy("sigma", 1)
     gamma = pm.Lognormal("gamma", 0, 1)
 
@@ -157,9 +157,9 @@ az.plot_posterior(data);
 
 The uncertainty in the acceleration due to gravity has increased our uncertainty in the proportionality constant.
 
-Finally, we can do inference on the initial condition.  If this object was brought to its initial height by an airplane, then turbulent air might have made the airplane move up or down, thereby changing the inital velocity of the object. 
+Finally, we can do inference on the initial condition.  If this object was brought to its initial height by an airplane, then turbulent air might have made the airplane move up or down, thereby changing the initial velocity of the object. 
 
-Doing inference on the initial condition is as easy as specifying a prior for the inital condition, and then passing the inital condition to `ode_model`.
+Doing inference on the initial condition is as easy as specifying a prior for the initial condition, and then passing the initial condition to `ode_model`.
 
 ```{code-cell} ipython3
 with pm.Model() as model3:
@@ -192,7 +192,7 @@ Note that by explicitly modelling the initial condition, we obtain a much better
 
 The example of an object in free fall might not be the most appropriate since that differential equation can be solved exactly. Thus, `DifferentialEquation` is not needed to solve that particular problem.  There are, however, many examples of differential equations which cannot be solved exactly.  Inference for these models is where `DifferentialEquation` truly shines.
 
-Consider the SIR model of infection.  This model describes the temporal dynamics of a disease spreading through a homogenously mixed closed population.  Members of the population are placed into one of three cateories: Susceptible, Infective, or Recovered.  The differential equations are...
+Consider the SIR model of infection.  This model describes the temporal dynamics of a disease spreading through a homogeneously mixed closed population.  Members of the population are placed into one of three cateories: Susceptible, Infective, or Recovered.  The differential equations are...
 
 
 $$ \dfrac{dS}{dt} = - \beta SI \quad S(0) = S_0 $$
@@ -217,7 +217,7 @@ $$ \dfrac{dI}{d\tau} = \dfrac{dt}{d\tau} \dfrac{dI}{dt} = \dfrac{1}{\lambda}\dfr
 
 The quantity $\beta/\lambda$ has a very special name.  We call it *The R-Nought* ($\mathcal{R}_0$).  It's interpretation is that if we were to drop a single infected person into a population of suceptible individuals, we would expect $\mathcal{R}_0$ new infections.  If $\mathcal{R}_0>1$, then an epidemic will take place.  If $\mathcal{R}_0\leq1$ then there will be no epidemic (note, we can show this more rigoursly by studying eigenvalues of the system's Jacobain.  For more, see [2]).
 
-This non-dimensionalization is important because it gives us information about the parameters.  If we see an epidemic has occured, then we know that $\mathcal{R}_0>1$ which means $\beta> \lambda$. Furthermore, it might be hard to place a prior on $\beta$ because of beta's interpretation.  But since $1/\lambda$ has a simple interpretation, and since $\mathcal{R}_0>1$, we can obtain $\beta$ by computing $\mathcal{R}_0\lambda$. 
+This non-dimensionalization is important because it gives us information about the parameters.  If we see an epidemic has occurred, then we know that $\mathcal{R}_0>1$ which means $\beta> \lambda$. Furthermore, it might be hard to place a prior on $\beta$ because of beta's interpretation.  But since $1/\lambda$ has a simple interpretation, and since $\mathcal{R}_0>1$, we can obtain $\beta$ by computing $\mathcal{R}_0\lambda$. 
 
 Side note: I'm going to choose a likelihood which certainly violates these constraints, just for exposition on how to use `DifferentialEquation`.  In reality, a likelihood which respects these constraints should be chosen.
 
@@ -255,7 +255,7 @@ sir_model = DifferentialEquation(
 with pm.Model() as model4:
     sigma = pm.HalfCauchy("sigma", 1, shape=2)
 
-    # R0 is bounded below by 1 because we see an epidemic has occured
+    # R0 is bounded below by 1 because we see an epidemic has occurred
     R0 = pm.Bound(pm.Normal, lower=1)("R0", 2, 3)
     lam = pm.Lognormal("lambda", pm.math.log(2), 2)
     beta = pm.Deterministic("beta", lam * R0)
@@ -280,7 +280,7 @@ As can be seen from the posterior plots, $\beta$ is well estimated by leveraging
 
 ODEs are a really good model for continuous temporal evolution.  With the addition of `DifferentialEquation` to PyMC3, we can now use bayesian methods to estimate the parameters of ODEs.
 
-`DifferentialEquation` is not as fast as compared to Stan's `integrate_ode_bdf`.  However, the ease of use of `DifferentialEquation` will allow practioners to get up and running much quicker with Bayesian estimation for ODEs than Stan (which has a steep learning curve).
+`DifferentialEquation` is not as fast as compared to Stan's `integrate_ode_bdf`.  However, the ease of use of `DifferentialEquation` will allow practitioners to get up and running much quicker with Bayesian estimation for ODEs than Stan (which has a steep learning curve).
 
 +++
 

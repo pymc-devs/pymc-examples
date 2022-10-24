@@ -139,7 +139,7 @@ That's much better! We've reached convergence after less than 5000 iterations.
 
 +++
 
-Another usefull callback allows users to track parameters. It allows for the tracking of arbitrary statistics during inference, though it can be memory-hungry. Using the `fit` function, we do not have direct access to the approximation before inference. However, tracking parameters requires access to the approximation. We can get around this constraint by using the object-oriented (OO) API for inference.
+Another useful callback allows users to track parameters. It allows for the tracking of arbitrary statistics during inference, though it can be memory-hungry. Using the `fit` function, we do not have direct access to the approximation before inference. However, tracking parameters requires access to the approximation. We can get around this constraint by using the object-oriented (OO) API for inference.
 
 ```{code-cell} ipython3
 with model:
@@ -280,7 +280,7 @@ sns.kdeplot(np.array([a_sample.eval() for _ in range(2000)]))
 plt.title("$x^2$ distribution");
 ```
 
-There is a more convinient way to get lots of samples at once: `sample_node`
+There is a more convenient way to get lots of samples at once: `sample_node`
 
 ```{code-cell} ipython3
 a_samples = svgd_approx.sample_node(a, size=1000)
@@ -459,7 +459,7 @@ So, `Tracker` allows us to monitor our approximation and choose good training sc
 ## Minibatches
 When dealing with large datasets, using minibatch training can drastically speed up and improve approximation performance. Large datasets impose a hefty cost on the computation of gradients. 
 
-There is a nice API in pymc3 to handle these cases, which is avaliable through the `pm.Minibatch` class. The minibatch is just a highly specialized Theano tensor:
+There is a nice API in pymc3 to handle these cases, which is available through the `pm.Minibatch` class. The minibatch is just a highly specialized Theano tensor:
 
 ```{code-cell} ipython3
 issubclass(pm.Minibatch, theano.tensor.TensorVariable)

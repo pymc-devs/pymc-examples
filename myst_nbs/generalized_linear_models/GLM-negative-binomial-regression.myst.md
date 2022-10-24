@@ -6,27 +6,28 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3.9.12 ('pymc-dev-py39')
   language: python
   name: python3
 ---
 
+(GLM-negative-binomial-regression)=
 # GLM: Negative Binomial Regression
 
-```{code-cell} ipython3
-import re
+:::{post} June, 2022
+:tags: negative binomial regression, generalized linear model, 
+:category: beginner
+:author: Ian Ozsvald, Abhipsha Das, Benjamin Vincent
+:::
 
+```{code-cell} ipython3
 import arviz as az
-import bambi as bmb
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
 
 from scipy import stats
-
-print(f"Running on PyMC3 v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -37,7 +38,7 @@ rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
 
-This notebook demos negative binomial regression using the `bambi` library. It closely follows the GLM Poisson regression example by [Jonathan Sedar](https://github.com/jonsedar) (which is in turn inspired by [a project by Ian Osvald](http://ianozsvald.com/2016/05/07/statistically-solving-sneezes-and-sniffles-a-work-in-progress-report-at-pydatalondon-2016/)) except the data here is negative binomially distributed instead of Poisson distributed.
+This notebook closely follows the GLM Poisson regression example by [Jonathan Sedar](https://github.com/jonsedar) (which is in turn inspired by [a project by Ian Osvald](http://ianozsvald.com/2016/05/07/statistically-solving-sneezes-and-sniffles-a-work-in-progress-report-at-pydatalondon-2016/)) except the data here is negative binomially distributed instead of Poisson distributed.
 
 Negative binomial regression is used to model count data for which the variance is higher than the mean. The [negative binomial distribution](https://en.wikipedia.org/wiki/Negative_binomial_distribution) can be thought of as a Poisson distribution whose rate parameter is gamma distributed, so that rate parameter can be adjusted to account for the increased variance.
 
@@ -148,6 +149,7 @@ df = pd.DataFrame(
         ),
     }
 )
+df
 ```
 
 ```{code-cell} ipython3
@@ -177,21 +179,37 @@ ax.set_xticklabels(labels[::5]);
 ### Create GLM Model
 
 ```{code-cell} ipython3
-fml = "nsneeze ~ alcohol + nomeds + alcohol:nomeds"
+COORDS = {"regressor": ["nomeds", "alcohol", "nomeds:alcohol"], "obs_idx": df.index}
 
-model = bmb.Model(fml, df, family="negativebinomial")
-trace = model.fit(draws=1000, tune=1000, cores=2)
+with pm.Model(coords=COORDS) as m_sneeze_inter:
+    a = pm.Normal("intercept", mu=0, sigma=5)
+    b = pm.Normal("slopes", mu=0, sigma=1, dims="regressor")
+    alpha = pm.Exponential("alpha", 0.5)
+
+    M = pm.ConstantData("nomeds", df.nomeds.to_numpy(), dims="obs_idx")
+    A = pm.ConstantData("alcohol", df.alcohol.to_numpy(), dims="obs_idx")
+    S = pm.ConstantData("nsneeze", df.nsneeze.to_numpy(), dims="obs_idx")
+
+    λ = pm.math.exp(a + b[0] * M + b[1] * A + b[2] * M * A)
+
+    y = pm.NegativeBinomial("y", mu=λ, alpha=alpha, observed=S, dims="obs_idx")
+
+    idata = pm.sample()
 ```
 
 ### View Results
 
 ```{code-cell} ipython3
-az.plot_trace(trace);
+az.plot_trace(idata, compact=False);
 ```
 
 ```{code-cell} ipython3
 # Transform coefficients to recover parameter values
-az.summary(np.exp(trace.posterior), kind="stats", var_names="~nsneeze_alpha")
+az.summary(np.exp(idata.posterior), kind="stats", var_names=["intercept", "slopes"])
+```
+
+```{code-cell} ipython3
+az.summary(idata.posterior, kind="stats", var_names="alpha")
 ```
 
 The mean values are close to the values we specified when generating the data:
@@ -206,7 +224,17 @@ Finally, the mean of `nsneeze_alpha` is also quite close to its actual value of 
 
 See also, [`bambi's` negative binomial example](https://bambinos.github.io/bambi/master/notebooks/negative_binomial.html) for further reference.
 
++++
+
+## Authors
+- Created by [Ian Ozsvald](https://github.com/ianozsvald)
+- Updated by [Abhipsha Das](https://github.com/chiral-carbon) in August 2021
+- Updated by [Benjamin Vincent](https://github.com/drbenvincent) to PyMC v4 in June 2022
+
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
 ```
+
+:::{include} ../page_footer.md
+:::
