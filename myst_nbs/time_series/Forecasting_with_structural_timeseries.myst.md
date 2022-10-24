@@ -24,7 +24,7 @@ kernelspec:
 
 Bayesian structural timeseries models are an interesting way to learn about the structure inherent in any observed timeseries data. It also gives us the ability to project forward the implied predictive distribution granting us another view on forecasting problems. We can treat the learned characteristics of the timeseries data observed to-date as informative about the structure of the unrealised future state of the same measure. 
 
-In this notebook we'll see how to fit an predict a range of auto-regressive structural timeseries models and importantly how to predict future observations of the models.
+In this notebook we'll see how to fit and predict a range of auto-regressive structural timeseries models and, importantly, how to predict future observations of the models.
 
 ```{code-cell} ipython3
 import aesara as at
@@ -44,7 +44,7 @@ az.style.use("arviz-darkgrid")
 
 ## Generate Fake Autoregressive Data
 
-First we will generate a simple autoregressive timeseries. We will then show how to specify a model to fit this data and then add a number of complexities to the data and show how they too can be captured with an autoregressive model and used to predict the shape of the future.
+First we will generate a simple autoregressive timeseries. We will show how to specify a model to fit this data and then add a number of complexities to the data and show how they too can be captured with an autoregressive model and used to predict the shape of the future.
 
 ```{code-cell} ipython3
 def simulate_ar(intercept, coef1, coef2, noise=0.3, *, warmup=10, steps=200):
@@ -289,7 +289,7 @@ def plot_fits(idata_ar, idata_preds):
 plot_fits(idata_ar, idata_preds)
 ```
 
-Here we can that although the model converged and ends up with a reasonable fit to the existing the data, and a **plausible  projection** for future values, we have set the prior specification very poorly in allowing an absurdly broad range of due to the kind of compoudning logic of the auto-regressive function. For this reason it's very important to be able to inspect and tailor your model with prior predictive checks. 
+Here we can see that although the model converged and ends up with a reasonable fit to the existing the data, and a **plausible  projection** for future values. However, we have set the prior specification very poorly in allowing an absurdly broad range of values due to the kind of compoudning logic of the auto-regressive function. For this reason it's very important to be able to inspect and tailor your model with prior predictive checks. 
 
 ## Complicating the Picture
 
@@ -352,7 +352,7 @@ def make_latent_AR_model(ar_data, priors, prediction_steps=250, full_sample=True
         AR.add_coords({"obs_id_fut": range(ar1_data.shape[0], 250, 1)})
         # condition on the learned values of the AR process
         # initialise the future AR process precisely at the last observed value in the AR process
-        # using the special feature of the dirac delta distribution to be 0 everywhere else.
+        # using the special feature of the dirac delta distribution to be 0 probability everywhere else.
         ar1_fut = pm.AR(
             "ar1_fut",
             init_dist=pm.DiracDelta.dist(ar1[..., -1] + coefs_0),
@@ -370,7 +370,7 @@ def make_latent_AR_model(ar_data, priors, prediction_steps=250, full_sample=True
     return idata_ar, idata_preds, AR
 ```
 
-Next we'll cycle through a number of prior specifications to show how that impacts the prior predictive distribution.
+Next we'll cycle through a number of prior specifications to show how that impacts the prior predictive distribution i.e. the implied distribution of our outcome if we were to forward sample from the model specified by our priors.
 
 ```{code-cell} ipython3
 priors_0 = {
@@ -419,7 +419,7 @@ for i, p in zip(range(3), [priors_0, priors_1, priors_2]):
 plt.suptitle("Prior Predictive Specifications", fontsize=20);
 ```
 
-We can see the manner in which the model struggles to capture the trend line.
+We can see the manner in which the model struggles to capture the trend line. Increasing the variablity of the model will never capture the directional pattern we know to be in the data.
 
 ```{code-cell} ipython3
 priors_0 = {
@@ -442,7 +442,7 @@ Forecasting with this model is somewhat hopeless because, while the model fit ad
 
 ### Specifying a Trend Model
 
-We will define a model to account for the trend in our data and combine this trend in a additive model with the autoregressive components. Again the model is much as before, but now we add additional latent features.
+We will define a model to account for the trend in our data and combine this trend in a additive model with the autoregressive components. Again the model is much as before, but now we add additional latent features. These are to be combined in a simple additive combination but we can be more creative here if it would suit our model.
 
 ```{code-cell} ipython3
 def make_latent_AR_trend_model(
@@ -500,7 +500,7 @@ def make_latent_AR_trend_model(
         t_fut = pm.MutableData("t_fut", list(range(ar1_data.shape[0], prediction_steps, 1)))
         # condition on the learned values of the AR process
         # initialise the future AR process precisely at the last observed value in the AR process
-        # using the special feature of the dirac delta distribution to be 0 everywhere else.
+        # using the special feature of the dirac delta distribution to be 0 probability everywhere else.
         ar1_fut = pm.AR(
             "ar1_fut",
             init_dist=pm.DiracDelta.dist(ar1[..., -1]),
