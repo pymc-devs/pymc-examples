@@ -27,7 +27,6 @@ Bayesian structural timeseries models are an interesting way to learn about the 
 In this notebook we'll see how to fit and predict a range of auto-regressive structural timeseries models and, importantly, how to predict future observations of the models.
 
 ```{code-cell} ipython3
-import aesara as at
 import arviz as az
 import numpy as np
 import pandas as pd
@@ -79,8 +78,7 @@ We'll walk through the model step by step and then generalise the pattern into a
 ## We set up the dictionary to specify size of the AR coefficients in
 ## case we want to vary the AR lags.
 priors = {
-    "coef_0": {"mu": 10, "sigma": 0.1, "size": 2},
-    "coef_1": {"mu": 0.2, "sigma": 0.1, "size": 2},
+    "coefs": {"mu": [10, 0.2], "sigma": [0.1, 0.1], "size": 2},
     "sigma": 8,
     "init": {"mu": 9, "sigma": 0.1, "size": 1},
 }
@@ -100,8 +98,7 @@ with AR:
     y = pm.MutableData("y", ar1_data, dims="obs_id")
 
     # The first coefficient will be the constant term but we need to set priors for each coefficient in the AR process
-    coefs_0 = pm.Normal("coef_0", priors["coef_0"]["mu"], priors["coef_0"]["sigma"])
-    coef_1 = pm.Normal("coef_1", priors["coef_1"]["mu"], priors["coef_1"]["sigma"])
+    coefs = pm.Normal("coefs", priors["coefs"]["mu"], priors["coefs"]["sigma"])
     sigma = pm.HalfNormal("sigma", priors["sigma"])
     # We need one init variable for each lag, hence size is variable too
     init = pm.Normal.dist(
@@ -110,11 +107,11 @@ with AR:
     # Steps of the AR model minus the lags required
     ar1 = pm.AR(
         "ar",
-        at.tensor.as_tensor_variable([coefs_0, coef_1]),
+        coefs,
         sigma=sigma,
         init_dist=init,
         constant=True,
-        steps=t.shape[0] - (priors["coef_0"]["size"] - 1),
+        steps=t.shape[0] - (priors["coefs"]["size"] - 1),
     )
 
     # The Likelihood
@@ -167,7 +164,7 @@ with AR:
     ar1_fut = pm.AR(
         "ar1_fut",
         init_dist=pm.DiracDelta.dist(ar1[..., -1]),
-        rho=at.tensor.as_tensor_variable([coefs_0, coef_1]),
+        rho=coefs,
         sigma=sigma,
         constant=True,
         dims="obs_id_fut",
@@ -200,9 +197,10 @@ def plot_fits(idata_ar, idata_preds):
     cmap = plt.get_cmap(palette)
     percs = np.linspace(51, 99, 100)
     colors = (percs - np.min(percs)) / (np.max(percs) - np.min(percs))
-
-    fig, axs = plt.subplots(1, 3, sharex=False, figsize=(20, 6))
-    axs = axs.flatten()
+    mosaic = """AABB
+                CCCC"""
+    fig, axs = plt.subplot_mosaic(mosaic, sharex=False, figsize=(20, 10))
+    axs = [axs[k] for k in axs.keys()]
     for i, p in enumerate(percs[::-1]):
         upper = np.percentile(
             az.extract_dataset(idata_ar, group="prior_predictive", num_samples=100)["likelihood"],
@@ -228,11 +226,17 @@ def plot_fits(idata_ar, idata_preds):
             axis=1
         ),
         color="cyan",
-        label="Mean Prediction",
+        label="Prior Predicted Mean Realisation",
     )
 
-    axs[0].scatter(x=idata_ar["constant_data"]["t"], y=idata_ar["constant_data"]["y"], color="k")
+    axs[0].scatter(
+        x=idata_ar["constant_data"]["t"],
+        y=idata_ar["constant_data"]["y"],
+        color="k",
+        label="Observed Data points",
+    )
     axs[0].set_title("Prior Predictive Fit", fontsize=20)
+    axs[0].legend()
 
     for i, p in enumerate(percs[::-1]):
         upper = np.percentile(
@@ -279,17 +283,29 @@ def plot_fits(idata_ar, idata_preds):
         ),
         color="cyan",
     )
-    idata_preds.predictions.yhat_fut.mean(["chain", "draw"]).plot(ax=axs[2], color="cyan")
-    axs[2].scatter(x=idata_ar["constant_data"]["t"], y=idata_ar["constant_data"]["y"], color="k")
+    idata_preds.predictions.yhat_fut.mean(["chain", "draw"]).plot(
+        ax=axs[2], color="cyan", label="Predicted Mean Realisation"
+    )
+    axs[2].scatter(
+        x=idata_ar["constant_data"]["t"],
+        y=idata_ar["constant_data"]["y"],
+        color="k",
+        label="Observed Data",
+    )
     axs[2].set_title("Posterior Predictions Plotted", fontsize=20)
     axs[2].axvline(np.max(idata_ar["constant_data"]["t"]), color="black")
+    axs[2].legend()
+    axs[2].set_xlabel("Time in Days")
+    axs[0].set_xlabel("Time in Days")
     az.plot_ppc(idata_ar, ax=axs[1])
 
 
 plot_fits(idata_ar, idata_preds)
 ```
 
-Here we can see that although the model converged and ends up with a reasonable fit to the existing the data, and a **plausible  projection** for future values. However, we have set the prior specification very poorly in allowing an absurdly broad range of values due to the kind of compoudning logic of the auto-regressive function. For this reason it's very important to be able to inspect and tailor your model with prior predictive checks. 
+Here we can see that although the model converged and ends up with a reasonable fit to the existing the data, and a **plausible  projection** for future values. However, we have set the prior specification very poorly in allowing an absurdly broad range of values due to the kind of compounding logic of the auto-regressive function. For this reason it's very important to be able to inspect and tailor your model with prior predictive checks. 
+
+Secondly, the mean forecast fails to capture any long lasting structure, quickly dying down to a stable baseline. To account for these kind of short-lived forecasts, we can add more structure to our model, but first, let's complicate the picture. 
 
 ## Complicating the Picture
 
@@ -319,8 +335,7 @@ def make_latent_AR_model(ar_data, priors, prediction_steps=250, full_sample=True
         t = pm.MutableData("t", t_data, dims="obs_id")
         y = pm.MutableData("y", ar_data, dims="obs_id")
         # The first coefficient will be the intercept term
-        coefs_0 = pm.Normal("coef_0", priors["coef_0"]["mu"], priors["coef_0"]["sigma"])
-        coef_1 = pm.Normal("coef_1", priors["coef_1"]["mu"], priors["coef_1"]["sigma"])
+        coefs = pm.Normal("coefs", priors["coefs"]["mu"], priors["coefs"]["sigma"])
         sigma = pm.HalfNormal("sigma", priors["sigma"])
         # We need one init variable for each lag, hence size is variable too
         init = pm.Normal.dist(
@@ -329,11 +344,11 @@ def make_latent_AR_model(ar_data, priors, prediction_steps=250, full_sample=True
         # Steps of the AR model minus the lags required given specification
         ar1 = pm.AR(
             "ar",
-            at.tensor.as_tensor_variable([coefs_0, coef_1]),
+            coefs,
             sigma=sigma,
             init_dist=init,
             constant=True,
-            steps=t.shape[0] - (priors["coef_0"]["size"] - 1),
+            steps=t.shape[0] - (priors["coefs"]["size"] - 1),
         )
 
         # The Likelihood
@@ -355,8 +370,8 @@ def make_latent_AR_model(ar_data, priors, prediction_steps=250, full_sample=True
         # using the special feature of the dirac delta distribution to be 0 probability everywhere else.
         ar1_fut = pm.AR(
             "ar1_fut",
-            init_dist=pm.DiracDelta.dist(ar1[..., -1] + coefs_0),
-            rho=at.tensor.as_tensor_variable([coefs_0, coef_1]),
+            init_dist=pm.DiracDelta.dist(ar1[..., -1]),
+            rho=coefs,
             sigma=sigma,
             constant=True,
             dims="obs_id_fut",
@@ -374,22 +389,19 @@ Next we'll cycle through a number of prior specifications to show how that impac
 
 ```{code-cell} ipython3
 priors_0 = {
-    "coef_0": {"mu": -4, "sigma": 0.1, "size": 2},
-    "coef_1": {"mu": 0.2, "sigma": 0.03, "size": 2},
+    "coefs": {"mu": [-4, 0.2], "sigma": 0.1, "size": 2},
     "sigma": 8,
     "init": {"mu": 9, "sigma": 0.1, "size": 1},
 }
 
 priors_1 = {
-    "coef_0": {"mu": -2, "sigma": 0.1, "size": 2},
-    "coef_1": {"mu": 0.2, "sigma": 0.03, "size": 2},
+    "coefs": {"mu": [-2, 0.2], "sigma": 0.1, "size": 2},
     "sigma": 12,
     "init": {"mu": 8, "sigma": 0.1, "size": 1},
 }
 
 priors_2 = {
-    "coef_0": {"mu": 0, "sigma": 0.1, "size": 2},
-    "coef_1": {"mu": 0.2, "sigma": 0.03, "size": 2},
+    "coefs": {"mu": [0, 0.2], "sigma": 0.1, "size": 2},
     "sigma": 15,
     "init": {"mu": 8, "sigma": 0.1, "size": 1},
 }
@@ -414,7 +426,7 @@ for i, p in zip(range(3), [priors_0, priors_1, priors_2]):
     )
     axs[i].plot(y_t, "o", color="black", markersize=2)
     axs[i].set_title(
-        "$y_{t+1}$" + f'= N({p["coef_0"]["mu"]} + {p["coef_1"]["mu"]}y$_t$, {p["sigma"]})'
+        "$y_{t+1}$" + f'= N({p["coefs"]["mu"][0]} + {p["coefs"]["mu"][1]}y$_t$, {p["sigma"]})'
     )
 plt.suptitle("Prior Predictive Specifications", fontsize=20);
 ```
@@ -423,8 +435,7 @@ We can see the manner in which the model struggles to capture the trend line. In
 
 ```{code-cell} ipython3
 priors_0 = {
-    "coef_0": {"mu": -4, "sigma": 0.5, "size": 2},
-    "coef_1": {"mu": 0.2, "sigma": 0.03, "size": 2},
+    "coefs": {"mu": [-4, 0.2], "sigma": [0.5, 0.03], "size": 2},
     "sigma": 8,
     "init": {"mu": -4, "sigma": 0.1, "size": 1},
 }
@@ -459,8 +470,7 @@ def make_latent_AR_trend_model(
         t = pm.MutableData("t", t_data, dims="obs_id")
         y = pm.MutableData("y", ar_data, dims="obs_id")
         # The first coefficient will be the intercept term
-        coef_0 = pm.Normal("coef_0", priors["coef_0"]["mu"], priors["coef_0"]["sigma"])
-        coef_1 = pm.Normal("coef_1", priors["coef_1"]["mu"], priors["coef_1"]["sigma"])
+        coefs = pm.Normal("coefs", priors["coefs"]["mu"], priors["coefs"]["sigma"])
         sigma = pm.HalfNormal("sigma", priors["sigma"])
         # We need one init variable for each lag, hence size is variable too
         init = pm.Normal.dist(
@@ -469,11 +479,11 @@ def make_latent_AR_trend_model(
         # Steps of the AR model minus the lags required given specification
         ar1 = pm.AR(
             "ar",
-            at.tensor.as_tensor_variable([coef_0, coef_1]),
+            coefs,
             sigma=sigma,
             init_dist=init,
             constant=True,
-            steps=t.shape[0] - (priors["coef_0"]["size"] - 1),
+            steps=t.shape[0] - (priors["coefs"]["size"] - 1),
         )
 
         ## Priors for the linear trend component
@@ -504,7 +514,7 @@ def make_latent_AR_trend_model(
         ar1_fut = pm.AR(
             "ar1_fut",
             init_dist=pm.DiracDelta.dist(ar1[..., -1]),
-            rho=at.tensor.as_tensor_variable([coef_0, coef_1]),
+            rho=coefs,
             sigma=sigma,
             constant=True,
             dims="obs_id_fut",
@@ -525,10 +535,9 @@ We will fit this model by specifying priors on the negative trend and the range 
 
 ```{code-cell} ipython3
 priors_0 = {
-    "coef_0": {"mu": 0.2, "sigma": 0.5, "size": 2},
-    "coef_1": {"mu": 0.2, "sigma": 0.03, "size": 2},
+    "coefs": {"mu": [0.2, 0.2], "sigma": [0.5, 0.03], "size": 2},
     "alpha": {"mu": -4, "sigma": 0.1},
-    "beta": {"mu": -0.5, "sigma": 0.1},
+    "beta": {"mu": -0.1, "sigma": 0.2},
     "sigma": 8,
     "init": {"mu": -4, "sigma": 0.1, "size": 1},
 }
@@ -548,7 +557,7 @@ plot_fits(idata_trend, preds_trend);
 ```
 
 ```{code-cell} ipython3
-az.summary(idata_trend, var_names=["coef_0", "coef_1", "sigma", "alpha", "beta"])
+az.summary(idata_trend, var_names=["coefs", "sigma", "alpha", "beta"])
 ```
 
 ## Complicating the picture further
@@ -600,8 +609,7 @@ def make_latent_AR_trend_seasonal_model(
         t = pm.MutableData("t", t_data, dims="obs_id")
         y = pm.MutableData("y", ar_data, dims="obs_id")
         # The first coefficient will be the intercept term
-        coef_0 = pm.Normal("coef_0", priors["coef_0"]["mu"], priors["coef_0"]["sigma"])
-        coef_1 = pm.Normal("coef_1", priors["coef_1"]["mu"], priors["coef_1"]["sigma"])
+        coefs = pm.Normal("coefs", priors["coefs"]["mu"], priors["coefs"]["sigma"])
         sigma = pm.HalfNormal("sigma", priors["sigma"])
         # We need one init variable for each lag, hence size is variable too
         init = pm.Normal.dist(
@@ -610,11 +618,11 @@ def make_latent_AR_trend_seasonal_model(
         # Steps of the AR model minus the lags required given specification
         ar1 = pm.AR(
             "ar",
-            at.tensor.as_tensor_variable([coef_0, coef_1]),
+            coefs,
             sigma=sigma,
             init_dist=init,
             constant=True,
-            steps=t.shape[0] - (priors["coef_0"]["size"] - 1),
+            steps=t.shape[0] - (priors["coefs"]["size"] - 1),
         )
 
         ## Priors for the linear trend component
@@ -668,7 +676,7 @@ def make_latent_AR_trend_seasonal_model(
         ar1_fut = pm.AR(
             "ar1_fut",
             init_dist=pm.DiracDelta.dist(ar1[..., -1]),
-            rho=at.tensor.as_tensor_variable([coef_0, coef_1]),
+            rho=coefs,
             sigma=sigma,
             constant=True,
             dims="obs_id_fut",
@@ -688,10 +696,9 @@ def make_latent_AR_trend_seasonal_model(
 
 ```{code-cell} ipython3
 priors_0 = {
-    "coef_0": {"mu": 0.2, "sigma": 0.5, "size": 2},
-    "coef_1": {"mu": 0.2, "sigma": 0.03, "size": 2},
+    "coefs": {"mu": [0.2, 0.2], "sigma": [0.5, 0.03], "size": 2},
     "alpha": {"mu": -4, "sigma": 0.1},
-    "beta": {"mu": -0.5, "sigma": 0.1},
+    "beta": {"mu": -0.1, "sigma": 0.2},
     "beta_fourier": {"mu": 0, "sigma": 0.8},
     "sigma": 8,
     "init": {"mu": -4, "sigma": 0.1, "size": 1},
@@ -706,7 +713,7 @@ pm.model_to_graphviz(model)
 ```
 
 ```{code-cell} ipython3
-az.summary(idata_t_s, var_names=["alpha", "beta", "coef_0", "coef_1", "beta_fourier"])
+az.summary(idata_t_s, var_names=["alpha", "beta", "coefs", "beta_fourier"])
 ```
 
 ```{code-cell} ipython3
@@ -717,7 +724,7 @@ We can see here how the the model fit again recovers the broad structure and tre
 
 # Closing Remarks
 
-The strength of Bayesian model is largely the flexibility it offers for each modelling task. Hopefully this notebook gives a flavour of the variety of combinations worth considering when building a model to suit your use-case. We've seen how the Bayesian structural timeseries approach to forecasting can reveal the structure underlying our data, and be used to project that structure forward in time. We've seen how to encode different assumptions in the data generating model and calibrate our models against the observed data with posterior predictive checks. 
+The strength of a Bayesian model is largely the flexibility it offers for each modelling task. Hopefully this notebook gives a flavour of the variety of combinations worth considering when building a model to suit your use-case. We've seen how the Bayesian structural timeseries approach to forecasting can reveal the structure underlying our data, and be used to project that structure forward in time. We've seen how to encode different assumptions in the data generating model and calibrate our models against the observed data with posterior predictive checks. 
 
 Notably in the case of Auto-regressive modelling we've explicitly relied on the learned posterior distribution of the structural components. In this aspect we think the above is a kind of pure (neatly contained) example of Bayesian learning.
 
