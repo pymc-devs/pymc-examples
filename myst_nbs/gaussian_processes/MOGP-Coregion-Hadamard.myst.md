@@ -153,7 +153,7 @@ $$ B = WW^T +  diag(kappa) $$
 ```{code-cell} ipython3
 def get_icm(input_dim, kernel, W=None, kappa=None, B=None, active_dims=None):
     coreg = pm.gp.cov.Coregion(input_dim=input_dim, W=W, kappa=kappa, B=B, active_dims=active_dims)
-    icm_cov = kernel * coreg  # Seperate input => Use Hadamard Product
+    icm_cov = kernel * coreg  # Use Hadamard Product for separate inputs
     return icm_cov
 ```
 
@@ -324,7 +324,7 @@ This work is supported by 2022 [Google Summer of Codes](https://summerofcode.wit
 +++
 
 ## Authors
-* Authored by Danh Phan, Bill Engels, Chris Fonnesbeck in October, 2022 ([pymc-examples#445](https://github.com/pymc-devs/pymc-examples/pull/445))
+* Authored by Danh Phan, Bill Engels, Chris Fonnesbeck in October, 2022 ([pymc-examples#454](https://github.com/pymc-devs/pymc-examples/pull/454))
 
 +++
 
