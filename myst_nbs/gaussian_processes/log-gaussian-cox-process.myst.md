@@ -6,12 +6,19 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: gbi_env_py38
+  display_name: Python 3 (ipykernel)
   language: python
-  name: gbi_env_py38
+  name: python3
 ---
 
+(log-gaussian-cox-process)=
 # Modeling spatial point patterns with a marked log-Gaussian Cox process
+
+:::{post} May 31, 2022
+:tags: cox process, latent gaussian process, nonparametric, spatial, count data
+:category: intermediate
+:author: Chrisopher Krapu, Chris Fonnesbeck
+:::
 
 +++
 
@@ -30,7 +37,7 @@ where $GP(\mu(s), K(s,s'))$ denotes a Gaussian process with mean function $\mu(s
 * What would randomly sampled patterns with the same statistical properties look like?
 * Is there a statistical correlation between the *frequency* and *magnitude* of point events?
 
-In this notebook, we'll use a grid-based approximation to the full LGCP with PyMC3 to fit a model and analyze its posterior summaries. We will also explore the usage of a marked Poisson process, an extension of this model to account for the distribution of *marks* associated with each data point.
+In this notebook, we'll use a grid-based approximation to the full LGCP with PyMC to fit a model and analyze its posterior summaries. We will also explore the usage of a marked Poisson process, an extension of this model to account for the distribution of *marks* associated with each data point.
 
 +++
 
@@ -41,15 +48,20 @@ In this notebook, we'll use a grid-based approximation to the full LGCP with PyM
 Our observational data concerns 231 sea anemones whose sizes and locations on the French coast were recorded. This data was taken from the [`spatstat` spatial modeling package in R](https://github.com/spatstat/spatstat) which is designed to address models like the LGCP and its subsequent refinements. The original source of this data is the textbook *Spatial data analysis by example* by Upton and Fingleton (1985) and a longer description of the data can be found there.
 
 ```{code-cell} ipython3
+import warnings
+
 from itertools import product
 
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 
+from matplotlib import MatplotlibDeprecationWarning
 from numpy.random import default_rng
+
+warnings.filterwarnings(action="ignore", category=MatplotlibDeprecationWarning)
 ```
 
 ```{code-cell} ipython3
@@ -71,8 +83,9 @@ data.head(3)
 Let's take a look at this data in 2D space:
 
 ```{code-cell} ipython3
-plt.scatter(data["x"], data["y"], c=data["marks"]),
-plt.colorbar(label="Anemone size"), plt.axis("equal");
+plt.scatter(data["x"], data["y"], c=data["marks"])
+plt.colorbar(label="Anemone size")
+plt.axis("equal");
 ```
 
 The 'marks' column indicates the size of each anemone. If we were to model both the marks and the spatial distribution of points, we would be modeling a *marked Poisson point process*. Extending the basic point pattern model to include this feature is the second portion of this notebook.
@@ -131,7 +144,7 @@ for i, row in enumerate(centroids):
 plt.title("Anemone counts per grid cell"), plt.colorbar(label="Anemone size");
 ```
 
-We can see that all of the counts are fairly low and range from zero to five. With all of our data prepared, we can go ahead and start writing out our probabilistic model in PyMC3. We are going to treat each of the per-cell counts $Y_1,...Y_M$ above as a Poisson random variable.
+We can see that all of the counts are fairly low and range from zero to five. With all of our data prepared, we can go ahead and start writing out our probabilistic model in PyMC. We are going to treat each of the per-cell counts $Y_1,...Y_M$ above as a Poisson random variable.
 
 +++
 
@@ -167,7 +180,7 @@ With the model fully specified, we can start sampling from the posterior using t
 
 ```{code-cell} ipython3
 with lgcp_model:
-    trace = pm.sample(target_accept=0.95, chains=4, return_inferencedata=True)
+    trace = pm.sample(1000, tune=2000, target_accept=0.95)
 ```
 
 # Interpreting the results
@@ -194,10 +207,9 @@ with lgcp_model:
     spp_trace = pm.sample_posterior_predictive(
         trace, var_names=["log_intensity_new"], keep_size=True
     )
-    trace.extend(
-        az.from_dict(posterior_predictive=spp_trace, dims={"log_intensity_new": ["sample"]})
-    )
-    intensity_samples = np.exp(trace.posterior_predictive["log_intensity_new"])
+
+trace.extend(spp_trace)
+intensity_samples = np.exp(trace.posterior_predictive["log_intensity_new"])
 ```
 
 Let's take a look at a few realizations of $\lambda(s)$. Since the samples are on the log scale, we'll need to exponentiate them to obtain the spatial intensity field of our 2D Poisson process. In the plot below, the observed point pattern is overlaid.
@@ -267,77 +279,17 @@ The posterior variance is lowest in the middle of the domain and largest in the 
 
 +++
 
-# Extending the model to include marks
+## Authors
 
-+++
+- This notebook was written by [Christopher Krapu](https://github.com/ckrapu) on September 6, 2020 and updated on April 1, 2021.
+- Updated by Chris Fonnesbeck on May 31, 2022 for v4 compatibility.
 
-A shortcoming of the model from the previous section is that it is only modeling the number of points within a spatial domain and has no ability to represent the *mark* associated with each point. Here, the mark refers to the size of each anemone. We'll augment the model from the previous section to see whether the intensity field $\lambda(s)$ also has an impact on the anemone size. To do this, we will model the mark size as a linear function of the intensity field with a normal likelihood. This is nearly identical to the model described in [this paper](https://hal.archives-ouvertes.fr/hal-00622140/document) by Ho and Stoyan (2008).
-
-+++
-
-The first part of the extended model is exactly as before save for the fact that we must evaluate the GP at not just the centroids of the grid cells but also at the location of each anemone. `augmented_coordinates` includes both of these sets of points in a single array.
-
-```{code-cell} ipython3
-augmented_coordinates = np.vstack([centroids, data[["x", "y"]].values])
-
-n_centroids = centroids.shape[0]
-
-with pm.Model() as mark_model:
-    mu = pm.Normal("mu", sigma=3)
-    rho = pm.Uniform("rho", lower=25, upper=200)
-
-    cov_scale = pm.InverseGamma("scale", alpha=1, beta=1)
-
-    cov_func = cov_scale * pm.gp.cov.Matern52(2, ls=rho)
-    mean_func = pm.gp.mean.Constant(mu)
-    intensity_gp = pm.gp.Latent(mean_func=mean_func, cov_func=cov_func)
-
-    log_intensity = intensity_gp.prior("log_intensity", X=augmented_coordinates)
-    intensity = pm.math.exp(log_intensity)
-
-    rates = intensity[0:n_centroids] * area_per_cell
-    counts = pm.Poisson("counts", mu=rates, observed=cell_counts)
-```
-
-We can now add on an extension of the model for the marks. Letting the marks be denoted by $z_i$, we use the following formula to represent $z_i$: 
-
-$$z_i = \alpha +  \beta \lambda_i + \epsilon_i $$
-Equivalently, $$z_i \sim N(\alpha +  \beta \lambda_i, \sigma_\epsilon^2)$$
-where $\sigma_\epsilon^2 = Var(\epsilon_i)$.
-
-This equation states that the distribution of the marks is a linear function of the intensity field since we assume a normal likelihood for $\epsilon$. It's essentially a simple linear regression of the marks on the intensity field; $\alpha$ is the intercept and $\beta$ is the slope. Then, standard priors are used for $\epsilon, \alpha, \beta$. The point of this model is to figure out whether or not the growth of the anemones is correlated with their occurrence. If we find that $\beta$ is negative, then that might hint that locations with more numerous anemones happen to also have smaller anemones and that competition for food may keep close neighbors small.
-
-```{code-cell} ipython3
-with mark_model:
-    alpha = pm.Normal("alpha", sigma=10.0)
-    beta = pm.Normal("beta", sigma=5)
-    eps_sd = pm.HalfCauchy("eps_sd", beta=1.0)
-
-    marks = pm.Normal(
-        "marks",
-        mu=alpha + beta * intensity[n_centroids::],
-        sigma=eps_sd,
-        shape=n,
-        observed=data["marks"].values,
-    )
-```
-
-It is important to note that this model takes much longer to run because using MCMC with Gaussian processes as implemented here requires a covariance matrix inversion with cubic time complexity in the number of spatial points. Since this GP is fit over 357 spatial points instead of ~120 points as in the previous model, it could take roughly $3^3=27$ times as long. Inference could be sped up dramatically using a sparse Gaussian process if faster sampling is required.
-
-```{code-cell} ipython3
-with mark_model:
-    trace = pm.sample(target_accept=0.95, return_inferencedata=True)
-```
-
-The posterior summaries indicate that most of the probability mass for $\beta$ is on negative values. This gives us a high posterior probability that the intensity field (i.e. the number of anemones) is anti-correlated with the size of each anemone!
-
-```{code-cell} ipython3
-az.summary(trace, var_names=["alpha", "beta"])
-```
-
-* This notebook was written by [Christopher Krapu](https://github.com/ckrapu) on September 6, 2020 and updated on April 1, 2021.
+## Watermark
 
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w
 ```
+
+:::{include} ../page_footer.md
+:::
