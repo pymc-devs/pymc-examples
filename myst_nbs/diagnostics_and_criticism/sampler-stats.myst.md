@@ -16,7 +16,7 @@ kernelspec:
 # Sampler Statistics
 
 :::{post} May 31, 2022
-:tags: diagnostics 
+:tags: diagnostics
 :category: beginner
 :author: Meenal Jhajharia, Christian Luhmann
 :::
@@ -38,7 +38,7 @@ az.style.use("arviz-darkgrid")
 plt.rcParams["figure.constrained_layout.use"] = False
 ```
 
-When checking for convergence or when debugging a badly behaving sampler, it is often helpful to take a closer look at what the sampler is doing. For this purpose some samplers export statistics for each generated sample. 
+When checking for convergence or when debugging a badly behaving sampler, it is often helpful to take a closer look at what the sampler is doing. For this purpose some samplers export statistics for each generated sample.
 
 As a minimal example we sample from a standard normal distribution:
 
@@ -91,7 +91,7 @@ The sample statistics variables are defined as follows:
 +++
 
 Some points to `Note`:
-- Some of the sample statistics used by NUTS are renamed when converting to `InferenceData` to follow [ArviZ's naming convention](https://arviz-devs.github.io/arviz/schema/schema.html#sample-stats), while some are specific to PyMC3 and keep their internal PyMC3 name in the resulting InferenceData object.
+- Some of the sample statistics used by NUTS are renamed when converting to `InferenceData` to follow {ref}`ArviZ's naming convention <arviz:schema>`, while some are specific to PyMC3 and keep their internal PyMC3 name in the resulting InferenceData object.
 - `InferenceData` also stores additional info like the date, versions used, sampling time and tuning steps as attributes.
 
 ```{code-cell} ipython3
