@@ -1,14 +1,15 @@
 ---
 jupytext:
+  notebook_metadata_filter: substitutions
   text_representation:
     extension: .md
     format_name: myst
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: pymc
+  display_name: Python 3 (ipykernel)
   language: python
-  name: pymc
+  name: python3
 ---
 
 # GLM: Mini-batch ADVI on hierarchical regression model
@@ -178,5 +179,9 @@ az.plot_density(
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p xarray
+%watermark -n -u -v -iv -w -p aeppl,xarray
+```
+
+```{code-cell} ipython3
+
 ```
