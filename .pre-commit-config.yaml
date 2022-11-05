@@ -36,7 +36,6 @@ repos:
             |examples/gaussian_processes/GP-TProcess\.ipynb$
             |examples/mixture_models/dependent_density_regression\.ipynb$
             |examples/gaussian_processes/GP-Heteroskedastic\.ipynb$
-            |examples/gaussian_processes/GP-MeansAndCovs\.ipynb$
             |examples/samplers/MLDA_variance_reduction_linear_regression\.ipynb$
 
 - repo: https://github.com/FlamingTempura/bibtex-tidy

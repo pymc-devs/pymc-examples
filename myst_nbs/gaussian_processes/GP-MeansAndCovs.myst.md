@@ -6,10 +6,23 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
+
+(GP-MeansAndCovs)=
+# Mean and Covariance Functions
+
+:::{post} Mar 22, 2022
+:tags: gaussian process
+:category: intermediate, reference
+:author: Bill Engels, Oriol Abril Pla
+:::
+
+```{code-cell} ipython3
+%matplotlib inline
+```
 
 ```{code-cell} ipython3
 ---
@@ -21,16 +34,14 @@ papermill:
   status: completed
 tags: []
 ---
+import aesara
+import aesara.tensor as at
 import arviz as az
 import matplotlib.cm as cmap
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 import scipy.stats as stats
-import theano
-import theano.tensor as tt
-
-%matplotlib inline
 ```
 
 ```{code-cell} ipython3
@@ -44,23 +55,23 @@ papermill:
 tags: []
 ---
 RANDOM_SEED = 8927
-np.random.seed(RANDOM_SEED)
+
+rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
+plt.rcParams["figure.figsize"] = (10, 4)
 ```
 
 +++ {"papermill": {"duration": 0.037844, "end_time": "2020-12-22T18:36:31.751886", "exception": false, "start_time": "2020-12-22T18:36:31.714042", "status": "completed"}, "tags": []}
 
-# Mean and Covariance Functions
-
-A large set of mean and covariance functions are available in PyMC3.  It is relatively easy to define custom mean and covariance functions.  Since PyMC3 uses Theano, their gradients do not need to be defined by the user.  
+A large set of mean and covariance functions are available in PyMC.  It is relatively easy to define custom mean and covariance functions.  Since PyMC uses Aesara, their gradients do not need to be defined by the user.  
 
 ## Mean functions
 
-The following mean functions are available in PyMC3.
+The following mean functions are available in PyMC.
 
-- `gp.mean.Zero`
-- `gp.mean.Constant`
-- `gp.mean.Linear`
+- {class}`pymc.gp.mean.Zero`
+- {class}`pymc.gp.mean.Constant`
+- {class}`pymc.gp.mean.Linear`
 
 All follow a similar usage pattern.  First, the mean function is specified.  Then it can be evaluated over some inputs.  The first two mean functions are very simple.  Regardless of the inputs, `gp.mean.Zero` returns a vector of zeros with the same length as the number of input values.
 
@@ -84,7 +95,7 @@ print(zero_func(X).eval())
 
 +++ {"papermill": {"duration": 0.040891, "end_time": "2020-12-22T18:36:32.947028", "exception": false, "start_time": "2020-12-22T18:36:32.906137", "status": "completed"}, "tags": []}
 
-The default mean functions for all GP implementations in PyMC3 is `Zero`.
+The default mean functions for all GP implementations in PyMC is `Zero`.
 
 ### Constant
 
@@ -107,7 +118,7 @@ print(const_func(X).eval())
 
 +++ {"papermill": {"duration": 0.039627, "end_time": "2020-12-22T18:36:35.195057", "exception": false, "start_time": "2020-12-22T18:36:35.155430", "status": "completed"}, "tags": []}
 
-As long as the shape matches the input it will receive, `gp.mean.Constant` can also accept a Theano tensor or vector of PyMC3 random variables.
+As long as the shape matches the input it will receive, `gp.mean.Constant` can also accept a Aesara tensor or vector of PyMC random variables.
 
 ```{code-cell} ipython3
 ---
@@ -119,7 +130,7 @@ papermill:
   status: completed
 tags: []
 ---
-const_func_vec = pm.gp.mean.Constant(tt.ones(5))
+const_func_vec = pm.gp.mean.Constant(at.ones(5))
 
 print(const_func_vec(X).eval())
 ```
@@ -140,12 +151,12 @@ papermill:
   status: completed
 tags: []
 ---
-beta = np.random.randn(3)
+beta = rng.normal(size=3)
 b = 0.0
 
 lin_func = pm.gp.mean.Linear(coeffs=beta, intercept=b)
 
-X = np.random.randn(5, 3)
+X = rng.normal(size=(5, 3))
 print(lin_func(X).eval())
 ```
 
@@ -169,13 +180,13 @@ class Constant(pm.gp.mean.Mean):
 
 ```
 
-Remember that Theano must be used instead of NumPy.
+Remember that Aesara must be used instead of NumPy.
 
 +++ {"papermill": {"duration": 0.039306, "end_time": "2020-12-22T18:36:36.998649", "exception": false, "start_time": "2020-12-22T18:36:36.959343", "status": "completed"}, "tags": []}
 
 ## Covariance functions
 
-PyMC3 contains a much larger suite of built-in covariance functions.  The following shows functions drawn from a GP prior with a given covariance function, and demonstrates how composite covariance functions can be constructed with Python operators in a straightforward manner.  Our goal was for our API to follow kernel algebra (see Ch.4 of Rassmussen + Williams) as closely as possible.  See the main documentation page for an overview on their usage in PyMC3.
+PyMC contains a much larger suite of {mod}`built-in covariance functions <pymc.gp.cov>`.  The following shows functions drawn from a GP prior with a given covariance function, and demonstrates how composite covariance functions can be constructed with Python operators in a straightforward manner.  Our goal was for our API to follow kernel algebra (see Ch.4 of {cite:t}`rasmussen2003gaussian`) as closely as possible.  See the main documentation page for an overview on their usage in PyMC.
 
 +++ {"papermill": {"duration": 0.039789, "end_time": "2020-12-22T18:36:37.078199", "exception": false, "start_time": "2020-12-22T18:36:37.038410", "status": "completed"}, "tags": []}
 
@@ -204,9 +215,12 @@ cov += pm.gp.cov.WhiteNoise(1e-6)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
-
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=K.shape[0]).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(
+        pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=K.shape[0]), draws=3, random_seed=rng
+    ).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -218,7 +232,7 @@ plt.xlabel("X");
 
 #### Both dimensions active
 
-It is easy to define kernels with higher dimensional inputs.  Notice that the ```ls``` (lengthscale) parameter is an array of length 2.  Lists of PyMC3 random variables can be used for automatic relevance determination (ARD).
+It is easy to define kernels with higher dimensional inputs.  Notice that the ```ls``` (lengthscale) parameter is an array of length 2.  Lists of PyMC random variables can be used for automatic relevance determination (ARD).
 
 ```{code-cell} ipython3
 ---
@@ -313,8 +327,10 @@ cov = pm.gp.cov.WhiteNoise(sigma)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -346,8 +362,10 @@ cov += pm.gp.cov.WhiteNoise(1e-6)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -379,8 +397,10 @@ cov = tau * pm.gp.cov.RatQuad(1, ls, alpha)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -410,8 +430,10 @@ cov = pm.gp.cov.Exponential(1, ls_inv=inverse_lengthscale)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -444,8 +466,10 @@ cov = tau * pm.gp.cov.Matern52(1, ls)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -477,8 +501,10 @@ cov = tau * pm.gp.cov.Matern32(1, ls)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -507,8 +533,10 @@ cov = tau * pm.gp.cov.Matern12(1, ls)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -540,8 +568,10 @@ cov += pm.gp.cov.WhiteNoise(1e-4)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -574,8 +604,10 @@ cov += pm.gp.cov.WhiteNoise(1e-6)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -610,8 +642,10 @@ cov += pm.gp.cov.WhiteNoise(1e-6)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -644,8 +678,10 @@ cov = pm.gp.cov.Matern32(1, 0.5) * K_cos
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -670,7 +706,7 @@ papermill:
 tags: []
 ---
 def warp_func(x, a, b, c):
-    return 1.0 + x + (a * tt.tanh(b * (x - c)))
+    return 1.0 + x + (a * at.tanh(b * (x - c)))
 
 
 a = 1.0
@@ -685,15 +721,16 @@ cov += pm.gp.cov.WhiteNoise(1e-6)
 X = np.linspace(0, 2, 400)[:, None]
 wf = warp_func(X.flatten(), a, b, c).eval()
 
-plt.figure(figsize=(14, 4))
 plt.plot(X, wf)
 plt.xlabel("X")
 plt.ylabel("warp_func(X)")
 plt.title("The warping function used")
 
 K = cov(X).eval()
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -728,7 +765,7 @@ tags: []
 ---
 def mapping(x, T):
     c = 2.0 * np.pi * (1.0 / T)
-    u = tt.concatenate((tt.sin(c * x), tt.cos(c * x)), 1)
+    u = at.concatenate((at.sin(c * x), at.cos(c * x)), 1)
     return u
 
 
@@ -742,8 +779,10 @@ cov = pm.gp.cov.WarpedInput(1, cov_func=cov_exp, warp_func=mapping, args=(T,))
 cov += pm.gp.cov.WhiteNoise(1e-6)
 
 K = cov(X).eval()
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -772,8 +811,10 @@ cov = pm.gp.cov.Periodic(1, period=period, ls=ls)
 cov += pm.gp.cov.WhiteNoise(1e-6)
 
 K = cov(X).eval()
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 for p in np.arange(0, 2, period):
     plt.axvline(p, color="black")
 plt.axhline(0, color="black")
@@ -788,7 +829,7 @@ plt.xlabel("X");
 
 Circular kernel is similar to Periodic one but has an additional nuisance parameter $\tau$
 
-In the following [paper](https://hal.archives-ouvertes.fr/hal-01119942v1/document), the Weinland function is used to solve the problem and ensures positive definite kernel on the circular domain (and not only).
+In {cite:t}`padonou2015polar`, the Weinland function is used to solve the problem and ensures positive definite kernel on the circular domain (and not only).
 
 $$
 W_c(t) = \left(1 + \tau \frac{t}{c}\right)\left(1-\frac{t}{c}\right)_+^\tau
@@ -822,8 +863,10 @@ tau = 4
 cov = pm.gp.cov.Circular(1, period=period, tau=tau)
 
 K = cov(X).eval()
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 for p in np.arange(0, 2, period):
     plt.axvline(p, color="black")
 plt.axhline(0, color="black")
@@ -851,8 +894,10 @@ tau = 40
 cov = pm.gp.cov.Circular(1, period=period, tau=tau)
 
 K = cov(X).eval()
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 for p in np.arange(0, 2, period):
     plt.axvline(p, color="black")
 plt.axhline(0, color="black")
@@ -884,7 +929,7 @@ def tanh_func(x, ls1, ls2, w, x0):
     w:   transition width
     x0:  transition location.
     """
-    return (ls1 + ls2) / 2.0 - (ls1 - ls2) / 2.0 * tt.tanh((x - x0) / w)
+    return (ls1 + ls2) / 2.0 - (ls1 - ls2) / 2.0 * at.tanh((x - x0) / w)
 
 
 ls1 = 0.05
@@ -896,15 +941,16 @@ cov = pm.gp.cov.Gibbs(1, tanh_func, args=(ls1, ls2, w, x0))
 cov += pm.gp.cov.WhiteNoise(1e-6)
 
 wf = tanh_func(X, ls1, ls2, w, x0).eval()
-plt.figure(figsize=(14, 4))
 plt.plot(X, wf)
 plt.ylabel("lengthscale")
 plt.xlabel("X")
 plt.title("Lengthscale as a function of X")
 
 K = cov(X).eval()
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -950,15 +996,16 @@ cov += pm.gp.cov.WhiteNoise(1e-5)
 X = np.linspace(0, 10, 400)[:, None]
 lfunc = logistic(X.flatten(), a, b, c, d).eval()
 
-plt.figure(figsize=(14, 4))
 plt.plot(X, lfunc)
 plt.xlabel("X")
 plt.ylabel(r"$\phi(x)$")
 plt.title("The scaling function")
 
 K = cov(X).eval()
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -1008,7 +1055,6 @@ cov = cov1 + cov2
 cov += pm.gp.cov.WhiteNoise(1e-5)
 
 X = np.linspace(0, 10, 400)
-plt.figure(figsize=(14, 4))
 plt.fill_between(
     X,
     np.zeros(400),
@@ -1026,8 +1072,10 @@ plt.ylabel(r"$\phi(x)$")
 plt.title("The two scaling functions")
 
 K = cov(X[:, None]).eval()
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -1073,8 +1121,10 @@ cov += pm.gp.cov.WhiteNoise(1e-6)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -1108,8 +1158,10 @@ cov += pm.gp.cov.WhiteNoise(1e-6)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -1141,8 +1193,10 @@ cov += pm.gp.cov.WhiteNoise(1e-6)
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
 
-plt.figure(figsize=(14, 4))
-plt.plot(X, pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)).random(size=3).T)
+plt.plot(
+    X,
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(len(K)), cov=K, shape=len(K)), draws=3, random_seed=rng).T,
+)
 plt.title("Samples from the GP prior")
 plt.ylabel("y")
 plt.xlabel("X");
@@ -1152,7 +1206,7 @@ plt.xlabel("X");
 
 ### Defining a custom covariance function
 
-Covariance function objects in PyMC3 need to implement the `__init__`, `diag`, and `full` methods, and subclass `gp.cov.Covariance`.  `diag` returns only the diagonal of the covariance matrix, and `full` returns the full covariance matrix.  The `full` method has two inputs `X` and `Xs`.  `full(X)` returns the square covariance matrix, and `full(X, Xs)` returns the cross-covariances between the two sets of inputs.
+Covariance function objects in PyMC need to implement the `__init__`, `diag`, and `full` methods, and subclass `gp.cov.Covariance`.  `diag` returns only the diagonal of the covariance matrix, and `full` returns the full covariance matrix.  The `full` method has two inputs `X` and `Xs`.  `full(X)` returns the square covariance matrix, and `full(X, Xs)` returns the cross-covariances between the two sets of inputs.
 
 For example, here is the implementation of the `WhiteNoise` covariance function:
 
@@ -1174,6 +1228,24 @@ class WhiteNoise(pm.gp.cov.Covariance):
 
 If we have forgotten an important covariance or mean function, please feel free to submit a pull request!
 
++++
+
+## References
+
+:::{bibliography}
+:filter: docname in docnames
+:::
+
++++
+
+## Authors
+* Authored by Bill Engels
+* Updated to v4 by Oriol Abril Pla in Nov 2022 ([pymc-examples#301](https://github.com/pymc-devs/pymc-examples/pull/301))
+
++++
+
+## Watermark
+
 ```{code-cell} ipython3
 ---
 papermill:
@@ -1185,5 +1257,12 @@ papermill:
 tags: []
 ---
 %load_ext watermark
-%watermark -n -u -v -iv -w
+%watermark -n -u -v -iv -w -p aeppl,xarray
+```
+
+:::{include} ../page_footer.md
+:::
+
+```{code-cell} ipython3
+
 ```
