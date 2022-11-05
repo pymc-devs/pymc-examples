@@ -7,7 +7,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -54,7 +54,7 @@ with model:
     idata = pm.sample(2000, tune=1000, init=None, step=step, chains=4)
 ```
 
-- `Note`: NUTS provides the following statistics (these are internal statistics that the sampler uses, you don't need to do anything with them when using PyMC, to learn more about them, [`pymc.NUTS`](https://www.pymc.io/projects/docs/en/latest/api/generated/pymc.NUTS.html#pymc.NUTS).
+- `Note`: NUTS provides the following statistics (these are internal statistics that the sampler uses, you don't need to do anything with them when using PyMC, to learn more about them, {class}`pymc.NUTS`.
 
 ```{code-cell} ipython3
 idata.sample_stats
@@ -187,7 +187,6 @@ az.plot_density(
 ```
 
 ## Authors
-* Moved from pymc to pymc-examples repo in December 2020 ([pymc-examples#8](https://github.com/pymc-devs/pymc-examples/pull/8))
 * Updated by Meenal Jhajharia in April 2021 ([pymc-examples#95](https://github.com/pymc-devs/pymc-examples/pull/95))
 * Updated to v4 by Christian Luhmann in May 2022 ([pymc-examples#338](https://github.com/pymc-devs/pymc-examples/pull/338))
 
