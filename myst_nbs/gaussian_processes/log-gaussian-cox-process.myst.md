@@ -6,7 +6,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3.9.10 ('pymc-dev-py39')
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -17,7 +17,7 @@ kernelspec:
 :::{post} May 31, 2022
 :tags: cox process, latent gaussian process, nonparametric, spatial, count data
 :category: intermediate
-:author: Chrisopher Krapu, updated by Chris Fonnesbeck
+:author: Chrisopher Krapu, Chris Fonnesbeck
 :::
 
 +++
@@ -193,7 +193,7 @@ Posterior inference on the length_scale parameter is useful for understanding wh
 az.summary(trace, var_names=["mu", "rho"])
 ```
 
-We are also interested in looking at the value of the intensity field at a large number of new points in space. We can accomodate this within our model by including a new random variable for the latent Gaussian process evaluated at a denser set of points. Using `sample_posterior_predictive`, we generate posterior predictions on new data points contained in the variable `intensity_new`.
+We are also interested in looking at the value of the intensity field at a large number of new points in space. We can accommodate this within our model by including a new random variable for the latent Gaussian process evaluated at a denser set of points. Using `sample_posterior_predictive`, we generate posterior predictions on new data points contained in the variable `intensity_new`.
 
 ```{code-cell} ipython3
 x_new = np.linspace(5, 275, 20)
