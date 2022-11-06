@@ -22,9 +22,9 @@ kernelspec:
 
 +++
 
-This notebook shows how to implement Intrinsic Coregionalization Model (ICM) and Linear Coregionalization Model (LCM) using a Hamadard product between Coregion kernel and input kernels. For further information of ICM and LCM, please check the [talk](https://www.youtube.com/watch?v=ttgUJtVJthA&list=PLpTp0l_CVmgwyAthrUmmdIFiunV1VvicM) on Multi-output Gaussian Processes of Mauricio Alvarez, and [his slides](http://gpss.cc/gpss17/slides/multipleOutputGPs.pdf).
+This notebook shows how to implement the Intrinsic Coregionalization Model (ICM) and the Linear Coregionalization Model (LCM) using a Hamadard product between the Coregion kernel and input kernels. For further information about ICM and LCM, please check out the [talk](https://www.youtube.com/watch?v=ttgUJtVJthA&list=PLpTp0l_CVmgwyAthrUmmdIFiunV1VvicM) on Multi-output Gaussian Processes by Mauricio Alvarez, and [his slides](http://gpss.cc/gpss17/slides/multipleOutputGPs.pdf).
 
-The advantage of Multi-output Gaussian Processes is their capacity to simultaneously learn and infer many outputs which have the same source of uncertainty from inputs. In this example, we model the average spin rates of several pitchers on different game dates from a baseball dataset.
+The advantage of Multi-output Gaussian Processes is their capacity to simultaneously learn and infer many outputs which have the same source of uncertainty from inputs. In this example, we model the average spin rates of several pitchers in different games from a baseball dataset.
 
 ```{code-cell} ipython3
 import aesara.tensor as at
@@ -81,7 +81,7 @@ top_pitchers
 
 ```{code-cell} ipython3
 # Filter the data with only top N pitchers
-adf = df.loc[df["pitcher_name"].isin(top_pitchers["pitcher_name"])]
+adf = df.loc[df["pitcher_name"].isin(top_pitchers["pitcher_name"])].copy()
 print(adf.shape)
 adf.head()
 ```
@@ -100,6 +100,7 @@ game_dates.min(), game_dates.max(), game_dates.nunique(), (game_dates.max() - ga
 ```
 
 ```{code-cell} ipython3
+# Create a game date index
 dates_idx = pd.DataFrame(
     {"game_date": pd.date_range(game_dates.min(), game_dates.max())}
 ).reset_index()
@@ -142,7 +143,7 @@ plt.legend(legends, loc="upper center");
 
 ## Intrinsic Coregionalization Model (ICM)
 
-Intrinsic Coregionalization Model (ICM) is a particular case of Linear Coregionalization Model (LCM) with one input kernel, for example:
+The Intrinsic Coregionalization Model (ICM) is a particular case of the Linear Coregionalization Model (LCM) with one input kernel, for example:
 
 $$ K_{ICM} = B \otimes K_{ExpQuad} $$
 
@@ -152,6 +153,9 @@ $$ B = WW^T +  diag(kappa) $$
 
 ```{code-cell} ipython3
 def get_icm(input_dim, kernel, W=None, kappa=None, B=None, active_dims=None):
+    """
+    This function generates an ICM kernel from an input kernel and a Coregion kernel.
+    """
     coreg = pm.gp.cov.Coregion(input_dim=input_dim, W=W, kappa=kappa, B=B, active_dims=active_dims)
     icm_cov = kernel * coreg  # Use Hadamard Product for separate inputs
     return icm_cov
@@ -165,7 +169,7 @@ with pm.Model() as model:
     kernel = eta**2 * pm.gp.cov.ExpQuad(input_dim=2, ls=ell, active_dims=[0])
     sigma = pm.HalfNormal("sigma", sigma=3)
 
-    # Get ICM kernel
+    # Get the ICM kernel
     W = pm.Normal("W", mu=0, sigma=3, shape=(n_outputs, 2), initval=np.random.randn(n_outputs, 2))
     kappa = pm.Gamma("kappa", alpha=1.5, beta=1, shape=n_outputs)
     B = pm.Deterministic("B", at.dot(W, W.T) + at.diag(kappa))
@@ -183,7 +187,7 @@ pm.model_to_graphviz(model)
 ```{code-cell} ipython3
 %%time
 with model:
-    gp_trace = pm.sample(500, chains=1)
+    gp_trace = pm.sample(2000, chains=1)
 ```
 
 #### Prediction
@@ -191,7 +195,9 @@ with model:
 ```{code-cell} ipython3
 # Prepare test data
 M = 200  # number of data points
-x_new = np.linspace(0, 200, M)[:, None]  # Select 200 days (185 days and add 15 days into future).
+x_new = np.linspace(0, 200, M)[
+    :, None
+]  # Select 200 days (185 previous days, and add 15 days into the future).
 X_new = np.vstack([x_new for idx in range(n_outputs)])
 output_idx = np.vstack([np.repeat(idx, M)[:, None] for idx in range(n_outputs)])
 X_new = np.hstack([X_new, output_idx])
@@ -242,12 +248,17 @@ plt.tight_layout()
 
 ## Linear Coregionalization Model (LCM)
 
-LCM is a generalization of ICM with two or more input kernels, so LCM kernel is basically a sum of several ICM kernels. In this example, we add a Matern32 kernel for input data.
+The LCM is a generalization of the ICM with two or more input kernels, so the LCM kernel is basically a sum of several ICM kernels. The LMC allows several independent samples from GPs with different covariances (kernels).
+
+In this example, in addition to an `ExpQuad` kernel, we add a `Matern32` kernel for input data.
 
 $$ K_{LCM} = B \otimes K_{ExpQuad} + B \otimes K_{Matern32} $$
 
 ```{code-cell} ipython3
 def get_lcm(input_dim, active_dims, num_outputs, kernels, W=None, B=None, name="ICM"):
+    """
+    This function generates a LCM kernel from a list of input `kernels` and a Coregion kernel.
+    """
     if B is None:
         kappa = pm.Gamma(f"{name}_kappa", alpha=5, beta=1, shape=num_outputs)
         if W is None:
@@ -282,8 +293,10 @@ with pm.Model() as model:
         for idx, kernel in enumerate(kernels)
     ]
 
-    # Define a Multi-output GP
+    # Get the LCM kernel
     cov_lcm = get_lcm(input_dim=2, active_dims=[1], num_outputs=n_outputs, kernels=cov_list)
+
+    # Define a Multi-output GP
     mogp = pm.gp.Marginal(cov_func=cov_lcm)
     y_ = mogp.marginal_likelihood("f", X, Y, sigma=sigma)
 ```
@@ -295,7 +308,7 @@ pm.model_to_graphviz(model)
 ```{code-cell} ipython3
 %%time
 with model:
-    gp_trace = pm.sample(500, chains=1)
+    gp_trace = pm.sample(2000, chains=1)
 ```
 
 ### Prediction
@@ -324,7 +337,7 @@ This work is supported by 2022 [Google Summer of Codes](https://summerofcode.wit
 +++
 
 ## Authors
-* Authored by Danh Phan, Bill Engels, Chris Fonnesbeck in October, 2022 ([pymc-examples#454](https://github.com/pymc-devs/pymc-examples/pull/454))
+* Authored by [Danh Phan](https://github.com/danhphan), [Bill Engels](https://github.com/bwengals), [Chris Fonnesbeck](https://github.com/fonnesbeck) in November, 2022 ([pymc-examples#454](https://github.com/pymc-devs/pymc-examples/pull/454))
 
 +++
 
