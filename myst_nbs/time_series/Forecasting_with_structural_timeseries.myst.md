@@ -62,6 +62,7 @@ def simulate_ar(intercept, coef1, coef2, noise=0.3, *, warmup=10, steps=200):
     return draws[warmup:]
 
 
+# True parameters of the AR process
 ar1_data = simulate_ar(10, -0.9, 0)
 
 fig, ax = plt.subplots(figsize=(10, 3))
@@ -112,14 +113,14 @@ with AR:
         init_dist=init,
         constant=True,
         steps=t.shape[0] - (priors["coefs"]["size"] - 1),
+        dims="obs_id",
     )
 
     # The Likelihood
-    outcome = pm.Normal("likelihood", mu=ar1, sigma=sigma, observed=y)
+    outcome = pm.Normal("likelihood", mu=ar1, sigma=sigma, observed=y, dims="obs_id")
     ## Sampling
     idata_ar = pm.sample_prior_predictive()
     idata_ar.extend(pm.sample(2000, random_seed=100, target_accept=0.95))
-    idata_ar.extend(pm.sample_posterior_predictive(idata_ar))
 ```
 
 ```{code-cell} ipython3
@@ -138,12 +139,14 @@ Next we'll check the summary estimates for the to AR coefficients and the sigma 
 az.summary(idata_ar, var_names=["~ar"])
 ```
 
+We can see here that the model fit has fairly correctly estimated the true parameters of the data generating process. We can also see this if we plot the posterior ar distribution against our observed data.
+
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(10, 4))
 idata_ar.posterior.ar.mean(["chain", "draw"]).plot(ax=ax, label="Posterior Mean AR level")
 ax.plot(ar1_data, "o", color="black", markersize=2, label="Observed Data")
 ax.legend()
-ax.set_title("Fitted AR process \n and observed data");
+ax.set_title("Fitted AR process\nand observed data");
 ```
 
 ## Prediction Step
@@ -303,13 +306,13 @@ def plot_fits(idata_ar, idata_preds):
 plot_fits(idata_ar, idata_preds)
 ```
 
-Here we can see that although the model converged and ends up with a reasonable fit to the existing the data, and a **plausible  projection** for future values. However, we have set the prior specification very poorly in allowing an absurdly broad range of values due to the kind of compounding logic of the auto-regressive function. For this reason it's very important to be able to inspect and tailor your model with prior predictive checks. 
+Here we can see that although the model converged and ends up with a reasonable fit to the existing data, and a **plausible  projection** for future values. However, we have set the prior specification very poorly in allowing an absurdly broad range of values due to the kind of compounding logic of the auto-regressive function. For this reason it's very important to be able to inspect and tailor your model with prior predictive checks. 
 
 Secondly, the mean forecast fails to capture any long lasting structure, quickly dying down to a stable baseline. To account for these kind of short-lived forecasts, we can add more structure to our model, but first, let's complicate the picture. 
 
 ## Complicating the Picture
 
-Let's add a trend to our data.
+Often our data will involve more than one latent process, and might have more complex factors which drive the outcomes. To see one such complication let's add a trend to our data. By adding more structure to our forecast we are telling our model that we expect certain patterns or trends to remain in the data out into the future. The choice of which structures to add are at the discretion of the creative modeller - here we'll demonstrate some simple examples.
 
 ```{code-cell} ipython3
 y_t = -0.3 + np.arange(200) * -0.2 + np.random.normal(0, 10, 200)
@@ -349,10 +352,11 @@ def make_latent_AR_model(ar_data, priors, prediction_steps=250, full_sample=True
             init_dist=init,
             constant=True,
             steps=t.shape[0] - (priors["coefs"]["size"] - 1),
+            dims="obs_id",
         )
 
         # The Likelihood
-        outcome = pm.Normal("likelihood", mu=ar1, sigma=sigma, observed=y)
+        outcome = pm.Normal("likelihood", mu=ar1, sigma=sigma, observed=y, dims="obs_id")
         ## Sampling
         idata_ar = pm.sample_prior_predictive()
         if full_sample:
@@ -484,6 +488,7 @@ def make_latent_AR_trend_model(
             init_dist=init,
             constant=True,
             steps=t.shape[0] - (priors["coefs"]["size"] - 1),
+            dims="obs_id",
         )
 
         ## Priors for the linear trend component
@@ -494,7 +499,7 @@ def make_latent_AR_trend_model(
         mu = ar1 + trend
 
         # The Likelihood
-        outcome = pm.Normal("likelihood", mu=mu, sigma=sigma, observed=y)
+        outcome = pm.Normal("likelihood", mu=mu, sigma=sigma, observed=y, dims="obs_id")
         ## Sampling
         idata_ar = pm.sample_prior_predictive()
         if full_sample:
@@ -519,7 +524,7 @@ def make_latent_AR_trend_model(
             constant=True,
             dims="obs_id_fut",
         )
-        trend = pm.Deterministic("trend_fut", alpha + beta * t_fut)
+        trend = pm.Deterministic("trend_fut", alpha + beta * t_fut, dims="obs_id_fut")
         mu = ar1_fut + trend
 
         yhat_fut = pm.Normal("yhat_fut", mu=mu, sigma=sigma, dims="obs_id_fut")
@@ -562,7 +567,7 @@ az.summary(idata_trend, var_names=["coefs", "sigma", "alpha", "beta"])
 
 ## Complicating the picture further
 
-Next we'll add a seasonal component to our data and see how we can recover this aspect of the data with a bayesian structural timeseries model.
+Next we'll add a seasonal component to our data and see how we can recover this aspect of the data with a bayesian structural timeseries model. Again, this is is because in reality our data is often the result of multiple converging influences. These influences can be capture in an additive bayesian structural model where our inferential model ensures that we allocate appropriate weight to each of the components.
 
 ```{code-cell} ipython3
 t_data = list(range(200))
@@ -586,7 +591,7 @@ ax.set_title("AR + Trend + Seasonality");
 
 The key to fitting this model is to understand that we're now passing in synthetic fourier features to help account for seasonality effects. This works because (roughly speaking) we're trying to fit a complex oscillating phenomena using a weighted combination of sine and cosine waves. So we add these sine waves and consine waves like we would add any other feature variables in a regression model. 
 
-However, since we're using this weighted sum to fit the observed data, the model now expects a linear combination of those synthetic features **also** in the prediction step. As such we need to be able to supply those features even out into the future. This fact remains key for any other type of predictive feature we might want to add e.g. day of the week, holiday flag or any other. If a feature is required to fit the observed data the feature must be available in the prediction step too. 
+However, since we're using this weighted sum to fit the observed data, the model now expects a linear combination of those synthetic features **also** in the prediction step. As such we need to be able to supply those features even out into the future. This fact remains key for any other type of predictive feature we might want to add e.g. day of the week, holiday dummy variable or any other. If a feature is required to fit the observed data the feature must be available in the prediction step too. 
 
 ### Specifying the Trend + Seasonal Model
 
@@ -623,6 +628,7 @@ def make_latent_AR_trend_seasonal_model(
             init_dist=init,
             constant=True,
             steps=t.shape[0] - (priors["coefs"]["size"] - 1),
+            dims="obs_id",
         )
 
         ## Priors for the linear trend component
@@ -645,7 +651,7 @@ def make_latent_AR_trend_seasonal_model(
         mu = ar1 + trend + seasonality
 
         # The Likelihood
-        outcome = pm.Normal("likelihood", mu=mu, sigma=sigma, observed=y)
+        outcome = pm.Normal("likelihood", mu=mu, sigma=sigma, observed=y, dims="obs_id")
         ## Sampling
         idata_ar = pm.sample_prior_predictive()
         if full_sample:
@@ -668,7 +674,9 @@ def make_latent_AR_trend_seasonal_model(
 
     with AR:
         AR.add_coords({"obs_id_fut": range(ar1_data.shape[0], prediction_steps, 1)})
-        t_fut = pm.MutableData("t_fut", list(range(ar1_data.shape[0], prediction_steps, 1)))
+        t_fut = pm.MutableData(
+            "t_fut", list(range(ar1_data.shape[0], prediction_steps, 1)), dims="obs_id_fut"
+        )
         ff_fut = pm.MutableData("ff_fut", fourier_features_new.to_numpy().T)
         # condition on the learned values of the AR process
         # initialise the future AR process precisely at the last observed value in the AR process
@@ -681,8 +689,10 @@ def make_latent_AR_trend_seasonal_model(
             constant=True,
             dims="obs_id_fut",
         )
-        trend = pm.Deterministic("trend_fut", alpha + beta * t_fut)
-        seasonality = pm.Deterministic("seasonality_fut", pm.math.dot(beta_fourier, ff_fut))
+        trend = pm.Deterministic("trend_fut", alpha + beta * t_fut, dims="obs_id_fut")
+        seasonality = pm.Deterministic(
+            "seasonality_fut", pm.math.dot(beta_fourier, ff_fut), dims="obs_id_fut"
+        )
         mu = ar1_fut + trend + seasonality
 
         yhat_fut = pm.Normal("yhat_fut", mu=mu, sigma=sigma, dims="obs_id_fut")
@@ -720,7 +730,7 @@ az.summary(idata_t_s, var_names=["alpha", "beta", "coefs", "beta_fourier"])
 plot_fits(idata_t_s, preds_t_s)
 ```
 
-We can see here how the the model fit again recovers the broad structure and trend of the data, but in addition we have captured the oscillation of the seasonal effect and projected that into the future.
+We can see here how the model fit again recovers the broad structure and trend of the data, but in addition we have captured the oscillation of the seasonal effect and projected that into the future.
 
 # Closing Remarks
 
