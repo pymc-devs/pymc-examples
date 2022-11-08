@@ -121,6 +121,7 @@ with AR:
     ## Sampling
     idata_ar = pm.sample_prior_predictive()
     idata_ar.extend(pm.sample(2000, random_seed=100, target_accept=0.95))
+    idata_ar.extend(pm.sample_posterior_predictive(idata_ar))
 ```
 
 ```{code-cell} ipython3
@@ -435,7 +436,7 @@ for i, p in zip(range(3), [priors_0, priors_1, priors_2]):
 plt.suptitle("Prior Predictive Specifications", fontsize=20);
 ```
 
-We can see the manner in which the model struggles to capture the trend line. Increasing the variablity of the model will never capture the directional pattern we know to be in the data.
+We can see the manner in which the model struggles to capture the trend line. Increasing the variability of the model will never capture the directional pattern we know to be in the data.
 
 ```{code-cell} ipython3
 priors_0 = {
@@ -457,7 +458,7 @@ Forecasting with this model is somewhat hopeless because, while the model fit ad
 
 ### Specifying a Trend Model
 
-We will define a model to account for the trend in our data and combine this trend in a additive model with the autoregressive components. Again the model is much as before, but now we add additional latent features. These are to be combined in a simple additive combination but we can be more creative here if it would suit our model.
+We will define a model to account for the trend in our data and combine this trend in an additive model with the autoregressive components. Again the model is much as before, but now we add additional latent features. These are to be combined in a simple additive combination but we can be more creative here if it would suit our model.
 
 ```{code-cell} ipython3
 def make_latent_AR_trend_model(
