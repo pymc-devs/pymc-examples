@@ -514,6 +514,7 @@ def make_latent_AR_trend_model(
     n = prediction_steps - ar_data.shape[0]
 
     with AR:
+        AR.add_coords({"obs_id_fut_1": range(ar1_data.shape[0] - 1, prediction_steps, 1)})
         AR.add_coords({"obs_id_fut": range(ar1_data.shape[0], prediction_steps, 1)})
         t_fut = pm.MutableData("t_fut", list(range(ar1_data.shape[0], prediction_steps, 1)))
         # condition on the learned values of the AR process
@@ -525,10 +526,10 @@ def make_latent_AR_trend_model(
             rho=coefs,
             sigma=sigma,
             constant=True,
-            dims="obs_id_fut",
+            dims="obs_id_fut_1",
         )
         trend = pm.Deterministic("trend_fut", alpha + beta * t_fut, dims="obs_id_fut")
-        mu = ar1_fut + trend
+        mu = ar1_fut[1:] + trend
 
         yhat_fut = pm.Normal("yhat_fut", mu=mu, sigma=sigma, dims="obs_id_fut")
         # use the updated values and predict outcomes and probabilities:
