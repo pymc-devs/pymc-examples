@@ -198,7 +198,7 @@ idata_preds
 We can look at the standard posterior predictive fits but since our data is timeseries data we have to also look how draws from the posterior predictive distribution vary over time.
 
 ```{code-cell} ipython3
-def plot_fits(idata_ar, idata_preds, prediction_steps=250):
+def plot_fits(idata_ar, idata_preds):
     palette = "plasma"
     cmap = plt.get_cmap(palette)
     percs = np.linspace(51, 99, 100)
@@ -228,9 +228,9 @@ def plot_fits(idata_ar, idata_preds, prediction_steps=250):
         )
 
     axs[0].plot(
-        az.extract_dataset(idata_ar, group="prior_predictive", num_samples=1000)[
-            "likelihood"
-        ].median(axis=1),
+        az.extract_dataset(idata_ar, group="prior_predictive", num_samples=1000)["likelihood"].mean(
+            axis=1
+        ),
         color="cyan",
         label="Prior Predicted Mean Realisation",
     )
@@ -284,7 +284,7 @@ def plot_fits(idata_ar, idata_preds, prediction_steps=250):
         )
 
     axs[2].plot(
-        az.extract_dataset(idata_preds, group="predictions", num_samples=1000)["likelihood"].median(
+        az.extract_dataset(idata_preds, group="predictions", num_samples=1000)["likelihood"].mean(
             axis=1
         ),
         color="cyan",
