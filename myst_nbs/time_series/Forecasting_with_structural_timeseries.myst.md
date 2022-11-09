@@ -161,6 +161,7 @@ prediction_length = 250
 n = prediction_length - ar1_data.shape[0]
 obs = list(range(prediction_length))
 with AR:
+    AR.add_coords({"obs_id_fut_1": range(ar1_data.shape[0] - 1, 250, 1)})
     AR.add_coords({"obs_id_fut": range(ar1_data.shape[0], 250, 1)})
     # condition on the learned values of the AR process
     # initialise the future AR process precisely at the last observed value in the AR process
@@ -171,9 +172,9 @@ with AR:
         rho=coefs,
         sigma=sigma,
         constant=True,
-        dims="obs_id_fut",
+        dims="obs_id_fut_1",
     )
-    yhat_fut = pm.Normal("yhat_fut", mu=ar1_fut, sigma=sigma, dims="obs_id_fut")
+    yhat_fut = pm.Normal("yhat_fut", mu=ar1_fut[1:], sigma=sigma, dims="obs_id_fut")
     # use the updated values and predict outcomes and probabilities:
     idata_preds = pm.sample_posterior_predictive(
         idata_ar, var_names=["likelihood", "yhat_fut"], predictions=True, random_seed=100
