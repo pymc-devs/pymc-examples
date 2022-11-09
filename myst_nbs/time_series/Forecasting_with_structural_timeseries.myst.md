@@ -161,6 +161,7 @@ prediction_length = 250
 n = prediction_length - ar1_data.shape[0]
 obs = list(range(prediction_length))
 with AR:
+    ## We need to have coords for the observations minus the lagged term to correctly centre the prediction step
     AR.add_coords({"obs_id_fut_1": range(ar1_data.shape[0] - 1, 250, 1)})
     AR.add_coords({"obs_id_fut": range(ar1_data.shape[0], 250, 1)})
     # condition on the learned values of the AR process
@@ -197,7 +198,7 @@ idata_preds
 We can look at the standard posterior predictive fits but since our data is timeseries data we have to also look how draws from the posterior predictive distribution vary over time.
 
 ```{code-cell} ipython3
-def plot_fits(idata_ar, idata_preds):
+def plot_fits(idata_ar, idata_preds, prediction_steps=250):
     palette = "plasma"
     cmap = plt.get_cmap(palette)
     percs = np.linspace(51, 99, 100)
@@ -208,12 +209,12 @@ def plot_fits(idata_ar, idata_preds):
     axs = [axs[k] for k in axs.keys()]
     for i, p in enumerate(percs[::-1]):
         upper = np.percentile(
-            az.extract_dataset(idata_ar, group="prior_predictive", num_samples=100)["likelihood"],
+            az.extract_dataset(idata_ar, group="prior_predictive", num_samples=1000)["likelihood"],
             p,
             axis=1,
         )
         lower = np.percentile(
-            az.extract_dataset(idata_ar, group="prior_predictive", num_samples=100)["likelihood"],
+            az.extract_dataset(idata_ar, group="prior_predictive", num_samples=1000)["likelihood"],
             100 - p,
             axis=1,
         )
@@ -227,9 +228,9 @@ def plot_fits(idata_ar, idata_preds):
         )
 
     axs[0].plot(
-        az.extract_dataset(idata_ar, group="prior_predictive", num_samples=100)["likelihood"].mean(
-            axis=1
-        ),
+        az.extract_dataset(idata_ar, group="prior_predictive", num_samples=1000)[
+            "likelihood"
+        ].median(axis=1),
         color="cyan",
         label="Prior Predicted Mean Realisation",
     )
@@ -245,12 +246,12 @@ def plot_fits(idata_ar, idata_preds):
 
     for i, p in enumerate(percs[::-1]):
         upper = np.percentile(
-            az.extract_dataset(idata_preds, group="predictions", num_samples=100)["likelihood"],
+            az.extract_dataset(idata_preds, group="predictions", num_samples=1000)["likelihood"],
             p,
             axis=1,
         )
         lower = np.percentile(
-            az.extract_dataset(idata_preds, group="predictions", num_samples=100)["likelihood"],
+            az.extract_dataset(idata_preds, group="predictions", num_samples=1000)["likelihood"],
             100 - p,
             axis=1,
         )
@@ -264,12 +265,12 @@ def plot_fits(idata_ar, idata_preds):
         )
 
         upper = np.percentile(
-            az.extract_dataset(idata_preds, group="predictions", num_samples=100)["yhat_fut"],
+            az.extract_dataset(idata_preds, group="predictions", num_samples=1000)["yhat_fut"],
             p,
             axis=1,
         )
         lower = np.percentile(
-            az.extract_dataset(idata_preds, group="predictions", num_samples=100)["yhat_fut"],
+            az.extract_dataset(idata_preds, group="predictions", num_samples=1000)["yhat_fut"],
             100 - p,
             axis=1,
         )
@@ -283,7 +284,7 @@ def plot_fits(idata_ar, idata_preds):
         )
 
     axs[2].plot(
-        az.extract_dataset(idata_preds, group="predictions", num_samples=100)["likelihood"].mean(
+        az.extract_dataset(idata_preds, group="predictions", num_samples=1000)["likelihood"].median(
             axis=1
         ),
         color="cyan",
@@ -703,7 +704,7 @@ def make_latent_AR_trend_seasonal_model(
         yhat_fut = pm.Normal("yhat_fut", mu=mu, sigma=sigma, dims="obs_id_fut")
         # use the updated values and predict outcomes and probabilities:
         idata_preds = pm.sample_posterior_predictive(
-            idata_ar, var_names=["likelihood", "yhat_fut"], predictions=True, random_seed=100
+            idata_ar, var_names=["likelihood", "yhat_fut"], predictions=True, random_seed=743
         )
 
     return idata_ar, idata_preds, AR
@@ -714,7 +715,7 @@ priors_0 = {
     "coefs": {"mu": [0.2, 0.2], "sigma": [0.5, 0.03], "size": 2},
     "alpha": {"mu": -4, "sigma": 0.1},
     "beta": {"mu": -0.1, "sigma": 0.2},
-    "beta_fourier": {"mu": 0, "sigma": 0.8},
+    "beta_fourier": {"mu": 0, "sigma": 2},
     "sigma": 8,
     "init": {"mu": -4, "sigma": 0.1, "size": 1},
 }
