@@ -666,7 +666,7 @@ def make_latent_AR_trend_seasonal_model(
 
     n = prediction_steps - ar_data.shape[0]
     n_order = 10
-    periods = np.arange(n) / 7
+    periods = (ar_data.shape[0] + np.arange(n)) / 7
 
     fourier_features_new = pd.DataFrame(
         {
