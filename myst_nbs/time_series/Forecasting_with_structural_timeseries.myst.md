@@ -275,7 +275,7 @@ def plot_fits(idata_ar, idata_preds):
         )
         color_val = colors[i]
         axs[2].fill_between(
-            x=np.linspace(200, 250, 50),
+            x=idata_preds["predictions"].coords["obs_id_fut"].data,
             y1=upper.flatten(),
             y2=lower.flatten(),
             color=cmap(color_val),
