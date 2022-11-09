@@ -677,6 +677,7 @@ def make_latent_AR_trend_seasonal_model(
     )
 
     with AR:
+        AR.add_coords({"obs_id_fut_1": range(ar1_data.shape[0] - 1, prediction_steps, 1)})
         AR.add_coords({"obs_id_fut": range(ar1_data.shape[0], prediction_steps, 1)})
         t_fut = pm.MutableData(
             "t_fut", list(range(ar1_data.shape[0], prediction_steps, 1)), dims="obs_id_fut"
@@ -691,13 +692,13 @@ def make_latent_AR_trend_seasonal_model(
             rho=coefs,
             sigma=sigma,
             constant=True,
-            dims="obs_id_fut",
+            dims="obs_id_fut_1",
         )
         trend = pm.Deterministic("trend_fut", alpha + beta * t_fut, dims="obs_id_fut")
         seasonality = pm.Deterministic(
             "seasonality_fut", pm.math.dot(beta_fourier, ff_fut), dims="obs_id_fut"
         )
-        mu = ar1_fut + trend + seasonality
+        mu = ar1_fut[1:] + trend + seasonality
 
         yhat_fut = pm.Normal("yhat_fut", mu=mu, sigma=sigma, dims="obs_id_fut")
         # use the updated values and predict outcomes and probabilities:
