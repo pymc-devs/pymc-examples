@@ -121,7 +121,7 @@ Let's also make a helper function for inferring the most likely values of $z$:
 def infer_z(smoothing):
     with model:
         smoothing_param.set_value(smoothing)
-        res = pm.find_MAP(vars=[z], fmin=optimize.fmin_l_bfgs_b)
+        res = pm.find_MAP(vars=[z], method="L-BFGS-B")
         return res["z"]
 ```
 

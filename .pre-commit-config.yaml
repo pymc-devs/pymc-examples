@@ -36,7 +36,6 @@ repos:
             |examples/gaussian_processes/GP-TProcess\.ipynb$
             |examples/mixture_models/dependent_density_regression\.ipynb$
             |examples/gaussian_processes/GP-Heteroskedastic\.ipynb$
-            |examples/gaussian_processes/GP-MeansAndCovs\.ipynb$
             |examples/samplers/MLDA_variance_reduction_linear_regression\.ipynb$
 
 - repo: https://github.com/FlamingTempura/bibtex-tidy
@@ -74,7 +73,6 @@ repos:
                examples/case_studies/blackbox_external_likelihood.ipynb|
                examples/case_studies/blackbox_external_likelihood_numpy.ipynb|
                examples/case_studies/item_response_nba.ipynb|
-               examples/diagnostics_and_criticism/sampler-stats.ipynb|
                examples/gaussian_processes/GP-MaunaLoa2.ipynb|
                examples/generalized_linear_models/GLM-logistic.ipynb|
                examples/generalized_linear_models/GLM-out-of-sample-predictions.ipynb|
