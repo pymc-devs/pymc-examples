@@ -13,7 +13,7 @@ kernelspec:
 
 +++ {"papermill": {"duration": 0.043172, "end_time": "2021-02-23T11:26:55.064791", "exception": false, "start_time": "2021-02-23T11:26:55.021619", "status": "completed"}, "tags": []}
 
-(notebook_name)=
+(GLM-poisson-regression)=
 # GLM: Poisson Regression
 
 :::{post} November 12, 2022
