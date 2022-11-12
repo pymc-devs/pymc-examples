@@ -37,17 +37,17 @@ $$
 
 These implementations support the following property of Kronecker products to speed up calculations, $(\mathbf{K}_1 \otimes \mathbf{K}_2)^{-1} = \mathbf{K}_{1}^{-1} \otimes \mathbf{K}_{2}^{-1}$, the inverse of the sum is the sum of the inverses.  If $K_1$ is $n \times n$ and $K_2$ is $m \times m$, then $\mathbf{K}_1 \otimes \mathbf{K}_2$ is $mn \times mn$.  For $m$ and $n$ of even modest size, this inverse becomes impossible to do efficiently.  Inverting two matrices, one $n \times n$ and another $m \times m$ is much easier.
 
-This structure is common in spatiotemporal data.  Given that there is Kronecker structure in the covariance matrix, this implementation is exact -- not an approximation to the full Gaussian process.  PyMC contains two implementations that follow the same pattern as `gp.Marginal` and `gp.Latent`.  For Kronecker structured covariances where the data likelihood is Gaussian, use `gp.MarginalKron`.  For Kronecker structured covariances where the data likelihood is non-Gaussian, use `gp.LatentKron`.  
+This structure is common in spatiotemporal data.  Given that there is Kronecker structure in the covariance matrix, this implementation is exact -- not an approximation to the full Gaussian process.  PyMC contains two implementations that follow the same pattern as {class}`gp.Marginal <pymc.gp.Marginal>` and {class}`gp.Latent <pymc.gp.Latent>`.  For Kronecker structured covariances where the data likelihood is Gaussian, use {class}`gp.MarginalKron <pymc.gp.MarginalKron>`. For Kronecker structured covariances where the data likelihood is non-Gaussian, use {class}`gp.LatentKron <pymc.gp.LatentKron>`.  
 
-Our implementations follow [Saatchi's Thesis](http://mlg.eng.cam.ac.uk/pub/authors/#Saatci).  `MarginalKron` follows "Algorithm 16" using the Eigendecomposition, and `LatentKron` follows "Algorithm 14", and uses the Cholesky decomposition.
+Our implementations follow [Saatchi's Thesis](http://mlg.eng.cam.ac.uk/pub/authors/#Saatci). `gp.MarginalKron` follows "Algorithm 16" using the Eigendecomposition, and `gp.LatentKron` follows "Algorithm 14", and uses the Cholesky decomposition.
 
 +++
 
 ## Using `MarginalKron` for a 2D spatial problem
 
-The following is a canonical example of the usage of `MarginalKron`.  Like `Marginal`, this model assumes that the underlying GP is unobserved, but the sum of the GP and normally distributed noise are observed.  
+The following is a canonical example of the usage of `gp.MarginalKron`.  Like `gp.Marginal`, this model assumes that the underlying GP is unobserved, but the sum of the GP and normally distributed noise are observed.  
 
-For the simulated data set, we draw one sample from a Gaussian process with inputs in two dimensions whose covariance is Kronecker structured.  Then we use `MarginalKron` to recover the unknown Gaussian process hyperparameters $\theta$ that were used to simulate the data.
+For the simulated data set, we draw one sample from a Gaussian process with inputs in two dimensions whose covariance is Kronecker structured.  Then we use `gp.MarginalKron` to recover the unknown Gaussian process hyperparameters $\theta$ that were used to simulate the data.
 
 +++
 
@@ -173,11 +173,11 @@ plt.title("observed data 'y' (circles) with predicted mean (squares)");
 
 ## `LatentKron`
 
-Like the `gp.Latent` implementation, the `LatentKron` implementation specifies a Kronecker structured GP regardless of context.  **It can be used with any likelihood function, or can be used to model a variance or some other unobserved processes**.  The syntax follows that of `gp.Latent` exactly.  
+Like the `gp.Latent` implementation, the `gp.LatentKron` implementation specifies a Kronecker structured GP regardless of context.  **It can be used with any likelihood function, or can be used to model a variance or some other unobserved processes**.  The syntax follows that of `gp.Latent` exactly.  
 
 ### Example 1
 
-To compare with `MarginalLikelihood`, we use same example as before where the noise is normal, but the GP itself is not marginalized out.  Instead, it is sampled directly using NUTS.  It is very important to note that `LatentKron` does not require a Gaussian likelihood like `MarginalKron`; rather, any likelihood is admissible.
+To compare with `MarginalLikelihood`, we use same example as before where the noise is normal, but the GP itself is not marginalized out.  Instead, it is sampled directly using NUTS.  It is very important to note that `gp.LatentKron` does not require a Gaussian likelihood like `gp.MarginalKron`; rather, any likelihood is admissible.
 
 ```{code-cell} ipython3
 with pm.Model() as model:
@@ -247,7 +247,7 @@ with model:
     ppc = pm.sample_posterior_predictive(tr, var_names=["fnew"])
 ```
 
-Below we show the original data set as colored circles, and the mean of the conditional samples as colored squares.  The results closely follow those given by the `MarginalKron` implementation.
+Below we show the original data set as colored circles, and the mean of the conditional samples as colored squares.  The results closely follow those given by the `gp.MarginalKron` implementation.
 
 ```{code-cell} ipython3
 fig = plt.figure(figsize=(14, 7))
@@ -300,7 +300,7 @@ for i, ax in enumerate(axs):
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w
+%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
 ```
 
 :::{include} ../page_footer.md
