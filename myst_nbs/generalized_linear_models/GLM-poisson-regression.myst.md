@@ -6,14 +6,39 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: pymc_env
+  display_name: pymc-ex
   language: python
-  name: pymc_env
+  name: pymc-ex
 ---
 
 +++ {"papermill": {"duration": 0.043172, "end_time": "2021-02-23T11:26:55.064791", "exception": false, "start_time": "2021-02-23T11:26:55.021619", "status": "completed"}, "tags": []}
 
+(notebook_name)=
 # GLM: Poisson Regression
+
+:::{post} November 12, 2022
+:tags: regression, poisson
+:category: Intermediate
+:author: Jonathan Sedar, Benjamin Vincent
+:::
+
++++ {"papermill": {"duration": 0.069202, "end_time": "2021-02-23T11:27:01.489628", "exception": false, "start_time": "2021-02-23T11:27:01.420426", "status": "completed"}, "tags": []}
+
+This is a minimal reproducible example of Poisson regression to predict counts using dummy data.
+
+This Notebook is basically an excuse to demo Poisson regression using PyMC, both manually and using `bambi` to demo interactions using the `formulae` library. We will create some dummy data, Poisson distributed according to a linear model, and try to recover the coefficients of that linear model through inference.
+
+For more statistical detail see:
+
++ Basic info on [Wikipedia](https://en.wikipedia.org/wiki/Poisson_regression)
++ GLMs: Poisson regression, exposure, and overdispersion in Chapter 6.2 of [ARM, Gelmann & Hill 2006](http://www.stat.columbia.edu/%7Egelman/arm/)
++ This worked example from ARM 6.2 by [Clay Ford](http://www.clayford.net/statistics/poisson-regression-ch-6-of-gelman-and-hill/)
+
+This very basic model is inspired by [a project by Ian Osvald](http://ianozsvald.com/2016/05/07/statistically-solving-sneezes-and-sniffles-a-work-in-progress-report-at-pydatalondon-2016/), which is concerned with understanding the various effects of external environmental factors upon the allergic sneezing of a test subject.
+
+```{code-cell} ipython3
+#!pip install seaborn
+```
 
 ```{code-cell} ipython3
 ---
@@ -52,20 +77,6 @@ rng = np.random.default_rng(RANDOM_SEED)
 %config InlineBackend.figure_format = 'retina'
 az.style.use("arviz-darkgrid")
 ```
-
-+++ {"papermill": {"duration": 0.069202, "end_time": "2021-02-23T11:27:01.489628", "exception": false, "start_time": "2021-02-23T11:27:01.420426", "status": "completed"}, "tags": []}
-
-This is a minimal reproducible example of Poisson regression to predict counts using dummy data.
-
-This Notebook is basically an excuse to demo Poisson regression using PyMC3, both manually and using `bambi` to demo interactions using the `formulae` library. We will create some dummy data, Poisson distributed according to a linear model, and try to recover the coefficients of that linear model through inference.
-
-For more statistical detail see:
-
-+ Basic info on [Wikipedia](https://en.wikipedia.org/wiki/Poisson_regression)
-+ GLMs: Poisson regression, exposure, and overdispersion in Chapter 6.2 of [ARM, Gelmann & Hill 2006](http://www.stat.columbia.edu/%7Egelman/arm/)
-+ This worked example from ARM 6.2 by [Clay Ford](http://www.clayford.net/statistics/poisson-regression-ch-6-of-gelman-and-hill/)
-
-This very basic model is inspired by [a project by Ian Osvald](http://ianozsvald.com/2016/05/07/statistically-solving-sneezes-and-sniffles-a-work-in-progress-report-at-pydatalondon-2016/), which is concerned with understanding the various effects of external environmental factors upon the allergic sneezing of a test subject.
 
 +++ {"papermill": {"duration": 0.06268, "end_time": "2021-02-23T11:27:01.615645", "exception": false, "start_time": "2021-02-23T11:27:01.552965", "status": "completed"}, "tags": []}
 
@@ -489,7 +500,7 @@ posterior_predictive = model.predict(inf_fish_alt, kind="pps")
 
 We can use `az.plot_ppc()` to check that the posterior predictive samples are similar to the observed data.
 
-For more information on posterior predictive checks, we can refer to https://docs.pymc.io/notebooks/posterior_predictive.html.
+For more information on posterior predictive checks, we can refer to {class}`pymc.posterior_predictive`.
 
 ```{code-cell} ipython3
 az.plot_ppc(inf_fish_alt);
@@ -498,8 +509,9 @@ az.plot_ppc(inf_fish_alt);
 +++ {"papermill": {"duration": 0.106366, "end_time": "2021-02-23T11:31:34.956844", "exception": false, "start_time": "2021-02-23T11:31:34.850478", "status": "completed"}, "tags": []}
 
 ## Authors
-- Example originally contributed by Jonathan Sedar 2016-05-15 [github.com/jonsedar](https://github.com/jonsedar)
+- Example originally contributed by [Jonathan Sedar](https://github.com/jonsedar) 2016-05-15.
 - Updated to PyMC v4 by [Benjamin Vincent](https://github.com/drbenvincent) May 2022.
+- Notebook header and footer updated November 2022.
 
 +++
 
@@ -518,3 +530,6 @@ tags: []
 %load_ext watermark
 %watermark -n -u -v -iv -w -p aesara,aeppl
 ```
+
+:::{include} ../page_footer.md
+:::
