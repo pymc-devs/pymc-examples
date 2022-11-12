@@ -15,14 +15,14 @@ kernelspec:
 # Multi-output Gaussian Processes: Coregionalization models using Hamadard product
 
 :::{post} October, 2022
-:tags: gaussian process, multi-output, coregionalization
+:tags: gaussian process, multi-output
 :category: intermediate
 :author: Danh Phan, Bill Engels, Chris Fonnesbeck
 :::
 
 +++
 
-This notebook shows how to implement the Intrinsic Coregionalization Model (ICM) and the Linear Coregionalization Model (LCM) using a Hamadard product between the Coregion kernel and input kernels. For further information about ICM and LCM, please check out the [talk](https://www.youtube.com/watch?v=ttgUJtVJthA&list=PLpTp0l_CVmgwyAthrUmmdIFiunV1VvicM) on Multi-output Gaussian Processes by Mauricio Alvarez, and [his slides](http://gpss.cc/gpss17/slides/multipleOutputGPs.pdf).
+This notebook shows how to implement the **Intrinsic Coregionalization Model** (ICM) and the **Linear Coregionalization Model** (LCM) using a Hamadard product between the Coregion kernel and input kernels. For further information about ICM and LCM, please check out the [talk](https://www.youtube.com/watch?v=ttgUJtVJthA&list=PLpTp0l_CVmgwyAthrUmmdIFiunV1VvicM) on Multi-output Gaussian Processes by Mauricio Alvarez, and [his slides](http://gpss.cc/gpss17/slides/multipleOutputGPs.pdf).
 
 The advantage of Multi-output Gaussian Processes is their capacity to simultaneously learn and infer many outputs which have the same source of uncertainty from inputs. In this example, we model the average spin rates of several pitchers in different games from a baseball dataset.
 
@@ -348,7 +348,7 @@ This work is supported by 2022 [Google Summer of Codes](https://summerofcode.wit
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w
+%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
 ```
 
 :::{include} ../page_footer.md
