@@ -112,35 +112,9 @@ def setup(app: Sphinx):
 # a list of builtin themes.
 
 # theme options
-html_theme = "pydata_sphinx_theme"
+html_theme = "pymc_sphinx_theme"
 html_theme_options = {
-    "icon_links": [
-        {
-            "name": "GitHub",
-            "url": "https://github.com/pymc-devs/pymc-examples",
-            "icon": "fab fa-github-square",
-        },
-        {
-            "name": "Twitter",
-            "url": "https://twitter.com/pymc_devs",
-            "icon": "fab fa-twitter-square",
-        },
-        {
-            "name": "YouTube",
-            "url": "https://www.youtube.com/c/PyMCDevelopers",
-            "icon": "fab fa-youtube",
-        },
-        {
-            "name": "Discourse",
-            "url": "https://discourse.pymc.io",
-            "icon": "fab fa-discourse",
-        },
-    ],
-    "search_bar_text": "Search...",
-    "navbar_end": ["navbar-icon-links.html"],
     "page_sidebar_items": ["postcard", "page-toc", "edit-this-page", "donate"],
-    "google_analytics_id": "G-6KPRBTE6WV",
-    "header_links_before_dropdown": 6,
     "logo": {
         "link": "https://www.pymc.io",
     },
@@ -170,7 +144,6 @@ html_title = "PyMC example gallery"
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["../_static"]
 html_extra_path = ["../_thumbnails"]
-html_css_files = ["custom.css"]
 templates_path = ["../_templates"]
 html_sidebars = {
     "**": [
