@@ -6,7 +6,7 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: Python 3
   language: python
   name: python3
 ---
@@ -63,9 +63,9 @@ $$p(M_k \mid y) \propto p(y \mid M_k) p(M_k)$$
 
 Sometimes the main objective is not to just keep a single model but instead to compare models to determine which ones are more likely and by how much. This can be achieved using Bayes factors:
 
-$$BF =  \frac{p(y \mid M_0)}{p(y \mid M_1)}$$
+$$BF_{01} =  \frac{p(y \mid M_0)}{p(y \mid M_1)}$$
 
-that is, the ratio between the marginal likelihood of two models. The larger the BF the _better_ the model in the numerator ($M_0$ in this example). To ease the interpretation of BFs some authors have proposed tables with levels of *support* or *strength*, just a way to put numbers into words. 
+that is, the ratio between the marginal likelihood of two models. The larger the BF the _better_ the model in the numerator ($M_0$ in this example). To ease the interpretation of BFs  Harold Jeffreys proposed a scale for interpretation of Bayes Factors with levels of *support* or *strength*. This is just a way to put numbers into words. 
 
 * 1-3: anecdotal
 * 3-10: moderate
@@ -223,7 +223,7 @@ BF_smc = np.exp(
     idatas[1].sample_stats["log_marginal_likelihood"].mean()
     - idatas[0].sample_stats["log_marginal_likelihood"].mean()
 )
-np.round(BF_smc)
+np.round(BF_smc).item()
 ```
 
 As we can see from the previous cell, SMC gives essentially the same answer as the analytical calculation! 
@@ -236,7 +236,7 @@ The advantage of using SMC to compute the (log) marginal likelihood is that we c
 
 ## Bayes factors and inference
 
-In this example we have used Bayes factors to judge which model seems to be better at explaining the data, and we get that one of the models is $\approx 5$ _better_ than the other. 
+So far we have used Bayes factors to judge which model seems to be better at explaining the data, and we get that one of the models is $\approx 5$ _better_ than the other. 
 
 But what about the posterior we get from these models? How different they are?
 
@@ -260,13 +260,13 @@ _, ax = plt.subplots(figsize=(9, 6))
 
 bins = np.linspace(0.2, 0.8, 8)
 ax = az.plot_dist(
-    ppc_0["yl"].mean("yl_dim_0"),
+    ppc_0["yl"].mean("yl_dim_2"),
     label="model_0",
     kind="hist",
     hist_kwargs={"alpha": 0.5, "bins": bins},
 )
 ax = az.plot_dist(
-    ppc_1["yl"].mean("yl_dim_0"),
+    ppc_1["yl"].mean("yl_dim_2"),
     label="model_1",
     color="C1",
     kind="hist",
@@ -283,9 +283,57 @@ In this example the observed data $y$ is more consistent with `model_1` (because
 
 +++
 
+##  Savage-Dickey Density Ratio
+
+For the previous examples we have compared two beta-binomial models, but sometimes what we want to do is to compare a null hypothesis H_0 (or null model) against an alternative one H_1. For example, to answer the question is this coin biased, we could compare the value $\theta 0.5$ (representing no bias) against an the result from a model were we let $\theta$ to vary. For this kind of comparison the null-model is nested within the alternative, meaning the null is a particular value of the model we are building. In those cases computing the Bayes Factor is very easy and it does not require any special method. We just need to compare the prior and posterior evaluated at the null-value (for example $\theta = 0.5$), under the alternative model. We can see that is true from the following expression:
+
+
+$$
+BF_{01} = \frac{p(y \mid H_0)}{p(y \mid H_1)} \frac{p(\theta=0.5 \mid y, H_1)}{p(\theta=0.5 \mid H_1)}
+$$
+
+Which only holds when H_0 is a particular case of H_1.
+
+Let's do it with PyMC and ArviZ. We need just need to get posterior and prior samples for a model. Let's try with beta-binomial model with uniform prior we previously saw.
+
+```{code-cell} ipython3
+with pm.Model() as model_uni:
+    a = pm.Beta("a", 1, 1)
+    yl = pm.Bernoulli("yl", a, observed=y)
+    idata_uni = pm.sample(2000, random_seed=42)
+    idata_uni.extend(pm.sample_prior_predictive(8000))
+```
+
+And now we call ArviZ's `az.plot_bf` function
+
+```{code-cell} ipython3
+az.plot_bf(idata_uni, var_name="a", ref_val=0.5);
+```
+
+The plot shows one KDE for the prior (blue) and one for the posterior (orange). The two black dots show we evaluate both distribution as 0.5. We can see that the Bayes factor in favor of the null BF_01 is $\approx 8$, which we can interpret as a _moderate evidence_ in favor of the null (see the Jeffreys' scale we discussed before).
+
+As we already discussed Bayes factor are measuring which model, as a whole, is better at explaining the data. And this includes the prior, even if the prior has a relatively low impact on the posterior computation. We can also see this effect of the prior when comparing a second model against the null.
+
+If instead our model would be a beta-binomial with prior beta(30, 30), the BF_01 would be lower (_anecdotal_ on the Jeffreys' scale). This is because under this model the value of $\theta=0.5$ is much likely a priori than for a uniform prior, and hence the posterior and prior will me much more similar. Namely there is not too much surprise about seeing the posterior concentrated around 0.5 after collecting data.
+
+Let compute it to see it by ourselves.
+
+```{code-cell} ipython3
+with pm.Model() as model_conc:
+    a = pm.Beta("a", 30, 30)
+    yl = pm.Bernoulli("yl", a, observed=y)
+    idata_conc = pm.sample(2000, random_seed=42)
+    idata_conc.extend(pm.sample_prior_predictive(8000))
+```
+
+```{code-cell} ipython3
+az.plot_bf(idata_conc, var_name="a", ref_val=0.5);
+```
+
 * Authored by Osvaldo Martin in September, 2017 ([pymc#2563](https://github.com/pymc-devs/pymc/pull/2563))
 * Updated by Osvaldo Martin in August, 2018 ([pymc#3124](https://github.com/pymc-devs/pymc/pull/3124))
 * Updated by Osvaldo Martin in May, 2022 ([pymc-examples#342](https://github.com/pymc-devs/pymc-examples/pull/342))
+* Updated by Osvaldo Martin in Nov, 2022
 
 +++
 
@@ -298,7 +346,3 @@ In this example the observed data $y$ is more consistent with `model_1` (because
 
 :::{include} ../page_footer.md
 :::
-
-```{code-cell} ipython3
-
-```
