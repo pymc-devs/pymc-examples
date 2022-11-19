@@ -21,6 +21,8 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
+import pickle
+
 import aesara as at
 import arviz as az
 import matplotlib.dates as mdates
@@ -41,15 +43,15 @@ az.style.use("arviz-darkgrid")
 %config InlineBackend.figure_format = 'retina'
 ```
 
-# Bayesian V(ector)A(uto)R(egression) Models 
+## V(ector)A(uto)R(egression) Models 
 
-In this notebook we will outline an application of the Bayesian Vector Autoregressive Modelling. We will draw on the work in the PYMC Labs blogpost. This will be a three part series. In the first we want to show how to fit Bayesian VAR models in PYMC. In the second we will show how to extract extra insight from the fitted model with Impulse Response analysis and make forecasts from the fitted VAR model. In the third and final post we will show in some more the benefits of using hierarchical priors with Bayesian VAR models. Specifically we'll outline how and why there are actually a range of carefully formulated industry standard priors which work with Bayesian VAR modelling. 
+In this notebook we will outline an application of the Bayesian Vector Autoregressive Modelling. We will draw on the work in the PYMC Labs blogpost. This will be a three part series. In the first we want to show how to fit Bayesian VAR models in PYMC. In the second we will show how to extract extra insight from the fitted model with Impulse Response analysis and make forecasts from the fitted VAR model. In the third and final post we will show in some more detail the benefits of using hierarchical priors with Bayesian VAR models. Specifically, we'll outline how and why there are actually a range of carefully formulated industry standard priors which work with Bayesian VAR modelling. 
 
-In this post we will (i) demonstrate the basic pattern on a simple VAR model on fake data and show how the model recovers the true data generating parameters and (ii) we will show an example applied to macro-economic data and compare the results to those achieved on the same data with statsmodels MLE fits and (iii) show an example of estimating a hierarchical bayesian VAR model over two countries.  
+In this post we will (i) demonstrate the basic pattern on a simple VAR model on fake data and show how the model recovers the true data generating parameters and (ii) we will show an example applied to macro-economic data and compare the results to those achieved on the same data with statsmodels MLE fits and (iii) show an example of estimating a hierarchical bayesian VAR model over a number of countries.  
 
 ## Autoregressive Models in General
 
-The idea of a simple autoregressive model is to capture the manner in which past observations of the timeseries are predictive of the current observation. So in traditional if we model this as a linear phenomena we get simple autoregressive models where the current value is predicted by a weighted linear combination of the past values and an error term. 
+The idea of a simple autoregressive model is to capture the manner in which past observations of the timeseries are predictive of the current observation. So in traditional fashion, if we model this as a linear phenomena we get simple autoregressive models where the current value is predicted by a weighted linear combination of the past values and an error term. 
 
 $$ y_t = \alpha + \beta_{y0} \cdot y_{t-1} + \beta_{y1} \cdot y_{t-2} ... + \epsilon $$
 
@@ -64,7 +66,7 @@ where the As are coefficient matrices to be combined with the past values of eac
 $$ \begin{bmatrix} gdp \\ inv \\ con \end{bmatrix}_{T} = \nu + A_{1}\begin{bmatrix} gdp \\ inv \\ con \end{bmatrix}_{T-1} + 
     A_{2}\begin{bmatrix} gdp \\ inv \\ con \end{bmatrix}_{T-2} ... A_{p}\begin{bmatrix} gdp \\ inv \\ con \end{bmatrix}_{T-p} + \mathbf{e}_{t} $$
 
-This structure is compact representation using matrix notation. The thing we are trying to estimate when we fit a VAR model is the A matrix that determines the manner of the linear combination that best fits our timeseries. Such timeseries models can have an auto-regressive or a moving average representation, and the details matter for some of the implication of a VAR model fit. 
+This structure is compact representation using matrix notation. The thing we are trying to estimate when we fit a VAR model is the A matrices that determine the nature of the linear combination that best fits our timeseries data. Such timeseries models can have an auto-regressive or a moving average representation, and the details matter for some of the implication of a VAR model fit. 
 
 We'll see in the next notebook of the series how the moving-average representation of a VAR lends itself to the interpretation of the covariance structure in our model as representing a kind of impulse-response relationship between the component timeseries. 
 
@@ -75,7 +77,7 @@ The matrix notation is convenient to suggest the broad patterns of the model, bu
 $$ gdp_{t} = \beta_{gdp1} \cdot gdp_{t-1} + \beta_{gdp2} \cdot gdp_{t-2} +  \beta_{cons1} \cdot cons_{t-1} + \beta_{cons2} \cdot cons_{t-2}  + \epsilon_{gdp}$$
 $$ cons_{t} = \beta_{cons1} \cdot cons_{t-1} + \beta_{cons2} \cdot cons_{t-2} +  \beta_{gdp1} \cdot gdp_{t-1} + \beta_{gdp2} \cdot gdp_{t-2}  + \epsilon_{cons}$$
 
-In this manner we can see that if we can estimate the $\beta$ terms we have an estimate for the bi-directional effects of each variable on the other. This is a useful feature of the modelling. In what follows i should stress that i'm not an economist and I'm aiming to show only the functionality of these models not give you a decisive opinion about the economic relationships determining Irish GDP figures. 
+In this way we can see that if we can estimate the $\beta$ terms we have an estimate for the bi-directional effects of each variable on the other. This is a useful feature of the modelling. In what follows i should stress that i'm not an economist and I'm aiming to show only the functionality of these models not give you a decisive opinion about the economic relationships determining Irish GDP figures. 
 
 ### Creating some Fake Data
 
@@ -310,18 +312,18 @@ def shade_background(ppc, ax, idx, palette="cividis"):
 
 
 def plot_ppc(idata, df, group="posterior_predictive"):
-    fig, axs = plt.subplots(2, 1, figsize=(20, 10))
+    fig, axs = plt.subplots(2, 1, figsize=(20, 15))
     df = pd.DataFrame(idata_fake_data["observed_data"]["obs"].data, columns=["x", "y"])
     axs = axs.flatten()
     ppc = az.extract_dataset(idata, group=group, num_samples=100)["obs"]
     # Minus the lagged terms and the constant
-    shade_background(ppc, axs, 0)
+    shade_background(ppc, axs, 0, "viridis")
     axs[0].plot(np.arange(ppc.shape[0]), ppc[:, 0, :].mean(axis=1), color="cyan", label="Mean")
-    axs[0].plot(df["x"], "o", color="black", markersize=4, label="Observed")
+    axs[0].plot(df["x"], "o", color="black", markersize=6, label="Observed")
     axs[0].set_title("VAR Series 1")
     axs[0].legend()
-    shade_background(ppc, axs, 1)
-    axs[1].plot(df["y"], "o", color="black", markersize=4, label="Observed")
+    shade_background(ppc, axs, 1, "viridis")
+    axs[1].plot(df["y"], "o", color="black", markersize=6, label="Observed")
     axs[1].plot(np.arange(ppc.shape[0]), ppc[:, 1, :].mean(axis=1), color="cyan", label="Mean")
     axs[1].set_title("VAR Series 2")
     axs[1].legend()
@@ -399,11 +401,11 @@ def plot_ppc_macro(idata, df, group="posterior_predictive"):
 
     shade_background(ppc, axs, 0)
     axs[0].plot(np.arange(ppc.shape[0]), ppc[:, 0, :].mean(axis=1), color="cyan", label="Mean")
-    axs[0].plot(df["dl_gdp"], "o", color="black", markersize=4, label="Observed")
+    axs[0].plot(df["dl_gdp"], "o", color="black", markersize=6, label="Observed")
     axs[0].set_title("Differenced and Logged GDP")
     axs[0].legend()
     shade_background(ppc, axs, 1)
-    axs[1].plot(df["dl_cons"], "o", color="black", markersize=4, label="Observed")
+    axs[1].plot(df["dl_cons"], "o", color="black", markersize=6, label="Observed")
     axs[1].plot(np.arange(ppc.shape[0]), ppc[:, 1, :].mean(axis=1), color="cyan", label="Mean")
     axs[1].set_title("Differenced and Logged Consumption")
     axs[1].legend()
@@ -491,9 +493,11 @@ def make_hierarchical_model(n_lags, n_eqs, df, group_field, mv_norm=True, prior_
                 noise_chol, _, _ = pm.LKJCholeskyCov(
                     f"noise_chol_{grp}", eta=10, n=n, sd_dist=pm.Exponential.dist(1)
                 )
-                omega = pm.Deterministic(f"omega_{grp}", rho * omega_global + 1 - rho * noise_chol)
+                omega = pm.Deterministic(
+                    f"omega_{grp}", rho * omega_global + (1 - rho) * noise_chol
+                )
                 obs = pm.MvNormal(
-                    f"obs_{grp}", mu=mean, chol=omega_global, observed=df_grp.values[n_lags:]
+                    f"obs_{grp}", mu=mean, chol=omega, observed=df_grp.values[n_lags:]
                 )
             else:
                 sigma = pm.HalfNormal(f"noise_{grp}", sigma=1.0, dims=["equations"])
@@ -602,7 +606,15 @@ for ax, country in zip(axs, countries):
 plt.suptitle("Posterior Predictive Checks on Hierarchical VAR", fontsize=20);
 ```
 
-Here we can see that the model appears to have recovered reasonable enough posterior predictions for the observed data.
+Here we can see that the model appears to have recovered reasonable enough posterior predictions for the observed data. We'll save these model fits to be used in the next post in the series.
+
+```{code-cell} ipython3
+with open("../data/hierarchical_var_fit.pickle", "wb") as handle:
+    pickle.dump(idata_full_test, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+with open("../data/ireland_var_fit.pickle", "wb") as handle:
+    pickle.dump(idata_ireland, handle, protocol=pickle.HIGHEST_PROTOCOL)
+```
 
 ## Conclusion
 
@@ -611,7 +623,7 @@ VAR modelling is a rich an interesting area of research within economics and the
 +++
 
 ## Authors
-* Adapted from the PYMC labs [Blog post](https://www.pymc-labs.io/blog-posts/bayesian-vector-autoregression/) and Jim Savage's discussion [here](https://rpubs.com/jimsavage/hierarchical_var) by [Nathaniel Forde](https://nathanielf.github.io/) in October 2022, 2021 ([pymc-examples#456](https://github.com/pymc-devs/pymc-examples/pull/456))
+* Adapted from the PYMC labs [Blog post](https://www.pymc-labs.io/blog-posts/bayesian-vector-autoregression/) and Jim Savage's discussion [here](https://rpubs.com/jimsavage/hierarchical_var) by [Nathaniel Forde](https://nathanielf.github.io/) in November 2022 ([pymc-examples#456](https://github.com/pymc-devs/pymc-examples/pull/456))
 
 ```{code-cell} ipython3
 %load_ext watermark
