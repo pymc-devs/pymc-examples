@@ -6,14 +6,23 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: gbi_env_py38
+  display_name: Python 3 (ipykernel)
   language: python
-  name: gbi_env_py38
+  name: python3
 ---
 
+(GP-Kron)=
 # Kronecker Structured Covariances
 
-PyMC3 contains implementations for models that have Kronecker structured covariances.  This patterned structure enables Gaussian process models to work on much larger datasets.  Kronecker structure can be exploited when
+:::{post} October, 2022
+:tags: gaussian process
+:category: intermediate
+:author: Bill Engels, Raul-ing Average, Christopher Krapu, Danh Phan
+:::
+
++++
+
+PyMC contains implementations for models that have Kronecker structured covariances.  This patterned structure enables Gaussian process models to work on much larger datasets.  Kronecker structure can be exploited when
 - The dimension of the input data is two or greater ($\mathbf{x} \in \mathbb{R}^{d}\,, d \ge 2$)
 - The influence of the process across each dimension or set of dimensions is *separable*
 - The kernel can be written as a product over dimension, without cross terms:
@@ -28,17 +37,17 @@ $$
 
 These implementations support the following property of Kronecker products to speed up calculations, $(\mathbf{K}_1 \otimes \mathbf{K}_2)^{-1} = \mathbf{K}_{1}^{-1} \otimes \mathbf{K}_{2}^{-1}$, the inverse of the sum is the sum of the inverses.  If $K_1$ is $n \times n$ and $K_2$ is $m \times m$, then $\mathbf{K}_1 \otimes \mathbf{K}_2$ is $mn \times mn$.  For $m$ and $n$ of even modest size, this inverse becomes impossible to do efficiently.  Inverting two matrices, one $n \times n$ and another $m \times m$ is much easier.
 
-This structure is common in spatiotemporal data.  Given that there is Kronecker structure in the covariance matrix, this implementation is exact -- not an approximation to the full Gaussian process.  PyMC3 contains two implementations that follow the same pattern as `gp.Marginal` and `gp.Latent`.  For Kronecker structured covariances where the data likelihood is Gaussian, use `gp.MarginalKron`.  For Kronecker structured covariances where the data likelihood is non-Gaussian, use `gp.LatentKron`.  
+This structure is common in spatiotemporal data.  Given that there is Kronecker structure in the covariance matrix, this implementation is exact -- not an approximation to the full Gaussian process.  PyMC contains two implementations that follow the same pattern as {class}`gp.Marginal <pymc.gp.Marginal>` and {class}`gp.Latent <pymc.gp.Latent>`.  For Kronecker structured covariances where the data likelihood is Gaussian, use {class}`gp.MarginalKron <pymc.gp.MarginalKron>`. For Kronecker structured covariances where the data likelihood is non-Gaussian, use {class}`gp.LatentKron <pymc.gp.LatentKron>`.  
 
-Our implementations follow [Saatchi's Thesis](http://mlg.eng.cam.ac.uk/pub/authors/#Saatci).  `MarginalKron` follows "Algorithm 16" using the Eigendecomposition, and `LatentKron` follows "Algorithm 14", and uses the Cholesky decomposition.
+Our implementations follow [Saatchi's Thesis](http://mlg.eng.cam.ac.uk/pub/authors/#Saatci). `gp.MarginalKron` follows "Algorithm 16" using the Eigendecomposition, and `gp.LatentKron` follows "Algorithm 14", and uses the Cholesky decomposition.
 
 +++
 
 ## Using `MarginalKron` for a 2D spatial problem
 
-The following is a canonical example of the usage of `MarginalKron`.  Like `Marginal`, this model assumes that the underlying GP is unobserved, but the sum of the GP and normally distributed noise are observed.  
+The following is a canonical example of the usage of `gp.MarginalKron`.  Like `gp.Marginal`, this model assumes that the underlying GP is unobserved, but the sum of the GP and normally distributed noise are observed.  
 
-For the simulated data set, we draw one sample from a Gaussian process with inputs in two dimensions whose covariance is Kronecker structured.  Then we use `MarginalKron` to recover the unknown Gaussian process hyperparameters $\theta$ that were used to simulate the data.
+For the simulated data set, we draw one sample from a Gaussian process with inputs in two dimensions whose covariance is Kronecker structured.  Then we use `gp.MarginalKron` to recover the unknown Gaussian process hyperparameters $\theta$ that were used to simulate the data.
 
 +++
 
@@ -50,16 +59,16 @@ We'll simulate a two dimensional data set and display it as a scatter plot whose
 import arviz as az
 import matplotlib as mpl
 import numpy as np
-import pymc3 as pm
-
-from numpy.random import default_rng
+import pymc as pm
 
 plt = mpl.pyplot
 %matplotlib inline
+%config InlineBackend.figure_format = 'retina'
 ```
 
 ```{code-cell} ipython3
-rng = default_rng(827)
+RANDOM_SEED = 12345
+rng = np.random.default_rng(RANDOM_SEED)
 
 # One dimensional column vectors of inputs
 n1, n2 = (50, 30)
@@ -147,7 +156,8 @@ x1new = np.linspace(5.1, 7.1, 20)
 x2new = np.linspace(-0.5, 3.5, 40)
 Xnew = pm.math.cartesian(x1new[:, None], x2new[:, None])
 
-mu, var = gp.predict(Xnew, point=mp, diag=True)
+with model:
+    mu, var = gp.predict(Xnew, point=mp, diag=True)
 ```
 
 ```{code-cell} ipython3
@@ -163,11 +173,11 @@ plt.title("observed data 'y' (circles) with predicted mean (squares)");
 
 ## `LatentKron`
 
-Like the `gp.Latent` implementation, the `LatentKron` implementation specifies a Kronecker structured GP regardless of context.  **It can be used with any likelihood function, or can be used to model a variance or some other unobserved processes**.  The syntax follows that of `gp.Latent` exactly.  
+Like the `gp.Latent` implementation, the `gp.LatentKron` implementation specifies a Kronecker structured GP regardless of context.  **It can be used with any likelihood function, or can be used to model a variance or some other unobserved processes**.  The syntax follows that of `gp.Latent` exactly.  
 
 ### Example 1
 
-To compare with `MarginalLikelihood`, we use same example as before where the noise is normal, but the GP itself is not marginalized out.  Instead, it is sampled directly using NUTS.  It is very important to note that `LatentKron` does not require a Gaussian likelihood like `MarginalKron`; rather, any likelihood is admissible.
+To compare with `MarginalLikelihood`, we use same example as before where the noise is normal, but the GP itself is not marginalized out.  Instead, it is sampled directly using NUTS.  It is very important to note that `gp.LatentKron` does not require a Gaussian likelihood like `gp.MarginalKron`; rather, any likelihood is admissible.
 
 ```{code-cell} ipython3
 with pm.Model() as model:
@@ -204,7 +214,8 @@ az.plot_trace(
     tr,
     var_names=["ls1", "ls2", "eta", "sigma"],
     lines={"ls1": l1_true, "ls2": l2_true, "eta": eta_true, "sigma": sigma_true},
-);
+)
+plt.tight_layout()
 ```
 
 ```{code-cell} ipython3
@@ -213,20 +224,43 @@ x2new = np.linspace(-0.5, 3.5, 40)
 Xnew = pm.math.cartesian(x1new[:, None], x2new[:, None])
 
 with model:
-    fnew = gp.conditional("fnew", Xnew)
+    fnew = gp.conditional("fnew3", Xnew, jitter=1e-6)
 
 with model:
-    ppc = pm.sample_posterior_predictive(tr, 200, var_names=["fnew"])
+    ppc = pm.sample_posterior_predictive(tr, var_names=["fnew3"])
 ```
 
-Below we show the original data set as colored circles, and the mean of the conditional samples as colored squares.  The results closely follow those given by the `MarginalKron` implementation.
+```{code-cell} ipython3
+x1new = np.linspace(5.1, 7.1, 20)[:, None]
+x2new = np.linspace(-0.5, 3.5, 40)[:, None]
+Xnew = pm.math.cartesian(x1new, x2new)
+x1new.shape, x2new.shape, Xnew.shape
+```
+
+```{code-cell} ipython3
+with model:
+    fnew = gp.conditional("fnew", Xnew, jitter=1e-6)
+```
+
+```{code-cell} ipython3
+with model:
+    ppc = pm.sample_posterior_predictive(tr, var_names=["fnew"])
+```
+
+Below we show the original data set as colored circles, and the mean of the conditional samples as colored squares.  The results closely follow those given by the `gp.MarginalKron` implementation.
 
 ```{code-cell} ipython3
 fig = plt.figure(figsize=(14, 7))
 m = plt.scatter(X[:, 0], X[:, 1], s=30, c=y, marker="o", norm=norm, cmap=cmap)
 plt.colorbar(m)
 plt.scatter(
-    Xnew[:, 0], Xnew[:, 1], s=30, c=np.mean(ppc["fnew"], axis=0), marker="s", norm=norm, cmap=cmap
+    Xnew[:, 0],
+    Xnew[:, 1],
+    s=30,
+    c=np.mean(ppc.posterior_predictive["fnew"].sel(chain=0), axis=0),
+    marker="s",
+    norm=norm,
+    cmap=cmap,
 )
 plt.ylabel("x2"), plt.xlabel("x1")
 plt.title("observed data 'y' (circles) with mean of conditional, or predicted, samples (squares)");
@@ -241,11 +275,32 @@ axs = axs.ravel()
 for i, ax in enumerate(axs):
     ax.axis("off")
     ax.scatter(X[:, 0], X[:, 1], s=20, c=y, marker="o", norm=norm, cmap=cmap)
-    ax.scatter(Xnew[:, 0], Xnew[:, 1], s=20, c=ppc["fnew"][i], marker="s", norm=norm, cmap=cmap)
+    ax.scatter(
+        Xnew[:, 0],
+        Xnew[:, 1],
+        s=20,
+        c=ppc.posterior_predictive["fnew"].sel(chain=0)[i],
+        marker="s",
+        norm=norm,
+        cmap=cmap,
+    )
     ax.set_title(f"Sample {i+1}", fontsize=24)
 ```
 
+## Authors
+* Authored by [Bill Engels](https://github.com/bwengals), 2018
+* Updated by [Raul-ing Average](https://github.com/CloudChaoszero), March 2021
+* Updated by [Christopher Krapu](https://github.com/ckrapu), July 2021
+* Updated to PyMC 4.x by [Danh Phan](https://github.com/danhphan), November 2022
+
++++
+
+## Watermark
+
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w
+%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
 ```
+
+:::{include} ../page_footer.md
+:::
