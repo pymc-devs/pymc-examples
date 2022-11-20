@@ -14,15 +14,13 @@ kernelspec:
 (Bayesian Vector Autoregressive Models)=
 # Bayesian Vector Autoregressive Models
 
-:::{post} Oct, 2022
+:::{post} November, 2022
 :tags: time series, VARs 
 :category: intermediate
 :author: Nathaniel Forde
 :::
 
 ```{code-cell} ipython3
-import pickle
-
 import aesara as at
 import arviz as az
 import matplotlib.dates as mdates
@@ -33,7 +31,6 @@ import pymc as pm
 import statsmodels.api as sm
 
 from pymc.sampling_jax import sample_blackjax_nuts
-from statsmodels.tsa.api import VAR
 ```
 
 ```{code-cell} ipython3
@@ -317,12 +314,12 @@ def plot_ppc(idata, df, group="posterior_predictive"):
     axs = axs.flatten()
     ppc = az.extract_dataset(idata, group=group, num_samples=100)["obs"]
     # Minus the lagged terms and the constant
-    shade_background(ppc, axs, 0, "viridis")
+    shade_background(ppc, axs, 0, "plasma")
     axs[0].plot(np.arange(ppc.shape[0]), ppc[:, 0, :].mean(axis=1), color="cyan", label="Mean")
     axs[0].plot(df["x"], "o", color="black", markersize=6, label="Observed")
     axs[0].set_title("VAR Series 1")
     axs[0].legend()
-    shade_background(ppc, axs, 1, "viridis")
+    shade_background(ppc, axs, 1, "plasma")
     axs[1].plot(df["y"], "o", color="black", markersize=6, label="Observed")
     axs[1].plot(np.arange(ppc.shape[0]), ppc[:, 1, :].mean(axis=1), color="cyan", label="Mean")
     axs[1].set_title("VAR Series 2")
@@ -341,6 +338,8 @@ plot_corr_matrix(idata_fake_data, group="posterior")
 ```
 
 ## Applying the Theory: Macro Economic Timeseries
+
+The data is from the World Bank’s World Development Indicators. In particular, we're pulling annual values of GDP, consumption, and gross fixed capital formation (investment) for all countries from 1970. Timeseries models in general work best when we have a stable mean throughout the series, so for the estimation procedure we have taken the first difference and the natural log of each of these series.
 
 ```{code-cell} ipython3
 gdp_hierarchical = pd.read_csv("../data/gdp_data_hierarchical_clean.csv", index_col=0)
@@ -399,12 +398,12 @@ def plot_ppc_macro(idata, df, group="posterior_predictive"):
     axs = axs.flatten()
     ppc = az.extract_dataset(idata, group=group, num_samples=100)["obs"]
 
-    shade_background(ppc, axs, 0)
+    shade_background(ppc, axs, 0, "plasma")
     axs[0].plot(np.arange(ppc.shape[0]), ppc[:, 0, :].mean(axis=1), color="cyan", label="Mean")
     axs[0].plot(df["dl_gdp"], "o", color="black", markersize=6, label="Observed")
     axs[0].set_title("Differenced and Logged GDP")
     axs[0].legend()
-    shade_background(ppc, axs, 1)
+    shade_background(ppc, axs, 1, "plasma")
     axs[1].plot(df["dl_cons"], "o", color="black", markersize=6, label="Observed")
     axs[1].plot(np.arange(ppc.shape[0]), ppc[:, 1, :].mean(axis=1), color="cyan", label="Mean")
     axs[1].set_title("Differenced and Logged Consumption")
@@ -476,7 +475,7 @@ def make_hierarchical_model(n_lags, n_eqs, df, group_field, mv_norm=True, prior_
                 mu=beta_hat_location,
                 sigma=beta_hat_scale * z_scale_beta,
                 dims=["equations", "lags", "cross_vars"],
-            )  # filters x rows x columns
+            )
             alpha = pm.Normal(
                 f"alpha_{grp}",
                 mu=alpha_hat_location,
@@ -549,6 +548,8 @@ az.plot_trace(
 az.plot_ppc(idata_full_test);
 ```
 
+Next we'll look at some of the summary statistics and how they vary across the countries.
+
 ```{code-cell} ipython3
 az.summary(
     idata_full_test,
@@ -558,11 +559,63 @@ az.summary(
         "alpha_hat_scale",
         "beta_hat_location",
         "beta_hat_scale",
+        "z_scale_alpha_Ireland",
+        "z_scale_alpha_United States",
+        "z_scale_beta_Ireland",
+        "z_scale_beta_United States",
+        "alpha_Ireland",
+        "alpha_United States",
         "omega_global_corr",
         "lag_coefs_Ireland",
         "lag_coefs_United States",
     ],
 )
+```
+
+```{code-cell} ipython3
+ax = az.plot_forest(
+    idata_full_test,
+    var_names=[
+        "alpha_Ireland",
+        "alpha_United States",
+        "alpha_Australia",
+        "alpha_Chile",
+        "alpha_New Zealand",
+        "alpha_South Africa",
+        "alpha_Canada",
+        "alpha_United Kingdom",
+    ],
+    kind="ridgeplot",
+    combined=True,
+    ridgeplot_truncate=False,
+    ridgeplot_quantiles=[0.25, 0.5, 0.75],
+    ridgeplot_overlap=0.7,
+    figsize=(10, 10),
+)
+
+ax[0].set_title("Intercept Parameters for each country \n and Economic Measure");
+```
+
+```{code-cell} ipython3
+ax = az.plot_forest(
+    idata_full_test,
+    var_names=[
+        "lag_coefs_Ireland",
+        "lag_coefs_United States",
+        "lag_coefs_Australia",
+        "lag_coefs_Chile",
+        "lag_coefs_New Zealand",
+        "lag_coefs_South Africa",
+        "lag_coefs_Canada",
+        "lag_coefs_United Kingdom",
+    ],
+    kind="ridgeplot",
+    ridgeplot_truncate=False,
+    figsize=(10, 10),
+    coords={"equations": "dl_cons", "lags": 1, "cross_vars": "dl_gdp"},
+)
+
+ax[0].set_title("Lag Coefficient for the first lag of GDP on Consumption \n by Country");
 ```
 
 ```{code-cell} ipython3
@@ -574,7 +627,7 @@ corr.index = ["GDP", "CONS", "GFCF"]
 corr
 ```
 
-We can see these estimates of the correlations between the 3 economic variables differ markedly from the simple case where we examined Ireland alone. Next we'll plot the model fits for each country to ensure that the predictive distribution can recover the observed data.
+We can see these estimates of the correlations between the 3 economic variables differ markedly from the simple case where we examined Ireland alone. Which suggests that we have learned something about the relationship between these variables which would not be clear examining the Irish case alone. Next we'll plot the model fits for each country to ensure that the predictive distribution can recover the observed data. It is important for the question of model adequacy that we can recover both the outlier case of Ireland and the more regular countries such as Australia and United States.
 
 ```{code-cell} ipython3
 countries = gdp_hierarchical["country"].unique()
@@ -590,7 +643,7 @@ for ax, country in zip(axs, countries):
         f"obs_{country}"
     ]
     for i in range(3):
-        shade_background(ppc, ax, i)
+        shade_background(ppc, ax, i, "plasma")
     ax[0].plot(np.arange(ppc.shape[0]), ppc[:, 0, :].mean(axis=1), color="cyan", label="Mean")
     ax[0].plot(temp["dl_gdp"], "o", color="black", markersize=4, label="Observed")
     ax[0].set_title(f"Posterior Predictive GDP: {country}")
@@ -606,19 +659,15 @@ for ax, country in zip(axs, countries):
 plt.suptitle("Posterior Predictive Checks on Hierarchical VAR", fontsize=20);
 ```
 
-Here we can see that the model appears to have recovered reasonable enough posterior predictions for the observed data. We'll save these model fits to be used in the next post in the series.
+Here we can see that the model appears to have recovered reasonable enough posterior predictions for the observed data.
 
-```{code-cell} ipython3
-with open("../data/hierarchical_var_fit.pickle", "wb") as handle:
-    pickle.dump(idata_full_test, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-with open("../data/ireland_var_fit.pickle", "wb") as handle:
-    pickle.dump(idata_ireland, handle, protocol=pickle.HIGHEST_PROTOCOL)
-```
++++
 
 ## Conclusion
 
-VAR modelling is a rich an interesting area of research within economics and there are a range of challenges and pitfalls which come with the interpretation and understanding of these models. We hope this example encourages you to continue exploring the potential of this kind of VAR modelling in the Bayesian framework. Whether you're interested in the relationship between grand economic theory or simpler questions about the impact of poor app performance on customer feedback, VAR models give you a powerful tool for interrogating these relationships over time.
+VAR modelling is a rich an interesting area of research within economics and there are a range of challenges and pitfalls which come with the interpretation and understanding of these models. We hope this example encourages you to continue exploring the potential of this kind of VAR modelling in the Bayesian framework. Whether you're interested in the relationship between grand economic theory or simpler questions about the impact of poor app performance on customer feedback, VAR models give you a powerful tool for interrogating these relationships over time. As we've seen Hierarchical VARs further enables the precise quantification of outliers within a cohort and does not throw away the information because of odd accounting practices engendered by international capitalism. 
+
+In the next post in this series we will spend some time digging into the implied relationships between the timeseries which result from fitting our VAR models.
 
 +++
 
