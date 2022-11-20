@@ -17,7 +17,7 @@ kernelspec:
 :::{post} October, 2022
 :tags: gaussian process
 :category: intermediate
-:author: Bill Engels
+:author: Bill Engels, Raul-ing Average, Christopher Krapu, Danh Phan
 :::
 
 +++
@@ -289,14 +289,13 @@ for i, ax in enumerate(axs):
 
 ## Authors
 * Authored by [Bill Engels](https://github.com/bwengals), 2018
-* Updated by [Chris Fonnesbeck](https://github.com/fonnesbeck), [Raul-ing Average](https://github.com/CloudChaoszero), [Christopher Krapu](https://github.com/ckrapu), [Hector Munoz](https://github.com/hectormz), and [Danh Phan](https://github.com/danhphan), 2020-2022
+* Updated by [Raul-ing Average](https://github.com/CloudChaoszero), March 2021
+* Updated by [Christopher Krapu](https://github.com/ckrapu), July 2021
+* Updated to PyMC 4.x by [Danh Phan](https://github.com/danhphan), November 2022
 
 +++
 
-## References
-:::{bibliography}
-:filter: docname in docnames
-:::
+## Watermark
 
 ```{code-cell} ipython3
 %load_ext watermark
