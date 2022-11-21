@@ -21,16 +21,13 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-import aesara as at
 import arviz as az
-import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
 import statsmodels.api as sm
 
-from IPython.display import HTML, display
 from pymc.sampling_jax import sample_blackjax_nuts
 ```
 
@@ -315,12 +312,12 @@ def plot_ppc(idata, df, group="posterior_predictive"):
     axs = axs.flatten()
     ppc = az.extract_dataset(idata, group=group, num_samples=100)["obs"]
     # Minus the lagged terms and the constant
-    shade_background(ppc, axs, 0, "magma")
+    shade_background(ppc, axs, 0, "viridis")
     axs[0].plot(np.arange(ppc.shape[0]), ppc[:, 0, :].mean(axis=1), color="cyan", label="Mean")
     axs[0].plot(df["x"], "o", color="black", markersize=6, label="Observed")
     axs[0].set_title("VAR Series 1")
     axs[0].legend()
-    shade_background(ppc, axs, 1, "magma")
+    shade_background(ppc, axs, 1, "viridis")
     axs[1].plot(df["y"], "o", color="black", markersize=6, label="Observed")
     axs[1].plot(np.arange(ppc.shape[0]), ppc[:, 1, :].mean(axis=1), color="cyan", label="Mean")
     axs[1].set_title("VAR Series 2")
@@ -399,12 +396,12 @@ def plot_ppc_macro(idata, df, group="posterior_predictive"):
     axs = axs.flatten()
     ppc = az.extract_dataset(idata, group=group, num_samples=100)["obs"]
 
-    shade_background(ppc, axs, 0, "magma")
+    shade_background(ppc, axs, 0, "inferno")
     axs[0].plot(np.arange(ppc.shape[0]), ppc[:, 0, :].mean(axis=1), color="cyan", label="Mean")
     axs[0].plot(df["dl_gdp"], "o", color="black", markersize=6, label="Observed")
     axs[0].set_title("Differenced and Logged GDP")
     axs[0].legend()
-    shade_background(ppc, axs, 1, "magma")
+    shade_background(ppc, axs, 1, "inferno")
     axs[1].plot(df["dl_cons"], "o", color="black", markersize=6, label="Observed")
     axs[1].plot(np.arange(ppc.shape[0]), ppc[:, 1, :].mean(axis=1), color="cyan", label="Mean")
     axs[1].set_title("Differenced and Logged Consumption")
@@ -534,18 +531,7 @@ idata_full_test
 We can see how the structure of the model has grown quite complicated.
 
 ```{code-cell} ipython3
-gv = pm.model_to_graphviz(model_full_test)
-gv.render(filename="full_model", format="png");
-```
-
-```{code-cell} ipython3
-display(
-    HTML(
-        """<div style='width: 4500px; overflow: scroll;'>
-             <img src="../examples/time_series/full_model.png" alt="Model Structure">
-             </div>"""
-    )
-)
+pm.model_to_graphviz(model_full_test)
 ```
 
 ```{code-cell} ipython3
@@ -645,7 +631,7 @@ We can see these estimates of the correlations between the 3 economic variables 
 countries = gdp_hierarchical["country"].unique()
 # countries = ["Ireland", "United States"]
 
-fig, axs = plt.subplots(8, 3, figsize=(20, 30))
+fig, axs = plt.subplots(8, 3, figsize=(20, 40))
 for ax, country in zip(axs, countries):
     temp = pd.DataFrame(
         idata_full_test["observed_data"][f"obs_{country}"].data,
@@ -655,7 +641,7 @@ for ax, country in zip(axs, countries):
         f"obs_{country}"
     ]
     for i in range(3):
-        shade_background(ppc, ax, i, "magma")
+        shade_background(ppc, ax, i, "inferno")
     ax[0].plot(np.arange(ppc.shape[0]), ppc[:, 0, :].mean(axis=1), color="cyan", label="Mean")
     ax[0].plot(temp["dl_gdp"], "o", color="black", markersize=4, label="Observed")
     ax[0].set_title(f"Posterior Predictive GDP: {country}")
