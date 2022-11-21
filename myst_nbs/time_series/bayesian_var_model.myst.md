@@ -542,7 +542,7 @@ gv.render(filename="full_model", format="png");
 display(
     HTML(
         """<div style='width: 4500px; overflow: scroll;'>
-             <img src="full_model.png" alt="Model Structure">
+             <img src="../examples/time_series/full_model.png" alt="Model Structure">
              </div>"""
     )
 )
