@@ -30,6 +30,7 @@ import pandas as pd
 import pymc as pm
 import statsmodels.api as sm
 
+from IPython.display import HTML, display
 from pymc.sampling_jax import sample_blackjax_nuts
 ```
 
@@ -309,17 +310,17 @@ def shade_background(ppc, ax, idx, palette="cividis"):
 
 
 def plot_ppc(idata, df, group="posterior_predictive"):
-    fig, axs = plt.subplots(2, 1, figsize=(20, 15))
+    fig, axs = plt.subplots(2, 1, figsize=(25, 15))
     df = pd.DataFrame(idata_fake_data["observed_data"]["obs"].data, columns=["x", "y"])
     axs = axs.flatten()
     ppc = az.extract_dataset(idata, group=group, num_samples=100)["obs"]
     # Minus the lagged terms and the constant
-    shade_background(ppc, axs, 0, "plasma")
+    shade_background(ppc, axs, 0, "magma")
     axs[0].plot(np.arange(ppc.shape[0]), ppc[:, 0, :].mean(axis=1), color="cyan", label="Mean")
     axs[0].plot(df["x"], "o", color="black", markersize=6, label="Observed")
     axs[0].set_title("VAR Series 1")
     axs[0].legend()
-    shade_background(ppc, axs, 1, "plasma")
+    shade_background(ppc, axs, 1, "magma")
     axs[1].plot(df["y"], "o", color="black", markersize=6, label="Observed")
     axs[1].plot(np.arange(ppc.shape[0]), ppc[:, 1, :].mean(axis=1), color="cyan", label="Mean")
     axs[1].set_title("VAR Series 2")
@@ -398,12 +399,12 @@ def plot_ppc_macro(idata, df, group="posterior_predictive"):
     axs = axs.flatten()
     ppc = az.extract_dataset(idata, group=group, num_samples=100)["obs"]
 
-    shade_background(ppc, axs, 0, "plasma")
+    shade_background(ppc, axs, 0, "magma")
     axs[0].plot(np.arange(ppc.shape[0]), ppc[:, 0, :].mean(axis=1), color="cyan", label="Mean")
     axs[0].plot(df["dl_gdp"], "o", color="black", markersize=6, label="Observed")
     axs[0].set_title("Differenced and Logged GDP")
     axs[0].legend()
-    shade_background(ppc, axs, 1, "plasma")
+    shade_background(ppc, axs, 1, "magma")
     axs[1].plot(df["dl_cons"], "o", color="black", markersize=6, label="Observed")
     axs[1].plot(np.arange(ppc.shape[0]), ppc[:, 1, :].mean(axis=1), color="cyan", label="Mean")
     axs[1].set_title("Differenced and Logged Consumption")
@@ -533,7 +534,18 @@ idata_full_test
 We can see how the structure of the model has grown quite complicated.
 
 ```{code-cell} ipython3
-pm.model_to_graphviz(model_full_test)
+gv = pm.model_to_graphviz(model_full_test)
+gv.render(filename="full_model", format="png");
+```
+
+```{code-cell} ipython3
+display(
+    HTML(
+        """<div style='width: 4500px; overflow: scroll;'>
+             <img src="full_model.png" alt="Model Structure">
+             </div>"""
+    )
+)
 ```
 
 ```{code-cell} ipython3
@@ -643,7 +655,7 @@ for ax, country in zip(axs, countries):
         f"obs_{country}"
     ]
     for i in range(3):
-        shade_background(ppc, ax, i, "plasma")
+        shade_background(ppc, ax, i, "magma")
     ax[0].plot(np.arange(ppc.shape[0]), ppc[:, 0, :].mean(axis=1), color="cyan", label="Mean")
     ax[0].plot(temp["dl_gdp"], "o", color="black", markersize=4, label="Observed")
     ax[0].set_title(f"Posterior Predictive GDP: {country}")
