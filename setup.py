@@ -12,6 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+import itertools
 import re
 from codecs import open
 from os.path import dirname, join, realpath
@@ -46,9 +47,13 @@ with open(join(PROJECT_ROOT, "README.md"), encoding="utf-8") as buff:
     LONG_DESCRIPTION = buff.read()
 
 REQUIREMENTS_FILE = join(PROJECT_ROOT, "requirements.txt")
+DEV_REQUIREMENTS_FILE = join(PROJECT_ROOT, "requirements-dev.txt")
 
 with open(REQUIREMENTS_FILE) as f:
     install_reqs = f.read().splitlines()
+
+with open(DEV_REQUIREMENTS_FILE) as f:
+    dev_install_reqs = f.read().splitlines()
 
 
 def get_version():
@@ -60,6 +65,14 @@ def get_version():
         if mo:
             return mo.group(1)
     raise RuntimeError(f"Unable to find version in {VERSIONFILE}.")
+
+
+extras_require = dict(
+    dask_histogram=["dask[complete]", "xhistogram"],
+    histogram=["xhistogram"],
+)
+extras_require["complete"] = sorted(set(itertools.chain.from_iterable(extras_require.values())))
+extras_require["dev"] = dev_install_reqs
 
 
 if __name__ == "__main__":
@@ -81,5 +94,5 @@ if __name__ == "__main__":
         classifiers=classifiers,
         python_requires=">=3.8",
         install_requires=install_reqs,
-        extras_requires=dict(dask=["dask[all]"]),
+        extras_require=extras_require,
     )
