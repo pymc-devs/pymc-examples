@@ -134,7 +134,9 @@ floor_measure = srrs_mn.floor.values
 Distribution of radon levels in MN (log scale):
 
 ```{code-cell} ipython3
-srrs_mn.log_radon.hist(bins=25, grid=False);
+srrs_mn.log_radon.hist(bins=25, grid=False)
+plt.xlabel("log(radon)")
+plt.ylabel("frequency");
 ```
 
 ## Conventional approaches
@@ -688,7 +690,7 @@ with pm.Model(coords=coords) as varying_intercept_slope_noncentered:
 pm.model_to_graphviz(varying_intercept_slope_noncentered)
 ```
 
-This is a **non-centered** parameterization. By this, we mean that the random deviates are no longer explicitly modeled as being centered on $\mu_b$. Instead, they are independent standard normals $\upsilon$, which are then scaled by the appropriate value of $\sigma_b$, before being location-transformed by the mean.
+This is a [**non-centered** parameterization](https://twiecki.io/blog/2017/02/08/bayesian-hierchical-non-centered/). By this, we mean that the random deviates are no longer explicitly modeled as being centered on $\mu_b$. Instead, they are independent standard normals $\upsilon$, which are then scaled by the appropriate value of $\sigma_b$, before being location-transformed by the mean.
 
 This model samples much better.
 
@@ -1146,6 +1148,8 @@ az.plot_posterior(contextual_effect_trace, group="posterior_predictive");
 - Incorporating individual- and group-level information when estimating group-level coefficients.
 
 - Allowing for variation among individual-level coefficients across groups.
+
+As an alternative approach to hierarchical modeling for this problem, check out a [geospatial approach](https://www.pymc-labs.io/blog-posts/spatial-gaussian-process-01/) to modeling radon levels.
 
 ## References
 
