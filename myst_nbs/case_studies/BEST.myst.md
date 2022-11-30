@@ -6,9 +6,9 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: bayes_toolbox
   language: python
-  name: python3
+  name: bayes_toolbox
 ---
 
 (BEST)=
@@ -107,7 +107,7 @@ In Kruschke's original model, he uses a very wide uniform prior for the group st
 We will instead set the group standard deviations to have a $\text{Uniform}(1,10)$ prior:
 
 ```{code-cell} ipython3
-sigma_low = 1
+sigma_low = 10**-1
 sigma_high = 10
 
 with model:
@@ -119,9 +119,11 @@ We follow Kruschke by making the prior for $\nu$ exponentially distributed with 
 
 ```{code-cell} ipython3
 with model:
-    nu = pm.Exponential("nu_minus_one", 1 / 29.0) + 1
+    nu_minus_one = pm.Exponential("nu_minus_one", 1 / 29.0)
+    nu = pm.Deterministic("nu", nu_minus_one + 1)
+    nu_log10 = pm.Deterministic("nu_log10", np.log10(nu))
 
-az.plot_kde(rng.exponential(scale=30, size=10000), fill_kwargs={"alpha": 0.5});
+az.plot_kde(rng.exponential(scale=29, size=10000) + 1, fill_kwargs={"alpha": 0.5});
 ```
 
 Since PyMC parametrizes the Student-T in terms of precision, rather than standard deviation, we must transform the standard deviations before specifying our likelihoods.
@@ -157,7 +159,7 @@ We can plot the stochastic parameters of the model. Arviz's `plot_posterior` fun
 ```{code-cell} ipython3
 az.plot_posterior(
     idata,
-    var_names=["group1_mean", "group2_mean", "group1_std", "group2_std", "nu_minus_one"],
+    var_names=["group1_mean", "group2_mean", "group1_std", "group2_std", "nu", "nu_log10"],
     color="#87ceeb",
 );
 ```
@@ -182,7 +184,7 @@ az.plot_forest(idata, var_names=["group1_mean", "group2_mean"]);
 ```
 
 ```{code-cell} ipython3
-az.plot_forest(idata, var_names=["group1_std", "group2_std", "nu_minus_one"]);
+az.plot_forest(idata, var_names=["group1_std", "group2_std", "nu"]);
 ```
 
 ```{code-cell} ipython3
