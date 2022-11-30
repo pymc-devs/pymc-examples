@@ -16,9 +16,9 @@ kernelspec:
 (GLM-poisson-regression)=
 # GLM: Poisson Regression
 
-:::{post} November 12, 2022
+:::{post} November 30, 2022
 :tags: regression, poisson
-:category: Intermediate
+:category: intermediate
 :author: Jonathan Sedar, Benjamin Vincent
 :::
 
@@ -88,7 +88,7 @@ az.style.use("arviz-darkgrid")
 
 +++ {"papermill": {"duration": 0.060542, "end_time": "2021-02-23T11:27:01.884617", "exception": false, "start_time": "2021-02-23T11:27:01.824075", "status": "completed"}, "tags": []}
 
-This dummy dataset is created to emulate some data created as part of a study into quantified self, and the real data is more complicated than this. Ask Ian Osvald if you'd like to know more https://twitter.com/ianozsvald
+This dummy dataset is created to emulate some data created as part of a study into quantified self, and the real data is more complicated than this. Ask Ian Osvald if you'd like to know more [@ianozvald](https://twitter.com/ianozsvald).
 
 
 ### Assumptions:
@@ -500,7 +500,7 @@ posterior_predictive = model.predict(inf_fish_alt, kind="pps")
 
 We can use `az.plot_ppc()` to check that the posterior predictive samples are similar to the observed data.
 
-For more information on posterior predictive checks, we can refer to {class}`pymc.posterior_predictive`.
+For more information on posterior predictive checks, we can refer to {ref}`pymc:posterior_predictive`.
 
 ```{code-cell} ipython3
 az.plot_ppc(inf_fish_alt);
