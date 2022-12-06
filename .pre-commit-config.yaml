@@ -77,7 +77,6 @@ repos:
                examples/generalized_linear_models/GLM-logistic.ipynb|
                examples/generalized_linear_models/GLM-out-of-sample-predictions.ipynb|
                examples/generalized_linear_models/GLM-poisson-regression.ipynb|
-               examples/generalized_linear_models/GLM-robust.ipynb|
                examples/generalized_linear_models/GLM-rolling-regression.ipynb|
                examples/generalized_linear_models/GLM-simpsons-paradox.ipynb|
                examples/howto/api_quickstart.ipynb|
