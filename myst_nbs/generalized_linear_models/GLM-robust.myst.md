@@ -4,9 +4,9 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.13.7
+    jupytext_version: 1.14.2
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -17,7 +17,7 @@ kernelspec:
 :::{post} August, 2013
 :tags: regression, linear model, robust
 :category: beginner
-:author: Thomas Wiecki
+:author: Thomas Wiecki, Chris Fonnesbeck, Abhipsha Das, Conor Hassan, Igor Kuvychko, Reshama Shaikh, Oriol Abril Pla
 :::
 
 +++
@@ -105,14 +105,14 @@ A version of this same notebook using Bambi is available at {doc}`bambi's docs <
 
 ```{code-cell} ipython3
 with pm.Model() as model:
-    x = pm.ConstantData("x", x_out, dims="obs_id")
+    xdata = pm.ConstantData("x", x_out, dims="obs_id")
 
     # define priors
     intercept = pm.Normal("intercept", mu=0, sigma=1)
     slope = pm.Normal("slope", mu=0, sigma=1)
     sigma = pm.HalfCauchy("sigma", beta=10)
 
-    mu = pm.Deterministic("mu", intercept + slope * x, dims="obs_id")
+    mu = pm.Deterministic("mu", intercept + slope * xdata, dims="obs_id")
 
     # define likelihood
     likelihood = pm.Normal("y", mu=mu, sigma=sigma, observed=y_out, dims="obs_id")
@@ -129,8 +129,8 @@ x_plot = xr.DataArray(np.linspace(x_out.min(), x_out.max(), 100), dims="plot_id"
 lines = post["intercept"] + post["slope"] * x_plot
 
 plt.scatter(x_out, y_out, label="data")
-plt.plot(x_out, lines, alpha=0.02)
-plt.plot(x, true_regression_line, label="True regression line", lw=3.0, c="r")
+plt.plot(x_plot, lines.transpose(), alpha=0.4, color="C1")
+plt.plot(x, true_regression_line, label="True regression line", lw=3.0, c="C2")
 plt.legend(loc=0)
 plt.title("Posterior predictive for normal likelihood");
 ```
@@ -139,7 +139,7 @@ As you can see, the fit is quite skewed and we have a fair amount of uncertainty
 
 A Frequentist would estimate a [Robust Regression](http://en.wikipedia.org/wiki/Robust_regression) and use a non-quadratic distance measure to evaluate the fit.
 
-But what's a Bayesian to do? Since the problem is the light tails of the Normal distribution we can instead assume that our data is not normally distributed but instead distributed according to the [Student T distribution](http://en.wikipedia.org/wiki/Student%27s_t-distribution) which has heavier tails as shown next (I read about this trick in ["The Kruschke"](https://www.elsevier.com/books/doing-bayesian-data-analysis/kruschke/978-0-12-405888-0), aka the puppy-book; but I think [Gelman](http://www.stat.columbia.edu/~gelman/book/) was the first to formulate this).
+But what's a Bayesian to do? Since the problem is the light tails of the Normal distribution we can instead assume that our data is not normally distributed but instead distributed according to the [Student T distribution](http://en.wikipedia.org/wiki/Student%27s_t-distribution) which has heavier tails as shown next {cite:p}`gelman2013bayesian,kruschke2014doing`.
 
 Lets look at those two distributions to get a feel for them.
 
@@ -160,14 +160,14 @@ Below is a PyMC model, with the `likelihood` term following a `StudentT` distrib
 
 ```{code-cell} ipython3
 with pm.Model() as robust_model:
-    x = pm.ConstantData("x", x_out, dims="obs_id")
+    xdata = pm.ConstantData("x", x_out, dims="obs_id")
 
     # define priors
     intercept = pm.Normal("intercept", mu=0, sigma=1)
     slope = pm.Normal("slope", mu=0, sigma=1)
     sigma = pm.HalfCauchy("sigma", beta=10)
 
-    mu = pm.Deterministic("mu", intercept + slope * x, dims="obs_id")
+    mu = pm.Deterministic("mu", intercept + slope * xdata, dims="obs_id")
 
     # define likelihood
     likelihood = pm.StudentT("y", mu=mu, sigma=sigma, nu=3, observed=y_out, dims="obs_id")
@@ -179,11 +179,11 @@ with pm.Model() as robust_model:
 ```{code-cell} ipython3
 robust_post = az.extract(robust_trace, num_samples=20)
 x_plot = xr.DataArray(np.linspace(x_out.min(), x_out.max(), 100), dims="plot_id")
-lines = post["intercept"] + post["slope"] * x_plot
+robust_lines = robust_post["intercept"] + robust_post["slope"] * x_plot
 
 plt.scatter(x_out, y_out, label="data")
-plt.plot(x_out, lines, alpha=0.02)
-plt.plot(x, true_regression_line, label="True regression line", lw=3.0, c="r")
+plt.plot(x_plot, robust_lines.transpose(), alpha=0.4, color="C1")
+plt.plot(x, true_regression_line, label="True regression line", lw=3.0, c="C2")
 plt.legend(loc=0)
 plt.title("Posterior predictive for Student-T likelihood")
 ```
@@ -199,20 +199,35 @@ There, much better! The outliers are barely influencing our estimation at all be
 *Extensions*: 
 
  - The Student-T distribution has, besides the mean and variance, a third parameter called *degrees of freedom* that describes how much mass should be put into the tails. Here it is set to 1 which gives maximum mass to the tails (setting this to infinity results in a Normal distribution!). One could easily place a prior on this rather than fixing it which I leave as an exercise for the reader ;).
- - T distributions can be used as priors as well. I will show this in a future post on hierarchical GLMs.
+ - T distributions can be used as priors as well. See {ref}`GLM-hierarchical`
  - How do we test if our data is normal or violates that assumption in an important way? Check out this [great blog post](http://allendowney.blogspot.com/2013/08/are-my-data-normal.html) by Allen Downey.
 
 +++
 
-## Authors
+## Authors 
 
-* Authored by Thomas Wiecki in August, 2013
-* Updated by Conor Hassan, Igor Kuvychko, Reshama Shaikh and Oriol Abril Pla in 2022
+* Adapted from [Thomas Wiecki's](https://twitter.com/twiecki) blog
+* Updated by @fonnesbeck in September 2016 (pymc#1378)
+* Updated by @chiral-carbon in August 2021 (pymc-examples#205)
+* Updated by Conor Hassan, Igor Kuvychko, Reshama Shaikh and [Oriol Abril Pla](https://oriolabrilpla.cat/en/) in 2022
+
++++
+
+## References
+
+:::{bibliography}
+:filter: docname in docnames
+:::
+            
+## Watermark
 
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w -p xarray
 ```
+
+:::{include} ../page_footer.md
+:::
 
 ```{code-cell} ipython3
 
