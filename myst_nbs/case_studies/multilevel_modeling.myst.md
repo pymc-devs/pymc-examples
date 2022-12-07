@@ -6,16 +6,17 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3.10.4 ('pymc_env')
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
 
+(GLM-hierarchical)=
 (multilevel_modeling)=
 # A Primer on Bayesian Methods for Multilevel Modeling
 
 :::{post} 24 October, 2022
-:tags: hierarchical model, case study 
+:tags: hierarchical model, case study, generalized linear model
 :category: intermediate
 :author: Chris Fonnesbeck, Colin Carroll, Alex Andorra, Oriol Abril, Farhan Reynaldo
 :::
@@ -198,15 +199,13 @@ with pooled_model:
 ArviZ `InferenceData` uses `xarray.Dataset`s under the hood, which give access to several common plotting functions with `.plot`. In this case, we want scatter plot of the mean log radon level (which is stored in variable `a`) for each of the two levels we are considering. If our desired plot is supported by xarray plotting capabilities, we can take advantage of xarray to automatically generate both plot and labels for us. Notice how everything is directly plotted and annotated, the only change we need to do is renaming the y axis label from `a` to `Mean log radon level`.
 
 ```{code-cell} ipython3
-prior_alphas = prior_checks.prior.alpha.values.squeeze()
-prior_betas = prior_checks.prior.beta.values.squeeze()
+prior = prior_checks.prior.squeeze(drop=True)
 
-pd.concat(
-    [
-        pd.DataFrame(dict(location="basement", log_radon=prior_alphas)),
-        pd.DataFrame(dict(location="floor", log_radon=prior_alphas + prior_betas)),
-    ]
-).plot.scatter(x="location", y="log_radon");
+xr.concat((prior["alpha"], prior["alpha"] + prior["beta"]), dim="location").rename(
+    "log_radon"
+).assign_coords(location=["basement", "floor"]).plot.scatter(
+    x="location", y="log_radon", edgecolors="none"
+);
 ```
 
 I'm no radon expert, but before seeing the data, these priors seem to allow for quite a wide range of the mean log radon level, both as measured either in a basement or on a floor. But don't worry, we can always change these priors if sampling gives us hints that they might not be appropriate -- after all, priors are assumptions, not oaths; and as with most assumptions, they can be tested.
@@ -229,12 +228,11 @@ az.summary(pooled_trace, round_to=2)
 Let's plot the expected radon levels in basements (`alpha`) and on floors (`alpha + beta`) in relation to the data used to fit the model:
 
 ```{code-cell} ipython3
-alpha_mean = pooled_trace.posterior.mean(dim=("chain", "draw")).alpha.values
-beta_mean = pooled_trace.posterior.mean(dim=("chain", "draw")).beta.values
+post_mean = pooled_trace.posterior.mean(dim=("chain", "draw"))
 
 plt.scatter(srrs_mn.floor, np.log(srrs_mn.activity + 0.1))
-xvals = np.linspace(-0.2, 1.2)
-plt.plot(xvals, beta_mean * xvals + alpha_mean, "r--");
+xvals = xr.DataArray(np.linspace(-0.2, 1.2))
+plt.plot(xvals, post_mean["beta"] * xvals + post_mean["alpha"], "r--");
 ```
 
 This looks reasonable, though notice that there is a great deal of residual variability in the data. 
@@ -268,15 +266,18 @@ with unpooled_model:
 The sampling was clean here too; Let's look at the expected values for both basement (dimension 0) and floor (dimension 1) in each county:
 
 ```{code-cell} ipython3
-az.plot_forest(unpooled_trace, var_names=["alpha"], r_hat=True, combined=True, figsize=(6, 18));
+ax = az.plot_forest(
+    unpooled_trace,
+    var_names=["alpha"],
+    r_hat=True,
+    combined=True,
+    figsize=(6, 18),
+    labeller=az.labels.NoVarLabeller(),
+)
+ax[0].set_ylabel("alpha");
 ```
 
 To identify counties with high radon levels, we can plot the ordered mean estimates, as well as their 94% HPD:
-
-```{code-cell} ipython3
-unpooled_estimates = unpooled_trace.posterior.mean(dim=("chain", "draw")).alpha
-unpooled_se = unpooled_trace.posterior.std(dim=("chain", "draw")).alpha
-```
 
 ```{code-cell} ipython3
 unpooled_means = unpooled_trace.posterior.mean(dim=("chain", "draw"))
@@ -317,19 +318,19 @@ sample_counties = (
 
 fig, axes = plt.subplots(2, 4, figsize=(12, 6), sharey=True, sharex=True)
 axes = axes.ravel()
-m = unpooled_trace.posterior.mean(dim=("chain", "draw")).beta
+m = unpooled_means["beta"]
 for i, c in enumerate(sample_counties):
     y = srrs_mn.log_radon[srrs_mn.county == c]
     x = srrs_mn.floor[srrs_mn.county == c]
     axes[i].scatter(x + np.random.randn(len(x)) * 0.01, y, alpha=0.4)
 
     # No pooling model
-    b = unpooled_estimates.sel(county=c)
+    b = unpooled_means["alpha"].sel(county=c)
 
     # Plot both models and data
-    xvals = np.linspace(0, 1)
-    axes[i].plot(xvals, m.values * xvals + b.values)
-    axes[i].plot(xvals, beta_mean * xvals + alpha_mean, "r--")
+    xvals = xr.DataArray(np.linspace(0, 1))
+    axes[i].plot(xvals, m * xvals + b)
+    axes[i].plot(xvals, post_mean["beta"] * xvals + post_mean["alpha"], "r--")
     axes[i].set_xticks([0, 1])
     axes[i].set_xticklabels(["basement", "floor"])
     axes[i].set_ylim(-1, 3)
@@ -503,9 +504,15 @@ with varying_intercept:
 ```
 
 ```{code-cell} ipython3
-pm.plot_forest(
-    varying_intercept_trace, var_names=["alpha"], figsize=(6, 18), combined=True, r_hat=True
-);
+ax = pm.plot_forest(
+    varying_intercept_trace,
+    var_names=["alpha"],
+    figsize=(6, 18),
+    combined=True,
+    r_hat=True,
+    labeller=az.labels.NoVarLabeller(),
+)
+ax[0].set_ylabel("alpha")
 ```
 
 ```{code-cell} ipython3
@@ -519,8 +526,6 @@ az.summary(varying_intercept_trace, var_names=["beta"])
 ```
 
 ```{code-cell} ipython3
-import xarray as xr
-
 xvals = xr.DataArray([0, 1], dims="Level", coords={"Level": ["Basement", "Floor"]})
 post = varying_intercept_trace.posterior  # alias for readability
 theta = (
@@ -550,19 +555,19 @@ sample_counties = (
 
 fig, axes = plt.subplots(2, 4, figsize=(12, 6), sharey=True, sharex=True)
 axes = axes.ravel()
-m = unpooled_trace.posterior.mean(dim=("chain", "draw")).beta
+m = unpooled_means["beta"]
 for i, c in enumerate(sample_counties):
     y = srrs_mn.log_radon[srrs_mn.county == c]
     x = srrs_mn.floor[srrs_mn.county == c]
     axes[i].scatter(x + np.random.randn(len(x)) * 0.01, y, alpha=0.4)
 
     # No pooling model
-    b = unpooled_estimates.sel(county=c)
+    b = unpooled_means["alpha"].sel(county=c)
 
     # Plot both models and data
-    xvals = np.linspace(0, 1)
+    xvals = xr.DataArray(np.linspace(0, 1))
     axes[i].plot(xvals, m.values * xvals + b.values)
-    axes[i].plot(xvals, beta_mean * xvals + alpha_mean, "r--")
+    axes[i].plot(xvals, post_mean["beta"] * xvals + post_mean["alpha"], "r--")
 
     varying_intercept_trace.posterior.sel(county=c).beta
     post = varying_intercept_trace.posterior.sel(county=c).mean(dim=("chain", "draw"))
@@ -641,12 +646,14 @@ Notice that when the chain reaches the lower end of the parameter space for $\si
 Jointly plotting the random effect variance and one of the individual random slopes demonstrates what is going on.
 
 ```{code-cell} ipython3
-x = varying_intercept_slope_trace.posterior["beta"].sel(chain=0, county="AITKIN").to_series()
-x.name = "slope"
-y = varying_intercept_slope_trace.posterior["sigma_a"].sel(chain=0).to_series()
-y.name = "slope group variance"
-
-jp = sns.jointplot(x=x, y=y, ylim=(0, 0.7));
+ax = az.plot_pair(
+    varying_intercept_slope_trace,
+    var_names=["beta", "sigma_b"],
+    coords=dict(county="AITKIN"),
+    marginals=True,
+    # marginal_kwargs={"kind": "hist"},
+)
+ax[1, 0].set_ylim(0, 0.7);
 ```
 
 When the group variance is small, this implies that the individual random slopes are themselves close to the group mean. This results in a *funnel*-shaped relationship between the samples of group variance and any of the slopes (particularly those with a smaller sample size). 
@@ -712,12 +719,14 @@ axs[1].set(ylabel="beta");
 And correspondingly, the low end of the posterior distribution of the slope random effect variance can now be sampled efficiently.
 
 ```{code-cell} ipython3
-x = noncentered_trace.posterior["beta"].sel(chain=0, county="AITKIN").to_series()
-x.name = "slope"
-y = noncentered_trace.posterior["sigma_b"].sel(chain=0).to_series()
-y.name = "slope group standard deviation"
-
-jp = sns.jointplot(x=x, y=y, ylim=(0, 0.7));
+ax = az.plot_pair(
+    noncentered_trace,
+    var_names=["beta", "sigma_b"],
+    coords=dict(county="AITKIN"),
+    marginals=True,
+    # marginal_kwargs={"kind": "hist"},
+)
+ax[1, 0].set_ylim(0, 0.7);
 ```
 
 As a result, we are now fully exploring the support of the posterior. This results in less bias in these parameters.
@@ -742,8 +751,6 @@ az.summary(varying_intercept_slope_trace, var_names=["sigma_a", "sigma_b"])
 To wrap up this model, let's plot the relationship between radon and floor for each county:
 
 ```{code-cell} ipython3
-import xarray as xr
-
 xvals = xr.DataArray([0, 1], dims="Level", coords={"Level": ["Basement", "Floor"]})
 post = noncentered_trace.posterior  # alias for readability
 theta = (
@@ -1025,14 +1032,17 @@ Uranium is indeed strongly associated with baseline radon levels in each county.
 If we compare the county-intercepts for this model with those of the partial-pooling model without a county-level covariate:The standard errors on the intercepts are narrower than for the partial-pooling model without a county-level covariate.
 
 ```{code-cell} ipython3
-az.plot_forest(
+labeller = az.labels.mix_labellers((az.labels.NoVarLabeller, az.labels.NoModelLabeller))
+ax = az.plot_forest(
     [varying_intercept_trace, hierarchical_intercept_trace],
     model_names=["W/t. county pred.", "With county pred."],
     var_names=["alpha"],
     combined=True,
     figsize=(6, 40),
     textsize=9,
-);
+    labeller=labeller(),
+)
+ax[0].set_ylabel("alpha");
 ```
 
 We see that the compatibility intervals are narrower for the model including the county-level covariate. This is expected, as the effect of a covariate is to reduce the variation in the outcome variable -- provided the covariate is of predictive value. More importantly, with this model we were able to squeeze even more information out of the data.
@@ -1103,7 +1113,7 @@ All of this is to say that we shouldn't interpret this causally: there is no cre
 
 ### Prediction
 
-Gelman (2006) used cross-validation tests to check the prediction error of the unpooled, pooled, and partially-pooled models
+{cite:t}`gelman2006multilevel` used cross-validation tests to check the prediction error of the unpooled, pooled, and partially-pooled models
 
 **root mean squared cross-validation prediction errors**:
 
@@ -1156,7 +1166,6 @@ As an alternative approach to hierarchical modeling for this problem, check out 
 :::{bibliography}
 :filter: docname in docnames
 
-gelman2006multilevel
 mcelreath2018statistical
 :::
 
@@ -1171,6 +1180,7 @@ mcelreath2018statistical
 * Updated by Farhan Reynaldo in November 2021 ([pymc-examples#246](https://github.com/pymc-devs/pymc-examples/pull/246))
 * Updated by Chris Fonnesbeck in Februry 2022 ([pymc-examples#285](https://github.com/pymc-devs/pymc-examples/pull/285))
 * Updated by Chris Fonnesbeck in November 2022 ([pymc-examples#468](https://github.com/pymc-devs/pymc-examples/pull/468))
+* Updated by Oriol Abril in November 2022 ([pymc-examples#473](https://github.com/pymc-devs/pymc-examples/pull/473))
 
 +++
 
@@ -1183,3 +1193,7 @@ mcelreath2018statistical
 
 :::{include} ../page_footer.md
 :::
+
+```{code-cell} ipython3
+
+```
