@@ -6,26 +6,36 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
 
+(GLM-robust)=
 # GLM: Robust Linear Regression
 
-This tutorial first appeard as a post in small series on Bayesian GLMs on:
+:::{post} August, 2013
+:tags: regression, linear model, robust
+:category: beginner
+:author: Thomas Wiecki, Chris Fonnesbeck, Abhipsha Das, Conor Hassan, Igor Kuvychko, Reshama Shaikh, Oriol Abril Pla
+:::
 
-  1. [The Inference Button: Bayesian GLMs made easy with PyMC3](http://twiecki.github.com/blog/2013/08/12/bayesian-glms-1/)
-  2. [This world is far from Normal(ly distributed): Robust Regression in PyMC3](http://twiecki.github.io/blog/2013/08/27/bayesian-glms-2/)
-  3. [The Best Of Both Worlds: Hierarchical Linear Regression in PyMC3](http://twiecki.github.io/blog/2014/03/17/bayesian-glms-3/)
++++
+
+# GLM: Robust Linear Regression
+
+The tutorial is the second of a three-part series on Bayesian *generalized linear models (GLMs)*, that first appeared on [Thomas Wiecki's blog](https://twiecki.io/):
+
+  1. {ref}`Linear Regression <pymc:GLM_linear>`
+  2. {ref}`Robust Linear Regression <GLM-robust>`
+  3. {ref}`Hierarchical Linear Regression <GLM-hierarchical>`
   
 In this blog post I will write about:
 
  - How a few outliers can largely affect the fit of linear regression models.
  - How replacing the normal likelihood with Student T distribution produces robust regression.
- - How this can easily be done with the `Bambi` library by passing a `family` object or passing the family name as an argument.
- 
-This is the second part of a series on Bayesian GLMs (click [here for part I about linear regression](http://twiecki.github.io/blog/2013/08/12/bayesian-glms-1/)). In this prior post I described how minimizing the squared distance of the regression line is the same as maximizing the likelihood of a Normal distribution with the mean coming from the regression line. This latter probabilistic expression allows us to easily formulate a Bayesian linear regression model.
+
+In the {ref}`linear regression tutorial <pymc:GLM_linear>` I described how minimizing the squared distance of the regression line is the same as maximizing the likelihood of a Normal distribution with the mean coming from the regression line. This latter probabilistic expression allows us to easily formulate a Bayesian linear regression model.
 
 This worked splendidly on simulated data. The problem with simulated data though is that it's, well, simulated. In the real world things tend to get more messy and assumptions like normality are easily violated by a few outliers. 
 
@@ -33,20 +43,19 @@ Lets see what happens if we add some outliers to our simulated data from the las
 
 +++
 
-Again, import our modules.
+First, let's import our modules.
 
 ```{code-cell} ipython3
 %matplotlib inline
 
+import aesara
+import aesara.tensor as at
 import arviz as az
-import bambi as bmb
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
-import theano
-
-print(f"Running on pymc3 v{pm.__version__}")
+import pymc as pm
+import xarray as xr
 ```
 
 ```{code-cell} ipython3
@@ -79,7 +88,7 @@ data = pd.DataFrame(dict(x=x_out, y=y_out))
 Plot the data together with the true regression line (the three points in the upper left corner are the outliers we added).
 
 ```{code-cell} ipython3
-fig = plt.figure(figsize=(7, 7))
+fig = plt.figure(figsize=(7, 5))
 ax = fig.add_subplot(111, xlabel="x", ylabel="y", title="Generated data and underlying model")
 ax.plot(x_out, y_out, "x", label="sampled data")
 ax.plot(x, true_regression_line, label="true regression line", lw=2.0)
@@ -88,30 +97,49 @@ plt.legend(loc=0);
 
 ## Robust Regression
 
+### Normal Likelihood
 
-Lets see what happens if we estimate our Bayesian linear regression model using the `bambi`. This function takes a [`formulae`](https://bambinos.github.io/formulae/api_reference.html) string to describe the linear model and adds a Normal likelihood by default.
+Lets see what happens if we estimate our Bayesian linear regression model by fitting a regression model with a normal likelihood.
+Note that the bambi library provides an easy to use such that an equivalent model can be built using one line of code.
+A version of this same notebook using Bambi is available at {doc}`bambi's docs <bambi:notebooks/t_regression>`
 
 ```{code-cell} ipython3
-model = bmb.Model("y ~ x", data)
-trace = model.fit(draws=2000, cores=2)
+with pm.Model() as model:
+    xdata = pm.ConstantData("x", x_out, dims="obs_id")
+
+    # define priors
+    intercept = pm.Normal("intercept", mu=0, sigma=1)
+    slope = pm.Normal("slope", mu=0, sigma=1)
+    sigma = pm.HalfCauchy("sigma", beta=10)
+
+    mu = pm.Deterministic("mu", intercept + slope * xdata, dims="obs_id")
+
+    # define likelihood
+    likelihood = pm.Normal("y", mu=mu, sigma=sigma, observed=y_out, dims="obs_id")
+
+    # inference
+    trace = pm.sample(tune=2000)
 ```
 
-To evaluate the fit, I am plotting the posterior predictive regression lines by taking regression parameters from the posterior distribution and plotting a regression line for each (this is all done inside of `plot_posterior_predictive()`).
+To evaluate the fit, the code below calculates the posterior predictive regression lines by taking regression parameters from the posterior distribution and plots a regression line for 20 of them.
 
 ```{code-cell} ipython3
-plt.figure(figsize=(7, 5))
-plt.plot(x_out, y_out, "x", label="data")
-pm.plot_posterior_predictive_glm(trace, samples=100, label="posterior predictive regression lines")
-plt.plot(x, true_regression_line, label="true regression line", lw=3.0, c="y")
+post = az.extract(trace, num_samples=20)
+x_plot = xr.DataArray(np.linspace(x_out.min(), x_out.max(), 100), dims="plot_id")
+lines = post["intercept"] + post["slope"] * x_plot
 
-plt.legend(loc=0);
+plt.scatter(x_out, y_out, label="data")
+plt.plot(x_plot, lines.transpose(), alpha=0.4, color="C1")
+plt.plot(x, true_regression_line, label="True regression line", lw=3.0, c="C2")
+plt.legend(loc=0)
+plt.title("Posterior predictive for normal likelihood");
 ```
 
 As you can see, the fit is quite skewed and we have a fair amount of uncertainty in our estimate as indicated by the wide range of different posterior predictive regression lines. Why is this? The reason is that the normal distribution does not have a lot of mass in the tails and consequently, an outlier will affect the fit strongly.
 
 A Frequentist would estimate a [Robust Regression](http://en.wikipedia.org/wiki/Robust_regression) and use a non-quadratic distance measure to evaluate the fit.
 
-But what's a Bayesian to do? Since the problem is the light tails of the Normal distribution we can instead assume that our data is not normally distributed but instead distributed according to the [Student T distribution](http://en.wikipedia.org/wiki/Student%27s_t-distribution) which has heavier tails as shown next (I read about this trick in ["The Kruschke"](http://www.indiana.edu/~kruschke/DoingBayesianDataAnalysis/), aka the puppy-book; but I think [Gelman](http://www.stat.columbia.edu/~gelman/book/) was the first to formulate this).
+But what's a Bayesian to do? Since the problem is the light tails of the Normal distribution we can instead assume that our data is not normally distributed but instead distributed according to the [Student T distribution](http://en.wikipedia.org/wiki/Student%27s_t-distribution) which has heavier tails as shown next {cite:p}`gelman2013bayesian,kruschke2014doing`.
 
 Lets look at those two distributions to get a feel for them.
 
@@ -119,8 +147,8 @@ Lets look at those two distributions to get a feel for them.
 normal_dist = pm.Normal.dist(mu=0, sigma=1)
 t_dist = pm.StudentT.dist(mu=0, lam=1, nu=1)
 x_eval = np.linspace(-8, 8, 300)
-plt.plot(x_eval, theano.tensor.exp(normal_dist.logp(x_eval)).eval(), label="Normal", lw=2.0)
-plt.plot(x_eval, theano.tensor.exp(t_dist.logp(x_eval)).eval(), label="Student T", lw=2.0)
+plt.plot(x_eval, pm.math.exp(pm.logp(normal_dist, x_eval)).eval(), label="Normal", lw=2.0)
+plt.plot(x_eval, pm.math.exp(pm.logp(t_dist, x_eval)).eval(), label="Student T", lw=2.0)
 plt.xlabel("x")
 plt.ylabel("Probability density")
 plt.legend();
@@ -128,20 +156,36 @@ plt.legend();
 
 As you can see, the probability of values far away from the mean (0 in this case) are much more likely under the `T` distribution than under the Normal distribution.
 
-To define the usage of a T distribution in `Bambi` we can pass the distribution name to the `family` argument  -- `t` -- that specifies that our data is Student T-distributed. Note that this is the same syntax as `R` and `statsmodels` use.
+Below is a PyMC model, with the `likelihood` term following a `StudentT` distribution with $\nu=3$ degrees of freedom, opposed to the `Normal` distribution.
 
 ```{code-cell} ipython3
-model_robust = bmb.Model("y ~ x", data, family="t")
-model_robust.set_priors({"nu": bmb.Prior("Gamma", alpha=3, beta=1)})
-trace_robust = model_robust.fit(draws=2000, cores=2)
+with pm.Model() as robust_model:
+    xdata = pm.ConstantData("x", x_out, dims="obs_id")
+
+    # define priors
+    intercept = pm.Normal("intercept", mu=0, sigma=1)
+    slope = pm.Normal("slope", mu=0, sigma=1)
+    sigma = pm.HalfCauchy("sigma", beta=10)
+
+    mu = pm.Deterministic("mu", intercept + slope * xdata, dims="obs_id")
+
+    # define likelihood
+    likelihood = pm.StudentT("y", mu=mu, sigma=sigma, nu=3, observed=y_out, dims="obs_id")
+
+    # inference
+    robust_trace = pm.sample(tune=4000)
 ```
 
 ```{code-cell} ipython3
-plt.figure(figsize=(7, 5))
-plt.plot(x_out, y_out, "x")
-pm.plot_posterior_predictive_glm(trace_robust, label="posterior predictive regression lines")
-plt.plot(x, true_regression_line, label="true regression line", lw=3.0, c="y")
-plt.legend();
+robust_post = az.extract(robust_trace, num_samples=20)
+x_plot = xr.DataArray(np.linspace(x_out.min(), x_out.max(), 100), dims="plot_id")
+robust_lines = robust_post["intercept"] + robust_post["slope"] * x_plot
+
+plt.scatter(x_out, y_out, label="data")
+plt.plot(x_plot, robust_lines.transpose(), alpha=0.4, color="C1")
+plt.plot(x, true_regression_line, label="True regression line", lw=3.0, c="C2")
+plt.legend(loc=0)
+plt.title("Posterior predictive for Student-T likelihood")
 ```
 
 There, much better! The outliers are barely influencing our estimation at all because our likelihood function assumes that outliers are much more probable than under the Normal distribution.
@@ -150,20 +194,41 @@ There, much better! The outliers are barely influencing our estimation at all be
 
 ## Summary
 
-- `Bambi` allows you to pass in a `family` argument that contains information about the likelihood.
  - By changing the likelihood from a Normal distribution to a Student T distribution -- which has more mass in the tails -- we can perform *Robust Regression*.
-
-The next post will be about logistic regression in PyMC3 and what the posterior and oatmeal have in common.
 
 *Extensions*: 
 
  - The Student-T distribution has, besides the mean and variance, a third parameter called *degrees of freedom* that describes how much mass should be put into the tails. Here it is set to 1 which gives maximum mass to the tails (setting this to infinity results in a Normal distribution!). One could easily place a prior on this rather than fixing it which I leave as an exercise for the reader ;).
- - T distributions can be used as priors as well. I will show this in a future post on hierarchical GLMs.
- - How do we test if our data is normal or violates that assumption in an important way? Check out this [great blog post](http://allendowney.blogspot.com/2013/08/are-my-data-normal.html) by Allen Downey. 
+ - T distributions can be used as priors as well. See {ref}`GLM-hierarchical`
+ - How do we test if our data is normal or violates that assumption in an important way? Check out this [great blog post](http://allendowney.blogspot.com/2013/08/are-my-data-normal.html) by Allen Downey.
 
-Author: [Thomas Wiecki](https://twitter.com/twiecki)
++++
+
+## Authors 
+
+* Adapted from [Thomas Wiecki's](https://twitter.com/twiecki) blog
+* Updated by @fonnesbeck in September 2016 (pymc#1378)
+* Updated by @chiral-carbon in August 2021 (pymc-examples#205)
+* Updated by Conor Hassan, Igor Kuvychko, Reshama Shaikh and [Oriol Abril Pla](https://oriolabrilpla.cat/en/) in 2022
+
++++
+
+## References
+
+:::{bibliography}
+:filter: docname in docnames
+:::
+            
+## Watermark
 
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w -p xarray
+```
+
+:::{include} ../page_footer.md
+:::
+
+```{code-cell} ipython3
+
 ```
