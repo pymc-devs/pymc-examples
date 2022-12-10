@@ -15,7 +15,7 @@ kernelspec:
 # Bayesian Vector Autoregressive Models
 
 :::{post} November, 2022
-:tags: time series, VARs 
+:tags: time series, vector autoregressive model, hierarchical
 :category: intermediate
 :author: Nathaniel Forde
 :::
@@ -177,7 +177,13 @@ def make_model(n_lags, n_eqs, df, priors, mv_norm=True, prior_checks=True):
         data_obs = pm.Data("data_obs", df.values[n_lags:], dims=["time", "equations"], mutable=True)
 
         betaX = calc_ar_step(lag_coefs, n_eqs, n_lags, df)
-        betaX = pm.Deterministic("betaX", betaX)
+        betaX = pm.Deterministic(
+            "betaX",
+            betaX,
+            dims=[
+                "time",
+            ],
+        )
         mean = alpha + betaX
 
         if mv_norm:
@@ -189,19 +195,23 @@ def make_model(n_lags, n_eqs, df, priors, mv_norm=True, prior_checks=True):
                 n=n,
                 sd_dist=pm.HalfNormal.dist(sigma=priors["noise_chol"]["sigma"]),
             )
-            obs = pm.MvNormal("obs", mu=mean, chol=noise_chol, observed=data_obs)
+            obs = pm.MvNormal(
+                "obs", mu=mean, chol=noise_chol, observed=data_obs, dims=["time", "equations"]
+            )
         else:
             ## This is an alternative likelihood that can recover sensible estimates of the coefficients
             ## But lacks the multivariate correlation between the timeseries.
             sigma = pm.HalfNormal("noise", sigma=priors["noise"]["sigma"], dims=["equations"])
-            obs = pm.Normal("obs", mu=mean, sigma=sigma, observed=data_obs)
+            obs = pm.Normal(
+                "obs", mu=mean, sigma=sigma, observed=data_obs, dims=["time", "equations"]
+            )
 
         if prior_checks:
             idata = pm.sample_prior_predictive()
             return model, idata
         else:
             idata = pm.sample_prior_predictive()
-            idata.extend(pm.sample(random_seed=100))
+            idata.extend(pm.sample(draws=2000, random_seed=130))
             pm.sample_posterior_predictive(idata, extend_inferencedata=True, random_seed=rng)
     return model, idata
 ```
@@ -214,8 +224,8 @@ We will inspect the structure of a VAR with 2 lags and 2 equations
 n_lags = 2
 n_eqs = 2
 priors = {
-    "lag_coefs": {"mu": 0, "sigma": 1},
-    "alpha": {"mu": 10, "sigma": 5},
+    "lag_coefs": {"mu": 0.3, "sigma": 1},
+    "alpha": {"mu": 15, "sigma": 5},
     "noise_chol": {"eta": 1, "sigma": 1},
     "noise": {"sigma": 1},
 }
@@ -238,35 +248,17 @@ pm.model_to_graphviz(model)
 We can inspect the correlation matrix between our timeseries which is implied by the prior specification, to see that we have allowed a flat uniform prior over their correlation.
 
 ```{code-cell} ipython3
-def plot_corr_matrix(idata, group="prior"):
-    post_corr = (
-        idata[group]["noise_chol_corr"]
-        .to_dataframe()
-        .reset_index()
-        .pivot(
-            ["chain", "draw", "noise_chol_corr_dim_0"], "noise_chol_corr_dim_1", "noise_chol_corr"
-        )
-        .reset_index()
-        .pivot(["chain", "draw"], "noise_chol_corr_dim_0")
-    )
-    post_corr.columns = post_corr.columns.to_flat_index()
-    fig, axs = plt.subplots(2, 2, figsize=(10, 4))
-    axs = axs.flatten()
-    cm = plt.cm.get_cmap("viridis")
-    for ax, col in zip(axs, post_corr.columns):
-        n, bins, patches = ax.hist(post_corr[col], bins=30, ec="black", color="yellow")
-        bin_centers = 0.5 * (bins[:-1] + bins[1:])
-        ax.set_title(col)
-        # scale values to interval [0,1]
-        cs = bin_centers - min(bin_centers)
-        cs /= max(cs)
-
-        for c, p in zip(cs, patches):
-            plt.setp(p, "facecolor", cm(c))
-    plt.suptitle("The Posterior Correlation Estimates", fontsize=20)
-
-
-plot_corr_matrix(idata);
+ax = az.plot_posterior(
+    idata,
+    var_names="noise_chol_corr",
+    hdi_prob="hide",
+    group="prior",
+    point_estimate="mean",
+    grid=(2, 2),
+    kind="hist",
+    ec="black",
+    figsize=(10, 4),
+)
 ```
 
 Now we will fit the VAR with 2 lags and 2 equations
@@ -284,7 +276,7 @@ az.summary(idata_fake_data, var_names=["alpha", "lag_coefs", "noise_chol_corr"])
 ```
 
 ```{code-cell} ipython3
-az.plot_posterior(idata_fake_data, var_names=["alpha"], ref_val=[18, 8])
+az.plot_posterior(idata_fake_data, var_names=["alpha"], ref_val=[18, 8]);
 ```
 
 Next we'll plot the posterior predictive distribution to check that the fitted model can capture the patterns in the observed data. This is the primary test of goodness of fit.
@@ -324,13 +316,11 @@ def plot_ppc(idata, df, group="posterior_predictive"):
     # Minus the lagged terms and the constant
     shade_background(ppc, axs, 0, "inferno")
     axs[0].plot(np.arange(ppc.shape[0]), ppc[:, 0, :].mean(axis=1), color="cyan", label="Mean")
-    axs[0].plot(df["x"], "o", color="white", markersize=8, label="Observed")
-    axs[0].plot(df["x"], "o", color="black", markersize=6, label="Observed")
+    axs[0].plot(df["x"], "o", mfc="black", mec="white", mew=1, markersize=7, label="Observed")
     axs[0].set_title("VAR Series 1")
     axs[0].legend()
     shade_background(ppc, axs, 1, "inferno")
-    axs[1].plot(df["y"], "o", color="white", markersize=8, label="Observed")
-    axs[1].plot(df["y"], "o", color="black", markersize=6, label="Observed")
+    axs[1].plot(df["y"], "o", mfc="black", mec="white", mew=1, markersize=7, label="Observed")
     axs[1].plot(np.arange(ppc.shape[0]), ppc[:, 1, :].mean(axis=1), color="cyan", label="Mean")
     axs[1].set_title("VAR Series 2")
     axs[1].legend()
@@ -342,7 +332,16 @@ plot_ppc(idata_fake_data, df)
 Again we can check the learned posterior distribution for the correlation parameter.
 
 ```{code-cell} ipython3
-plot_corr_matrix(idata_fake_data, group="posterior");
+ax = az.plot_posterior(
+    idata_fake_data,
+    var_names="noise_chol_corr",
+    hdi_prob="hide",
+    point_estimate="mean",
+    grid=(2, 2),
+    kind="hist",
+    ec="black",
+    figsize=(10, 6),
+)
 ```
 
 ## Applying the Theory: Macro Economic Timeseries
@@ -390,8 +389,9 @@ ireland_df.head()
 n_lags = 2
 n_eqs = 2
 priors = {
-    "lag_coefs": {"mu": 0, "sigma": 0.1},
-    "alpha": {"mu": 0, "sigma": 1},
+    ## Set prior for expected positive relationship between the variables.
+    "lag_coefs": {"mu": 0.3, "sigma": 1},
+    "alpha": {"mu": 0, "sigma": 0.1},
     "noise_chol": {"eta": 1, "sigma": 1},
     "noise": {"sigma": 1},
 }
@@ -414,13 +414,11 @@ def plot_ppc_macro(idata, df, group="posterior_predictive"):
 
     shade_background(ppc, axs, 0, "inferno")
     axs[0].plot(np.arange(ppc.shape[0]), ppc[:, 0, :].mean(axis=1), color="cyan", label="Mean")
-    axs[0].plot(df["dl_gdp"], "o", color="white", markersize=9, label="Observed")
-    axs[0].plot(df["dl_gdp"], "o", color="black", markersize=6, label="Observed")
+    axs[0].plot(df["dl_gdp"], "o", mfc="black", mec="white", mew=1, markersize=7, label="Observed")
     axs[0].set_title("Differenced and Logged GDP")
     axs[0].legend()
     shade_background(ppc, axs, 1, "inferno")
-    axs[1].plot(df["dl_cons"], "o", color="white", markersize=9, label="Observed")
-    axs[1].plot(df["dl_cons"], "o", color="black", markersize=6, label="Observed")
+    axs[1].plot(df["dl_cons"], "o", mfc="black", mec="white", mew=1, markersize=7, label="Observed")
     axs[1].plot(np.arange(ppc.shape[0]), ppc[:, 1, :].mean(axis=1), color="cyan", label="Mean")
     axs[1].set_title("Differenced and Logged Consumption")
     axs[1].legend()
@@ -430,7 +428,16 @@ plot_ppc_macro(idata_ireland, ireland_df)
 ```
 
 ```{code-cell} ipython3
-plot_corr_matrix(idata_ireland, group="posterior")
+ax = az.plot_posterior(
+    idata_ireland,
+    var_names="noise_chol_corr",
+    hdi_prob="hide",
+    point_estimate="mean",
+    grid=(2, 2),
+    kind="hist",
+    ec="black",
+    figsize=(10, 6),
+)
 ```
 
 ### Comparison with Statsmodels
@@ -466,7 +473,16 @@ We plot the alpha parameter estimates against the Statsmodels estimates
 az.plot_posterior(idata_ireland, var_names=["alpha"], ref_val=[0.034145, 0.006996]);
 ```
 
-We can see here again how the Bayesian VAR model recovers much of the same story. Similar magnitudes in the estimates for the alpha terms for both equations and a clear relationship between the first lagged GDP numbers and consumption along with a very similar covariance structure. However, the statsmodels fit implies that there is similarly strong relationship between the impact of the first GDP lag on GDP, which the Bayesian model does not recover i.e. the Bayesian model suggests current Irish GDP is not very predictive of future GDP.
+```{code-cell} ipython3
+az.plot_posterior(
+    idata_ireland,
+    var_names=["lag_coefs"],
+    ref_val=[0.330003, -0.053677],
+    coords={"equations": "dl_cons", "lags": [1, 2], "cross_vars": "dl_gdp"},
+);
+```
+
+We can see here again how the Bayesian VAR model recovers much of the same story. Similar magnitudes in the estimates for the alpha terms for both equations and a clear relationship between the first lagged GDP numbers and consumption along with a very similar covariance structure.
 
 +++
 
@@ -525,12 +541,12 @@ def make_hierarchical_model(n_lags, n_eqs, df, group_field, prior_checks=True):
             return model, idata
         else:
             idata = pm.sample_prior_predictive()
-            idata.extend(sample_blackjax_nuts(2000))
+            idata.extend(sample_blackjax_nuts(2000, random_seed=120))
             pm.sample_posterior_predictive(idata, extend_inferencedata=True)
     return model, idata
 ```
 
-The model design allows for a non-centred parameterisation of the key likeihood for each of the individual component by allowing the us to shift the country specific estimates away from the hierarchical mean. This is done by `rho * omega_global + (1 - rho) * noise_chol` line. The parameter `rho` determines the share of impact each country's data contributes to the estimation of the covariance relationship among the economic variables.
+The model design allows for a non-centred parameterisation of the key likeihood for each of the individual country components by allowing the us to shift the country specific estimates away from the hierarchical mean. This is done by `rho * omega_global + (1 - rho) * noise_chol` line. The parameter `rho` determines the share of impact each country's data contributes to the estimation of the covariance relationship among the economic variables. Similar country specific adjustments are made with the `z_alpha_scale` and `z_beta_scale` parameters.
 
 ```{code-cell} ipython3
 df_final = gdp_hierarchical[["country", "dl_gdp", "dl_cons", "dl_gfcf"]]
@@ -556,6 +572,10 @@ az.plot_trace(
 ```
 
 Next we'll look at some of the summary statistics and how they vary across the countries.
+
+```{code-cell} ipython3
+
+```
 
 ```{code-cell} ipython3
 az.summary(
@@ -638,17 +658,17 @@ corr
 ```
 
 ```{code-cell} ipython3
-post_corr = (
-    idata_full_test["posterior"]["omega_global_corr"]
-    .to_dataframe()
-    .reset_index()
-    .pivot(
-        ["chain", "draw", "omega_global_corr_dim_0"], "omega_global_corr_dim_1", "omega_global_corr"
-    )
-    .reset_index()
-    .pivot(["chain", "draw"], "omega_global_corr_dim_0")
+ax = az.plot_posterior(
+    idata_full_test,
+    var_names="omega_global_corr",
+    hdi_prob="hide",
+    point_estimate="mean",
+    grid=(3, 3),
+    kind="hist",
+    ec="black",
+    figsize=(10, 7),
 )
-post_corr.columns = [
+titles = [
     "GDP/GDP",
     "GDP/CONS",
     "GDP/GFCF",
@@ -659,20 +679,9 @@ post_corr.columns = [
     "GFCF/CONS",
     "GFCF/GFCF",
 ]
-
-fig, axs = plt.subplots(3, 3, figsize=(10, 4))
-axs = axs.flatten()
-cm = plt.cm.get_cmap("viridis")
-for ax, col in zip(axs, post_corr.columns):
-    n, bins, patches = ax.hist(post_corr[col], bins=30, ec="black", color="yellow")
-    bin_centers = 0.5 * (bins[:-1] + bins[1:])
-    ax.set_title(col, fontsize=10)
-    # scale values to interval [0,1]
-    cs = bin_centers - min(bin_centers)
-    cs /= max(cs)
-
-    for c, p in zip(cs, patches):
-        plt.setp(p, "facecolor", cm(c))
+for ax, t in zip(ax.ravel(), titles):
+    ax.set_xlim(0.6, 1)
+    ax.set_title(t, fontsize=10)
 plt.suptitle("The Posterior Correlation Estimates", fontsize=20);
 ```
 
@@ -688,7 +697,7 @@ And to see the development of these model fits over time:
 
 ```{code-cell} ipython3
 countries = gdp_hierarchical["country"].unique()
-# countries = ["Ireland", "United States"]
+
 
 fig, axs = plt.subplots(8, 3, figsize=(20, 40))
 for ax, country in zip(axs, countries):
@@ -699,20 +708,25 @@ for ax, country in zip(axs, countries):
     ppc = az.extract_dataset(idata_full_test, group="posterior_predictive", num_samples=100)[
         f"obs_{country}"
     ]
+    if country == "Ireland":
+        color = "viridis"
+    else:
+        color = "inferno"
     for i in range(3):
-        shade_background(ppc, ax, i, "inferno")
+        shade_background(ppc, ax, i, color)
     ax[0].plot(np.arange(ppc.shape[0]), ppc[:, 0, :].mean(axis=1), color="cyan", label="Mean")
-    ax[0].plot(temp["dl_gdp"], "o", color="white", markersize=6, label="Observed")
-    ax[0].plot(temp["dl_gdp"], "o", color="black", markersize=4, label="Observed")
+    ax[0].plot(temp["dl_gdp"], "o", mfc="black", mec="white", mew=1, markersize=7, label="Observed")
     ax[0].set_title(f"Posterior Predictive GDP: {country}")
     ax[0].legend(loc="lower left")
-    ax[1].plot(temp["dl_cons"], "o", color="white", markersize=6, label="Observed")
-    ax[1].plot(temp["dl_cons"], "o", color="black", markersize=4, label="Observed")
+    ax[1].plot(
+        temp["dl_cons"], "o", mfc="black", mec="white", mew=1, markersize=7, label="Observed"
+    )
     ax[1].plot(np.arange(ppc.shape[0]), ppc[:, 1, :].mean(axis=1), color="cyan", label="Mean")
     ax[1].set_title(f"Posterior Predictive Consumption: {country}")
     ax[1].legend(loc="lower left")
-    ax[2].plot(temp["dl_gfcf"], "o", color="white", markersize=6, label="Observed")
-    ax[2].plot(temp["dl_gfcf"], "o", color="black", markersize=4, label="Observed")
+    ax[2].plot(
+        temp["dl_gfcf"], "o", mfc="black", mec="white", mew=1, markersize=7, label="Observed"
+    )
     ax[2].plot(np.arange(ppc.shape[0]), ppc[:, 2, :].mean(axis=1), color="cyan", label="Mean")
     ax[2].set_title(f"Posterior Predictive Investment: {country}")
     ax[2].legend(loc="lower left")
@@ -741,6 +755,10 @@ In the next post in this series we will spend some time digging into the implied
 
 ## Authors
 * Adapted from the PYMC labs [Blog post](https://www.pymc-labs.io/blog-posts/bayesian-vector-autoregression/) and Jim Savage's discussion [here](https://rpubs.com/jimsavage/hierarchical_var) by [Nathaniel Forde](https://nathanielf.github.io/) in November 2022 ([pymc-examples#456](https://github.com/pymc-devs/pymc-examples/pull/456))
+
++++
+
+## Watermark
 
 ```{code-cell} ipython3
 %load_ext watermark
