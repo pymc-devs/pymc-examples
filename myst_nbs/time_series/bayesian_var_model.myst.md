@@ -15,7 +15,7 @@ kernelspec:
 # Bayesian Vector Autoregressive Models
 
 :::{post} November, 2022
-:tags: time series, vector autoregressive model, hierarchical
+:tags: time series, vector autoregressive model, hierarchical model
 :category: intermediate
 :author: Nathaniel Forde
 :::
