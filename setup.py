@@ -19,7 +19,7 @@ from os.path import dirname, join, realpath
 
 from setuptools import find_packages, setup
 
-DISTNAME = "pymc_experimental"
+DISTNAME = "pymc-experimental"
 DESCRIPTION = "A home for new additions to PyMC, which may include unusual probability distribitions, advanced model fitting algorithms, or any code that may be inappropriate to include in the pymc repository, but may want to be made available to users."
 AUTHOR = "PyMC Developers"
 AUTHOR_EMAIL = "pymc.devs@gmail.com"
