@@ -5,8 +5,10 @@ import numpy as np
 import pytensor.tensor as pt
 from pymc import SymbolicRandomVariable
 from pymc.distributions.discrete import Bernoulli, Categorical, DiscreteUniform
+from pymc.distributions.transforms import Chain
 from pymc.logprob.abstract import _get_measurable_outputs, _logprob
 from pymc.logprob.joint_logprob import factorized_joint_logprob
+from pymc.logprob.transforms import IntervalTransform
 from pymc.model import Model
 from pymc.pytensorf import constant_fold, inputvars
 from pytensor import Mode
@@ -171,11 +173,19 @@ class MarginalModel(Model):
                 if old_rv in self.basic_RVs:
                     self._transfer_rv_mappings(old_rv, new_rv)
                     if user_warnings:
+                        # Interval transforms for dependent variable won't work for non-constant bounds because
+                        # the RV inputs are now different and may depend on another RV that also depends on the
+                        # same marginalized RV
                         transform = self.rvs_to_transforms[new_rv]
-                        if transform is not None:
+                        if isinstance(transform, IntervalTransform) or (
+                            isinstance(transform, Chain)
+                            and any(
+                                isinstance(tr, IntervalTransform) for tr in transform.transform_list
+                            )
+                        ):
                             warnings.warn(
-                                "Transforms for variables that depend on marginalized RVs are currently not working, "
-                                f"rv={new_rv}, transform={transform}",
+                                f"The transform {transform} for the variable {old_rv}, which depends on the "
+                                f"marginalized {rv_to_marginalize} may no longer work if bounds depended on other variables.",
                                 UserWarning,
                             )
         return self

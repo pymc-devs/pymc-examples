@@ -346,16 +346,19 @@ def test_not_supported_marginalized_deterministic_and_potential():
     "transform, expected_warning",
     (
         (None, does_not_warn()),
-        pytest.param(
-            UNSET,
+        (UNSET, does_not_warn()),
+        (transforms.log, does_not_warn()),
+        (transforms.Chain([transforms.log, transforms.logodds]), does_not_warn()),
+        (
+            transforms.Interval(0, 1),
             pytest.warns(
-                UserWarning, match="Transforms for variables that depend on marginalized RVs"
+                UserWarning, match="which depends on the marginalized idx may no longer work"
             ),
         ),
-        pytest.param(
-            transforms.log,
+        (
+            transforms.Chain([transforms.log, transforms.Interval(0, 1)]),
             pytest.warns(
-                UserWarning, match="Transforms for variables that depend on marginalized RVs"
+                UserWarning, match="which depends on the marginalized idx may no longer work"
             ),
         ),
     ),
@@ -398,5 +401,9 @@ def test_marginalized_transforms(transform, expected_warning):
 
     ip = m.initial_point()
     if transform is not None:
-        assert "sigma_log__" in ip
+        if transform is UNSET:
+            transform_name = "log"
+        else:
+            transform_name = transform.name
+        assert f"sigma_{transform_name}__" in ip
     np.testing.assert_allclose(m.compile_logp()(ip), m_ref.compile_logp()(ip))
