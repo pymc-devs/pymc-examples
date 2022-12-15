@@ -21,14 +21,14 @@ The imports from pymc are not fully replicated here: add imports as necessary.
 
 from typing import List, Tuple, Union
 
-import aesara.tensor as at
 import numpy as np
-from aesara.tensor.random.op import RandomVariable
-from aesara.tensor.var import TensorVariable
-from pymc.aesaraf import floatX
+import pytensor.tensor as pt
 from pymc.distributions.dist_math import check_parameters
 from pymc.distributions.distribution import Continuous
 from pymc.distributions.shape_utils import rv_size_is_none
+from pymc.pytensorf import floatX
+from pytensor.tensor.random.op import RandomVariable
+from pytensor.tensor.var import TensorVariable
 from scipy import stats
 
 
@@ -144,9 +144,9 @@ class GenExtreme(Continuous):
         # If SciPy, use its parametrization, otherwise convert to standard
         if scipy:
             xi = -xi
-        mu = at.as_tensor_variable(floatX(mu))
-        sigma = at.as_tensor_variable(floatX(sigma))
-        xi = at.as_tensor_variable(floatX(xi))
+        mu = pt.as_tensor_variable(floatX(mu))
+        sigma = pt.as_tensor_variable(floatX(sigma))
+        xi = pt.as_tensor_variable(floatX(xi))
 
         return super().dist([mu, sigma, xi], **kwargs)
 
@@ -159,7 +159,7 @@ class GenExtreme(Continuous):
         ----------
         value: numeric
             Value(s) for which log-probability is calculated. If the log probabilities for multiple
-            values are desired the values must be provided in a numpy array or Aesara tensor
+            values are desired the values must be provided in a numpy array or Pytensor tensor
 
         Returns
         -------
@@ -167,18 +167,18 @@ class GenExtreme(Continuous):
         """
         scaled = (value - mu) / sigma
 
-        logp_expression = at.switch(
-            at.isclose(xi, 0),
-            -at.log(sigma) - scaled - at.exp(-scaled),
-            -at.log(sigma)
-            - ((xi + 1) / xi) * at.log1p(xi * scaled)
-            - at.pow(1 + xi * scaled, -1 / xi),
+        logp_expression = pt.switch(
+            pt.isclose(xi, 0),
+            -pt.log(sigma) - scaled - pt.exp(-scaled),
+            -pt.log(sigma)
+            - ((xi + 1) / xi) * pt.log1p(xi * scaled)
+            - pt.pow(1 + xi * scaled, -1 / xi),
         )
 
-        logp = at.switch(at.gt(1 + xi * scaled, 0.0), logp_expression, -np.inf)
+        logp = pt.switch(pt.gt(1 + xi * scaled, 0.0), logp_expression, -np.inf)
 
         return check_parameters(
-            logp, sigma > 0, at.and_(xi > -1, xi < 1), msg="sigma > 0 or -1 < xi < 1"
+            logp, sigma > 0, pt.and_(xi > -1, xi < 1), msg="sigma > 0 or -1 < xi < 1"
         )
 
     def logcdf(value, mu, sigma, xi):
@@ -198,21 +198,21 @@ class GenExtreme(Continuous):
         TensorVariable
         """
         scaled = (value - mu) / sigma
-        logc_expression = at.switch(
-            at.isclose(xi, 0), -at.exp(-scaled), -at.pow(1 + xi * scaled, -1 / xi)
+        logc_expression = pt.switch(
+            pt.isclose(xi, 0), -pt.exp(-scaled), -pt.pow(1 + xi * scaled, -1 / xi)
         )
 
-        logc = at.switch(1 + xi * (value - mu) / sigma > 0, logc_expression, -np.inf)
+        logc = pt.switch(1 + xi * (value - mu) / sigma > 0, logc_expression, -np.inf)
 
         return check_parameters(
-            logc, sigma > 0, at.and_(xi > -1, xi < 1), msg="sigma > 0 or -1 < xi < 1"
+            logc, sigma > 0, pt.and_(xi > -1, xi < 1), msg="sigma > 0 or -1 < xi < 1"
         )
 
     def moment(rv, size, mu, sigma, xi):
         r"""
         Using the mode, as the mean can be infinite when :math:`\xi > 1`
         """
-        mode = at.switch(at.isclose(xi, 0), mu, mu + sigma * (at.pow(1 + xi, -xi) - 1) / xi)
+        mode = pt.switch(pt.isclose(xi, 0), mu, mu + sigma * (pt.pow(1 + xi, -xi) - 1) / xi)
         if not rv_size_is_none(size):
-            mode = at.full(size, mode)
+            mode = pt.full(size, mode)
         return mode

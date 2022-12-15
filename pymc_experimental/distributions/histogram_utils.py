@@ -99,7 +99,7 @@ def histogram_approximation(name, dist, *, observed, **h_kwargs):
     ----------
     name : str
         Name for the Potential
-    dist : aesara.tensor.var.TensorVariable
+    dist : pytensor.tensor.var.TensorVariable
         The output of pm.Distribution.dist()
     observed : ArrayLike
         Observed value to construct a histogram. Histogram is computed over 0th axis.
@@ -107,7 +107,7 @@ def histogram_approximation(name, dist, *, observed, **h_kwargs):
 
     Returns
     -------
-    aesara.tensor.var.TensorVariable
+    pytensor.tensor.var.TensorVariable
         Potential
 
     Examples

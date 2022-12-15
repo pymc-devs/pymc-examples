@@ -105,7 +105,7 @@ def fit_pathfinder(
     init_position_dict = model.initial_point()
     init_position = [init_position_dict[rv] for rv in rvs]
 
-    new_logprob, new_input = pm.aesaraf.join_nonshared_inputs(
+    new_logprob, new_input = pm.pytensorf.join_nonshared_inputs(
         init_position_dict, (model.logp(),), model.value_vars, ()
     )
 

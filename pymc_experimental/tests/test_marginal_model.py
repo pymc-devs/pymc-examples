@@ -1,14 +1,14 @@
 import itertools
 from contextlib import suppress as does_not_warn
 
-import aesara.tensor as at
 import numpy as np
 import pandas as pd
 import pymc as pm
+import pytensor.tensor as pt
 import pytest
-from aeppl.logprob import _logprob
 from pymc import ImputationWarning, inputvars
 from pymc.distributions import transforms
+from pymc.logprob.abstract import _logprob
 from pymc.util import UNSET
 from scipy.special import logsumexp
 
@@ -44,7 +44,7 @@ def disaster_model():
 @pytest.mark.filterwarnings("error")
 def test_marginalized_bernoulli_logp():
     """Test logp of IR TestFiniteMarginalDiscreteRV directly"""
-    mu = at.vector("mu")
+    mu = pt.vector("mu")
 
     idx = pm.Bernoulli.dist(0.7, name="idx")
     y = pm.Normal.dist(mu=mu[idx], sigma=1.0, name="y")
@@ -73,11 +73,11 @@ def test_marginalized_basic():
     with MarginalModel() as m:
         sigma = pm.HalfNormal("sigma")
         idx = pm.Categorical("idx", p=[0.1, 0.3, 0.6])
-        mu = at.switch(
-            at.eq(idx, 0),
+        mu = pt.switch(
+            pt.eq(idx, 0),
             -1.0,
-            at.switch(
-                at.eq(idx, 1),
+            pt.switch(
+                pt.eq(idx, 1),
                 0.0,
                 1.0,
             ),
@@ -170,9 +170,9 @@ def test_nested_marginalized_rvs():
         sigma = pm.HalfNormal("sigma")
 
         idx = pm.Bernoulli("idx", p=0.75)
-        dep = pm.Normal("dep", mu=at.switch(at.eq(idx, 0), -1000, 1000), sigma=sigma)
+        dep = pm.Normal("dep", mu=pt.switch(pt.eq(idx, 0), -1000, 1000), sigma=sigma)
 
-        sub_idx = pm.Bernoulli("sub_idx", p=at.switch(at.eq(idx, 0), 0.15, 0.95), shape=(5,))
+        sub_idx = pm.Bernoulli("sub_idx", p=pt.switch(pt.eq(idx, 0), 0.15, 0.95), shape=(5,))
         sub_dep = pm.Normal("sub_dep", mu=dep + sub_idx * 100, sigma=sigma, shape=(5,))
 
     ref_logp_fn = m.compile_logp(vars=[idx, dep, sub_idx, sub_dep])
@@ -249,7 +249,7 @@ def test_marginalized_change_point_model_sampling(disaster_model):
 def test_not_supported_marginalized():
     """Marginalized graphs with non-Elemwise Operations are not supported as they
     would violate the batching logp assumption"""
-    mu = at.constant([-1, 1])
+    mu = pt.constant([-1, 1])
 
     # Allowed, as only elemwise operations connect idx to y
     with MarginalModel() as m:
@@ -351,19 +351,11 @@ def test_not_supported_marginalized_deterministic_and_potential():
             pytest.warns(
                 UserWarning, match="Transforms for variables that depend on marginalized RVs"
             ),
-            marks=pytest.mark.xfail(
-                reason="AePPL transform rewrite does not support multiple_output nodes",
-                raises=AssertionError,
-            ),
         ),
         pytest.param(
             transforms.log,
             pytest.warns(
                 UserWarning, match="Transforms for variables that depend on marginalized RVs"
-            ),
-            marks=pytest.mark.xfail(
-                reason="AePPL transform rewrite does not support multiple_output nodes",
-                raises=AssertionError,
             ),
         ),
     ),
@@ -387,11 +379,11 @@ def test_marginalized_transforms(transform, expected_warning):
         idx = pm.Categorical("idx", p=w)
         sigma = pm.HalfNormal(
             "sigma",
-            at.switch(
-                at.eq(idx, 0),
+            pt.switch(
+                pt.eq(idx, 0),
                 1,
-                at.switch(
-                    at.eq(idx, 1),
+                pt.switch(
+                    pt.eq(idx, 1),
                     2,
                     3,
                 ),

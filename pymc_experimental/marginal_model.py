@@ -1,22 +1,21 @@
 import warnings
 from typing import Sequence, Tuple, Union
 
-import aesara.tensor as at
 import numpy as np
-from aeppl import factorized_joint_logprob
-from aeppl.abstract import _get_measurable_outputs
-from aeppl.logprob import _logprob
-from aesara import Mode
-from aesara.compile import SharedVariable
-from aesara.compile.builders import OpFromGraph
-from aesara.graph import Constant, FunctionGraph, ancestors, clone_replace
-from aesara.scan import map as scan_map
-from aesara.tensor import TensorVariable
-from aesara.tensor.elemwise import Elemwise
+import pytensor.tensor as pt
 from pymc import SymbolicRandomVariable
-from pymc.aesaraf import constant_fold, inputvars
 from pymc.distributions.discrete import Bernoulli, Categorical, DiscreteUniform
+from pymc.logprob.abstract import _get_measurable_outputs, _logprob
+from pymc.logprob.joint_logprob import factorized_joint_logprob
 from pymc.model import Model
+from pymc.pytensorf import constant_fold, inputvars
+from pytensor import Mode
+from pytensor.compile import SharedVariable
+from pytensor.compile.builders import OpFromGraph
+from pytensor.graph import Constant, FunctionGraph, ancestors, clone_replace
+from pytensor.scan import map as scan_map
+from pytensor.tensor import TensorVariable
+from pytensor.tensor.elemwise import Elemwise
 
 __all__ = ["MarginalModel"]
 
@@ -381,7 +380,7 @@ def get_domain_of_finite_discrete_rv(rv: TensorVariable) -> Tuple[int, ...]:
         return (0, 1)
     elif isinstance(op, Categorical):
         p_param = rv.owner.inputs[3]
-        return tuple(range(at.get_vector_length(p_param)))
+        return tuple(range(pt.get_vector_length(p_param)))
     elif isinstance(op, DiscreteUniform):
         lower, upper = constant_fold(rv.owner.inputs[3:])
         return tuple(range(lower, upper + 1))
@@ -437,8 +436,8 @@ def finite_discrete_marginal_rv_logp(op, values, *inputs, **kwargs):
     # PyMC does not allow RVs in the logp graph, even if we are just using the shape
     marginalized_rv_shape = constant_fold(tuple(marginalized_rv.shape))
     marginalized_rv_domain = get_domain_of_finite_discrete_rv(marginalized_rv)
-    marginalized_rv_domain_tensor = at.swapaxes(
-        at.full(
+    marginalized_rv_domain_tensor = pt.swapaxes(
+        pt.full(
             (*marginalized_rv_shape, len(marginalized_rv_domain)),
             marginalized_rv_domain,
             dtype=marginalized_rv.dtype,
@@ -459,7 +458,7 @@ def finite_discrete_marginal_rv_logp(op, values, *inputs, **kwargs):
         ]
     else:
         # Make sure this is rewrite is registered
-        from pymc.aesaraf import local_remove_check_parameter
+        from pymc.pytensorf import local_remove_check_parameter
 
         def logp_fn(marginalized_rv_const, *non_sequences):
             return joint_logp_op(marginalized_rv_const, *non_sequences)
@@ -471,7 +470,7 @@ def finite_discrete_marginal_rv_logp(op, values, *inputs, **kwargs):
             mode=Mode().including("local_remove_check_parameter"),
         )
 
-    joint_logps = at.logsumexp(joint_logps, axis=0)
+    joint_logps = pt.logsumexp(joint_logps, axis=0)
 
-    # We have to add dummy logps for the remaining value variables, otherwise AePPL will raise
-    return joint_logps, *(at.constant(0),) * (len(values) - 1)
+    # We have to add dummy logps for the remaining value variables, otherwise PyMC will raise
+    return joint_logps, *(pt.constant(0),) * (len(values) - 1)
