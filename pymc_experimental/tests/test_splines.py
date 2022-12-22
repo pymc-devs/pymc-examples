@@ -13,10 +13,10 @@
 #   limitations under the License.
 
 
-import aesara
-import aesara.tensor as at
 import numpy as np
+import pytensor.tensor as pt
 import pytest
+from pytensor.sparse import SparseTensorType
 
 import pymc_experimental as pmx
 
@@ -29,11 +29,11 @@ def test_spline_construction(dtype, sparse):
     assert np_out.shape == (20, 10)
     assert np_out.dtype == dtype
     spline_op = pmx.utils.spline.BSplineBasis(sparse=sparse)
-    out = spline_op(x, at.constant(10), at.constant(3))
+    out = spline_op(x, pt.constant(10), pt.constant(3))
     if not sparse:
-        assert isinstance(out.type, at.TensorType)
+        assert isinstance(out.type, pt.TensorType)
     else:
-        assert isinstance(out.type, aesara.sparse.SparseTensorType)
+        assert isinstance(out.type, SparseTensorType)
     B = out.eval()
     if not sparse:
         np.testing.assert_allclose(B, np_out)

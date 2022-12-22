@@ -1,2 +1,1 @@
-pymc>=4.0.1
-xhistogram
+pymc>=5.0.0

@@ -13,9 +13,9 @@
 #   limitations under the License.
 
 
-import aesara.tensor as at
 import numpy as np
 import pymc as pm
+import pytensor.tensor as pt
 from pymc.gp.util import JITTER_DEFAULT, cholesky, solve_lower, solve_upper, stabilize
 
 
@@ -42,7 +42,7 @@ class ProjectedProcess(pm.gp.Latent):
         u = pm.Deterministic(name + "_u", L @ v)
 
         Kfu = self.cov_func(X, Xu)
-        Kuuiu = solve_upper(at.transpose(L), solve_lower(L, u))
+        Kuuiu = solve_upper(pt.transpose(L), solve_lower(L, u))
 
         return pm.Deterministic(name, mu + Kfu @ Kuuiu), Kuuiu, L
 
@@ -62,8 +62,8 @@ class ProjectedProcess(pm.gp.Latent):
     def _build_conditional(self, name, Xnew, Xu, L, Kuuiu, jitter, **kwargs):
         Ksu = self.cov_func(Xnew, Xu)
         mu = self.mean_func(Xnew) + Ksu @ Kuuiu
-        tmp = solve_lower(L, at.transpose(Ksu))
-        Qss = at.transpose(tmp) @ tmp  # Qss = tt.dot(tt.dot(Ksu, tt.nlinalg.pinv(Kuu)), Ksu.T)
+        tmp = solve_lower(L, pt.transpose(Ksu))
+        Qss = pt.transpose(tmp) @ tmp  # Qss = tt.dot(tt.dot(Ksu, tt.nlinalg.pinv(Kuu)), Ksu.T)
         Kss = self.cov_func(Xnew)
         Lss = cholesky(stabilize(Kss - Qss, jitter))
         return mu, Lss
@@ -100,10 +100,10 @@ class HSGP(pm.gp.Latent):
         return f
 
     def _generate_basis(self, X, L):
-        indices = at.arange(1, self.M + 1)
-        m1 = (np.pi / (2.0 * L)) * at.tile(L + X, self.M)
-        m2 = at.diag(indices)
-        Phi = at.sin(m1 @ m2) / at.sqrt(L)
+        indices = pt.arange(1, self.M + 1)
+        m1 = (np.pi / (2.0 * L)) * pt.tile(L + X, self.M)
+        m2 = pt.diag(indices)
+        Phi = pt.sin(m1 @ m2) / pt.sqrt(L)
         omega = (np.pi * indices) / (2.0 * L)
         return Phi, omega
 
@@ -111,15 +111,15 @@ class HSGP(pm.gp.Latent):
         n_obs = np.shape(X)[0]
 
         # standardize input scale
-        X = at.as_tensor_variable(X)
-        Xmu = at.mean(X, axis=0)
-        Xsd = at.std(X, axis=0)
+        X = pt.as_tensor_variable(X)
+        Xmu = pt.mean(X, axis=0)
+        Xsd = pt.std(X, axis=0)
         Xz = (X - Xmu) / Xsd
 
         # define L using Xz and c
-        La = at.abs(at.min(Xz))  # .eval()?
-        Lb = at.max(Xz)
-        L = self.c * at.max([La, Lb])
+        La = pt.abs(pt.min(Xz))  # .eval()?
+        Lb = pt.max(Xz)
+        L = self.c * pt.max([La, Lb])
 
         # make basis and omega, spectral density
         Phi, omega = self._generate_basis(Xz, L)
@@ -127,7 +127,7 @@ class HSGP(pm.gp.Latent):
         spd = scale * spectral_density(omega, ls / Xsd).flatten()
 
         beta = pm.Normal(f"{name}_coeffs_", size=self.M)
-        f = pm.Deterministic(name, self.mean_func(X) + at.dot(Phi * at.sqrt(spd), beta))
+        f = pm.Deterministic(name, self.mean_func(X) + pt.dot(Phi * pt.sqrt(spd), beta))
         return f, Phi, L, spd, beta, Xmu, Xsd
 
     def _build_conditional(self, Xnew, Xmu, Xsd, L, beta):
@@ -135,7 +135,7 @@ class HSGP(pm.gp.Latent):
         Phi, omega = self._generate_basis(Xnewz, L)
         scale, ls, spectral_density = self._validate_cov_func(self.cov_func)
         spd = scale * spectral_density(omega, ls / Xsd).flatten()
-        return self.mean_func(Xnew) + at.dot(Phi * at.sqrt(spd), beta)
+        return self.mean_func(Xnew) + pt.dot(Phi * pt.sqrt(spd), beta)
 
     def conditional(self, name, Xnew):
         # warn about extrapolation
@@ -147,7 +147,7 @@ class ExpQuad(pm.gp.cov.ExpQuad):
     @staticmethod
     def spectral_density(omega, ls):
         # univariate spectral denisty, implement multi
-        return at.sqrt(2 * np.pi) * ls * at.exp(-0.5 * ls**2 * omega**2)
+        return pt.sqrt(2 * np.pi) * ls * pt.exp(-0.5 * ls**2 * omega**2)
 
 
 class Matern52(pm.gp.cov.Matern52):
@@ -155,7 +155,7 @@ class Matern52(pm.gp.cov.Matern52):
     def spectral_density(omega, ls):
         # univariate spectral denisty, implement multi
         # https://arxiv.org/pdf/1611.06740.pdf
-        lam = at.sqrt(5) * (1.0 / ls)
+        lam = pt.sqrt(5) * (1.0 / ls)
         return (16.0 / 3.0) * lam**5 * (1.0 / (lam**2 + omega**2) ** 3)
 
 
@@ -165,7 +165,7 @@ class Matern32(pm.gp.cov.Matern32):
         # univariate spectral denisty, implement multi
         # https://arxiv.org/pdf/1611.06740.pdf
         lam = np.sqrt(3.0) * (1.0 / ls)
-        return 4.0 * lam**3 * (1.0 / at.square(lam**2 + omega**2))
+        return 4.0 * lam**3 * (1.0 / pt.square(lam**2 + omega**2))
 
 
 class Matern12(pm.gp.cov.Matern12):
@@ -193,7 +193,7 @@ class KarhunenLoeveExpansion(pm.gp.Latent):
     def _build_prior(self, name, X, jitter=1e-6, **kwargs):
         mu = self.mean_func(X)
         Kxx = pm.gp.util.stabilize(self.cov_func(X), jitter)
-        vals, vecs = at.linalg.eigh(Kxx)
+        vals, vecs = pt.linalg.eigh(Kxx)
         ## NOTE: REMOVED PRECISION CUTOFF
         if self.variance_limit is None:
             n_eigs = self.n_eigs
@@ -204,7 +204,7 @@ class KarhunenLoeveExpansion(pm.gp.Latent):
                 n_eigs = ((vals[::-1].cumsum() / vals.sum()) > self.variance_limit).nonzero()[0][0]
         U = vecs[:, -n_eigs:]
         s = vals[-n_eigs:]
-        basis = U * at.sqrt(s)
+        basis = U * pt.sqrt(s)
 
         coefs_raw = pm.Normal(f"_gp_{name}_coefs", mu=0, sigma=1, size=n_eigs)
         # weight = pm.HalfNormal(f"_gp_{name}_sd")
@@ -222,7 +222,7 @@ class KarhunenLoeveExpansion(pm.gp.Latent):
     def _build_conditional(self, Xnew, X, f, U, s, jitter):
         Kxs = self.cov_func(X, Xnew)
         Kss = self.cov_func(Xnew)
-        Kxxpinv = U @ at.diag(1.0 / s) @ U.T
+        Kxxpinv = U @ pt.diag(1.0 / s) @ U.T
         mus = Kxs.T @ Kxxpinv @ f
         K = Kss - Kxs.T @ Kxxpinv @ Kxs
         L = pm.gp.util.cholesky(pm.gp.util.stabilize(K, jitter))

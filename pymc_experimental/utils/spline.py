@@ -13,12 +13,12 @@
 #   limitations under the License.
 
 
-import aesara
-import aesara.sparse
-import aesara.tensor as at
 import numpy as np
+import pytensor
+import pytensor.sparse as ps
+import pytensor.tensor as pt
 import scipy.interpolate
-from aesara.graph.op import Apply, Op
+from pytensor.graph.op import Apply, Op
 
 
 def numpy_bspline_basis(eval_points: np.ndarray, k: int, degree=3):
@@ -40,17 +40,17 @@ class BSplineBasis(Op):
         self.sparse = sparse
 
     def make_node(self, *inputs) -> Apply:
-        eval_points, k, d = map(at.as_tensor, inputs)
+        eval_points, k, d = map(pt.as_tensor, inputs)
         if not (eval_points.ndim == 1 and np.issubdtype(eval_points.dtype, np.floating)):
             raise TypeError("eval_points should be a vector of floats")
-        if not k.type in at.int_types:
+        if not k.type in pt.int_types:
             raise TypeError("k should be integer")
-        if not d.type in at.int_types:
+        if not d.type in pt.int_types:
             raise TypeError("degree should be integer")
         if self.sparse:
-            out_type = aesara.sparse.SparseTensorType("csr", eval_points.dtype)()
+            out_type = ps.SparseTensorType("csr", eval_points.dtype)()
         else:
-            out_type = aesara.tensor.matrix(dtype=eval_points.dtype)
+            out_type = pt.matrix(dtype=eval_points.dtype)
         return Apply(self, [eval_points, k, d], [out_type])
 
     def perform(self, node, inputs, output_storage, params=None) -> None:
@@ -65,7 +65,7 @@ class BSplineBasis(Op):
 
 
 def bspline_basis(n, k, degree=3, dtype=None, sparse=True):
-    dtype = dtype or aesara.config.floatX
+    dtype = dtype or pytensor.config.floatX
     eval_points = np.linspace(0, 1, n, dtype=dtype)
     return BSplineBasis(sparse=sparse)(eval_points, k, degree)
 
@@ -116,7 +116,7 @@ def bspline_interpolation(x, *, n=None, eval_points=None, degree=3, sparse=True)
     Adopted from `BayesAlpha <https://github.com/quantopian/bayesalpha/blob/676f4f194ad20211fd040d3b0c6e82969aafb87e/bayesalpha/dists.py#L97>`_
     where it was written by @aseyboldt
     """
-    x = at.as_tensor(x)
+    x = pt.as_tensor(x)
     if n is not None and eval_points is not None:
         raise ValueError("Please provide one of n or eval_points")
     elif n is not None:
@@ -125,6 +125,6 @@ def bspline_interpolation(x, *, n=None, eval_points=None, degree=3, sparse=True)
         raise ValueError("Please provide one of n or eval_points")
     basis = BSplineBasis(sparse=sparse)(eval_points, x.shape[0], degree)
     if sparse:
-        return aesara.sparse.dot(basis, x)
+        return ps.dot(basis, x)
     else:
-        return aesara.tensor.dot(basis, x)
+        return pt.dot(basis, x)

@@ -5,7 +5,7 @@ tasks:
       mkdir -p .vscode
       echo '{"python.defaultInterpreterPath": "/workspace/pymc-experimental/env/bin/python"}' > .vscode/settings.json
       conda init bash && source ~/.bashrc
-      conda env update -f conda-envs/environment-test-py39.yml -p env
+      conda env update -f conda-envs/environment-test.yml -p env
       conda activate /workspace/pymc-experimental/env
       pip install -r requirements-dev.txt
       pip install -e .

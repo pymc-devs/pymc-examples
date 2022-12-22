@@ -12,10 +12,11 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-# general imports
-import aesara
 import numpy as np
 import pymc as pm
+
+# general imports
+import pytensor
 import pytest
 import scipy.stats.distributions as sp
 
@@ -45,7 +46,7 @@ class TestGenExtremeClass:
     """
 
     @pytest.mark.xfail(
-        condition=(aesara.config.floatX == "float32"),
+        condition=(pytensor.config.floatX == "float32"),
         reason="PyMC underflows earlier than scipy on float32",
     )
     def test_logp(self):
@@ -62,7 +63,7 @@ class TestGenExtremeClass:
             else -np.inf,
         )
 
-        if aesara.config.floatX == "float32":
+        if pytensor.config.floatX == "float32":
             raise Exception("Flaky test: It passed this time, but XPASS is not allowed.")
 
     def test_logcdf(self):

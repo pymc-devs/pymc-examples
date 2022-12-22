@@ -25,9 +25,8 @@ import jax.random as random
 import numpy as np
 import pymc as pm
 from pymc import modelcontext
-from pymc.sampling import RandomSeed, _get_seeds_per_chain
 from pymc.sampling_jax import get_jaxified_graph
-from pymc.util import get_default_varnames
+from pymc.util import RandomSeed, _get_seeds_per_chain, get_default_varnames
 
 
 def convert_flat_trace_to_idata(
@@ -106,7 +105,7 @@ def fit_pathfinder(
     init_position_dict = model.initial_point()
     init_position = [init_position_dict[rv] for rv in rvs]
 
-    new_logprob, new_input = pm.aesaraf.join_nonshared_inputs(
+    new_logprob, new_input = pm.pytensorf.join_nonshared_inputs(
         init_position_dict, (model.logp(),), model.value_vars, ()
     )
 

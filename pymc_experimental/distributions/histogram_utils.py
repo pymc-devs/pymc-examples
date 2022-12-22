@@ -17,7 +17,6 @@ from typing import Dict
 
 import numpy as np
 import pymc as pm
-import xhistogram.core
 from numpy.typing import ArrayLike
 
 try:
@@ -26,6 +25,11 @@ try:
 except ImportError:
     dask = None
 
+try:
+    import xhistogram.core
+except ImportError:
+    xhistogram = None
+
 
 __all__ = ["quantile_histogram", "discrete_histogram", "histogram_approximation"]
 
@@ -33,6 +37,9 @@ __all__ = ["quantile_histogram", "discrete_histogram", "histogram_approximation"
 def quantile_histogram(
     data: ArrayLike, n_quantiles=1000, zero_inflation=False
 ) -> Dict[str, ArrayLike]:
+    if xhistogram is None:
+        raise RuntimeError("quantile_histogram requires xhistogram package")
+
     if dask and isinstance(data, (dask.dataframe.Series, dask.dataframe.DataFrame)):
         data = data.to_dask_array(lengths=True)
     if zero_inflation:
@@ -67,6 +74,9 @@ def quantile_histogram(
 
 
 def discrete_histogram(data: ArrayLike, min_count=None) -> Dict[str, ArrayLike]:
+    if xhistogram is None:
+        raise RuntimeError("discrete_histogram requires xhistogram package")
+
     if dask and isinstance(data, (dask.dataframe.Series, dask.dataframe.DataFrame)):
         data = data.to_dask_array(lengths=True)
     mid, count_uniq = np.unique(data, return_counts=True)
@@ -89,7 +99,7 @@ def histogram_approximation(name, dist, *, observed, **h_kwargs):
     ----------
     name : str
         Name for the Potential
-    dist : aesara.tensor.var.TensorVariable
+    dist : pytensor.tensor.var.TensorVariable
         The output of pm.Distribution.dist()
     observed : ArrayLike
         Observed value to construct a histogram. Histogram is computed over 0th axis.
@@ -97,7 +107,7 @@ def histogram_approximation(name, dist, *, observed, **h_kwargs):
 
     Returns
     -------
-    aesara.tensor.var.TensorVariable
+    pytensor.tensor.var.TensorVariable
         Potential
 
     Examples
