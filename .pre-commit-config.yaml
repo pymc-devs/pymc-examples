@@ -1,10 +1,4 @@
 repos:
-- repo: https://github.com/mwouts/jupytext
-  rev: v1.13.7
-  hooks:
-  - id: jupytext
-    files: ^examples/.+\.ipynb$
-    args: ["--sync"]
 - repo: https://github.com/psf/black
   rev: 22.3.0
   hooks:
@@ -63,7 +57,7 @@ repos:
       name: Check no references that should be sphinx cross-references are urls
       description: >-
         'A quick check to prevent urls pointing to pymc docs or other sphinx built docs like arviz, numpy, scipy...'
-      files: ^examples/
+      files: ^examples/.+\.ipynb$
       exclude: >
           (?x)(index.md|
                404.md|
@@ -108,10 +102,4 @@ repos:
   hooks:
   - id: jupytext
     files: ^examples/.+\.ipynb$
-    args: ["--sync"]
-- repo: https://github.com/codespell-project/codespell
-  rev: v2.1.0
-  hooks:
-  - id: codespell
-    files: myst_nbs/
-    args: ["--write-changes", "--ignore-words-list", "hist,fpr,fro,lik", "--uri-ignore-words-list", "*"]
+    args: [--from, ipynb, --to, ".myst.md:myst"]

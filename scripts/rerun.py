@@ -111,7 +111,7 @@ def commit(fp: pathlib.Path, branch: str) -> bool:
         _log.info("⏳ Committing changes in %s to %s", fp, branch)
         subprocess.check_call(["git", "stage", str(fp)])
         subprocess.check_call(["git", "commit", "-m", f"Re-run {fp.name} notebook"])
-        _log.info("✔ Changes in %s were commited to branch %s.", fp, branch)
+        _log.info("✔ Changes in %s were committed to branch %s.", fp, branch)
         return True
     except subprocess.CalledProcessError as ex:
         _log.exception("❌ Failed to commit.", exc_info=ex)
