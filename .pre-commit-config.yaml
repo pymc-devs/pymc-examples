@@ -1,10 +1,4 @@
 repos:
-- repo: https://github.com/mwouts/jupytext
-  rev: v1.13.7
-  hooks:
-  - id: jupytext
-    files: ^examples/.+\.ipynb$
-    args: ["--sync"]
 - repo: https://github.com/psf/black
   rev: 22.3.0
   hooks:
@@ -103,12 +97,6 @@ repos:
                docs.scipy.org/doc)
       language: pygrep
       types_or: [markdown, rst, jupyter]
-- repo: https://github.com/mwouts/jupytext
-  rev: v1.13.7
-  hooks:
-  - id: jupytext
-    files: ^examples/.+\.ipynb$
-    args: ["--sync"]
 - repo: https://github.com/codespell-project/codespell
   rev: v2.1.0
   hooks:
