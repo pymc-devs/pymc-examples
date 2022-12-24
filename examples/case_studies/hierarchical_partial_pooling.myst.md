@@ -50,12 +50,12 @@ The idea of hierarchical partial pooling is to model the global performance, and
 For far more in-depth discussion please refer to Stan [tutorial](http://mc-stan.org/documentation/case-studies/pool-binary-trials.html) {cite:p}`carpenter2016hierarchical` on the subject. The model and parameter values were taken from that example.
 
 ```{code-cell} ipython3
-import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
+import pytensor.tensor as at
 
 %matplotlib inline
 ```

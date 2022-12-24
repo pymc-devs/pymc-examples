@@ -24,7 +24,7 @@ kernelspec:
 
 Pathfinder {cite:p}`zhang2021pathfinder` is a variational inference algorithm that produces samples from the posterior of a Bayesian model. It compares favorably to the widely used ADVI algorithm. On large problems, it should scale better than most MCMC algorithms, including dynamic HMC (i.e. NUTS), at the cost of a more biased estimate of the posterior. For details on the algorithm, see the [arxiv preprint](https://arxiv.org/abs/2108.03782).
 
-This algorithm is [implemented](https://github.com/blackjax-devs/blackjax/pull/194) in [BlackJAX](https://github.com/blackjax-devs/blackjax), a library of inference algorithms for [JAX](https://github.com/google/jax). Through PyMC's JAX-backend (through [aesara](https://github.com/aesara-devs/aesara)) we can run BlackJAX's pathfinder on any PyMC model with some simple wrapper code.
+This algorithm is [implemented](https://github.com/blackjax-devs/blackjax/pull/194) in [BlackJAX](https://github.com/blackjax-devs/blackjax), a library of inference algorithms for [JAX](https://github.com/google/jax). Through PyMC's JAX-backend (through [pytensor](https://github.com/pytensor-devs/pytensor)) we can run BlackJAX's pathfinder on any PyMC model with some simple wrapper code.
 
 This wrapper code is implemented in [pymcx](https://github.com/pymc-devs/pymcx/). This tutorial shows how to run Pathfinder on your PyMC model.
 
@@ -89,7 +89,7 @@ az.plot_trace(idata);
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,xarray
+%watermark -n -u -v -iv -w -p pytensor,xarray
 ```
 
 :::{include} ../page_footer.md

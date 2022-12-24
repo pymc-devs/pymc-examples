@@ -302,12 +302,12 @@ Given small precision parameters, the priors on $U$ and $V$ ensure our latent va
 import logging
 import time
 
-import aesara
+import pytensor
 import scipy as sp
 
 # Enable on-the-fly graph computations, but ignore
 # absence of intermediate test values.
-aesara.config.compute_test_value = "ignore"
+pytensor.config.compute_test_value = "ignore"
 
 # Set up logging.
 logger = logging.getLogger()
@@ -775,7 +775,7 @@ goldberg2001eigentaste
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
+%watermark -n -u -v -iv -w -p pytensor,aeppl,xarray
 ```
 
 :::{include} ../page_footer.md

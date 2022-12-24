@@ -16,20 +16,20 @@ substitutions:
 # How to wrap a JAX function for use in PyMC
 
 :::{post} Mar 24, 2022
-:tags: Aesara, hidden markov model, JAX 
+:tags: PyTensor, hidden markov model, JAX 
 :category: advanced, how-to
 :author: Ricardo Vieira
 :::
 
 ```{code-cell} ipython3
-import aesara
-import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
+import pytensor
+import pytensor.tensor as at
 
-from aesara.graph import Apply, Op
+from pytensor.graph import Apply, Op
 ```
 
 ```{code-cell} ipython3
@@ -47,25 +47,25 @@ import jax.numpy as jnp
 import jax.scipy as jsp
 import pymc.sampling_jax
 
-from aesara.link.jax.dispatch import jax_funcify
+from pytensor.link.jax.dispatch import jax_funcify
 ```
 
-## Intro: Aesara and its backends
+## Intro: PyTensor and its backends
 
-PyMC uses the {doc}`Aesara <aesara:index>` library to create and manipulate probabilistic graphs. Aesara is backend-agnostic, meaning it can make use of functions written in different languages or frameworks, including pure Python, NumPy, C, Cython, Numba, and [JAX](https://jax.readthedocs.io/en/latest/index.html). 
+PyMC uses the {doc}`PyTensor <pytensor:index>` library to create and manipulate probabilistic graphs. PyTensor is backend-agnostic, meaning it can make use of functions written in different languages or frameworks, including pure Python, NumPy, C, Cython, Numba, and [JAX](https://jax.readthedocs.io/en/latest/index.html). 
 
-All that is needed is to encapsulate such function in a Aesara {class}`~aesara.graph.op.Op`, which enforces a specific API regarding how inputs and outputs of pure "operations" should be handled. It also implements methods for optional extra functionality like symbolic shape inference and automatic differentiation. This is well covered in the Aesara {ref}`Op documentation <aesara:op_contract>` and in our {ref}`blackbox_external_likelihood_numpy` pymc-example.
+All that is needed is to encapsulate such function in a PyTensor {class}`~pytensor.graph.op.Op`, which enforces a specific API regarding how inputs and outputs of pure "operations" should be handled. It also implements methods for optional extra functionality like symbolic shape inference and automatic differentiation. This is well covered in the PyTensor {ref}`Op documentation <pytensor:op_contract>` and in our {ref}`blackbox_external_likelihood_numpy` pymc-example.
 
-More recently, Aesara became capable of compiling directly to some of these languages/frameworks, meaning that we can convert a complete Aesara graph into a JAX or NUMBA jitted function, whereas traditionally they could only be converted to Python or C.
+More recently, PyTensor became capable of compiling directly to some of these languages/frameworks, meaning that we can convert a complete PyTensor graph into a JAX or NUMBA jitted function, whereas traditionally they could only be converted to Python or C.
 
 This has some interesting uses, such as sampling models defined in PyMC with pure JAX samplers, like those implemented in [NumPyro](https://num.pyro.ai/en/latest/index.html) or [BlackJax](https://github.com/blackjax-devs/blackjax). 
 
-This notebook illustrates how we can implement a new Aesara {class}`~aesara.graph.op.Op` that wraps a JAX function. 
+This notebook illustrates how we can implement a new PyTensor {class}`~pytensor.graph.op.Op` that wraps a JAX function. 
 
 ### Outline
 
-1. We start in a similar path as that taken in the {ref}`blackbox_external_likelihood_numpy`, which wraps a NumPy function in a Aesara {class}`~aesara.graph.op.Op`, this time wrapping a JAX jitted function instead. 
-2. We then enable Aesara to "unwrap" the just wrapped JAX function, so that the whole graph can be compiled to JAX. We make use of this to sample our PyMC model via the JAX NumPyro NUTS sampler.
+1. We start in a similar path as that taken in the {ref}`blackbox_external_likelihood_numpy`, which wraps a NumPy function in a PyTensor {class}`~pytensor.graph.op.Op`, this time wrapping a JAX jitted function instead. 
+2. We then enable PyTensor to "unwrap" the just wrapped JAX function, so that the whole graph can be compiled to JAX. We make use of this to sample our PyMC model via the JAX NumPyro NUTS sampler.
 
 +++
 
@@ -310,7 +310,7 @@ We will also ask JAX to give us the function of the gradients with respect to ea
 jitted_vec_hmm_logp_grad = jax.jit(jax.grad(vec_hmm_logp, argnums=list(range(5))))
 ```
 
-Let's print out the gradient with respect to `emission_signal`. We will check this value is unchanged after we wrap our function in Aesara.
+Let's print out the gradient with respect to `emission_signal`. We will check this value is unchanged after we wrap our function in PyTensor.
 
 ```{code-cell} ipython3
 jitted_vec_hmm_logp_grad(
@@ -322,18 +322,18 @@ jitted_vec_hmm_logp_grad(
 )[1]
 ```
 
-## Wrapping the JAX function in Aesara
+## Wrapping the JAX function in PyTensor
 
 +++
 
-Now we are ready to wrap our JAX jitted function in a Aesara {class}`~aesara.graph.op.Op`, that we can then use in our PyMC models. We recommend you check Aesara's official {ref}`Op documentation <aesara:op_contract>` if you want to understand it in more detail.
+Now we are ready to wrap our JAX jitted function in a PyTensor {class}`~pytensor.graph.op.Op`, that we can then use in our PyMC models. We recommend you check PyTensor's official {ref}`Op documentation <pytensor:op_contract>` if you want to understand it in more detail.
 
-In brief, we will inherit from {class}`~aesara.graph.op.Op` and define the following methods:
-1. `make_node`: Creates an {class}`~aesara.graph.basic.Apply` node that holds together the symbolic inputs and outputs of our operation
+In brief, we will inherit from {class}`~pytensor.graph.op.Op` and define the following methods:
+1. `make_node`: Creates an {class}`~pytensor.graph.basic.Apply` node that holds together the symbolic inputs and outputs of our operation
 2. `perform`: Python code that returns the evaluation of our operation, given concrete input values
-3. `grad`: Returns a Aesara symbolic graph that represents the gradient expression of an output cost wrt to its inputs
+3. `grad`: Returns a PyTensor symbolic graph that represents the gradient expression of an output cost wrt to its inputs
 
-For the `grad` we will create a second {class}`~aesara.graph.op.Op` that wraps our jitted grad version from above
+For the `grad` we will create a second {class}`~pytensor.graph.op.Op` that wraps our jitted grad version from above
 
 ```{code-cell} ipython3
 class HMMLogpOp(Op):
@@ -359,7 +359,7 @@ class HMMLogpOp(Op):
 
     def perform(self, node, inputs, outputs):
         result = jitted_vec_hmm_logp(*inputs)
-        # Aesara raises an error if the dtype of the returned output is not
+        # PyTensor raises an error if the dtype of the returned output is not
         # exactly the one expected from the Apply node (in this case
         # `dscalar`, which stands for float64 scalar), so we make sure
         # to convert to the expected dtype. To avoid unnecessary conversions
@@ -376,7 +376,7 @@ class HMMLogpOp(Op):
             grad_wrt_logp_transition,
         ) = hmm_logp_grad_op(*inputs)
         # If there are inputs for which the gradients will never be needed or cannot
-        # be computed, `aesara.gradient.grad_not_implemented` should  be used as the
+        # be computed, `pytensor.gradient.grad_not_implemented` should  be used as the
         # output gradient for that input.
         output_gradient = output_gradients[0]
         return [
@@ -455,7 +455,7 @@ hmm_logp_grad_op(
 
 +++ {"pycharm": {"name": "#%% md\n"}}
 
-It's also useful to check the gradient of our {class}`~aesara.graph.op.Op` can be requested via the Aesara `grad` interface:
+It's also useful to check the gradient of our {class}`~pytensor.graph.op.Op` can be requested via the PyTensor `grad` interface:
 
 ```{code-cell} ipython3
 # We define the symbolic `emission_signal` variable outside of the `Op`
@@ -570,7 +570,7 @@ The posteriors look reasonably centered around the true values used to generate 
 
 +++
 
-As mentioned in the beginning, Aesara can compile an entire graph to JAX. To do this, it needs to know how each {class}`~aesara.graph.op.Op` in the graph can be converted to a JAX function. This can be done by {term}`dispatch <dispatching>` with {func}`aesara.link.jax.dispatch.jax_funcify`. Most of the default Aesara {class}`~aesara.graph.op.Op`s already have such a dispatch function, but we will need to add a new one for our custom `HMMLogpOp`, as Aesara has never seen that before.
+As mentioned in the beginning, PyTensor can compile an entire graph to JAX. To do this, it needs to know how each {class}`~pytensor.graph.op.Op` in the graph can be converted to a JAX function. This can be done by {term}`dispatch <dispatching>` with {func}`pytensor.link.jax.dispatch.jax_funcify`. Most of the default PyTensor {class}`~pytensor.graph.op.Op`s already have such a dispatch function, but we will need to add a new one for our custom `HMMLogpOp`, as PyTensor has never seen that before.
 
 For that we need a function which returns (another) JAX function, that performs the same computation as in our `perform` method. Fortunately, we started exactly with such function, so this amounts to 3 short lines of code.
 
@@ -581,12 +581,12 @@ def hmm_logp_dispatch(op, **kwargs):
 ```
 
 :::{note}
-We do not return the jitted function, so that the entire Aesara graph can be jitted together after being converted to JAX.
+We do not return the jitted function, so that the entire PyTensor graph can be jitted together after being converted to JAX.
 :::
 
-For a better understanding of {class}`~aesara.graph.op.Op` JAX conversions, we recommend reading Aesara's {doc}`Adding JAX and Numba support for Ops guide <aesara:extending/creating_a_numba_jax_op>`.
+For a better understanding of {class}`~pytensor.graph.op.Op` JAX conversions, we recommend reading PyTensor's {doc}`Adding JAX and Numba support for Ops guide <pytensor:extending/creating_a_numba_jax_op>`.
 
-We can test that our conversion function is working properly by compiling a {func}`aesara.function` with `mode="JAX"`:
+We can test that our conversion function is working properly by compiling a {func}`pytensor.function` with `mode="JAX"`:
 
 ```{code-cell} ipython3
 out = hmm_logp_op(
@@ -596,7 +596,7 @@ out = hmm_logp_op(
     logp_initial_state_true,
     logp_transition_true,
 )
-jax_fn = aesara.function(inputs=[], outputs=out, mode="JAX")
+jax_fn = pytensor.function(inputs=[], outputs=out, mode="JAX")
 jax_fn()
 ```
 
@@ -607,9 +607,9 @@ model_logp_jax_fn = model.compile_fn(model.logpt(sum=False), mode="JAX")
 model_logp_jax_fn(initial_point)
 ```
 
-Note that we could have added an equally simple function to convert our `HMMLogpGradOp`, in case we wanted to convert Aesara gradient graphs to JAX. In our case, we don't need to do this because we will rely on JAX `grad` function (or more precisely, NumPyro will rely on it) to obtain these again from our compiled JAX function.
+Note that we could have added an equally simple function to convert our `HMMLogpGradOp`, in case we wanted to convert PyTensor gradient graphs to JAX. In our case, we don't need to do this because we will rely on JAX `grad` function (or more precisely, NumPyro will rely on it) to obtain these again from our compiled JAX function.
 
-We include a {ref}`short discussion <aesara_vs_jax>` at the end of this document, to help you better understand the trade-offs between working with Aesara graphs vs JAX functions, and when you might want to use one or the other.
+We include a {ref}`short discussion <pytensor_vs_jax>` at the end of this document, to help you better understand the trade-offs between working with PyTensor graphs vs JAX functions, and when you might want to use one or the other.
 
 +++
 
@@ -638,8 +638,8 @@ Depending on the model and computer architecture you are using, a pure JAX sampl
 
 +++
 
-(aesara_vs_jax)=
-## Some brief notes on using Aesara vs JAX
+(pytensor_vs_jax)=
+## Some brief notes on using PyTensor vs JAX
 
 +++
 
@@ -647,7 +647,7 @@ Depending on the model and computer architecture you are using, a pure JAX sampl
 
 +++
 
-As we have seen, it is pretty straightforward to interface between Aesara graphs and JAX functions. 
+As we have seen, it is pretty straightforward to interface between PyTensor graphs and JAX functions. 
 
 This can be very handy when you want to combine previously implemented JAX function with PyMC models. We used a marginalized HMM log-likelihood in this example, but the same strategy could be used to do Bayesian inference with Deep Neural Networks or Differential Equations, or pretty much any other functions implemented in JAX that can be used in the context of a Bayesian model.
 
@@ -659,19 +659,19 @@ It can also be worth it, if you need to make use of JAX's unique features like v
 
 +++
 
-Like JAX, Aesara has the goal of mimicking the NumPy and Scipy APIs, so that writing code in Aesara should feel very similar to how code is written in those libraries.
+Like JAX, PyTensor has the goal of mimicking the NumPy and Scipy APIs, so that writing code in PyTensor should feel very similar to how code is written in those libraries.
 
-There are, however, some of advantages to working with Aesara:
+There are, however, some of advantages to working with PyTensor:
 
-1. Aesara graphs are considerably easier to {ref}`inspect and debug <aesara:debug_faq>` than JAX functions
-2. Aesara has clever {ref}`optimization and stabilization routines <aesara:optimizations>` that are not possible or implemented in JAX
-3. Aesara graphs can be easily {ref}`manipulated after creation <aesara:graph_rewriting>`
+1. PyTensor graphs are considerably easier to {ref}`inspect and debug <pytensor:debug_faq>` than JAX functions
+2. PyTensor has clever {ref}`optimization and stabilization routines <pytensor:optimizations>` that are not possible or implemented in JAX
+3. PyTensor graphs can be easily {ref}`manipulated after creation <pytensor:graph_rewriting>`
 
-Point 2 means your graphs are likely to perform better if written in Aesara. In general you don't have to worry about using specialized functions like `log1p` or `logsumexp`, as Aesara will be able to detect the equivalent naive expressions and replace them by their specialized counterparts. Importantly, you still benefit from these optimizations when your graph is later compiled to JAX.
+Point 2 means your graphs are likely to perform better if written in PyTensor. In general you don't have to worry about using specialized functions like `log1p` or `logsumexp`, as PyTensor will be able to detect the equivalent naive expressions and replace them by their specialized counterparts. Importantly, you still benefit from these optimizations when your graph is later compiled to JAX.
 
-The catch is that Aesara cannot reason about JAX functions, and by association {class}`~aesara.graph.op.Op`s that wrap them. This means that the larger the portion of the graph is "hidden" inside a JAX function, the less a user will benefit from Aesara's rewrite and debugging abilities.
+The catch is that PyTensor cannot reason about JAX functions, and by association {class}`~pytensor.graph.op.Op`s that wrap them. This means that the larger the portion of the graph is "hidden" inside a JAX function, the less a user will benefit from PyTensor's rewrite and debugging abilities.
 
-Point 3 is more important for library developers. It is the main reason why PyMC developers opted to use Aesara (and before that, its predecessor Theano) as its backend. Many of the user-facing utilities provided by PyMC rely on the ability to easily parse and manipulate Aesara graphs.
+Point 3 is more important for library developers. It is the main reason why PyMC developers opted to use PyTensor (and before that, its predecessor Theano) as its backend. Many of the user-facing utilities provided by PyMC rely on the ability to easily parse and manipulate PyTensor graphs.
 
 +++
 
@@ -679,11 +679,11 @@ Point 3 is more important for library developers. It is the main reason why PyMC
 
 +++
 
-We had to create two {class}`~aesara.graph.op.Op`s, one for the function we cared about and a separate one for its gradients. However, JAX provides a `value_and_grad` utility that can return both the value of a function and its gradients. We can do something similar and get away with a single {class}`~aesara.graph.op.Op` if we are clever about it.
+We had to create two {class}`~pytensor.graph.op.Op`s, one for the function we cared about and a separate one for its gradients. However, JAX provides a `value_and_grad` utility that can return both the value of a function and its gradients. We can do something similar and get away with a single {class}`~pytensor.graph.op.Op` if we are clever about it.
 
 By doing this we can (potentially) save memory and reuse computation that is shared between the function and its gradients. This may be relevant when working with very large JAX functions.
 
-Note that this is only useful if you are interested in taking gradients with respect to your {class}`~aesara.graph.op.Op` using Aesara. If your endgoal is to compile your graph to JAX, and only then take the gradients (as NumPyro does), then it's better to use the first approach. You don't even need to implement the `grad` method and associated {class}`~aesara.graph.op.Op` in that case.
+Note that this is only useful if you are interested in taking gradients with respect to your {class}`~pytensor.graph.op.Op` using PyTensor. If your endgoal is to compile your graph to JAX, and only then take the gradients (as NumPyro does), then it's better to use the first approach. You don't even need to implement the `grad` method and associated {class}`~pytensor.graph.op.Op` in that case.
 
 ```{code-cell} ipython3
 ---
@@ -723,7 +723,7 @@ class HmmLogpValueGradOp(Op):
         # the gradient outputs! That would require computing the second order
         # gradients
         assert all(
-            isinstance(g.type, aesara.gradient.DisconnectedType) for g in output_gradients[1:]
+            isinstance(g.type, pytensor.gradient.DisconnectedType) for g in output_gradients[1:]
         )
 
         return [output_gradients[0] * grad for grad in gradients]
@@ -732,7 +732,7 @@ class HmmLogpValueGradOp(Op):
 hmm_logp_value_grad_op = HmmLogpValueGradOp()
 ```
 
-We check again that we can take the gradient using Aesara `grad` interface
+We check again that we can take the gradient using PyTensor `grad` interface
 
 ```{code-cell} ipython3
 emission_signal_variable = at.as_tensor_variable(emission_signal_true)
@@ -759,7 +759,7 @@ Authored by [Ricardo Vieira](https://github.com/ricardoV94/) in March 24, 2022 (
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
+%watermark -n -u -v -iv -w -p pytensor,aeppl,xarray
 ```
 
 :::{include} ../page_footer.md

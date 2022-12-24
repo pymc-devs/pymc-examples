@@ -65,12 +65,12 @@ First, we import the data from a local file, and extract Minnesota's data.
 import os
 import warnings
 
-import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
+import pytensor.tensor as at
 import seaborn as sns
 import xarray as xr
 

@@ -14,7 +14,7 @@ kernelspec:
 # How to debug a model
 
 :::{post} August 2, 2022
-:tags: debugging, Aesara
+:tags: debugging, PyTensor
 :category: beginner
 :author: Thomas Wiecki, Igor Kuvychko
 :::
@@ -24,7 +24,7 @@ kernelspec:
 ## Introduction
 There are various levels on which to debug a model. One of the simplest is to just print out the values that different variables are taking on.
 
-Because `PyMC` uses `Aesara` expressions to build the model, and not functions, there is no way to place a `print` statement into a likelihood function. Instead, you can use the `aesara.printing.Print` class to print intermediate values.
+Because `PyMC` uses `PyTensor` expressions to build the model, and not functions, there is no way to place a `print` statement into a likelihood function. Instead, you can use the `pytensor.printing.Print` class to print intermediate values.
 
 ```{code-cell} ipython3
 import arviz as az
@@ -41,14 +41,14 @@ import pymc as pm
 RANDOM_SEED = 8927
 ```
 
-### How to print intermediate values of `Aesara` functions
-Since `Aesara` functions are compiled to C, you have to use `aesara.printing.Print` class to print intermediate values (imported  below as `Print`). Python `print` function will not work. Below is a simple example of using `Print`. For more information, see {ref}`Debugging Aesara <aesara:debug_faq>`.
+### How to print intermediate values of `PyTensor` functions
+Since `PyTensor` functions are compiled to C, you have to use `pytensor.printing.Print` class to print intermediate values (imported  below as `Print`). Python `print` function will not work. Below is a simple example of using `Print`. For more information, see {ref}`Debugging PyTensor <pytensor:debug_faq>`.
 
 ```{code-cell} ipython3
-import aesara.tensor as at
+import pytensor.tensor as at
 
-from aesara import function
-from aesara.printing import Print
+from pytensor import function
+from pytensor.printing import Print
 ```
 
 ```{code-cell} ipython3
@@ -190,7 +190,7 @@ output.shape
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,xarray
+%watermark -n -u -v -iv -w -p pytensor,xarray
 ```
 
 :::{include} ../page_footer.md

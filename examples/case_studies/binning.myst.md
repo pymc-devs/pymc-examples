@@ -69,7 +69,7 @@ In ordinal regression, the cutpoints are treated as latent variables and the par
 We are now in a position to sketch out a generative PyMC model:
 
 ```python
-import aesara.tensor as at
+import pytensor.tensor as at
 
 with pm.Model() as model:
     # priors
@@ -110,12 +110,12 @@ The approach was illustrated with a Gaussian distribution, and below we show a n
 
 import warnings
 
-import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
+import pytensor.tensor as at
 import seaborn as sns
 
 warnings.filterwarnings(action="ignore", category=UserWarning)

@@ -20,10 +20,10 @@ This notebook explains how the compound steps work in `pymc.sample` function whe
 - What happens to sample statistics that occur in multiple step methods?
 
 ```{code-cell} ipython3
-import aesara
 import arviz as az
 import numpy as np
 import pymc as pm
+import pytensor
 import xarray
 ```
 
@@ -60,7 +60,7 @@ To conduct Markov chain Monte Carlo (MCMC) sampling to generate posterior sample
 When we call `pm.sample(return_inferencedata=False)`, `PyMC` assigns the best step method to each of the free random variables. Take the following example
 
 ```{code-cell} ipython3
-n_ = aesara.shared(np.asarray([10, 15]))
+n_ = pytensor.shared(np.asarray([10, 15]))
 with pm.Model() as m:
     p = pm.Beta("p", 1.0, 1.0)
     ni = pm.Bernoulli("ni", 0.5)

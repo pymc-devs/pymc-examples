@@ -47,12 +47,12 @@ Source for Results 2014 are Wikipedia. I've added the subsequent years, 2015, 20
 ```{code-cell} ipython3
 !date
 
-import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
+import pytensor.tensor as at
 import seaborn as sns
 
 from matplotlib.ticker import StrMethodFormatter
@@ -275,7 +275,7 @@ with pm.Model(coords=coords) as model:
 
 * We specified the model and the likelihood function
 
-* All this runs on an Aesara graph under the hood
+* All this runs on an PyTensor graph under the hood
 
 ```{code-cell} ipython3
 az.plot_trace(trace, var_names=["intercept", "home", "sd_att", "sd_def"], compact=False);

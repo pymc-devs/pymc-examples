@@ -239,5 +239,5 @@ As we can see, both censored models appear to capture the mean and variance of t
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,aeppl
+%watermark -n -u -v -iv -w -p pytensor,aeppl
 ```

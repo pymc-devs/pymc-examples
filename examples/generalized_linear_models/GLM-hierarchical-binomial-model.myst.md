@@ -18,12 +18,12 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
+import pytensor.tensor as at
 
 from scipy.special import gammaln
 ```

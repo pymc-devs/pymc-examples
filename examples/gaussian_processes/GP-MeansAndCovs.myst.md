@@ -33,13 +33,13 @@ papermill:
   status: completed
 tags: []
 ---
-import aesara
-import aesara.tensor as at
 import arviz as az
 import matplotlib.cm as cmap
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
+import pytensor
+import pytensor.tensor as at
 import scipy.stats as stats
 ```
 
@@ -62,7 +62,7 @@ plt.rcParams["figure.figsize"] = (10, 4)
 
 +++ {"papermill": {"duration": 0.037844, "end_time": "2020-12-22T18:36:31.751886", "exception": false, "start_time": "2020-12-22T18:36:31.714042", "status": "completed"}, "tags": []}
 
-A large set of mean and covariance functions are available in PyMC.  It is relatively easy to define custom mean and covariance functions.  Since PyMC uses Aesara, their gradients do not need to be defined by the user.  
+A large set of mean and covariance functions are available in PyMC.  It is relatively easy to define custom mean and covariance functions.  Since PyMC uses PyTensor, their gradients do not need to be defined by the user.  
 
 ## Mean functions
 
@@ -117,7 +117,7 @@ print(const_func(X).eval())
 
 +++ {"papermill": {"duration": 0.039627, "end_time": "2020-12-22T18:36:35.195057", "exception": false, "start_time": "2020-12-22T18:36:35.155430", "status": "completed"}, "tags": []}
 
-As long as the shape matches the input it will receive, `gp.mean.Constant` can also accept a Aesara tensor or vector of PyMC random variables.
+As long as the shape matches the input it will receive, `gp.mean.Constant` can also accept a PyTensor tensor or vector of PyMC random variables.
 
 ```{code-cell} ipython3
 ---
@@ -179,7 +179,7 @@ class Constant(pm.gp.mean.Mean):
 
 ```
 
-Remember that Aesara must be used instead of NumPy.
+Remember that PyTensor must be used instead of NumPy.
 
 +++ {"papermill": {"duration": 0.039306, "end_time": "2020-12-22T18:36:36.998649", "exception": false, "start_time": "2020-12-22T18:36:36.959343", "status": "completed"}, "tags": []}
 

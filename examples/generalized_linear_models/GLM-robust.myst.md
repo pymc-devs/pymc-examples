@@ -47,13 +47,13 @@ First, let's import our modules.
 ```{code-cell} ipython3
 %matplotlib inline
 
-import aesara
-import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
+import pytensor
+import pytensor.tensor as at
 import xarray as xr
 ```
 

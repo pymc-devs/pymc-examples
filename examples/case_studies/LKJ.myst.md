@@ -326,5 +326,5 @@ id: kJCfuzGtr2Pq
 outputId: da547b05-d812-4959-aff6-cf4a12faca15
 ---
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,xarray
+%watermark -n -u -v -iv -w -p pytensor,xarray
 ```

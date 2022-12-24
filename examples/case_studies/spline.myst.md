@@ -289,7 +289,7 @@ plt.fill_between(
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,xarray,patsy
+%watermark -n -u -v -iv -w -p pytensor,xarray,patsy
 ```
 
 :::{include} ../page_footer.md

@@ -21,11 +21,11 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
+import pytensor.tensor as at
 ```
 
 ```{code-cell} ipython3
@@ -121,7 +121,7 @@ with pm.Model():
     obs = pm.Normal("x", mu=0, sigma=1, observed=rng.standard_normal(100))
 ```
 
-`observed` supports lists, `numpy.ndarray` and `aesara` data structures.
+`observed` supports lists, `numpy.ndarray` and `pytensor` data structures.
 
 +++
 
@@ -400,9 +400,9 @@ ax.legend(fontsize=10);
 
 ## 4.1 Predicting on hold-out data
 
-In many cases you want to predict on unseen / hold-out data. This is especially relevant in Probabilistic Machine Learning and Bayesian Deep Learning. PyMC includes a `pm.MutableData` container to help with such uses. It is a wrapper around a `aesara.shared` variable and allows the values of the data to be changed later. Otherwise, `pm.MutableData` objects can be used just like any other numpy array or tensor.
+In many cases you want to predict on unseen / hold-out data. This is especially relevant in Probabilistic Machine Learning and Bayesian Deep Learning. PyMC includes a `pm.MutableData` container to help with such uses. It is a wrapper around a `pytensor.shared` variable and allows the values of the data to be changed later. Otherwise, `pm.MutableData` objects can be used just like any other numpy array or tensor.
 
-This distinction is significant since internally all models in PyMC are giant symbolic expressions. When you pass raw data directly into a model, you are giving Aesara permission to treat this data as a constant and optimize it away if doing so makes sense. If you need to change this data later you may not have any way to point at it within the larger symbolic expression. Using `pm.MutableData` offers a way to point to a specific place in the symbolic expression and change what is there.
+This distinction is significant since internally all models in PyMC are giant symbolic expressions. When you pass raw data directly into a model, you are giving PyTensor permission to treat this data as a constant and optimize it away if doing so makes sense. If you need to change this data later you may not have any way to point at it within the larger symbolic expression. Using `pm.MutableData` offers a way to point to a specific place in the symbolic expression and change what is there.
 
 ```{code-cell} ipython3
 x = rng.standard_normal(100)
@@ -449,7 +449,7 @@ idata.posterior_predictive["obs"].mean(dim=["draw", "chain"])
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
+%watermark -n -u -v -iv -w -p pytensor,aeppl,xarray
 ```
 
 :::{include} ../page_footer.md

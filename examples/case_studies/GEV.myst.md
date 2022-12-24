@@ -40,12 +40,12 @@ Note that this parametrization of the shape parameter $\xi$ is opposite in sign 
 We will use the example of the Port Pirie annual maximum sea-level data used in {cite:t}`coles2001gev`, and compare with the frequentist results presented there.
 
 ```{code-cell} ipython3
-import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
 import pymc_experimental.distributions as pmx
+import pytensor.tensor as at
 
 from arviz.plots import plot_utils as azpu
 ```
@@ -232,7 +232,7 @@ az.plot_pair(idata, var_names=["μ", "σ", "ξ"], kind="kde", marginals=True, di
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,arviz
+%watermark -n -u -v -iv -w -p pytensor,arviz
 ```
 
 ```{code-cell} ipython3

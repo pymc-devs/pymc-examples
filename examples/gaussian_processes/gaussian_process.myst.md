@@ -26,11 +26,11 @@ Example of simple Gaussian Process fit, adapted from Stan's [example-models repo
 For illustrative and divulgative purposes, this example builds a Gaussian process from scratch. However, PyMC includes a {mod}`module dedicated to Gaussian Processes <pymc.gp>` which is recommended instead of coding everything from scratch.
 
 ```{code-cell} ipython3
-import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
+import pytensor.tensor as at
 import seaborn as sns
 
 from xarray_einstats.stats import multivariate_normal
@@ -182,7 +182,7 @@ ax.plot(x, y, "r.");
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,aeppl,xarray,xarray_einstats
+%watermark -n -u -v -iv -w -p pytensor,aeppl,xarray,xarray_einstats
 ```
 
 :::{include} ../page_footer.md

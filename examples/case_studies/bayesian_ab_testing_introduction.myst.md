@@ -687,7 +687,7 @@ We also plan to create more PyMC tutorials on these topics, so stay tuned!
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,xarray
+%watermark -n -u -v -iv -w -p pytensor,xarray
 ```
 
 :::{include} ../page_footer.md

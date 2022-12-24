@@ -32,12 +32,12 @@ We use a data set from "Statistics: A Bayesian Perspective" {cite:p}`berry1996st
 ```{code-cell} ipython3
 import io
 
-import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
+import pytensor.tensor as at
 import scipy
 import scipy.stats as st
 import xarray as xr

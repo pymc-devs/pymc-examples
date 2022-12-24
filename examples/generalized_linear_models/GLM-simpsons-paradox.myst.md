@@ -551,7 +551,7 @@ If you are interested in learning more, there are a number of other [PyMC exampl
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,aeppl
+%watermark -n -u -v -iv -w -p pytensor,aeppl
 ```
 
 :::{include} ../page_footer.md

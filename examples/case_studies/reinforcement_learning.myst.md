@@ -16,7 +16,7 @@ kernelspec:
 # Fitting a Reinforcement Learning Model to Behavioral Data with PyMC
 
 :::{post} Aug 5, 2022
-:tags: Aesara, Reinforcement Learning
+:tags: PyTensor, Reinforcement Learning
 :category: advanced, how-to
 :author: Ricardo Vieira
 :::
@@ -48,12 +48,12 @@ where the $\beta \in (0, +\infty)$ parameter determines the level of noise in th
 ```{code-cell} ipython3
 :id: QTq-0HMw7dBK
 
-import aesara
-import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
+import pytensor
+import pytensor.tensor as at
 import scipy
 
 from matplotlib.lines import Line2D
@@ -171,7 +171,7 @@ Having generated the data, the goal is to now 'invert the model' to estimate the
 
 I employ the handy scipy.optimize.minimize function, to quickly retrieve the values of $\alpha$ and $\beta$ that maximize the likelihood of the data (or actually, minimize the negative log likelihood).
 
-This was also helpful when I later wrote the Aesara function that computed the choice probabilities in PyMC. First, the underlying logic is the same, the only thing that changes is the syntax. Second, it provides a way to be confident that I did not mess up, and what I was actually computing was what I intended to.
+This was also helpful when I later wrote the PyTensor function that computed the choice probabilities in PyMC. First, the underlying logic is the same, the only thing that changes is the syntax. Second, it provides a way to be confident that I did not mess up, and what I was actually computing was what I intended to.
 
 ```{code-cell} ipython3
 :id: lWGlRE3BjR0E
@@ -208,7 +208,7 @@ The function `scipy.special.logsumexp` is used to compute the term $\log(\exp(\b
 
 In the end, the function returns the negative sum of all the log probabilities, which is equivalent to multiplying the probabilities in their original scale.
 
-(The first action is ignored just to make the output comparable to the later Aesara function. It doesn't actually change any estimation, as the initial probabilities are fixed and do not depend on either the $\alpha$ or $\beta$ parameters.)
+(The first action is ignored just to make the output comparable to the later PyTensor function. It doesn't actually change any estimation, as the initial probabilities are fixed and do not depend on either the $\alpha$ or $\beta$ parameters.)
 
 ```{code-cell} ipython3
 ---
@@ -247,7 +247,7 @@ print(f"MLE: beta = {result.x[1]:.2f} (true value = {true_beta})")
 
 The estimated MLE values are relatively close to the true ones. However, this procedure does not give any idea of the plausible uncertainty around these parameter values. To get that, I'll turn to PyMC for a bayesian posterior estimation.
 
-But before that, I will implement a simple vectorization optimization to the log-likelihood function that will be more similar to the Aesara counterpart. The reason for this is to speed up the slow bayesian inference engine down the road.
+But before that, I will implement a simple vectorization optimization to the log-likelihood function that will be more similar to the PyTensor counterpart. The reason for this is to speed up the slow bayesian inference engine down the road.
 
 ```{code-cell} ipython3
 :id: 4knb5sKW9V66
@@ -312,13 +312,13 @@ outputId: 94bf3268-0eab-4ce9-deb9-5d1527b3c19d
 
 The vectorized function gives the same results, but runs almost one order of magnitude faster. 
 
-When implemented as an Aesara function, the difference between the vectorized and standard versions was not this drastic. Still, it ran twice as fast, which meant the model also sampled at twice the speed it would otherwise have!
+When implemented as an PyTensor function, the difference between the vectorized and standard versions was not this drastic. Still, it ran twice as fast, which meant the model also sampled at twice the speed it would otherwise have!
 
 +++ {"id": "tC7xbCCIL7K4"}
 
 ## Estimating the learning parameters via PyMC
 
-The most challenging part was to create an Aesara function/loop to estimate the Q values when sampling our parameters with PyMC.
+The most challenging part was to create an PyTensor function/loop to estimate the Q values when sampling our parameters with PyMC.
 
 ```{code-cell} ipython3
 :id: u8L_FAB4hle1
@@ -326,8 +326,8 @@ The most challenging part was to create an Aesara function/loop to estimate the 
 def update_Q(action, reward, Qs, alpha):
     """
     This function updates the Q table according to the RL update rule.
-    It will be called by aesara.scan to do so recursevely, given the observed data and the alpha parameter
-    This could have been replaced be the following lamba expression in the aesara.scan fn argument:
+    It will be called by pytensor.scan to do so recursevely, given the observed data and the alpha parameter
+    This could have been replaced be the following lamba expression in the pytensor.scan fn argument:
         fn=lamba action, reward, Qs, alpha: at.set_subtensor(Qs[action], Qs[action] + alpha * (reward - Qs[action]))
     """
 
@@ -338,7 +338,7 @@ def update_Q(action, reward, Qs, alpha):
 ```{code-cell} ipython3
 :id: dHzhTy20g4vh
 
-# Transform the variables into appropriate Aesara objects
+# Transform the variables into appropriate PyTensor objects
 rewards_ = at.as_tensor_variable(rewards, dtype="int32")
 actions_ = at.as_tensor_variable(actions, dtype="int32")
 
@@ -349,7 +349,7 @@ beta = at.scalar("beta")
 Qs = 0.5 * at.ones((2,), dtype="float64")
 
 # Compute the Q values for each trial
-Qs, _ = aesara.scan(
+Qs, _ = pytensor.scan(
     fn=update_Q, sequences=[actions_, rewards_], outputs_info=[Qs], non_sequences=[alpha]
 )
 
@@ -374,27 +374,27 @@ colab:
 id: g1hkTd75xxwo
 outputId: a2310fd3-cac2-48c6-9d22-3c3b72410427
 ---
-aesara_llik_td = aesara.function(
+pytensor_llik_td = pytensor.function(
     inputs=[alpha, beta], outputs=neg_loglike, on_unused_input="ignore"
 )
-result = aesara_llik_td(true_alpha, true_beta)
+result = pytensor_llik_td(true_alpha, true_beta)
 float(result)
 ```
 
 +++ {"id": "AmcoU1CF5ix-"}
 
-The same result is obtained, so we can be confident that the Aesara loop is working as expected. We are now ready to implement the PyMC model.
+The same result is obtained, so we can be confident that the PyTensor loop is working as expected. We are now ready to implement the PyMC model.
 
 ```{code-cell} ipython3
 :id: c70L4ZBT7QLr
 
-def aesara_llik_td(alpha, beta, actions, rewards):
+def pytensor_llik_td(alpha, beta, actions, rewards):
     rewards = at.as_tensor_variable(rewards, dtype="int32")
     actions = at.as_tensor_variable(actions, dtype="int32")
 
     # Compute the Qs values
     Qs = 0.5 * at.ones((2,), dtype="float64")
-    Qs, updates = aesara.scan(
+    Qs, updates = pytensor.scan(
         fn=update_Q, sequences=[actions, rewards], outputs_info=[Qs], non_sequences=[alpha]
     )
 
@@ -419,7 +419,7 @@ with pm.Model() as m:
     alpha = pm.Beta(name="alpha", alpha=1, beta=1)
     beta = pm.HalfNormal(name="beta", sigma=10)
 
-    like = pm.Potential(name="like", var=aesara_llik_td(alpha, beta, actions, rewards))
+    like = pm.Potential(name="like", var=pytensor_llik_td(alpha, beta, actions, rewards))
 
     tr = pm.sample(random_seed=rng)
 ```
@@ -469,7 +469,7 @@ def right_action_probs(alpha, beta, actions, rewards):
 
     # Compute the Qs values
     Qs = 0.5 * at.ones((2,), dtype="float64")
-    Qs, updates = aesara.scan(
+    Qs, updates = pytensor.scan(
         fn=update_Q, sequences=[actions, rewards], outputs_info=[Qs], non_sequences=[alpha]
     )
 

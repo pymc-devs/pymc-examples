@@ -64,12 +64,12 @@ While this would allow Probabilistic Programming to be applied to a much wider s
 First, lets generate some toy data -- a simple binary classification problem that's not linearly separable.
 
 ```{code-cell} ipython3
-import aesara
-import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
+import pytensor
+import pytensor.tensor as at
 import seaborn as sns
 
 from sklearn.datasets import make_moons
@@ -79,7 +79,7 @@ from sklearn.preprocessing import scale
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
-floatX = aesara.config.floatX
+floatX = pytensor.config.floatX
 RANDOM_SEED = 9927
 rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
