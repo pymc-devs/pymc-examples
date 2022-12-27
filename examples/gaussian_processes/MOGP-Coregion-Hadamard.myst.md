@@ -26,12 +26,12 @@ This notebook shows how to implement the **Intrinsic Coregionalization Model** (
 The advantage of Multi-output Gaussian Processes is their capacity to simultaneously learn and infer many outputs which have the same source of uncertainty from inputs. In this example, we model the average spin rates of several pitchers in different games from a baseball dataset.
 
 ```{code-cell} ipython3
-import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
+import pytensor.tensor as at
 
 from pymc.gp.util import plot_gp_dist
 ```
@@ -351,7 +351,7 @@ This work is supported by 2022 [Google Summer of Codes](https://summerofcode.wit
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
+%watermark -n -u -v -iv -w -p pytensor,aeppl,xarray
 ```
 
 :::{include} ../page_footer.md

@@ -74,7 +74,7 @@ $$\log f(y | \theta, \lambda) = \log\theta + \log\left((\theta + \lambda y)^{y-1
 
 where $\theta > 0$ and $\max(-1, -\frac{\theta}{4}) \leq \lambda \leq 1$
 
-We now define the log probability function, which is an implementation of the above formula using just Aesara operations.
+We now define the log probability function, which is an implementation of the above formula using just PyTensor operations.
 
 Parameters:
 - `theta`: $\theta$

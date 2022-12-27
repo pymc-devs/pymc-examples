@@ -188,7 +188,7 @@ axes[1].set_title("Posterior volatility");
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
+%watermark -n -u -v -iv -w -p pytensor,aeppl,xarray
 ```
 
 ## References

@@ -25,14 +25,14 @@ uses numpy whereas {ref}`this other one <blackbox_external_likelihood>` uses Cyt
 :::
 
 ```{code-cell} ipython3
-import aesara
-import aesara.tensor as at
 import arviz as az
 import IPython
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
+import pytensor
+import pytensor.tensor as at
 
 print(f"Running on PyMC v{pm.__version__}")
 ```
@@ -60,9 +60,9 @@ with pm.Model():
     m = my_external_func(a, b)  # <--- this is not going to work!
 ```
 
-Another issue is that if you want to be able to use the gradient-based step samplers like {class}`pymc.NUTS` and {class}`Hamiltonian Monte Carlo (HMC) <pymc.HamiltonianMC>`, then your model/likelihood needs a gradient to be defined. If you have a model that is defined as a set of Aesara operators then this is no problem - internally it will be able to do automatic differentiation - but if your model is essentially a "black box" then you won't necessarily know what the gradients are.
+Another issue is that if you want to be able to use the gradient-based step samplers like {class}`pymc.NUTS` and {class}`Hamiltonian Monte Carlo (HMC) <pymc.HamiltonianMC>`, then your model/likelihood needs a gradient to be defined. If you have a model that is defined as a set of PyTensor operators then this is no problem - internally it will be able to do automatic differentiation - but if your model is essentially a "black box" then you won't necessarily know what the gradients are.
 
-Defining a model/likelihood that PyMC can use and that calls your "black box" function is possible, but it relies on creating a [custom Aesara Op](https://docs.pymc.io/advanced_aesara.html#writing-custom-aesara-ops). This is, hopefully, a clear description of how to do this, including one way of writing a gradient function that could be generally applicable.
+Defining a model/likelihood that PyMC can use and that calls your "black box" function is possible, but it relies on creating a [custom PyTensor Op](https://docs.pymc.io/advanced_pytensor.html#writing-custom-pytensor-ops). This is, hopefully, a clear description of how to do this, including one way of writing a gradient function that could be generally applicable.
 
 In the examples below, we create a very simple model and log-likelihood function in numpy.
 
@@ -106,16 +106,16 @@ But, this will give an error like:
 ValueError: setting an array element with a sequence.
 ```
 
-This is because `m` and `c` are Aesara tensor-type objects.
+This is because `m` and `c` are PyTensor tensor-type objects.
 
-So, what we actually need to do is create a [Aesara Op](http://deeplearning.net/software/aesara/extending/extending_aesara.html). This will be a new class that wraps our log-likelihood function (or just our model function, if that is all that is required) into something that can take in Aesara tensor objects, but internally can cast them as floating point values that can be passed to our log-likelihood function. We will do this below, initially without defining a [grad() method](http://deeplearning.net/software/aesara/extending/op.html#grad) for the Op.
+So, what we actually need to do is create a [PyTensor Op](http://deeplearning.net/software/pytensor/extending/extending_pytensor.html). This will be a new class that wraps our log-likelihood function (or just our model function, if that is all that is required) into something that can take in PyTensor tensor objects, but internally can cast them as floating point values that can be passed to our log-likelihood function. We will do this below, initially without defining a [grad() method](http://deeplearning.net/software/pytensor/extending/op.html#grad) for the Op.
 
 +++
 
-## Aesara Op without grad
+## PyTensor Op without grad
 
 ```{code-cell} ipython3
-# define a aesara Op for our likelihood function
+# define a pytensor Op for our likelihood function
 class LogLike(at.Op):
 
     """
@@ -201,9 +201,9 @@ with pm.Model():
 az.plot_trace(idata_mh, lines=[("m", {}, mtrue), ("c", {}, ctrue)]);
 ```
 
-## Aesara Op with grad
+## PyTensor Op with grad
 
-What if we wanted to use NUTS or HMC? If we knew the analytical derivatives of the model/likelihood function then we could add a [grad() method](http://deeplearning.net/software/aesara/extending/op.html#grad) to the Op using that analytical form.
+What if we wanted to use NUTS or HMC? If we knew the analytical derivatives of the model/likelihood function then we could add a [grad() method](http://deeplearning.net/software/pytensor/extending/op.html#grad) to the Op using that analytical form.
 
 But, what if we don't know the analytical form. If our model/likelihood is purely Python and made up of standard maths operators and Numpy functions, then the [autograd](https://github.com/HIPS/autograd) module could potentially be used to find gradients (also, see [here](https://github.com/ActiveState/code/blob/master/recipes/Python/580610_Auto_differentiation/recipe-580610.py) for a nice Python example of automatic differentiation). But, if our model/likelihood truly is a "black box" then we can just use the good-old-fashioned [finite difference](https://en.wikipedia.org/wiki/Finite_difference) to find the gradients - this can be slow, especially if there are a large number of variables, or the model takes a long time to evaluate. Below, a function to find gradients has been defined that uses the finite difference (the central difference) - it uses an iterative method with successively smaller interval sizes to check that the gradient converges. But, you could do something far simpler and just use, for example, the SciPy [approx_fprime](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.approx_fprime.html) function.
 
@@ -241,10 +241,10 @@ def normal_gradients(theta, x, data, sigma):
 
 So, now we can just redefine our Op with a `grad()` method, right?
 
-It's not quite so simple! The `grad()` method itself requires that its inputs are Aesara tensor variables, whereas our `gradients` function above, like our `my_loglike` function, wants a list of floating point values. So, we need to define another Op that calculates the gradients. Below, I define a new version of the `LogLike` Op, called `LogLikeWithGrad` this time, that has a `grad()` method. This is followed by anothor Op called `LogLikeGrad` that, when called with a vector of Aesara tensor variables, returns another vector of values that are the gradients (i.e., the [Jacobian](https://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant)) of our log-likelihood function at those values. Note that the `grad()` method itself does not return the gradients directly, but instead returns the [Jacobian](https://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant)-vector product (you can hopefully just copy what I've done and not worry about what this means too much!).
+It's not quite so simple! The `grad()` method itself requires that its inputs are PyTensor tensor variables, whereas our `gradients` function above, like our `my_loglike` function, wants a list of floating point values. So, we need to define another Op that calculates the gradients. Below, I define a new version of the `LogLike` Op, called `LogLikeWithGrad` this time, that has a `grad()` method. This is followed by anothor Op called `LogLikeGrad` that, when called with a vector of PyTensor tensor variables, returns another vector of values that are the gradients (i.e., the [Jacobian](https://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant)) of our log-likelihood function at those values. Note that the `grad()` method itself does not return the gradients directly, but instead returns the [Jacobian](https://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant)-vector product (you can hopefully just copy what I've done and not worry about what this means too much!).
 
 ```{code-cell} ipython3
-# define a aesara Op for our likelihood function
+# define a pytensor Op for our likelihood function
 class LogLikeWithGrad(at.Op):
 
     itypes = [at.dvector]  # expects a vector of parameter values when called
@@ -409,16 +409,16 @@ pair_kwargs["marginal_kwargs"]["color"] = "C2"
 az.plot_pair(idata, **pair_kwargs, ax=ax);
 ```
 
-We can now check that the gradient Op works as expected. First, just create and call the `LogLikeGrad` class, which should return the gradient directly (note that we have to create a [Aesara function](http://deeplearning.net/software/aesara/library/compile/function.html) to convert the output of the Op to an array). Secondly, we call the gradient from `LogLikeWithGrad` by using the [Aesara tensor gradient](http://deeplearning.net/software/aesara/library/gradient.html#aesara.gradient.grad) function. Finally, we will check the gradient returned by the PyMC model for a Normal distribution, which should be the same as the log-likelihood function we defined. In all cases we evaluate the gradients at the true values of the model function (the straight line) that was created.
+We can now check that the gradient Op works as expected. First, just create and call the `LogLikeGrad` class, which should return the gradient directly (note that we have to create a [PyTensor function](http://deeplearning.net/software/pytensor/library/compile/function.html) to convert the output of the Op to an array). Secondly, we call the gradient from `LogLikeWithGrad` by using the [PyTensor tensor gradient](http://deeplearning.net/software/pytensor/library/gradient.html#pytensor.gradient.grad) function. Finally, we will check the gradient returned by the PyMC model for a Normal distribution, which should be the same as the log-likelihood function we defined. In all cases we evaluate the gradients at the true values of the model function (the straight line) that was created.
 
 ```{code-cell} ipython3
 # test the gradient Op by direct call
-aesara.config.compute_test_value = "ignore"
-aesara.config.exception_verbosity = "high"
+pytensor.config.compute_test_value = "ignore"
+pytensor.config.exception_verbosity = "high"
 
 var = at.dvector()
 test_grad_op = LogLikeGrad(data, x, sigma)
-test_grad_op_func = aesara.function([var], test_grad_op(var))
+test_grad_op_func = pytensor.function([var], test_grad_op(var))
 grad_vals = test_grad_op_func([mtrue, ctrue])
 
 print(f'Gradient returned by "LogLikeGrad": {grad_vals}')
@@ -426,7 +426,7 @@ print(f'Gradient returned by "LogLikeGrad": {grad_vals}')
 # test the gradient called through LogLikeWithGrad
 test_gradded_op = LogLikeWithGrad(my_loglike, data, x, sigma)
 test_gradded_op_grad = at.grad(test_gradded_op(var), var)
-test_gradded_op_grad_func = aesara.function([var], test_gradded_op_grad)
+test_gradded_op_grad_func = pytensor.function([var], test_gradded_op_grad)
 grad_vals_2 = test_gradded_op_grad_func([mtrue, ctrue])
 
 print(f'Gradient returned by "LogLikeWithGrad": {grad_vals_2}')
@@ -452,7 +452,7 @@ We could also do some profiling to compare performance between implementations. 
 
 ## Authors
 
-* Adapted from [Jørgen Midtbø](https://github.com/jorgenem/)'s [example](https://discourse.pymc.io/t/connecting-pymc-to-external-code-help-with-understanding-aesara-custom-ops/670) by Matt Pitkin both as a [blogpost](http://mattpitkin.github.io/samplers-demo/pages/pymc-blackbox-likelihood/) and as an example notebook to this gallery in August, 2018 ([pymc#3169](https://github.com/pymc-devs/pymc/pull/3169) and [pymc#3177](https://github.com/pymc-devs/pymc/pull/3177))
+* Adapted from [Jørgen Midtbø](https://github.com/jorgenem/)'s [example](https://discourse.pymc.io/t/connecting-pymc-to-external-code-help-with-understanding-pytensor-custom-ops/670) by Matt Pitkin both as a [blogpost](http://mattpitkin.github.io/samplers-demo/pages/pymc-blackbox-likelihood/) and as an example notebook to this gallery in August, 2018 ([pymc#3169](https://github.com/pymc-devs/pymc/pull/3169) and [pymc#3177](https://github.com/pymc-devs/pymc/pull/3177))
 * Updated by [Oriol Abril](https://github.com/OriolAbril) on December 2021 to drop the Cython dependency from the original notebook and use numpy instead ([pymc-examples#28](https://github.com/pymc-devs/pymc-examples/pull/28))
 
 +++

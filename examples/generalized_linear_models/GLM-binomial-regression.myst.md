@@ -253,7 +253,7 @@ A good introduction to generalized linear models is provided by {cite:t}`roback2
 :tags: []
 
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,aeppl
+%watermark -n -u -v -iv -w -p pytensor,aeppl
 ```
 
 :::{include} ../page_footer.md :::

@@ -368,7 +368,7 @@ For reference, you might also want to check out:
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
+%watermark -n -u -v -iv -w -p pytensor,aeppl,xarray
 ```
 
 :::{include} ../page_footer.md

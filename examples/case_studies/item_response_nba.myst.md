@@ -521,7 +521,7 @@ A warm thank you goes to [Eric Ma](https://github.com/ericmjl) for many useful c
 :tags: []
 
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
+%watermark -n -u -v -iv -w -p pytensor,aeppl,xarray
 ```
 
 :::{include} ../page_footer.md

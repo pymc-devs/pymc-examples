@@ -32,11 +32,11 @@ Factor analysis is a widely used probabilistic model for identifying low-rank st
 :::
 
 ```{code-cell} ipython3
-import aesara.tensor as at
 import arviz as az
 import matplotlib
 import numpy as np
 import pymc as pm
+import pytensor.tensor as at
 import scipy as sp
 import seaborn as sns
 import xarray as xr
@@ -148,18 +148,18 @@ This can be fixed by constraining the form of W to be:
 We can adapt `expand_block_triangular` to fill out a non-square matrix. This function mimics `pm.expand_packed_triangular`, but while the latter only works on packed versions of square matrices (i.e. $d=k$ in our model, the former can also be used with nonsquare matrices.
 
 ```{code-cell} ipython3
-def expand_packed_block_triangular(d, k, packed, diag=None, mtype="aesara"):
+def expand_packed_block_triangular(d, k, packed, diag=None, mtype="pytensor"):
     # like expand_packed_triangular, but with d > k.
-    assert mtype in {"aesara", "numpy"}
+    assert mtype in {"pytensor", "numpy"}
     assert d >= k
 
     def set_(M, i_, v_):
-        if mtype == "aesara":
+        if mtype == "pytensor":
             return at.set_subtensor(M[i_], v_)
         M[i_] = v_
         return M
 
-    out = at.zeros((d, k), dtype=float) if mtype == "aesara" else np.zeros((d, k), dtype=float)
+    out = at.zeros((d, k), dtype=float) if mtype == "pytensor" else np.zeros((d, k), dtype=float)
     if diag is None:
         idxs = np.tril_indices(d, m=k)
         out = set_(out, idxs, packed)

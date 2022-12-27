@@ -18,10 +18,10 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-import aesara.tensor as at
 import arviz as az
 import numpy as np
 import pymc as pm
+import pytensor.tensor as at
 
 print(f"Running on PyMC v{pm.__version__}")
 ```

@@ -66,13 +66,13 @@ Finally, we are _not_ claiming that $x$ people died directly from the COVID-19 v
 import calendar
 import os
 
-import aesara.tensor as at
 import arviz as az
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
+import pytensor.tensor as at
 import seaborn as sns
 import xarray as xr
 ```
@@ -495,7 +495,7 @@ The bad news of course, is that as of the last data point (May 2022) the number 
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
+%watermark -n -u -v -iv -w -p pytensor,aeppl,xarray
 ```
 
 :::{include} ../page_footer.md

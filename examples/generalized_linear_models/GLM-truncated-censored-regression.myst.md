@@ -376,7 +376,7 @@ When looking into this topic, I found that most of the material out there focuse
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,aeppl
+%watermark -n -u -v -iv -w -p pytensor,aeppl
 ```
 
 :::{include} ../page_footer.md
