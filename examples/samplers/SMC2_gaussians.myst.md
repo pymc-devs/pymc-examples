@@ -21,7 +21,7 @@ kernelspec:
 import arviz as az
 import numpy as np
 import pymc as pm
-import pytensor.tensor as at
+import pytensor.tensor as pt
 
 print(f"Running on PyMC v{pm.__version__}")
 ```
@@ -107,16 +107,16 @@ w2 = 1 - w1  # the other mode with 0.9 of the mass
 
 def two_gaussians(x):
     log_like1 = (
-        -0.5 * n * at.log(2 * np.pi)
-        - 0.5 * at.log(dsigma)
+        -0.5 * n * pt.log(2 * np.pi)
+        - 0.5 * pt.log(dsigma)
         - 0.5 * (x - mu1).T.dot(isigma).dot(x - mu1)
     )
     log_like2 = (
-        -0.5 * n * at.log(2 * np.pi)
-        - 0.5 * at.log(dsigma)
+        -0.5 * n * pt.log(2 * np.pi)
+        - 0.5 * pt.log(dsigma)
         - 0.5 * (x - mu2).T.dot(isigma).dot(x - mu2)
     )
-    return pm.math.logsumexp([at.log(w1) + log_like1, at.log(w2) + log_like2])
+    return pm.math.logsumexp([pt.log(w1) + log_like1, pt.log(w2) + log_like2])
 ```
 
 ```{code-cell} ipython3
@@ -170,16 +170,16 @@ w2 = 1 - w1  # the other mode with 0.9 of the mass
 
 def two_gaussians(x):
     log_like1 = (
-        -0.5 * n * at.log(2 * np.pi)
-        - 0.5 * at.log(dsigma)
+        -0.5 * n * pt.log(2 * np.pi)
+        - 0.5 * pt.log(dsigma)
         - 0.5 * (x - mu1).T.dot(isigma).dot(x - mu1)
     )
     log_like2 = (
-        -0.5 * n * at.log(2 * np.pi)
-        - 0.5 * at.log(dsigma)
+        -0.5 * n * pt.log(2 * np.pi)
+        - 0.5 * pt.log(dsigma)
         - 0.5 * (x - mu2).T.dot(isigma).dot(x - mu2)
     )
-    return pm.math.logsumexp([at.log(w1) + log_like1, at.log(w2) + log_like2])
+    return pm.math.logsumexp([pt.log(w1) + log_like1, pt.log(w2) + log_like2])
 ```
 
 ```{code-cell} ipython3

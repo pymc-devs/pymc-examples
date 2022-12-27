@@ -25,7 +25,7 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
-import pytensor.tensor as at
+import pytensor.tensor as pt
 ```
 
 ```{code-cell} ipython3

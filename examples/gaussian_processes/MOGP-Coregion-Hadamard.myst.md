@@ -31,7 +31,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
-import pytensor.tensor as at
+import pytensor.tensor as pt
 
 from pymc.gp.util import plot_gp_dist
 ```
@@ -171,7 +171,7 @@ with pm.Model() as model:
     # Get the ICM kernel
     W = pm.Normal("W", mu=0, sigma=3, shape=(n_outputs, 2), initval=np.random.randn(n_outputs, 2))
     kappa = pm.Gamma("kappa", alpha=1.5, beta=1, shape=n_outputs)
-    B = pm.Deterministic("B", at.dot(W, W.T) + at.diag(kappa))
+    B = pm.Deterministic("B", pt.dot(W, W.T) + pt.diag(kappa))
     cov_icm = get_icm(input_dim=2, kernel=kernel, B=B, active_dims=[1])
 
     # Define a Multi-output GP

@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
 import pytensor
-import pytensor.tensor as at
+import pytensor.tensor as pt
 
 from pytensor.graph import Apply, Op
 ```
@@ -347,14 +347,14 @@ class HMMLogpOp(Op):
     ):
         # Convert our inputs to symbolic variables
         inputs = [
-            at.as_tensor_variable(emission_observed),
-            at.as_tensor_variable(emission_signal),
-            at.as_tensor_variable(emission_noise),
+            pt.as_tensor_variable(emission_observed),
+            pt.as_tensor_variable(emission_signal),
+            pt.as_tensor_variable(emission_noise),
             at.as_tensor_variable(logp_initial_state),
-            at.as_tensor_variable(logp_transition),
+            pt.as_tensor_variable(logp_transition),
         ]
         # Define the type of the output returned by the wrapped JAX function
-        outputs = [at.dscalar()]
+        outputs = [pt.dscalar()]
         return Apply(self, inputs, outputs)
 
     def perform(self, node, inputs, outputs):
@@ -398,11 +398,11 @@ class HMMLogpGradOp(Op):
         logp_transition,
     ):
         inputs = [
-            at.as_tensor_variable(emission_observed),
-            at.as_tensor_variable(emission_signal),
-            at.as_tensor_variable(emission_noise),
+            pt.as_tensor_variable(emission_observed),
+            pt.as_tensor_variable(emission_signal),
+            pt.as_tensor_variable(emission_noise),
             at.as_tensor_variable(logp_initial_state),
-            at.as_tensor_variable(logp_transition),
+            pt.as_tensor_variable(logp_transition),
         ]
         # This `Op` will return one gradient per input. For simplicity, we assume
         # each output is of the same type as the input. In practice, you should use
@@ -460,7 +460,7 @@ It's also useful to check the gradient of our {class}`~pytensor.graph.op.Op` can
 ```{code-cell} ipython3
 # We define the symbolic `emission_signal` variable outside of the `Op`
 # so that we can request the gradient wrt to it
-emission_signal_variable = at.as_tensor_variable(emission_signal_true)
+emission_signal_variable = pt.as_tensor_variable(emission_signal_true)
 x = hmm_logp_op(
     emission_observed,
     emission_signal_variable,
@@ -468,7 +468,7 @@ x = hmm_logp_op(
     logp_initial_state_true,
     logp_transition_true,
 )
-x_grad_wrt_emission_signal = at.grad(x, wrt=emission_signal_variable)
+x_grad_wrt_emission_signal = pt.grad(x, wrt=emission_signal_variable)
 x_grad_wrt_emission_signal.eval()
 ```
 
@@ -484,10 +484,10 @@ with pm.Model(rng_seeder=int(rng.integers(2**30))) as model:
     emission_noise = pm.HalfNormal("emission_noise", 1)
 
     p_initial_state = pm.Dirichlet("p_initial_state", np.ones(3))
-    logp_initial_state = at.log(p_initial_state)
+    logp_initial_state = pt.log(p_initial_state)
 
     p_transition = pm.Dirichlet("p_transition", np.ones(3), size=3)
-    logp_transition = at.log(p_transition)
+    logp_transition = pt.log(p_transition)
 
     loglike = pm.Potential(
         "hmm_loglike",
@@ -701,9 +701,9 @@ class HmmLogpValueGradOp(Op):
     default_output = 0
 
     def make_node(self, *inputs):
-        inputs = [at.as_tensor_variable(inp) for inp in inputs]
+        inputs = [pt.as_tensor_variable(inp) for inp in inputs]
         # We now have one output for the function value, and one output for each gradient
-        outputs = [at.dscalar()] + [inp.type() for inp in inputs]
+        outputs = [pt.dscalar()] + [inp.type() for inp in inputs]
         return Apply(self, inputs, outputs)
 
     def perform(self, node, inputs, outputs):
@@ -735,7 +735,7 @@ hmm_logp_value_grad_op = HmmLogpValueGradOp()
 We check again that we can take the gradient using PyTensor `grad` interface
 
 ```{code-cell} ipython3
-emission_signal_variable = at.as_tensor_variable(emission_signal_true)
+emission_signal_variable = pt.as_tensor_variable(emission_signal_true)
 # Only the first output is assigned to the variable `x`, due to `default_output=0`
 x = hmm_logp_value_grad_op(
     emission_observed,
@@ -744,7 +744,7 @@ x = hmm_logp_value_grad_op(
     logp_initial_state_true,
     logp_transition_true,
 )
-at.grad(x, emission_signal_variable).eval()
+pt.grad(x, emission_signal_variable).eval()
 ```
 
 ## Authors

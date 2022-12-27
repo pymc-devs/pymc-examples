@@ -32,7 +32,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
 import pytensor
-import pytensor.tensor as at
+import pytensor.tensor as pt
 
 print(f"Running on PyMC v{pm.__version__}")
 ```
@@ -116,7 +116,7 @@ So, what we actually need to do is create a [PyTensor Op](http://deeplearning.ne
 
 ```{code-cell} ipython3
 # define a pytensor Op for our likelihood function
-class LogLike(at.Op):
+class LogLike(pt.Op):
 
     """
     Specify what type of object will be passed and returned to the Op when it is
@@ -125,8 +125,8 @@ class LogLike(at.Op):
     log-likelihood)
     """
 
-    itypes = [at.dvector]  # expects a vector of parameter values when called
-    otypes = [at.dscalar]  # outputs a single scalar value (the log likelihood)
+    itypes = [pt.dvector]  # expects a vector of parameter values when called
+    otypes = [pt.dscalar]  # outputs a single scalar value (the log likelihood)
 
     def __init__(self, loglike, data, x, sigma):
         """
@@ -189,7 +189,7 @@ with pm.Model():
     c = pm.Uniform("c", lower=-10.0, upper=10.0)
 
     # convert m and c to a tensor vector
-    theta = at.as_tensor_variable([m, c])
+    theta = pt.as_tensor_variable([m, c])
 
     # use a Potential to "call" the Op and include it in the logp computation
     pm.Potential("likelihood", logl(theta))
@@ -245,10 +245,10 @@ It's not quite so simple! The `grad()` method itself requires that its inputs ar
 
 ```{code-cell} ipython3
 # define a pytensor Op for our likelihood function
-class LogLikeWithGrad(at.Op):
+class LogLikeWithGrad(pt.Op):
 
-    itypes = [at.dvector]  # expects a vector of parameter values when called
-    otypes = [at.dscalar]  # outputs a single scalar value (the log likelihood)
+    itypes = [pt.dvector]  # expects a vector of parameter values when called
+    otypes = [pt.dscalar]  # outputs a single scalar value (the log likelihood)
 
     def __init__(self, loglike, data, x, sigma):
         """
@@ -292,15 +292,15 @@ class LogLikeWithGrad(at.Op):
         return [g[0] * self.logpgrad(theta)]
 
 
-class LogLikeGrad(at.Op):
+class LogLikeGrad(pt.Op):
 
     """
     This Op will be called with a vector of values and also return a vector of
     values - the gradients in each dimension.
     """
 
-    itypes = [at.dvector]
-    otypes = [at.dvector]
+    itypes = [pt.dvector]
+    otypes = [pt.dvector]
 
     def __init__(self, data, x, sigma):
         """
@@ -344,7 +344,7 @@ with pm.Model() as opmodel:
     c = pm.Uniform("c", lower=-10.0, upper=10.0)
 
     # convert m and c to a tensor vector
-    theta = at.as_tensor_variable([m, c])
+    theta = pt.as_tensor_variable([m, c])
 
     # use a Potential
     pm.Potential("likelihood", logl(theta))
@@ -365,7 +365,7 @@ with pm.Model() as pymodel:
     c = pm.Uniform("c", lower=-10.0, upper=10.0)
 
     # convert m and c to a tensor vector
-    theta = at.as_tensor_variable([m, c])
+    theta = pt.as_tensor_variable([m, c])
 
     # use a Normal distribution
     pm.Normal("likelihood", mu=(m * x + c), sd=sigma, observed=data)
@@ -416,7 +416,7 @@ We can now check that the gradient Op works as expected. First, just create and 
 pytensor.config.compute_test_value = "ignore"
 pytensor.config.exception_verbosity = "high"
 
-var = at.dvector()
+var = pt.dvector()
 test_grad_op = LogLikeGrad(data, x, sigma)
 test_grad_op_func = pytensor.function([var], test_grad_op(var))
 grad_vals = test_grad_op_func([mtrue, ctrue])
@@ -425,7 +425,7 @@ print(f'Gradient returned by "LogLikeGrad": {grad_vals}')
 
 # test the gradient called through LogLikeWithGrad
 test_gradded_op = LogLikeWithGrad(my_loglike, data, x, sigma)
-test_gradded_op_grad = at.grad(test_gradded_op(var), var)
+test_gradded_op_grad = pt.grad(test_gradded_op(var), var)
 test_gradded_op_grad_func = pytensor.function([var], test_gradded_op_grad)
 grad_vals_2 = test_gradded_op_grad_func([mtrue, ctrue])
 

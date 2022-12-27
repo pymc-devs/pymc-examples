@@ -109,8 +109,8 @@ def get_model():
             func=Chem.reaction, times=times, n_states=len(y0_true), n_theta=len(theta_true)
         )(y0=[s0, y0_true[1]], theta=[vmax, K_S], return_sens=False)
 
-        red_hat = y_hat.T[0][red]
-        blue_hat = y_hat.T[1][blue]
+        red_hat = y_hpt.T[0][red]
+        blue_hat = y_hpt.T[1][blue]
 
         Y_red = pm.Normal("Y_red", mu=red_hat, sigma=sigma, observed=y_obs_1)
         Y_blue = pm.Normal("Y_blue", mu=blue_hat, sigma=sigma, observed=y_obs_2)

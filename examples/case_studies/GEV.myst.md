@@ -45,7 +45,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
 import pymc_experimental.distributions as pmx
-import pytensor.tensor as at
+import pytensor.tensor as pt
 
 from arviz.plots import plot_utils as azpu
 ```

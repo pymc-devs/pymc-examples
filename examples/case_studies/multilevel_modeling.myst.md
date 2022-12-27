@@ -70,7 +70,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
-import pytensor.tensor as at
+import pytensor.tensor as pt
 import seaborn as sns
 import xarray as xr
 
@@ -838,7 +838,7 @@ with pm.Model(coords=coords) as covariation_intercept_slope:
     # population of varying effects:
     z = pm.Normal("z", 0.0, 1.0, dims=("param", "county"))
     alpha_beta_county = pm.Deterministic(
-        "alpha_beta_county", at.dot(chol, z).T, dims=("county", "param")
+        "alpha_beta_county", pt.dot(chol, z).T, dims=("county", "param")
     )
 
     # Expected value per county:

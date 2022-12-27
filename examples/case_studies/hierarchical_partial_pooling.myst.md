@@ -55,7 +55,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
-import pytensor.tensor as at
+import pytensor.tensor as pt
 
 %matplotlib inline
 ```
@@ -100,7 +100,7 @@ with pm.Model(coords=coords) as baseball_model:
     phi = pm.Uniform("phi", lower=0.0, upper=1.0)
 
     kappa_log = pm.Exponential("kappa_log", lam=1.5)
-    kappa = pm.Deterministic("kappa", at.exp(kappa_log))
+    kappa = pm.Deterministic("kappa", pt.exp(kappa_log))
 
     theta = pm.Beta("theta", alpha=phi * kappa, beta=(1.0 - phi) * kappa, dims="player_names")
     y = pm.Binomial("y", n=at_bats, p=theta, dims="player_names", observed=hits)

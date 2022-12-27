@@ -53,7 +53,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
 import pytensor
-import pytensor.tensor as at
+import pytensor.tensor as pt
 import scipy
 
 from matplotlib.lines import Line2D
@@ -328,10 +328,10 @@ def update_Q(action, reward, Qs, alpha):
     This function updates the Q table according to the RL update rule.
     It will be called by pytensor.scan to do so recursevely, given the observed data and the alpha parameter
     This could have been replaced be the following lamba expression in the pytensor.scan fn argument:
-        fn=lamba action, reward, Qs, alpha: at.set_subtensor(Qs[action], Qs[action] + alpha * (reward - Qs[action]))
+        fn=lamba action, reward, Qs, alpha: pt.set_subtensor(Qs[action], Qs[action] + alpha * (reward - Qs[action]))
     """
 
-    Qs = at.set_subtensor(Qs[action], Qs[action] + alpha * (reward - Qs[action]))
+    Qs = pt.set_subtensor(Qs[action], Qs[action] + alpha * (reward - Qs[action]))
     return Qs
 ```
 
@@ -339,14 +339,14 @@ def update_Q(action, reward, Qs, alpha):
 :id: dHzhTy20g4vh
 
 # Transform the variables into appropriate PyTensor objects
-rewards_ = at.as_tensor_variable(rewards, dtype="int32")
-actions_ = at.as_tensor_variable(actions, dtype="int32")
+rewards_ = pt.as_tensor_variable(rewards, dtype="int32")
+actions_ = pt.as_tensor_variable(actions, dtype="int32")
 
-alpha = at.scalar("alpha")
-beta = at.scalar("beta")
+alpha = pt.scalar("alpha")
+beta = pt.scalar("beta")
 
 # Initialize the Q table
-Qs = 0.5 * at.ones((2,), dtype="float64")
+Qs = 0.5 * pt.ones((2,), dtype="float64")
 
 # Compute the Q values for each trial
 Qs, _ = pytensor.scan(
@@ -355,11 +355,11 @@ Qs, _ = pytensor.scan(
 
 # Apply the softmax transformation
 Qs = Qs * beta
-logp_actions = Qs - at.logsumexp(Qs, axis=1, keepdims=True)
+logp_actions = Qs - pt.logsumexp(Qs, axis=1, keepdims=True)
 
 # Calculate the negative log likelihod of the observed actions
-logp_actions = logp_actions[at.arange(actions_.shape[0] - 1), actions_[1:]]
-neg_loglike = -at.sum(logp_actions)
+logp_actions = logp_actions[pt.arange(actions_.shape[0] - 1), actions_[1:]]
+neg_loglike = -pt.sum(logp_actions)
 ```
 
 +++ {"id": "C9Ayn6-kzhPN"}
@@ -389,22 +389,22 @@ The same result is obtained, so we can be confident that the PyTensor loop is wo
 :id: c70L4ZBT7QLr
 
 def pytensor_llik_td(alpha, beta, actions, rewards):
-    rewards = at.as_tensor_variable(rewards, dtype="int32")
-    actions = at.as_tensor_variable(actions, dtype="int32")
+    rewards = pt.as_tensor_variable(rewards, dtype="int32")
+    actions = pt.as_tensor_variable(actions, dtype="int32")
 
     # Compute the Qs values
-    Qs = 0.5 * at.ones((2,), dtype="float64")
+    Qs = 0.5 * pt.ones((2,), dtype="float64")
     Qs, updates = pytensor.scan(
         fn=update_Q, sequences=[actions, rewards], outputs_info=[Qs], non_sequences=[alpha]
     )
 
     # Apply the sotfmax transformation
     Qs = Qs[:-1] * beta
-    logp_actions = Qs - at.logsumexp(Qs, axis=1, keepdims=True)
+    logp_actions = Qs - pt.logsumexp(Qs, axis=1, keepdims=True)
 
     # Calculate the log likelihood of the observed actions
-    logp_actions = logp_actions[at.arange(actions.shape[0] - 1), actions[1:]]
-    return at.sum(logp_actions)  # PyMC expects the standard log-likelihood
+    logp_actions = logp_actions[pt.arange(actions.shape[0] - 1), actions[1:]]
+    return pt.sum(logp_actions)  # PyMC expects the standard log-likelihood
 ```
 
 ```{code-cell} ipython3
@@ -464,21 +464,21 @@ One reason why it's useful to use the Bernoulli likelihood is that one can then 
 :id: pQdszDk_qYCX
 
 def right_action_probs(alpha, beta, actions, rewards):
-    rewards = at.as_tensor_variable(rewards, dtype="int32")
-    actions = at.as_tensor_variable(actions, dtype="int32")
+    rewards = pt.as_tensor_variable(rewards, dtype="int32")
+    actions = pt.as_tensor_variable(actions, dtype="int32")
 
     # Compute the Qs values
-    Qs = 0.5 * at.ones((2,), dtype="float64")
+    Qs = 0.5 * pt.ones((2,), dtype="float64")
     Qs, updates = pytensor.scan(
         fn=update_Q, sequences=[actions, rewards], outputs_info=[Qs], non_sequences=[alpha]
     )
 
     # Apply the sotfmax transformation
     Qs = Qs[:-1] * beta
-    logp_actions = Qs - at.logsumexp(Qs, axis=1, keepdims=True)
+    logp_actions = Qs - pt.logsumexp(Qs, axis=1, keepdims=True)
 
     # Return the probabilities for the right action, in the original scale
-    return at.exp(logp_actions[:, 1])
+    return pt.exp(logp_actions[:, 1])
 ```
 
 ```{code-cell} ipython3

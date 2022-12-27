@@ -30,7 +30,7 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
-import pytensor.tensor as at
+import pytensor.tensor as pt
 import seaborn as sns
 
 from xarray_einstats.stats import multivariate_normal
@@ -104,7 +104,7 @@ with pm.Model() as gp_fit:
     D = squared_distance(x, x)
 
     # Squared exponential
-    sigma = at.fill_diagonal(eta_sq * at.exp(-rho_sq * D), eta_sq + sigma_sq)
+    sigma = pt.fill_diagonal(eta_sq * pt.exp(-rho_sq * D), eta_sq + sigma_sq)
 
     obs = pm.MvNormal("obs", mu, sigma, observed=y)
 ```
@@ -127,18 +127,18 @@ gp_fit.add_coords({"pred_id": xgrid, "pred_id2": xgrid})
 
 with gp_fit as gp:
     # Covariance matrices for prediction
-    sigma_pred = eta_sq * at.exp(-rho_sq * D_pred)
-    sigma_off_diag = eta_sq * at.exp(-rho_sq * D_off_diag)
+    sigma_pred = eta_sq * pt.exp(-rho_sq * D_pred)
+    sigma_off_diag = eta_sq * pt.exp(-rho_sq * D_off_diag)
 
     # Posterior mean
     mu_post = pm.Deterministic(
-        "mu_post", at.dot(at.dot(sigma_off_diag, pm.math.matrix_inverse(sigma)), y), dims="pred_id"
+        "mu_post", pt.dot(pt.dot(sigma_off_diag, pm.math.matrix_inverse(sigma)), y), dims="pred_id"
     )
     # Posterior covariance
     sigma_post = pm.Deterministic(
         "sigma_post",
         sigma_pred
-        - at.dot(at.dot(sigma_off_diag, pm.math.matrix_inverse(sigma)), sigma_off_diag.T),
+        - pt.dot(pt.dot(sigma_off_diag, pm.math.matrix_inverse(sigma)), sigma_off_diag.T),
         dims=("pred_id", "pred_id2"),
     )
 ```

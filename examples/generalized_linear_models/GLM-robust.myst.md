@@ -53,7 +53,7 @@ import numpy as np
 import pandas as pd
 import pymc as pm
 import pytensor
-import pytensor.tensor as at
+import pytensor.tensor as pt
 import xarray as xr
 ```
 
