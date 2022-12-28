@@ -226,7 +226,6 @@ codeautolink_concat_default = True
 
 # intersphinx mappings
 intersphinx_mapping = {
-    "aesara": ("https://aesara.readthedocs.io/en/latest/", None),
     "arviz": ("https://python.arviz.org/en/latest/", None),
     "bambi": ("https://bambinos.github.io/bambi", None),
     "einstats": ("https://einstats.python.arviz.org/en/latest/", None),
