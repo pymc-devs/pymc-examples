@@ -18,10 +18,6 @@ kernelspec:
 :category: beginner
 :::
 
-+++
-
-For many applications we require doing predictions on out-of-sample data. This experiment was motivated by the discussion of the thread ["Out of sample" predictions with the GLM sub-module](https://discourse.pymc.io/t/out-of-sample-predictions-with-the-glm-sub-module/773) on the (great!) forum [discourse.pymc.io/](https://discourse.pymc.io/), thank you all for your input! But note that this GLM sub-module was deprecated in favour of [`bambi`](https://github.com/bambinos/bambi). But this notebook implements a 'raw' PyMC model.
-
 ```{code-cell} ipython3
 import arviz as az
 import matplotlib.pyplot as plt
@@ -279,7 +275,6 @@ Note that we have computed the model decision boundary by using the mean of the 
 
 ## References
 
-- [Bambi](https://bambinos.github.io/bambi/), a more complete implementation of the GLM submodule which also allows for mixed-effects models.
 - [Bayesian Analysis with Python (Second edition) - Chapter 4](https://github.com/aloctavodia/BAP/blob/master/code/Chp4/04_Generalizing_linear_models.ipynb)
 - [Statistical Rethinking](https://xcelab.net/rm/statistical-rethinking/)
 
