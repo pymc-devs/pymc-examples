@@ -83,8 +83,6 @@ repos:
                examples/howto/custom_distribution.ipynb)
       entry: >
           (?x)(arviz-devs.github.io|
-               aesara.readthedocs.io|
-               aeppl.readthedocs.io|
                pymc-experimental.readthedocs.io|
                docs.pymc.io|
                numpy.org/doc|
@@ -92,6 +90,7 @@ repos:
                docs.python.org|
                xarray.pydata.org
                python.arviz.org|
+               pytensor.readthedocs.io|
                docs.xarray.dev|
                www.pymc.io|
                docs.scipy.org/doc)

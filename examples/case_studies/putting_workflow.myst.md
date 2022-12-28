@@ -37,7 +37,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
-import pytensor.tensor as at
+import pytensor.tensor as pt
 import scipy
 import scipy.stats as st
 import xarray as xr
@@ -274,7 +274,7 @@ PyMC has $\Phi$ implemented, but it is pretty hidden (`pm.distributions.dist_mat
 ```{code-cell} ipython3
 def phi(x):
     """Calculates the standard normal cumulative distribution function."""
-    return 0.5 + 0.5 * at.erf(x / at.sqrt(2.0))
+    return 0.5 + 0.5 * pt.erf(x / pt.sqrt(2.0))
 
 
 with pm.Model() as angle_model:
@@ -285,7 +285,7 @@ with pm.Model() as angle_model:
     variance_of_shot = pm.HalfNormal("variance_of_shot")
     p_goes_in = pm.Deterministic(
         "p_goes_in",
-        2 * phi(at.arcsin((CUP_RADIUS - BALL_RADIUS) / distance_) / variance_of_shot) - 1,
+        2 * phi(pt.arcsin((CUP_RADIUS - BALL_RADIUS) / distance_) / variance_of_shot) - 1,
         dims="obs_id",
     )
     success = pm.Binomial("success", n=tries_, p=p_goes_in, observed=successes_, dims="obs_id")
@@ -531,7 +531,7 @@ with pm.Model() as distance_angle_model:
     variance_of_distance = pm.HalfNormal("variance_of_distance")
     p_good_angle = pm.Deterministic(
         "p_good_angle",
-        2 * phi(at.arcsin((CUP_RADIUS - BALL_RADIUS) / distance_) / variance_of_shot) - 1,
+        2 * phi(pt.arcsin((CUP_RADIUS - BALL_RADIUS) / distance_) / variance_of_shot) - 1,
         dims="obs_id",
     )
     p_good_distance = pm.Deterministic(
@@ -643,7 +643,7 @@ with pm.Model() as disp_distance_angle_model:
 
     p_good_angle = pm.Deterministic(
         "p_good_angle",
-        2 * phi(at.arcsin((CUP_RADIUS - BALL_RADIUS) / distance_) / variance_of_shot) - 1,
+        2 * phi(pt.arcsin((CUP_RADIUS - BALL_RADIUS) / distance_) / variance_of_shot) - 1,
         dims="obs_id",
     )
     p_good_distance = pm.Deterministic(
@@ -657,7 +657,7 @@ with pm.Model() as disp_distance_angle_model:
     p_success = pm.Normal(
         "p_success",
         mu=p,
-        sigma=at.sqrt(((p * (1 - p)) / tries_) + dispersion**2),
+        sigma=pt.sqrt(((p * (1 - p)) / tries_) + dispersion**2),
         observed=obs_prop_,  # successes_ / tries_
         dims="obs_id",
     )

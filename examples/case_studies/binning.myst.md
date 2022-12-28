@@ -69,7 +69,7 @@ In ordinal regression, the cutpoints are treated as latent variables and the par
 We are now in a position to sketch out a generative PyMC model:
 
 ```python
-import pytensor.tensor as at
+import pytensor.tensor as pt
 
 with pm.Model() as model:
     # priors
@@ -78,7 +78,7 @@ with pm.Model() as model:
     # generative process
     probs = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), cutpoints))
     probs = pm.math.concatenate([[0], probs, [1]])
-    probs = at.extra_ops.diff(probs)
+    probs = pt.extra_ops.diff(probs)
     # likelihood
     pm.Multinomial("counts", p=probs, n=sum(counts), observed=counts)
 ```
@@ -95,7 +95,7 @@ probs = pm.math.concatenate([[0], probs, [1]])
 simply concatenates the cumulative density at $-\infty$ (which is zero) and at $\infty$ (which is 1).
 The third line
 ```python
-probs = at.extra_ops.diff(probs)
+probs = pt.extra_ops.diff(probs)
 ```
 calculates the difference between consecutive cumulative densities to give the actual probability of a datum falling in any given bin.
 
@@ -115,7 +115,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
-import pytensor.tensor as at
+import pytensor.tensor as pt
 import seaborn as sns
 
 warnings.filterwarnings(action="ignore", category=UserWarning)
@@ -226,7 +226,7 @@ with pm.Model() as model1:
     mu = pm.Normal("mu")
 
     probs1 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), d1))
-    probs1 = at.extra_ops.diff(pm.math.concatenate([[0], probs1, [1]]))
+    probs1 = pt.extra_ops.diff(pm.math.concatenate([[0], probs1, [1]]))
     pm.Multinomial("counts1", p=probs1, n=c1.sum(), observed=c1.values)
 ```
 
@@ -331,7 +331,7 @@ with pm.Model() as model2:
     mu = pm.Normal("mu")
 
     probs2 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), d2))
-    probs2 = at.extra_ops.diff(pm.math.concatenate([[0], probs2, [1]]))
+    probs2 = pt.extra_ops.diff(pm.math.concatenate([[0], probs2, [1]]))
     pm.Multinomial("counts2", p=probs2, n=c2.sum(), observed=c2.values)
 ```
 
@@ -426,11 +426,11 @@ with pm.Model() as model3:
     mu = pm.Normal("mu")
 
     probs1 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), d1))
-    probs1 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs1, np.array([1])]))
+    probs1 = pt.extra_ops.diff(pm.math.concatenate([np.array([0]), probs1, np.array([1])]))
     probs1 = pm.Deterministic("normal1_cdf", probs1)
 
     probs2 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), d2))
-    probs2 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs2, np.array([1])]))
+    probs2 = pt.extra_ops.diff(pm.math.concatenate([np.array([0]), probs2, np.array([1])]))
     probs2 = pm.Deterministic("normal2_cdf", probs2)
 
     pm.Multinomial("counts1", p=probs1, n=c1.sum(), observed=c1.values)
@@ -519,7 +519,7 @@ with pm.Model() as model4:
     mu = pm.Normal("mu")
     # study 1
     probs1 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu, sigma=sigma), d1))
-    probs1 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs1, np.array([1])]))
+    probs1 = pt.extra_ops.diff(pm.math.concatenate([np.array([0]), probs1, np.array([1])]))
     probs1 = pm.Deterministic("normal1_cdf", probs1)
     pm.Multinomial("counts1", p=probs1, n=c1.sum(), observed=c1.values)
     # study 2
@@ -612,12 +612,12 @@ with pm.Model(coords=coords) as model5:
 
     # Study 1
     probs1 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu[0], sigma=sigma[0]), d1))
-    probs1 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs1, np.array([1])]))
+    probs1 = pt.extra_ops.diff(pm.math.concatenate([np.array([0]), probs1, np.array([1])]))
     probs1 = pm.Deterministic("normal1_cdf", probs1, dims="bin1")
 
     # Study 2
     probs2 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu[1], sigma=sigma[1]), d2))
-    probs2 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs2, np.array([1])]))
+    probs2 = pt.extra_ops.diff(pm.math.concatenate([np.array([0]), probs2, np.array([1])]))
     probs2 = pm.Deterministic("normal2_cdf", probs2, dims="bin2")
 
     # Likelihood
@@ -645,12 +645,12 @@ with pm.Model(coords=coords) as model5:
 
     # Study 1
     probs1 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu[0], sigma=sigma[0]), d1))
-    probs1 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs1, np.array([1])]))
+    probs1 = pt.extra_ops.diff(pm.math.concatenate([np.array([0]), probs1, np.array([1])]))
     probs1 = pm.Deterministic("normal1_cdf", probs1, dims="bin1")
 
     # Study 2
     probs2 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu[1], sigma=sigma[1]), d2))
-    probs2 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs2, np.array([1])]))
+    probs2 = pt.extra_ops.diff(pm.math.concatenate([np.array([0]), probs2, np.array([1])]))
     probs2 = pm.Deterministic("normal2_cdf", probs2, dims="bin2")
 
     # Likelihood
@@ -748,12 +748,12 @@ with pm.Model(coords=coords) as model5:
     
     # Study 1
     probs1 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu[0], sigma=sigma[0]), d1))
-    probs1 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs1, np.array([1])]))
+    probs1 = pt.extra_ops.diff(pm.math.concatenate([np.array([0]), probs1, np.array([1])]))
     probs1 = pm.Deterministic("normal1_cdf", probs1, dims='bin1')
 
     # Study 2
     probs2 = pm.math.exp(pm.logcdf(pm.Normal.dist(mu=mu[1], sigma=sigma[1]), d2))
-    probs2 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs2, np.array([1])]))
+    probs2 = pt.extra_ops.diff(pm.math.concatenate([np.array([0]), probs2, np.array([1])]))
     probs2 = pm.Deterministic("normal2_cdf", probs2, dims='bin2')
 
     # Likelihood
@@ -855,11 +855,11 @@ with pm.Model() as model6:
     beta = pm.HalfNormal("beta", 10)
 
     probs1 = pm.math.exp(pm.logcdf(pm.Gumbel.dist(mu=mu, beta=beta), d1))
-    probs1 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs1, np.array([1])]))
+    probs1 = pt.extra_ops.diff(pm.math.concatenate([np.array([0]), probs1, np.array([1])]))
     probs1 = pm.Deterministic("gumbel_cdf1", probs1)
 
     probs2 = pm.math.exp(pm.logcdf(pm.Gumbel.dist(mu=mu, beta=beta), d2))
-    probs2 = at.extra_ops.diff(pm.math.concatenate([np.array([0]), probs2, np.array([1])]))
+    probs2 = pt.extra_ops.diff(pm.math.concatenate([np.array([0]), probs2, np.array([1])]))
     probs2 = pm.Deterministic("gumbel_cdf2", probs2)
 
     pm.Multinomial("counts1", p=probs1, n=c1.sum(), observed=c1.values)

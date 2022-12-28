@@ -36,7 +36,7 @@ import arviz as az
 import matplotlib
 import numpy as np
 import pymc as pm
-import pytensor.tensor as at
+import pytensor.tensor as pt
 import scipy as sp
 import seaborn as sns
 import xarray as xr
@@ -120,7 +120,7 @@ with pm.Model(coords=coords) as PPCA:
     W = pm.Normal("W", dims=("observed_columns", "latent_columns"))
     F = pm.Normal("F", dims=("latent_columns", "rows"))
     psi = pm.HalfNormal("psi", 1.0)
-    X = pm.Normal("X", mu=at.dot(W, F), sigma=psi, observed=Y, dims=("observed_columns", "rows"))
+    X = pm.Normal("X", mu=pt.dot(W, F), sigma=psi, observed=Y, dims=("observed_columns", "rows"))
 
     trace = pm.sample(tune=2000, random_seed=RANDOM_SEED)  # target_accept=0.9
 ```
@@ -155,11 +155,11 @@ def expand_packed_block_triangular(d, k, packed, diag=None, mtype="pytensor"):
 
     def set_(M, i_, v_):
         if mtype == "pytensor":
-            return at.set_subtensor(M[i_], v_)
+            return pt.set_subtensor(M[i_], v_)
         M[i_] = v_
         return M
 
-    out = at.zeros((d, k), dtype=float) if mtype == "pytensor" else np.zeros((d, k), dtype=float)
+    out = pt.zeros((d, k), dtype=float) if mtype == "pytensor" else np.zeros((d, k), dtype=float)
     if diag is None:
         idxs = np.tril_indices(d, m=k)
         out = set_(out, idxs, packed)
@@ -181,8 +181,8 @@ def makeW(d, k, dim_names):
     # trick: the cumulative sum of z will be positive increasing
     z = pm.HalfNormal("W_z", 1.0, dims="latent_columns")
     b = pm.HalfNormal("W_b", 1.0, shape=(n_od,), dims="packed_dim")
-    L = expand_packed_block_triangular(d, k, b, at.ones(k))
-    W = pm.Deterministic("W", at.dot(L, at.diag(at.extra_ops.cumsum(z))), dims=dim_names)
+    L = expand_packed_block_triangular(d, k, b, pt.ones(k))
+    W = pm.Deterministic("W", pt.dot(L, pt.diag(pt.extra_ops.cumsum(z))), dims=dim_names)
     return W
 ```
 
@@ -193,7 +193,7 @@ with pm.Model(coords=coords) as PPCA_identified:
     W = makeW(d, k, ("observed_columns", "latent_columns"))
     F = pm.Normal("F", dims=("latent_columns", "rows"))
     psi = pm.HalfNormal("psi", 1.0)
-    X = pm.Normal("X", mu=at.dot(W, F), sigma=psi, observed=Y, dims=("observed_columns", "rows"))
+    X = pm.Normal("X", mu=pt.dot(W, F), sigma=psi, observed=Y, dims=("observed_columns", "rows"))
     trace = pm.sample(tune=2000)  # target_accept=0.9
 
 for i in range(4):
@@ -223,7 +223,7 @@ with pm.Model(coords=coords) as PPCA_scaling:
     psi = pm.HalfNormal("psi", 1.0)
     E = pm.Deterministic(
         "cov",
-        at.dot(W, at.transpose(W)) + psi * at.diag(at.ones(d)),
+        pt.dot(W, pt.transpose(W)) + psi * pt.diag(pt.ones(d)),
         dims=("observed_columns", "observed_columns2"),
     )
     X = pm.MvNormal("X", 0.0, cov=E, observed=Y_mb)

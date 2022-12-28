@@ -226,7 +226,6 @@ codeautolink_concat_default = True
 
 # intersphinx mappings
 intersphinx_mapping = {
-    "aesara": ("https://aesara.readthedocs.io/en/latest/", None),
     "arviz": ("https://python.arviz.org/en/latest/", None),
     "bambi": ("https://bambinos.github.io/bambi", None),
     "einstats": ("https://einstats.python.arviz.org/en/latest/", None),
@@ -234,6 +233,7 @@ intersphinx_mapping = {
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
     "pymc": ("https://www.pymc.io/projects/docs/en/stable/", None),
+    "pytensor": ("https://pytensor.readthedocs.io/en/latest/", None),
     "pmx": ("https://www.pymc.io/projects/experimental/en/latest/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
     "xarray": ("https://docs.xarray.dev/en/stable/", None),

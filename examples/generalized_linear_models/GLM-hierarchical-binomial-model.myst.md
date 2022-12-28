@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
-import pytensor.tensor as at
+import pytensor.tensor as pt
 
 from scipy.special import gammaln
 ```
@@ -209,7 +209,7 @@ coords = {
 ```{code-cell} ipython3
 def logp_ab(value):
     """prior density"""
-    return at.log(at.pow(at.sum(value), -5 / 2))
+    return pt.log(pt.pow(pt.sum(value), -5 / 2))
 
 
 with pm.Model(coords=coords) as model:
@@ -218,8 +218,8 @@ with pm.Model(coords=coords) as model:
     ab = pm.HalfNormal("ab", sigma=10, dims="param")
     pm.Potential("p(a, b)", logp_ab(ab))
 
-    X = pm.Deterministic("X", at.log(ab[0] / ab[1]))
-    Z = pm.Deterministic("Z", at.log(at.sum(ab)))
+    X = pm.Deterministic("X", pt.log(ab[0] / ab[1]))
+    Z = pm.Deterministic("Z", pt.log(pt.sum(ab)))
 
     theta = pm.Beta("theta", alpha=ab[0], beta=ab[1], dims="obs_id")
 

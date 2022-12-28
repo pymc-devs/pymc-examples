@@ -384,7 +384,7 @@ ax.step(interval_bounds[:-1], beta_hat, color="C0")
 
 ax.scatter(
     interval_bounds[last_period[(df.event.values == 1) & (df.metastasized == 1)]],
-    beta_hat.isel(intervals=last_period[(df.event.values == 1) & (df.metastasized == 1)]),
+    beta_hpt.isel(intervals=last_period[(df.event.values == 1) & (df.metastasized == 1)]),
     color="C1",
     zorder=10,
     label="Died, cancer metastasized",
@@ -392,7 +392,7 @@ ax.scatter(
 
 ax.scatter(
     interval_bounds[last_period[(df.event.values == 0) & (df.metastasized == 1)]],
-    beta_hat.isel(intervals=last_period[(df.event.values == 0) & (df.metastasized == 1)]),
+    beta_hpt.isel(intervals=last_period[(df.event.values == 0) & (df.metastasized == 1)]),
     color="C0",
     zorder=10,
     label="Censored, cancer metastasized",

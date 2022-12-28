@@ -45,15 +45,15 @@ RANDOM_SEED = 8927
 Since `PyTensor` functions are compiled to C, you have to use `pytensor.printing.Print` class to print intermediate values (imported  below as `Print`). Python `print` function will not work. Below is a simple example of using `Print`. For more information, see {ref}`Debugging PyTensor <pytensor:debug_faq>`.
 
 ```{code-cell} ipython3
-import pytensor.tensor as at
+import pytensor.tensor as pt
 
 from pytensor import function
 from pytensor.printing import Print
 ```
 
 ```{code-cell} ipython3
-x = at.dvector("x")
-y = at.dvector("y")
+x = pt.dvector("x")
+y = pt.dvector("y")
 func = function([x, y], 1 / (x - y))
 func([1, 2, 3], [1, 0, -1])
 ```

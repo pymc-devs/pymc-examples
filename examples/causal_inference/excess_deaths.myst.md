@@ -72,7 +72,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
-import pytensor.tensor as at
+import pytensor.tensor as pt
 import seaborn as sns
 import xarray as xr
 ```
@@ -104,9 +104,9 @@ def ZeroSumNormal(name, *, sigma=None, active_dims=None, dims, model=None):
     def extend_axis(value, axis):
         n_out = value.shape[axis] + 1
         sum_vals = value.sum(axis, keepdims=True)
-        norm = sum_vals / (at.sqrt(n_out) + n_out)
-        fill_val = norm - sum_vals / at.sqrt(n_out)
-        out = at.concatenate([value, fill_val], axis=axis)
+        norm = sum_vals / (pt.sqrt(n_out) + n_out)
+        fill_val = norm - sum_vals / pt.sqrt(n_out)
+        out = pt.concatenate([value, fill_val], axis=axis)
         return out - norm
 
     dims_reduced = []

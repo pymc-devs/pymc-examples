@@ -39,7 +39,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
 import pytensor
-import pytensor.tensor as at
+import pytensor.tensor as pt
 import scipy.stats as stats
 ```
 
@@ -129,7 +129,7 @@ papermill:
   status: completed
 tags: []
 ---
-const_func_vec = pm.gp.mean.Constant(at.ones(5))
+const_func_vec = pm.gp.mean.Constant(pt.ones(5))
 
 print(const_func_vec(X).eval())
 ```
@@ -705,7 +705,7 @@ papermill:
 tags: []
 ---
 def warp_func(x, a, b, c):
-    return 1.0 + x + (a * at.tanh(b * (x - c)))
+    return 1.0 + x + (a * pt.tanh(b * (x - c)))
 
 
 a = 1.0
@@ -764,7 +764,7 @@ tags: []
 ---
 def mapping(x, T):
     c = 2.0 * np.pi * (1.0 / T)
-    u = at.concatenate((at.sin(c * x), at.cos(c * x)), 1)
+    u = pt.concatenate((pt.sin(c * x), pt.cos(c * x)), 1)
     return u
 
 
@@ -928,7 +928,7 @@ def tanh_func(x, ls1, ls2, w, x0):
     w:   transition width
     x0:  transition location.
     """
-    return (ls1 + ls2) / 2.0 - (ls1 - ls2) / 2.0 * at.tanh((x - x0) / w)
+    return (ls1 + ls2) / 2.0 - (ls1 - ls2) / 2.0 * pt.tanh((x - x0) / w)
 
 
 ls1 = 0.05

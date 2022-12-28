@@ -52,7 +52,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
-import pytensor.tensor as at
+import pytensor.tensor as pt
 import seaborn as sns
 
 from matplotlib.ticker import StrMethodFormatter
@@ -252,10 +252,10 @@ with pm.Model(coords=coords) as model:
     atts_star = pm.Normal("atts_star", mu=0, sigma=sd_att, dims="team")
     defs_star = pm.Normal("defs_star", mu=0, sigma=sd_def, dims="team")
 
-    atts = pm.Deterministic("atts", atts_star - at.mean(atts_star), dims="team")
-    defs = pm.Deterministic("defs", defs_star - at.mean(defs_star), dims="team")
-    home_theta = at.exp(intercept + home + atts[home_idx] + defs[away_idx])
-    away_theta = at.exp(intercept + atts[away_idx] + defs[home_idx])
+    atts = pm.Deterministic("atts", atts_star - pt.mean(atts_star), dims="team")
+    defs = pm.Deterministic("defs", defs_star - pt.mean(defs_star), dims="team")
+    home_theta = pt.exp(intercept + home + atts[home_idx] + defs[away_idx])
+    away_theta = pt.exp(intercept + atts[away_idx] + defs[home_idx])
 
     # likelihood of observed data
     home_points = pm.Poisson(
