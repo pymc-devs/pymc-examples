@@ -92,6 +92,7 @@ repos:
                docs.python.org|
                xarray.pydata.org
                python.arviz.org|
+               pytensor.readthedocs.io|
                docs.xarray.dev|
                www.pymc.io|
                docs.scipy.org/doc)
