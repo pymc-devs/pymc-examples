@@ -298,4 +298,5 @@ Note that we have computed the model decision boundary by using the mean of the 
 %watermark -n -u -v -iv -w -p pytensor
 ```
 
-:::{include} ../page_footer.md :::
+:::{include} ../page_footer.md
+:::
