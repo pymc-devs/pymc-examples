@@ -350,7 +350,7 @@ class HMMLogpOp(Op):
             pt.as_tensor_variable(emission_observed),
             pt.as_tensor_variable(emission_signal),
             pt.as_tensor_variable(emission_noise),
-            at.as_tensor_variable(logp_initial_state),
+            pt.as_tensor_variable(logp_initial_state),
             pt.as_tensor_variable(logp_transition),
         ]
         # Define the type of the output returned by the wrapped JAX function
@@ -401,7 +401,7 @@ class HMMLogpGradOp(Op):
             pt.as_tensor_variable(emission_observed),
             pt.as_tensor_variable(emission_signal),
             pt.as_tensor_variable(emission_noise),
-            at.as_tensor_variable(logp_initial_state),
+            pt.as_tensor_variable(logp_initial_state),
             pt.as_tensor_variable(logp_transition),
         ]
         # This `Op` will return one gradient per input. For simplicity, we assume
