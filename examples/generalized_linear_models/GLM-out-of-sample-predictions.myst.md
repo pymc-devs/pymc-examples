@@ -13,7 +13,7 @@ kernelspec:
 (GLM-out-of-sample-predictions)=
 # Out-Of-Sample Predictions
 
-:::{post} June, 2022
+:::{post} December, 2022
 :tags: generalized linear model, logistic regression, out of sample predictions, patsy
 :category: beginner
 :::
@@ -288,6 +288,7 @@ Note that we have computed the model decision boundary by using the mean of the 
 ## Authors
 - Created by [Juan Orduz](https://github.com/juanitorduz).
 - Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) to PyMC v4 in June 2022
+- Re-executed by [Benjamin T. Vincent](https://github.com/drbenvincent) with PyMC v5 in December 2022
 
 +++
 
