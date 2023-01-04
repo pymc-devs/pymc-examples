@@ -22,6 +22,7 @@ kernelspec:
 
 ```{code-cell} ipython3
 import os
+import random
 
 from io import StringIO
 
@@ -404,20 +405,36 @@ plot_ln_pi(
 
 ### Bootstrap Calibration and Coverage Estimation
 
-We want now to estimate the coverage implied by this prediction interval, and to do so we will bootstrap estimates for the lower and upper bounds of the 95% confidence interval and ultimately assess their coverage conditional on the MLE fit.
+We want now to estimate the coverage implied by this prediction interval, and to do so we will bootstrap estimates for the lower and upper bounds of the 95% confidence interval and ultimately assess their coverage conditional on the MLE fit. We will use the fractional weighted (bayesian) bootstrap. We'll report two methods of estimating the coverage statistic - the first is the empirical coverage based on sampling a random value from within the known range and assess if it falls between the 95% MLE lower bound and upper bounds. 
+
+The second method we'll use to assess coverage is to bootstrap estimates of a 95% lower bound and upper bound and then assess how much those bootstrapped values would cover conditional on the MLE fit.
 
 ```{code-cell} ipython3
-import random
+def bayes_boot(df, lb, ub, seed=100):
+    w = np.random.dirichlet(np.ones(len(df)), 1)[0]
+    lnf = LogNormalFitter().fit(df["t"] + 1e-25, df["failed"], weights=w)
+    ## Sample random choice from 95% percentile interval of bootstrapped dist
+    # choices = draws['t'].values
+    choices = np.linspace(df["t"].min(), df["t"].max(), 1000)
+    future = random.choice(choices)
+    ## Check if choice is contained within the MLE 95% PI
+    contained = (future >= lb) & (future <= ub)
+    ## Record 95% interval of bootstrapped dist
+    lb = lognorm(s=lnf.sigma_, scale=np.exp(lnf.mu_)).ppf(0.025)
+    ub = lognorm(s=lnf.sigma_, scale=np.exp(lnf.mu_)).ppf(0.975)
+    return lb, ub, contained, future, lnf.sigma_, lnf.mu_
+```
 
-
-def bootstrap(lb, ub):
-    draws = actuarial_table_shock[["t", "failed"]].sample(replace=True, frac=1)
+```{code-cell} ipython3
+def bootstrap(df, lb, ub, seed=100):
+    draws = df[["t", "failed"]].sample(replace=True, frac=1, random_state=seed)
     draws.sort_values("t", inplace=True)
     ## Fit Lognormal Dist to
     lnf = LogNormalFitter().fit(draws["t"] + 1e-25, draws["failed"])
     ## Sample random choice from 95% percentile interval of bootstrapped dist
     # choices = draws['t'].values
-    choices = np.linspace(draws["t"].min(), draws["t"].max(), draws.shape[0])
+    ## Essentially sampling from a uniform interval
+    choices = np.linspace(draws["t"].min(), draws["t"].max(), 1000)
     future = random.choice(choices)
     ## Check if choice is contained within the MLE 95% PI
     contained = (future >= lb) & (future <= ub)
@@ -427,7 +444,7 @@ def bootstrap(lb, ub):
     return lb, ub, contained, future, lnf.sigma_, lnf.mu_
 
 
-CIs = [bootstrap(8928, 70188) for i in range(1000)]
+CIs = [bayes_boot(actuarial_table_shock, 8928, 70188, seed=i) for i in range(1000)]
 draws = pd.DataFrame(
     CIs, columns=["Lower Bound PI", "Upper Bound PI", "Contained", "future", "Sigma", "Mu"]
 )
@@ -461,8 +478,8 @@ axs[1].scatter(
 axs[0].set_title("Bootstrapped Mu against Bootstrapped 95% Lower Bound")
 prop = draws["Contained"].sum() / len(draws)
 axs[0].annotate(
-    f"Estimated Prediction \nEmpirical Coverage Based on Sampling : {np.round(prop, 3)}",
-    xy=(10.4, 16000),
+    f"Estimated Prediction \nEmpirical Coverage \nBased on Sampling : {np.round(prop, 3)}",
+    xy=(10.4, 12000),
     fontweight="bold",
 )
 axs[1].set_title("Bootstrapped Sigma against Bootstrapped 95% Lower Bound")
@@ -513,6 +530,10 @@ axs[2].annotate(
     fontweight="bold",
 );
 ```
+
+These simulations should be repeated a far larger number of times than we do here. We can also vary the interval size to achieve the desired coverage level.
+
++++
 
 ### Bearing Cage Data: A Study in Bayesian Reliability Analysis
 
@@ -778,7 +799,7 @@ ax2.legend()
 ax.set_ylabel("Fraction Failing");
 ```
 
-## Bayesian Modelling
+## Bayesian Modelling of Reliability Data
 
 We've now seen how to model and visualise the parametric model fits to sparse reliability using a frequentist or MLE framework. We want to now show how the same style of inferences can be achieved in the Bayesian paradigm. 
 
@@ -793,7 +814,7 @@ where $\delta_{i}$ is an indicator for whether the observation is a faiure or a 
 
 ### Direct PYMC implementation of Weibull Survival
 
-We'll first model the Weibull likelihood directly in terms of the parameters $\alpha, \beta$, and then consider an alternative parameterisation.
+We fit two versions of this model with different specifications for the priors, one takes a **vague** uniform prior over the data, and another specifies priors closer to the MLE fits. We will show the implications of the prior specification has for the calibration of the model with the observed data below.
 
 ```{code-cell} ipython3
 def weibull_lccdf(y, alpha, beta):
@@ -805,18 +826,30 @@ item_period_max = item_period_bearing_cage.groupby("id")[["t", "failed"]].max()
 y = item_period_max["t"].values
 censored = ~item_period_max["failed"].values.astype(bool)
 
-with pm.Model() as model:
 
-    beta = pm.Uniform("beta", 100, 15_000)
-    alpha = pm.TruncatedNormal("alpha", 2, 0.5, lower=0.02, upper=8)
+priors = {"beta": [100, 15_000], "alpha": [2, 0.5, 0.02, 8]}
+priors_informative = {"beta": [9500, 12_000], "alpha": [2, 0.5, 0.02, 3]}
 
-    y_obs = pm.Weibull("y_obs", alpha=alpha, beta=beta, observed=y[~censored])
-    y_cens = pm.Potential("y_cens", weibull_lccdf(y[censored], alpha, beta))
-    idata = pm.sample_prior_predictive()
-    idata.extend(pm.sample(random_seed=100, target_accept=0.95))
-    idata.extend(pm.sample_posterior_predictive(idata))
 
-pm.model_to_graphviz(model)
+def make_model(p):
+    with pm.Model() as model:
+
+        beta = pm.Uniform("beta", p["beta"][0], p["beta"][1])
+        alpha = pm.TruncatedNormal(
+            "alpha", p["alpha"][0], p["alpha"][1], lower=p["alpha"][2], upper=p["alpha"][3]
+        )
+
+        y_obs = pm.Weibull("y_obs", alpha=alpha, beta=beta, observed=y[~censored])
+        y_cens = pm.Potential("y_cens", weibull_lccdf(y[censored], alpha, beta))
+        idata = pm.sample_prior_predictive()
+        idata.extend(pm.sample(random_seed=100, target_accept=0.95))
+        idata.extend(pm.sample_posterior_predictive(idata))
+
+    return idata, model
+
+
+idata, model = make_model(priors)
+idata_informative, model = make_model(priors_informative)
 ```
 
 ```{code-cell} ipython3
@@ -824,7 +857,7 @@ idata
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(idata);
+az.plot_trace(idata, kind="rank_vlines");
 ```
 
 ```{code-cell} ipython3
@@ -848,8 +881,17 @@ def ecdf(sample):
 ```
 
 ```{code-cell} ipython3
-alphas = az.extract_dataset(idata, group="posterior", num_samples=200)["alpha"].values
-betas = az.extract_dataset(idata, group="posterior", num_samples=200)["beta"].values
+joint_draws = az.extract_dataset(idata, group="posterior", num_samples=1000)[
+    ["alpha", "beta"]
+].to_dataframe()
+alphas = joint_draws["alpha"].values
+betas = joint_draws["beta"].values
+
+joint_draws_informative = az.extract_dataset(
+    idata_informative, group="posterior", num_samples=1000
+)[["alpha", "beta"]].to_dataframe()
+alphas_informative = joint_draws_informative["alpha"].values
+betas_informative = joint_draws_informative["beta"].values
 
 mosaic = """AAAA
             BBCC"""
@@ -859,16 +901,29 @@ ax = axs[0]
 ax1 = axs[2]
 ax2 = axs[1]
 hist_data = []
-for i in range(200):
+for i in range(1000):
     draws = pm.draw(pm.Weibull.dist(alpha=alphas[i], beta=betas[i]), 1000)
     qe, pe = ecdf(draws)
     lkup = dict(zip(pe, qe))
     hist_data.append([lkup[0.1], lkup[0.05]])
-    ax.plot(qe, pe, color="slateblue", alpha=0.4)
+    ax.plot(qe, pe, color="slateblue", alpha=0.1)
+hist_data_info = []
+for i in range(1000):
+    draws = pm.draw(pm.Weibull.dist(alpha=alphas_informative[i], beta=betas_informative[i]), 1000)
+    qe, pe = ecdf(draws)
+    lkup = dict(zip(pe, qe))
+    hist_data_info.append([lkup[0.1], lkup[0.05]])
+    ax.plot(qe, pe, color="pink", alpha=0.1)
 hist_data = pd.DataFrame(hist_data, columns=["p10", "p05"])
+hist_data_info = pd.DataFrame(hist_data_info, columns=["p10", "p05"])
 draws = pm.draw(pm.Weibull.dist(alpha=np.mean(alphas), beta=np.mean(betas)), 1000)
 qe, pe = ecdf(draws)
-ax.plot(qe, pe, color="cyan", label="Expected CDF")
+ax.plot(qe, pe, color="purple", label="Expected CDF Uninformative")
+draws = pm.draw(
+    pm.Weibull.dist(alpha=np.mean(alphas_informative), beta=np.mean(betas_informative)), 1000
+)
+qe, pe = ecdf(draws)
+ax.plot(qe, pe, color="magenta", label="Expected CDF Informative")
 ax.plot(
     actuarial_table_bearings["t"],
     actuarial_table_bearings["logit_CI_95_ub"],
@@ -876,9 +931,10 @@ ax.plot(
     label="Non-Parametric CI UB",
     color="black",
 )
-ax.scatter(
+ax.plot(
     actuarial_table_bearings["t"],
     actuarial_table_bearings["F_hat"],
+    "-o",
     label="Non-Parametric CDF",
     color="black",
     alpha=1,
@@ -892,17 +948,146 @@ ax.plot(
 )
 ax.set_xlim(0, 2500)
 ax.set_title(
-    "Bayesian Estimation of Uncertainty in the CDF \n and the non-parametric estimates", fontsize=20
+    "Bayesian Estimation of Uncertainty in the Posterior Predictive CDF \n Informative and Non-Informative Priors",
+    fontsize=20,
 )
 ax.set_ylabel("Fraction Failing")
 ax.set_xlabel("Time")
-ax1.hist(hist_data["p10"], bins=30, ec="black", color="skyblue", alpha=0.4)
+ax1.hist(
+    hist_data["p10"], bins=30, ec="black", color="skyblue", alpha=0.4, label="Uninformative Prior"
+)
+ax1.hist(
+    hist_data_info["p10"],
+    bins=30,
+    ec="black",
+    color="slateblue",
+    alpha=0.4,
+    label="Informative Prior",
+)
 ax1.set_title("Distribution of 10% failure Time", fontsize=20)
-ax2.hist(hist_data["p05"], bins=30, ec="black", color="cyan", alpha=0.4)
+ax1.legend()
+ax2.hist(hist_data["p05"], bins=30, ec="black", color="cyan", alpha=0.4, label="Uninformative")
+ax2.hist(hist_data_info["p05"], bins=30, ec="black", color="pink", alpha=0.4, label="Informative")
+ax2.legend()
 ax2.set_title("Distribution of 5% failure Time", fontsize=20)
+wbf = WeibullFitter().fit(item_period_bearing_cage["t"] + 1e-25, item_period_bearing_cage["failed"])
+wbf.plot_cumulative_density(ax=ax, color="cyan", label="Weibull MLE Fit")
 ax.legend()
-ax.set_ylim(0, 0.1);
+ax.set_ylim(0, 0.25);
 ```
+
+We can see here how the Bayesian uncertainty estimates driven by our deliberately vague priors encompasses more uncertainty than our MLE fit and the uninformative prior implies a wider predictive distribution for the 5% and 10% failure times. The Bayesian model with uninformative priors seems to do a better job of capturing the uncertainty in the non-parametric estimates of our CDF. 
+
+The concrete estimates of failure percentage over time of each model fit are especially crucial in a situation where we have sparse data. It is a meaningful sense check that we can consult with subject matter experts about how plausible the expectation and range for the 10% failure time is for their product.
+
++++
+
+## Predicting the Number of Failures in an Interval
+
+Because our data on observed failures is extremely sparse, we have to be very careful about extrapolating beyond the observed range of time, but we can ask about the predictable number of failures in the lower tail of our cdf. Another view on this data which can be helpful for discussing with subject matters experts is the number of implied failures over a time interval. 
+
+### The Plugin Estimate
+
+Imagine we want to know how many bearings will fail between 150 and 600 hours based of service. We can calculate this based on the estimated CDF and number of new future bearings. We first calculate: 
+
+$$ \hat{\rho} = \dfrac{\hat{F}(t_1) - \hat{F}(t_0)}{1 - \hat{F}(t_0)} $$
+
+to establish a probability for the failure occurring in the interval and then a point prediction for the number of failures in the interval is given by `risk_set`*$\hat{\rho}$.
+
+```{code-cell} ipython3
+mle_fit = weibull_min(c=2, scale=10_000)
+rho = mle_fit.cdf(600) - mle_fit.cdf(150) / (1 - mle_fit.cdf(150))
+print("Rho:", rho)
+print("N at Risk:", 1700)
+print("Expected Number Failing in first 300 hours:", 1700 * rho)
+from scipy.stats import binom
+
+print("Lower Bound 95% PI :", binom(1700, rho).ppf(0.05))
+print("Upper Bound 95% PI:", binom(1700, rho).ppf(0.95))
+```
+
+### Applying the Same Procedure on the Bayesian Posterior
+
+We'll use the posterior predictive distribution of the uniformative model. We show here how to derive the uncertainty in the estimates of the 95% prediction interval for the number of failures in a time interval.
+
+```{code-cell} ipython3
+def PI_failures(joint_draws, lp, up, n_at_risk):
+    records = []
+    alphas = joint_draws["alpha"].values
+    betas = joint_draws["beta"].values
+    for i in range(len(joint_draws)):
+        fit = weibull_min(c=alphas[i], scale=betas[i])
+        rho = fit.cdf(up) - fit.cdf(lp) / (1 - fit.cdf(lp))
+        lb = binom(n_at_risk, rho).ppf(0.05)
+        ub = binom(n_at_risk, rho).ppf(0.95)
+        point_prediction = n_at_risk * rho
+        records.append([alphas[i], betas[i], rho, n_at_risk, lb, ub, point_prediction])
+    return pd.DataFrame(
+        records, columns=["alpha", "beta", "rho", "n_at_risk", "lb", "ub", "expected"]
+    )
+
+
+output_df = PI_failures(joint_draws, 150, 600, 1700)
+output_df
+```
+
+```{code-cell} ipython3
+mosaic = """AAAA
+            BBBB"""
+fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(20, 12))
+axs = [axs[k] for k in axs.keys()]
+ax = axs[0]
+ax1 = axs[1]
+
+ax.scatter(
+    output_df["alpha"],
+    output_df["expected"],
+    c=output_df["beta"],
+    cmap=cm.cool,
+    alpha=0.3,
+    label="Coloured by function of Beta values",
+)
+ax.legend()
+ax.set_ylabel("Expected Failures")
+ax.set_xlabel("Alpha")
+ax.set_title(
+    "Posterior Predictive Expected Failure Count between 150-600 hours \nas a function of Weibull(alpha, beta)",
+    fontsize=20,
+)
+
+ax1.hist(
+    output_df["lb"],
+    ec="black",
+    color="slateblue",
+    label="95% PI Lower Bound on Failure Count",
+    alpha=0.3,
+)
+ax1.axvline(output_df["lb"].mean(), label="Expected 95% PI Lower Bound on Failure Count")
+ax1.axvline(output_df["ub"].mean(), label="Expected 95% PI Upper Bound on Failure Count")
+ax1.hist(
+    output_df["ub"],
+    ec="black",
+    color="cyan",
+    label="95% PI Upper Bound on Failure Count",
+    bins=20,
+    alpha=0.3,
+)
+ax1.hist(
+    output_df["expected"], ec="black", color="pink", label="Expected Count of Failures", bins=20
+)
+ax1.set_title("Uncertainty in the Posterior Prediction Interval of Failure Counts", fontsize=20)
+ax1.legend();
+```
+
+The choice of model in such cases is crucial. The decision about which failure profile is apt, has to be informed by a subject matter expert because extrapolation from such sparse data is always risky. An understanding of the uncertainty is crucial if real costs attach to the failures and the subject matter expert is usually better placed to tell if you 2 or 7 failures can be expected within 600 hours of service. 
+
+# Conclusion
+
+We've seen how to analyse and model reliability from both a frequentist and Bayesian perspective and compare against the non-parametric estimates. We've shown how prediction intervals can be derived for a number of key statistics by both a bootstrapping and a bayesian approach. We've seen approaches to calibrating these prediction intervals through re-sampling methods and informative prior specification. These views on the problem are complementary and the choice of technique which is appropriate should be driven by factors of the questions of interest, not some ideological commitment. 
+
+In particular we've seen how the MLE fits to our bearings data provide a decent first guess approach to establishing priors in the Bayesian analysis. We've also seen how subject matter expertise can be elicited by deriving key quantities from the implied models and subjecting these implications to scrutiny. The choice of Bayesian prediction interval is calibrated to our priors expectations, and where we have none - we can supply vague or non-informative priors. The implications of these priors can again be checked and analysed against an appropriate cost function.
+
++++
 
 ## Authors
 
