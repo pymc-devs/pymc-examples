@@ -49,11 +49,12 @@ az.style.use("arviz-darkgrid")
 
 ## Reliability Statistics 
 
-When we want to make inferences about likely failures on a production line. We may have large or small sample data set depending on the industry, nature of the goods or specificifty of the question we're seeking to answer. But in all cases there is a question of cost and a quantity of tolerable failures. In an industry where the line-item cost-profit ratio is clear, the estimation of failure rates is valuable. In an industry where failures are only tangentially related to a bottom line it is arguably even more crucial to correctly predict likely failures - otherwise the uncertainty propagates forward to make the revenue calculations next to impossible. 
+When we want to make inferences about likely failures on a production line. We may have large or small sample data set depending on the industry, nature of the goods or specificifty of the question we're seeking to answer. But in all cases there is a question of cost and a quantity of tolerable failures.  
 
 A reliability study therefore has to account for the period in which a failure is important to observe, the cost of the failure and cost of running a mis-specified study. The requirements for precision in the definition of the question and the nature of the modelling exercise are paramount. 
 
-There are more subtleties about reliability and failure time data such as censoring, accelerated life test data and degradation testing which we'll discuss briefly below. In this notebook we're going to focus on the prediction of failure times and compare the Bayesian notion of a calibrated prediction interval to some frequentist alternatives. 
+There are subtleties about reliability and failure time data such as censoring, accelerated life test data and degradation testing which we'll discuss briefly below. In this notebook we're going to focus on the prediction of failure times and compare the Bayesian notion of a calibrated prediction interval to some frequentist alternatives.
+We draw on the work in the book *Statistical Methods for Reliability Data*.  
 
 ### Types of Prediction
 
@@ -61,9 +62,8 @@ We might want to know:
 
 - Time to failure of a new item
 - Time until k failures in a future sample of m units
-- Number of failures by time t in future sample of m units.
 
-While there are non-parametric and descriptive methods that can be used to assess these kinds of question we're going to focus on the case where we have a probability model i.e. a lognormal distribution of failure times $F(t: \mathbf{\theta})$ parameterised by an unknown $\mathbf{\theta}$.
+While there are non-parametric and descriptive methods that can be used to assess these kinds of question we're going to focus on the case where we have a probability model e.g. a lognormal distribution of failure times $F(t: \mathbf{\theta})$ parameterised by an unknown $\mathbf{\theta}$.
 
 +++
 
