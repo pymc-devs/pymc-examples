@@ -36,8 +36,7 @@ import pymc as pm
 
 from lifelines import KaplanMeierFitter, LogNormalFitter, WeibullFitter
 from lifelines.utils import survival_table_from_events
-from pymc.sampling_jax import sample_blackjax_nuts
-from scipy.stats import lognorm, norm, weibull_min
+from scipy.stats import binom, lognorm, norm, weibull_min
 ```
 
 ```{code-cell} ipython3
@@ -49,12 +48,11 @@ az.style.use("arviz-darkgrid")
 
 ## Reliability Statistics 
 
-When we want to make inferences about likely failures on a production line. We may have large or small sample data set depending on the industry, nature of the goods or specificifty of the question we're seeking to answer. But in all cases there is a question of cost and a quantity of tolerable failures.  
+When we want to make inferences about likely failures on a production line,  we may have large or small sample data set depending on the industry, nature of the goods or specificifty of the question we're seeking to answer. But in all cases there is a question of cost and a quantity of tolerable failures.  
 
 A reliability study therefore has to account for the period in which a failure is important to observe, the cost of the failure and cost of running a mis-specified study. The requirements for precision in the definition of the question and the nature of the modelling exercise are paramount. 
 
-There are subtleties about reliability and failure time data such as censoring, accelerated life test data and degradation testing which we'll discuss briefly below. In this notebook we're going to focus on the prediction of failure times and compare the Bayesian notion of a calibrated prediction interval to some frequentist alternatives.
-We draw on the work in the book *Statistical Methods for Reliability Data*.  
+The key feature of time-to-failure data is the manner in which it is censored and how this biases traditional statistical summaries and estimation techniques. In this notebook we're going to focus on the prediction of failure times and compare the Bayesian notion of a calibrated prediction interval to some frequentist alternatives. We draw on the work in the book *Statistical Methods for Reliability Data*.  
 
 ### Types of Prediction
 
@@ -64,6 +62,16 @@ We might want to know:
 - Time until k failures in a future sample of m units
 
 While there are non-parametric and descriptive methods that can be used to assess these kinds of question we're going to focus on the case where we have a probability model e.g. a lognormal distribution of failure times $F(t: \mathbf{\theta})$ parameterised by an unknown $\mathbf{\theta}$.
+
+### Structure of the Presentation
+
+We will 
+
+- Discuss non-parametric estimates of the cumulative density function CDF for reliability data
+- Show how a frequentist or MLE of the same function can be derived to inform our prediction interval
+- Show how Bayesian methods can be used to augment the analysis of the same CDF in cases with sparse information. 
+
+Throughout the focus will be how the understanding of the CDF can help us understand risk of failure in a reliability setting. In particular how the CDF can be used to derive a well calibrated prediction interval.
 
 +++
 
@@ -132,7 +140,7 @@ The data is small deliberately so we can focus on the descriptive statistics inv
 ### Heat Exchange Data
 
 **Note on Censored Data**:
-See how the failure data flags whether or not an observation has been censored i.e. whether or not we have observed the full course of the life-time of the heat-exchanger. This is a crucial feature of failure time data. Too simple a statistical summary will be biased in its estimation of the prevalance of failure by the fact that our study has not seen out the full-course of every item's life-cycle. The most prevalent form of censoring is so called "Right censored" data where we have not seen the "failure" event for a subset of the observations. Our histories are incomplete due to prematurely ending the data collection. 
+See below how the failure data flags whether or not an observation has been censored i.e. whether or not we have observed the full course of the life-time of the heat-exchanger. This is a crucial feature of failure time data. Too simple a statistical summary will be biased in its estimation of the prevalance of failure by the fact that our study has not seen out the full-course of every item's life-cycle. The most prevalent form of censoring is so called "Right censored" data where we have not seen the "failure" event for a subset of the observations. Our histories are incomplete due to prematurely ending the data collection. 
 
 Left censoring (where we don't observe an item from the beginning of their history) and interval censoring (both left and right censoring) can also occur but are less common.
 
@@ -645,7 +653,7 @@ assert item_period_bearing_cage["failed"].sum() == 6
 assert item_period_bearing_cage[item_period_bearing_cage["t"] >= 1850]["id"].nunique() == 3
 ```
 
-As we plot the empirical CDF we see that the y-axis only ever reaches as maximum height of 0.5. A naive MLE fit will go dramatically wrong in extrapolating outside the observed range of the data.
+As we plot the empirical CDF we see that the y-axis only ever reaches as maximum height of 0.05. A naive MLE fit will go dramatically wrong in extrapolating outside the observed range of the data.
 
 ```{code-cell} ipython3
 ax = plot_cdfs(
@@ -670,7 +678,7 @@ def sev_ppf(p):
 
 mosaic = """AABB
             CCCC"""
-fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(20, 10))
+fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(20, 15))
 axs = [axs[k] for k in axs.keys()]
 ax = axs[0]
 ax2 = axs[1]
@@ -799,6 +807,10 @@ ax2.legend()
 ax.set_ylabel("Fraction Failing");
 ```
 
+We can see here how neither MLE fit covers the range of observed data.
+
++++
+
 ## Bayesian Modelling of Reliability Data
 
 We've now seen how to model and visualise the parametric model fits to sparse reliability using a frequentist or MLE framework. We want to now show how the same style of inferences can be achieved in the Bayesian paradigm. 
@@ -895,7 +907,7 @@ betas_informative = joint_draws_informative["beta"].values
 
 mosaic = """AAAA
             BBCC"""
-fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(20, 10))
+fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(20, 13))
 axs = [axs[k] for k in axs.keys()]
 ax = axs[0]
 ax1 = axs[2]
@@ -976,7 +988,7 @@ ax.legend()
 ax.set_ylim(0, 0.25);
 ```
 
-We can see here how the Bayesian uncertainty estimates driven by our deliberately vague priors encompasses more uncertainty than our MLE fit and the uninformative prior implies a wider predictive distribution for the 5% and 10% failure times. The Bayesian model with uninformative priors seems to do a better job of capturing the uncertainty in the non-parametric estimates of our CDF. 
+We can see here how the Bayesian uncertainty estimates driven by our deliberately vague priors encompasses more uncertainty than our MLE fit and the uninformative prior implies a wider predictive distribution for the 5% and 10% failure times. The Bayesian model with uninformative priors seems to do a better job of capturing the uncertainty in the non-parametric estimates of our CDF, but without more information it's hard to tell which is the more appropriate model.
 
 The concrete estimates of failure percentage over time of each model fit are especially crucial in a situation where we have sparse data. It is a meaningful sense check that we can consult with subject matter experts about how plausible the expectation and range for the 10% failure time is for their product.
 
@@ -984,7 +996,7 @@ The concrete estimates of failure percentage over time of each model fit are esp
 
 ## Predicting the Number of Failures in an Interval
 
-Because our data on observed failures is extremely sparse, we have to be very careful about extrapolating beyond the observed range of time, but we can ask about the predictable number of failures in the lower tail of our cdf. Another view on this data which can be helpful for discussing with subject matters experts is the number of implied failures over a time interval. 
+Because our data on observed failures is extremely sparse, we have to be very careful about extrapolating beyond the observed range of time, but we can ask about the predictable number of failures in the lower tail of our cdf. This provides another view on this data which can be helpful for discussing with subject matters experts. 
 
 ### The Plugin Estimate
 
@@ -999,9 +1011,7 @@ mle_fit = weibull_min(c=2, scale=10_000)
 rho = mle_fit.cdf(600) - mle_fit.cdf(150) / (1 - mle_fit.cdf(150))
 print("Rho:", rho)
 print("N at Risk:", 1700)
-print("Expected Number Failing in first 300 hours:", 1700 * rho)
-from scipy.stats import binom
-
+print("Expected Number Failing in between 150 and 600 hours:", 1700 * rho)
 print("Lower Bound 95% PI :", binom(1700, rho).ppf(0.05))
 print("Upper Bound 95% PI:", binom(1700, rho).ppf(0.95))
 ```
@@ -1079,7 +1089,7 @@ ax1.set_title("Uncertainty in the Posterior Prediction Interval of Failure Count
 ax1.legend();
 ```
 
-The choice of model in such cases is crucial. The decision about which failure profile is apt, has to be informed by a subject matter expert because extrapolation from such sparse data is always risky. An understanding of the uncertainty is crucial if real costs attach to the failures and the subject matter expert is usually better placed to tell if you 2 or 7 failures can be expected within 600 hours of service. 
+The choice of model in such cases is crucial. The decision about which failure profile is apt has to be informed by a subject matter expert because extrapolation from such sparse data is always risky. An understanding of the uncertainty is crucial if real costs attach to the failures and the subject matter expert is usually better placed to tell if you 2 or 7 failures can be expected within 600 hours of service. 
 
 # Conclusion
 
