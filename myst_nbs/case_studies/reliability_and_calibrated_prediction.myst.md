@@ -34,6 +34,7 @@ import numpy as np
 import pandas as pd
 import pymc as pm
 
+from joblib import Parallel, delayed
 from lifelines import KaplanMeierFitter, LogNormalFitter, WeibullFitter
 from lifelines.utils import survival_table_from_events
 from scipy.stats import binom, lognorm, norm, weibull_min
@@ -459,7 +460,54 @@ draws = pd.DataFrame(
 draws
 ```
 
-Next we'll plot the bootstrapped data and the two estimates of coverage we achieve conditional on the MLE fit.
+We can use these bootstrapped statistics to further calculate quantities of the predictive distribution.
+
+```{code-cell} ipython3
+def ecdf(sample):
+
+    # convert sample to a numpy array, if it isn't already
+    sample = np.atleast_1d(sample)
+
+    # find the unique values and their corresponding counts
+    quantiles, counts = np.unique(sample, return_counts=True)
+
+    # take the cumulative sum of the counts and divide by the sample size to
+    # get the cumulative probabilities between 0 and 1
+    cumprob = np.cumsum(counts).astype(np.double) / sample.size
+
+    return quantiles, cumprob
+
+
+fig, axs = plt.subplots(1, 2, figsize=(20, 6))
+axs = axs.flatten()
+ax = axs[0]
+ax1 = axs[1]
+hist_data = []
+for i in range(1000):
+    samples = lognorm(s=draws.iloc[i]["Sigma"], scale=np.exp(draws.iloc[i]["Mu"])).rvs(1000)
+    qe, pe = ecdf(samples)
+    ax.plot(qe, pe, color="grey", alpha=0.2)
+    lkup = dict(zip(pe, qe))
+    hist_data.append([lkup[0.05]])
+hist_data = pd.DataFrame(hist_data, columns=["p05"])
+samples = lognorm(s=draws["Sigma"].mean(), scale=np.exp(draws["Mu"].mean())).rvs(1000)
+qe, pe = ecdf(samples)
+ax.plot(qe, pe, color="red", label="Expected CDF for Shock Absorbers Data")
+ax.set_xlim(0, 30_000)
+ax.set_title("Bootstrapped CDF functions for the Shock Absorbers Data", fontsize=20)
+ax1.hist(hist_data["p05"], color="slateblue", ec="black", alpha=0.4, bins=30)
+ax1.set_title("Estimate of Uncertainty in the 5% Failure Time", fontsize=20)
+ax1.axvline(
+    hist_data["p05"].quantile(0.025), color="cyan", label="Lower Bound PI for 5% failure time"
+)
+ax1.axvline(
+    hist_data["p05"].quantile(0.975), color="cyan", label="Upper Bound PI for 5% failure time"
+)
+ax1.legend()
+ax.legend();
+```
+
+Next we'll plot the bootstrapped data and the two estimates of coverage we achieve conditional on the MLE fit. In other words when we want to assess the coverage of a prediction interval based on our MLE fit we can also bootstrap an estimate for this quantity.
 
 ```{code-cell} ipython3
 mosaic = """AABB
@@ -874,22 +922,6 @@ az.plot_trace(idata, kind="rank_vlines");
 
 ```{code-cell} ipython3
 az.summary(idata)
-```
-
-```{code-cell} ipython3
-def ecdf(sample):
-
-    # convert sample to a numpy array, if it isn't already
-    sample = np.atleast_1d(sample)
-
-    # find the unique values and their corresponding counts
-    quantiles, counts = np.unique(sample, return_counts=True)
-
-    # take the cumulative sum of the counts and divide by the sample size to
-    # get the cumulative probabilities between 0 and 1
-    cumprob = np.cumsum(counts).astype(np.double) / sample.size
-
-    return quantiles, cumprob
 ```
 
 ```{code-cell} ipython3
