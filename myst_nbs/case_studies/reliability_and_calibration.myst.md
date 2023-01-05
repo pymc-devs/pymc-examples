@@ -52,7 +52,7 @@ When we want to make inferences about likely failures on a production line,  we 
 
 A reliability study therefore has to account for the period in which a failure is important to observe, the cost of the failure and cost of running a mis-specified study. The requirements for precision in the definition of the question and the nature of the modelling exercise are paramount. 
 
-The key feature of time-to-failure data is the manner in which it is censored and how this biases traditional statistical summaries and estimation techniques. In this notebook we're going to focus on the prediction of failure times and compare the Bayesian notion of a calibrated prediction interval to some frequentist alternatives. We draw on the work in the book *Statistical Methods for Reliability Data*.  
+The key feature of time-to-failure data is the manner in which it is censored and how this biases traditional statistical summaries and estimation techniques. In this notebook we're going to focus on the prediction of failure times and compare the Bayesian notion of a calibrated prediction interval to some frequentist alternatives. We draw on the work in the book *Statistical Methods for Reliability Data*. See (see {cite:t}`Meeker2021`)
 
 ### Types of Prediction
 
@@ -1102,6 +1102,14 @@ In particular we've seen how the MLE fits to our bearings data provide a decent 
 ## Authors
 
 Nathaniel Forde
+
++++
+
+## References
+
+:::{bibliography}
+:filter: docname in docnames
+:::
 
 +++
 
