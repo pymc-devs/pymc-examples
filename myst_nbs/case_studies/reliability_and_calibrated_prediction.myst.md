@@ -56,7 +56,7 @@ The key feature of time-to-failure data is the manner in which it is censored an
 
 ### Types of Prediction
 
-We might want to know about:
+We might want to know about different views of the failure time distribution such as:
 
 - Time to failure of a new item
 - Time until k failures in a future sample of m units
