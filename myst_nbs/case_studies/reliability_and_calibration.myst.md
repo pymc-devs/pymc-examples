@@ -88,7 +88,7 @@ mu, sigma = 6, 0.3
 def plot_ln_pi(mu, sigma, xy=(700, 75), title="Exact Prediction Interval for Known Lognormal"):
     failure_dist = lognorm(s=sigma, scale=np.exp(mu))
     samples = failure_dist.rvs(size=1000, random_state=100)
-    fig, axs = plt.subplots(1, 3, figsize=(20, 6))
+    fig, axs = plt.subplots(1, 3, figsize=(20, 10))
     axs = axs.flatten()
     axs[0].hist(samples, ec="black", color="slateblue", bins=30)
     axs[0].set_title(f"Failure Time Distribution: LN({mu}, {sigma})")
@@ -331,7 +331,7 @@ def plot_cdfs(actuarial_table, dist_fits=True, ax=None, title="", xy=(3000, 0.5)
         lnf = LogNormalFitter().fit(item_period["t"] + 1e-25, item_period["failed"])
         wbf = WeibullFitter().fit(item_period["t"] + 1e-25, item_period["failed"])
     if ax is None:
-        fig, ax = plt.subplots(figsize=(20, 8))
+        fig, ax = plt.subplots(figsize=(20, 10))
     ax.plot(
         actuarial_table["t"],
         actuarial_table["F_hat"],
@@ -464,7 +464,7 @@ Next we'll plot the bootstrapped data and the two estimates of coverage we achie
 ```{code-cell} ipython3
 mosaic = """AABB
             CCCC"""
-fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(20, 10))
+fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(20, 12))
 mle_rv = lognorm(s=0.53, scale=np.exp(10.128))
 axs = [axs[k] for k in axs.keys()]
 axs[0].scatter(
