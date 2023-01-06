@@ -25,7 +25,6 @@ import random
 
 from io import StringIO
 
-import aesara as at
 import arviz as az
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
@@ -1144,7 +1143,7 @@ Nathaniel Forde
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
+%watermark -n -u -v -iv -w -p pytensor
 ```
 
 :::{include} ../page_footer.md
