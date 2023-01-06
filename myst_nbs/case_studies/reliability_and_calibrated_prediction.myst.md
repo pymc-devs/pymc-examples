@@ -34,7 +34,6 @@ import numpy as np
 import pandas as pd
 import pymc as pm
 
-from joblib import Parallel, delayed
 from lifelines import KaplanMeierFitter, LogNormalFitter, WeibullFitter
 from lifelines.utils import survival_table_from_events
 from scipy.stats import binom, lognorm, norm, weibull_min
@@ -81,15 +80,13 @@ Throughout the focus will be how the understanding of the CDF can help us unders
 In the study of reliability statistics there is a focus on location-scale based distributions with long tails. In an ideal world we'd know exactly which distribution described our failure process and the prediction interval for the next failure could be defined exactly.
 
 ```{code-cell} ipython3
-from scipy.stats import lognorm
-
 mu, sigma = 6, 0.3
 
 
 def plot_ln_pi(mu, sigma, xy=(700, 75), title="Exact Prediction Interval for Known Lognormal"):
     failure_dist = lognorm(s=sigma, scale=np.exp(mu))
     samples = failure_dist.rvs(size=1000, random_state=100)
-    fig, axs = plt.subplots(1, 3, figsize=(20, 10))
+    fig, axs = plt.subplots(1, 3, figsize=(20, 8))
     axs = axs.flatten()
     axs[0].hist(samples, ec="black", color="slateblue", bins=30)
     axs[0].set_title(f"Failure Time Distribution: LN({mu}, {sigma})")
@@ -422,15 +419,15 @@ The second method we'll use to assess coverage is to bootstrap estimates of a 95
 def bayes_boot(df, lb, ub, seed=100):
     w = np.random.dirichlet(np.ones(len(df)), 1)[0]
     lnf = LogNormalFitter().fit(df["t"] + 1e-25, df["failed"], weights=w)
-    ## Sample random choice from 95% percentile interval of bootstrapped dist
-    # choices = draws['t'].values
-    choices = np.linspace(df["t"].min(), df["t"].max(), 1000)
+    rv = lognorm(s=lnf.sigma_, scale=np.exp(lnf.mu_))
+    ## Sample random choice from implied bootstrapped distribution
+    choices = rv.rvs(1000)
     future = random.choice(choices)
     ## Check if choice is contained within the MLE 95% PI
     contained = (future >= lb) & (future <= ub)
     ## Record 95% interval of bootstrapped dist
-    lb = lognorm(s=lnf.sigma_, scale=np.exp(lnf.mu_)).ppf(0.025)
-    ub = lognorm(s=lnf.sigma_, scale=np.exp(lnf.mu_)).ppf(0.975)
+    lb = rv.ppf(0.025)
+    ub = rv.ppf(0.975)
     return lb, ub, contained, future, lnf.sigma_, lnf.mu_
 ```
 
@@ -440,16 +437,15 @@ def bootstrap(df, lb, ub, seed=100):
     draws.sort_values("t", inplace=True)
     ## Fit Lognormal Dist to
     lnf = LogNormalFitter().fit(draws["t"] + 1e-25, draws["failed"])
-    ## Sample random choice from 95% percentile interval of bootstrapped dist
-    # choices = draws['t'].values
-    ## Essentially sampling from a uniform interval
-    choices = np.linspace(draws["t"].min(), draws["t"].max(), 1000)
+    rv = lognorm(s=lnf.sigma_, scale=np.exp(lnf.mu_))
+    ## Sample random choice from implied distribution
+    choices = rv.rvs(1000)
     future = random.choice(choices)
     ## Check if choice is contained within the MLE 95% PI
     contained = (future >= lb) & (future <= ub)
     ## Record 95% interval of bootstrapped dist
-    lb = lognorm(s=lnf.sigma_, scale=np.exp(lnf.mu_)).ppf(0.025)
-    ub = lognorm(s=lnf.sigma_, scale=np.exp(lnf.mu_)).ppf(0.975)
+    lb = rv.ppf(0.025)
+    ub = rv.ppf(0.975)
     return lb, ub, contained, future, lnf.sigma_, lnf.mu_
 
 
@@ -460,7 +456,7 @@ draws = pd.DataFrame(
 draws
 ```
 
-We can use these bootstrapped statistics to further calculate quantities of the predictive distribution.
+We can use these bootstrapped statistics to further calculate quantities of the predictive distribution. In our case we could use the parametric CDF for our simple parametric model, but we'll adopt the empirical cdf here to show how this technique can be used when we have more complicated models too.
 
 ```{code-cell} ipython3
 def ecdf(sample):
@@ -486,7 +482,7 @@ hist_data = []
 for i in range(1000):
     samples = lognorm(s=draws.iloc[i]["Sigma"], scale=np.exp(draws.iloc[i]["Mu"])).rvs(1000)
     qe, pe = ecdf(samples)
-    ax.plot(qe, pe, color="grey", alpha=0.2)
+    ax.plot(qe, pe, color="skyblue", alpha=0.2)
     lkup = dict(zip(pe, qe))
     hist_data.append([lkup[0.05]])
 hist_data = pd.DataFrame(hist_data, columns=["p05"])
@@ -498,10 +494,10 @@ ax.set_title("Bootstrapped CDF functions for the Shock Absorbers Data", fontsize
 ax1.hist(hist_data["p05"], color="slateblue", ec="black", alpha=0.4, bins=30)
 ax1.set_title("Estimate of Uncertainty in the 5% Failure Time", fontsize=20)
 ax1.axvline(
-    hist_data["p05"].quantile(0.025), color="cyan", label="Lower Bound PI for 5% failure time"
+    hist_data["p05"].quantile(0.025), color="cyan", label="Lower Bound CI for 5% failure time"
 )
 ax1.axvline(
-    hist_data["p05"].quantile(0.975), color="cyan", label="Upper Bound PI for 5% failure time"
+    hist_data["p05"].quantile(0.975), color="cyan", label="Upper Bound CI for 5% failure time"
 )
 ax1.legend()
 ax.legend();
@@ -587,7 +583,7 @@ axs[2].annotate(
 );
 ```
 
-These simulations should be repeated a far larger number of times than we do here. We can also vary the interval size to achieve the desired coverage level.
+These simulations should be repeated a far larger number of times than we do here. It should be clear to see how we can also vary the MLE interval size to achieve the desired coverage level.
 
 +++
 
@@ -962,12 +958,12 @@ hist_data = pd.DataFrame(hist_data, columns=["p10", "p05"])
 hist_data_info = pd.DataFrame(hist_data_info, columns=["p10", "p05"])
 draws = pm.draw(pm.Weibull.dist(alpha=np.mean(alphas), beta=np.mean(betas)), 1000)
 qe, pe = ecdf(draws)
-ax.plot(qe, pe, color="purple", label="Expected CDF Uninformative")
+ax.plot(qe, pe, color="purple", label="Expected CDF Uninformative Prior")
 draws = pm.draw(
     pm.Weibull.dist(alpha=np.mean(alphas_informative), beta=np.mean(betas_informative)), 1000
 )
 qe, pe = ecdf(draws)
-ax.plot(qe, pe, color="magenta", label="Expected CDF Informative")
+ax.plot(qe, pe, color="magenta", label="Expected CDF Informative Prior")
 ax.plot(
     actuarial_table_bearings["t"],
     actuarial_table_bearings["logit_CI_95_ub"],
