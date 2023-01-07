@@ -42,6 +42,7 @@ exclude_patterns = [
     "**/.ipynb_checkpoints/*",
     "extra_installs.md",
     "page_footer.md",
+    "**/*.myst.md",
 ]
 
 
@@ -174,7 +175,7 @@ myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "amsmath", "su
 citation_code = f"""
 ```bibtex
 @incollection{{citekey,
-  author    = "<notebook authors, see above>"
+  author    = "<notebook authors, see above>",
   title     = "<notebook title>",
   editor    = "PyMC Team",
   booktitle = "PyMC examples",
@@ -190,7 +191,7 @@ myst_substitutions = {
     "extra_install_notes": "",
     "citation_code": citation_code,
 }
-jupyter_execute_notebooks = "off"
+nb_execution_mode = "off"
 
 rediraffe_redirects = {
     "index.md": "gallery.md",
@@ -225,15 +226,15 @@ codeautolink_concat_default = True
 
 # intersphinx mappings
 intersphinx_mapping = {
-    "aesara": ("https://aesara.readthedocs.io/en/latest/", None),
     "arviz": ("https://python.arviz.org/en/latest/", None),
-    "bambi": ("https://bambinos.github.io/bambi/main", None),
+    "bambi": ("https://bambinos.github.io/bambi", None),
     "einstats": ("https://einstats.python.arviz.org/en/latest/", None),
     "mpl": ("https://matplotlib.org/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
     "pymc": ("https://www.pymc.io/projects/docs/en/stable/", None),
+    "pytensor": ("https://pytensor.readthedocs.io/en/latest/", None),
     "pmx": ("https://www.pymc.io/projects/experimental/en/latest/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
-    "xarray": ("http://docs.xarray.dev/en/stable/", None),
+    "xarray": ("https://docs.xarray.dev/en/stable/", None),
 }

@@ -1,5 +1,2 @@
-notebook_metadata_filter = "substitutions"
-
-[formats]
-"examples/" = "ipynb"
-"myst_nbs/" = ".myst.md:myst"
+notebook_metadata_filter = "substitutions,-jupytext.text_representation.jupytext_version"
+formats = ["ipynb", ".myst.md:myst"]
