@@ -881,14 +881,17 @@ y = item_period_max["t"].values
 censored = ~item_period_max["failed"].values.astype(bool)
 
 
-priors = {"beta": [100, 15_000], "alpha": [2, 0.5, 0.02, 8]}
-priors_informative = {"beta": [9500, 12_000], "alpha": [2, 0.5, 0.02, 3]}
+priors = {"beta": [100, 15_000], "alpha": [4, 1, 0.02, 8]}
+priors_informative = {"beta": [10_000, 500], "alpha": [2, 0.5, 0.02, 3]}
 
 
-def make_model(p):
+def make_model(p, info=False):
     with pm.Model() as model:
 
-        beta = pm.Uniform("beta", p["beta"][0], p["beta"][1])
+        if info:
+            beta = pm.Normal("beta", p["beta"][0], p["beta"][1])
+        else:
+            beta = pm.Uniform("beta", p["beta"][0], p["beta"][1])
         alpha = pm.TruncatedNormal(
             "alpha", p["alpha"][0], p["alpha"][1], lower=p["alpha"][2], upper=p["alpha"][3]
         )
@@ -903,7 +906,7 @@ def make_model(p):
 
 
 idata, model = make_model(priors)
-idata_informative, model = make_model(priors_informative)
+idata_informative, model = make_model(priors_informative, info=True)
 ```
 
 ```{code-cell} ipython3
@@ -915,7 +918,15 @@ az.plot_trace(idata, kind="rank_vlines");
 ```
 
 ```{code-cell} ipython3
+az.plot_trace(idata_informative, kind="rank_vlines");
+```
+
+```{code-cell} ipython3
 az.summary(idata)
+```
+
+```{code-cell} ipython3
+az.summary(idata_informative)
 ```
 
 ```{code-cell} ipython3
@@ -1004,8 +1015,12 @@ ax1.hist(
 )
 ax1.set_title("Distribution of 10% failure Time", fontsize=20)
 ax1.legend()
-ax2.hist(hist_data["p05"], bins=30, ec="black", color="cyan", alpha=0.4, label="Uninformative")
-ax2.hist(hist_data_info["p05"], bins=30, ec="black", color="pink", alpha=0.4, label="Informative")
+ax2.hist(
+    hist_data["p05"], bins=30, ec="black", color="cyan", alpha=0.4, label="Uninformative Prior"
+)
+ax2.hist(
+    hist_data_info["p05"], bins=30, ec="black", color="pink", alpha=0.4, label="Informative Prior"
+)
 ax2.legend()
 ax2.set_title("Distribution of 5% failure Time", fontsize=20)
 wbf = WeibullFitter().fit(item_period_bearing_cage["t"] + 1e-25, item_period_bearing_cage["failed"])
@@ -1068,12 +1083,18 @@ output_df
 ```
 
 ```{code-cell} ipython3
+def cost_func(failures, power):
+    ### Imagined cost function for failing item e.g. refunds required
+    return -np.power(failures, power)
+
+
 mosaic = """AAAA
-            BBBB"""
+            BBCC"""
 fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(20, 12))
 axs = [axs[k] for k in axs.keys()]
 ax = axs[0]
 ax1 = axs[1]
+ax2 = axs[2]
 
 ax.scatter(
     output_df["alpha"],
@@ -1112,10 +1133,30 @@ ax1.hist(
     output_df["expected"], ec="black", color="pink", label="Expected Count of Failures", bins=20
 )
 ax1.set_title("Uncertainty in the Posterior Prediction Interval of Failure Counts", fontsize=20)
-ax1.legend();
+ax1.legend()
+
+ax2.set_title("Expected Costs Distribution(s)  \nbased on implied Failure counts", fontsize=20)
+ax2.hist(
+    cost_func(output_df["expected"], 2.3),
+    label="Cost(failures,2)",
+    color="royalblue",
+    alpha=0.3,
+    ec="black",
+    bins=20,
+)
+ax2.hist(
+    cost_func(output_df["expected"], 2),
+    label="Cost(failures,2.3)",
+    color="red",
+    alpha=0.5,
+    ec="black",
+    bins=20,
+)
+ax2.set_xlabel("$ cost")
+ax2.legend()
 ```
 
-The choice of model in such cases is crucial. The decision about which failure profile is apt has to be informed by a subject matter expert because extrapolation from such sparse data is always risky. An understanding of the uncertainty is crucial if real costs attach to the failures and the subject matter expert is usually better placed to tell if you 2 or 7 failures can be expected within 600 hours of service. 
+The choice of model in such cases is crucial. The decision about which failure profile is apt has to be informed by a subject matter expert because extrapolation from such sparse data is always risky. An understanding of the uncertainty is crucial if real costs attach to the failures and the subject matter expert is usually better placed to tell if you 2 or 7 failures can be plausibly expected within 600 hours of service. 
 
 # Conclusion
 
