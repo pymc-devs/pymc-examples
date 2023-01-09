@@ -1108,7 +1108,7 @@ output_df
 ```{code-cell} ipython3
 def cost_func(failures, power):
     ### Imagined cost function for failing item e.g. refunds required
-    return -np.power(failures, power)
+    return np.power(failures, power)
 
 
 mosaic = """AAAA
@@ -1176,6 +1176,7 @@ ax2.hist(
     bins=20,
 )
 ax2.set_xlabel("$ cost")
+# ax2.set_xlim(-60, 0)
 ax2.legend()
 ```
 
