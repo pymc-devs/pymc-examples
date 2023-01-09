@@ -5,9 +5,11 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3.9.0 ('pymc_ar_ex')
+  display_name: Python [conda env:pymc_ar_ex] *
   language: python
-  name: python3
+  name: conda-env-pymc_ar_ex-py
+substitutions:
+  extra_dependencies: lifelines
 ---
 
 (Reliability Statistics and Predictive Calibration)=
@@ -141,6 +143,8 @@ See below how the failure data flags whether or not an observation has been cens
 Left censoring (where we don't observe an item from the beginning of their history) and interval censoring (both left and right censoring) can also occur but are less common.
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 heat_exchange_df = pd.read_csv(
     StringIO(
         """Years Lower,Years Upper,Censoring Indicator,Count,Plant
@@ -168,6 +172,9 @@ heat_exchange_df["censored"] = np.where(
     heat_exchange_df["Censoring Indicator"] == "Right", heat_exchange_df["Count"], 0
 )
 heat_exchange_df["risk_set"] = [100, 99, 97, 0, 100, 98, 0, 100, 0]
+```
+
+```{code-cell} ipython3
 heat_exchange_df
 ```
 
@@ -248,6 +255,8 @@ We' apply the same techniques to a larger dataset and plot some of these quantit
 The shock absorbers data is in period format but it records a constantly decreasing risk set over time with one item being censored or failing at each time point i.e. removed from testing successfully (approved) or removed due to failure. This is a special case of the **period** format data.
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 shockabsorbers_df = pd.read_csv(
     StringIO(
         """Kilometers,Failure Mode,Censoring Indicator
@@ -301,6 +310,9 @@ shockabsorbers_events = survival_table_from_events(
 shockabsorbers_events.rename(
     {"event_at": "t", "observed": "failed", "at_risk": "risk_set"}, axis=1, inplace=True
 )
+```
+
+```{code-cell} ipython3
 actuarial_table_shock = make_actuarial_table(shockabsorbers_events)
 actuarial_table_shock
 ```
@@ -319,6 +331,8 @@ lnf.print_summary()
 Although it's tempting to take this model and run with it, we need to be cautious in the case of limited data. For instance in the heat-exchange data we have three years of data with a total of 11 failures. A too simple model can get this quite wrong. For the moment we'll focus on the shock-absorber data - its non-parametric description and a simple univariate fit to this data.
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 def plot_cdfs(actuarial_table, dist_fits=True, ax=None, title="", xy=(3000, 0.5), item_period=None):
     if item_period is None:
         lnf = LogNormalFitter().fit(actuarial_table["t"] + 1e-25, actuarial_table["failed"])
@@ -504,6 +518,8 @@ ax.legend();
 Next we'll plot the bootstrapped data and the two estimates of coverage we achieve conditional on the MLE fit. In other words when we want to assess the coverage of a prediction interval based on our MLE fit we can also bootstrap an estimate for this quantity.
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 mosaic = """AABB
             CCCC"""
 fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(20, 12))
@@ -592,6 +608,8 @@ Next we'll look at a data set which has a slightly less clean parametric fit. Th
 We want to spend some time with this example to show how the *frequentist* techniques which worked well to estimate the shock-absorbers data can be augmented in the case of the Bearing cage data. In particular we'll show how the issues arising can be resolved with a *Bayesian* approach.
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 bearing_cage_df = pd.read_csv(
     StringIO(
         """Hours,Censoring Indicator,Count
@@ -635,8 +653,11 @@ bearing_cage_events = survival_table_from_events(
 bearing_cage_events.rename(
     {"event_at": "t", "observed": "failed", "at_risk": "risk_set"}, axis=1, inplace=True
 )
+```
+
+```{code-cell} ipython3
 actuarial_table_bearings = make_actuarial_table(bearing_cage_events)
-pd.options.display.float_format = "{:.5f}".format
+
 actuarial_table_bearings
 ```
 
@@ -709,11 +730,13 @@ ax = plot_cdfs(
 
 ## Probability Plots: Comparing CDFs in a Restricted Linear Range
 
-With this adjustment to the data format we compare the MLE fit against the empirical CDF. In the next section we'll use the technique of linearising the MLE fits so that can perform a visual "goodness of fit" check. These types of plots rely on a transformation that can be applied to the location and scale distributions to turn their CDF into a linear space.  
+In this section we'll use the technique of linearising the MLE fits so that can perform a visual "goodness of fit" check. These types of plots rely on a transformation that can be applied to the location and scale distributions to turn their CDF into a linear space.  
 
 For both the Lognormal and Weibull fits we can represent their CDF in a linear space as a relationship between the logged value t and an appropriate $CDF^{-1}$.
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 def sev_ppf(p):
     return np.log(-np.log(1 - p))
 
@@ -1158,7 +1181,8 @@ ax2.legend()
 
 The choice of model in such cases is crucial. The decision about which failure profile is apt has to be informed by a subject matter expert because extrapolation from such sparse data is always risky. An understanding of the uncertainty is crucial if real costs attach to the failures and the subject matter expert is usually better placed to tell if you 2 or 7 failures can be plausibly expected within 600 hours of service. 
 
-# Conclusion
+
+## Conclusion
 
 We've seen how to analyse and model reliability from both a frequentist and Bayesian perspective and compare against the non-parametric estimates. We've shown how prediction intervals can be derived for a number of key statistics by both a bootstrapping and a bayesian approach. We've seen approaches to calibrating these prediction intervals through re-sampling methods and informative prior specification. These views on the problem are complementary and the choice of technique which is appropriate should be driven by factors of the questions of interest, not some ideological commitment. 
 
@@ -1168,7 +1192,7 @@ In particular we've seen how the MLE fits to our bearings data provide a decent 
 
 ## Authors
 
-Nathaniel Forde
+* Authored by Nathaniel Forde on 9th of January 2022 ([pymc-examples491](https://github.com/pymc-devs/pymc-examples/pull/491))
 
 +++
 
