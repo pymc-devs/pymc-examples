@@ -503,7 +503,7 @@ $$
 $$
 
 where:  
-+ $B_{i}$ is Bernoulli-distibuted $B_{i} \in \{0_{(inlier)},1_{(outlier)}\}$
++ $B_{i}$ is Bernoulli-distributed $B_{i} \in \{0_{(inlier)},1_{(outlier)}\}$
 + $\mu_{in} = \beta^{T} \vec{x}_{i}$ as before for inliers, where $\beta$ = $\{1, \beta_{j \in X_{j}}\}$  <--- linear coefs in 
 $X_{j}$, in this case `1 + x`
 + $\sigma_{in}$ = noise term <--- in this case we set this to an _unpooled_ $\sigma_{i}$: the measured error `sigma_y` for each datapoint

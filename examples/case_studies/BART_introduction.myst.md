@@ -117,7 +117,7 @@ The following figure shows two samples of $\mu$ from the posterior.
 plt.step(x_data, idata_coal.posterior["μ"].sel(chain=0, draw=[3, 10]).T);
 ```
 
-The next figure shows 3 trees. As we can see these are very simple function and definitely not very good approximators by themselves. Inspecting individuals trees is generally not necessary when working with BART, we are showing them just so we can gain further intuition on the inner workins of BART.
+The next figure shows 3 trees. As we can see these are very simple function and definitely not very good approximators by themselves. Inspecting individuals trees is generally not necessary when working with BART, we are showing them just so we can gain further intuition on the inner workings of BART.
 
 ```{code-cell} ipython3
 bart_trees = μ_.owner.op.all_trees
