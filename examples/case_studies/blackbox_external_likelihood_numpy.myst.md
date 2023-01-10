@@ -368,7 +368,7 @@ with pm.Model() as pymodel:
     theta = pt.as_tensor_variable([m, c])
 
     # use a Normal distribution
-    pm.Normal("likelihood", mu=(m * x + c), sd=sigma, observed=data)
+    y = pm.Normal("likelihood", mu=(m * x + c), sigma=sigma, observed=data)
 
     idata = pm.sample()
 
@@ -431,17 +431,8 @@ grad_vals_2 = test_gradded_op_grad_func([mtrue, ctrue])
 
 print(f'Gradient returned by "LogLikeWithGrad": {grad_vals_2}')
 
-# test the gradient that PyMC uses for the Normal log likelihood
-test_model = pm.Model()
-with test_model:
-    m = pm.Uniform("m", lower=-10.0, upper=10.0)
-    c = pm.Uniform("c", lower=-10.0, upper=10.0)
-
-    pm.Normal("likelihood", mu=(m * x + c), sigma=sigma, observed=data)
-
-    gradfunc = test_model.logp_dlogp_function([m, c], dtype=None)
-    gradfunc.set_extra_values({"m_interval__": mtrue, "c_interval__": ctrue})
-    grad_vals_pymc = gradfunc(np.array([mtrue, ctrue]))[1]  # get dlogp values
+gradfunc = pymodel.compile_dlogp()
+grad_vals_pymc = gradfunc({"m_interval__": mtrue, "c_interval__": ctrue})
 
 print(f'Gradient returned by PyMC "Normal" distribution: {grad_vals_pymc}')
 ```
@@ -454,6 +445,7 @@ We could also do some profiling to compare performance between implementations. 
 
 * Adapted from [Jørgen Midtbø](https://github.com/jorgenem/)'s [example](https://discourse.pymc.io/t/connecting-pymc-to-external-code-help-with-understanding-pytensor-custom-ops/670) by Matt Pitkin both as a [blogpost](http://mattpitkin.github.io/samplers-demo/pages/pymc-blackbox-likelihood/) and as an example notebook to this gallery in August, 2018 ([pymc#3169](https://github.com/pymc-devs/pymc/pull/3169) and [pymc#3177](https://github.com/pymc-devs/pymc/pull/3177))
 * Updated by [Oriol Abril](https://github.com/OriolAbril) on December 2021 to drop the Cython dependency from the original notebook and use numpy instead ([pymc-examples#28](https://github.com/pymc-devs/pymc-examples/pull/28))
+* Re-executed by Oriol Abril with pymc 5.0.0 ([pymc-examples#496](https://github.com/pymc-devs/pymc-examples/pull/496))
 
 +++
 
