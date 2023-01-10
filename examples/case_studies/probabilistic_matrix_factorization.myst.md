@@ -486,7 +486,7 @@ def rmse(test_data, predicted):
 
 ### Training Data vs. Test Data
 
-The next thing we need to do is split our data into a training set and a test set. Matrix factorization techniques use [transductive learning](http://en.wikipedia.org/wiki/Transduction_%28machine_learning%29) rather than inductive learning. So we produce a test set by taking a random sample of the cells in the full $N \times M$ data matrix. The values selected as test samples are replaced with `nan` values in a copy of the original data matrix to produce the training set. Since we'll be producing random splits, let's also write out the train/test sets generated. This will allow us to replicate our results. We'd like to be able to idenfity which split is which, so we'll take a hash of the indices selected for testing and use that to save the data.
+The next thing we need to do is split our data into a training set and a test set. Matrix factorization techniques use [transductive learning](http://en.wikipedia.org/wiki/Transduction_%28machine_learning%29) rather than inductive learning. So we produce a test set by taking a random sample of the cells in the full $N \times M$ data matrix. The values selected as test samples are replaced with `nan` values in a copy of the original data matrix to produce the training set. Since we'll be producing random splits, let's also write out the train/test sets generated. This will allow us to replicate our results. We'd like to be able to identify which split is which, so we'll take a hash of the indices selected for testing and use that to save the data.
 
 ```{code-cell} ipython3
 # Define a function for splitting train/test data.
@@ -668,7 +668,7 @@ pmf.traceplot()
 
 It appears we get convergence of $U$ and $V$ after about the default tuning. When testing for convergence, we also want to see convergence of the particular statistics we are looking for, since different characteristics of the posterior may converge at different rates. Let's also do a traceplot of the RSME. We'll compute RMSE for both the train and the test set, even though the convergence is indicated by RMSE on the training set alone. In addition, let's compute a running RMSE on the train/test sets to see how aggregate performance improves or decreases as we continue to sample.
 
-Notice here that we are sampling from 1 chain only, which makes the convergence statisitcs like $\hat{R}$ impossible (we can still compute the split-rhat but the purpose is different). The reason of not sampling multiple chain is that PMF might not have unique solution. Thus without constraints, the solutions are at best symmetrical, at worse identical under any rotation, in any case subject to label switching. In fact if we sample from multiple chains we will see large $\hat{R}$ indicating the sampler is exploring different solutions in different part of parameter space.
+Notice here that we are sampling from 1 chain only, which makes the convergence statistics like $\hat{R}$ impossible (we can still compute the split-rhat but the purpose is different). The reason of not sampling multiple chain is that PMF might not have unique solution. Thus without constraints, the solutions are at best symmetrical, at worse identical under any rotation, in any case subject to label switching. In fact if we sample from multiple chains we will see large $\hat{R}$ indicating the sampler is exploring different solutions in different part of parameter space.
 
 ```{code-cell} ipython3
 def _running_rmse(pmf_model, test_data, train_data, plot=True):

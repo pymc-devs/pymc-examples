@@ -220,11 +220,11 @@ class CAR(distribution.Continuous):
         self.mode = 0.0
 
     def get_mu(self, x):
-        def weigth_mu(w, a):
+        def weight_mu(w, a):
             a1 = tt.cast(a, "int32")
             return tt.sum(w * x[a1]) / tt.sum(w)
 
-        mu_w, _ = scan(fn=weigth_mu, sequences=[self.w, self.a])
+        mu_w, _ = scan(fn=weight_mu, sequences=[self.w, self.a])
 
         return mu_w
 

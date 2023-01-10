@@ -140,7 +140,7 @@ df.index.name = "play_id"
 
 # Display of main dataframe with some statistics
 print(f"Number of observed plays: {len(df)}")
-print(f"Number of disadvanteged players: {len(disadvantaged)}")
+print(f"Number of disadvantaged players: {len(disadvantaged)}")
 print(f"Number of committing players: {len(committing)}")
 print(f"Global probability of a foul being called: " f"{100*round(df.foul_called.mean(),3)}%\n\n")
 df.head()
