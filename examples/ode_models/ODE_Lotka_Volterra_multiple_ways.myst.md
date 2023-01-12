@@ -4,7 +4,6 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.13.7
 kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
@@ -16,24 +15,23 @@ kernelspec:
 (ODE_Lotka_Volterra_fit_multiple_ways)= 
 # ODE Lotka-Volterra With Bayesian Inference in Multiple Ways
 
-:::{post} December 27, 2022
-:tags: ODE, aesara op, gradient-free inference, aesara scan
-:category: intermediate
-:type: how-to
-:author: Adapted by Greg Brunkhorst from multiple pymc3 example notebooks by Sanmitra Ghosh, Demetri Pananos, and the PyMC Team
+:::{post} January 10, 2023
+:tags: ODE, pytensor op, gradient-free inference, pytensor scan
+:category: intermediate, how-to
+:author: [Greg Brunkhorst]{https://github.com/gbrunkhorst}
 :::
 
 ```{code-cell} ipython3
-import aesara
-import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
+import pytensor
+import pytensor.tensor as pt
 
-from aesara.compile.ops import as_op
 from pymc.ode import DifferentialEquation
+from pytensor.compile.ops import as_op
 from scipy.integrate import odeint
 from scipy.optimize import least_squares
 
@@ -57,7 +55,7 @@ The purpose of this notebook is to demonstrate how to perform Bayesian inference
     * Specification
     * Least Squares Solution
 * Gradient-free Bayesian Inference
-    * Wrap `odeint` in an Aesara operator for use in PyMC
+    * Wrapping `odeint` in a Pytensor operator for use in PyMC
     * Bayesian inference using gradient-free methods
         * Slice Sampler
         * DEMetropolisZ Sampler
@@ -66,21 +64,23 @@ The purpose of this notebook is to demonstrate how to perform Bayesian inference
         * Sequential Monte Carlo (SMC) Sampler
 * Bayesian Inference with Gradients
     * `pymc.ode.DifferentialEquation` specification with the NUTs Sampler
-    * Looping in PyMC with `aesara.scan` and the NUTs Sampler
+    * Looping in PyMC with `Pytensor.scan` and the NUTs Sampler
 ### Key Conclusions
-* Based on the experiments in this notebook, the most simple and efficient method for performing Bayesian inference on the Lotka-Volterra equations was to specify the ODE system in Scipy, wrap the function as an Aesara op, and use a Differential Evolution Metropolis (DEMetropolis) sampler in PyMC.  
+* Based on the experiments in this notebook, the most simple and efficient method for performing Bayesian inference on the Lotka-Volterra equations was to specify the ODE system in Scipy, wrap the function as an Pytensor op, and use a Differential Evolution Metropolis (DEMetropolis) sampler in PyMC.  
 
 +++ {"tags": []}
 
 ## Background
 ### Motivation
-Ordinary differential equation models (ODEs) are used in a variety of science and engineering domains to model the time evolution of physical variables.  A natural choice to estimate the values and uncertainty of model parameters given experimental data is Bayesian inference.  However, ODEs can be challenging to specify and solve in the Bayesian setting, therefore, this notebook steps through multiple methods for solving an ODE inference problem using PyMC. The Lotka-Volterra model used in this example has often been used for benchmarking Bayesian inference methods (e.g., in [Stan](https://mc-stan.org/users/documentation/case-studies/lotka-volterra-predator-prey.html)).
+Ordinary differential equation models (ODEs) are used in a variety of science and engineering domains to model the time evolution of physical variables.  A natural choice to estimate the values and uncertainty of model parameters given experimental data is Bayesian inference.  However, ODEs can be challenging to specify and solve in the Bayesian setting, therefore, this notebook steps through multiple methods for solving an ODE inference problem using PyMC. The Lotka-Volterra model used in this example has often been used for benchmarking Bayesian inference methods (e.g., in [Stan](https://mc-stan.org/users/documentation/case-studies/lotka-volterra-predator-prey.html)).  See also Richard McElraith's discussion of this model in [Statistical Rethinking](http://xcelab.net/rm/statistical-rethinking/), Chapter 16 of the Second Edition.
+
++++ {"tags": []}
 
 ### Lotka-Volterra Predator-Prey Model
 The Lotka-Volterra model describes the interaction between a predator and prey species. This ODE given by:  
 $$
 \begin{aligned}
-\frac{d x}{dt} &=\alpha x -\beta xy \\
+\frac{d x}{dt} &=\alpha x -\beta xy \\ 
 \frac{d y}{dt} &=-\gamma y + \delta xy
 \end{aligned}
 $$
@@ -127,7 +127,7 @@ def plot_data(ax, lw=2, title="Hudson's Bay Company Data"):
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(9, 4))
+fig, ax = plt.subplots(figsize=(7, 4))
 plot_data(ax);
 ```
 
@@ -166,6 +166,7 @@ def plot_model(
     lw=3,
     title="Hudson's Bay Company Data and\nExample Model Run",
 ):
+
     ax.plot(time, x_y[:, 1], color="b", alpha=alpha, lw=lw, label="Lynx (Model)")
     ax.plot(time, x_y[:, 0], color="g", alpha=alpha, lw=lw, label="Hare (Model)")
     ax.legend(fontsize=14, loc="center left", bbox_to_anchor=(1, 0.5))
@@ -182,7 +183,7 @@ time = np.arange(1900, 1921, 0.01)
 x_y = odeint(func=rhs, y0=theta[-2:], t=time, args=(theta,))
 
 # plot
-fig, ax = plt.subplots(figsize=(9, 4))
+fig, ax = plt.subplots(figsize=(7, 4))
 plot_data(ax, lw=0)
 plot_model(ax, x_y);
 ```
@@ -225,7 +226,7 @@ Plot
 time = np.arange(1900, 1921, 0.01)
 theta = results.x
 x_y = odeint(func=rhs, y0=theta[-2:], t=time, args=(theta,))
-fig, ax = plt.subplots(figsize=(9, 4))
+fig, ax = plt.subplots(figsize=(7, 4))
 plot_data(ax, lw=0)
 plot_model(ax, x_y, title="Least Squares Solution");
 ```
@@ -238,17 +239,17 @@ Looks right.  If we didn't care about uncertainty, then we would be done.  But w
 
 +++
 
-Like other Numpy or Scipy-based functions, the `scipy.integrate.odeint` function cannot be used directly in a PyMC model because PyMC needs to know the variable input and output types to compile.  Therefore, we use an Aesara wrapper to give the variable types to PyMC.  Then the function can be used in PyMC in conjunction with gradient-free samplers.   
+Like other Numpy or Scipy-based functions, the `scipy.integrate.odeint` function cannot be used directly in a PyMC model because PyMC needs to know the variable input and output types to compile.  Therefore, we use a Pytensor wrapper to give the variable types to PyMC.  Then the function can be used in PyMC in conjunction with gradient-free samplers.   
 
 +++
 
-### Convert Python Function to an Aesara Operator using @as_op decorator
-We tell PyMC the input variable types and the output variable types using the `@as_op` decorator.  `odeint` returns Numpy arrays, but we tell PyMC that they are Aesara double float tensors for this purpose.  
+### Convert Python Function to a Pytensor Operator using @as_op decorator
+We tell PyMC the input variable types and the output variable types using the `@as_op` decorator.  `odeint` returns Numpy arrays, but we tell PyMC that they are Pytensor double float tensors for this purpose.  
 
 ```{code-cell} ipython3
-# decorator with input and output types as aesara double float tensors
-@as_op(itypes=[at.dvector], otypes=[at.dmatrix])
-def aesara_forward_model_matrix(theta):
+# decorator with input and output types a Pytensor double float tensors
+@as_op(itypes=[pt.dvector], otypes=[pt.dmatrix])
+def pytensor_forward_model_matrix(theta):
     return odeint(func=rhs, y0=theta[-2:], t=data.year, args=(theta,))
 ```
 
@@ -273,7 +274,9 @@ with pm.Model() as model:
     sigma = pm.TruncatedNormal("sigma", mu=10, sigma=10, lower=0)
 
     # Ode solution function
-    ode_solution = aesara_forward_model_matrix(pm.math.stack(alpha, beta, gamma, delta, xt0, yt0))
+    ode_solution = pytensor_forward_model_matrix(
+        pm.math.stack([alpha, beta, gamma, delta, xt0, yt0])
+    )
 
     # Likelihood
     pm.Normal("Y_obs", mu=ode_solution, sigma=sigma, observed=data[["hare", "lynx"]].values)
@@ -326,7 +329,7 @@ Having good gradient free samplers can open up the models that can be fit within
 
 Let's give them a shot.
 
-A few notes on running these inferences.  For each sampler, the number of tuning steps and draws have been reduced to run the inference in a reasonable amount of time (on the order of minutes).  This is not a sufficient number of draws to get a good inferences, in some cases, but it works for demonstration purposes.  In addition, multicore processing was not working for the aesara op function on all machines, so inference is performed on one core.         
+A few notes on running these inferences.  For each sampler, the number of tuning steps and draws have been reduced to run the inference in a reasonable amount of time (on the order of minutes).  This is not a sufficient number of draws to get a good inferences, in some cases, but it works for demonstration purposes.  In addition, multicore processing was not working for the Pytensor op function on all machines, so inference is performed on one core.         
 
 +++
 
@@ -355,7 +358,7 @@ plt.suptitle(f"Trace Plot {sampler}");
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(9, 4))
+fig, ax = plt.subplots(figsize=(7, 4))
 plot_inference(ax, trace, title=f"Data and Inference Model Runs\n{sampler} Sampler");
 ```
 
@@ -427,7 +430,7 @@ plt.suptitle(f"Trace Plot {sampler} - Burn-in Removed");
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(9, 4))
+fig, ax = plt.subplots(figsize=(7, 4))
 plot_inference(ax, trace, title=f"Data and Inference Model Runs\n{sampler} Sampler");
 ```
 
@@ -453,7 +456,7 @@ plt.suptitle(f"Trace Plot {sampler}");
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(9, 4))
+fig, ax = plt.subplots(figsize=(7, 4))
 plot_inference(ax, trace, title=f"Data and Inference Model Runs\n{sampler} Sampler");
 ```
 
@@ -487,7 +490,7 @@ plt.suptitle(f"Trace Plot {sampler}");
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(9, 4))
+fig, ax = plt.subplots(figsize=(7, 4))
 plot_inference(ax, trace, title=f"Data and Inference Model Runs\n{sampler} Sampler");
 ```
 
@@ -500,7 +503,7 @@ At this number of samples and tuning scheme, the SMC algorithm results in wider 
 
 +++
 
-As outlined in the SMC tutorial on PyMC.io, the SMC sampler is often combined with a `pm.Simulator` function rather than an aesara op.  Here is a rewrite of the PyMC - odeint model for the SMC sampler.
+As outlined in the SMC tutorial on PyMC.io, the SMC sampler is often combined with a `pm.Simulator` function rather than a Pytensor op.  Here is a rewrite of the PyMC - odeint model for the SMC sampler.
 
 The simulator function needs to have the correct signature (e.g., accept an rng argument first).  
 
@@ -550,7 +553,7 @@ plt.suptitle(f"Trace Plot {sampler}");
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(9, 4))
+fig, ax = plt.subplots(figsize=(7, 4))
 plot_inference(ax, trace, title=f"Data and Inference Model Runs\n{sampler} Sampler");
 ```
 
@@ -596,7 +599,7 @@ plt.suptitle(f"Trace Plot {sampler}");
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(9, 4))
+fig, ax = plt.subplots(figsize=(7, 4))
 plot_inference(ax, trace, title=f"Data and Inference Model Runs\n{sampler} Sampler");
 ```
 
@@ -621,7 +624,7 @@ The major observation here is that the posterior shape is pretty difficult for a
 
 +++
 
-The PyMC default NUTs sampler can only be used if gradients are supplied to the sampler.  In this section, we will solve the system of ODEs within PyMC in two different ways that supply the sampler with gradients.  The first is the built-in `pymc.ode.DifferentialEquation` solver, and the second is to forward simulate using `aesara.scan`, which allows looping.  Note that there may be other better and faster ways to perform Bayesian inference with ODEs using gradients, such as the [sunode](https://sunode.readthedocs.io/en/latest/index.html) project.      
+The PyMC default NUTs sampler can only be used if gradients are supplied to the sampler.  In this section, we will solve the system of ODEs within PyMC in two different ways that supply the sampler with gradients.  The first is the built-in `pymc.ode.DifferentialEquation` solver, and the second is to forward simulate using `pytensor.scan`, which allows looping.  Note that there may be other better and faster ways to perform Bayesian inference with ODEs using gradients, such as the [sunode](https://sunode.readthedocs.io/en/latest/index.html) project, and [diffrax](https://www.pymc-labs.io/blog-posts/jax-functions-in-pymc-3-quick-examples/), which relies on JAX.
 
 +++
 
@@ -683,7 +686,7 @@ with pm.Model() as model:
 
 ```{code-cell} ipython3
 sampler = "NUTs PyMC ODE"
-tune = draws = 15
+tune = draws = 25
 with model:
     trace_pymc_ode = pm.sample(tune=tune, draws=draws)
 ```
@@ -708,11 +711,11 @@ Despite a paucity of samples, the NUTs sampler is starting to converge to the co
 
 +++
 
-### Simulate with Aesara Scan
+### Simulate with Pytensor Scan
 
 +++
 
-Finally, we can write the system of ODEs as a forward simulation solver within PyMC.  The way to write for-loops in PyMC is with `aesara.scan.`  Gradients are then supplied to the sampler via autodifferentiation.    
+Finally, we can write the system of ODEs as a forward simulation solver within PyMC.  The way to write for-loops in PyMC is with `pytensor.scan.`  Gradients are then supplied to the sampler via autodifferentiation.    
 
 First, we should test that the time steps are sufficiently small to get a reasonable estimate.  
 
@@ -722,7 +725,7 @@ First, we should test that the time steps are sufficiently small to get a reason
 
 +++
 
-Create a function that accepts different numbers of time steps for testing.  The function also demonstrates how `aesara.scan` is used.  
+Create a function that accepts different numbers of time steps for testing.  The function also demonstrates how `pytensor.scan` is used.  
 
 ```{code-cell} ipython3
 # Lotka-Volterra forward simulation model using scan
@@ -750,9 +753,9 @@ def lv_scan_simulation_model(theta, steps_year=100, years=21):
             y_new = y + (-gamma * y + delta * x * y) * dt
             return x_new, y_new
 
-        # Aesara scan looping function
+        # Pytensor scan looping function
         ## The function argument names are not intuitive in this context!
-        result, updates = aesara.scan(
+        result, updates = pytensor.scan(
             fn=ode_update_function,  # function
             outputs_info=[xt0, yt0],  # initial conditions
             non_sequences=[alpha, beta, gamma, delta],  # parameters
@@ -821,8 +824,8 @@ def lv_scan_inference_model(theta, steps_year=100, years=21):
             y_new = y + (-gamma * y + delta * x * y) * dt
             return x_new, y_new
 
-        # Aesara scan is a looping function
-        result, updates = aesara.scan(
+        # Pytensor scan is a looping function
+        result, updates = pytensor.scan(
             fn=ode_update_function,  # function
             outputs_info=[xt0, yt0],  # initial conditions
             non_sequences=[alpha, beta, gamma, delta],  # parameters
@@ -844,14 +847,14 @@ This is also quite slow, so we will just pull a few samples for demonstration pu
 ```{code-cell} ipython3
 steps_year = 100
 model = lv_scan_inference_model(theta, steps_year=steps_year)
-sampler = "NUTs Aesara Scan"
+sampler = "NUTs Pytensor Scan"
 tune = draws = 50
 with model:
-    trace_aesara_scan = pm.sample(tune=tune, draws=draws)
+    trace_scan = pm.sample(tune=tune, draws=draws)
 ```
 
 ```{code-cell} ipython3
-trace = trace_aesara_scan
+trace = trace_scan
 az.summary(trace)
 ```
 
@@ -894,7 +897,7 @@ inference_results = [
     trace_SMC_e1,
     trace_SMC_e10,
     trace_pymc_ode,
-    trace_aesara_scan,
+    trace_scan,
 ]
 model_names = [
     "Slice Sampler",
@@ -905,7 +908,7 @@ model_names = [
     "SMC e=1",
     "SMC e=10",
     "PyMC ODE NUTs",
-    "Aesara Scan NUTs",
+    "Pytensor Scan NUTs",
 ]
 
 # Loop through variable names
@@ -940,17 +943,17 @@ If we ran the samplers for long enough to get good inferences, we would expect t
 
 ### Key Conclusions
 We performed Bayesian inference on a system of ODEs in 4 main ways: 
-* Scipy `odeint` wrapped in an aesara `op` and sampled with non-gradient-based samplers (comparing 5 different samplers).  
+* Scipy `odeint` wrapped in a Pytensor `op` and sampled with non-gradient-based samplers (comparing 5 different samplers).  
 * Scipy `odeint` wrapped in a `pm.Simulator` function and sampled with a non-likelihood-based sequential Monte Carlo (SMC) sampler.  
 * PyMC `ode.DifferentialEquation` sampled with NUTs.  
-* Forward simulation using `aesara.scan` and sampled with NUTs.  
+* Forward simulation using `pytensor.scan` and sampled with NUTs.  
 
-The "winner" for this problem was the Scipy `odeint` solver with a differential evolution (DE) Metropolis sampler.  The improved efficiency of the NUTs sampler did not make up for the inefficiency in using the slow ODE solvers with gradients.  Sticking with Scipy and DEMetropolis is also the simplest workflow for a scientist with a working numeric model and the desire to perform Bayesian inference.  Just wrapping the numeric model in an aesara op and plugging it into a PyMC model can get you a long way!  
+The "winner" for this problem was the Scipy `odeint` solver with a differential evolution (DE) Metropolis sampler.  The improved efficiency of the NUTs sampler did not make up for the inefficiency in using the slow ODE solvers with gradients.  Sticking with Scipy and DEMetropolis is also the simplest workflow for a scientist with a working numeric model and the desire to perform Bayesian inference.  Just wrapping the numeric model in a Pytensor op and plugging it into a PyMC model can get you a long way!  
 
 +++
 
 ## Authors
-Adapted by Greg Brunkhorst from multiple PyMC.io example notebooks by Sanmitra Ghosh, Demetri Pananos, and the PyMC Team.
+Organized and rewritten by Greg Brunkhorst from multiple PyMC.io example notebooks by Sanmitra Ghosh, Demetri Pananos, and the PyMC Team.
 
 ```{code-cell} ipython3
 %watermark -n -u -v -iv -w
@@ -958,7 +961,3 @@ Adapted by Greg Brunkhorst from multiple PyMC.io example notebooks by Sanmitra G
 
 :::{include} ../page_footer.md
 :::
-
-```{code-cell} ipython3
-
-```
