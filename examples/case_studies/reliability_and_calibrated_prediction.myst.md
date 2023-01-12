@@ -1082,7 +1082,7 @@ print("Upper Bound 95% PI:", binom(1700, rho).ppf(0.95))
 
 ### Applying the Same Procedure on the Bayesian Posterior
 
-We'll use the posterior predictive distribution of the uniformative model. We show here how to derive the uncertainty in the estimates of the 95% prediction interval for the number of failures in a time interval.
+We'll use the posterior predictive distribution of the uniformative model. We show here how to derive the uncertainty in the estimates of the 95% prediction interval for the number of failures in a time interval. As we saw above the MLE alternative to this procedure is to generate a predictive distribution from bootstrap sampling. The bootstrap procedure tends to agree with the plug-in procedure using the MLE estimates and lacks the flexibility of specifying prior information.
 
 ```{code-cell} ipython3
 def PI_failures(joint_draws, lp, up, n_at_risk):
