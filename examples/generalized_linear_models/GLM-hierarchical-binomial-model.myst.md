@@ -5,13 +5,13 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3.9.7 ('base')
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
 
 # Hierarchical Binomial Model: Rat Tumor Example
-:::{post} Nov 11, 2021
+:::{post} Jan 10, 2023
 :tags: generalized linear model, hierarchical model 
 :category: intermediate
 :author: Demetri Pananos, Junpeng Lao, Raúl Maldonado, Farhan Reynaldo
@@ -268,6 +268,7 @@ Analytically calculating statistics for posterior distributions is difficult if 
 * Adapted from chapter 5 of Bayesian Data Analysis 3rd Edition {cite:p}`gelman2013bayesian` by Demetri Pananos and Junpeng Lao ([pymc#3054](https://github.com/pymc-devs/pymc/pull/3054))
 * Updated and reexecuted by Raúl Maldonado ([pymc-examples#24](https://github.com/pymc-devs/pymc-examples/pull/24), [pymc-examples#45](https://github.com/pymc-devs/pymc-examples/pull/45) and [pymc-examples#147](https://github.com/pymc-devs/pymc-examples/pull/147))
 * Updated and reexecuted by Farhan Reynaldo in November 2021 ([pymc-examples#248](https://github.com/pymc-devs/pymc-examples/pull/248))
+* Rerun with PyMC v5, by Reshama Shaikh, January 2023
 
 +++
 
