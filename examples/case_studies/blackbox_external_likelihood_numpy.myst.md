@@ -412,29 +412,14 @@ az.plot_pair(idata, **pair_kwargs, ax=ax);
 We can now check that the gradient Op works as expected. First, just create and call the `LogLikeGrad` class, which should return the gradient directly (note that we have to create a [PyTensor function](http://deeplearning.net/software/pytensor/library/compile/function.html) to convert the output of the Op to an array). Secondly, we call the gradient from `LogLikeWithGrad` by using the [PyTensor tensor gradient](http://deeplearning.net/software/pytensor/library/gradient.html#pytensor.gradient.grad) function. Finally, we will check the gradient returned by the PyMC model for a Normal distribution, which should be the same as the log-likelihood function we defined. In all cases we evaluate the gradients at the true values of the model function (the straight line) that was created.
 
 ```{code-cell} ipython3
-# test the gradient Op by direct call
-pytensor.config.compute_test_value = "ignore"
-pytensor.config.exception_verbosity = "high"
+ip = pymodel.initial_point()
+print(f"Evaluating dlogp of model at point\n    {ip}")
 
-var = pt.dvector()
-test_grad_op = LogLikeGrad(data, x, sigma)
-test_grad_op_func = pytensor.function([var], test_grad_op(var))
-grad_vals = test_grad_op_func([mtrue, ctrue])
+grad_vals_custom = opmodel.compile_dlogp()(ip)
+grad_vals_pymc = pymodel.compile_dlogp()(ip)
 
-print(f'Gradient returned by "LogLikeGrad": {grad_vals}')
-
-# test the gradient called through LogLikeWithGrad
-test_gradded_op = LogLikeWithGrad(my_loglike, data, x, sigma)
-test_gradded_op_grad = pt.grad(test_gradded_op(var), var)
-test_gradded_op_grad_func = pytensor.function([var], test_gradded_op_grad)
-grad_vals_2 = test_gradded_op_grad_func([mtrue, ctrue])
-
-print(f'Gradient returned by "LogLikeWithGrad": {grad_vals_2}')
-
-gradfunc = pymodel.compile_dlogp()
-grad_vals_pymc = gradfunc({"m_interval__": mtrue, "c_interval__": ctrue})
-
-print(f'Gradient returned by PyMC "Normal" distribution: {grad_vals_pymc}')
+print(f'\nGradient of model using a custom "LogLikeWithGrad":\n    {grad_vals_custom}')
+print(f'Gradient of model using a PyMC "Normal" distribution:\n    {grad_vals_pymc}')
 ```
 
 We could also do some profiling to compare performance between implementations. The {ref}`profiling` notebook shows how to do it.
