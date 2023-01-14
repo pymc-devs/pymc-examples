@@ -6,9 +6,9 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: pymc
+  display_name: Python 3 (ipykernel)
   language: python
-  name: pymc
+  name: python3
 ---
 
 # Using ModelBuilder class for deploying PyMC models 
@@ -212,8 +212,7 @@ Now we create a new model named `model_2` which is same as `model` but instead o
 data, model_config, sampler_config = LinearModel.create_sample_input()
 model_2 = LinearModel(model_config, sampler_config, data)
 # loading
-new_idata = LinearModel.load(fname)
-model_2.idata = new_idata
+model_2.idata = model_2.load(fname)
 ```
 
 The `predict()` method allows users to do a posterior predcit with the fitted model on new data.<br>
@@ -229,7 +228,7 @@ Now we predict with `model_2` and save the mean and samples in `pred_mean` and `
 ```{code-cell} ipython3
 pred_mean = model_2.predict(prediction_data)
 # samples
-pred_samples = model_2.predict(prediction_data, point_estimate=False)
+pred_samples = model_2.predict_posterior(prediction_data)
 ```
 
 After using the `predict()`, we can plot our data and see graphically how satisfactory our `LinearModel` is
@@ -251,8 +250,4 @@ plt.ylabel("y");
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w
-```
-
-```{code-cell} ipython3
-
 ```
