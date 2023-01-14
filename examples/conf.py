@@ -42,6 +42,7 @@ exclude_patterns = [
     "**/.ipynb_checkpoints/*",
     "extra_installs.md",
     "page_footer.md",
+    "**/*.myst.md",
 ]
 
 
@@ -112,36 +113,13 @@ def setup(app: Sphinx):
 # a list of builtin themes.
 
 # theme options
-html_theme = "pydata_sphinx_theme"
+html_theme = "pymc_sphinx_theme"
 html_theme_options = {
-    "icon_links": [
-        {
-            "name": "GitHub",
-            "url": "https://github.com/pymc-devs/pymc-examples",
-            "icon": "fab fa-github-square",
-        },
-        {
-            "name": "Twitter",
-            "url": "https://twitter.com/pymc_devs",
-            "icon": "fab fa-twitter-square",
-        },
-        {
-            "name": "YouTube",
-            "url": "https://www.youtube.com/c/PyMCDevelopers",
-            "icon": "fab fa-youtube",
-        },
-        {
-            "name": "Discourse",
-            "url": "https://discourse.pymc.io",
-            "icon": "fab fa-discourse",
-        },
-    ],
-    "logo_link": "https://www.pymc.io",
-    "search_bar_text": "Search...",
-    "navbar_end": ["search-field.html", "navbar-icon-links.html"],
-    "page_sidebar_items": ["postcard", "page-toc", "edit-this-page", "donate"],
-    "google_analytics_id": "G-6KPRBTE6WV",
-    "logo_link": "https://www.pymc.io",
+    "secondary_sidebar_items": ["postcard", "page-toc", "edit-this-page", "sourcelink", "donate"],
+    "navbar_start": ["navbar-logo"],
+    "logo": {
+        "link": "https://www.pymc.io",
+    },
 }
 version = os.environ.get("READTHEDOCS_VERSION", "")
 version = version if "." in version else "main"
@@ -168,7 +146,6 @@ html_title = "PyMC example gallery"
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["../_static"]
 html_extra_path = ["../_thumbnails"]
-html_css_files = ["custom.css"]
 templates_path = ["../_templates"]
 html_sidebars = {
     "**": [
@@ -198,7 +175,7 @@ myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "amsmath", "su
 citation_code = f"""
 ```bibtex
 @incollection{{citekey,
-  author    = "<notebook authors, see above>"
+  author    = "<notebook authors, see above>",
   title     = "<notebook title>",
   editor    = "PyMC Team",
   booktitle = "PyMC examples",
@@ -214,7 +191,7 @@ myst_substitutions = {
     "extra_install_notes": "",
     "citation_code": citation_code,
 }
-jupyter_execute_notebooks = "off"
+nb_execution_mode = "off"
 
 rediraffe_redirects = {
     "index.md": "gallery.md",
@@ -222,6 +199,7 @@ rediraffe_redirects = {
 remove_from_toctrees = [
     "BART/*",
     "case_studies/*",
+    "causal_inference/*",
     "diagnostics_and_criticism/*",
     "gaussian_processes/*",
     "generalized_linear_models/*",
@@ -248,15 +226,15 @@ codeautolink_concat_default = True
 
 # intersphinx mappings
 intersphinx_mapping = {
-    "aesara": ("https://aesara.readthedocs.io/en/latest/", None),
     "arviz": ("https://python.arviz.org/en/latest/", None),
-    "bambi": ("https://bambinos.github.io/bambi/main", None),
+    "bambi": ("https://bambinos.github.io/bambi", None),
     "einstats": ("https://einstats.python.arviz.org/en/latest/", None),
     "mpl": ("https://matplotlib.org/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
     "pymc": ("https://www.pymc.io/projects/docs/en/stable/", None),
+    "pytensor": ("https://pytensor.readthedocs.io/en/latest/", None),
     "pmx": ("https://www.pymc.io/projects/experimental/en/latest/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
-    "xarray": ("http://docs.xarray.dev/en/stable/", None),
+    "xarray": ("https://docs.xarray.dev/en/stable/", None),
 }

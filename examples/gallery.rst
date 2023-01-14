@@ -13,37 +13,37 @@ Core notebooks
    :gutter: 4
 
    .. grid-item-card:: Introductory Overview of PyMC
-      :img-top: https://raw.githubusercontent.com/pymc-devs/brand/main/logos/PyMC_square.svg
+      :img-top: https://raw.githubusercontent.com/pymc-devs/brand/main/pymc/pymc_logos/PyMC_square.svg
       :link: pymc:pymc_overview
       :link-type: ref
       :shadow: none
 
    .. grid-item-card:: GLM: Linear regression
-      :img-top: https://raw.githubusercontent.com/pymc-devs/brand/main/logos/PyMC_square.svg
+      :img-top: https://raw.githubusercontent.com/pymc-devs/brand/main/pymc/pymc_logos/PyMC_square.svg
       :link: pymc:GLM_linear
       :link-type: ref
       :shadow: none
 
    .. grid-item-card:: Model Comparison
-      :img-top: https://raw.githubusercontent.com/pymc-devs/brand/main/logos/PyMC_square.svg
+      :img-top: https://raw.githubusercontent.com/pymc-devs/brand/main/pymc/pymc_logos/PyMC_square.svg
       :link: pymc:model_comparison
       :link-type: ref
       :shadow: none
 
    .. grid-item-card:: Prior and Posterior Predictive Checks
-      :img-top: https://raw.githubusercontent.com/pymc-devs/brand/main/logos/PyMC_square.svg
+      :img-top: https://raw.githubusercontent.com/pymc-devs/brand/main/pymc/pymc_logos/PyMC_square.svg
       :link: pymc:posterior_predictive
       :link-type: ref
       :shadow: none
 
    .. grid-item-card:: Distribution Dimensionality
-      :img-top: https://raw.githubusercontent.com/pymc-devs/brand/main/logos/PyMC_square.svg
+      :img-top: https://raw.githubusercontent.com/pymc-devs/brand/main/pymc/pymc_logos/PyMC_square.svg
       :link: pymc:dimensionality
       :link-type: ref
       :shadow: none
 
    .. grid-item-card:: PyMC and Aesara
-      :img-top: https://raw.githubusercontent.com/pymc-devs/brand/main/logos/PyMC_square.svg
+      :img-top: https://raw.githubusercontent.com/pymc-devs/brand/main/pymc/pymc_logos/PyMC_square.svg
       :link: pymc:pymc_aesara
       :link-type: ref
       :shadow: none
