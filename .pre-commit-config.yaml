@@ -1,10 +1,4 @@
 repos:
-- repo: https://github.com/mwouts/jupytext
-  rev: v1.13.7
-  hooks:
-  - id: jupytext
-    files: ^examples/.+\.ipynb$
-    args: ["--sync"]
 - repo: https://github.com/psf/black
   rev: 22.3.0
   hooks:
@@ -36,7 +30,6 @@ repos:
             |examples/gaussian_processes/GP-TProcess\.ipynb$
             |examples/mixture_models/dependent_density_regression\.ipynb$
             |examples/gaussian_processes/GP-Heteroskedastic\.ipynb$
-            |examples/gaussian_processes/GP-MeansAndCovs\.ipynb$
             |examples/samplers/MLDA_variance_reduction_linear_regression\.ipynb$
 
 - repo: https://github.com/FlamingTempura/bibtex-tidy
@@ -54,11 +47,17 @@ repos:
       minimum_pre_commit_version: 2.8.0
       name: Check notebooks have watermark (see Jupyter style guide from PyMC docs)
       types: [jupyter]
-    - id: no-internal-links
-      name: Check no internal links are in the docs
+    - id: notebook_name
+      entry: '\(notebook_name\)='
+      language: pygrep
+      minimum_pre_commit_version: 2.8.0
+      name: Check notebooks do not use literally notebook_name as target
+      types: [jupyter]
+    - id: no-references-as-links
+      name: Check no references that should be sphinx cross-references are urls
       description: >-
-        'A quick check to prevent urls pointing to pymc docs'
-      files: ^examples/
+        'A quick check to prevent urls pointing to pymc docs or other sphinx built docs like arviz, numpy, scipy...'
+      files: ^examples/.+\.ipynb$
       exclude: >
           (?x)(index.md|
                404.md|
@@ -68,12 +67,10 @@ repos:
                examples/case_studies/blackbox_external_likelihood.ipynb|
                examples/case_studies/blackbox_external_likelihood_numpy.ipynb|
                examples/case_studies/item_response_nba.ipynb|
-               examples/diagnostics_and_criticism/sampler-stats.ipynb|
                examples/gaussian_processes/GP-MaunaLoa2.ipynb|
                examples/generalized_linear_models/GLM-logistic.ipynb|
                examples/generalized_linear_models/GLM-out-of-sample-predictions.ipynb|
                examples/generalized_linear_models/GLM-poisson-regression.ipynb|
-               examples/generalized_linear_models/GLM-robust.ipynb|
                examples/generalized_linear_models/GLM-rolling-regression.ipynb|
                examples/generalized_linear_models/GLM-simpsons-paradox.ipynb|
                examples/howto/api_quickstart.ipynb|
@@ -86,8 +83,6 @@ repos:
                examples/howto/custom_distribution.ipynb)
       entry: >
           (?x)(arviz-devs.github.io|
-               aesara.readthedocs.io|
-               aeppl.readthedocs.io|
                pymc-experimental.readthedocs.io|
                docs.pymc.io|
                numpy.org/doc|
@@ -95,6 +90,7 @@ repos:
                docs.python.org|
                xarray.pydata.org
                python.arviz.org|
+               pytensor.readthedocs.io|
                docs.xarray.dev|
                www.pymc.io|
                docs.scipy.org/doc)
@@ -105,10 +101,4 @@ repos:
   hooks:
   - id: jupytext
     files: ^examples/.+\.ipynb$
-    args: ["--sync"]
-- repo: https://github.com/codespell-project/codespell
-  rev: v2.1.0
-  hooks:
-  - id: codespell
-    files: myst_nbs/
-    args: ["--write-changes", "--ignore-words-list", "hist,fpr,fro,lik", "--uri-ignore-words-list", "*"]
+    args: [--from, ipynb, --to, ".myst.md:myst"]

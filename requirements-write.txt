@@ -1,6 +1,6 @@
 jupyterlab
 notebook
-pymc3
+pymc
 black
 codespell
 ipython
