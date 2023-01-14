@@ -5,10 +5,12 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pie
+  display_name: Python 3
   language: python
   name: python3
 ---
+
+(variational_api_quickstart)=
 
 # Introduction to Variational Inference with PyMC
 
@@ -20,6 +22,12 @@ In PyMC, the variational inference API is focused on approximating posterior dis
 * Conducting Monte Carlo approximation of expectation, variance, and other statistics
 * Removing symbolic dependence on PyMC random nodes and evaluate expressions (using `eval`)
 * Providing a bridge to arbitrary PyTensor code
+
+:::{post} Jan 13, 2023 
+:tags: variational inference
+:category: intermediate, how-to
+:author: Maxim Kochurov, Chris Fonnesbeck
+:::
 
 ```{code-cell} ipython3
 %matplotlib inline
@@ -400,7 +408,7 @@ with pm.Model() as iris_model:
 ```
 
 ### Applying replacements in practice
-PyMC3 models have symbolic inputs for latent variables. To evaluate an expression that requires knowledge of latent variables, one needs to provide fixed values. We can use values approximated by VI for this purpose. The function `sample_node` removes the symbolic dependencies. 
+PyMC models have symbolic inputs for latent variables. To evaluate an expression that requires knowledge of latent variables, one needs to provide fixed values. We can use values approximated by VI for this purpose. The function `sample_node` removes the symbolic dependencies. 
 
 `sample_node` will use the whole distribution at each step, so we will use it here. We can apply more replacements in single function call using the `more_replacements` keyword argument in both replacement functions.
 
@@ -529,7 +537,7 @@ Now let's use minibatches. At every iteration, we will draw 500 random values:
 
 > Remember to set `total_size` in observed
 
-**total_size** is an important parameter that allows pymc3 to infer the right way of rescaling densities. If it is not set, you are likely to get completely wrong results. For more information please refer to the comprehensive documentation of `pm.Minibatch`.
+**total_size** is an important parameter that allows PyMC to infer the right way of rescaling densities. If it is not set, you are likely to get completely wrong results. For more information please refer to the comprehensive documentation of `pm.Minibatch`.
 
 ```{code-cell} ipython3
 X = pm.Minibatch(data, batch_size=500)
@@ -557,6 +565,13 @@ Here is the docstring for `Minibatch` to illustrate how it can be customized.
 ```{code-cell} ipython3
 print(pm.Minibatch.__doc__)
 ```
+
+## Authors
+
+* Authored by Maxim Kochurov
+* Updated by Chris Fonnesbeck ([pymc-examples#429](https://github.com/pymc-devs/pymc-examples/pull/497))
+
+## Watermark
 
 ```{code-cell} ipython3
 %load_ext watermark
