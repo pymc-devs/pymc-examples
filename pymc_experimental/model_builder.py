@@ -186,8 +186,6 @@ class ModelBuilder(pm.Model):
         filepath = Path(str(fname))
         data = az.from_netcdf(filepath)
         idata = data
-        # Since there is an issue with attrs getting saved in netcdf format which will be fixed in future the following part of code is commented
-        # Link of issue -> https://github.com/arviz-devs/arviz/issues/2109
         if idata.attrs is not None:
             if self.id() == idata.attrs["id"]:
                 self.idata = idata
