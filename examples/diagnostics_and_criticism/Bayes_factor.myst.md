@@ -212,7 +212,7 @@ for alpha, beta in priors:
     with pm.Model() as model:
         a = pm.Beta("a", alpha, beta)
         yl = pm.Bernoulli("yl", a, observed=y)
-        idata = pm.sample_smc(random_seed=42, progressbar=False)
+        idata = pm.sample_smc(random_seed=42)
         models.append(model)
         idatas.append(idata)
 ```
@@ -333,7 +333,7 @@ az.plot_bf(idata_conc, var_name="a", ref_val=0.5);
 * Updated by Osvaldo Martin in August, 2018 ([pymc#3124](https://github.com/pymc-devs/pymc/pull/3124))
 * Updated by Osvaldo Martin in May, 2022 ([pymc-examples#342](https://github.com/pymc-devs/pymc-examples/pull/342))
 * Updated by Osvaldo Martin in Nov, 2022
-* Updated by Reshama Shaikh: ran PyMC v5 in Jan, 2023
+* Re-executed by Reshama Shaikh with PyMC v5 in Jan, 2023
 
 +++
 
@@ -352,7 +352,7 @@ Wagenmakers2010
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w
+%watermark -n -u -v -iv -w -p pytensor
 ```
 
 :::{include} ../page_footer.md
