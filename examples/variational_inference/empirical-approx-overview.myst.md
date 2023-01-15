@@ -5,32 +5,40 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python PyMC3 (Dev)
+  display_name: pie
   language: python
-  name: pymc3-dev-py38
+  name: python3
 ---
+
+(empirical-approx-overview)=
 
 # Empirical Approximation overview
 
-For most models we use sampling MCMC algorithms like Metropolis or NUTS. In PyMC3 we got used to store traces of MCMC samples and then do analysis using them. There is a similar concept for the variational inference submodule in PyMC3: *Empirical*. This type of approximation stores particles for the SVGD sampler. There is no difference between independent SVGD particles and MCMC samples. *Empirical* acts as a bridge between MCMC sampling output and full-fledged VI utils like `apply_replacements` or `sample_node`. For the interface description, see [variational_api_quickstart](variational_api_quickstart.ipynb). Here we will just focus on `Emprical` and give an overview of specific things for the *Empirical* approximation
+For most models we use sampling MCMC algorithms like Metropolis or NUTS. In PyMC we got used to store traces of MCMC samples and then do analysis using them. There is a similar concept for the variational inference submodule in PyMC: *Empirical*. This type of approximation stores particles for the SVGD sampler. There is no difference between independent SVGD particles and MCMC samples. *Empirical* acts as a bridge between MCMC sampling output and full-fledged VI utils like `apply_replacements` or `sample_node`. For the interface description, see [variational_api_quickstart](variational_api_quickstart.ipynb). Here we will just focus on `Emprical` and give an overview of specific things for the *Empirical* approximation.
+
+:::{post} Jan 13, 2023 
+:tags: variational inference, approximation
+:category: advaned, how-to
+:author: Maxim Kochurov, Raul Maldonado, Chris Fonnesbeck
+:::
 
 ```{code-cell} ipython3
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano
+import pymc as pm
+import pytensor
+import seaborn as sns
 
 from pandas import DataFrame
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
 az.style.use("arviz-darkgrid")
 np.random.seed(42)
-pm.set_tt_rng(42)
 ```
 
 ## Multimodal density
@@ -42,12 +50,14 @@ mu = pm.floatX([-0.3, 0.5])
 sd = pm.floatX([0.1, 0.1])
 
 with pm.Model() as model:
-    x = pm.NormalMixture("x", w=w, mu=mu, sigma=sd, dtype=theano.config.floatX)
-    trace = pm.sample(50000)
+    x = pm.NormalMixture("x", w=w, mu=mu, sigma=sd)
+    trace = pm.sample(50_000, return_inferencedata=False)
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace);
+with model:
+    idata = pm.to_inference_data(trace)
+az.plot_trace(idata);
 ```
 
 Great. First having a trace we can create `Empirical` approx
@@ -65,7 +75,7 @@ with model:
 approx
 ```
 
-This type of approximation has it's own underlying storage for samples that is `theano.shared` itself
+This type of approximation has it's own underlying storage for samples that is `pytensor.shared` itself
 
 ```{code-cell} ipython3
 approx.histogram
@@ -93,10 +103,6 @@ Sampling from posterior is done uniformly with replacements. Call `approx.sample
 new_trace = approx.sample(50000)
 ```
 
-```{code-cell} ipython3
-%timeit new_trace = approx.sample(50000)
-```
-
 After sampling function is compiled sampling bacomes really fast
 
 ```{code-cell} ipython3
@@ -112,7 +118,8 @@ mu = pm.floatX([0.0, 0.0])
 cov = pm.floatX([[1, 0.5], [0.5, 1.0]])
 with pm.Model() as model:
     pm.MvNormal("x", mu=mu, cov=cov, shape=2)
-    trace = pm.sample(1000)
+    trace = pm.sample(1000, return_inferencedata=False)
+    idata = pm.to_inference_data(trace)
 ```
 
 ```{code-cell} ipython3
@@ -125,16 +132,11 @@ az.plot_trace(approx.sample(10000));
 ```
 
 ```{code-cell} ipython3
-import seaborn as sns
-```
-
-```{code-cell} ipython3
 kdeViz_df = DataFrame(
-    data=approx.sample(1000)["x"], columns=["First Dimension", "Second Dimension"]
+    data=approx.sample(1000).posterior["x"].squeeze(),
+    columns=["First Dimension", "Second Dimension"],
 )
-```
 
-```{code-cell} ipython3
 sns.kdeplot(data=kdeViz_df, x="First Dimension", y="Second Dimension")
 plt.show()
 ```
@@ -152,7 +154,7 @@ Now we can estimate the same covariance using `Empirical`
 print(approx.cov)
 ```
 
-That's a tensor itself
+That's a tensor object, which we need to evaluate.
 
 ```{code-cell} ipython3
 print(approx.cov.eval())
@@ -164,7 +166,19 @@ Estimations are very close and differ due to precision error. We can get the mea
 print(approx.mean.eval())
 ```
 
+## Authors
+
+* Authored by Maxim Kochurov ([pymc#2389](https://github.com/pymc-devs/pymc/pull/2389]))
+* Updated by Maxim Kochurov ([pymc#2416](https://github.com/pymc-devs/pymc/pull/2416))
+* Updated by Raul Maldonado ([pymc-examples#21](https://github.com/pymc-devs/pymc-examples/pull/21))
+* Updated by Chris Fonnesbeck  ([pymc-examples#429](https://github.com/pymc-devs/pymc-examples/pull/497))
+
+## Watermark
+
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w
 ```
+
+:::{include} ../page_footer.md
+:::
