@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python [conda env:pymc_ar_ex] *
+  display_name: Python 3 (ipykernel)
   language: python
-  name: conda-env-pymc_ar_ex-py
+  name: python3
 substitutions:
   extra_dependencies: lifelines
 ---
@@ -19,6 +19,9 @@ substitutions:
 :tags: time-to-failure, prediction, calibration, survival analysis, censored
 :category: intermediate
 :author: Nathaniel Forde
+:::
+
+:::{include} ../extra_installs.md
 :::
 
 ```{code-cell} ipython3
@@ -358,9 +361,9 @@ def plot_cdfs(actuarial_table, dist_fits=True, ax=None, title="", xy=(3000, 0.5)
     )
     ax.plot(actuarial_table["t"], actuarial_table["CI_95_ub"], color="darkorchid", linestyle="--")
     ax.fill_between(
-        actuarial_table["t"],
-        actuarial_table["CI_95_lb"],
-        actuarial_table["CI_95_ub"],
+        actuarial_table["t"].values,
+        actuarial_table["CI_95_lb"].values,
+        actuarial_table["CI_95_ub"].values,
         color="darkorchid",
         alpha=0.2,
     )
@@ -375,9 +378,9 @@ def plot_cdfs(actuarial_table, dist_fits=True, ax=None, title="", xy=(3000, 0.5)
         actuarial_table["t"], actuarial_table["logit_CI_95_ub"], color="royalblue", linestyle="--"
     )
     ax.fill_between(
-        actuarial_table["t"],
-        actuarial_table["logit_CI_95_lb"],
-        actuarial_table["logit_CI_95_ub"],
+        actuarial_table["t"].values,
+        actuarial_table["logit_CI_95_lb"].values,
+        actuarial_table["logit_CI_95_ub"].values,
         color="royalblue",
         alpha=0.2,
     )
@@ -401,7 +404,7 @@ def plot_cdfs(actuarial_table, dist_fits=True, ax=None, title="", xy=(3000, 0.5)
 ```
 
 ```{code-cell} ipython3
-plot_cdfs(actuarial_table_shock, title="Shock Absorber")
+plot_cdfs(actuarial_table_shock, title="Shock Absorber");
 ```
 
 This shows a good fit to the data and implies, as you might expect, that the failing fraction of shock absorbers increases with age as they wear out. But how do we quantify the prediction given an estimated model?
@@ -444,23 +447,6 @@ def bayes_boot(df, lb, ub, seed=100):
 ```
 
 ```{code-cell} ipython3
-def bootstrap(df, lb, ub, seed=100):
-    draws = df[["t", "failed"]].sample(replace=True, frac=1, random_state=seed)
-    draws.sort_values("t", inplace=True)
-    ## Fit Lognormal Dist to
-    lnf = LogNormalFitter().fit(draws["t"] + 1e-25, draws["failed"])
-    rv = lognorm(s=lnf.sigma_, scale=np.exp(lnf.mu_))
-    ## Sample random choice from implied distribution
-    choices = rv.rvs(1000)
-    future = random.choice(choices)
-    ## Check if choice is contained within the MLE 95% PI
-    contained = (future >= lb) & (future <= ub)
-    ## Record 95% interval of bootstrapped dist
-    lb = rv.ppf(0.025)
-    ub = rv.ppf(0.975)
-    return lb, ub, contained, future, lnf.sigma_, lnf.mu_
-
-
 CIs = [bayes_boot(actuarial_table_shock, 8928, 70188, seed=i) for i in range(1000)]
 draws = pd.DataFrame(
     CIs, columns=["Lower Bound PI", "Upper Bound PI", "Contained", "future", "Sigma", "Mu"]
@@ -953,15 +939,11 @@ az.summary(idata_informative)
 ```
 
 ```{code-cell} ipython3
-joint_draws = az.extract_dataset(idata, group="posterior", num_samples=1000)[
-    ["alpha", "beta"]
-].to_dataframe()
+joint_draws = az.extract(idata, num_samples=1000)[["alpha", "beta"]]
 alphas = joint_draws["alpha"].values
 betas = joint_draws["beta"].values
 
-joint_draws_informative = az.extract_dataset(
-    idata_informative, group="posterior", num_samples=1000
-)[["alpha", "beta"]].to_dataframe()
+joint_draws_informative = az.extract(idata_informative, num_samples=1000)[["alpha", "beta"]]
 alphas_informative = joint_draws_informative["alpha"].values
 betas_informative = joint_draws_informative["beta"].values
 
@@ -1085,24 +1067,24 @@ print("Upper Bound 95% PI:", binom(1700, rho).ppf(0.95))
 We'll use the posterior predictive distribution of the uniformative model. We show here how to derive the uncertainty in the estimates of the 95% prediction interval for the number of failures in a time interval. As we saw above the MLE alternative to this procedure is to generate a predictive distribution from bootstrap sampling. The bootstrap procedure tends to agree with the plug-in procedure using the MLE estimates and lacks the flexibility of specifying prior information.
 
 ```{code-cell} ipython3
+import xarray as xr
+
+from xarray_einstats.stats import XrContinuousRV, XrDiscreteRV
+
+
 def PI_failures(joint_draws, lp, up, n_at_risk):
-    records = []
-    alphas = joint_draws["alpha"].values
-    betas = joint_draws["beta"].values
-    for i in range(len(joint_draws)):
-        fit = weibull_min(c=alphas[i], scale=betas[i])
-        rho = fit.cdf(up) - fit.cdf(lp) / (1 - fit.cdf(lp))
-        lb = binom(n_at_risk, rho).ppf(0.05)
-        ub = binom(n_at_risk, rho).ppf(0.95)
-        point_prediction = n_at_risk * rho
-        records.append([alphas[i], betas[i], rho, n_at_risk, lb, ub, point_prediction])
-    return pd.DataFrame(
-        records, columns=["alpha", "beta", "rho", "n_at_risk", "lb", "ub", "expected"]
+    fit = XrContinuousRV(weibull_min, joint_draws["alpha"], scale=joint_draws["beta"])
+    rho = fit.cdf(up) - fit.cdf(lp) / (1 - fit.cdf(lp))
+    lub = XrDiscreteRV(binom, n_at_risk, rho).ppf([0.05, 0.95])
+    lb, ub = lub.sel(quantile=0.05, drop=True), lub.sel(quantile=0.95, drop=True)
+    point_prediction = n_at_risk * rho
+    return xr.Dataset(
+        {"rho": rho, "n_at_risk": n_at_risk, "lb": lb, "ub": ub, "expected": point_prediction}
     )
 
 
-output_df = PI_failures(joint_draws, 150, 600, 1700)
-output_df
+output_ds = PI_failures(joint_draws, 150, 600, 1700)
+output_ds
 ```
 
 ```{code-cell} ipython3
@@ -1120,9 +1102,9 @@ ax1 = axs[1]
 ax2 = axs[2]
 
 ax.scatter(
-    output_df["alpha"],
-    output_df["expected"],
-    c=output_df["beta"],
+    joint_draws["alpha"],
+    output_ds["expected"],
+    c=joint_draws["beta"],
     cmap=cm.cool,
     alpha=0.3,
     label="Coloured by function of Beta values",
@@ -1136,16 +1118,16 @@ ax.set_title(
 )
 
 ax1.hist(
-    output_df["lb"],
+    output_ds["lb"],
     ec="black",
     color="slateblue",
     label="95% PI Lower Bound on Failure Count",
     alpha=0.3,
 )
-ax1.axvline(output_df["lb"].mean(), label="Expected 95% PI Lower Bound on Failure Count")
-ax1.axvline(output_df["ub"].mean(), label="Expected 95% PI Upper Bound on Failure Count")
+ax1.axvline(output_ds["lb"].mean(), label="Expected 95% PI Lower Bound on Failure Count")
+ax1.axvline(output_ds["ub"].mean(), label="Expected 95% PI Upper Bound on Failure Count")
 ax1.hist(
-    output_df["ub"],
+    output_ds["ub"],
     ec="black",
     color="cyan",
     label="95% PI Upper Bound on Failure Count",
@@ -1153,14 +1135,14 @@ ax1.hist(
     alpha=0.3,
 )
 ax1.hist(
-    output_df["expected"], ec="black", color="pink", label="Expected Count of Failures", bins=20
+    output_ds["expected"], ec="black", color="pink", label="Expected Count of Failures", bins=20
 )
 ax1.set_title("Uncertainty in the Posterior Prediction Interval of Failure Counts", fontsize=20)
 ax1.legend()
 
 ax2.set_title("Expected Costs Distribution(s)  \nbased on implied Failure counts", fontsize=20)
 ax2.hist(
-    cost_func(output_df["expected"], 2.3),
+    cost_func(output_ds["expected"], 2.3),
     label="Cost(failures,2)",
     color="royalblue",
     alpha=0.3,
@@ -1168,7 +1150,7 @@ ax2.hist(
     bins=20,
 )
 ax2.hist(
-    cost_func(output_df["expected"], 2),
+    cost_func(output_ds["expected"], 2),
     label="Cost(failures,2.3)",
     color="red",
     alpha=0.5,
@@ -1177,7 +1159,7 @@ ax2.hist(
 )
 ax2.set_xlabel("$ cost")
 # ax2.set_xlim(-60, 0)
-ax2.legend()
+ax2.legend();
 ```
 
 The choice of model in such cases is crucial. The decision about which failure profile is apt has to be informed by a subject matter expert because extrapolation from such sparse data is always risky. An understanding of the uncertainty is crucial if real costs attach to the failures and the subject matter expert is usually better placed to tell if you 2 or 7 failures can be plausibly expected within 600 hours of service. 
@@ -1193,7 +1175,7 @@ In particular we've seen how the MLE fits to our bearings data provide a decent 
 
 ## Authors
 
-* Authored by Nathaniel Forde on 9th of January 2022 ([pymc-examples491](https://github.com/pymc-devs/pymc-examples/pull/491))
+* Authored by Nathaniel Forde on 9th of January 2022 ([pymc-examples#491](https://github.com/pymc-devs/pymc-examples/pull/491))
 
 +++
 
@@ -1209,7 +1191,7 @@ In particular we've seen how the MLE fits to our bearings data provide a decent 
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p pytensor
+%watermark -n -u -v -iv -w -p pytensor,xarray_einstats
 ```
 
 :::{include} ../page_footer.md
