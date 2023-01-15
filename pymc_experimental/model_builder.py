@@ -157,8 +157,7 @@ class ModelBuilder(pm.Model):
         file = Path(str(fname))
         self.idata.to_netcdf(file)
 
-    @classmethod
-    def load(cls, fname):
+    def load(self, fname):
         """
         Loads inference data for the model.
 
@@ -189,16 +188,14 @@ class ModelBuilder(pm.Model):
         idata = data
         # Since there is an issue with attrs getting saved in netcdf format which will be fixed in future the following part of code is commented
         # Link of issue -> https://github.com/arviz-devs/arviz/issues/2109
-        # if model.idata.attrs is not None:
-        #     if model.idata.attrs['id'] == self.idata.attrs['id']:
-        #         self = model
-        #         self.idata = data
-        #         return self
-        #     else:
-        #         raise ValueError(
-        #             f"The route '{file}' does not contain an inference data of the same model '{self.__name__}'"
-        #         )
-        return idata
+        if idata.attrs is not None:
+            if self.id() == idata.attrs["id"]:
+                self.idata = idata
+            else:
+                raise ValueError(
+                    f"The route '{file}' does not contain an inference data of the same model '{self.__name__}'"
+                )
+        # return idata
 
     def fit(self, data: Dict[str, Union[np.ndarray, pd.DataFrame, pd.Series]] = None):
         """
@@ -238,8 +235,8 @@ class ModelBuilder(pm.Model):
         self.idata.attrs["id"] = self.id()
         self.idata.attrs["model_type"] = self._model_type
         self.idata.attrs["version"] = self.version
-        self.idata.attrs["sample_conifg"] = self.sample_config
-        self.idata.attrs["model_config"] = self.model_config
+        self.idata.attrs["sample_conifg"] = tuple(self.sample_config)
+        self.idata.attrs["model_config"] = tuple(self.model_config)
         return self.idata
 
     def predict(
