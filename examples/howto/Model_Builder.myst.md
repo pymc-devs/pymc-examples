@@ -90,7 +90,6 @@ class LinearModel(ModelBuilder):
     _model_type = "LinearModel"
     version = "0.1"
 
-    @classmethod
     def build_model(self, model_config, data=None):
         """
         build_model creates the model and loads it to memory stack.
@@ -211,7 +210,7 @@ Now we create a new model named `model_2` which is same as `model` but instead o
 data, model_config, sampler_config = LinearModel.create_sample_input()
 model_2 = LinearModel(model_config, sampler_config, data)
 # loading
-model_2.idata = model_2.load(fname)
+model_2.load(fname)
 ```
 
 The `predict()` method allows users to do a posterior predcit with the fitted model on new data.<br>
