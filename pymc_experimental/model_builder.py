@@ -157,7 +157,8 @@ class ModelBuilder(pm.Model):
         file = Path(str(fname))
         self.idata.to_netcdf(file)
 
-    def load(self, fname):
+    @classmethod
+    def load(cls, self, fname):
         """
         Loads inference data for the model.
 
@@ -193,7 +194,9 @@ class ModelBuilder(pm.Model):
                 raise ValueError(
                     f"The route '{file}' does not contain an inference data of the same model '{self.__name__}'"
                 )
-        # return idata
+        self = cls(idata.attrs["sample_config"], idata.attrs["model_config"])
+        self.idata = idata
+        return self
 
     def fit(self, data: Dict[str, Union[np.ndarray, pd.DataFrame, pd.Series]] = None):
         """
@@ -233,7 +236,7 @@ class ModelBuilder(pm.Model):
         self.idata.attrs["id"] = self.id()
         self.idata.attrs["model_type"] = self._model_type
         self.idata.attrs["version"] = self.version
-        self.idata.attrs["sample_conifg"] = tuple(self.sample_config)
+        self.idata.attrs["sample_config"] = tuple(self.sample_config)
         self.idata.attrs["model_config"] = tuple(self.model_config)
         return self.idata
 
