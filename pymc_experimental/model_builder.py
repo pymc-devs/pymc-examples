@@ -158,7 +158,7 @@ class ModelBuilder(pm.Model):
         self.idata.to_netcdf(file)
 
     @classmethod
-    def load(cls, self, fname):
+    def load(cls, fname):
         """
         Loads inference data for the model.
 
