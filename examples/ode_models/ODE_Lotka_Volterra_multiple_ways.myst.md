@@ -15,10 +15,10 @@ kernelspec:
 (ODE_Lotka_Volterra_fit_multiple_ways)= 
 # ODE Lotka-Volterra With Bayesian Inference in Multiple Ways
 
-:::{post} January 10, 2023
+:::{post} January 16, 2023
 :tags: ODE, pytensor op, gradient-free inference, pytensor scan
 :category: intermediate, how-to
-:author: [Greg Brunkhorst]{https://github.com/gbrunkhorst}
+:author: Greg Brunkhorst
 :::
 
 ```{code-cell} ipython3
@@ -45,39 +45,24 @@ rng = np.random.default_rng(1234)
 ```
 
 ## Purpose
-The purpose of this notebook is to demonstrate how to perform Bayesian inference on a system of ordinary differential equations (ODEs), both with and without gradients.  The accuracy and efficiency of different samplers are compared.    
-### Outline
-* Background
-    * Motivation
-    * Lotka-Volterra Predator Prey Model
-    * Hudson's Bay Company Data
-* Scipy `odeint`
-    * Specification
-    * Least Squares Solution
-* Gradient-free Bayesian Inference
-    * Wrapping `odeint` in a Pytensor operator for use in PyMC
-    * Bayesian inference using gradient-free methods
-        * Slice Sampler
-        * DEMetropolisZ Sampler
-        * DEMetropolis Sampler
-        * Metropolis Sampler
-        * Sequential Monte Carlo (SMC) Sampler
-* Bayesian Inference with Gradients
-    * `pymc.ode.DifferentialEquation` specification with the NUTs Sampler
-    * Looping in PyMC with `Pytensor.scan` and the NUTs Sampler
+The purpose of this notebook is to demonstrate how to perform Bayesian inference on a system of ordinary differential equations (ODEs), both with and without gradients.  The accuracy and efficiency of different samplers are compared.
+
+We will first present the Lotka-Volterra predator-prey ODE model and example data.  Next, we will solve the ODE using `scipy.odeint` and (non-Bayesian) least squares optimization.  Next, we perform Bayesian inference in PyMC using non-gradient-based samplers.  Finally, we use gradient-based samplers and compare results.    
+
 ### Key Conclusions
-* Based on the experiments in this notebook, the most simple and efficient method for performing Bayesian inference on the Lotka-Volterra equations was to specify the ODE system in Scipy, wrap the function as an Pytensor op, and use a Differential Evolution Metropolis (DEMetropolis) sampler in PyMC.  
+Based on the experiments in this notebook, the most simple and efficient method for performing Bayesian inference on the Lotka-Volterra equations was to specify the ODE system in Scipy, wrap the function as a Pytensor op, and use a Differential Evolution Metropolis (DEMetropolis) sampler in PyMC.  
 
 +++ {"tags": []}
 
 ## Background
 ### Motivation
-Ordinary differential equation models (ODEs) are used in a variety of science and engineering domains to model the time evolution of physical variables.  A natural choice to estimate the values and uncertainty of model parameters given experimental data is Bayesian inference.  However, ODEs can be challenging to specify and solve in the Bayesian setting, therefore, this notebook steps through multiple methods for solving an ODE inference problem using PyMC. The Lotka-Volterra model used in this example has often been used for benchmarking Bayesian inference methods (e.g., in [Stan](https://mc-stan.org/users/documentation/case-studies/lotka-volterra-predator-prey.html)).  See also Richard McElraith's discussion of this model in [Statistical Rethinking](http://xcelab.net/rm/statistical-rethinking/), Chapter 16 of the Second Edition.
+Ordinary differential equation models (ODEs) are used in a variety of science and engineering domains to model the time evolution of physical variables.  A natural choice to estimate the values and uncertainty of model parameters given experimental data is Bayesian inference.  However, ODEs can be challenging to specify and solve in the Bayesian setting, therefore, this notebook steps through multiple methods for solving an ODE inference problem using PyMC. The Lotka-Volterra model used in this example has often been used for benchmarking Bayesian inference methods (e.g., in this Stan [case study](https://mc-stan.org/users/documentation/case-studies/lotka-volterra-predator-prey.html), and in Chapter 16 of *Statistical Rethinking* {cite:p}`mcelreath2018statistical`.
 
 +++ {"tags": []}
 
 ### Lotka-Volterra Predator-Prey Model
-The Lotka-Volterra model describes the interaction between a predator and prey species. This ODE given by:  
+The Lotka-Volterra model describes the interaction between a predator and prey species. This ODE given by:
+
 $$
 \begin{aligned}
 \frac{d x}{dt} &=\alpha x -\beta xy \\ 
@@ -465,7 +450,7 @@ The old-school Metropolis sampler is less reliable and slower than the DEMetropl
 
 +++
 
-## SMC Sampler
+### SMC Sampler
 
 +++
 
@@ -473,7 +458,7 @@ The Sequential Monte Carlo (SMC) sampler is often presented as a likelihood-free
 
 +++
 
-### SMC with a Likelihood Function
+#### SMC with a Likelihood Function
 
 ```{code-cell} ipython3
 sampler = "SMC with Likelihood"
@@ -499,7 +484,7 @@ At this number of samples and tuning scheme, the SMC algorithm results in wider 
 
 +++
 
-### SMC Using `pm.Simulator` Epsilon=1
+#### SMC Using `pm.Simulator` Epsilon=1
 
 +++
 
@@ -562,7 +547,7 @@ This is interesting.  The SMC sampler underestimates uncertainty compared to the
 
 +++
 
-### SMC with Epsilon = 10
+#### SMC with Epsilon = 10
 
 ```{code-cell} ipython3
 with pm.Model() as model:
@@ -608,15 +593,15 @@ Now, we see that the SMC sampler with a larger epsilon over-estimates parameter 
 
 +++
 
-## Posterior Correlations
-At this point, it is worth pointing out that the posterior parameter space is a difficult geometry for sampling.  
+### Posterior Correlations
+As an aside, it is worth pointing out that the posterior parameter space is a difficult geometry for sampling.  
 
 ```{code-cell} ipython3
 az.plot_pair(trace_DEM, figsize=(8, 6), scatter_kwargs=dict(alpha=0.01), marginals=True)
 plt.suptitle("Pair Plot Showing Posterior Correlations", size=18);
 ```
 
-The major observation here is that the posterior shape is pretty difficult for a sampler to handle, with positive correlations, negative correlations, crecent-shapes, and large variations in scale.  This contributes to the slow sampling (in addition to the computational overhead in solving the ODE thousands of times).  This is also fun to look at for understanding how the model equations fit together.       
+The major observation here is that the posterior shape is pretty difficult for a sampler to handle, with positive correlations, negative correlations, crecent-shapes, and large variations in scale.  This contributes to the slow sampling (in addition to the computational overhead in solving the ODE thousands of times).  This is also fun to look at for understanding how the model parameters impact each other.       
 
 +++
 
@@ -686,7 +671,7 @@ with pm.Model() as model:
 
 ```{code-cell} ipython3
 sampler = "NUTs PyMC ODE"
-tune = draws = 25
+tune = draws = 15
 with model:
     trace_pymc_ode = pm.sample(tune=tune, draws=draws)
 ```
@@ -707,7 +692,7 @@ plot_inference(ax, trace, title=f"Data and Inference Model Runs\n{sampler} Sampl
 ```
 
 **Notes:**  
-Despite a paucity of samples, the NUTs sampler is starting to converge to the correct posterior.   
+The NUTs sampler is starting to find to the correct posterior, but would need a whole lot more time to make a good inference.   
 
 +++
 
@@ -759,8 +744,8 @@ def lv_scan_simulation_model(theta, steps_year=100, years=21):
             fn=ode_update_function,  # function
             outputs_info=[xt0, yt0],  # initial conditions
             non_sequences=[alpha, beta, gamma, delta],  # parameters
-            n_steps=n_steps,
-        )  # number of loops
+            n_steps=n_steps,  # number of loops
+        )
 
         # Put the results together and track the result
         pm.Deterministic("result", pm.math.stack([result[0], result[1]], axis=1))
@@ -950,10 +935,22 @@ We performed Bayesian inference on a system of ODEs in 4 main ways:
 
 The "winner" for this problem was the Scipy `odeint` solver with a differential evolution (DE) Metropolis sampler.  The improved efficiency of the NUTs sampler did not make up for the inefficiency in using the slow ODE solvers with gradients.  Sticking with Scipy and DEMetropolis is also the simplest workflow for a scientist with a working numeric model and the desire to perform Bayesian inference.  Just wrapping the numeric model in a Pytensor op and plugging it into a PyMC model can get you a long way!  
 
-+++
++++ {"tags": []}
 
 ## Authors
-Organized and rewritten by Greg Brunkhorst from multiple PyMC.io example notebooks by Sanmitra Ghosh, Demetri Pananos, and the PyMC Team.
+Organized and rewritten by [Greg Brunkhorst](https://github.com/gbrunkhorst)  from multiple legacy PyMC.io example notebooks by Sanmitra Ghosh, Demetri Pananos, and the PyMC Team ({ref}`ABC_introduction`).
+
++++ {"tags": []}
+
+## References
+
+:::{bibliography}
+:filter: docname in docnames
+:::
+
++++
+
+## Watermark
 
 ```{code-cell} ipython3
 %watermark -n -u -v -iv -w
