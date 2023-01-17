@@ -187,14 +187,13 @@ class ModelBuilder(pm.Model):
         filepath = Path(str(fname))
         data = az.from_netcdf(filepath)
         idata = data
-        if idata.attrs is not None:
-            if self.id() == idata.attrs["id"]:
-                self = cls(idata.attrs["sample_config"], idata.attrs["model_config"])
-                self.idata = idata
-            else:
-                raise ValueError(
-                    f"The route '{file}' does not contain an inference data of the same model '{self.__name__}'"
-                )
+        self = cls(idata.attrs["sample_config"], idata.attrs["model_config"])
+        self.idata = idata
+        if self.id() != idata.attrs["id"]:
+            raise ValueError(
+                f"The route '{file}' does not contain an inference data of the same model '{self.__name__}'"
+            )
+
         return self
 
     def fit(self, data: Dict[str, Union[np.ndarray, pd.DataFrame, pd.Series]] = None):
