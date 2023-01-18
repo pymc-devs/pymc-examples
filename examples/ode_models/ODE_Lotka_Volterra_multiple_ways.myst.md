@@ -16,7 +16,7 @@ kernelspec:
 # ODE Lotka-Volterra With Bayesian Inference in Multiple Ways
 
 :::{post} January 16, 2023
-:tags: ODE, pytensor op, gradient-free inference, pytensor scan
+:tags: ODE, PyTensor, gradient-free inference
 :category: intermediate, how-to
 :author: Greg Brunkhorst
 :::
@@ -687,7 +687,7 @@ plt.suptitle(f"Trace Plot {sampler}");
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(9, 4))
+fig, ax = plt.subplots(figsize=(7, 4))
 plot_inference(ax, trace, title=f"Data and Inference Model Runs\n{sampler} Sampler");
 ```
 
@@ -756,7 +756,7 @@ def lv_scan_simulation_model(theta, steps_year=100, years=21):
 Run the simulation for various time steps and plot the results.   
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(9, 4))
+fig, ax = plt.subplots(figsize=(7, 4))
 
 steps_years = [12, 100, 1000, 10000]
 for steps_year in steps_years:
@@ -854,7 +854,7 @@ odeint(func=rhs, y0=theta[-2:], t=time, args=(theta,)).shape
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(9, 4))
+fig, ax = plt.subplots(figsize=(7, 4))
 plot_inference(ax, trace, title=f"Data and Inference Model Runs\n{sampler} Sampler");
 ```
 
