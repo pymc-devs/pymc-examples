@@ -11,7 +11,11 @@ kernelspec:
 ---
 
 # Using ModelBuilder class for deploying PyMC models 
-:::post: Sep 12, 2022:tags: model builder class, model class, linear model:category: Beginner:author: Shashank Kirtania, Thomas Wiecki:::
+:::{post} Sep 12, 2022
+:tags: model builder class, model class, linear model
+:category: Beginner
+:author: Shashank Kirtania, Thomas Wiecki
+:::
 
 +++
 
@@ -54,7 +58,7 @@ To install pymc-experimental we can use pip and get the package to use the Model
 +++
 
 Executing following command in your terminal shall do the job <br>
-`pip install pymc-experimental`
+`pip install git+https://github.com/pymc-devs/pymc-experimental.git`
 
 +++
 
@@ -195,7 +199,7 @@ To `save` or `load`, we can quickly call methods for respective tasks with the f
 ```{code-cell} ipython3
 :tags: []
 
-fname = "/Users/mac/Desktop/mymodel.nc"
+fname = "*/mymodel.nc"
 model.save(fname)
 ```
 
@@ -246,3 +250,6 @@ plt.ylabel("y");
 %load_ext watermark
 %watermark -n -u -v -iv -w
 ```
+
+## Authors
+* Authored by Shashank Kirtania and Thomas Wiecki in 2022
