@@ -13,7 +13,7 @@ kernelspec:
 (GLM-robust)=
 # GLM: Robust Linear Regression
 
-:::{post} August, 2013
+:::{post} January 10, 2023
 :tags: regression, linear model, robust
 :category: beginner
 :author: Thomas Wiecki, Chris Fonnesbeck, Abhipsha Das, Conor Hassan, Igor Kuvychko, Reshama Shaikh, Oriol Abril Pla
@@ -199,7 +199,7 @@ There, much better! The outliers are barely influencing our estimation at all be
 
  - The Student-T distribution has, besides the mean and variance, a third parameter called *degrees of freedom* that describes how much mass should be put into the tails. Here it is set to 1 which gives maximum mass to the tails (setting this to infinity results in a Normal distribution!). One could easily place a prior on this rather than fixing it which I leave as an exercise for the reader ;).
  - T distributions can be used as priors as well. See {ref}`GLM-hierarchical`
- - How do we test if our data is normal or violates that assumption in an important way? Check out this [great blog post](http://allendowney.blogspot.com/2013/08/are-my-data-normal.html) by Allen Downey.
+ - How do we test if our data is normal or violates that assumption in an important way? Check out this great blog post, [Probably Overthinking It](http://allendowney.blogspot.com/2013/08/are-my-data-normal.html), by Allen Downey.
 
 +++
 
@@ -209,6 +209,7 @@ There, much better! The outliers are barely influencing our estimation at all be
 * Updated by @fonnesbeck in September 2016 (pymc#1378)
 * Updated by @chiral-carbon in August 2021 (pymc-examples#205)
 * Updated by Conor Hassan, Igor Kuvychko, Reshama Shaikh and [Oriol Abril Pla](https://oriolabrilpla.cat/en/) in 2022
+* Rerun using PyMC v5, by Reshama Shaikh, January 2023
 
 +++
 

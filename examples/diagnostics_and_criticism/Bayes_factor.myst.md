@@ -5,14 +5,14 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
 
 (Bayes_factor)=
 # Bayes Factors and Marginal Likelihood
-:::{post} Jun 1, 2022
+:::{post} Jan 10, 2023
 :tags: Bayes Factors, model comparison 
 :category: beginner, explanation
 :author: Osvaldo Martin
@@ -333,6 +333,7 @@ az.plot_bf(idata_conc, var_name="a", ref_val=0.5);
 * Updated by Osvaldo Martin in August, 2018 ([pymc#3124](https://github.com/pymc-devs/pymc/pull/3124))
 * Updated by Osvaldo Martin in May, 2022 ([pymc-examples#342](https://github.com/pymc-devs/pymc-examples/pull/342))
 * Updated by Osvaldo Martin in Nov, 2022
+* Re-executed by Reshama Shaikh with PyMC v5 in Jan, 2023
 
 +++
 
@@ -351,7 +352,7 @@ Wagenmakers2010
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w
+%watermark -n -u -v -iv -w -p pytensor
 ```
 
 :::{include} ../page_footer.md

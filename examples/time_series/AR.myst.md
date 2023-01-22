@@ -5,14 +5,18 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: 'Python 3.8.2 64-bit (''pymc3'': conda)'
+  display_name: pie
   language: python
-  name: python38264bitpymc3conda8b8223a2f9874eff9bd3e12d36ed2ca2
+  name: python3
 ---
 
-+++ {"ein.tags": ["worksheet-0"], "slideshow": {"slide_type": "-"}}
-
-# Analysis of An $AR(1)$ Model in PyMC3
+(AR)=
+# Analysis of An $AR(1)$ Model in PyMC
+:::{post} Jan 7, 2023
+:tags: time series, autoregressive 
+:category: intermediate,
+:author: Ed Herbst, Chris Fonnesbeck
+:::
 
 ```{code-cell} ipython3
 ---
@@ -23,7 +27,7 @@ slideshow:
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 ```
 
 ```{code-cell} ipython3
@@ -35,14 +39,14 @@ az.style.use("arviz-darkgrid")
 
 +++ {"ein.tags": ["worksheet-0"], "slideshow": {"slide_type": "-"}}
 
-Consider the following AR(1) process, initialized in the
+Consider the following AR(2) process, initialized in the
 infinite past:
 $$
-   y_t = \theta y_{t-1} + \epsilon_t,
+   y_t = \rho_0 + \rho_1 y_{t-1} + \rho_2 y_{t-2} + \epsilon_t,
 $$
-where $\epsilon_t \overset{iid}{\sim} {\cal N}(0,1)$.  Suppose you'd like to learn about $\theta$ from a a sample of observations $Y^T = \{ y_0, y_1,\ldots, y_T \}$.
+where $\epsilon_t \overset{iid}{\sim} {\cal N}(0,1)$.  Suppose you'd like to learn about $\rho$ from a a sample of observations $Y^T = \{ y_0, y_1,\ldots, y_T \}$.
 
-First, let's generate some synthetic sample data. We simulate the 'infinite past' by generating 10,000 samples from an AR(1) process and then discarding the first 5,000:
+First, let's generate some synthetic sample data. We simulate the 'infinite past' by generating 10,000 samples from an AR(2) process and then discarding the first 5,000:
 
 ```{code-cell} ipython3
 ---
@@ -51,17 +55,18 @@ slideshow:
   slide_type: '-'
 ---
 T = 10000
-y = np.zeros((T,))
 
 # true stationarity:
-true_theta = 0.95
+true_rho = 0.7, -0.3
 # true standard deviation of the innovation:
 true_sigma = 2.0
 # true process mean:
-true_center = 0.0
+true_center = -1.0
 
-for t in range(1, T):
-    y[t] = true_theta * y[t - 1] + np.random.normal(loc=true_center, scale=true_sigma)
+y = np.random.normal(loc=true_center, scale=true_sigma, size=T)
+y[1] += true_rho[0] * y[0]
+for t in range(2, T - 100):
+    y[t] += true_rho[0] * y[t - 1] + true_rho[1] * y[t - 2]
 
 y = y[-5000:]
 plt.plot(y, alpha=0.8)
@@ -71,7 +76,9 @@ plt.ylabel("$y$");
 
 +++ {"ein.tags": ["worksheet-0"], "slideshow": {"slide_type": "-"}}
 
-This generative process is quite straight forward to implement in PyMC3:
+Let's start by trying to fit the wrong model! Assume that we do no know the generative model and so simply fit an AR(1) model for simplicity.
+
+This generative process is quite straight forward to implement in PyMC. Since we wish to include an intercept term in the AR process, we must set `constant=True` otherwise PyMC will assume that we want an AR2 process when `rho` is of size 2. Also, by default a $N(0, 100)$ distribution will be used as the prior for the initial value. We can override this by passing a distribution (not a full RV) to the `init_dist` argument.
 
 ```{code-cell} ipython3
 ---
@@ -81,27 +88,25 @@ slideshow:
 ---
 with pm.Model() as ar1:
     # assumes 95% of prob mass is between -2 and 2
-    theta = pm.Normal("theta", 0.0, 1.0)
+    rho = pm.Normal("rho", mu=0.0, sigma=1.0, shape=2)
     # precision of the innovation term
-    tau = pm.Exponential("tau", 0.5)
-    # process mean
-    center = pm.Normal("center", mu=0.0, sigma=1.0)
+    tau = pm.Exponential("tau", lam=0.5)
 
-    likelihood = pm.AR1("y", k=theta, tau_e=tau, observed=y - center)
+    likelihood = pm.AR(
+        "y", rho=rho, tau=tau, constant=True, init_dist=pm.Normal.dist(0, 10), observed=y
+    )
 
-    trace = pm.sample(1000, tune=2000, init="advi+adapt_diag", random_seed=RANDOM_SEED)
-    idata = az.from_pymc3(trace)
+    idata = pm.sample(1000, tune=2000, random_seed=RANDOM_SEED)
 ```
 
-We can see that even though the sample data did not start at zero, the true center of zero is captured rightly inferred by the model, as you can see in the trace plot below. Likewise, the model captured the true values of the autocorrelation parameter 𝜃 and the innovation term $\epsilon_t$ (`tau` in the model) -- 0.95 and 1 respectively).
+We can see that even though we assumed the wrong model, the parameter estimates are actually not that far from the true values.
 
 ```{code-cell} ipython3
 az.plot_trace(
     idata,
     lines=[
-        ("theta", {}, true_theta),
+        ("rho", {}, [true_center, true_rho[0]]),
         ("tau", {}, true_sigma**-2),
-        ("center", {}, true_center),
     ],
 );
 ```
@@ -109,13 +114,13 @@ az.plot_trace(
 +++ {"ein.tags": ["worksheet-0"], "slideshow": {"slide_type": "-"}}
 
 ## Extension to AR(p)
-We can instead estimate an AR(2) model using PyMC3.
+Now let's fit the correct underlying model, an AR(2):
 
 $$
- y_t = \theta_1 y_{t-1} + \theta_2 y_{t-2} + \epsilon_t.
+ y_t = \rho_0 + \rho_1 y_{t-1} + \rho_2 y_{t-2} + \epsilon_t.
 $$
 
-The `AR` distribution infers the order of the process thanks to the size the of `rho` argmument passed to `AR`. 
+The `AR` distribution infers the order of the process thanks to the size the of `rho` argmument passed to `AR` (including the mean). 
 
 We will also use the standard deviation of the innovations (rather than the precision) to parameterize the distribution.
 
@@ -126,24 +131,26 @@ slideshow:
   slide_type: '-'
 ---
 with pm.Model() as ar2:
-    theta = pm.Normal("theta", 0.0, 1.0, shape=2)
+    rho = pm.Normal("rho", 0.0, 1.0, shape=3)
     sigma = pm.HalfNormal("sigma", 3)
-    likelihood = pm.AR("y", theta, sigma=sigma, observed=y)
+    likelihood = pm.AR(
+        "y", rho=rho, sigma=sigma, constant=True, init_dist=pm.Normal.dist(0, 10), observed=y
+    )
 
-    trace = pm.sample(
+    idata = pm.sample(
         1000,
         tune=2000,
         random_seed=RANDOM_SEED,
     )
-    idata = az.from_pymc3(trace)
 ```
+
+The posterior plots show that we have correctly inferred the generative model parameters.
 
 ```{code-cell} ipython3
 az.plot_trace(
     idata,
     lines=[
-        ("theta", {"theta_dim_0": 0}, true_theta),
-        ("theta", {"theta_dim_0": 1}, 0.0),
+        ("rho", {}, (true_center,) + true_rho),
         ("sigma", {}, true_sigma),
     ],
 );
@@ -151,7 +158,7 @@ az.plot_trace(
 
 +++ {"ein.tags": ["worksheet-0"], "slideshow": {"slide_type": "-"}}
 
-You can also pass the set of AR parameters as a list.
+You can also pass the set of AR parameters as a list, if they are not identically distributed.
 
 ```{code-cell} ipython3
 ---
@@ -159,28 +166,50 @@ ein.tags: [worksheet-0]
 slideshow:
   slide_type: '-'
 ---
-with pm.Model() as ar2_bis:
-    beta0 = pm.Normal("theta0", mu=0.0, sigma=1.0)
-    beta1 = pm.Uniform("theta1", -1, 1)
-    sigma = pm.HalfNormal("sigma", 3)
-    likelhood = pm.AR("y", [beta0, beta1], sigma=sigma, observed=y)
+import pytensor.tensor as pt
 
-    trace = pm.sample(
+with pm.Model() as ar2_bis:
+    rho0 = pm.Normal("rho0", mu=0.0, sigma=5.0)
+    rho1 = pm.Uniform("rho1", -1, 1)
+    rho2 = pm.Uniform("rho2", -1, 1)
+    sigma = pm.HalfNormal("sigma", 3)
+    likelihood = pm.AR(
+        "y",
+        rho=pt.stack([rho0, rho1, rho2]),
+        sigma=sigma,
+        constant=True,
+        init_dist=pm.Normal.dist(0, 10),
+        observed=y,
+    )
+
+    idata = pm.sample(
         1000,
         tune=2000,
+        target_accept=0.9,
         random_seed=RANDOM_SEED,
     )
-    idata = az.from_pymc3(trace)
 ```
 
 ```{code-cell} ipython3
 az.plot_trace(
     idata,
-    lines=[("theta0", {}, true_theta), ("theta1", {}, 0.0), ("sigma", {}, true_sigma)],
+    lines=[
+        ("rho0", {}, true_center),
+        ("rho1", {}, true_rho[0]),
+        ("rho2", {}, true_rho[1]),
+        ("sigma", {}, true_sigma),
+    ],
 );
 ```
 
+## Authors
+* authored by Ed Herbst in August, 2016 ([pymc#1546](https://github.com/pymc-devs/pymc/pull/2285))
+* updated Chris Fonnesbeck in January, 2023 ([pymc-examples#493](https://github.com/pymc-devs/pymc-examples/pull/494))
+
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w
+%watermark -n -u -v -iv -w -p pytensor,aeppl,xarray
 ```
+
+:::{include} ../page_footer.md
+:::

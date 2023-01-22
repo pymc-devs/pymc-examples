@@ -58,7 +58,7 @@ df.head()
 
 ```{code-cell} ipython3
 print(
-    f"There are {df['pitcher_name'].nunique()} pichers, in {df['game_date'].nunique()} game dates"
+    f"There are {df['pitcher_name'].nunique()} pitchers, in {df['game_date'].nunique()} game dates"
 )
 ```
 
@@ -119,7 +119,7 @@ adf.head()
 adf = adf.sort_values(["output_idx", "x"])
 X = adf[
     ["x", "output_idx"]
-].values  # Input data includes the index of game dates, and the index of picthers
+].values  # Input data includes the index of game dates, and the index of pitchers
 Y = adf["avg_spin_rate"].values  # Output data includes the average spin rate of pitchers
 X.shape, Y.shape
 ```

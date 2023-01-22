@@ -299,7 +299,7 @@ Recall that we used `mu = -2` and `sigma = 2` to generate the data.
 az.plot_posterior(trace1, var_names=["mu", "sigma"], ref_val=[true_mu, true_sigma]);
 ```
 
-Pretty good! And we can access the posterior mean estimates (stored as [xarray](http://xarray.pydata.org/en/stable/index.html) types) as below. The MCMC samples arrive back in a 2D matrix with one dimension for the MCMC chain (`chain`), and one for the sample number (`draw`). We can calculate the overal posterior average with `.mean(dim=["draw", "chain"])`.
+Pretty good! And we can access the posterior mean estimates (stored as [xarray](http://xarray.pydata.org/en/stable/index.html) types) as below. The MCMC samples arrive back in a 2D matrix with one dimension for the MCMC chain (`chain`), and one for the sample number (`draw`). We can calculate the overall posterior average with `.mean(dim=["draw", "chain"])`.
 
 ```{code-cell} ipython3
 :tags: []

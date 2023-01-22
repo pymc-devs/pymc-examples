@@ -45,7 +45,7 @@ Of course, neither approach is realistic. Clearly, all players aren't equally sk
 
 It may be possible to cluster groups of "similar" players, and estimate group averages, but using a hierarchical modeling approach is a natural way of sharing information that does not involve identifying *ad hoc* clusters.
 
-The idea of hierarchical partial pooling is to model the global performance, and use that estimate to parameterize a population of players that accounts for differences among the players' performances. This tradeoff between global and individual performance will be automatically tuned by the model. Also, uncertainty due to different number of at bats for each player (*i.e.* informatino) will be automatically accounted for, by shrinking those estimates closer to the global mean.
+The idea of hierarchical partial pooling is to model the global performance, and use that estimate to parameterize a population of players that accounts for differences among the players' performances. This tradeoff between global and individual performance will be automatically tuned by the model. Also, uncertainty due to different number of at bats for each player (*i.e.* information) will be automatically accounted for, by shrinking those estimates closer to the global mean.
 
 For far more in-depth discussion please refer to Stan [tutorial](http://mc-stan.org/documentation/case-studies/pool-binary-trials.html) {cite:p}`carpenter2016hierarchical` on the subject. The model and parameter values were taken from that example.
 
