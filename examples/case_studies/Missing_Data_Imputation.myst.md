@@ -39,7 +39,9 @@ from scipy.stats import multivariate_normal
 
 ## Bayesian Imputation and Degrees of Missing-ness
 
-The analysis of data with missing values is a way in to the study of causal inference. One of the key features of any analysis plagued by missing data is the assumption which governs the nature of the missing-ness i.e. what is the reason our data gaps? Can we ignore them? In this notebook we'll see an example of how to impute missing data using maximum likelihood estimation and bayesian imputation techniques. 
+The analysis of data with missing values is a gateway into the study of causal inference. 
+
+One of the key features of any analysis plagued by missing data is the assumption which governs the nature of the missing-ness i.e. what is the reason our data gaps? Can we ignore them? In this notebook we'll see an example of how to handle missing data using maximum likelihood estimation and bayesian imputation techniques. This will open up questions about the assumptions governing inference in the presence of missing data, and inference in counterfactual cases.  
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'  # high resolution figures
@@ -55,15 +57,15 @@ Rubin's famous taxonomy breaks out the question into a choice of three fundament
  - Missing at Random (MAR)
  - Missing Not at Random (MNAR)
 
-Each of these paradigms can be reduced to explicit definition in terms of the conditional probability of **pattern of missing data**. The first pattern is the least concerning. The (MCAR) assumption states that the data are missing in a mnner that is unrelated to both the observed and unobserved parts of hthe realised data. It is haphazard due to the circumstance of the world $\phi$.
+Each of these paradigms can be reduced to explicit definition in terms of the conditional probability regarding the **pattern of missing data**. The first pattern is the least concerning. The (MCAR) assumption states that the data are missing in a manner that is unrelated to both the observed and unobserved parts of the realised data. It is missing due to the haphazard circumstance of the world $\phi$.
 
 $$  P(M =1 | Y_{obs}, Y_{miss}, \phi) = P(M =1 | \phi) $$
 
-whereas the second pattern (MAR) allows that the reasons for missingness can be function of the observed data and circumstances of the world. Occaisionally this is called a case of *ignorable* missingness because estimation can proceed in good faith on the basis of the observed data with perhaps a concern for precision. 
+whereas the second pattern (MAR) allows that the reasons for missingness can be function of the observed data and circumstances of the world. Some times this is called a case of *ignorable* missingness because estimation can proceed in good faith on the basis of the observed data. There may be a loss of precision, but the inference should be sound.  
 
 $$  P(M =1 | Y_{obs}, Y_{miss}, \phi) = P(M =1 | Y_{obs}, \phi) $$ 
 
-But the most nefarious sort of missing data is when the missingness is a function of something outside the observed data, and the equation cannot be reduced further. Efforts at imputation and estimation more generally may become more difficuly in this final case because of the risk of confounding. This is a case of *non-ignorable* missingness. 
+The most nefarious sort of missing data is when the missingness is a function of something outside the observed data, and the equation cannot be reduced further. Efforts at imputation and estimation more generally may become more difficuly in this final case because of the risk of confounding. This is a case of *non-ignorable* missingness. 
 
 $$  P(M =1 | Y_{obs}, Y_{miss}, \phi) $$
 
@@ -75,10 +77,10 @@ We'll follow the presentation of Craig Enders' *Applied Missing Data Analysis* {
 
 As is common in employee surveys, many values are missing. This notebook will show how to use a variety of techniques to impute or infer the profile of the missing values. 
 
-| empower 	| climate 	| lmx 	| empower_observed 	| climate_observed 	| lmx_observed 	| empower_pattern 	| climate_pattern 	| lmx_pattern  	|
-|---------	|---------	|-----	|---------	|---------	|-----	|---------	|---------	|------	|
-| 5       	| 6       	| 7   	| 5       	| NA      	| 7   	| True    	| False   	| True 	|
-| 7       	| 4       	| 5   	| NA      	| 4       	| 5   	| False   	| True    	| True 	|
+| empower 	| climate 	| lmx 	| empower_obs 	| climate_obs 	| lmx_obs 	| empower_pattern 	| climate_pattern 	| lmx_pattern 	|
+|---	|---	|---	|---	|---	|---	|---	|---	|---	|
+| 5 	| 6 	| 7 	| 5 	| NA 	| 7 	| True 	| False 	| True 	|
+| 7 	| 4 	| 5 	| NA 	| 4 	| 5 	| False 	| True 	| True 	|
 
 The key question is what assumptions governs our patterns of missing data.
 
@@ -639,7 +641,7 @@ ax1.legend()
 ax1.set_title("Imputed & Observed Empowerment", fontsize=20);
 ```
 
-We can see here how the choice of sampling distribution leads to differently plausible imputations. The choice of which model to go with will driven by the assumptions which govern the reasons for missing-ness in our data. 
+Ultimately our choice of sampling distribution leads to differently plausible imputations. The choice of which model to go with will driven by the assumptions which govern the reasons for missing-ness in our data. 
 
 +++
 
