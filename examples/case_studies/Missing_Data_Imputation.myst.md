@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3.9.0 ('pymc_ar_ex')
+  display_name: Python 3
   language: python
   name: python3
 ---
@@ -27,6 +27,7 @@ kernelspec:
 import random
 
 import arviz as az
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -34,6 +35,7 @@ import pymc as pm
 import scipy.optimize
 
 from matplotlib.lines import Line2D
+from pymc.sampling.jax import sample_blackjax_nuts, sample_numpyro_nuts
 from scipy.stats import multivariate_normal
 ```
 
@@ -86,7 +88,7 @@ The key question is what assumptions governs our patterns of missing data.
 
 ```{code-cell} ipython3
 df_employee = pd.read_csv("../data/employee.csv")
-df_employee
+df_employee.head()
 ```
 
 ```{code-cell} ipython3
@@ -199,7 +201,7 @@ We can then sample from the implied distribution to estimate other features of i
 mle_fit = multivariate_normal(fiml_mus, fiml_cov)
 mle_sample = mle_fit.rvs(10000)
 mle_sample = pd.DataFrame(mle_sample, columns=["worksat", "empower", "lmx"])
-mle_sample
+mle_sample.head()
 ```
 
 ```{code-cell} ipython3
@@ -383,10 +385,7 @@ $$ climate = \alpha_{0} + \beta_{0}male $$
 We can impute each of these equations in turn saving the imputed data set and feeding it forward into the next modelling exercise. This adds a little complexity because some of the variables will occur twice. Once as a predictor in our focal and onces a likelihood term in their own component model. 
 
 
-```{code-cell} ipython3
-data = df_employee[["lmx", "empower", "climate", "male"]]
-data
-```
++++
 
 ### PYMC Imputation
 
@@ -395,6 +394,7 @@ As we saw above we can use PYMC to impute the values of missing data by using a 
 It also matters how we specify the sampling distribution that will be used to impute our missing data. We'll show an example here where we use a uniform and normal sampling distribution alternatively for imputing the predictor terms in our in focal regression. 
 
 ```{code-cell} ipython3
+data = df_employee[["lmx", "empower", "climate", "male"]]
 lmx_mean = data["lmx"].mean()
 lmx_min = data["lmx"].min()
 lmx_max = data["lmx"].max()
@@ -551,14 +551,12 @@ def get_imputed(idata, data):
 
 imputed_data_uniform = get_imputed(idata_uniform, data)
 imputed_data_normal = get_imputed(idata_normal, data)
-imputed_data_uniform
+imputed_data_uniform.head(5)
 ```
 
 ### Plotting the Imputed Datasets
 
 ```{code-cell} ipython3
-import matplotlib.cm as cm
-
 joined_uniform = pd.concat([imputed_data_uniform, data], axis=1)
 joined_normal = pd.concat([imputed_data_normal, data], axis=1)
 for col in ["lmx", "empower", "climate"]:
@@ -686,37 +684,28 @@ team_idx, teams = pd.factorize(df_employee["team"], sort=True)
 employee_idx, _ = pd.factorize(df_employee["employee"], sort=True)
 coords = {"team": teams, "employee": np.arange(len(df_employee))}
 
-priors = {
-    "climate": {"normal": [lmx_mean, lmx_sd, lmx_sd], "uniform": [lmx_min, lmx_max]},
-    "lmx": {"normal": [cli_mean, cli_sd, cli_sd], "uniform": [cli_min, cli_max]},
-}
 
 with pm.Model(coords=coords) as hierarchical_model:
 
     ## Priors
     company_beta_lmx = pm.Normal("company_beta_lmx", 0, 1)
     company_beta_male = pm.Normal("company_beta_male", 0, 1)
-    company_alpha = pm.Normal("company_alpha", 10, 2)
-    team_alpha = pm.Normal("team_alpha", 10, 2, dims="team")
+    company_alpha = pm.Normal("company_alpha", 20, 2)
+    team_alpha = pm.Normal("team_alpha", 0, 1, dims="team")
     team_beta_lmx = pm.Normal("team_beta_lmx", 0, 1, dims="team")
-    team_beta_lmx_offset = pm.Normal("team_beta_lmx_offset", 0, 1, dims="team")
-    team_beta_lmx_sigma = pm.HalfCauchy("team_beta_lmx_sigma", 5)
-    team_beta_male = pm.Normal("team_beta_male", 0, 1, dims="team")
-    sigma = pm.HalfNormal("sigma", 5, dims="employee")
-
-    team_b_lmx = team_beta_lmx + team_beta_lmx_offset * team_beta_lmx_sigma
+    sigma = pm.HalfNormal("sigma", 4, dims="employee")
 
     ## Imputed Predictors
-    mu_lmx = pm.Normal("mu_lmx", priors["lmx"]["normal"][0], priors["lmx"]["normal"][1])
-    sigma_lmx = pm.HalfNormal("sigma_lmx", priors["lmx"]["normal"][2])
+    mu_lmx = pm.Normal("mu_lmx", 10, 5)
+    sigma_lmx = pm.HalfNormal("sigma_lmx", 5)
     lmx_pred = pm.Normal("lmx_pred", mu_lmx, sigma_lmx, observed=df_employee["lmx"].values)
 
     ## Combining Levels
     alpha_global = pm.Deterministic("alpha_global", company_alpha + team_alpha[team_idx])
-    beta_global_lmx = pm.Deterministic("beta_global_lmx", company_beta_lmx + team_b_lmx[team_idx])
-    beta_global_male = pm.Deterministic(
-        "beta_global_male", company_beta_male + team_beta_male[team_idx]
+    beta_global_lmx = pm.Deterministic(
+        "beta_global_lmx", company_beta_lmx + team_beta_lmx[team_idx]
     )
+    beta_global_male = pm.Deterministic("beta_global_male", company_beta_male)
 
     ## Likelihood
     mu = pm.Deterministic(
@@ -728,11 +717,14 @@ with pm.Model(coords=coords) as hierarchical_model:
         "emp_imputed",
         mu,
         sigma,
-        observed=data["empower"].values,
+        observed=df_employee["empower"].values,
     )
 
     idata_hierarchical = pm.sample_prior_predictive()
-    idata_hierarchical.extend(pm.sample(random_seed=1200, target_accept=0.99))
+    # idata_hierarchical.extend(pm.sample(random_seed=1200, target_accept=0.99))
+    idata_hierarchical.extend(
+        sample_blackjax_nuts(draws=20_000, random_seed=500, target_accept=0.99)
+    )
     pm.sample_posterior_predictive(idata_hierarchical, extend_inferencedata=True)
 
 pm.model_to_graphviz(hierarchical_model)
@@ -747,7 +739,7 @@ idata_hierarchical
 ```{code-cell} ipython3
 az.plot_trace(
     idata_hierarchical,
-    var_names=["company_alpha", "team_alpha", "company_beta_lmx", "company_beta_male"],
+    var_names=["company_alpha", "team_alpha", "company_beta_lmx", "team_beta_lmx"],
     kind="rank_vlines",
 );
 ```
@@ -766,7 +758,9 @@ az.summary(
 ```
 
 ```{code-cell} ipython3
-az.plot_ppc(idata_hierarchical, var_names=["emp_imputed_observed"], figsize=(20, 7))
+az.plot_ppc(
+    idata_hierarchical, var_names=["emp_imputed_observed"], figsize=(20, 7), num_pp_samples=1000
+)
 ```
 
 ### Heterogenous Patterns of Imputation
@@ -790,11 +784,24 @@ imputed_data.loc[mask, "empower"] = imputed_emp.values[imputed_data[mask].index]
 imputed_data.columns = ["imputed_" + col for col in imputed_data.columns]
 joined = pd.concat([imputed_data, df_employee], axis=1)
 joined["check"] = np.where(joined["empower"].isnull(), 1, 0)
-fig, axs = plt.subplots(1, 2, figsize=(20, 6))
-axs = axs.flatten()
+
+mosaic = """AAAABB"""
+fig, axs = plt.subplot_mosaic(mosaic, sharex=False, figsize=(20, 7))
+axs = [axs[k] for k in axs.keys()]
 axs[0].scatter(
-    joined["imputed_lmx"], joined["imputed_empower"], c=joined["check"], cmap=cm.winter, ec="black"
+    joined["imputed_lmx"],
+    joined["imputed_empower"],
+    c=joined["check"],
+    cmap=cm.winter,
+    ec="black",
+    s=40,
 )
+
+z = multivariate_normal([10, joined["imputed_empower"].mean()], [[8.9, 5.4], [5.4, 19]]).pdf(
+    joined[["imputed_lmx", "imputed_empower"]]
+)
+axs[0].tricontour(joined["imputed_lmx"], joined["imputed_empower"], z)
+
 axs[1].hist(joined["imputed_empower"], ec="black", label="Imputed", color="limegreen", bins=30)
 axs[1].hist(joined["empower"], ec="black", label="observed", color="blue", bins=30)
 axs[1].set_title("Empowerment Distributions Imputed  \n with Team Informed Estimates", fontsize=20)
@@ -804,7 +811,7 @@ axs[0].set_title("Empowerment Imputed \n with Team Informed Estimates", fontsize
 axs[1].legend();
 ```
 
-It's clear from the hierarchical model that the team specific information has allowed us to impute a wider range of empowerment values with a braoder spread as a function of `lmx` and `male`. This is much more persuasive since all politics is local, and this latter model respects the conditions of work for each employee. As such, our hierarchical model is able to ascribe a more nuanced view of the probable empowerment values for the missing reports.  
+It's clear from the hierarchical model that the team specific information has allowed us to impute a wider range of empowerment values with a broader spread as a function of `lmx` and `male`. This is much more persuasive since all politics is local, and this latter model is informed by the conditions of work for each employee. As such, our hierarchical model is able to ascribe a more nuanced view of the probable empowerment values for the missing reports. The hierarchical imputation model "borrows information" in two ways (i) the individual team estimates are pulled toward the global estimates and (ii) the missing values are imputed with respect to our measures of the team dynamics. 
 
 +++
 
@@ -812,7 +819,9 @@ It's clear from the hierarchical model that the team specific information has al
 
 We've now seen multiple approaches to the imputation of missing data. We have focused on an example where the reason for the missing data is not immediately obvious given how different employees might very well have different reasons for under-specifying their relationship with management. However the techniques applied here are quite general. 
 
-The multivariate normal approaches to imputation work surprisingly well in many cases, but the more cutting edge approach is the sequential specification of chained equations. The Bayesian approach here is **state of the art** because we are quite free to use more than simple regression models as the component models for our imputation equations. For each equation we can be liberal in our choice of likelihood terms and the priors we allow over the sampling distributions. We can also add hierarchical structure to respect natural clusters in our data. This is important because the flexibility of the Bayesian approach can then be tailored to the appropriate complexity of our theory about why our data is missing. Similar considerations apply to the estimation procedures involved in counterfactual inference. The more developed our theory for why the data is missing (why the world is as it is, and not another way), the more we need a flexible modelling framework to capture the subtleties of the theory.
+The multivariate normal approaches to imputation works surprisingly well in many cases, but the more cutting edge approach is the sequential specification of chained equations. The Bayesian approach here is **state of the art** because we are quite free to use more than simple regression models as the component models for our imputation equations. For each equation we can be liberal in our choice of likelihood terms and the priors we allow over the sampling distributions. We can also add hierarchical structure to respect natural clusters in our data in so far as they constrain the patterns of missing data.
+
+This general point is important - the flexibility of the Bayesian approach can be tailored to the appropriate complexity of our theory about why our data is missing. Similar considerations apply to the estimation procedures involved in counterfactual inference. The more developed our theory for why the data is missing (why the world is as it is, and not another way), the more we need a flexible modelling framework to capture the subtleties of the theory. Bayesian modelling is a superb tool for this loop of theory construction and evaluation. 
 
 +++
 
