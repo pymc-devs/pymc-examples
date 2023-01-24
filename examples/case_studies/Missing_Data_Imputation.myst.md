@@ -14,7 +14,7 @@ kernelspec:
 # Bayesian Missing Data Imputation
 
 :::{post} January, 2023
-:tags: missing data, multiple imputation, 
+:tags: missing data, bayesian imputation, hierarchical
 :category: advanced
 :author: Nathaniel Forde
 :::
@@ -77,13 +77,6 @@ These assumptions are made before any analysis begins. They are inherently unver
 
 We'll follow the presentation of Craig Enders' *Applied Missing Data Analysis* {cite:t}`enders2022` and work with employee satisifaction data set. The data set comprises of a few composite measures reporting employee working conditions and satisfactions. Of particular note are empowerment (`empower`), work satisfaction (`worksat`) and two composite survey scores recording the employees leadership climate (`climate`), and the relationship quality with their supervisor `lmx`. 
 
-As is common in employee surveys, many values are missing. This notebook will show how to use a variety of techniques to impute or infer the profile of the missing values. 
-
-| empower 	| climate 	| lmx 	| empower_obs 	| climate_obs 	| lmx_obs 	| empower_pattern 	| climate_pattern 	| lmx_pattern 	|
-|---	|---	|---	|---	|---	|---	|---	|---	|---	|
-| 5 	| 6 	| 7 	| 5 	| NA 	| 7 	| True 	| False 	| True 	|
-| 7 	| 4 	| 5 	| NA 	| 4 	| 5 	| False 	| True 	| True 	|
-
 The key question is what assumptions governs our patterns of missing data.
 
 ```{code-cell} ipython3
@@ -92,7 +85,13 @@ df_employee.head()
 ```
 
 ```{code-cell} ipython3
+## Percentage Missing
 df_employee[["worksat", "empower", "lmx"]].isna().sum() / len(df_employee)
+```
+
+```{code-cell} ipython3
+## Patterns of missing Data
+df_employee[["worksat", "empower", "lmx"]].isnull().drop_duplicates().reset_index(drop=True)
 ```
 
 ```{code-cell} ipython3
@@ -101,6 +100,7 @@ ax.hist(df_employee["empower"], bins=30, ec="black", color="cyan", label="Empowe
 ax.hist(df_employee["lmx"], bins=30, ec="black", color="yellow", label="LMX")
 ax.hist(df_employee["worksat"], bins=30, ec="black", color="green", label="Work Satisfaction")
 ax.set_title("Employee Satisfaction Survey Results", fontsize=20)
+ax.legend();
 ```
 
 ## FIML: Full Information Maximum Likelihood 
@@ -304,6 +304,10 @@ for n in sensitivity.keys():
         ax.set_title(f"Bootstrap Distribution for Expected:\n{col}")
 ```
 
+These plots show how under (MCAR) the parameter estimates of our multivariate normal distribution are quite robust to varying degrees of missing data. It's an instructive exercise to attempt a similar simulation exercise under alternative missing data regimes. 
+
++++
+
 ## Bayesian Imputation 
 
 Next we'll apply bayesian methods to the same problem. But here we'll see direct imputation of the missing values using the posterior predictive distribution. 
@@ -387,9 +391,9 @@ We can impute each of these equations in turn saving the imputed data set and fe
 
 +++
 
-### PYMC Imputation
+### PyMC Imputation
 
-As we saw above we can use PYMC to impute the values of missing data by using a particular samping distribution. In the case of chained equations this becomes a little trickier because we might want to use both the data for `lmx` as a regressor in one equation and observed data in our likelihood in another. 
+As we saw above we can use PyMC to impute the values of missing data by using a particular sampling distribution. In the case of chained equations this becomes a little trickier because we might want to use both the data for `lmx` as a regressor in one equation and observed data in our likelihood in another. 
 
 It also matters how we specify the sampling distribution that will be used to impute our missing data. We'll show an example here where we use a uniform and normal sampling distribution alternatively for imputing the predictor terms in our in focal regression. 
 
@@ -478,10 +482,6 @@ def make_model(priors, normal_pred_assumption=True):
 idata_uniform, model_uniform = make_model(priors, normal_pred_assumption=False)
 idata_normal, model_normal = make_model(priors, normal_pred_assumption=True)
 pm.model_to_graphviz(model_uniform)
-```
-
-```{code-cell} ipython3
-idata_uniform
 ```
 
 ```{code-cell} ipython3
@@ -751,10 +751,18 @@ az.plot_energy(idata_hierarchical, figsize=(20, 7));
 ### Inspecting the Model Fit
 
 ```{code-cell} ipython3
-az.summary(
+summary = az.summary(
     idata_hierarchical,
-    var_names=["company_alpha", "team_alpha", "company_beta_lmx", "company_beta_male"],
+    var_names=[
+        "company_alpha",
+        "team_alpha",
+        "company_beta_lmx",
+        "company_beta_male",
+        "team_beta_lmx",
+    ],
 )
+
+summary
 ```
 
 ```{code-cell} ipython3
@@ -765,7 +773,23 @@ az.plot_ppc(
 
 ### Heterogenous Patterns of Imputation
 
-Just as when we consider questions of causal inference and we attend to the confounding influence of local factors, this is also required when we do imputation. 
+Just as when we consider questions of causal inference and we attend to the confounding influence of local factors, this is also required when we do imputation. We show here a selection of team specific intercept terms which suggest that belonging to a particular team can shift your empowerment above or below the grand mean of the company level intercept term. These local effects of environment are what we seek to account for when imputing missing values. 
+
+```{code-cell} ipython3
+ax = az.plot_forest(
+    idata_hierarchical,
+    var_names=["team_alpha"],
+    coords={"team": [1, 20, 22, 30, 50, 70, 76, 80, 100]},
+    figsize=(20, 15),
+    kind="ridgeplot",
+    combined=True,
+    ridgeplot_alpha=0.4,
+    hdi_prob=True,
+)
+ax[0].axvline(0)
+```
+
+The ability to capture local variation impacts the pattern of imputed values too. 
 
 ```{code-cell} ipython3
 imputed_data = df_employee[["lmx", "empower", "climate"]]
