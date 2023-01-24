@@ -778,7 +778,7 @@ Just as when we consider questions of causal inference and we attend to the conf
 ```{code-cell} ipython3
 ax = az.plot_forest(
     idata_hierarchical,
-    var_names=["team_alpha"],
+    var_names=["team_beta_lmx"],
     coords={"team": [1, 20, 22, 30, 50, 70, 76, 80, 100]},
     figsize=(20, 15),
     kind="ridgeplot",
@@ -787,6 +787,7 @@ ax = az.plot_forest(
     hdi_prob=True,
 )
 ax[0].axvline(0)
+ax[0].set_title("Team Contribution to the marginal effect of LMX on Empowerment", fontsize=20);
 ```
 
 The ability to capture local variation impacts the pattern of imputed values too. 
