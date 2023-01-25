@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc-examples-env
   language: python
   name: python3
 ---
@@ -27,6 +27,8 @@ import numpy as np
 import pandas as pd
 import pymc as pm
 import pymc_bart as pmb
+
+%config InlineBackend.figure_format = "retina"
 
 print(f"Running on PyMC v{pm.__version__}")
 ```
@@ -86,7 +88,7 @@ In PyMC a BART variable can be defined very similar to other random variables. O
 ```{code-cell} ipython3
 with pm.Model() as model_coal:
     μ_ = pmb.BART("μ_", X=x_data, Y=y_data, m=20)
-    μ = pm.Deterministic("μ", np.abs(μ_))
+    μ = pm.Deterministic("μ", pm.math.abs(μ_))
     y_pred = pm.Poisson("y_pred", mu=μ, observed=y_data)
     idata_coal = pm.sample(random_seed=RANDOM_SEED)
 ```
@@ -137,7 +139,9 @@ try:
 except FileNotFoundError:
     bikes = pd.read_csv(pm.get_data("bikes.csv"))
 
-X = bikes[["hour", "temperature", "humidity", "workingday"]]
+features = ["hour", "temperature", "humidity", "workingday"]
+
+X = bikes[features]
 Y = bikes["count"]
 ```
 
@@ -145,7 +149,7 @@ Y = bikes["count"]
 with pm.Model() as model_bikes:
     α = pm.Exponential("α", 1 / 10)
     μ = pmb.BART("μ", X, Y)
-    y = pm.NegativeBinomial("y", mu=np.abs(μ), alpha=α, observed=Y)
+    y = pm.NegativeBinomial("y", mu=pm.math.abs(μ), alpha=α, observed=Y)
     idata_bikes = pm.sample(random_seed=RANDOM_SEED)
 ```
 
@@ -179,11 +183,112 @@ Additionally, PyMC-BART provides a novel method to assess the variable importanc
 pmb.plot_variable_importance(idata_bikes, μ, X, samples=100);
 ```
 
+### Out-of-Sample Predictions
+
+In this section we want to show how to do out-of-sample predictions with BART. We are going to use the same dataset as before, but this time we are going to split the data into a training and a test set. We are going to use the training set to fit the model and the test set to evaluate the model.
+As this is a time series problem we need to make sure we do not shuffle the data. Hence we do the split using the `hour` feature.
+
+```{code-cell} ipython3
+train_test_hour_split = 19
+
+train_bikes = bikes.query("hour <= @train_test_hour_split")
+test_bikes = bikes.query("hour > @train_test_hour_split")
+
+X_train = train_bikes[features]
+Y_train = train_bikes["count"]
+
+X_test = test_bikes[features]
+Y_test = test_bikes["count"]
+```
+
+Now, we fit the same model as above but this time using a *shared variable* for the covariatates so that we can then replace them to generate the out of sample predictions.
+
+```{code-cell} ipython3
+with pm.Model() as model_bikes_train_test:
+    X = pm.MutableData("X", X_train)
+    Y = Y_train
+    α = pm.Exponential("α", 1 / 10)
+    μ = pmb.BART("μ", X, Y)
+    y = pm.NegativeBinomial("y", mu=pm.math.abs(μ), alpha=α, observed=Y, shape=μ.shape)
+    idata_bikes_train = pm.sample(random_seed=RANDOM_SEED)
+    posterior_predictive_train = pm.sample_posterior_predictive(
+        trace=idata_bikes_train, random_seed=RANDOM_SEED
+    )
+```
+
+Next, we replace the data in the model and sample from the posterior predictive distribution.
+
+```{code-cell} ipython3
+with model_bikes_train_test:
+    X.set_value(X_test)
+    posterior_predictive_test = pm.sample_posterior_predictive(
+        trace=idata_bikes_train, random_seed=RANDOM_SEED
+    )
+```
+
+Finally, let's plot the results:
+
+```{code-cell} ipython3
+:tags: [hide-input]
+
+fig, ax = plt.subplots(figsize=(12, 6))
+az.plot_hdi(
+    x=X_train.index,
+    y=posterior_predictive_train.posterior_predictive["y"],
+    hdi_prob=0.94,
+    color="C0",
+    fill_kwargs={"alpha": 0.2, "label": r"94$\%$ HDI (train)"},
+    smooth=False,
+    ax=ax,
+)
+az.plot_hdi(
+    x=X_train.index,
+    y=posterior_predictive_train.posterior_predictive["y"],
+    hdi_prob=0.5,
+    color="C0",
+    fill_kwargs={"alpha": 0.4, "label": r"50$\%$ HDI (train)"},
+    smooth=False,
+    ax=ax,
+)
+ax.plot(X_train.index, Y_train, label="train (observed)")
+az.plot_hdi(
+    x=X_test.index,
+    y=posterior_predictive_test.posterior_predictive["y"],
+    hdi_prob=0.94,
+    color="C1",
+    fill_kwargs={"alpha": 0.2, "label": r"94$\%$ HDI (test)"},
+    smooth=False,
+    ax=ax,
+)
+az.plot_hdi(
+    x=X_test.index,
+    y=posterior_predictive_test.posterior_predictive["y"],
+    hdi_prob=0.5,
+    color="C1",
+    fill_kwargs={"alpha": 0.4, "label": r"50$\%$ HDI (test)"},
+    smooth=False,
+    ax=ax,
+)
+ax.plot(X_test.index, Y_test, label="test (observed)")
+ax.axvline(X_train.shape[0], color="k", linestyle="--", label="train/test split")
+ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+ax.set(
+    title="BART model predictions for bike rentals",
+    xlabel="observation index",
+    ylabel="number of rentals",
+);
+```
+
+The out-of-sample predictions look a bit odd. Why? Well, note that in the variable importance ranking from the initial model we saw that `hour` was the most important predictor. On the other hand, our training data just sees `hour` values until $19$. As BART learns how to partition the (training) data, it can not differentiate between `hour` values between $20$ and $22$ for example. It just cares that both values are greater that $19$. This is very important to understand when using BART! This explains why one should not use BART for time series forecasting if there is a trend component. In this case it is better to detrend the data first, model the remainder with BART and model the trend with a different model.
+
++++
+
 ## Authors
 * Authored by Osvaldo Martin in Dec, 2021 ([pymc-examples#259](https://github.com/pymc-devs/pymc-examples/pull/259))
 * Updated by Osvaldo Martin in May, 2022  ([pymc-examples#323](https://github.com/pymc-devs/pymc-examples/pull/323))
 * Updated by Osvaldo Martin in Sep, 2022
 * Updated by Osvaldo Martin in Nov, 2022
+* Juan Orduz added out-of-sample section in Jan, 2023
 
 +++
 
