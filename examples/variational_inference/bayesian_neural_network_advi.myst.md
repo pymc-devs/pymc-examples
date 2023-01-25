@@ -130,8 +130,8 @@ def construct_nn(ann_input, ann_output):
         # "obs_id": np.arange(X_train.shape[0]),
     }
     with pm.Model(coords=coords) as neural_network:
-        ann_input = pm.Data("ann_input", X_train, mutable=True)
-        ann_output = pm.Data("ann_output", Y_train, mutable=True)
+        ann_input = pm.Data("ann_input", X_train, mutable=True, dims=("obs_id", "train_cols"))
+        ann_output = pm.Data("ann_output", Y_train, mutable=True, dims="obs_id")
 
         # Weights from input to hidden layer
         weights_in_1 = pm.Normal(
@@ -157,6 +157,7 @@ def construct_nn(ann_input, ann_output):
             act_out,
             observed=ann_output,
             total_size=Y_train.shape[0],  # IMPORTANT for minibatches
+            dims="obs_id",
         )
     return neural_network
 
@@ -340,6 +341,7 @@ You might argue that the above network isn't really deep, but note that we could
 
 - This notebook was originally authored as a [blog post](https://twiecki.github.io/blog/2016/06/01/bayesian-deep-learning/) by Thomas Wiecki in 2016
 - Updated by Chris Fonnesbeck for PyMC v4 in 2022
+- Updated by Oriol Abril-Pla and Earl Bellinger in 2023
 
 ## Watermark
 
