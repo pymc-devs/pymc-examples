@@ -13,7 +13,7 @@ kernelspec:
 (GLM-rolling-regression)=
 # Rolling Regression
 
-:::{post} June, 2022
+:::{post} Jan 28, 2023
 :tags: generalized linear model, regression 
 :category: intermediate
 :author: Thomas Wiecki
@@ -250,6 +250,7 @@ cb.ax.set_yticklabels(ticklabels);
 
 - Created by [Thomas Wiecki](https://github.com/twiecki/)
 - Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) June 2022
+- Run PyMC v5 by Reshama Shaikh, January 2023
 
 +++
 
