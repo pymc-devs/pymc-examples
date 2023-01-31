@@ -5,16 +5,16 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3.10.5 ('pymc-dev')
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
 
 (hierarchical_partial_pooling)=
 # Hierarchical Partial Pooling
-:::{post} Oct 07, 2021
-:tags: hierarchical model, 
-:category: intermediate,
+:::{post} Jan 28, 2023
+:tags: hierarchical model 
+:category: intermediate
 :author: Vladislavs Dovgalecs, Adrian Seybolt, Christian Luhmann
 :::
 
@@ -159,6 +159,7 @@ Notice that, despite the fact our additional player did not get any hits, the es
 * authored by Vladislavs Dovgalecs in November, 2016 ([pymc#1546](https://github.com/pymc-devs/pymc/pull/1546))
 * updated by Adrian Seybolt in June, 2017 ([pymc#2288](https://github.com/pymc-devs/pymc/pull/2288))
 * updated by Christian Luhmann in August, 2020 ([pymc#4068](https://github.com/pymc-devs/pymc/pull/4068))
+* run using PyMC v5 by Reshama Shaikh in January, 2023
 
 +++
 
@@ -174,7 +175,7 @@ Notice that, despite the fact our additional player did not get any hits, the es
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesera,aeppl,xarray
+%watermark -n -u -v -iv -w -p xarray
 ```
 
 :::{include} ../page_footer.md
