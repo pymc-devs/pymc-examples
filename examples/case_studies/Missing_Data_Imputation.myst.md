@@ -67,7 +67,7 @@ The most nefarious sort of missing data is when the missingness is a function of
 
 $$  P(M =1 | Y_{obs}, Y_{miss}, \phi) $$
 
-These assumptions are made before any analysis begins. They are inherently unverifiable. Your analysis will stand or fall depending on how plausible each assumption is in the context you seek to apply them. For example, an another type missing data results from systematic censoring as discussed in {ref}`censored_data`. In such cases the reason for censoring governs the missing-ness pattern. 
+These assumptions are made before any analysis begins. They are inherently unverifiable. Your analysis will stand or fall depending on how plausible each assumption is in the context you seek to apply them. For example, an another type missing data results from systematic censoring as discussed in {ref}`GLM-truncated-censored-regression`. In such cases the reason for censoring governs the missing-ness pattern. 
 
 ## Employee Satisfaction Surveys
 
@@ -390,7 +390,7 @@ $$ empower = \alpha_{2} + \beta_{3}male + \beta_{4}climate + \beta_{5}lmx $$
 $$ lmx = \alpha_{1} + \beta_{1}climate + \beta_{2}male $$
 $$ climate = \alpha_{0} + \beta_{0}male $$
 
-We can impute each of these equations in turn saving the imputed data set and feeding it forward into the next modelling exercise. This adds a little complexity because some of the variables will occur twice. Once as a predictor in our focal and onces a likelihood term in their own component model. 
+We can impute each of these equations in turn saving the imputed data set and feeding it forward into the next modelling exercise. This adds a little complexity because some of the variables will occur twice. Once as a predictor in our focal regression and once and as likelihood term in their own component model. 
 
 
 +++
@@ -502,7 +502,7 @@ az.summary(idata_normal, var_names=["alphas", "beta", "sigmas"], stat_focus="med
 az.summary(idata_uniform, var_names=["alphas", "beta", "sigmas"], stat_focus="median")
 ```
 
-We can see how the choice of sampling distribution has induced different parameter estimates on the beta coefficients across our two models. The two imputations broadly agrees with the figures reported in Ender's book. 
+We can see how the choice of sampling distribution has induced different parameter estimates on the beta coefficients across our two models. The two imputations broadly agrees at the level of the parameters, but they meaningfully differ in their implications. 
 
 ```{code-cell} ipython3
 az.plot_forest(
@@ -528,7 +528,7 @@ az.plot_ppc(idata_normal)
 
 ### Process the Posterior Predictive Distribution
 
-Above we estimated a number of likelihood terms in a single PyMC model context. These likelihoods constrained the hyper-parameters which determined the imputation values of the missing terms in the variables used as predictors in our focal regression equation for `empower`. But we could also perform a more manual sequential imputation, where we model each of the subordinate regression equations seperately and extract the imputed values for each variable and then run a simple regression on the imputed values for the focal regression equation. 
+Above we estimated a number of likelihood terms in a single PyMC model context. These likelihoods constrained the hyper-parameters which determined the imputation values of the missing terms in the variables used as predictors in our focal regression equation for `empower`. But we could also perform a more manual sequential imputation, where we model each of the subordinate regression equations seperately and extract the imputed values for each variable in turn and then run a simple regression on the imputed values for the focal regression equation. 
 
 We show here how to extract the imputed values for each of the regression equations and augment the observed data.
 
