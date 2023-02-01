@@ -39,7 +39,7 @@ from scipy.stats import multivariate_normal
 
 The analysis of data with missing values is a gateway into the study of causal inference. 
 
-One of the key features of any analysis plagued by missing data is the assumption which governs the nature of the missing-ness i.e. what is the reason our data gaps? Can we ignore them? In this notebook we'll see an example of how to handle missing data using maximum likelihood estimation and bayesian imputation techniques. This will open up questions about the assumptions governing inference in the presence of missing data, and inference in counterfactual cases.  
+One of the key features of any analysis plagued by missing data is the assumption which governs the nature of the missing-ness i.e. what is the reason for gaps in our data? Can we ignore them? Should we worry about why? In this notebook we'll see an example of how to handle missing data using maximum likelihood estimation and bayesian imputation techniques. This will open up questions about the assumptions governing inference in the presence of missing data, and inference in counterfactual cases.  
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'  # high resolution figures
