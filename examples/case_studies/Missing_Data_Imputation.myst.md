@@ -13,15 +13,11 @@ kernelspec:
 (Bayesian Missing Data Imputation)=
 # Bayesian Missing Data Imputation
 
-:::{post} January, 2023
+:::{post} February, 2023
 :tags: missing data, bayesian imputation, hierarchical
 :category: advanced
 :author: Nathaniel Forde
 :::
-
-+++
-
-## Introduction
 
 ```{code-cell} ipython3
 import random
@@ -71,9 +67,9 @@ The most nefarious sort of missing data is when the missingness is a function of
 
 $$  P(M =1 | Y_{obs}, Y_{miss}, \phi) $$
 
-These assumptions are made before any analysis begins. They are inherently unverifiable. Your analysis will stand or fall depending on how plausible each assumption is in the context you seek to apply them. 
+These assumptions are made before any analysis begins. They are inherently unverifiable. Your analysis will stand or fall depending on how plausible each assumption is in the context you seek to apply them. For example, an another type missing data results from systematic censoring as discussed in [censored data](`censored_data`). In such cases the reason for censoring governs the missing-ness pattern. 
 
-### Employee Satisfaction Surveys
+## Employee Satisfaction Surveys
 
 We'll follow the presentation of Craig Enders' *Applied Missing Data Analysis* {cite:t}`enders2022` and work with employee satisifaction data set. The data set comprises of a few composite measures reporting employee working conditions and satisfactions. Of particular note are empowerment (`empower`), work satisfaction (`worksat`) and two composite survey scores recording the employees leadership climate (`climate`), and the relationship quality with their supervisor `lmx`. 
 
@@ -90,7 +86,7 @@ df_employee[["worksat", "empower", "lmx"]].isna().sum() / len(df_employee)
 ```
 
 ```{code-cell} ipython3
-## Patterns of missing Data
+# Patterns of missing Data
 df_employee[["worksat", "empower", "lmx"]].isnull().drop_duplicates().reset_index(drop=True)
 ```
 
@@ -103,6 +99,10 @@ ax.set_title("Employee Satisfaction Survey Results", fontsize=20)
 ax.legend();
 ```
 
+We see here the histograms of the employee metrics. It is the gaps in the data that we wish to impute to better understand the relationships between the variables and how gaps in one may be driven by values in the others. 
+
++++
+
 ## FIML: Full Information Maximum Likelihood 
 
 This method of handling missing data is **not** an imputation method. It uses maximum likelihood estimation to estimate the parameters of the multivariate normal distribution that could be best said to generate our observed data. It's a little trickier than straight forward MLE approaches in that it respects the fact that we have missing data in our original data set. 
@@ -114,8 +114,8 @@ data = df_employee[["worksat", "empower", "lmx"]]
 
 
 def split_data_by_missing_pattern(data):
-    ## We want to extract our the pattern of missing-ness in our dataset
-    ## and save each sub-set of our data in a structure that can be used to feed into a log-likelihood function
+    # We want to extract our the pattern of missing-ness in our dataset
+    # and save each sub-set of our data in a structure that can be used to feed into a log-likelihood function
     grouped_patterns = []
     patterns = data.notnull().drop_duplicates().values
     # A pattern is whether the values in each column e.g. [True, True, True] or [True, True, False]
@@ -132,8 +132,8 @@ def split_data_by_missing_pattern(data):
 
 
 def reconstitute_params(params_vector, n_vars):
-    ## Convenience numpy function to construct mirrored COV matrix
-    ## From flattened params_vector
+    # Convenience numpy function to construct mirrored COV matrix
+    # From flattened params_vector
     mus = params_vector[0:n_vars]
     cov_flat = params_vector[n_vars:]
     indices = np.tril_indices(n_vars)
@@ -147,16 +147,16 @@ def reconstitute_params(params_vector, n_vars):
 
 def optimise_ll(flat_params, n_vars, grouped_patterns):
     mus, cov = reconstitute_params(flat_params, n_vars)
-    ## Check if COV is positive definite
+    # Check if COV is positive definite
     if (np.linalg.eigvalsh(cov) < 0).any():
         return 1e100
     objval = 0.0
     for obs_pattern, _, obs_data in grouped_patterns:
-        ## This is the key (tricky) step because we're selecting the variables which pattern
-        ## the full information set within each pattern of "missing-ness"
-        ## e.g. when the observed pattern is [True, True, False] we want the first two variables
-        ## of the mus vector and we want only the covariance relations between the relevant variables from the cov
-        ## in the iteration.
+        # This is the key (tricky) step because we're selecting the variables which pattern
+        # the full information set within each pattern of "missing-ness"
+        # e.g. when the observed pattern is [True, True, False] we want the first two variables
+        # of the mus vector and we want only the covariance relations between the relevant variables from the cov
+        # in the iteration.
         obs_mus = mus[obs_pattern]
         obs_cov = cov[obs_pattern][:, obs_pattern]
         ll = np.sum(multivariate_normal(obs_mus, obs_cov).logpdf(obs_data))
@@ -166,14 +166,14 @@ def optimise_ll(flat_params, n_vars, grouped_patterns):
 
 def estimate(data):
     n_vars = data.shape[1]
-    ## Initialise
+    # Initialise
     mus0 = np.zeros(n_vars)
     cov0 = np.eye(n_vars)
-    ## Flatten params for optimiser
+    # Flatten params for optimiser
     params0 = np.append(mus0, cov0[np.tril_indices(n_vars)])
-    ## Process Data
+    # Process Data
     grouped_patterns = split_data_by_missing_pattern(data)
-    ## Run the Optimiser.
+    # Run the Optimiser.
     try:
         result = scipy.optimize.minimize(
             optimise_ll, params0, args=(n_vars, grouped_patterns), method="Powell"
@@ -498,7 +498,7 @@ az.summary(idata_normal, var_names=["alphas", "beta", "sigmas"], stat_focus="med
 az.summary(idata_uniform, var_names=["alphas", "beta", "sigmas"], stat_focus="median")
 ```
 
-We can see how the choice of sampling distribution has induced different parameter estimates on the beta coefficients across our two models. 
+We can see how the choice of sampling distribution has induced different parameter estimates on the beta coefficients across our two models. The two imputations broadly agrees with the figures reported in Ender's book. 
 
 ```{code-cell} ipython3
 az.plot_forest(
@@ -523,6 +523,10 @@ az.plot_ppc(idata_normal)
 ```
 
 ### Process the Posterior Predictive Distribution
+
+Above we estimated a number of likelihood terms in a single PyMC model context. These likelihoods constrained the hyper-parameters which determined the imputation values of the missing terms in the variables used as predictors in our focal regression equation for `empower`. But we could also perform a more manual sequential imputation, where we extract the imputed values of the subordinate equations and then run a simple regression on the imputed values for the focal regression equation. 
+
+We show here how to extract the imputed values for each of the regression equations and augment the observed data.
 
 ```{code-cell} ipython3
 def get_imputed(idata, data):
@@ -551,10 +555,16 @@ def get_imputed(idata, data):
 
 imputed_data_uniform = get_imputed(idata_uniform, data)
 imputed_data_normal = get_imputed(idata_normal, data)
-imputed_data_uniform.head(5)
+imputed_data_normal.head(5)
 ```
 
+We used the mean here to impute the expected value for each missing cell, but you could perform a kind of sensitivity analysis using the many plausible values in posterior predictive distribution
+
++++
+
 ### Plotting the Imputed Datasets
+
+Now we'll plot the imputed values against their observed values to show how the different sampling distributions impact the pattern of imputation.
 
 ```{code-cell} ipython3
 joined_uniform = pd.concat([imputed_data_uniform, data], axis=1)
