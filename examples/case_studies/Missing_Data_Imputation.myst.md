@@ -865,7 +865,7 @@ This general point is important - the flexibility of the Bayesian approach can b
 +++
 
 ## Authors
-- Authored by [Nathaniel Forde](https://nathanielf.github.io/) in January 2023 for [pymc-examples #500](https://github.com/pymc-devs/pymc-examples/pull/500)
+- Authored by [Nathaniel Forde](https://nathanielf.github.io/) in February 2023 for [pymc-examples #500](https://github.com/pymc-devs/pymc-examples/pull/500)
 
 +++
 
