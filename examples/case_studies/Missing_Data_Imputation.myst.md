@@ -380,7 +380,7 @@ These results agree with the FIML approach above and the results reported in End
 So far we've seen multivariate approaches to imputation which treat each of the variables in our dataset as a collection drawn from the same distribution. However, there is a more flexible approach which is often useful when there is a particular focal relationship that we're interested in analysing. 
 
 Sticking with the employee data set we'll examine here the relationship between `lmx`, `climate`, `male` and `empower`, where our focus is on what drives empowerment. 
-Recall that our gender variable `male` is fully specified and does not need to be imputed. So we have a joint distribution:
+Recall that our gender variable `male` is fully specified and does not need to be imputed. So we have a joint distribution that can be decomposed:
 
 $$ f(emp, lmx, climate, male) = f(emp | lmx, climate, male) \cdot f(lmx | climate, male) \cdot f(climate | male) \cdot f(male)^{*} $$
 
@@ -493,6 +493,8 @@ idata_normal
 ```
 
 ### Model Fits
+
+Next we'll inspect the parameter fits for our regression models and observe how they're dependent on the prior specification in the imputation scheme. 
 
 ```{code-cell} ipython3
 az.summary(idata_normal, var_names=["alphas", "beta", "sigmas"], stat_focus="median")
@@ -663,7 +665,7 @@ Ultimately our choice of sampling distribution leads to differently plausible im
 
 ## Hierarchical Structures and Data Imputation
 
-Our employee dataset has more fine-grained structure than we've examined so far. In particular there are 100 or so teams which make up our employee pool, and we might wonder to what degree the propensity for satisfaction or incomplete survey scores are due to the local team environments? Could this be a factor in our patterns of missing data?
+Our employee dataset has more fine-grained structure than we've examined so far. In particular there are 100 or so teams which make up our employee pool, and we might wonder to what degree the propensity for satisfaction or incomplete survey scores are due to the local team environments? Could this be a factor in our patterns of missing data? We'll examine the reported empowerment scores by team and plot the regression lines by as predicted within each team by their reported `lmx` score. 
 
 ```{code-cell} ipython3
 heatmap = df_employee.pivot("employee", "team", "empower").dropna(how="all")
