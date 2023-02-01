@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_env
+  display_name: pymc
   language: python
-  name: pymc_env
+  name: python3
 ---
 
 (censored_data)=
@@ -241,3 +241,6 @@ As we can see, both censored models appear to capture the mean and variance of t
 %load_ext watermark
 %watermark -n -u -v -iv -w -p pytensor,aeppl
 ```
+
+:::{include} ../page_footer.md
+:::
