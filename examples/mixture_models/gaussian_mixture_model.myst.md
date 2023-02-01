@@ -63,7 +63,7 @@ with pm.Model(coords={"cluster": range(k)}) as model:
         "μ",
         mu=0,
         sigma=5,
-        transform=pm.distributions.transforms.ordered,
+        transform=pm.distributions.transforms.univariate_ordered,
         initval=[-4, 0, 4],
         dims="cluster",
     )
@@ -109,6 +109,7 @@ ax[2].set(title="Group membership", xlabel="x", ylabel="Probability");
 - Authored by Abe Flaxman.
 - Updated by Thomas Wiecki.
 - Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in April 2022 ([#310](https://github.com/pymc-devs/pymc-examples/pull/310)) to use `pm.NormalMixture`.
+- Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5.
 
 +++
 
