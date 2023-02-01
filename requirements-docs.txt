@@ -1,10 +1,10 @@
 myst-nb
 sphinx==5.0.2 # see https://github.com/pymc-devs/pymc-examples/issues/409
-pydata_sphinx_theme<0.10.1
+git+https://github.com/pymc-devs/pymc-sphinx-theme
 sphinx-design
 sphinx-copybutton
 sphinxcontrib-bibtex
-ablog<0.10.27 # ablog 0.10.27 is broken see https://github.com/sunpy/ablog/issues/151
+ablog
 sphinxext-opengraph
 sphinx-codeautolink
 sphinx-notfound-page
