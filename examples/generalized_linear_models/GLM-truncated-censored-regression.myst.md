@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3.10.6 ('pymc_env')
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -361,6 +361,7 @@ When looking into this topic, I found that most of the material out there focuse
 * Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in May 2021
 * Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in January 2022
 * Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in September 2022
+* Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5
 
 +++
 

@@ -488,6 +488,7 @@ The bad news of course, is that as of the last data point (May 2022) the number 
 
 ## Authors
 - Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in July 2022.
+- Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5
 
 +++
 

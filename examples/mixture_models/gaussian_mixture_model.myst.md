@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-dev-py39
+  display_name: pymc_env
   language: python
-  name: pymc-dev-py39
+  name: pymc_env
 ---
 
 (gaussian_mixture_model)=
