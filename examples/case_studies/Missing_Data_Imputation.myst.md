@@ -63,11 +63,11 @@ whereas the second pattern (MAR) allows that the reasons for missingness can be 
 
 $$  P(M =1 | Y_{obs}, Y_{miss}, \phi) = P(M =1 | Y_{obs}, \phi) $$ 
 
-The most nefarious sort of missing data is when the missingness is a function of something outside the observed data, and the equation cannot be reduced further. Efforts at imputation and estimation more generally may become more difficuly in this final case because of the risk of confounding. This is a case of *non-ignorable* missingness. 
+The most nefarious sort of missing data is when the missingness is a function of something outside the observed data, and the equation cannot be reduced further. Efforts at imputation and estimation more generally may become more difficulty in this final case because of the risk of confounding. This is a case of *non-ignorable* missing-ness. 
 
 $$  P(M =1 | Y_{obs}, Y_{miss}, \phi) $$
 
-These assumptions are made before any analysis begins. They are inherently unverifiable. Your analysis will stand or fall depending on how plausible each assumption is in the context you seek to apply them. For example, an another type missing data results from systematic censoring as discussed in [censored data](`censored_data`). In such cases the reason for censoring governs the missing-ness pattern. 
+These assumptions are made before any analysis begins. They are inherently unverifiable. Your analysis will stand or fall depending on how plausible each assumption is in the context you seek to apply them. For example, an another type missing data results from systematic censoring as discussed in {ref}`censored_data`. In such cases the reason for censoring governs the missing-ness pattern. 
 
 ## Employee Satisfaction Surveys
 
@@ -105,7 +105,7 @@ We see here the histograms of the employee metrics. It is the gaps in the data t
 
 ## FIML: Full Information Maximum Likelihood 
 
-This method of handling missing data is **not** an imputation method. It uses maximum likelihood estimation to estimate the parameters of the multivariate normal distribution that could be best said to generate our observed data. It's a little trickier than straight forward MLE approaches in that it respects the fact that we have missing data in our original data set. 
+This method of handling missing data is **not** an imputation method. It uses maximum likelihood estimation to estimate the parameters of the multivariate normal distribution that could be best said to generate our observed data. It's a little trickier than straight forward MLE approaches in that it respects the fact that we have missing data in our original data set, but fundamentally it's the same idea. We want to optimize the parameters of our multivariate normal distribution to best fit the observed data. 
 
 The procedure works by partitioning the data into their patterns of "missing-ness" and treating each partition as contributing to the ultimate log-likelihood term that we want to maximise. We combine their contributions to estimate a fit for the multivariate normal distribution.  
 
@@ -204,6 +204,8 @@ mle_sample = pd.DataFrame(mle_sample, columns=["worksat", "empower", "lmx"])
 mle_sample.head()
 ```
 
+This allows us to compare the implied distributions against the observed data
+
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(20, 7))
 ax.hist(
@@ -231,6 +233,8 @@ ax.legend()
 ```
 
 ### The Correlation Between the Imputed Metrics Data
+
+We can also calculate other features of interest from our sample. For instance, we might want to know about the correlations between variables in question. 
 
 ```{code-cell} ipython3
 pd.DataFrame(mle_sample.corr(), columns=data.columns, index=data.columns)
@@ -310,7 +314,7 @@ These plots show how under (MCAR) the parameter estimates of our multivariate no
 
 ## Bayesian Imputation 
 
-Next we'll apply bayesian methods to the same problem. But here we'll see direct imputation of the missing values using the posterior predictive distribution. 
+Next we'll apply bayesian methods to the same problem. But here we'll see direct imputation of the missing values using the posterior predictive distribution. The Bayesian approach to imputation is of a different flavour than we saw above. We're not just learning parameters of the data generating distribution (although we are doing that too), the bayesian process directly imputes the missing values for specific missing entries through the process of MCMC sampling. 
 
 ```{code-cell} ipython3
 import pytensor.tensor as pt
@@ -524,7 +528,7 @@ az.plot_ppc(idata_normal)
 
 ### Process the Posterior Predictive Distribution
 
-Above we estimated a number of likelihood terms in a single PyMC model context. These likelihoods constrained the hyper-parameters which determined the imputation values of the missing terms in the variables used as predictors in our focal regression equation for `empower`. But we could also perform a more manual sequential imputation, where we extract the imputed values of the subordinate equations and then run a simple regression on the imputed values for the focal regression equation. 
+Above we estimated a number of likelihood terms in a single PyMC model context. These likelihoods constrained the hyper-parameters which determined the imputation values of the missing terms in the variables used as predictors in our focal regression equation for `empower`. But we could also perform a more manual sequential imputation, where we model each of the subordinate regression equations seperately and extract the imputed values for each variable and then run a simple regression on the imputed values for the focal regression equation. 
 
 We show here how to extract the imputed values for each of the regression equations and augment the observed data.
 
@@ -800,7 +804,7 @@ ax[0].axvline(0)
 ax[0].set_title("Team Contribution to the marginal effect of LMX on Empowerment", fontsize=20);
 ```
 
-The ability to capture local variation impacts the pattern of imputed values too. 
+The ability to capture this local variation impacts the pattern of imputed values too. 
 
 ```{code-cell} ipython3
 imputed_data = df_employee[["lmx", "empower", "climate"]]
