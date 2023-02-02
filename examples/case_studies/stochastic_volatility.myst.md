@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-dev
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -16,7 +16,7 @@ kernelspec:
 :::{post} June 17, 2022
 :tags: time series, case study
 :category: beginner
-:author: John Salvatier
+:author: John Salvatier, Colin Carroll, Abhipsha Das
 :::
 
 ```{code-cell} ipython3
