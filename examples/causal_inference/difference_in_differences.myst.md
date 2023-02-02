@@ -437,6 +437,7 @@ Of course, when using the difference in differences approach for real applicatio
 
 ## Authors
 - Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in Sept 2022 ([#424](https://github.com/pymc-devs/pymc-examples/pull/424)).
+- Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5
 
 +++
 

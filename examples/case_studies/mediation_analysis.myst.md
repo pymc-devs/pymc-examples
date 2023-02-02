@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc_env
   language: python
-  name: python3
+  name: pymc_env
 ---
 
 (mediation_analysis)=
@@ -182,7 +182,7 @@ with pm.Model() as total_effect_model:
     c = pm.Normal("c", mu=0, sigma=1)
     σy = pm.HalfCauchy("σy", 1)
     μy = iy + c * _x
-    pm.Normal("yy", mu=μy, sd=σy, observed=y, dims="obs_id")
+    pm.Normal("yy", mu=μy, sigma=σy, observed=y, dims="obs_id")
 ```
 
 ```{code-cell} ipython3
