@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_env
+  display_name: Python 3 (ipykernel)
   language: python
-  name: pymc_env
+  name: python3
 ---
 
 (stochastic_volatility)=
@@ -16,7 +16,7 @@ kernelspec:
 :::{post} June 17, 2022
 :tags: time series, case study
 :category: beginner
-:author: John Salvatier
+:author: John Salvatier, Colin Carroll, Abhipsha Das
 :::
 
 ```{code-cell} ipython3
@@ -79,7 +79,9 @@ Specifying the model in `PyMC` mirrors its statistical specification.
 def make_stochastic_volatility_model(data):
     with pm.Model(coords={"time": data.index.values}) as model:
         step_size = pm.Exponential("step_size", 10)
-        volatility = pm.GaussianRandomWalk("volatility", sigma=step_size, dims="time")
+        volatility = pm.GaussianRandomWalk(
+            "volatility", sigma=step_size, dims="time", init_dist=pm.Normal.dist(0, 100)
+        )
         nu = pm.Exponential("nu", 0.1)
         returns = pm.StudentT(
             "returns", nu=nu, lam=np.exp(-2 * volatility), observed=data["change"], dims="time"
@@ -212,6 +214,7 @@ axes[1].set_title("Posterior volatility");
 * Updated by Abhipsha Das on July 24, 2021 ([pymc-examples#155](https://github.com/pymc-devs/pymc-examples/pull/155))
 * Updated by Michael Osthege on June 1, 2022 ([pymc-examples#343](https://github.com/pymc-devs/pymc-examples/pull/343))
 * Updated by Christopher Krapu on June 17, 2022 ([pymc-examples#378](https://github.com/pymc-devs/pymc-examples/pull/378))
+* Updated for compatibility with PyMC v5 by Beryl Kanali and Sangam Swadik on Jan 22, 2023 ([pymc-examples#517](https://github.com/pymc-devs/pymc-examples/pull/517))
 
 +++
 
