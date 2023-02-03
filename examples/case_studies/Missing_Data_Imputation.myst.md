@@ -255,7 +255,7 @@ data_200.reset_index(inplace=True, drop=True)
 
 
 sensitivity = {}
-n_missing = np.linspace(30, 100, 5)  ## Change or alter the range as desired
+n_missing = np.linspace(30, 100, 5)  # Change or alter the range as desired
 bootstrap_iterations = 100  # change to large number running a real analysis in this case
 for n in n_missing:
     sensitivity[int(n)] = {}
@@ -708,7 +708,7 @@ coords = {"team": teams, "employee": np.arange(len(df_employee))}
 
 with pm.Model(coords=coords) as hierarchical_model:
 
-    ## Priors
+    # Priors
     company_beta_lmx = pm.Normal("company_beta_lmx", 0, 1)
     company_beta_male = pm.Normal("company_beta_male", 0, 1)
     company_alpha = pm.Normal("company_alpha", 20, 2)
@@ -716,19 +716,19 @@ with pm.Model(coords=coords) as hierarchical_model:
     team_beta_lmx = pm.Normal("team_beta_lmx", 0, 1, dims="team")
     sigma = pm.HalfNormal("sigma", 4, dims="employee")
 
-    ## Imputed Predictors
+    # Imputed Predictors
     mu_lmx = pm.Normal("mu_lmx", 10, 5)
     sigma_lmx = pm.HalfNormal("sigma_lmx", 5)
     lmx_pred = pm.Normal("lmx_pred", mu_lmx, sigma_lmx, observed=df_employee["lmx"].values)
 
-    ## Combining Levels
+    # Combining Levels
     alpha_global = pm.Deterministic("alpha_global", company_alpha + team_alpha[team_idx])
     beta_global_lmx = pm.Deterministic(
         "beta_global_lmx", company_beta_lmx + team_beta_lmx[team_idx]
     )
     beta_global_male = pm.Deterministic("beta_global_male", company_beta_male)
 
-    ## Likelihood
+    # Likelihood
     mu = pm.Deterministic(
         "mu",
         alpha_global + beta_global_lmx * lmx_pred + beta_global_male * df_employee["male"].values,
