@@ -34,6 +34,7 @@ print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
+%config InlineBackend.figure_format = "retina"
 RANDOM_SEED = 5781
 np.random.seed(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
@@ -73,33 +74,38 @@ bmi.plot(x="age", y="bmi", kind="scatter");
 
 As we can see from the previous figure the relationship between BMI and age is far from linear, and hence we are going to use BART.
 
-We are going to model 3 quantiles, 0.1, 0.5 and 0.9. This would mean to fit 3 separated model, being the sole different the value of `q` of the Asymmetric Laplace distribution.
+We are going to model 3 quantiles, 0.1, 0.5 and 0.9. We can compute this quantity by fitted 3 separated model,  being the sole different the value of `q` of the Asymmetric Laplace distribution. Or we can stack the observed values as in `y_stack` and fit a single model. 
 
 ```{code-cell} ipython3
-quantiles = np.array([0.1, 0.5, 0.9])
-
 y = bmi.bmi.values
 X = bmi.age.values[:, None]
+
+
+y_stack = np.stack([bmi.bmi.values] * 3)
+quantiles = np.array([[0.1, 0.5, 0.9]]).T
+quantiles
 ```
 
 ```{code-cell} ipython3
-idatas = []
-for q in quantiles:
-    with pm.Model() as model:
-        μ = pmb.BART("μ", X, y)
-        σ = pm.HalfNormal("σ", 5)
-        obs = pm.AsymmetricLaplace("obs", mu=μ, b=σ, q=q, observed=y)
+with pm.Model() as model:
+    μ = pmb.BART("μ", X, y, shape=(3, 7294))
+    σ = pm.HalfNormal("σ", 5)
+    obs = pm.AsymmetricLaplace("obs", mu=μ, b=σ, q=quantiles, observed=y_stack)
 
-        idata = pm.sample(compute_convergence_checks=False)
-        idatas.append(idata)
+    idata = pm.sample(compute_convergence_checks=False)
 ```
 
 We can see the result of the 3 fitted curves in the next figure. One feature that stand-out is that the gap or distance between the median (orange) line and the two other lines is not the same. Also the shapes of the curve while following a similar pattern, are not exactly the same.
 
 ```{code-cell} ipython3
 plt.plot(bmi.age, bmi.bmi, ".", color="0.5")
-for idata, q in zip(idatas, quantiles):
-    plt.plot(bmi.age, idata.posterior["μ"].mean(("chain", "draw")), label=f"q={q:}", lw=3)
+for idx, q in enumerate(quantiles[:, 0]):
+    plt.plot(
+        bmi.age,
+        idata.posterior["μ"].mean(("chain", "draw")).sel(μ_dim_0=idx),
+        label=f"q={q:}",
+        lw=3,
+    )
 
 plt.legend();
 ```
@@ -119,12 +125,14 @@ with pm.Model() as model:
 ```
 
 ```{code-cell} ipython3
-idata_g_mean_quantiles = idata_g.posterior_predictive["obs"].quantile(quantiles, ("chain", "draw"))
+idata_g_mean_quantiles = idata_g.posterior_predictive["obs"].quantile(
+    quantiles[:, 0], ("chain", "draw")
+)
 ```
 
 ```{code-cell} ipython3
 plt.plot(bmi.age, bmi.bmi, ".", color="0.5")
-for q in quantiles:
+for q in quantiles[:, 0]:
     plt.plot(bmi.age.values, idata_g_mean_quantiles.sel(quantile=q), label=f"q={q:}")
 
 plt.legend()
