@@ -5,11 +5,12 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: pie
   language: python
   name: python3
 ---
 
+(MvGaussianRandomWalk)=
 # Multivariate Gaussian Random Walk
 :::{post} Feb 2, 2023
 :tags: linear model, regression, time series 
