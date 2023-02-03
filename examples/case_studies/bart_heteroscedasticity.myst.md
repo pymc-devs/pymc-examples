@@ -68,7 +68,7 @@ ax.plot(df["youtube"], df["sales"], "o", c="C0")
 ax.set(title="Sales as a function of Youtube budget", xlabel="budget", ylabel="sales");
 ```
 
-We clearly see that both the mean and variance are increasing as a function of budget. One possibility is to manually select and explicit parametrization of these functions, e.g. square root or logarithm. However, in this example we want to learn these functions from the data using a BART model.
+We clearly see that both the mean and variance are increasing as a function of budget. One possibility is to manually select an explicit parametrization of these functions, e.g. square root or logarithm. However, in this example we want to learn these functions from the data using a BART model.
 
 +++
 
@@ -110,21 +110,20 @@ posterior_mean = idata_marketing_full.posterior["w"].mean(dim=("chain", "draw"))
 
 w_hdi = az.hdi(ary=idata_marketing_full, group="posterior", var_names=["w"])
 
-y_hdi = az.hdi(
-    ary=posterior_predictive_marketing_full, group="posterior_predictive", var_names=["y"]
-)
+pps = az.extract(
+    posterior_predictive_marketing_full, group="posterior_predictive", var_names=["y"]
+).T
 ```
 
 ```{code-cell} ipython3
 idx = np.argsort(X[:, 0])
 
+
 fig, ax = plt.subplots()
-az.plot_hdi(
-    x=X[:, 0], hdi_data=y_hdi, ax=ax, fill_kwargs={"alpha": 0.3, "label": r"Likelihood $94\%$ HDI"}
-)
+az.plot_hdi(x=X[:, 0], y=pps, ax=ax, fill_kwargs={"alpha": 0.3, "label": r"Likelihood $94\%$ HDI"})
 az.plot_hdi(
     x=X[:, 0],
-    hdi_data=w_hdi["w"][0, :, :],
+    hdi_data=w_hdi["w"].sel(w_dim_0=0),
     ax=ax,
     fill_kwargs={"alpha": 0.6, "label": r"Mean $94\%$ HDI"},
 )
