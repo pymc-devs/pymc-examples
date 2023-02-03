@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-dev-py39
+  display_name: pymc_env
   language: python
-  name: pymc-dev-py39
+  name: pymc_env
 ---
 
 (moderation_analysis)=
@@ -234,13 +234,13 @@ def model_factory(x, m, y):
         x = pm.ConstantData("x", x)
         m = pm.ConstantData("m", m)
         # priors
-        β0 = pm.Normal("β0", mu=0, sd=10)
-        β1 = pm.Normal("β1", mu=0, sd=10)
-        β2 = pm.Normal("β2", mu=0, sd=10)
-        β3 = pm.Normal("β3", mu=0, sd=10)
+        β0 = pm.Normal("β0", mu=0, sigma=10)
+        β1 = pm.Normal("β1", mu=0, sigma=10)
+        β2 = pm.Normal("β2", mu=0, sigma=10)
+        β3 = pm.Normal("β3", mu=0, sigma=10)
         σ = pm.HalfCauchy("σ", 1)
         # likelihood
-        y = pm.Normal("y", mu=β0 + (β1 * x) + (β2 * x * m) + (β3 * m), sd=σ, observed=y, dims="obs")
+        y = pm.Normal("y", mu=β0 + (β1 * x) + (β2 * x * m) + (β3 * m), sigma=σ, observed=y)
 
     return model
 ```
@@ -361,6 +361,7 @@ But readers are strongly encouraged to read {cite:t}`mcclelland2017multicollinea
 ## Authors
 - Authored by Benjamin T. Vincent in June 2021
 - Updated by Benjamin T. Vincent in March 2022
+- Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5
 
 +++
 

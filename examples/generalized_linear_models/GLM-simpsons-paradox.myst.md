@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-dev-py39
+  display_name: pymc_env
   language: python
-  name: pymc-dev-py39
+  name: pymc_env
 ---
 
 (GLM-simpsons-paradox)=
@@ -544,6 +544,7 @@ If you are interested in learning more, there are a number of other [PyMC exampl
 ## Authors
 * Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in July 2021
 * Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in April 2022
+* Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5
 
 +++
 
