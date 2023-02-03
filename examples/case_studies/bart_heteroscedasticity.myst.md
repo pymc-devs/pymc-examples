@@ -137,7 +137,7 @@ ax.set(
 );
 ```
 
-The fit looks good! We see indeed see the mean and variance increasing as a function of budget.
+The fit looks good! In fact, we see that the mean and variance increase as a function of the budget.
 
 +++
 
