@@ -86,7 +86,7 @@ df_employee.head()
 ```
 
 ```{code-cell} ipython3
-## Percentage Missing
+# Percentage Missing
 df_employee[["worksat", "empower", "lmx"]].isna().sum() / len(df_employee)
 ```
 
