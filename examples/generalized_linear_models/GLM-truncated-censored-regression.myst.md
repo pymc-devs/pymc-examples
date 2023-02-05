@@ -362,7 +362,7 @@ When looking into this topic, I found that most of the material out there focuse
 * Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in January 2022
 * Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in September 2022
 * Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 to run on PyMC v5
-* Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 to use `az.extract`
+* Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 to use `az.extract`, ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
 
 +++
 

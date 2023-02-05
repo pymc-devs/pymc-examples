@@ -917,7 +917,7 @@ Overall:
 * Updated by Raul Maldonado on May, 2021
   * Update Visualizations from Matplotlib explicit calls to Arviz visualizations. objects, running on pymc=3.11, arviz=0.11.0
 * Updated by Oriol Abril on November, 2021
-* Updated to PyMC v5 and to use `az.extract` by [Benjamin Vincent](https://github.com/drbenvincent) in February, 2023
+* Updated to PyMC v5 and to use `az.extract` by [Benjamin Vincent](https://github.com/drbenvincent) in February, 2023 ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
 
 +++
 

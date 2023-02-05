@@ -598,7 +598,7 @@ ax.legend(loc=1);
 ## Authors
 * Adapted by [Austin Rochford](https://github.com/AustinRochford/) from [his own blog post](http://austinrochford.com/posts/2016-02-25-density-estimation-dpm.html)
 * Updated by Abhipsha Das on August, 2021 ([pymc-examples#212](https://github.com/pymc-devs/pymc-examples/pull/212))
-* Updated to PyMC v5 and to use `az.extract` by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023
+* Updated to PyMC v5 and to use `az.extract` by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
 
 +++
 

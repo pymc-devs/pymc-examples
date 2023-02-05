@@ -215,7 +215,7 @@ axes[1].set_title("Posterior volatility");
 * Updated by Michael Osthege on June 1, 2022 ([pymc-examples#343](https://github.com/pymc-devs/pymc-examples/pull/343))
 * Updated by Christopher Krapu on June 17, 2022 ([pymc-examples#378](https://github.com/pymc-devs/pymc-examples/pull/378))
 * Updated for compatibility with PyMC v5 by Beryl Kanali and Sangam Swadik on Jan 22, 2023 ([pymc-examples#517](https://github.com/pymc-devs/pymc-examples/pull/517))
-* Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) to use `az.extract`
+* Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) to use `az.extract` ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
 
 +++
 

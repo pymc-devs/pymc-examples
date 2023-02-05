@@ -254,7 +254,7 @@ cb.ax.set_yticklabels(ticklabels);
 - Created by [Thomas Wiecki](https://github.com/twiecki/)
 - Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) June 2022
 - Run PyMC v5 by Reshama Shaikh, January 2023
-- Updated to PyMC v5 and to use `az.extract` by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023
+- Updated to PyMC v5 and to use `az.extract` by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
 
 +++
 
