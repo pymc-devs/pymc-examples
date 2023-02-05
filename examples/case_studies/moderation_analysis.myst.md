@@ -362,6 +362,7 @@ But readers are strongly encouraged to read {cite:t}`mcclelland2017multicollinea
 - Authored by Benjamin T. Vincent in June 2021
 - Updated by Benjamin T. Vincent in March 2022
 - Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5
+- Updated to PyMC v5 and to use `az.extract` by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023
 
 +++
 
