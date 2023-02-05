@@ -7,7 +7,7 @@ jupytext:
 kernelspec:
   display_name: pymc_env
   language: python
-  name: pymc_env
+  name: python3
 ---
 
 (moderation_analysis)=
@@ -71,7 +71,7 @@ def posterior_prediction_plot(result, x, moderator, m_quantiles, ax=None):
     if ax is None:
         fig, ax = plt.subplots(1, 1)
 
-    post = result.posterior.stack(sample=("chain", "draw"))
+    post = az.extract(result)
     xi = xr.DataArray(np.linspace(np.min(x), np.max(x), 20), dims=["x_plot"])
     m_levels = result.constant_data["m"].quantile(m_quantiles).rename({"quantile": "m_level"})
 
@@ -99,13 +99,13 @@ def posterior_prediction_plot(result, x, moderator, m_quantiles, ax=None):
     return ax
 
 
-def plot_moderation_effect(m, m_quantiles, ax=None):
+def plot_moderation_effect(result, m, m_quantiles, ax=None):
     """Spotlight graph"""
 
     if ax is None:
         fig, ax = plt.subplots(1, 1)
 
-    post = result.posterior.stack(sample=("chain", "draw"))
+    post = az.extract(result)
 
     # calculate 95% CI region and median
     xi = xr.DataArray(np.linspace(np.min(m), np.max(m), 20), dims=["x_plot"])
@@ -316,7 +316,7 @@ We can also visualise the moderation effect by plotting $\beta_1 + \beta_2 \cdot
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
-plot_moderation_effect(m, m_quantiles, ax[0])
+plot_moderation_effect(result, m, m_quantiles, ax[0])
 az.plot_posterior(result, var_names="β2", ax=ax[1]);
 ```
 
