@@ -214,8 +214,8 @@ freq.set(yticks=np.linspace(0, 20, 5))
 
 # Parameter space plot ===================================================
 az.plot_kde(
-    idata.posterior.stack(sample=("chain", "draw")).beta0.values,
-    idata.posterior.stack(sample=("chain", "draw")).beta1.values,
+    az.extract(idata, var_names="beta0"),
+    az.extract(idata, var_names="beta1"),
     contourf_kwargs={"cmap": "Blues"},
     ax=ax[1],
 )
