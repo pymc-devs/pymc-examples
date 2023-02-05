@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3.10.6 ('pymc_env')
+  display_name: pymc_env
   language: python
   name: python3
 substitutions:
@@ -789,7 +789,7 @@ Note that this is again something we might check experimentally. In particular, 
 def expected_num_putts(trace, distance_to_hole, trials=100_000):
     distance_to_hole = distance_to_hole * np.ones(trials)
 
-    combined_trace = trace.posterior.stack(sample=("chain", "draw"))
+    combined_trace = az.extract(trace)
 
     n_samples = combined_trace.dims["sample"]
 
@@ -844,6 +844,7 @@ fig.suptitle("Simulated number of putts from\na few distances");
 * Adapted by Colin Carroll from the [Model building and expansion for golf putting] case study in the Stan documentation ([pymc#3666](https://github.com/pymc-devs/pymc/pull/3666))
 * Updated by Marco Gorelli ([pymc-examples#39](https://github.com/pymc-devs/pymc-examples/pull/39))
 * Updated by Oriol Abril-Pla to use PyMC v4 and xarray-einstats
+* Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) to use `az.extract` in February 2023
 
 +++
 
