@@ -41,8 +41,6 @@ import arviz as az
 import numpy as np
 import pymc as pm
 import pymc_experimental as pmx
-import pytensor
-import pytensor.tensor as pt
 
 print(f"Running on PyMC v{pm.__version__}")
 ```
@@ -96,7 +94,7 @@ az.plot_trace(idata);
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p pytensor,xarray
+%watermark -n -u -v -iv -w -p xarray
 ```
 
 :::{include} ../page_footer.md
