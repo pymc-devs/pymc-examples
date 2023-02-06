@@ -114,7 +114,7 @@ class Scaler:
         return x * self.std_ + self.mean_
 ```
 
-We now construct the regression model in {eq}`eqn:model` imposing priors on the GRWs $\alpha$ and $\beta$, on the standard deviation $\sigma$ and hyperpriors on the Cholesky matrices. We use the LKJ prior {cite:p}`lewandowski2009generating` for the Cholesky matrices (see this {func}`link for the documentation <pymc.distributions.multivariate.LKJCholeskyCov>` and also the PyMC notebook {doc}`/case_studies/LKJ` for some usage examples.)
+We now construct the regression model in {eq}`eqn:model` imposing priors on the GRWs $\alpha$ and $\beta$, on the standard deviation $\sigma$ and hyperpriors on the Cholesky matrices. We use the LKJ prior {cite:p}`lewandowski2009generating` for the Cholesky matrices (see this {func}`link for the documentation <pymc.LKJCholeskyCov>` and also the PyMC notebook {doc}`/case_studies/LKJ` for some usage examples.)
 
 ```{code-cell} ipython3
 def inference(t, y, sections, n_samples=100):
