@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pie
+  display_name: pymc
   language: python
   name: python3
 ---
