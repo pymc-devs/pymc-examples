@@ -5,16 +5,16 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc4
+  display_name: Python 3 (ipykernel)
   language: python
-  name: pymc4
+  name: python3
 ---
 
 (pathfinder)=
 
 # Pathfinder Variational Inference
 
-:::{post} Sept 30, 2022 
+:::{post} Feb 5, 2023 
 :tags: variational inference, jax 
 :category: advanced, how-to
 :author: Thomas Wiecki
@@ -26,17 +26,21 @@ Pathfinder {cite:p}`zhang2021pathfinder` is a variational inference algorithm th
 
 This algorithm is [implemented](https://github.com/blackjax-devs/blackjax/pull/194) in [BlackJAX](https://github.com/blackjax-devs/blackjax), a library of inference algorithms for [JAX](https://github.com/google/jax). Through PyMC's JAX-backend (through [pytensor](https://github.com/pytensor-devs/pytensor)) we can run BlackJAX's pathfinder on any PyMC model with some simple wrapper code.
 
-This wrapper code is implemented in [pymcx](https://github.com/pymc-devs/pymcx/). This tutorial shows how to run Pathfinder on your PyMC model.
+This wrapper code is implemented in [pymc-experimental](https://github.com/pymc-devs/pymc-experimental/). This tutorial shows how to run Pathfinder on your PyMC model.
 
-You first need to install `pymcx`:
+You first need to install `pymc-experimental`:
 
-`pip install git+https://github.com/pymc-devs/pymcx`
+`pip install git+https://github.com/pymc-devs/pymc-experimental`
+
+Instructions for installing other packages:  
+- [jax](https://github.com/google/jax#installation)
+- [blackjax](https://pypi.org/project/blackjax/)
 
 ```{code-cell} ipython3
 import arviz as az
 import numpy as np
 import pymc as pm
-import pymcx as pmx
+import pymc_experimental as pmx
 
 print(f"Running on PyMC v{pm.__version__}")
 ```
@@ -82,6 +86,7 @@ az.plot_trace(idata);
 ## Authors
 
 * Authored by Thomas Wiecki on Oct 11 2022 ([pymc-examples#429](https://github.com/pymc-devs/pymc-examples/pull/429))
+* Re-execute notebook, by Reshama Shaikh on Feb 5, 2023
 
 +++
 
@@ -89,7 +94,7 @@ az.plot_trace(idata);
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p pytensor,xarray
+%watermark -n -u -v -iv -w -p xarray
 ```
 
 :::{include} ../page_footer.md
