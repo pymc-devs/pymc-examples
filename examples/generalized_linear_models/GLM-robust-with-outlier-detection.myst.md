@@ -541,10 +541,7 @@ with pm.Model(coords=coords) as mdl_hogg:
     # create in/outlier distributions to get a logp evaluated on the observed y
     # this is not strictly a pymc3 likelihood, but behaves like one when we
     # evaluate it within a Potential (which is minimised)
-    # inlier_logp = pm.Normal.dist(mu=y_est_in, sigma=tsv_sigma_y).logp(tsv_y)
     inlier_logp = pm.logp(pm.Normal.dist(mu=y_est_in, sigma=tsv_sigma_y), tsv_y)
-
-    # outlier_logp = pm.Normal.dist(mu=y_est_out, sigma=tsv_sigma_y + sigma_y_out).logp(tsv_y)
     outlier_logp = pm.logp(pm.Normal.dist(mu=y_est_out, sigma=tsv_sigma_y + sigma_y_out), tsv_y)
 
     # frac_outliers only needs to span [0, .5]

@@ -299,7 +299,6 @@ We now construct this model using `PyMC`.
 
 ```{code-cell} ipython3
 N = old_faithful_df.shape[0]
-
 K = 30
 ```
 
@@ -371,14 +370,6 @@ post_pdf_contribs = xr.apply_ufunc(
 post_pdfs = (trace.posterior["w"] * post_pdf_contribs).sum(dim=("component"))
 
 post_pdf_quantiles = post_pdfs.quantile([0.1, 0.9], dim=("chain", "draw"))
-```
-
-```{code-cell} ipython3
-x_plot
-```
-
-```{code-cell} ipython3
-az.extract(post_pdfs, var_names="x")
 ```
 
 ```{code-cell} ipython3
