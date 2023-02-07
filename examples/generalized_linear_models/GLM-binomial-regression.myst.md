@@ -7,7 +7,7 @@ jupytext:
 kernelspec:
   display_name: pymc_env
   language: python
-  name: pymc_env
+  name: python3
 ---
 
 (GLM-binomial-regression)=
@@ -238,7 +238,7 @@ A good introduction to generalized linear models is provided by {cite:t}`roback2
 - Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in July 2021 
 - Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2022
 - Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5
-- Updated to PyMC v5 and to use `az.extract` by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023, ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
+- Updated to use `az.extract` by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023, ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
 
 +++
 
