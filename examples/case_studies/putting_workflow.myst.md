@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3.10.6 ('pymc_env')
+  display_name: pymc_env
   language: python
   name: python3
 substitutions:
@@ -43,8 +43,6 @@ import scipy.stats as st
 import xarray as xr
 
 from xarray_einstats.stats import XrContinuousRV
-
-print(f"Running on PyMC3 v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -172,30 +170,30 @@ We plot 50 posterior draws of $p(\text{success})$ along with the expected value.
 ```{code-cell} ipython3
 # Draw posterior predictive samples
 with logit_model:
-    # hard to plot more than 400 sensibly
-    # we generate a posterior predictive sample for only 1 in every 10 draws
-    logit_trace.extend(pm.sample_posterior_predictive(logit_trace.sel(draw=slice(None, None, 10))))
-logit_post = logit_trace.posterior
-logit_ppc = logit_trace.posterior_predictive
-const_data = logit_trace.constant_data
-logit_ppc_success = (logit_ppc["success"] / const_data["tries"]).stack(sample=("chain", "draw"))
+    logit_trace.extend(pm.sample_posterior_predictive(logit_trace))
+
+# hard to plot more than 400 sensibly
+logit_post = az.extract(logit_trace, num_samples=400)
+logit_ppc = az.extract(logit_trace, group="posterior_predictive", num_samples=400)
+const_data = logit_trace["constant_data"]
+
+logit_ppc_success = logit_ppc["success"] / const_data["tries"]
 
 # Plotting
 ax = plot_golf_data(golf_data)
 t_ary = np.linspace(CUP_RADIUS - BALL_RADIUS, golf_data.distance.max(), 200)
 t = xr.DataArray(t_ary, coords=[("distance", t_ary)])
 logit_post["expit"] = scipy.special.expit(logit_post["a"] * t + logit_post["b"])
-logit_post_subset = az.extract_dataset(logit_post, num_samples=50, rng=RANDOM_SEED)
 
 ax.plot(
     t,
-    logit_post_subset["expit"],
+    logit_post["expit"].T,
     lw=1,
     color="C1",
     alpha=0.5,
 )
 
-ax.plot(t, logit_post["expit"].mean(("chain", "draw")), color="C2")
+ax.plot(t, logit_post["expit"].mean(dim="sample"), color="C2")
 
 ax.plot(golf_data.distance, logit_ppc_success, "k.", alpha=0.01)
 ax.set_title("Logit mean and posterior predictive");
@@ -204,9 +202,7 @@ ax.set_title("Logit mean and posterior predictive");
 The fit is ok, but not great! It is a good start for a baseline, and lets us answer curve-fitting type questions. We may not trust much extrapolation beyond the end of the data, especially given how the curve does not fit the last four values very well. For example, putts from 50 feet are expected to be made with probability:
 
 ```{code-cell} ipython3
-prob_at_50 = (
-    scipy.special.expit(logit_post["a"] * 50 + logit_post["b"]).mean(("chain", "draw")).item()
-)
+prob_at_50 = scipy.special.expit(logit_post["a"] * 50 + logit_post["b"]).mean(dim="sample").item()
 print(f"{100 * prob_at_50:.5f}%")
 ```
 
@@ -220,13 +216,13 @@ this appeared here in using
 
 ```python
 # Right!
-scipy.special.expit(logit_trace.posterior["a"] * 50 + logit_trace.posterior["b"]).mean(('chain', 'draw'))
+scipy.special.expit(logit_trace.posterior["a"] * 50 + logit_trace.posterior["b"]).mean(dim="sample")
 ```
 rather than
 
 ```python
 # Wrong!
-scipy.special.expit(logit_trace.posterior["a"].mean(('chain', 'draw')) * 50 + logit_trace.posterior["b"].mean(('chain', 'draw')))
+scipy.special.expit(logit_trace.posterior["a"].mean(dim="sample") * 50 + logit_trace.posterior["b"].mean(dim="sample"))
 ```
 
 to calculate our expectation at 50 feet.
@@ -333,7 +329,7 @@ This is a little funny! Most obviously, it should probably be not this common to
 with angle_model:
     angle_trace.extend(pm.sample(1000, tune=1000, target_accept=0.85))
 
-angle_post = angle_trace.posterior
+angle_post = az.extract(angle_trace)
 ```
 
 ```{code-cell} ipython3
@@ -343,7 +339,7 @@ angle_post["expit"] = forward_angle_model(angle_post["variance_of_shot"], t)
 
 ax.plot(
     t,
-    az.extract_dataset(angle_post, num_samples=50)["expit"],
+    angle_post["expit"][:, ::100],
     lw=1,
     color="C1",
     alpha=0.1,
@@ -351,13 +347,13 @@ ax.plot(
 
 ax.plot(
     t,
-    angle_post["expit"].mean(("chain", "draw")),
+    angle_post["expit"].mean(dim="sample"),
     label="Geometry-based model",
 )
 
 ax.plot(
     t,
-    logit_post["expit"].mean(("chain", "draw")),
+    logit_post["expit"].mean(dim="sample"),
     label="Logit-binomial model",
 )
 ax.set_title("Comparing the fit of geometry-based and logit-binomial model")
@@ -374,21 +370,18 @@ print(f"{100 * angle_prob_at_50.mean().item():.2f}% vs {100 * prob_at_50:.5f}%")
 We can also recreate our prior predictive plot, giving us some confidence that the prior was not leading to unreasonable situations in the posterior distribution: the variance in angle is quite small!
 
 ```{code-cell} ipython3
-angle_of_shot = XrContinuousRV(
-    st.norm, 0, az.extract_dataset(angle_post, num_samples=500)["variance_of_shot"]
-).rvs(
+angle_of_shot = XrContinuousRV(st.norm, 0, angle_post["variance_of_shot"]).rvs(
     random_state=RANDOM_SEED
 )  # radians
 distance = 20  # feet
 
 end_positions = xr.Dataset(
-    {"endx": distance * np.cos(angle_of_shot), "endy": distance * np.sin(angle_of_shot)}
+    {"endx": distance * np.cos(angle_of_shot.data), "endy": distance * np.sin(angle_of_shot.data)}
 )
 
 fig, ax = plt.subplots()
-for sample in range(end_positions.dims["sample"]):
-    end = end_positions.isel(sample=sample)
-    ax.plot([0, end["endx"]], [0, end["endy"]], "k-o", lw=1, mfc="w", alpha=0.5)
+for x, y in zip(end_positions.endx, end_positions.endy):
+    ax.plot([0, x], [0, y], "k-o", lw=1, mfc="w", alpha=0.5)
 ax.plot(0, 0, "go", label="Start", mfc="g", ms=20)
 ax.plot(distance, 0, "ro", label="Goal", mfc="r", ms=20)
 
@@ -482,16 +475,15 @@ and convergence warnings have no other solution than using a different model tha
 ax = plot_golf_data(new_golf_data)
 plot_golf_data(golf_data, ax=ax, color="C1")
 
-new_angle_post = new_angle_trace.posterior
-
+new_angle_post = az.extract(new_angle_trace)
 ax.plot(
     t,
-    forward_angle_model(angle_post["variance_of_shot"], t).mean(("chain", "draw")),
+    forward_angle_model(angle_post["variance_of_shot"], t).mean(dim="sample"),
     label="Trained on original data",
 )
 ax.plot(
     t,
-    forward_angle_model(new_angle_post["variance_of_shot"], t).mean(("chain", "draw")),
+    forward_angle_model(new_angle_post["variance_of_shot"], t).mean(dim="sample"),
     label="Trained on new data",
 )
 ax.set_title("Retraining the model on new data")
@@ -576,11 +568,11 @@ def forward_distance_angle_model(variance_of_shot, variance_of_distance, t):
 
 ax = plot_golf_data(new_golf_data)
 
-distance_angle_post = distance_angle_trace.posterior
+distance_angle_post = az.extract(distance_angle_trace)
 
 ax.plot(
     t,
-    forward_angle_model(new_angle_post["variance_of_shot"], t).mean(("chain", "draw")),
+    forward_angle_model(new_angle_post["variance_of_shot"], t).mean(dim="sample"),
     label="Just angle",
 )
 ax.plot(
@@ -589,7 +581,7 @@ ax.plot(
         distance_angle_post["variance_of_shot"],
         distance_angle_post["variance_of_distance"],
         t,
-    ).mean(("chain", "draw")),
+    ).mean(dim="sample"),
     label="Distance and angle",
 )
 
@@ -675,7 +667,7 @@ with disp_distance_angle_model:
 ```{code-cell} ipython3
 ax = plot_golf_data(new_golf_data, ax=None)
 
-disp_distance_angle_post = disp_distance_angle_trace.posterior
+disp_distance_angle_post = az.extract(disp_distance_angle_trace)
 
 ax.plot(
     t,
@@ -683,7 +675,7 @@ ax.plot(
         distance_angle_post["variance_of_shot"],
         distance_angle_post["variance_of_distance"],
         t,
-    ).mean(("chain", "draw")),
+    ).mean(dim="sample"),
     label="Distance and angle",
 )
 ax.plot(
@@ -692,7 +684,7 @@ ax.plot(
         disp_distance_angle_post["variance_of_shot"],
         disp_distance_angle_post["variance_of_distance"],
         t,
-    ).mean(("chain", "draw")),
+    ).mean(dim="sample"),
     label="Dispersed model",
 )
 ax.set_title("Comparing dispersed model with binomial distance/angle model")
@@ -703,14 +695,14 @@ This new model does better between 10 and 30 feet, as we can also see using the 
 
 ```{code-cell} ipython3
 const_data = distance_angle_trace.constant_data
-old_pp = distance_angle_trace.posterior_predictive
+old_pp = az.extract(distance_angle_trace, group="posterior_predictive")
 old_residuals = 100 * ((const_data["successes"] - old_pp["success"]) / const_data["tries"]).mean(
-    ("chain", "draw")
+    dim="sample"
 )
 
-pp = disp_distance_angle_trace.posterior_predictive
+pp = az.extract(disp_distance_angle_trace, group="posterior_predictive")
 residuals = 100 * (const_data["successes"] / const_data["tries"] - pp["p_success"]).mean(
-    ("chain", "draw")
+    dim="sample"
 )
 
 fig, ax = plt.subplots()
@@ -789,7 +781,7 @@ Note that this is again something we might check experimentally. In particular, 
 def expected_num_putts(trace, distance_to_hole, trials=100_000):
     distance_to_hole = distance_to_hole * np.ones(trials)
 
-    combined_trace = trace.posterior.stack(sample=("chain", "draw"))
+    combined_trace = az.extract(trace)
 
     n_samples = combined_trace.dims["sample"]
 
@@ -844,6 +836,7 @@ fig.suptitle("Simulated number of putts from\na few distances");
 * Adapted by Colin Carroll from the [Model building and expansion for golf putting] case study in the Stan documentation ([pymc#3666](https://github.com/pymc-devs/pymc/pull/3666))
 * Updated by Marco Gorelli ([pymc-examples#39](https://github.com/pymc-devs/pymc-examples/pull/39))
 * Updated by Oriol Abril-Pla to use PyMC v4 and xarray-einstats
+* Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) to use `az.extract` in February 2023 ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
 
 +++
 
@@ -864,7 +857,3 @@ fig.suptitle("Simulated number of putts from\na few distances");
 
 :::{include} ../page_footer.md
 :::
-
-```{code-cell} ipython3
-
-```

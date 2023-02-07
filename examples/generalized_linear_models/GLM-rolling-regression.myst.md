@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc_env
   language: python
   name: python3
 ---
@@ -190,7 +190,7 @@ As can be seen below, $\alpha$, the intercept, changes over time.
 ```{code-cell} ipython3
 fig = plt.figure(figsize=(8, 6), constrained_layout=False)
 ax = plt.subplot(111, xlabel="time", ylabel="alpha", title="Change of alpha over time.")
-ax.plot(trace_rw.posterior.stack(pooled_chain=("chain", "draw"))["alpha"], "r", alpha=0.05)
+ax.plot(az.extract(trace_rw, var_names="alpha"), "r", alpha=0.05)
 
 ticks_changes = mticker.FixedLocator(ax.get_xticks().tolist())
 ticklabels_changes = [str(p.date()) for p in prices[:: len(prices) // 7].index]
@@ -205,7 +205,7 @@ As does the slope.
 ```{code-cell} ipython3
 fig = plt.figure(figsize=(8, 6), constrained_layout=False)
 ax = fig.add_subplot(111, xlabel="time", ylabel="beta", title="Change of beta over time")
-ax.plot(trace_rw.posterior.stack(pooled_chain=("chain", "draw"))["beta"], "b", alpha=0.05)
+ax.plot(az.extract(trace_rw, var_names="beta"), "b", alpha=0.05)
 
 ax.xaxis.set_major_locator(ticks_changes)
 ax.set_xticklabels(ticklabels_changes)
@@ -230,13 +230,16 @@ colors_sc = np.linspace(0, 1, len(prices.index.values[::50]))
 xi = xr.DataArray(np.linspace(prices_zscored.GFI.min(), prices_zscored.GFI.max(), 50))
 
 for i, time in enumerate(prices.index.values[::50]):
-    sel_trace = trace_rw.posterior.sel(time=time)
-    regression_line = (
-        (sel_trace["alpha"] + sel_trace["beta"] * xi)
-        .stack(pooled_chain=("chain", "draw"))
-        .isel(pooled_chain=slice(None, None, 200))
+    sel_trace = az.extract(trace_rw).sel(time=time)
+    regression_line = sel_trace["alpha"] + sel_trace["beta"] * xi
+    ax.plot(
+        xi,
+        regression_line.T[:, 0::200],
+        color=mymap(colors_sc[i]),
+        alpha=0.1,
+        zorder=10,
+        linewidth=3,
     )
-    ax.plot(xi, regression_line, color=mymap(colors_sc[i]), alpha=0.1, zorder=10, linewidth=3)
 
 sc = ax.scatter(
     prices_zscored.GFI, prices_zscored.GLD, label="data", cmap=mymap, c=colors, zorder=11
@@ -251,6 +254,7 @@ cb.ax.set_yticklabels(ticklabels);
 - Created by [Thomas Wiecki](https://github.com/twiecki/)
 - Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) June 2022
 - Run PyMC v5 by Reshama Shaikh, January 2023
+- Updated to use `az.extract` by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
 
 +++
 

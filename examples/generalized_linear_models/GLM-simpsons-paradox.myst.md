@@ -157,7 +157,7 @@ fig, ax = plt.subplots(1, 3, figsize=(12, 4))
 # data
 ax[0].scatter(data.x, data.y, color="k")
 # conditional mean credible intervals
-post = idata.posterior.stack(sample=("chain", "draw"))
+post = az.extract(idata)
 xi = xr.DataArray(np.linspace(np.min(data.x), np.max(data.x), 20), dims=["x_plot"])
 y = post.β0 + post.β1 * xi
 region = y.quantile([0.025, 0.15, 0.5, 0.85, 0.975], dim="sample")
@@ -200,8 +200,8 @@ ax[1].set(xlabel="x", ylabel="y", title="Posterior predictive distribution")
 
 # parameter space ---------------------------------------------------
 ax[2].scatter(
-    idata.posterior.β1.stack(sample=("chain", "draw")),
-    idata.posterior.β0.stack(sample=("chain", "draw")),
+    az.extract(idata, var_names=["β1"]),
+    az.extract(idata, var_names=["β0"]),
     color="k",
     alpha=0.01,
     rasterized=True,
@@ -291,7 +291,7 @@ for i, groupname in enumerate(group_list):
     # data
     ax[0].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
     # conditional mean credible intervals
-    post = idata.posterior.stack(sample=("chain", "draw"))
+    post = az.extract(idata)
     _xi = xr.DataArray(
         np.linspace(np.min(data.x[data.group_idx == i]), np.max(data.x[data.group_idx == i]), 20),
         dims=["x_plot"],
@@ -348,8 +348,8 @@ ax[1].set(xlabel="x", ylabel="y", title="Posterior predictive distribution")
 # parameter space ---------------------------------------------------
 for i, _ in enumerate(group_list):
     ax[2].scatter(
-        idata.posterior.β1.stack(sample=("chain", "draw"))[i, :],
-        idata.posterior.β0.stack(sample=("chain", "draw"))[i, :],
+        az.extract(idata, var_names="β1")[i, :],
+        az.extract(idata, var_names="β0")[i, :],
         color=f"C{i}",
         alpha=0.01,
         rasterized=True,
@@ -443,7 +443,7 @@ for i, groupname in enumerate(group_list):
     # data
     ax[0].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
     # conditional mean credible intervals
-    post = idata.posterior.stack(sample=("chain", "draw"))
+    post = az.extract(idata)
     _xi = xr.DataArray(
         np.linspace(np.min(data.x[data.group_idx == i]), np.max(data.x[data.group_idx == i]), 20),
         dims=["x_plot"],
@@ -499,19 +499,19 @@ ax[1].set(xlabel="x", ylabel="y", title="Posterior Predictive")
 # parameter space ---------------------------------------------------
 # plot posterior for population level slope and intercept
 slope = rng.normal(
-    idata.posterior.slope_mu.stack(sample=("chain", "draw")).values,
-    idata.posterior.slope_sigma.stack(sample=("chain", "draw")).values,
+    az.extract(idata, var_names="slope_mu"),
+    az.extract(idata, var_names="slope_sigma"),
 )
 intercept = rng.normal(
-    idata.posterior.intercept_mu.stack(sample=("chain", "draw")).values,
-    idata.posterior.intercept_sigma.stack(sample=("chain", "draw")).values,
+    az.extract(idata, var_names="intercept_mu"),
+    az.extract(idata, var_names="intercept_sigma"),
 )
 ax[2].scatter(slope, intercept, color="k", alpha=0.05)
 # plot posterior for group level slope and intercept
 for i, _ in enumerate(group_list):
     ax[2].scatter(
-        idata.posterior.β1.stack(sample=("chain", "draw"))[i, :],
-        idata.posterior.β0.stack(sample=("chain", "draw"))[i, :],
+        az.extract(idata, var_names="β1")[i, :],
+        az.extract(idata, var_names="β0")[i, :],
         color=f"C{i}",
         alpha=0.01,
     )
@@ -545,6 +545,7 @@ If you are interested in learning more, there are a number of other [PyMC exampl
 * Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in July 2021
 * Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in April 2022
 * Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5
+* Updated to use `az.extract` by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
 
 +++
 

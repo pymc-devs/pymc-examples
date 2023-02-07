@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc_env
   language: python
   name: python3
 substitutions:
@@ -16,12 +16,12 @@ substitutions:
 # GLM: Robust Regression using Custom Likelihood for Outlier Classification
 
 :::{post} 17 Nov, 2021
-:tags: regression, robust analysis 
+:tags: outliers, regression, robust
 :category: intermediate
 :author: Jon Sedar, Thomas Wiecki, Raul Maldonado, Oriol Abril
 :::
 
-Using PyMC3 for Robust Regression with Outlier Detection using the Hogg 2010 Signal vs Noise method. 
+Using PyMC for Robust Regression with Outlier Detection using the Hogg 2010 Signal vs Noise method. 
 
 **Modelling concept:**
 + This model uses a custom likelihood function as a mixture of two likelihoods, one for the main data-generating function (a linear model that we care about), and one for outliers.
@@ -36,7 +36,7 @@ Using PyMC3 for Robust Regression with Outlier Detection using the Hogg 2010 Sig
 
 +++
 
-## Setup
+# Setup
 
 +++
 
@@ -61,7 +61,7 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 import seaborn as sns
 
 from matplotlib.lines import Line2D
@@ -262,13 +262,13 @@ where:
 coords = {"coefs": ["intercept", "slope"], "datapoint_id": dfhoggs.index}
 with pm.Model(coords=coords) as mdl_ols:
 
-    ## Define weakly informative Normal priors to give Ridge regression
+    # Define weakly informative Normal priors to give Ridge regression
     beta = pm.Normal("beta", mu=0, sigma=10, dims="coefs")
 
-    ## Define linear model
+    # Define linear model
     y_est = beta[0] + beta[1] * dfhoggs["x"]
 
-    ## Define Normal likelihood
+    # Define Normal likelihood
     pm.Normal("y", mu=y_est, sigma=dfhoggs["sigma_y"], observed=dfhoggs["y"], dims="datapoint_id")
 
 pm.model_to_graphviz(mdl_ols)
@@ -293,8 +293,6 @@ with mdl_ols:
         cores=4,
         init="advi+adapt_diag",
         n_init=50000,
-        progressbar=True,
-        return_inferencedata=True,
     )
 ```
 
@@ -391,8 +389,6 @@ with mdl_studentt:
         cores=4,
         init="advi+adapt_diag",
         n_init=50000,
-        progressbar=True,
-        return_inferencedata=True,
     )
 ```
 
@@ -526,9 +522,9 @@ on `Potential` usage:
 with pm.Model(coords=coords) as mdl_hogg:
 
     # state input data as Theano shared vars
-    tsv_x = pm.Data("tsv_x", dfhoggs["x"], dims="datapoint_id")
-    tsv_y = pm.Data("tsv_y", dfhoggs["y"], dims="datapoint_id")
-    tsv_sigma_y = pm.Data("tsv_sigma_y", dfhoggs["sigma_y"], dims="datapoint_id")
+    tsv_x = pm.ConstantData("tsv_x", dfhoggs["x"], dims="datapoint_id")
+    tsv_y = pm.ConstantData("tsv_y", dfhoggs["y"], dims="datapoint_id")
+    tsv_sigma_y = pm.ConstantData("tsv_sigma_y", dfhoggs["sigma_y"], dims="datapoint_id")
 
     # weakly informative Normal priors (L2 ridge reg) for inliers
     beta = pm.Normal("beta", mu=0, sigma=10, dims="coefs")
@@ -537,17 +533,16 @@ with pm.Model(coords=coords) as mdl_hogg:
     y_est_in = beta[0] + beta[1] * tsv_x  # dims="obs_id"
 
     # very weakly informative mean for all outliers
-    y_est_out = pm.Normal("y_est_out", mu=0, sigma=10, testval=pm.floatX(0.0))
+    y_est_out = pm.Normal("y_est_out", mu=0, sigma=10, initval=pm.floatX(0.0))
 
     # very weakly informative prior for additional variance for outliers
-    sigma_y_out = pm.HalfNormal("sigma_y_out", sigma=10, testval=pm.floatX(1.0))
+    sigma_y_out = pm.HalfNormal("sigma_y_out", sigma=10, initval=pm.floatX(1.0))
 
     # create in/outlier distributions to get a logp evaluated on the observed y
     # this is not strictly a pymc3 likelihood, but behaves like one when we
     # evaluate it within a Potential (which is minimised)
-    inlier_logp = pm.Normal.dist(mu=y_est_in, sigma=tsv_sigma_y).logp(tsv_y)
-
-    outlier_logp = pm.Normal.dist(mu=y_est_out, sigma=tsv_sigma_y + sigma_y_out).logp(tsv_y)
+    inlier_logp = pm.logp(pm.Normal.dist(mu=y_est_in, sigma=tsv_sigma_y), tsv_y)
+    outlier_logp = pm.logp(pm.Normal.dist(mu=y_est_out, sigma=tsv_sigma_y + sigma_y_out), tsv_y)
 
     # frac_outliers only needs to span [0, .5]
     # testval for is_outlier initialised in order to create class asymmetry
@@ -555,7 +550,7 @@ with pm.Model(coords=coords) as mdl_hogg:
     is_outlier = pm.Bernoulli(
         "is_outlier",
         p=frac_outliers,
-        testval=(np.random.rand(tsv_x.eval().shape[0]) < 0.4) * 1,
+        initval=(np.random.rand(tsv_x.eval().shape[0]) < 0.4) * 1,
         dims="datapoint_id",
     )
 
@@ -591,7 +586,6 @@ with mdl_hogg:
         cores=4,
         init="jitter+adapt_diag",
         nuts={"target_accept": 0.99},
-        return_inferencedata=True,
     )
 ```
 
@@ -790,14 +784,6 @@ trc_hogg.posterior["y_mean"] = lm(trc_hogg.posterior["beta"], x)
 ```
 
 ```{code-cell} ipython3
-def subsample_helper(da, samples=100, seed=None):
-    da = da.stack(sample=("chain", "draw"))
-    rng = np.random.default_rng(seed)
-    n = len(da.sample)
-    return da.isel(sample=rng.choice(n, samples, replace=False))
-```
-
-```{code-cell} ipython3
 with plt.rc_context({"figure.constrained_layout.use": False}):
     gd = sns.FacetGrid(
         dfhoggs,
@@ -809,17 +795,17 @@ with plt.rc_context({"figure.constrained_layout.use": False}):
     )
 
 # plot hogg outlier posterior distribution
-outlier_mean = subsample_helper(trc_hogg.posterior["outlier_mean"], 400)
+outlier_mean = az.extract(trc_hogg, var_names="outlier_mean", num_samples=400)
 gd.ax.plot(x, outlier_mean, color="C3", linewidth=0.5, alpha=0.2, zorder=1)
 
 # plot the 3 model (inlier) posterior distributions
-y_mean = subsample_helper(trc_ols.posterior["y_mean"], 200)
+y_mean = az.extract(trc_ols, var_names="y_mean", num_samples=200)
 gd.ax.plot(x, y_mean, color="C0", linewidth=0.5, alpha=0.2, zorder=2)
 
-y_mean = subsample_helper(trc_studentt.posterior["y_mean"], 200)
+y_mean = az.extract(trc_studentt, var_names="y_mean", num_samples=200)
 gd.ax.plot(x, y_mean, color="C1", linewidth=0.5, alpha=0.2, zorder=3)
 
-y_mean = subsample_helper(trc_hogg.posterior["y_mean"], 200)
+y_mean = az.extract(trc_hogg, var_names="y_mean", num_samples=200)
 gd.ax.plot(x, y_mean, color="C2", linewidth=0.5, alpha=0.2, zorder=4)
 
 # add legend for regression lines plotted above
@@ -928,6 +914,7 @@ Overall:
 * Updated by Raul Maldonado on May, 2021
   * Update Visualizations from Matplotlib explicit calls to Arviz visualizations. objects, running on pymc=3.11, arviz=0.11.0
 * Updated by Oriol Abril on November, 2021
+* Updated to PyMC v5 and to use `az.extract` by [Benjamin Vincent](https://github.com/drbenvincent) in February, 2023 ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
 
 +++
 
