@@ -1,0 +1,942 @@
+---
+jupytext:
+  text_representation:
+    extension: .md
+    format_name: myst
+    format_version: 0.13
+kernelspec:
+  display_name: myjlabenv
+  language: python
+  name: myjlabenv
+---
+
+(Longitudinal Models of Change )=
+# Longitudinal Models of Change
+
+:::{post} January, 2023
+:tags: hierarchical, longitudinal, 
+:category: advanced, reference
+:author: Nathaniel Forde
+:::
+
+```{code-cell} ipython3
+import arviz as az
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pymc as pm
+import statsmodels.api as sm
+import xarray as xr
+
+lowess = sm.nonparametric.lowess
+```
+
+```{code-cell} ipython3
+%config InlineBackend.figure_format = 'retina'  # high resolution figures
+az.style.use("arviz-darkgrid")
+rng = np.random.default_rng(42)
+```
+
+The study of change involves simultaneously analysing the individual trajectories of change and abstracting over the set of individuals studied to extract broader insight about the nature of the change in question. As such it's easy to lose sight of the forest for the focus on the trees. In this example we'll demonstrate some of the subtleties of using hierarchical bayesian models to study the change within a population of individuals  - moving between within individual view and the between individual perspective. 
+
+We'll follow the discussion and iterative approach to model building outlined in Singer and Willett's *Applied Longitudinal Data Analysis*. For more details {cite:t}`singer2003`). We'll differ from their presentation in that while they focus on maximum likelihood methods for fitting their data we'll use PyMC bayesian methods. In this approach we're following Solomon Kurz's work with brms {cite:t}`kurzAppliedLongitudinalDataAnalysis2021`
+
++++
+
+## Exploratory Data Analysis
+
+For any longitudinal analysis we need three components: (1) multiple waves of data collection (2) a suitable definition of time and (3) an outcome of interest. Combining these we can assess how the individual changes over time with respect that outcome. In this first series of models we will look at how adolescent alcohol usage varies between children from the age of 14 onwards with data collected annually over three years.
+
+```{code-cell} ipython3
+try:
+    df = pd.read_csv("../data/alcohol1_pp.csv")
+except FileNotFoundError:
+    df = pd.read_csv(pm.get_data("alcohol1_pp.csv"))
+df["peer_hi_lo"] = np.where(df["peer"] > df["peer"].mean(), 1, 0)
+df
+```
+
+First we'll examine the consumption patterns of a subset of the chidren to see how their reported usage exhibits a range of different trajectories. All the trajectories can be plausibly modelled as a linear phenomena. 
+
+```{code-cell} ipython3
+fig, axs = plt.subplots(2, 4, figsize=(20, 8), sharey=True)
+axs = axs.flatten()
+for i, ax in zip(df["id"].unique()[0:8], axs):
+    temp = df[df["id"] == i].sort_values("age")
+    ax.plot(temp["age"], temp["alcuse"], "--o", color="black")
+    ax.set_title(f"Subject {i}")
+    ax.set_ylabel("alcohol Usage")
+    ax.set_xlabel("Age")
+```
+
+We might think that the alcohol usage patterns varies by the effects of gender, but individual trajectories are noisy. In the next series of plots we fit simple regression models over the individual data and color the trend line by whether or not the slope coefficient is negative or positive. This very crudely gives an impression of whether and how the consumption patterns change for individuals of each gender. 
+
+The green and red lines represent an individual's OLS fit, but the grey dotted lines represent an individual's observed trajectory.
+
+```{code-cell} ipython3
+fig, axs = plt.subplots(1, 2, figsize=(20, 5), sharey=True)
+lkup = {0: "Male", 1: "Female"}
+
+axs = axs.flatten()
+for i in df["id"].unique():
+    temp = df[df["id"] == i].sort_values("age")
+    params = np.polyfit(temp["age"], temp["alcuse"], 1)
+    positive_slope = params[0] > 0
+    if temp["male"].values[0] == 1:
+        index = 0
+    else:
+        index = 1
+    if positive_slope:
+        color = "red"
+    else:
+        color = "darkgreen"
+    y = params[0] * temp["age"] + params[1]
+    axs[index].plot(temp["age"], y, "-", color=color, alpha=0.4)
+    axs[index].plot(temp["age"], temp["alcuse"], "--o", mec="black", markersize=9, color="black")
+    axs[index].set_title(f"Regression Trajectories by Gender: {lkup[index]}")
+    axs[index].set_ylabel("alcohol Usage")
+    axs[index].set_xlabel("Age")
+```
+
+Next we examine the same plot but stratify the children by whether or not they were a child of an alcoholic parent. 
+
+```{code-cell} ipython3
+fig, axs = plt.subplots(1, 2, figsize=(20, 5), sharey=True)
+lkup = {0: "Yes", 1: "No"}
+axs = axs.flatten()
+for i in df["id"].unique():
+    temp = df[df["id"] == i].sort_values("age")
+    params = np.polyfit(temp["age"], temp["alcuse"], 1)
+    positive_slope = params[0] > 0
+    if temp["coa"].values[0] == 1:
+        index = 0
+    else:
+        index = 1
+    if positive_slope:
+        color = "red"
+    else:
+        color = "darkgreen"
+    y = params[0] * temp["age"] + params[1]
+    axs[index].plot(temp["age"], y, "-", color=color, alpha=0.4)
+    axs[index].plot(temp["age"], temp["alcuse"], "--o", mec="black", markersize=9, color="black")
+    axs[index].set_title(f"Regression Trajectories by Parental alcoholism: {lkup[index]}")
+    axs[index].set_ylabel("alcohol Usage")
+    axs[index].set_xlabel("Age")
+```
+
+We'll conclude our exploration of this data set by crudely grouping the children into whether or not their peer group reports a high score of alcohol usage. 
+
+```{code-cell} ipython3
+fig, axs = plt.subplots(1, 2, figsize=(20, 5), sharey=True)
+lkup = {0: "Hi", 1: "Lo"}
+axs = axs.flatten()
+for i in df["id"].unique():
+    temp = df[df["id"] == i].sort_values("age")
+    params = np.polyfit(temp["age"], temp["alcuse"], 1)
+    positive_slope = params[0] > 0
+    if temp["peer_hi_lo"].values[0] == 1:
+        index = 0
+    else:
+        index = 1
+    if positive_slope:
+        color = "red"
+    else:
+        color = "darkgreen"
+    y = params[0] * temp["age"] + params[1]
+    axs[index].plot(temp["age"], y, "-", color=color, alpha=0.4, label="Regression Fit")
+    axs[index].plot(
+        temp["age"],
+        temp["alcuse"],
+        "--o",
+        mec="black",
+        markersize=9,
+        color="black",
+        label="Observed",
+    )
+    axs[index].set_title(f"Regression Trajectories by Peer Usage Score: {lkup[index]}")
+    axs[index].set_ylabel("alcohol Usage")
+    axs[index].set_xlabel("Age")
+```
+
+The overall impression of this exploratory exercise is to cement the idea of complexity. There are many individual trajectories and unique journeys through time, but if we want to say something general about the phenomena of interest: parental alcoholism on child's alcohol usage we need to more than give up in the face of complexity. 
+
+# Modelling Change over Time.
+
+We begin with a simple unconditional model where we model only the manner in which the individual's contribution to the final outcome. 
+
++++
+
+### The Unconditional Mean Model
+
+
+```{code-cell} ipython3
+id_indx, unique_ids = pd.factorize(df["id"])
+coords = {"ids": unique_ids}
+with pm.Model(coords=coords) as model:
+    subject_intercept_sigma = pm.HalfNormal("subject_intercept_sigma", 2)
+    subject_intercept = pm.Normal("subject_intercept", 0, subject_intercept_sigma, dims="ids")
+    global_sigma = pm.HalfStudentT("global_sigma", 1, 3)
+    global_intercept = pm.Normal("global_intercept", 0, 1)
+    grand_mean = pm.Deterministic("grand_mean", global_intercept + subject_intercept[id_indx])
+    outcome = pm.Normal("outcome", grand_mean, global_sigma, observed=df["alcuse"])
+    idata_m0 = pm.sample_prior_predictive()
+    idata_m0.extend(pm.sample(random_seed=100, target_accept=0.95))
+    idata_m0.extend(pm.sample_posterior_predictive(idata_m0))
+
+pm.model_to_graphviz(model)
+```
+
+```{code-cell} ipython3
+az.summary(idata_m0, var_names=["subject_intercept_sigma", "global_intercept", "global_sigma"])
+```
+
+```{code-cell} ipython3
+fig, ax = plt.subplots(figsize=(20, 7))
+expected_individual_mean = idata_m0.posterior["subject_intercept"].mean(axis=1).values[0]
+
+ax.bar(
+    range(len(expected_individual_mean)),
+    np.sort(expected_individual_mean),
+    color="slateblue",
+    ec="black",
+)
+ax.set_xlabel("Individual ID")
+ax.set_ylabel("alcohol Use")
+ax.set_title("Distribution of Individual Modifications to the Grand Mean");
+```
+
+We see here the variation in the implied modification of the grand mean by each individual under the study.
+
++++
+
+## Unconditional Growth Model                     
+
+Next we will more explictly model the individual contribution to the slope of a regression model where time is the key predictor. The structure of this model is worth pausing to consider. There are various instantiations of this kind of hierarchical model across different domains and disciplines. Economics, political science, psychometrics and ecology all have their own slightly varied vocabulary for naming the parts of the model: fixed effects, random effects, within-estimators, between estimators...etc, the list goes and the discourse is cursed. The terms are ambiguous and used divergingly. Wilett and Singer refer to the Level 1 and Level 2 sub-models, but the precise terminology is not important. 
+
+The important thing about these models is the *hierarchy*. There is a global phenomena and a subject specific instantiation of the phenomena. The model allows us to compose the global model with the individual contributions from each subject. Fitting the model then informs us about how each individual modifies the global model, but also lets us learn global parameters. In particular we allow for a subject specific modification of the coefficient on the variable representing time. Implementing the model is PyMC is as follows:
+
+
+```{code-cell} ipython3
+id_indx, unique_ids = pd.factorize(df["id"])
+coords = {"ids": unique_ids}
+with pm.Model(coords=coords) as model:
+    age_14 = pm.MutableData("age_14_data", df["age_14"].values)
+
+    ## Level 1
+    global_intercept = pm.Normal("global_intercept", 0, 1)
+    global_sigma = pm.HalfStudentT("global_sigma", 1, 3)
+    global_age_beta = pm.Normal("global_age_beta", 0, 1)
+
+    subject_intercept_sigma = pm.HalfNormal("subject_intercept_sigma", 5)
+    subject_age_sigma = pm.HalfNormal("subject_age_sigma", 5)
+
+    ## Level 2
+    subject_intercept = pm.Normal("subject_intercept", 0, subject_intercept_sigma, dims="ids")
+    subject_age_beta = pm.Normal("subject_age_beta", 0, subject_age_sigma, dims="ids")
+
+    growth_model = pm.Deterministic(
+        "growth_model",
+        (global_intercept + subject_intercept[id_indx])
+        + (global_age_beta + subject_age_beta[id_indx]) * age_14,
+    )
+    outcome = pm.Normal("outcome", growth_model, global_sigma, observed=df["alcuse"].values)
+    idata_m1 = pm.sample_prior_predictive()
+    idata_m1.extend(pm.sample(random_seed=100, target_accept=0.95))
+    idata_m1.extend(pm.sample_posterior_predictive(idata_m1))
+
+pm.model_to_graphviz(model)
+```
+
+The sigma terms likely the most important pieces of the model to understand. The global and subject specific sigma terms represent the sources of variation that we allow in our model.The global effects can be considered "fixed" over the population while the subject specific terms "random" draws from the same population. 
+
+```{code-cell} ipython3
+az.summary(
+    idata_m1,
+    var_names=[
+        "global_intercept",
+        "global_sigma",
+        "global_age_beta",
+        "subject_intercept_sigma",
+        "subject_age_sigma",
+    ],
+)
+```
+
+```{code-cell} ipython3
+az.extract(idata_m1, var_names=["subject_intercept", "subject_age_beta"]).to_dataframe()[
+    ["subject_intercept", "subject_age_beta"]
+].corr()
+```
+
+We can now derive the uncertainty in the implied model by using the posterior distribution. We plot the trajectories derived across all the subjects by taking the average parameter estimate across the ids. We'll see below how we can instead focus on the within subject estimates when our focus is on the individual growth. Here our focus is on the generally implied trajectory of alcohol use in teens. 
+
+```{code-cell} ipython3
+fig, ax = plt.subplots(figsize=(20, 8))
+posterior = az.extract(idata_m1.posterior)
+intercept_group_specific = posterior["subject_intercept"].mean(dim="ids")
+slope_group_specific = posterior["subject_age_beta"].mean(dim="ids")
+a = posterior["global_intercept"].mean() + intercept_group_specific
+b = posterior["global_age_beta"].mean() + slope_group_specific
+time_xi = xr.DataArray(np.arange(4))
+ax.plot(time_xi, (a + b * time_xi).T, color="slateblue", alpha=0.2, linewidth=0.2)
+ax.plot(
+    time_xi, (a.mean() + b.mean() * time_xi), color="red", lw=2, label="Expected Growth Trajectory"
+)
+ax.set_ylabel("Alcohol Usage")
+ax.set_xlabel("Time in Years from 14")
+ax.legend()
+ax.set_title("Individual Consumption Growth", fontsize=20)
+```
+
+## The Uncontrolled Effects of Parental Alcoholism
+
+Next we'll add in a second predictor and the interaction of the predictor with age to modify the outcome. 
+
+```{code-cell} ipython3
+id_indx, unique_ids = pd.factorize(df["id"])
+coords = {"ids": unique_ids}
+with pm.Model(coords=coords) as model:
+    age_14 = pm.MutableData("age_14_data", df["age_14"].values)
+    coa = pm.MutableData("coa_data", df["coa"].values)
+
+    ## Level 1
+    global_intercept = pm.Normal("global_intercept", 0, 1)
+    global_sigma = pm.HalfStudentT("global_sigma", 1, 3)
+    global_age_beta = pm.Normal("global_age_beta", 0, 1)
+    global_coa_beta = pm.Normal("global_coa_beta", 0, 1)
+    global_coa_age_beta = pm.Normal("global_coa_age_beta", 0, 1)
+
+    subject_intercept_sigma = pm.HalfNormal("subject_intercept_sigma", 5)
+    subject_age_sigma = pm.HalfNormal("subject_age_sigma", 5)
+
+    ## Level 2
+    subject_intercept = pm.Normal("subject_intercept", 0, subject_intercept_sigma, dims="ids")
+    subject_age_beta = pm.Normal("subject_age_beta", 0, subject_age_sigma, dims="ids")
+
+    growth_model = pm.Deterministic(
+        "growth_model",
+        (global_intercept + subject_intercept[id_indx])
+        + global_coa_beta * coa
+        + global_coa_age_beta * (coa * age_14)
+        + (global_age_beta + subject_age_beta[id_indx]) * age_14,
+    )
+    outcome = pm.Normal("outcome", growth_model, global_sigma, observed=df["alcuse"].values)
+    idata_m2 = pm.sample_prior_predictive()
+    idata_m2.extend(pm.sample(random_seed=100, target_accept=0.95))
+    idata_m2.extend(pm.sample_posterior_predictive(idata_m2))
+
+pm.model_to_graphviz(model)
+```
+
+```{code-cell} ipython3
+az.summary(
+    idata_m2,
+    var_names=[
+        "global_intercept",
+        "global_sigma",
+        "global_age_beta",
+        "global_coa_age_beta",
+        "subject_intercept_sigma",
+        "subject_age_sigma",
+    ],
+    stat_focus="median",
+)
+```
+
+We can see here how the inclusion of the binary flag for the parental alcoholism does not significantly impact the growth trajectory of the child's consumption, but it does shift the likely location of the intercept term. 
+
+```{code-cell} ipython3
+fig, ax = plt.subplots(figsize=(20, 8))
+posterior = az.extract(idata_m2.posterior)
+intercept_group_specific = posterior["subject_intercept"].mean(dim="ids")
+slope_group_specific = posterior["subject_age_beta"].mean(dim="ids")
+a = posterior["global_intercept"].mean() + intercept_group_specific
+b = posterior["global_age_beta"].mean() + slope_group_specific
+b_coa = posterior["global_coa_beta"].mean()
+b_coa_age = posterior["global_coa_age_beta"].mean()
+
+time_xi = xr.DataArray(np.arange(4))
+ax.plot(
+    time_xi,
+    (a + b * time_xi + b_coa * 1 + b_coa_age * (time_xi * 1)).T,
+    color="slateblue",
+    linewidth=0.2,
+    alpha=0.2,
+)
+ax.plot(
+    time_xi,
+    (a + b * time_xi + b_coa * 0 + b_coa_age * (time_xi * 0)).T,
+    color="magenta",
+    linewidth=0.2,
+    alpha=0.2,
+)
+ax.plot(
+    time_xi,
+    (a.mean() + b.mean() * time_xi + b_coa * 1 + b_coa_age * (time_xi * 1)),
+    color="darkblue",
+    lw=2,
+    label="Expected Growth Trajectory: Child of Alcoholic",
+)
+ax.plot(
+    time_xi,
+    (a.mean() + b.mean() * time_xi + b_coa * 0 + b_coa_age * (time_xi * 0)),
+    color="darkred",
+    lw=2,
+    label="Expected Growth Trajectory: Not Child of Alcoholic",
+)
+ax.set_ylabel("Alcohol Usage")
+ax.set_xlabel("Time in Years from 14")
+ax.legend()
+ax.set_title("Individual Consumption Growth", fontsize=20)
+```
+
+This is already suggestive of the manner in which we hierarchical longitudinal models can allow us to interrogate questions of policy and impact of causal interventions. The implications of a policy shift or a specific intervention in the implied growth trajectories can warrant dramatic investment decisions. However we'll leave these remarks as suggestive because there is a rich and contentious literature of the use of causal inference with panel data designs. The differences-in-differences literature is rife with warnings about the conditions required to meaningfully interpret causal questions. See for instance {ref}`difference_in_differences` for more discussion and references to the debate. 
+
+We'll forge on for now ignoring the subtleties of causal inference, just considering how the inclusion of peer effects van alter the association implied by our model. 
+
++++
+
+## Model controlling for Peer Effects
+
+For interpretablility and to make life simpler for our sampler we'll centre the peer data around their mean.
+
+```{code-cell} ipython3
+id_indx, unique_ids = pd.factorize(df["id"])
+coords = {"ids": unique_ids}
+with pm.Model(coords=coords) as model:
+    age_14 = pm.MutableData("age_14_data", df["age_14"].values)
+    coa = pm.MutableData("coa_data", df["coa"].values)
+    peer = pm.MutableData("peer_data", df["cpeer"].values)
+
+    ## Level 1
+    global_intercept = pm.Normal("global_intercept", 0, 1)
+    global_sigma = pm.HalfStudentT("global_sigma", 1, 3)
+    global_age_beta = pm.Normal("global_age_beta", 0, 1)
+    global_coa_beta = pm.Normal("global_coa_beta", 0, 1)
+    global_peer_beta = pm.Normal("global_peer_beta", 0, 1)
+    global_coa_age_beta = pm.Normal("global_coa_age_beta", 0, 1)
+    global_peer_age_beta = pm.Normal("global_peer_age_beta", 0, 1)
+
+    subject_intercept_sigma = pm.HalfNormal("subject_intercept_sigma", 5)
+    subject_age_sigma = pm.HalfNormal("subject_age_sigma", 5)
+
+    ## Level 2
+    subject_intercept = pm.Normal("subject_intercept", 0, subject_intercept_sigma, dims="ids")
+    subject_age_beta = pm.Normal("subject_age_beta", 0, subject_age_sigma, dims="ids")
+
+    growth_model = pm.Deterministic(
+        "growth_model",
+        (global_intercept + subject_intercept[id_indx])
+        + global_coa_beta * coa
+        + global_coa_age_beta * (coa * age_14)
+        + global_peer_beta * peer
+        + global_peer_age_beta * (peer * age_14)
+        + (global_age_beta + subject_age_beta[id_indx]) * age_14,
+    )
+    outcome = pm.Normal("outcome", growth_model, global_sigma, observed=df["alcuse"].values)
+    idata_m3 = pm.sample_prior_predictive()
+    idata_m3.extend(pm.sample(random_seed=100, target_accept=0.95))
+    idata_m3.extend(pm.sample_posterior_predictive(idata_m3))
+
+pm.model_to_graphviz(model)
+```
+
+```{code-cell} ipython3
+az.plot_trace(idata_m3);
+```
+
+```{code-cell} ipython3
+az.summary(
+    idata_m3,
+    var_names=[
+        "global_intercept",
+        "global_sigma",
+        "global_age_beta",
+        "global_coa_age_beta",
+        "global_peer_beta",
+        "global_peer_age_beta",
+        "subject_intercept_sigma",
+        "subject_age_sigma",
+    ],
+)
+```
+
+Next we'll plot the prototypical trajectories of change for individuals conditional on their parental and peer relationships. 
+
+```{code-cell} ipython3
+fig, axs = plt.subplots(2, 2, figsize=(20, 10), sharey=True)
+axs = axs.flatten()
+posterior = az.extract(idata_m3.posterior, num_samples=300)
+intercept_group_specific = posterior["subject_intercept"].mean(dim="ids")
+slope_group_specific = posterior["subject_age_beta"].mean(dim="ids")
+a = posterior["global_intercept"].mean() + intercept_group_specific
+b = posterior["global_age_beta"].mean() + slope_group_specific
+b_coa = posterior["global_coa_beta"].mean()
+b_coa_age = posterior["global_coa_age_beta"].mean()
+b_peer = posterior["global_peer_beta"].mean()
+b_peer_age = posterior["global_peer_age_beta"].mean()
+
+time_xi = xr.DataArray(np.arange(4))
+for q, i in zip([0.5, 0.75, 0.90, 0.99], [0, 1, 2, 3]):
+    q_v = df["peer"].quantile(q)
+    f1 = (
+        a
+        + b * time_xi
+        + b_coa * 1
+        + b_coa_age * (time_xi * 1)
+        + b_peer * q_v
+        + b_peer_age * (time_xi * q_v)
+    ).T
+    f2 = (
+        a
+        + b * time_xi
+        + b_coa * 0
+        + b_coa_age * (time_xi * 0)
+        + b_peer * q_v
+        + b_peer_age * (time_xi * q_v)
+    ).T
+    axs[i].plot(time_xi, f1, color="slateblue", alpha=0.2, linewidth=0.5)
+    axs[i].plot(time_xi, f2, color="magenta", alpha=0.2, linewidth=0.5)
+    axs[i].plot(
+        time_xi,
+        f2.mean(axis=1),
+        color="darkred",
+        label="Expected Growth Trajectory: Child of Alcoholic",
+    )
+    axs[i].plot(
+        time_xi,
+        f1.mean(axis=1),
+        color="darkblue",
+        label="Expected Growth Trajectory: Not Child of Alcoholic",
+    )
+    axs[i].set_ylabel("Alcohol Usage")
+    axs[i].set_xlabel("Time in Years from 14")
+    axs[i].legend()
+    axs[i].set_title(f"Individual Consumption Growth \n moderated by Peer: {q_v}", fontsize=20)
+```
+
+## Comparison of Model Estimates
+
+Finally, collating all our modelling efforts so far we can see how a number of things evident from the above plots:(i) the global slope parameter on the age term is quite stable across all three models in which it features. Similarly for the subject specific slope parameters on each of three individuals displayed. The global intercept parameters are pulled towards zero as we can offset more of the outcome effects into the influence of the parental and peer relationships. The global effect of parental alcoholism is broadly consistent across the models we fit.
+
+```{code-cell} ipython3
+az.plot_forest(
+    [idata_m0, idata_m1, idata_m2, idata_m3],
+    model_names=["Grand Mean", "Unconditional Growth", "COA growth Model", "COA_Peer_Model"],
+    var_names=[
+        "global_intercept",
+        "global_age_beta",
+        "global_coa_beta",
+        "global_coa_age_beta",
+        "global_peer_beta",
+        "global_peer_age_beta",
+        "subject_intercept_sigma",
+        "subject_age_sigma",
+        "subject_intercept",
+        "subject_age_beta",
+        "global_sigma",
+    ],
+    figsize=(20, 15),
+    kind="ridgeplot",
+    combined=True,
+    coords={"ids": [1, 2, 70]},
+)
+```
+
+# Non-Linear Change Trajectories
+
+```{code-cell} ipython3
+try:
+    df_external = pd.read_csv("../data/external_pp.csv")
+except FileNotFoundError:
+    df_external = pd.read_csv(pm.get_data("external_pp.csv"))
+
+df_external.head()
+```
+
+```{code-cell} ipython3
+fig, axs = plt.subplots(2, 4, figsize=(20, 8))
+axs = axs.flatten()
+for ax, id in zip(axs, range(9)[1:9]):
+    temp = df_external[df_external["ID"] == id]
+    ax.plot(temp["GRADE"], temp["EXTERNAL"], "o", color="black")
+    z = lowess(temp["EXTERNAL"], temp["GRADE"], 1 / 2)
+    ax.plot(z[:, 1], "--", color="black")
+```
+
+```{code-cell} ipython3
+fig, axs = plt.subplots(2, 3, figsize=(20, 6))
+axs = axs.flatten()
+for ax, g in zip(axs, [1, 2, 3, 4, 5, 6]):
+    temp = df_external[df_external["GRADE"] == g]
+    ax.hist(temp["EXTERNAL"], bins=10, ec="black", color="magenta")
+    ax.set_title(f"External Behaviour in Grade {g}")
+```
+
+```{code-cell} ipython3
+guess = pm.find_constrained_prior(
+    pm.Gumbel, lower=1, upper=68, mass=0.70, init_guess={"mu": 3, "beta": 1}
+)
+print(guess)
+```
+
+```{code-cell} ipython3
+plt.hist(np.random.gumbel(guess["mu"], guess["beta"], 1000), bins=30, ec="black", color="cyan");
+```
+
+## A Minimal Model
+
+```{code-cell} ipython3
+id_indx, unique_ids = pd.factorize(df_external["ID"])
+coords = {"ids": unique_ids}
+with pm.Model(coords=coords) as model:
+    # grade = pm.MutableData('grade_data', df_external['GRADE'].values)
+    external = pm.MutableData("external_data", df_external["EXTERNAL"].values + 1e-25)
+    global_intercept = pm.Normal("global_intercept", 2, 0.5)
+    global_sigma = pm.Normal("global_sigma", 7, 0.1)
+
+    subject_intercept_sigma = pm.HalfNormal("subject_intercept_sigma", 0.5)
+    subject_intercept = pm.Normal("subject_intercept", 0, subject_intercept_sigma, dims="ids")
+    mu = pm.Deterministic("mu", global_intercept + subject_intercept[id_indx])
+    outcome_latent = pm.Gumbel.dist(mu, global_sigma)
+    outcome = pm.Censored("outcome", outcome_latent, lower=0, upper=68, observed=external)
+    idata_m4 = pm.sample_prior_predictive()
+    idata_m4.extend(pm.sample(random_seed=100, target_accept=0.95))
+    idata_m4.extend(pm.sample_posterior_predictive(idata_m4))
+
+pm.model_to_graphviz(model)
+```
+
+```{code-cell} ipython3
+az.summary(idata_m4, var_names=["global_intercept", "global_sigma", "subject_intercept_sigma"])
+```
+
+```{code-cell} ipython3
+az.plot_ppc(idata_m4, figsize=(20, 7))
+```
+
+```{code-cell} ipython3
+fig, ax = plt.subplots(figsize=(20, 7))
+expected_individual_mean = idata_m4.posterior["subject_intercept"].mean(axis=1).values[0]
+
+ax.bar(
+    range(len(expected_individual_mean)),
+    np.sort(expected_individual_mean),
+    color="slateblue",
+    ec="black",
+)
+ax.set_xlabel("Individual ID")
+ax.set_ylabel("External Score")
+ax.set_title("Distribution of Individual Modifications to the Grand Mean");
+```
+
+## Adding in Time
+
+```{code-cell} ipython3
+id_indx, unique_ids = pd.factorize(df_external["ID"])
+coords = {"ids": unique_ids}
+with pm.Model(coords=coords) as model:
+    grade = pm.MutableData("grade_data", df_external["GRADE"].values)
+    external = pm.MutableData("external_data", df_external["EXTERNAL"].values + 1e-25)
+    global_intercept = pm.Normal("global_intercept", 2, 0.5)
+    global_sigma = pm.Normal("global_sigma", 7, 0.5)
+    global_beta_grade = pm.Normal("global_beta_grade", 0, 1)
+
+    subject_intercept_sigma = pm.HalfNormal("subject_intercept_sigma", 0.5)
+    subject_intercept = pm.Normal("subject_intercept", 0, subject_intercept_sigma, dims="ids")
+
+    subject_beta_grade_sigma = pm.HalfNormal("subject_beta_grade_sigma", 1)
+    subject_beta_grade = pm.Normal("subject_beta_grade", 0, subject_beta_grade_sigma, dims="ids")
+    mu = pm.Deterministic(
+        "mu",
+        global_intercept
+        + subject_intercept[id_indx]
+        + (global_beta_grade + subject_beta_grade[id_indx]) * grade,
+    )
+    outcome_latent = pm.Gumbel.dist(mu, global_sigma)
+    outcome = pm.Censored("outcome", outcome_latent, lower=0, upper=68, observed=external)
+    idata_m5 = pm.sample_prior_predictive()
+    idata_m5.extend(pm.sample(random_seed=100, target_accept=0.95))
+    idata_m5.extend(pm.sample_posterior_predictive(idata_m5))
+
+pm.model_to_graphviz(model)
+```
+
+```{code-cell} ipython3
+az.summary(
+    idata_m5,
+    var_names=[
+        "global_intercept",
+        "global_sigma",
+        "global_beta_grade",
+        "subject_intercept_sigma",
+        "subject_beta_grade_sigma",
+    ],
+)
+```
+
+```{code-cell} ipython3
+az.plot_ppc(idata_m5, figsize=(20, 7))
+```
+
+```{code-cell} ipython3
+fig, ax = plt.subplots(figsize=(20, 7))
+posterior = az.extract(idata_m5.posterior)
+intercept_group_specific = posterior["subject_intercept"].mean("sample")
+slope_group_specific = posterior["subject_beta_grade"].mean("sample")
+a = posterior["global_intercept"].mean() + intercept_group_specific
+b = posterior["global_beta_grade"].mean() + slope_group_specific
+
+time_xi = xr.DataArray(np.arange(6))
+ax.plot(time_xi, (a + b * time_xi).T, color="slateblue", alpha=0.3)
+ax.plot(
+    time_xi, (a.mean() + b.mean() * time_xi), color="red", lw=2, label="Expected Growth Trajectory"
+)
+ax.set_ylabel("Externals")
+ax.set_xlabel("Time in Grade")
+ax.legend()
+ax.set_title("Prototypical Individual Trajctories", fontsize=20)
+```
+
+## Adding in Time Squared
+
+```{code-cell} ipython3
+id_indx, unique_ids = pd.factorize(df_external["ID"])
+coords = {"ids": unique_ids}
+with pm.Model(coords=coords) as model:
+    grade = pm.MutableData("grade_data", df_external["GRADE"].values)
+    grade2 = pm.MutableData("grade2_data", df_external["GRADE"].values ** 2)
+    external = pm.MutableData("external_data", df_external["EXTERNAL"].values + 1e-25)
+
+    global_intercept = pm.Normal("global_intercept", 2, 0.5)
+    global_sigma = pm.Normal("global_sigma", 7, 1)
+    global_beta_grade = pm.Normal("global_beta_grade", 0, 1)
+    global_beta_grade2 = pm.Normal("global_beta_grade2", 0, 1)
+
+    subject_intercept_sigma = pm.HalfNormal("subject_intercept_sigma", 0.5)
+    subject_intercept = pm.Normal("subject_intercept", 0, subject_intercept_sigma, dims="ids")
+
+    subject_beta_grade_sigma = pm.HalfNormal("subject_beta_grade_sigma", 0.5)
+    subject_beta_grade = pm.Normal("subject_beta_grade", 0, subject_beta_grade_sigma, dims="ids")
+
+    subject_beta_grade2_sigma = pm.HalfNormal("subject_beta_grade2_sigma", 0.5)
+    subject_beta_grade2 = pm.Normal("subject_beta_grade2", 0, subject_beta_grade2_sigma, dims="ids")
+
+    mu = pm.Deterministic(
+        "mu",
+        global_intercept
+        + subject_intercept[id_indx]
+        + (global_beta_grade + subject_beta_grade[id_indx]) * grade
+        + (global_beta_grade2 + subject_beta_grade2[id_indx]) * grade2,
+    )
+    outcome_latent = pm.Gumbel.dist(mu, global_sigma)
+    outcome = pm.Censored("outcome", outcome_latent, lower=0, upper=68, observed=external)
+    idata_m6 = pm.sample_prior_predictive()
+    idata_m6.extend(pm.sample(random_seed=100, target_accept=0.95))
+    idata_m6.extend(pm.sample_posterior_predictive(idata_m6))
+
+pm.model_to_graphviz(model)
+```
+
+```{code-cell} ipython3
+az.summary(
+    idata_m6,
+    var_names=[
+        "global_intercept",
+        "global_sigma",
+        "global_beta_grade",
+        "global_beta_grade2",
+        "subject_intercept_sigma",
+        "subject_beta_grade_sigma",
+        "subject_beta_grade2_sigma",
+    ],
+)
+```
+
+```{code-cell} ipython3
+az.plot_ppc(idata_m6, figsize=(20, 7))
+```
+
+```{code-cell} ipython3
+fig, ax = plt.subplots(figsize=(20, 7))
+posterior = az.extract(idata_m6.posterior)
+intercept_group_specific = posterior["subject_intercept"].mean("sample")
+slope_group_specific = posterior["subject_beta_grade"].mean("sample")
+slope_group_specific_2 = posterior["subject_beta_grade2"].mean("sample")
+a = posterior["global_intercept"].mean() + intercept_group_specific
+b = posterior["global_beta_grade"].mean() + slope_group_specific
+c = posterior["global_beta_grade2"].mean() + slope_group_specific_2
+
+time_xi = xr.DataArray(np.arange(7))
+ax.plot(time_xi, (a + b * time_xi + c * (time_xi**2)).T, color="slateblue", alpha=0.3)
+ax.plot(
+    time_xi,
+    (a.mean() + b.mean() * time_xi + c.mean() * (time_xi**2)),
+    color="red",
+    lw=2,
+    label="Expected Growth Trajectory",
+)
+ax.set_ylabel("Externals")
+ax.set_xlabel("Time in Grade")
+ax.legend()
+ax.set_title("Individual Trajctories", fontsize=20)
+```
+
+## Adding in Time Cubed
+
+```{code-cell} ipython3
+id_indx, unique_ids = pd.factorize(df_external["ID"])
+coords = {"ids": unique_ids}
+with pm.Model(coords=coords) as model:
+    grade = pm.MutableData("grade_data", df_external["GRADE"].values)
+    grade2 = pm.MutableData("grade2_data", df_external["GRADE"].values ** 2)
+    grade3 = pm.MutableData("grade3_data", df_external["GRADE"].values ** 3)
+    external = pm.MutableData("external_data", df_external["EXTERNAL"].values + 1e-25)
+
+    global_intercept = pm.Normal("global_intercept", 2, 0.5)
+    global_sigma = pm.Normal("global_sigma", 7, 1)
+    global_beta_grade = pm.Normal("global_beta_grade", 0, 1)
+    global_beta_grade2 = pm.Normal("global_beta_grade2", 0, 1)
+    global_beta_grade3 = pm.Normal("global_beta_grade3", 0, 1)
+
+    subject_intercept_sigma = pm.HalfNormal("subject_intercept_sigma", 0.5)
+    subject_intercept = pm.Normal("subject_intercept", 0, subject_intercept_sigma, dims="ids")
+
+    subject_beta_grade_sigma = pm.HalfNormal("subject_beta_grade_sigma", 0.5)
+    subject_beta_grade = pm.Normal("subject_beta_grade", 0, subject_beta_grade_sigma, dims="ids")
+
+    subject_beta_grade2_sigma = pm.HalfNormal("subject_beta_grade2_sigma", 0.5)
+    subject_beta_grade2 = pm.Normal("subject_beta_grade2", 0, subject_beta_grade2_sigma, dims="ids")
+
+    subject_beta_grade3_sigma = pm.HalfNormal("subject_beta_grade3_sigma", 0.5)
+    subject_beta_grade3 = pm.Normal("subject_beta_grade3", 0, subject_beta_grade3_sigma, dims="ids")
+
+    mu = pm.Deterministic(
+        "mu",
+        global_intercept
+        + subject_intercept[id_indx]
+        + (global_beta_grade + subject_beta_grade[id_indx]) * grade
+        + (global_beta_grade2 + subject_beta_grade2[id_indx]) * grade2
+        + (global_beta_grade3 + subject_beta_grade3[id_indx]) * grade3,
+    )
+
+    outcome_latent = pm.Gumbel.dist(mu, global_sigma)
+    outcome = pm.Censored("outcome", outcome_latent, lower=0, upper=68, observed=external)
+    idata_m7 = pm.sample_prior_predictive()
+    idata_m7.extend(pm.sample(draws=2000, random_seed=100, target_accept=0.99))
+    idata_m7.extend(pm.sample_posterior_predictive(idata_m7))
+
+pm.model_to_graphviz(model)
+```
+
+```{code-cell} ipython3
+az.plot_trace(idata_m7);
+```
+
+```{code-cell} ipython3
+az.summary(
+    idata_m7,
+    var_names=[
+        "global_intercept",
+        "global_sigma",
+        "global_beta_grade",
+        "global_beta_grade2",
+        "subject_intercept_sigma",
+        "subject_beta_grade_sigma",
+        "subject_beta_grade2_sigma",
+        "subject_beta_grade3_sigma",
+    ],
+)
+```
+
+```{code-cell} ipython3
+az.plot_ppc(idata_m7, figsize=(20, 7))
+```
+
+```{code-cell} ipython3
+def plot_individual(posterior, individual, ax):
+    posterior = posterior.sel(ids=individual)
+    time_xi = xr.DataArray(np.arange(7))
+    i = posterior["global_intercept"].mean() + posterior["subject_intercept"]
+    a = (posterior["global_beta_grade"].mean() + posterior["subject_beta_grade"]) * time_xi
+    b = (posterior["global_beta_grade2"].mean() + posterior["subject_beta_grade2"]) * time_xi**2
+    c = (posterior["global_beta_grade3"].mean() + posterior["subject_beta_grade3"]) * time_xi**3
+    fit = i + a + b + c
+    for i in range(len(fit)):
+        ax.plot(time_xi, fit[i], color="skyblue", alpha=0.1, linewidth=0.2)
+```
+
+```{code-cell} ipython3
+mosaic = """AAAA
+            BCDE"""
+fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(20, 12))
+axs = [axs[k] for k in axs.keys()]
+posterior = az.extract(idata_m7.posterior)
+intercept_group_specific = posterior["subject_intercept"].mean("sample")
+slope_group_specific = posterior["subject_beta_grade"].mean("sample")
+slope_group_specific_2 = posterior["subject_beta_grade2"].mean("sample")
+slope_group_specific_3 = posterior["subject_beta_grade3"].mean("sample")
+a = posterior["global_intercept"].mean() + intercept_group_specific
+b = posterior["global_beta_grade"].mean() + slope_group_specific
+c = posterior["global_beta_grade2"].mean() + slope_group_specific_2
+d = posterior["global_beta_grade3"].mean() + slope_group_specific_3
+
+time_xi = xr.DataArray(np.arange(7))
+axs[0].plot(
+    time_xi,
+    (a + b * time_xi + c * (time_xi**2) + d * (time_xi**3)).T,
+    color="slateblue",
+    alpha=0.3,
+)
+axs[0].plot(
+    time_xi,
+    (a.mean() + b.mean() * time_xi + c.mean() * (time_xi**2) + d.mean() * (time_xi**3)),
+    color="red",
+    lw=2,
+    label="Expected Growth Trajectory",
+)
+
+for indx, id in zip([1, 2, 3, 4], [2, 5, 7, 30]):
+    plot_individual(posterior, id, axs[indx])
+    axs[indx].plot(
+        time_xi,
+        (a[id] + b[id] * time_xi + c[id] * (time_xi**2) + d[id] * (time_xi**3)),
+        color="red",
+        lw=2,
+        label="Expected Growth Trajectory",
+    )
+    axs[indx].plot(
+        df_external[df_external["ID"] == id + 1]["GRADE"],
+        df_external[df_external["ID"] == id + 1]["EXTERNAL"],
+        "o",
+        color="black",
+        label="Observed",
+    )
+    axs[indx].set_title(f"Uncertainty in the model Fit: \n Individual {id}")
+    axs[indx].legend()
+
+
+axs[0].set_ylabel("Externals")
+axs[0].set_xlabel("Time in Grade")
+axs[0].legend()
+axs[0].set_title("Individual Prototypical Trajctories \n for each Individual", fontsize=20)
+```
+
+## Authors
+- Authored by [Nathaniel Forde](https://nathanielf.github.io/) in February 2023 
+
++++
+
+## References
+:::{bibliography}
+:filter: docname in docnames
+:::
+
+```{code-cell} ipython3
+%load_ext watermark
+%watermark -n -u -v -iv -w -p pytensor
+```
+
+```{code-cell} ipython3
+
+```
