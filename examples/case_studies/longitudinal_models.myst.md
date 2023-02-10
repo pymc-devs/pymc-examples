@@ -461,7 +461,7 @@ az.summary(
 )
 ```
 
-Next we'll plot the prototypical trajectories of change for individuals conditional on their parental and peer relationships. 
+Next we'll plot the prototypical trajectories of change for individuals conditional on their parental and peer relationships. Notice how the peer score in the data drives the intercept of the polynomial curve up the y-axis of the chart. 
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(2, 2, figsize=(20, 10), sharey=True)
