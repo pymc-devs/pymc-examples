@@ -28,6 +28,8 @@ import pymc as pm
 import statsmodels.api as sm
 import xarray as xr
 
+from pymc.sampling_jax import sample_blackjax_nuts, sample_numpyro_nuts
+
 lowess = sm.nonparametric.lowess
 ```
 
@@ -634,7 +636,9 @@ ax.set_ylabel("External Score")
 ax.set_title("Distribution of Individual Modifications to the Grand Mean");
 ```
 
-## Adding in Time
+## Behaviour over time
+
+We now model the evolution of the behaviours over time in a hierarchical fashion. We start with a simple linear regression. 
 
 ```{code-cell} ipython3
 id_indx, unique_ids = pd.factorize(df_external["ID"])
@@ -679,9 +683,13 @@ az.summary(
 )
 ```
 
+We can now examine the posterior predictive plot for our model. The outcomes seem to make a reasonable fit to the data. 
+
 ```{code-cell} ipython3
 az.plot_ppc(idata_m5, figsize=(20, 7))
 ```
+
+But we want to see individual model fits for each person. Here we plot the expected trajectories.
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(20, 7))
@@ -696,13 +704,19 @@ ax.plot(time_xi, (a + b * time_xi).T, color="slateblue", alpha=0.3)
 ax.plot(
     time_xi, (a.mean() + b.mean() * time_xi), color="red", lw=2, label="Expected Growth Trajectory"
 )
-ax.set_ylabel("Externals")
+ax.set_ylabel("Externalised Behaviour Score")
 ax.set_xlabel("Time in Grade")
 ax.legend()
 ax.set_title("Prototypical Individual Trajctories", fontsize=20)
 ```
 
-## Adding in Time Squared
+We can see here how the model is constrained to apply a very linear fit to the behavioural trajectories. The immediate impression is of a relatively stable behaviourial pattern for each individual. But this is artefact of the model's inability to express the natural curvature of the behaviourial data.
+
++++
+
+## Adding in Polynomial Time
+
+To give the model more flexibility to model change over time we can add in polynomial terms. 
 
 ```{code-cell} ipython3
 id_indx, unique_ids = pd.factorize(df_external["ID"])
@@ -786,7 +800,13 @@ ax.legend()
 ax.set_title("Individual Trajctories", fontsize=20)
 ```
 
-## Adding in Time Cubed
+Granting the model more flexibility allows it to ascribe more nuanced growth trajectories.
+
++++
+
+## Comparing Trajectories across Gender
+
+We'll allow the model greater flexibility and pull in the gender of the subject to analyse whether and to what degree the gender of the teenager influences their behaviorial changes. 
 
 ```{code-cell} ipython3
 id_indx, unique_ids = pd.factorize(df_external["ID"])
@@ -805,6 +825,8 @@ with pm.Model(coords=coords) as model:
     global_beta_grade3 = pm.Normal("global_beta_grade3", 0, 1)
     global_beta_female = pm.Normal("global_beta_female", 0, 1)
     global_beta_female_grade = pm.Normal("global_beta_female_grade", 0, 1)
+    global_beta_female_grade2 = pm.Normal("global_beta_female_grade2", 0, 1)
+    global_beta_female_grade3 = pm.Normal("global_beta_female_grade3", 0, 1)
 
     subject_intercept_sigma = pm.Exponential("subject_intercept_sigma", 1)
     subject_intercept = pm.Normal("subject_intercept", 3, subject_intercept_sigma, dims="ids")
@@ -824,6 +846,8 @@ with pm.Model(coords=coords) as model:
         + subject_intercept[id_indx]
         + global_beta_female * female
         + global_beta_female_grade * (female * grade)
+        + global_beta_female_grade2 * (female * grade2)
+        + global_beta_female_grade3 * (female * grade3)
         + (global_beta_grade + subject_beta_grade[id_indx]) * grade
         + (global_beta_grade2 + subject_beta_grade2[id_indx]) * grade2
         + (global_beta_grade3 + subject_beta_grade3[id_indx]) * grade3,
@@ -833,7 +857,7 @@ with pm.Model(coords=coords) as model:
     outcome = pm.Censored("outcome", outcome_latent, lower=0, upper=68, observed=external)
 
     idata_m7 = pm.sample_prior_predictive()
-    idata_m7.extend(pm.sample(draws=1000, random_seed=100, target_accept=0.99))
+    idata_m7.extend(sample_numpyro_nuts(draws=5000, random_seed=100, target_accept=0.99))
     idata_m7.extend(pm.sample_posterior_predictive(idata_m7))
 
 pm.model_to_graphviz(model)
@@ -855,6 +879,10 @@ az.summary(
         "subject_beta_grade_sigma",
         "subject_beta_grade2_sigma",
         "subject_beta_grade3_sigma",
+        "global_beta_female",
+        "global_beta_female_grade",
+        "global_beta_female_grade2",
+        "global_beta_female_grade3",
     ],
 )
 ```
@@ -863,9 +891,34 @@ az.summary(
 az.plot_ppc(idata_m7, figsize=(20, 7))
 ```
 
+## Comparing Model Parameters
+
 ```{code-cell} ipython3
-idata_m7
+az.plot_forest(
+    [idata_m4, idata_m5, idata_m6, idata_m7],
+    model_names=["Minimal Model", "Linear Model", "Polynomial Model", "Polynomial + Gender"],
+    var_names=[
+        "global_intercept",
+        "global_sigma",
+        "global_beta_grade",
+        "global_beta_grade2",
+        "subject_intercept_sigma",
+        "subject_beta_grade_sigma",
+        "subject_beta_grade2_sigma",
+        "subject_beta_grade3_sigma",
+        "global_beta_female",
+        "global_beta_female_grade",
+        "global_beta_female_grade2",
+        "global_beta_female_grade3",
+    ],
+    figsize=(20, 15),
+    kind="ridgeplot",
+    combined=True,
+    coords={"ids": [1, 2, 30]},
+)
 ```
+
+## Plotting the Final Model
 
 ```{code-cell} ipython3
 def plot_individual(posterior, individual, female, ax):
@@ -890,10 +943,11 @@ def plot_individual(posterior, individual, female, ax):
 
 ```{code-cell} ipython3
 mosaic = """AAAA
-            BCDE"""
+            BCDE
+            FGHI"""
 fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(20, 12))
 axs = [axs[k] for k in axs.keys()]
-posterior = az.extract(idata_m7.posterior)
+posterior = az.extract(idata_m7.posterior, num_samples=2000)
 intercept_group_specific = posterior["subject_intercept"].mean("ids")
 slope_group_specific = posterior["subject_beta_grade"].mean("ids")
 slope_group_specific_2 = posterior["subject_beta_grade2"].mean("ids")
@@ -952,7 +1006,7 @@ axs[0].plot(
 )
 
 
-for indx, id in zip([1, 2, 3, 4], [2, 8, 10, 30]):
+for indx, id in zip([1, 2, 3, 4, 5, 6, 7, 8], [3, 8, 10, 30, 34, 40, 9, 11]):
     female = df_external[df_external["ID"] == id]["FEMALE"].unique()[0] == 1
     plot_individual(posterior, id, female, axs[indx])
     axs[indx].plot(
@@ -966,11 +1020,18 @@ for indx, id in zip([1, 2, 3, 4], [2, 8, 10, 30]):
     axs[indx].legend()
 
 
-axs[0].set_ylabel("Externalising Behaviour Score")
+axs[0].set_ylabel("Externalising Score")
 axs[0].set_xlabel("Time in Grade")
 axs[0].legend()
-axs[0].set_title("Between Individual Trajectories", fontsize=20);
+axs[0].set_title("Between Individual Trajectories \n By Gender", fontsize=20);
 ```
+
+The implications of this model suggest that there is a very slight differences in the probable growth trajectories between men and women, and moreover that the change in level of externalising behaviours over time is quite minimal. 
+
+# Conclusion
+
+
++++
 
 ## Authors
 - Authored by [Nathaniel Forde](https://nathanielf.github.io/) in February 2023 
