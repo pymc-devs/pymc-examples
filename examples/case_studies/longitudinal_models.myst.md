@@ -545,6 +545,8 @@ az.plot_forest(
 
 # Non-Linear Change Trajectories
 
+Next we'll look at a dataset where the individual trajectories show wild swings in behaviour across the individuals. The data reports a score per child of externalizing behaviors. This can measure a variety of behaviours including but not limited to: physical aggression, verbal bullying, relational aggression, defiance, theft, and vandalism. The higher on the scale the more external behaviours demonstrated by the child. The scale is bounded at 0 and has a maximum possible score of 68. Each individual child is measured for these behaviours in each grade of school. 
+
 ```{code-cell} ipython3
 try:
     df_external = pd.read_csv("../data/external_pp.csv")
@@ -573,9 +575,11 @@ for ax, g in zip(axs, [1, 2, 3, 4, 5, 6]):
     ax.set_title(f"External Behaviour in Grade {g}")
 ```
 
+We can see that there is a strong skew in the dataset towards low `external` score. We'll diverge from Willett and Singer's presentation here and try and model this distribution as a Gumbel distribution with censoring. To do so we'll get PyMC to find a prior with on the Gumbel distribution that makes good sense. 
+
 ```{code-cell} ipython3
 guess = pm.find_constrained_prior(
-    pm.Gumbel, lower=1, upper=68, mass=0.70, init_guess={"mu": 3, "beta": 1}
+    pm.Gumbel, lower=0, upper=68, mass=0.99, init_guess={"mu": 0.60, "beta": 7}
 )
 print(guess)
 ```
@@ -592,10 +596,10 @@ coords = {"ids": unique_ids}
 with pm.Model(coords=coords) as model:
     # grade = pm.MutableData('grade_data', df_external['GRADE'].values)
     external = pm.MutableData("external_data", df_external["EXTERNAL"].values + 1e-25)
-    global_intercept = pm.Normal("global_intercept", 2, 0.5)
-    global_sigma = pm.Normal("global_sigma", 7, 0.1)
+    global_intercept = pm.Normal("global_intercept", 6, 1)
+    global_sigma = pm.HalfNormal("global_sigma", 7)
 
-    subject_intercept_sigma = pm.HalfNormal("subject_intercept_sigma", 0.5)
+    subject_intercept_sigma = pm.HalfNormal("subject_intercept_sigma", 5)
     subject_intercept = pm.Normal("subject_intercept", 0, subject_intercept_sigma, dims="ids")
     mu = pm.Deterministic("mu", global_intercept + subject_intercept[id_indx])
     outcome_latent = pm.Gumbel.dist(mu, global_sigma)
@@ -638,12 +642,12 @@ coords = {"ids": unique_ids}
 with pm.Model(coords=coords) as model:
     grade = pm.MutableData("grade_data", df_external["GRADE"].values)
     external = pm.MutableData("external_data", df_external["EXTERNAL"].values + 1e-25)
-    global_intercept = pm.Normal("global_intercept", 2, 0.5)
+    global_intercept = pm.Normal("global_intercept", 6, 1)
     global_sigma = pm.Normal("global_sigma", 7, 0.5)
     global_beta_grade = pm.Normal("global_beta_grade", 0, 1)
 
-    subject_intercept_sigma = pm.HalfNormal("subject_intercept_sigma", 0.5)
-    subject_intercept = pm.Normal("subject_intercept", 0, subject_intercept_sigma, dims="ids")
+    subject_intercept_sigma = pm.HalfNormal("subject_intercept_sigma", 2)
+    subject_intercept = pm.Normal("subject_intercept", 5, subject_intercept_sigma, dims="ids")
 
     subject_beta_grade_sigma = pm.HalfNormal("subject_beta_grade_sigma", 1)
     subject_beta_grade = pm.Normal("subject_beta_grade", 0, subject_beta_grade_sigma, dims="ids")
@@ -708,18 +712,18 @@ with pm.Model(coords=coords) as model:
     grade2 = pm.MutableData("grade2_data", df_external["GRADE"].values ** 2)
     external = pm.MutableData("external_data", df_external["EXTERNAL"].values + 1e-25)
 
-    global_intercept = pm.Normal("global_intercept", 2, 0.5)
+    global_intercept = pm.Normal("global_intercept", 6, 2)
     global_sigma = pm.Normal("global_sigma", 7, 1)
     global_beta_grade = pm.Normal("global_beta_grade", 0, 1)
     global_beta_grade2 = pm.Normal("global_beta_grade2", 0, 1)
 
-    subject_intercept_sigma = pm.HalfNormal("subject_intercept_sigma", 0.5)
-    subject_intercept = pm.Normal("subject_intercept", 0, subject_intercept_sigma, dims="ids")
+    subject_intercept_sigma = pm.HalfNormal("subject_intercept_sigma", 1)
+    subject_intercept = pm.Normal("subject_intercept", 2, subject_intercept_sigma, dims="ids")
 
-    subject_beta_grade_sigma = pm.HalfNormal("subject_beta_grade_sigma", 0.5)
+    subject_beta_grade_sigma = pm.HalfNormal("subject_beta_grade_sigma", 1)
     subject_beta_grade = pm.Normal("subject_beta_grade", 0, subject_beta_grade_sigma, dims="ids")
 
-    subject_beta_grade2_sigma = pm.HalfNormal("subject_beta_grade2_sigma", 0.5)
+    subject_beta_grade2_sigma = pm.HalfNormal("subject_beta_grade2_sigma", 1)
     subject_beta_grade2 = pm.Normal("subject_beta_grade2", 0, subject_beta_grade2_sigma, dims="ids")
 
     mu = pm.Deterministic(
@@ -776,7 +780,7 @@ ax.plot(
     lw=2,
     label="Expected Growth Trajectory",
 )
-ax.set_ylabel("Externals")
+ax.set_ylabel("Externalalising Behaviour Score")
 ax.set_xlabel("Time in Grade")
 ax.legend()
 ax.set_title("Individual Trajctories", fontsize=20)
@@ -792,29 +796,34 @@ with pm.Model(coords=coords) as model:
     grade2 = pm.MutableData("grade2_data", df_external["GRADE"].values ** 2)
     grade3 = pm.MutableData("grade3_data", df_external["GRADE"].values ** 3)
     external = pm.MutableData("external_data", df_external["EXTERNAL"].values + 1e-25)
+    female = pm.MutableData("female_data", df_external["FEMALE"].values)
 
-    global_intercept = pm.Normal("global_intercept", 2, 0.5)
+    global_intercept = pm.Normal("global_intercept", 6, 2)
     global_sigma = pm.Normal("global_sigma", 7, 1)
     global_beta_grade = pm.Normal("global_beta_grade", 0, 1)
     global_beta_grade2 = pm.Normal("global_beta_grade2", 0, 1)
     global_beta_grade3 = pm.Normal("global_beta_grade3", 0, 1)
+    global_beta_female = pm.Normal("global_beta_female", 0, 1)
+    global_beta_female_grade = pm.Normal("global_beta_female_grade", 0, 1)
 
-    subject_intercept_sigma = pm.HalfNormal("subject_intercept_sigma", 0.5)
-    subject_intercept = pm.Normal("subject_intercept", 0, subject_intercept_sigma, dims="ids")
+    subject_intercept_sigma = pm.Exponential("subject_intercept_sigma", 1)
+    subject_intercept = pm.Normal("subject_intercept", 3, subject_intercept_sigma, dims="ids")
 
-    subject_beta_grade_sigma = pm.HalfNormal("subject_beta_grade_sigma", 0.5)
+    subject_beta_grade_sigma = pm.Exponential("subject_beta_grade_sigma", 1)
     subject_beta_grade = pm.Normal("subject_beta_grade", 0, subject_beta_grade_sigma, dims="ids")
 
-    subject_beta_grade2_sigma = pm.HalfNormal("subject_beta_grade2_sigma", 0.5)
+    subject_beta_grade2_sigma = pm.Exponential("subject_beta_grade2_sigma", 1)
     subject_beta_grade2 = pm.Normal("subject_beta_grade2", 0, subject_beta_grade2_sigma, dims="ids")
 
-    subject_beta_grade3_sigma = pm.HalfNormal("subject_beta_grade3_sigma", 0.5)
+    subject_beta_grade3_sigma = pm.Exponential("subject_beta_grade3_sigma", 1)
     subject_beta_grade3 = pm.Normal("subject_beta_grade3", 0, subject_beta_grade3_sigma, dims="ids")
 
     mu = pm.Deterministic(
-        "mu",
+        "growth_model",
         global_intercept
         + subject_intercept[id_indx]
+        + global_beta_female * female
+        + global_beta_female_grade * (female * grade)
         + (global_beta_grade + subject_beta_grade[id_indx]) * grade
         + (global_beta_grade2 + subject_beta_grade2[id_indx]) * grade2
         + (global_beta_grade3 + subject_beta_grade3[id_indx]) * grade3,
@@ -822,8 +831,9 @@ with pm.Model(coords=coords) as model:
 
     outcome_latent = pm.Gumbel.dist(mu, global_sigma)
     outcome = pm.Censored("outcome", outcome_latent, lower=0, upper=68, observed=external)
+
     idata_m7 = pm.sample_prior_predictive()
-    idata_m7.extend(pm.sample(draws=2000, random_seed=100, target_accept=0.99))
+    idata_m7.extend(pm.sample(draws=1000, random_seed=100, target_accept=0.99))
     idata_m7.extend(pm.sample_posterior_predictive(idata_m7))
 
 pm.model_to_graphviz(model)
@@ -854,16 +864,28 @@ az.plot_ppc(idata_m7, figsize=(20, 7))
 ```
 
 ```{code-cell} ipython3
-def plot_individual(posterior, individual, ax):
+idata_m7
+```
+
+```{code-cell} ipython3
+def plot_individual(posterior, individual, female, ax):
     posterior = posterior.sel(ids=individual)
     time_xi = xr.DataArray(np.arange(7))
     i = posterior["global_intercept"].mean() + posterior["subject_intercept"]
     a = (posterior["global_beta_grade"].mean() + posterior["subject_beta_grade"]) * time_xi
     b = (posterior["global_beta_grade2"].mean() + posterior["subject_beta_grade2"]) * time_xi**2
     c = (posterior["global_beta_grade3"].mean() + posterior["subject_beta_grade3"]) * time_xi**3
-    fit = i + a + b + c
+    d = posterior["global_beta_female"].mean() * female + posterior["global_beta_female_grade"] * (
+        time_xi * female
+    )
+    fit = i + a + b + c + d
+    if female:
+        color = "cyan"
+    else:
+        color = "slateblue"
     for i in range(len(fit)):
-        ax.plot(time_xi, fit[i], color="skyblue", alpha=0.1, linewidth=0.2)
+        ax.plot(time_xi, fit[i], color=color, alpha=0.1, linewidth=0.2)
+    ax.plot(time_xi, fit.mean(axis=0), color="magenta")
 ```
 
 ```{code-cell} ipython3
@@ -872,54 +894,82 @@ mosaic = """AAAA
 fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(20, 12))
 axs = [axs[k] for k in axs.keys()]
 posterior = az.extract(idata_m7.posterior)
-intercept_group_specific = posterior["subject_intercept"].mean("sample")
-slope_group_specific = posterior["subject_beta_grade"].mean("sample")
-slope_group_specific_2 = posterior["subject_beta_grade2"].mean("sample")
-slope_group_specific_3 = posterior["subject_beta_grade3"].mean("sample")
+intercept_group_specific = posterior["subject_intercept"].mean("ids")
+slope_group_specific = posterior["subject_beta_grade"].mean("ids")
+slope_group_specific_2 = posterior["subject_beta_grade2"].mean("ids")
+slope_group_specific_3 = posterior["subject_beta_grade3"].mean("ids")
 a = posterior["global_intercept"].mean() + intercept_group_specific
 b = posterior["global_beta_grade"].mean() + slope_group_specific
 c = posterior["global_beta_grade2"].mean() + slope_group_specific_2
 d = posterior["global_beta_grade3"].mean() + slope_group_specific_3
+e = posterior["global_beta_female"].mean()
+f = posterior["global_beta_female_grade"].mean()
 
 time_xi = xr.DataArray(np.arange(7))
+
 axs[0].plot(
     time_xi,
-    (a + b * time_xi + c * (time_xi**2) + d * (time_xi**3)).T,
-    color="slateblue",
-    alpha=0.3,
+    (a + b * time_xi + c * (time_xi**2) + d * (time_xi**3) + e * 1 + f * (1 * time_xi)).T,
+    color="cyan",
+    linewidth=2,
+    alpha=0.1,
 )
 axs[0].plot(
     time_xi,
-    (a.mean() + b.mean() * time_xi + c.mean() * (time_xi**2) + d.mean() * (time_xi**3)),
+    (a + b * time_xi + c * (time_xi**2) + d * (time_xi**3) + e * 0 + f * (0 * time_xi)).T,
+    color="slateblue",
+    alpha=0.1,
+    linewidth=2,
+)
+axs[0].plot(
+    time_xi,
+    (
+        a.mean()
+        + b.mean() * time_xi
+        + c.mean() * (time_xi**2)
+        + d.mean() * (time_xi**3)
+        + e * 0
+        + f * (0 * time_xi)
+    ),
     color="red",
     lw=2,
-    label="Expected Growth Trajectory",
+    label="Expected Growth Trajectory - Male",
 )
 
-for indx, id in zip([1, 2, 3, 4], [2, 5, 7, 30]):
-    plot_individual(posterior, id, axs[indx])
+axs[0].plot(
+    time_xi,
+    (
+        a.mean()
+        + b.mean() * time_xi
+        + c.mean() * (time_xi**2)
+        + d.mean() * (time_xi**3)
+        + e * 1
+        + f * (1 * time_xi)
+    ),
+    color="darkblue",
+    lw=2,
+    label="Expected Growth Trajectory - Female",
+)
+
+
+for indx, id in zip([1, 2, 3, 4], [2, 8, 10, 30]):
+    female = df_external[df_external["ID"] == id]["FEMALE"].unique()[0] == 1
+    plot_individual(posterior, id, female, axs[indx])
     axs[indx].plot(
-        time_xi,
-        (a[id] + b[id] * time_xi + c[id] * (time_xi**2) + d[id] * (time_xi**3)),
-        color="red",
-        lw=2,
-        label="Expected Growth Trajectory",
-    )
-    axs[indx].plot(
-        df_external[df_external["ID"] == id + 1]["GRADE"],
-        df_external[df_external["ID"] == id + 1]["EXTERNAL"],
+        df_external[df_external["ID"] == id]["GRADE"],
+        df_external[df_external["ID"] == id]["EXTERNAL"],
         "o",
         color="black",
         label="Observed",
     )
-    axs[indx].set_title(f"Uncertainty in the model Fit: \n Individual {id}")
+    axs[indx].set_title(f"Within the Individual {id} Uncertainty")
     axs[indx].legend()
 
 
-axs[0].set_ylabel("Externals")
+axs[0].set_ylabel("Externalising Behaviour Score")
 axs[0].set_xlabel("Time in Grade")
 axs[0].legend()
-axs[0].set_title("Individual Prototypical Trajctories \n for each Individual", fontsize=20)
+axs[0].set_title("Between Individual Trajectories", fontsize=20);
 ```
 
 ## Authors
