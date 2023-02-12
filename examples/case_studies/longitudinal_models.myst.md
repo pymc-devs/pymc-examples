@@ -177,7 +177,7 @@ The overall impression of this exploratory exercise is to cement the idea of com
 
 # Modelling Change over Time.
 
-We begin with a simple unconditional model where we model only the manner in which the individual's contribution to the final outcome. In other words this model is marked by the distinction that it contains no predictors. It serves to partition the sources of variation in the outcome, ascribing more or less aberrant behaviour to each individual in the degree that they move away from the grand mean.
+We begin with a simple unconditional model where we model only the individual's contribution to the final outcome. In other words this model is marked by the distinction that it contains no predictors. It serves to partition the sources of variation in the outcome, ascribing more or less aberrant behaviour to each individual in the degree that they move away from the grand mean.
 
 +++
 
@@ -276,7 +276,7 @@ with pm.Model(coords=coords) as model:
 pm.model_to_graphviz(model)
 ```
 
-The sigma terms likely the most important pieces of the model to understand. The global and subject specific sigma terms represent the sources of variation that we allow in our model.The global effects can be considered "fixed" over the population while the subject specific terms "random" draws from the same population. 
+The sigma terms (variance components) are likely the most important pieces of the model to understand. The global and subject specific sigma terms represent the sources of variation that we allow in our model.The global effects can be considered "fixed" over the population while the subject specific terms "random" draws from the same population. 
 
 ```{code-cell} ipython3
 az.summary(
@@ -289,12 +289,6 @@ az.summary(
         "subject_age_sigma",
     ],
 )
-```
-
-```{code-cell} ipython3
-az.extract(idata_m1, var_names=["subject_intercept", "subject_age_beta"]).to_dataframe()[
-    ["subject_intercept", "subject_age_beta"]
-].corr()
 ```
 
 We can now derive the uncertainty in the implied model by using the posterior distribution. We plot the trajectories derived across all the subjects by taking the average parameter estimate across the ids. We'll see below how we can instead focus on the within subject estimates when our focus is on the individual growth. Here our focus is on the generally implied trajectory of alcohol use in teens. 
@@ -1187,7 +1181,7 @@ The implications of this final model suggest that there is a very slight differe
 
 We've now seen how the Bayesian hierarchical models can be adapted to study and interrogate questions about change over time. We seen how the flexible nature of the Bayesian workflow can incorporate different combinations of priors and model specifications to capture subtle aspects of the data generating process. Crucially, we've seen how to move between the within individual view  and the between individual implications of our model fits, while assessing the models for their fidelity to the data. There are subtle issues around how to assess causal inference questions in the panel data context, but it is also clear that longitudinal modeling allows us to sift through the complexities of individual difference in a systematic and principled fashion. 
 
-These are powerful models allowing capturing and assessing patterns of change to compare within and across cohorts. Without random controlled trials or other designed experiments and quasi-experimental patterns, panel data analysis of this kind is as close as you're going to get to deriving a causal conclusion from observational data. 
+These are powerful models for capturing and assessing patterns of change to compare within and across cohorts. Without random controlled trials or other designed experiments and quasi-experimental patterns, panel data analysis of this kind is as close as you're going to get to deriving a causal conclusion from observational data. 
 
 
 +++
