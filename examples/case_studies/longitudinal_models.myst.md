@@ -40,9 +40,9 @@ az.style.use("arviz-darkgrid")
 rng = np.random.default_rng(42)
 ```
 
-The study of change involves simultaneously analysing the individual trajectories of change and abstracting over the set of individuals studied to extract broader insight about the nature of the change in question. As such it's easy to lose sight of the forest for the focus on the trees. In this example we'll demonstrate some of the subtleties of using hierarchical bayesian models to study the change within a population of individuals  - moving between within individual view and the between individual perspective. 
+The study of change involves simultaneously analysing the individual trajectories of change and abstracting over the set of individuals studied to extract broader insight about the nature of the change in question. As such it's easy to lose sight of the forest for the focus on the trees. In this example we'll demonstrate some of the subtleties of using hierarchical bayesian models to study the change within a population of individuals  - moving from the *within individual* view to the *between/cross individuals* perspective. 
 
-We'll follow the discussion and iterative approach to model building outlined in Singer and Willett's *Applied Longitudinal Data Analysis*. For more details {cite:t}`singer2003`). We'll differ from their presentation in that while they focus on maximum likelihood methods for fitting their data we'll use PyMC bayesian methods. In this approach we're following Solomon Kurz's work with brms {cite:t}`kurzAppliedLongitudinalDataAnalysis2021`
+We'll follow the discussion and iterative approach to model building outlined in Singer and Willett's *Applied Longitudinal Data Analysis*. For more details {cite:t}`singer2003`). We'll differ from their presentation in that while they focus on maximum likelihood methods for fitting their data we'll use PyMC bayesian methods. In this approach we're following Solomon Kurz's work with brms in {cite:t}`kurzAppliedLongitudinalDataAnalysis2021`. We strongly recommend both books for more detailed presentation of the issues discussed here. 
 
 ### Structure of the Presentation
 
@@ -173,11 +173,11 @@ for i in df["id"].unique():
     axs[index].set_xlabel("Age")
 ```
 
-The overall impression of this exploratory exercise is to cement the idea of complexity. There are many individual trajectories and unique journeys through time, but if we want to say something general about the phenomena of interest: parental alcoholism on child's alcohol usage we need to more than give up in the face of complexity. 
+The overall impression of this exploratory exercise is to cement the idea of complexity. There are many individual trajectories and unique journeys through time, but if we want to say something general about the phenomena of interest: parental alcoholism on child's alcohol usage we need to do more than give up in the face of complexity. 
 
 # Modelling Change over Time.
 
-We begin with a simple unconditional model where we model only the manner in which the individual's contribution to the final outcome. 
+We begin with a simple unconditional model where we model only the manner in which the individual's contribution to the final outcome. In other words this model is marked by the distinction that it contains no predictors. It serves to partition the sources of variation in the outcome, ascribing more or less aberrant behaviour to each individual in the degree that they move away from the grand mean.
 
 +++
 
@@ -195,7 +195,9 @@ with pm.Model(coords=coords) as model:
     grand_mean = pm.Deterministic("grand_mean", global_intercept + subject_intercept[id_indx])
     outcome = pm.Normal("outcome", grand_mean, global_sigma, observed=df["alcuse"])
     idata_m0 = pm.sample_prior_predictive()
-    idata_m0.extend(pm.sample(random_seed=100, target_accept=0.95))
+    idata_m0.extend(
+        pm.sample(random_seed=100, target_accept=0.95, idata_kwargs={"log_likelihood": True})
+    )
     idata_m0.extend(pm.sample_posterior_predictive(idata_m0))
 
 pm.model_to_graphviz(model)
@@ -230,7 +232,7 @@ Next we will more explictly model the individual contribution to the slope of a 
 
 The important thing about these models is the *hierarchy*. There is a global phenomena and a subject specific instantiation of the phenomena. The model allows us to compose the global model with the individual contributions from each subject. 
 
-$$ alcohol \sim Norm(\color{purple}{\mu, \sigma}) $$
+$$ alcohol \sim Normal(\color{purple}{\mu, \sigma}) $$
 $$ \color{purple}{\mu} = \color{red}{\alpha} + \color{green}{\beta} \cdot age $$
 $$ \color{red}{\alpha} = \sum_{j=0}^{N} \alpha_{1} + \alpha_{2, j} \ \ \ \ \forall j \in Subjects $$
 $$ \color{green}{\beta} = \sum_{j=0}^{N} \beta_{1} + \beta_{2, j}  \ \ \ \ \forall j \in Subjects $$
@@ -266,7 +268,9 @@ with pm.Model(coords=coords) as model:
     )
     outcome = pm.Normal("outcome", growth_model, global_sigma, observed=df["alcuse"].values)
     idata_m1 = pm.sample_prior_predictive()
-    idata_m1.extend(pm.sample(random_seed=100, target_accept=0.95))
+    idata_m1.extend(
+        pm.sample(random_seed=100, target_accept=0.95, idata_kwargs={"log_likelihood": True})
+    )
     idata_m1.extend(pm.sample_posterior_predictive(idata_m1))
 
 pm.model_to_graphviz(model)
@@ -347,7 +351,9 @@ with pm.Model(coords=coords) as model:
     )
     outcome = pm.Normal("outcome", growth_model, global_sigma, observed=df["alcuse"].values)
     idata_m2 = pm.sample_prior_predictive()
-    idata_m2.extend(pm.sample(random_seed=100, target_accept=0.95))
+    idata_m2.extend(
+        pm.sample(random_seed=100, target_accept=0.95, idata_kwargs={"log_likelihood": True})
+    )
     idata_m2.extend(pm.sample_posterior_predictive(idata_m2))
 
 pm.model_to_graphviz(model)
@@ -415,9 +421,9 @@ ax.legend()
 ax.set_title("Individual Consumption Growth", fontsize=20)
 ```
 
-This is already suggestive of the manner in which we hierarchical longitudinal models can allow us to interrogate questions of policy and impact of causal interventions. The implications of a policy shift or a specific intervention in the implied growth trajectories can warrant dramatic investment decisions. However we'll leave these remarks as suggestive because there is a rich and contentious literature of the use of causal inference with panel data designs. The differences-in-differences literature is rife with warnings about the conditions required to meaningfully interpret causal questions. See for instance {ref}`difference_in_differences` for more discussion and references to the debate. 
+This is already suggestive of the manner in which hierarchical longitudinal models allow us to interrogate questions of policy and impact of causal interventions. The implications of a policy shift or a specific intervention in the implied growth trajectories can warrant dramatic investment decisions. However we'll leave these remarks as suggestive because there is a rich and contentious literature of the use of causal inference with panel data designs. The differences-in-differences literature is rife with warnings about the conditions required to meaningfully interpret causal questions. See for instance {ref}`difference_in_differences` for more discussion and references to the debate. 
 
-We'll forge on for now ignoring the subtleties of causal inference, just considering how the inclusion of peer effects van alter the association implied by our model. 
+We'll forge on for now ignoring the subtleties of causal inference, just considering how the inclusion of peer effects can alter the association implied by our model. 
 
 +++
 
@@ -460,7 +466,9 @@ with pm.Model(coords=coords) as model:
     )
     outcome = pm.Normal("outcome", growth_model, global_sigma, observed=df["alcuse"].values)
     idata_m3 = pm.sample_prior_predictive()
-    idata_m3.extend(pm.sample(random_seed=100, target_accept=0.95))
+    idata_m3.extend(
+        pm.sample(random_seed=100, target_accept=0.95, idata_kwargs={"log_likelihood": True})
+    )
     idata_m3.extend(pm.sample_posterior_predictive(idata_m3))
 
 pm.model_to_graphviz(model)
@@ -568,6 +576,29 @@ az.plot_forest(
     coords={"ids": [1, 2, 70]},
 )
 ```
+
+For a numerical summary of the models Willett and Singer suggest using deviance statistics. In the Bayesian workflow we'll use the widely applicable information criteria. 
+
+```{code-cell} ipython3
+compare = az.compare(
+    {
+        "Grand Mean": idata_m0,
+        "Unconditional Growth": idata_m1,
+        "COA growth Model": idata_m2,
+        "COA_Peer_Model": idata_m3,
+    },
+    "waic",
+)
+compare
+```
+
+```{code-cell} ipython3
+az.plot_compare(compare);
+```
+
+Willett and Singer have a detailed discussion about how to analyse the differences between the models and assess the different sources of variation to derive a number of summary statistics about the relationships between the predictors and outcomes. We highly recommend it as a deep-dive for the interested reader. 
+
++++
 
 # Interlude: Hierarchical Models with Bambi
 
@@ -703,7 +734,9 @@ with pm.Model(coords=coords) as model:
     outcome_latent = pm.Gumbel.dist(mu, global_sigma)
     outcome = pm.Censored("outcome", outcome_latent, lower=0, upper=68, observed=external)
     idata_m4 = pm.sample_prior_predictive()
-    idata_m4.extend(pm.sample(random_seed=100, target_accept=0.95))
+    idata_m4.extend(
+        pm.sample(random_seed=100, target_accept=0.95, idata_kwargs={"log_likelihood": True})
+    )
     idata_m4.extend(pm.sample_posterior_predictive(idata_m4))
 
 pm.model_to_graphviz(model)
@@ -760,7 +793,9 @@ with pm.Model(coords=coords) as model:
     outcome_latent = pm.Gumbel.dist(mu, global_sigma)
     outcome = pm.Censored("outcome", outcome_latent, lower=0, upper=68, observed=external)
     idata_m5 = pm.sample_prior_predictive()
-    idata_m5.extend(pm.sample(random_seed=100, target_accept=0.95))
+    idata_m5.extend(
+        pm.sample(random_seed=100, target_accept=0.95, idata_kwargs={"log_likelihood": True})
+    )
     idata_m5.extend(pm.sample_posterior_predictive(idata_m5))
 
 pm.model_to_graphviz(model)
@@ -846,7 +881,9 @@ with pm.Model(coords=coords) as model:
     outcome_latent = pm.Gumbel.dist(mu, global_sigma)
     outcome = pm.Censored("outcome", outcome_latent, lower=0, upper=68, observed=external)
     idata_m6 = pm.sample_prior_predictive()
-    idata_m6.extend(pm.sample(random_seed=100, target_accept=0.95))
+    idata_m6.extend(
+        pm.sample(random_seed=100, target_accept=0.95, idata_kwargs={"log_likelihood": True})
+    )
     idata_m6.extend(pm.sample_posterior_predictive(idata_m6))
 
 pm.model_to_graphviz(model)
@@ -953,7 +990,11 @@ with pm.Model(coords=coords) as model:
     outcome = pm.Censored("outcome", outcome_latent, lower=0, upper=68, observed=external)
 
     idata_m7 = pm.sample_prior_predictive()
-    idata_m7.extend(sample_numpyro_nuts(draws=5000, random_seed=100, target_accept=0.99))
+    idata_m7.extend(
+        sample_numpyro_nuts(
+            draws=5000, random_seed=100, target_accept=0.99, idata_kwargs={"log_likelihood": True}
+        )
+    )
     idata_m7.extend(pm.sample_posterior_predictive(idata_m7))
 
 pm.model_to_graphviz(model)
@@ -987,7 +1028,7 @@ az.summary(
 az.plot_ppc(idata_m7, figsize=(20, 7))
 ```
 
-## Comparing Model Parameters
+## Comparing Models
 
 ```{code-cell} ipython3
 az.plot_forest(
@@ -1013,6 +1054,23 @@ az.plot_forest(
     coords={"ids": [1, 2, 30]},
     ridgeplot_alpha=0.3,
 )
+```
+
+```{code-cell} ipython3
+compare = az.compare(
+    {
+        "Minimal Model": idata_m4,
+        "Linear Model": idata_m5,
+        "Polynomial Model": idata_m6,
+        "Polynomial + Gender": idata_m7,
+    },
+    "waic",
+)
+compare
+```
+
+```{code-cell} ipython3
+az.plot_compare(compare);
 ```
 
 ## Plotting the Final Model
@@ -1123,11 +1181,13 @@ axs[4].legend()
 axs[4].set_title("Between Individual Trajectories \n By Gender", fontsize=20);
 ```
 
-The implications of this model suggest that there is a very slight differences in the probable growth trajectories between men and women, and moreover that the change in level of externalising behaviours over time is quite minimal. 
+The implications of this final model suggest that there is a very slight differences in the probable growth trajectories between men and women, and moreover that the change in level of externalising behaviours over time is quite minimal, but tends to tick upwards by grade 6. 
 
 # Conclusion
 
-We've now seen how the Bayesian hierarchical models can be adapted to study and interrogate questions about change over time. We seen how the flexible nature of the Bayesian workflow can incorporate different combinations of priors and model specifications to capture subtle aspects of the data generating process. Crucially, we've seen how to move between the within individual view  and the between individual implications of our model fits. There are subtle issues around how to assess causal inference questions in the panel data context, but it is also clear that longitudinal modeling allows us to sift through the complexities of individual difference in a systematic and principled fashion. 
+We've now seen how the Bayesian hierarchical models can be adapted to study and interrogate questions about change over time. We seen how the flexible nature of the Bayesian workflow can incorporate different combinations of priors and model specifications to capture subtle aspects of the data generating process. Crucially, we've seen how to move between the within individual view  and the between individual implications of our model fits, while assessing the models for their fidelity to the data. There are subtle issues around how to assess causal inference questions in the panel data context, but it is also clear that longitudinal modeling allows us to sift through the complexities of individual difference in a systematic and principled fashion. 
+
+These are powerful models allowing capturing and assessing patterns of change to compare within and across cohorts. Without random controlled trials or other designed experiments and quasi-experimental patterns, panel data analysis of this kind is as close as you're going to get to deriving a causal conclusion from observational data. 
 
 
 +++
