@@ -21,6 +21,7 @@ kernelspec:
 
 ```{code-cell} ipython3
 import arviz as az
+import bambi as bmb
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -43,9 +44,16 @@ The study of change involves simultaneously analysing the individual trajectorie
 
 We'll follow the discussion and iterative approach to model building outlined in Singer and Willett's *Applied Longitudinal Data Analysis*. For more details {cite:t}`singer2003`). We'll differ from their presentation in that while they focus on maximum likelihood methods for fitting their data we'll use PyMC bayesian methods. In this approach we're following Solomon Kurz's work with brms {cite:t}`kurzAppliedLongitudinalDataAnalysis2021`
 
+### Structure of the Presentation
+
+- Analysis of the Change over time in Alcohol consumption among teens
+- Model Specification in Bambi
+- Analysis of the Change over time in Externalising Behaviours among teens
+- Conclusion
+
 +++
 
-## Exploratory Data Analysis
+## Exploratory Data Analysis: The Chaos of Individual Differences
 
 For any longitudinal analysis we need three components: (1) multiple waves of data collection (2) a suitable definition of time and (3) an outcome of interest. Combining these we can assess how the individual changes over time with respect that outcome. In this first series of models we will look at how adolescent alcohol usage varies between children from the age of 14 onwards with data collected annually over three years.
 
@@ -168,7 +176,7 @@ We begin with a simple unconditional model where we model only the manner in whi
 
 +++
 
-### The Unconditional Mean Model
+## The Unconditional Mean Model
 
 
 ```{code-cell} ipython3
@@ -541,9 +549,78 @@ az.plot_forest(
     figsize=(20, 15),
     kind="ridgeplot",
     combined=True,
+    ridgeplot_alpha=0.3,
     coords={"ids": [1, 2, 70]},
 )
 ```
+
+# Interlude: Hierarchical Models with Bambi
+
+While we're fitting these models directly within PyMC there is an alternative bayesian multi-level modelling package, Bambi which is built on top of the PyMC framework. Bambi is optimised in a number of ways for fitting hierarchical Bayesian models including the option for specifying the model structure using formulas. We'll demonstrate briefly how to fit the last model using this syntax. 
+
+```{code-cell} ipython3
+formula = "alcuse ~ 0 + 1 + age_14 + coa + cpeer + age_14:coa + age_14:cpeer + (1 + age_14 | id)"
+model = bmb.Model(formula, df)
+
+# Fit the model using 1000 on each of 4 chains
+idata_bambi = model.fit(draws=1000, chains=4)
+model.predict(idata_bambi, kind="pps")
+idata_bambi
+```
+
+The model is nicely specified and details the structure of hierarchical and subject level parameters. By default the bambi model assigns priors and uses a non-centred parameterisation. The Bambi model definition uses the language of common and group level effects as opposed to the global and subject distinction we have beeen using in this example so far. Again, the important point to stress is just the hierarchy of levels, not the names.
+
+```{code-cell} ipython3
+model
+```
+
+The model graph looks somewhat different too due to the use of offsets to achieve a non-centred parameterisation. 
+
+```{code-cell} ipython3
+model.graph()
+```
+
+```{code-cell} ipython3
+az.summary(
+    idata_bambi,
+    var_names=[
+        "Intercept",
+        "age_14",
+        "coa",
+        "cpeer",
+        "age_14:coa",
+        "age_14:cpeer",
+        "1|id_sigma",
+        "age_14|id_sigma",
+        "alcuse_sigma",
+    ],
+)
+```
+
+```{code-cell} ipython3
+az.plot_forest(
+    idata_bambi,
+    var_names=[
+        "Intercept",
+        "age_14",
+        "coa",
+        "cpeer",
+        "age_14:coa",
+        "age_14:cpeer",
+        "1|id_sigma",
+        "age_14|id_sigma",
+        "alcuse_sigma",
+    ],
+    figsize=(20, 6),
+    kind="ridgeplot",
+    combined=True,
+    ridgeplot_alpha=0.3,
+)
+```
+
+We can see here how the bambi model specification recovers the same parameterisation we derived with PyMC. In practice and in production you should use bambi when you can if you're using a Bayesian hierarchical model. It is flexible for many use-cases and you should likely only need PyMC for highly customised models, where the flexibility of the model specification cannot be accomodated with the constraints of the formula syntax.  
+
++++
 
 # Non-Linear Change Trajectories
 
@@ -592,6 +669,8 @@ plt.hist(np.random.gumbel(guess["mu"], guess["beta"], 1000), bins=30, ec="black"
 
 ## A Minimal Model
 
+As before we'll begin with a fairly minimal model, specifying a hierarchical model where each individual modifies the grand mean. We allow for a non-normal censored likelihood term. 
+
 ```{code-cell} ipython3
 id_indx, unique_ids = pd.factorize(df_external["ID"])
 coords = {"ids": unique_ids}
@@ -638,7 +717,7 @@ ax.set_title("Distribution of Individual Modifications to the Grand Mean");
 
 ## Behaviour over time
 
-We now model the evolution of the behaviours over time in a hierarchical fashion. We start with a simple linear regression. 
+We now model the evolution of the behaviours over time in a hierarchical fashion. We start with a simple hierarhical linear regression with a focal predictor of grade. 
 
 ```{code-cell} ipython3
 id_indx, unique_ids = pd.factorize(df_external["ID"])
@@ -700,14 +779,14 @@ a = posterior["global_intercept"].mean() + intercept_group_specific
 b = posterior["global_beta_grade"].mean() + slope_group_specific
 
 time_xi = xr.DataArray(np.arange(6))
-ax.plot(time_xi, (a + b * time_xi).T, color="slateblue", alpha=0.3)
+ax.plot(time_xi, (a + b * time_xi).T, color="slateblue", alpha=0.6)
 ax.plot(
     time_xi, (a.mean() + b.mean() * time_xi), color="red", lw=2, label="Expected Growth Trajectory"
 )
 ax.set_ylabel("Externalised Behaviour Score")
 ax.set_xlabel("Time in Grade")
 ax.legend()
-ax.set_title("Prototypical Individual Trajctories", fontsize=20)
+ax.set_title("Within Individual Typical Trajctories", fontsize=20)
 ```
 
 We can see here how the model is constrained to apply a very linear fit to the behavioural trajectories. The immediate impression is of a relatively stable behaviourial pattern for each individual. But this is artefact of the model's inability to express the natural curvature of the behaviourial data.
@@ -786,7 +865,7 @@ b = posterior["global_beta_grade"].mean() + slope_group_specific
 c = posterior["global_beta_grade2"].mean() + slope_group_specific_2
 
 time_xi = xr.DataArray(np.arange(7))
-ax.plot(time_xi, (a + b * time_xi + c * (time_xi**2)).T, color="slateblue", alpha=0.3)
+ax.plot(time_xi, (a + b * time_xi + c * (time_xi**2)).T, color="slateblue", alpha=0.6)
 ax.plot(
     time_xi,
     (a.mean() + b.mean() * time_xi + c.mean() * (time_xi**2)),
@@ -797,7 +876,7 @@ ax.plot(
 ax.set_ylabel("Externalalising Behaviour Score")
 ax.set_xlabel("Time in Grade")
 ax.legend()
-ax.set_title("Individual Trajctories", fontsize=20)
+ax.set_title("Within Individual Typical Trajctories", fontsize=20)
 ```
 
 Granting the model more flexibility allows it to ascribe more nuanced growth trajectories.
@@ -915,6 +994,7 @@ az.plot_forest(
     kind="ridgeplot",
     combined=True,
     coords={"ids": [1, 2, 30]},
+    ridgeplot_alpha=0.3,
 )
 ```
 
@@ -942,12 +1022,12 @@ def plot_individual(posterior, individual, female, ax):
 ```
 
 ```{code-cell} ipython3
-mosaic = """AAAA
-            BCDE
+mosaic = """BCDE
+            AAAA
             FGHI"""
-fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(20, 12))
+fig, axs = plt.subplot_mosaic(mosaic=mosaic, figsize=(20, 15))
 axs = [axs[k] for k in axs.keys()]
-posterior = az.extract(idata_m7.posterior, num_samples=2000)
+posterior = az.extract(idata_m7.posterior, num_samples=4000)
 intercept_group_specific = posterior["subject_intercept"].mean("ids")
 slope_group_specific = posterior["subject_beta_grade"].mean("ids")
 slope_group_specific_2 = posterior["subject_beta_grade2"].mean("ids")
@@ -961,21 +1041,21 @@ f = posterior["global_beta_female_grade"].mean()
 
 time_xi = xr.DataArray(np.arange(7))
 
-axs[0].plot(
+axs[4].plot(
     time_xi,
     (a + b * time_xi + c * (time_xi**2) + d * (time_xi**3) + e * 1 + f * (1 * time_xi)).T,
     color="cyan",
     linewidth=2,
     alpha=0.1,
 )
-axs[0].plot(
+axs[4].plot(
     time_xi,
     (a + b * time_xi + c * (time_xi**2) + d * (time_xi**3) + e * 0 + f * (0 * time_xi)).T,
     color="slateblue",
     alpha=0.1,
     linewidth=2,
 )
-axs[0].plot(
+axs[4].plot(
     time_xi,
     (
         a.mean()
@@ -990,7 +1070,7 @@ axs[0].plot(
     label="Expected Growth Trajectory - Male",
 )
 
-axs[0].plot(
+axs[4].plot(
     time_xi,
     (
         a.mean()
@@ -1006,7 +1086,7 @@ axs[0].plot(
 )
 
 
-for indx, id in zip([1, 2, 3, 4, 5, 6, 7, 8], [3, 8, 10, 30, 34, 40, 9, 11]):
+for indx, id in zip([0, 1, 2, 3, 5, 6, 7, 8], [2, 8, 10, 30, 34, 40, 9, 11]):
     female = df_external[df_external["ID"] == id]["FEMALE"].unique()[0] == 1
     plot_individual(posterior, id, female, axs[indx])
     axs[indx].plot(
@@ -1020,16 +1100,17 @@ for indx, id in zip([1, 2, 3, 4, 5, 6, 7, 8], [3, 8, 10, 30, 34, 40, 9, 11]):
     axs[indx].legend()
 
 
-axs[0].set_ylabel("Externalising Score")
-axs[0].set_xlabel("Time in Grade")
-axs[0].legend()
-axs[0].set_title("Between Individual Trajectories \n By Gender", fontsize=20);
+axs[4].set_ylabel("Externalising Score")
+axs[4].set_xlabel("Time in Grade")
+axs[4].legend()
+axs[4].set_title("Between Individual Trajectories \n By Gender", fontsize=20);
 ```
 
 The implications of this model suggest that there is a very slight differences in the probable growth trajectories between men and women, and moreover that the change in level of externalising behaviours over time is quite minimal. 
 
 # Conclusion
 
+We've now seen how the Bayesian hierarchical models can be adapted to study and interrogate questions about change over time. We seen how the flexible nature of the Bayesian workflow can incorporate different combinations of priors and model specifications to capture aspects of the data generating process. Crucially, we've seen how to move between the within individual view  and the between individual iimplications of our model fits.  
 
 +++
 
