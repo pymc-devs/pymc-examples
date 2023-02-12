@@ -20,12 +20,14 @@ kernelspec:
 
 ```{code-cell} ipython3
 import time
+
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import scipy.stats as st
 import pymc as pm
+import scipy.stats as st
+
 print(f"Running on PyMC v{pm.__version__}")
 ```
 
@@ -60,7 +62,7 @@ This section defines helper functions that will be used throughout the notebook.
 
 +++
 
-### D-dimensional MVNormal Target Distribution and Pymc Model
+### D-dimensional MvNormal Target Distribution and PyMC Model
 `gen_mvnormal_params` generates the parameters for the target distribution, which is a multivariate normal distribution with $\sigma^2$ = `[1, 2, 3, 4, 5]` in the first five dimensions and some correlation thrown in.
 
 ```{code-cell} ipython3
@@ -72,15 +74,15 @@ def gen_mvnormal_params(D):
     # sigma**2 = 1 to start
     cov = np.eye(D)
     # manually adjust the first 5 dimensions
-    # sigma**2 in the first 5 dimensions = 1, 2, 3, 4, 5 
-    # with a little covariance added 
+    # sigma**2 in the first 5 dimensions = 1, 2, 3, 4, 5
+    # with a little covariance added
     cov[:5, :5] = np.array(
         [
             [1, 0.5, 0, 0, 0],
             [0.5, 2, 2, 0, 0],
-            [0,   2, 3, 0, 0],
-            [0,   0, 0, 4, 4],
-            [0,   0, 0, 4, 5],
+            [0, 2, 3, 0, 0],
+            [0, 0, 0, 4, 4],
+            [0, 0, 0, 4, 5],
         ]
     )
     return mu, cov
@@ -103,28 +105,48 @@ def make_model(mu, cov):
 ```{code-cell} ipython3
 :tags: [hide-input]
 
-def sample_model(model, D, run=0, step_class=pm.DEMetropolis, cores=1, chains=1,
-                step_kwargs={}, sample_kwargs={}):
-    
+def sample_model(
+    model, D, run=0, step_class=pm.DEMetropolis, cores=1, chains=1, step_kwargs={}, sample_kwargs={}
+):
+
     # sampler name
-    sampler = step_class.__name__
-      
+    sampler = step_class.name
     # sample model
-    with model:
-        step = step_class(**step_kwargs)
-        t_start = time.time()
-        idata = pm.sample(
-            step=step,
-            chains=chains,
-            cores=cores,
-            initvals={"x": [0] * D},
-            discard_tuned_samples=False,
-            progressbar=False,
-            random_seed=2020 + run,
-            **sample_kwargs
-        )
-        t = time.time() - t_start
-    
+
+    # if nuts then do not provide step method
+    if sampler=='nuts':
+        with model:
+            step = step_class(**step_kwargs)
+            t_start = time.time()
+            idata = pm.sample(
+                #step=step,
+                chains=chains,
+                cores=cores,
+                initvals={"x": [0] * D},
+                discard_tuned_samples=False,
+                progressbar=False,
+                random_seed=2020 + run,
+                **sample_kwargs
+            )
+            t = time.time() - t_start
+
+    # signature for DEMetropolis samplers
+    else:
+        with model:
+            step = step_class(**step_kwargs)
+            t_start = time.time()
+            idata = pm.sample(
+                step=step,
+                chains=chains,
+                cores=cores,
+                initvals={"x": [0] * D},
+                discard_tuned_samples=False,
+                progressbar=False,
+                random_seed=2020 + run,
+                **sample_kwargs
+            )
+            t = time.time() - t_start
+
     return idata, t
 ```
 
@@ -151,27 +173,44 @@ def calc_mean_rhat(idata):
 ```{code-cell} ipython3
 :tags: [hide-input]
 
-def sample_model_calc_metrics(sampler, D, tune, draws, cores=1, chains=1, run=0,
-            step_kwargs=dict(proposal_dist=pm.NormalProposal, tune='scaling')):
+def sample_model_calc_metrics(
+    sampler,
+    D,
+    tune,
+    draws,
+    cores=1,
+    chains=1,
+    run=0,
+    step_kwargs=dict(proposal_dist=pm.NormalProposal, tune="scaling"),
+    sample_kwargs={},
+):
     mu, cov = gen_mvnormal_params(D)
     model = make_model(mu, cov)
     idata, t = sample_model(
-        model, D, step_class=sampler, cores=cores, chains=chains, run=run,
+        model,
+        D,
+        step_class=sampler,
+        cores=cores,
+        chains=chains,
+        run=run,
         step_kwargs=step_kwargs,
-        sample_kwargs=dict(tune=tune, draws=draws))
+        sample_kwargs=dict(sample_kwargs, **dict(tune=tune, draws=draws)),
+    )
     ess = calc_mean_ess(idata)
     rhat = calc_mean_rhat(idata)
-    results = dict(Sampler=sampler.__name__, 
-                    D=D, 
-                    Chains=chains, 
-                    Cores=cores,
-                    tune=tune,
-                    draws=draws,
-                    ESS=ess, 
-                    Time_sec=t, 
-                    ESSperSec=ess/t,
-                    rhat=rhat,
-                    Trace=[idata])
+    results = dict(
+        Sampler=sampler.__name__,
+        D=D,
+        Chains=chains,
+        Cores=cores,
+        tune=tune,
+        draws=draws,
+        ESS=ess,
+        Time_sec=t,
+        ESSperSec=ess / t,
+        rhat=rhat,
+        Trace=[idata],
+    )
     return pd.DataFrame(results)
 ```
 
@@ -183,12 +222,9 @@ def sample_model_calc_metrics(sampler, D, tune, draws, cores=1, chains=1, run=0,
 def concat_results(results):
     results_df = pd.concat(results)
 
-    results_df['Run'] = (
-        results_df.Sampler + 
-        '\nChains=' + results_df.Chains.astype(str)
-    )
+    results_df["Run"] = results_df.Sampler + "\nChains=" + results_df.Chains.astype(str)
 
-    results_df['ESS_pct'] = results_df.ESS * 100 / (results_df.Chains * results_df.draws) 
+    results_df["ESS_pct"] = results_df.ESS * 100 / (results_df.Chains * results_df.draws)
     return results_df
 ```
 
@@ -202,27 +238,27 @@ def concat_results(results):
 :tags: [hide-input]
 
 def plot_comparison_bars(results_df):
-    fig, axes = plt.subplots(1, 3, figsize=(10,5))
-    ax=axes[0]
-    results_df.plot.bar(y='ESSperSec', x='Run', ax=ax, legend=False)
-    ax.set_title('ESS per Second')
-    ax.set_xlabel('')
+    fig, axes = plt.subplots(1, 3, figsize=(10, 5))
+    ax = axes[0]
+    results_df.plot.bar(y="ESSperSec", x="Run", ax=ax, legend=False)
+    ax.set_title("ESS per Second")
+    ax.set_xlabel("")
     labels = ax.get_xticklabels()
 
-    ax=axes[1]
-    results_df.plot.bar(y='ESS_pct', x='Run', ax=ax, legend=False)
-    ax.set_title('ESS Percentage')
-    ax.set_xlabel('')
+    ax = axes[1]
+    results_df.plot.bar(y="ESS_pct", x="Run", ax=ax, legend=False)
+    ax.set_title("ESS Percentage")
+    ax.set_xlabel("")
     labels = ax.get_xticklabels()
 
-    ax=axes[2]
-    results_df.plot.bar(y='rhat', x='Run', ax=ax, legend=False)
-    ax.set_title('$\hat{R}$')
-    ax.set_xlabel('')
+    ax = axes[2]
+    results_df.plot.bar(y="rhat", x="Run", ax=ax, legend=False)
+    ax.set_title(r"$\hat{R}$")
+    ax.set_xlabel("")
     ax.set_ylim(1)
     labels = ax.get_xticklabels()
 
-    plt.suptitle(f'Comparison of Runs for {D} Dimensional Target Distribution', fontsize=16)
+    plt.suptitle(f"Comparison of Runs for {D} Dimensional Target Distribution", fontsize=16)
     plt.tight_layout()
 ```
 
@@ -232,7 +268,7 @@ def plot_comparison_bars(results_df):
 :tags: [hide-input]
 
 def plot_forest_compare_analytical(results_df):
-    
+
     # extract the first 5 dimensions
     summaries = []
     truncated_traces = []
@@ -241,38 +277,50 @@ def plot_forest_compare_analytical(results_df):
         truncated_trace = results_df.Trace.loc[row].posterior.x[:, :, :dimensions]
         truncated_traces.append(truncated_trace)
         summary = az.summary(truncated_trace)
-        summary['Run'] = results_df.at[row, 'Run']
+        summary["Run"] = results_df.at[row, "Run"]
         summaries.append(summary)
     summaries = pd.concat(summaries)
 
     # plot forest
-    axes = az.plot_forest(truncated_traces, combined=True, figsize=(8,3), model_names=results_df.Run)
+    axes = az.plot_forest(
+        truncated_traces, combined=True, figsize=(8, 3), model_names=results_df.Run
+    )
     ax = axes[0]
 
     # plot analytical solution
     yticklabels = ax.get_yticklabels()
-    yticklocs = [tick.__dict__['_y'] for tick in yticklabels]
+    yticklocs = [tick.__dict__["_y"] for tick in yticklabels]
     min, max = axes[0].get_ylim()
     width = (max - min) / 6
-    mins = [ytickloc - (width/2) for ytickloc in yticklocs]
-    maxes = [ytickloc + (width/2) for ytickloc in yticklocs]
-    sigmas = [np.sqrt(sigma2) for sigma2 in range(1,6)]
+    mins = [ytickloc - (width / 2) for ytickloc in yticklocs]
+    maxes = [ytickloc + (width / 2) for ytickloc in yticklocs]
+    sigmas = [np.sqrt(sigma2) for sigma2 in range(1, 6)]
     for i, (sigma, min, max) in enumerate(zip(sigmas, mins[::-1], maxes[::-1])):
         # scipy.stats.norm to calculate analytical marginal distribution
         dist = st.norm(0, sigma)
-        ax.vlines(dist.ppf(.03), min, max, color='black', linestyle=':')
-        ax.vlines(dist.ppf(.97), min, max, color='black', linestyle=':')
-        ax.vlines(dist.ppf(.25), min, max, color='black', linestyle=':')
-        ax.vlines(dist.ppf(.75), min, max, color='black', linestyle=':')
-        if i==0:
-            ax.text(dist.ppf(.97)+.2, min, 'Analytical Solutions\n(Dotted)', fontsize=8)
+        ax.vlines(dist.ppf(0.03), min, max, color="black", linestyle=":")
+        ax.vlines(dist.ppf(0.97), min, max, color="black", linestyle=":")
+        ax.vlines(dist.ppf(0.25), min, max, color="black", linestyle=":")
+        ax.vlines(dist.ppf(0.75), min, max, color="black", linestyle=":")
+        if i == 0:
+            ax.text(dist.ppf(0.97) + 0.2, min, "Analytical Solutions\n(Dotted)", fontsize=8)
 
     # legend
-    labels = ax.get_legend().__dict__['texts']
-    labels = [label.__dict__['_text'] for label in labels]
-    handles = ax.get_legend().__dict__['legendHandles']
-    ax.legend(handles[::-1], labels[::-1], loc='center left', bbox_to_anchor=(1,.5), fontsize='medium', fancybox=True, title="94% and 50% HDI")
-    ax.set_title(f'Comparison of MCMC Samples and Analytical Solutions\nFirst 5 Dimensions of {D} Dimensional Target Distribution')
+    labels = ax.get_legend().__dict__["texts"]
+    labels = [label.__dict__["_text"] for label in labels]
+    handles = ax.get_legend().__dict__["legendHandles"]
+    ax.legend(
+        handles[::-1],
+        labels[::-1],
+        loc="center left",
+        bbox_to_anchor=(1, 0.5),
+        fontsize="medium",
+        fancybox=True,
+        title="94% and 50% HDI",
+    )
+    ax.set_title(
+        f"Comparison of MCMC Samples and Analytical Solutions\nFirst 5 Dimensions of {D} Dimensional Target Distribution"
+    )
 ```
 
 `plot_forest_compare_analytical_dim5` plots the MCMC results for the fift 5 dimension and compares to the analytically calculated probability density for repeated runs for the bias check.   
@@ -289,39 +337,53 @@ def plot_forest_compare_analytical_dim5(results_df):
         truncated_trace = results_df.Trace.loc[row].posterior.x[:, :, dimension_idx]
         truncated_traces.append(truncated_trace)
         summary = az.summary(truncated_trace)
-        summary['Sampler'] = results_df.at[row, 'Sampler']
+        summary["Sampler"] = results_df.at[row, "Sampler"]
         summaries.append(summary)
     summaries = pd.concat(summaries)
-    cols = ['Sampler', 'mean', 'sd', 'hdi_3%', 'hdi_97%', 'ess_bulk', 'ess_tail', 'r_hat']
-    summary_means = summaries[cols].groupby('Sampler').mean()
+    cols = ["Sampler", "mean", "sd", "hdi_3%", "hdi_97%", "ess_bulk", "ess_tail", "r_hat"]
+    summary_means = summaries[cols].groupby("Sampler").mean()
 
     # scipy.stats.norm to calculate analytical marginal distribution
     dist = st.norm(0, np.sqrt(5))
-    summary_means.at['Analytical', 'mean'] = 0
-    summary_means.at['Analytical', 'sd'] = np.sqrt(5)
-    summary_means.at['Analytical', 'hdi_3%'] = dist.ppf(.03)
-    summary_means.at['Analytical', 'hdi_97%'] = dist.ppf(.97)
- 
+    summary_means.at["Analytical", "mean"] = 0
+    summary_means.at["Analytical", "sd"] = np.sqrt(5)
+    summary_means.at["Analytical", "hdi_3%"] = dist.ppf(0.03)
+    summary_means.at["Analytical", "hdi_97%"] = dist.ppf(0.97)
+
     # plot forest
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
-    axes = az.plot_forest(truncated_traces, combined=True, figsize=(8,3),
-            colors=[colors[0]]*reps + [colors[1]]*reps + [colors[2]]*reps,  
-             model_names=results_df.Sampler)
+    axes = az.plot_forest(
+        truncated_traces,
+        combined=True,
+        figsize=(8, 3),
+        colors=[colors[0]] * reps + [colors[1]] * reps + [colors[2]] * reps,
+        model_names=results_df.Sampler,
+    )
     ax = axes[0]
 
     # legend
-    labels = ax.get_legend().__dict__['texts']
-    labels = [label.__dict__['_text'] for label in labels]
-    handles = ax.get_legend().__dict__['legendHandles']
-    labels = [labels[reps-1]] + [labels[reps*2-1]] + [labels[reps*3-1]]
-    handles = [handles[reps-1]] + [handles[reps*2-1]] + [handles[reps*3-1]]
-    ax.legend(handles[::-1], labels[::-1], loc='center left', bbox_to_anchor=(1,.5), fontsize='medium', fancybox=True, title="94% and 50% HDI")
-    ax.set_title(f'Comparison of MCMC Samples and Analytical Solutions\n5th Dimension of {D} Dimensional Target Distribution')
+    labels = ax.get_legend().__dict__["texts"]
+    labels = [label.__dict__["_text"] for label in labels]
+    handles = ax.get_legend().__dict__["legendHandles"]
+    labels = [labels[reps - 1]] + [labels[reps * 2 - 1]] + [labels[reps * 3 - 1]]
+    handles = [handles[reps - 1]] + [handles[reps * 2 - 1]] + [handles[reps * 3 - 1]]
+    ax.legend(
+        handles[::-1],
+        labels[::-1],
+        loc="center left",
+        bbox_to_anchor=(1, 0.5),
+        fontsize="medium",
+        fancybox=True,
+        title="94% and 50% HDI",
+    )
+    ax.set_title(
+        f"Comparison of MCMC Samples and Analytical Solutions\n5th Dimension of {D} Dimensional Target Distribution"
+    )
 
     # plot analytical solution as vlines
-    ax.axvline(dist.ppf(.03), color='black', linestyle=':')
-    ax.axvline(dist.ppf(.97), color='black', linestyle=':')
-    ax.text(dist.ppf(.97)+.1, 0, 'Analytical Solution\n(Dotted)', fontsize=8)
+    ax.axvline(dist.ppf(0.03), color="black", linestyle=":")
+    ax.axvline(dist.ppf(0.97), color="black", linestyle=":")
+    ax.text(dist.ppf(0.97) + 0.1, 0, "Analytical Solution\n(Dotted)", fontsize=8)
     return summaries, summary_means
 ```
 
@@ -336,40 +398,55 @@ All traces are sampled with `cores=1`.  Surprisingly, sampling was slower using 
 The following code lays out the runs for this experiment.  
 
 ```{code-cell} ipython3
-# dimensions 
-D = 10                                                                                    
+# dimensions
+D = 10
 # total samples are constant for Metropolis algorithms
-total_samples = 200000                    
-samplers = [pm.DEMetropolisZ] + [pm.DEMetropolis]*3 + [pm.NUTS]
-coreses = [1]*5                                         
-chainses = [4, 1*D, 2*D, 3*D, 4]                         
+total_samples = 200000
+samplers = [pm.DEMetropolisZ] + [pm.DEMetropolis] * 3 + [pm.NUTS]
+coreses = [1] * 5
+chainses = [4, 1 * D, 2 * D, 3 * D, 4]
 # calculate the number of tunes and draws for each run
-tunes = drawses = [int(total_samples/ chains) for chains in chainses]
+tunes = drawses = [int(total_samples / chains) for chains in chainses]
 # manually adjust NUTs, which needs fewer samples
 tunes[-1] = drawses[-1] = 2000
 # put it in a dataframe for display and QA/QC
-pd.DataFrame(dict(sampler=[s.name for s in samplers], tune=tunes, draws=drawses, 
-    chains=chainses, cores=coreses)).style.set_caption("MCMC Runs for 10-Dimensional Experiment")
+pd.DataFrame(
+    dict(
+        sampler=[s.name for s in samplers],
+        tune=tunes,
+        draws=drawses,
+        chains=chainses,
+        cores=coreses,
+    )
+).style.set_caption("MCMC Runs for 10-Dimensional Experiment")
 ```
 
 ```{code-cell} ipython3
 :tags: [hide-output]
 
 results = []
-run=0
+run = 0
 for sampler, tune, draws, cores, chains in zip(samplers, tunes, drawses, coreses, chainses):
-    if sampler.name=='nuts':
-        results.append(sample_model_calc_metrics(sampler, D, tune, draws, cores=cores, chains=chains, run=run, step_kwargs={}))
+    if sampler.name == "nuts":
+        results.append(
+            sample_model_calc_metrics(
+                sampler, D, tune, draws, cores=cores, chains=chains, run=run, step_kwargs={}
+            )
+        )
     else:
-        results.append(sample_model_calc_metrics(sampler, D, tune, draws, cores=cores, chains=chains, run=run))
-    run+=1
+        results.append(
+            sample_model_calc_metrics(sampler, D, tune, draws, cores=cores, chains=chains, run=run)
+        )
+    run += 1
 ```
 
 ```{code-cell} ipython3
 results_df = concat_results(results)
 results_df = results_df.reset_index(drop=True)
 cols = results_df.columns
-results_df[cols[~cols.isin(['Trace', 'Run'])]].round(2).style.set_caption("Results of MCMC Sampling of 10-Dimensional Target Distribution")
+results_df[cols[~cols.isin(["Trace", "Run"])]].round(2).style.set_caption(
+    "Results of MCMC Sampling of 10-Dimensional Target Distribution"
+)
 ```
 
 ```{code-cell} ipython3
@@ -390,20 +467,27 @@ Based on the visual check, the traces have reasonably converged on the target di
 Let's repeat in 50-dimensions but with even more chains for the `DEMetropolis` algorithm.    
 
 ```{code-cell} ipython3
-# dimensions 
-D = 50                                                                                    
+# dimensions
+D = 50
 # total samples are constant for Metropolis algorithms
-total_samples = 200000                    
-samplers = [pm.DEMetropolisZ] + [pm.DEMetropolis]*3 + [pm.NUTS]
-coreses = [1]*5                                         
-chainses = [4, 2*D, 10*D, 20*D, 4]                         
+total_samples = 200000
+samplers = [pm.DEMetropolisZ] + [pm.DEMetropolis] * 3 + [pm.NUTS]
+coreses = [1] * 5
+chainses = [4, 2 * D, 10 * D, 20 * D, 4]
 # calculate the number of tunes and draws for each run
-tunes = drawses = [int(total_samples/ chains) for chains in chainses]
+tunes = drawses = [int(total_samples / chains) for chains in chainses]
 # manually adjust NUTs, which needs fewer samples
 tunes[-1] = drawses[-1] = 2000
 # put it in a dataframe for display and QA/QC
-pd.DataFrame(dict(sampler=[s.name for s in samplers], tune=tunes, draws=drawses, 
-    chains=chainses, cores=coreses)).style.set_caption("MCMC Runs for 50-Dimensional Experiment")
+pd.DataFrame(
+    dict(
+        sampler=[s.name for s in samplers],
+        tune=tunes,
+        draws=drawses,
+        chains=chainses,
+        cores=coreses,
+    )
+).style.set_caption("MCMC Runs for 50-Dimensional Experiment")
 ```
 
 ```{code-cell} ipython3
@@ -412,31 +496,40 @@ pd.DataFrame(dict(sampler=[s.name for s in samplers], tune=tunes, draws=drawses,
 results = []
 run = 0
 for sampler, tune, draws, cores, chains in zip(samplers, tunes, drawses, coreses, chainses):
-    if sampler.name=='nuts':
-        results.append(sample_model_calc_metrics(sampler, D, tune, draws, cores=cores, chains=chains, run=run, step_kwargs={}))
+    if sampler.name == "nuts":
+        results.append(
+            sample_model_calc_metrics(
+                sampler, D, tune, draws, cores=cores, chains=chains, run=run, step_kwargs={}, 
+                sample_kwargs=dict(nuts=dict(target_accept=0.95))
+            )
+        )
     else:
-        results.append(sample_model_calc_metrics(sampler, D, tune, draws, cores=cores, chains=chains, run=run))
-    run+=1
+        results.append(
+            sample_model_calc_metrics(sampler, D, tune, draws, cores=cores, chains=chains, run=run)
+        )
+    run += 1
 ```
 
 ```{code-cell} ipython3
 results_df = concat_results(results)
 results_df = results_df.reset_index(drop=True)
 cols = results_df.columns
-results_df[cols[~cols.isin(['Trace', 'Run'])]].round(2).style.set_caption("Results of MCMC Sampling of 50-Dimensional Target Distribution")
+results_df[cols[~cols.isin(["Trace", "Run"])]].round(2).style.set_caption(
+    "Results of MCMC Sampling of 50-Dimensional Target Distribution"
+)
 ```
 
 ```{code-cell} ipython3
 plot_comparison_bars(results_df)
 ```
 
-The efficiency advantage for `NUTS` over `DEMetropolisZ` over `DEMetropolis` is more pronounced in higher dimensions.  $\hat{R}$ is also large for `DEMetropolis` for this sample size and number of chains.  For `DEMetropolis`, a smaller number of chains ($2N$) with a larger number of samples performed better than more chains with fewer samples.    
+The efficiency advantage for `NUTS` over `DEMetropolisZ` over `DEMetropolis` is more pronounced in higher dimensions.  $\hat{R}$ is also large for `DEMetropolis` for this sample size and number of chains.  For `DEMetropolis`, a smaller number of chains ($2N$) with a larger number of samples performed better than more chains with fewer samples.  Counter-intuitively, the `NUTS` sampler yields $ESS$ values greater than the number of samples, which can occur as discussed [here](https://discourse.pymc.io/t/effective-sample-size-larger-than-number-of-samples-for-nuts/6275).
 
 ```{code-cell} ipython3
 plot_forest_compare_analytical(results_df)
 ```
 
-We might be seeing low coverage in the tails of some `DEMetrolopolis` runs (i.e., the MCMC HDIs are consistently smaller than the analytical solution).  Let's explore this more systematically in the next experiment.    
+We might be seeing low coverage in the tails of some `DEMetropolis` runs (i.e., the MCMC HDIs are consistently smaller than the analytical solution).  Let's explore this more systematically in the next experiment.    
 
 +++
 
@@ -451,41 +544,50 @@ First check in 10 dimensions.  We will perform 10 replicates for each run.  `DEM
 ```{code-cell} ipython3
 :tags: [hide-output]
 
-D = 10       
-reps = 10                                           
-samplers = [pm.DEMetropolis]*reps + [pm.DEMetropolisZ]*reps + [pm.NUTS]*reps
-coreses = [1]*reps*3                                       
-chainses = [2*D]*reps + [4]*reps*2                           
-tunes = drawses = [5000]*reps + [25000]*reps + [1000]*reps
+D = 10
+reps = 10
+samplers = [pm.DEMetropolis] * reps + [pm.DEMetropolisZ] * reps + [pm.NUTS] * reps
+coreses = [1] * reps * 3
+chainses = [2 * D] * reps + [4] * reps * 2
+tunes = drawses = [5000] * reps + [25000] * reps + [1000] * reps
 
 results = []
-run=0
+run = 0
 for sampler, tune, draws, cores, chains in zip(samplers, tunes, drawses, coreses, chainses):
-    if sampler.name=='nuts':
-        results.append(sample_model_calc_metrics(sampler, D, tune, draws, cores=cores, chains=chains, run=run, step_kwargs={}))
+    if sampler.name == "nuts":
+        results.append(
+            sample_model_calc_metrics(
+                sampler, D, tune, draws, cores=cores, chains=chains, run=run, 
+                step_kwargs={}, sample_kwargs=dict(target_accept=0.95)
+            )
+        )
     else:
-        results.append(sample_model_calc_metrics(sampler, D, tune, draws, cores=cores, chains=chains, run=run))
-    run+=1
+        results.append(
+            sample_model_calc_metrics(sampler, D, tune, draws, cores=cores, chains=chains, run=run)
+        )
+    run += 1
 ```
 
 ```{code-cell} ipython3
 results_df = concat_results(results)
 results_df = results_df.reset_index(drop=True)
 summaries, summary_means = plot_forest_compare_analytical_dim5(results_df)
-summary_means.style.set_caption("MCMC and Analytical Results for 5th Dimension of 10 Dimensional Target Distribution")
+summary_means.style.set_caption(
+    "MCMC and Analytical Results for 5th Dimension of 10 Dimensional Target Distribution"
+)
 ```
 
 Visually, `DEMetropolis` algorithms look as reasonable accurate and as accurate as `NUTS`.  Since we have 10 replicates that we want to compare to the analytical solution, we can dust off our traditional statistics and perform an old-school one-sided t-test to see if the sampler-calculated confidence limits are significantly different than the analytically calculated confidence limit.  
 
 ```{code-cell} ipython3
-samplers = ['DEMetropolis', 'DEMetropolisZ', 'NUTS']
-cls_str = ['hdi_3%', 'hdi_97%']
+samplers = ["DEMetropolis", "DEMetropolisZ", "NUTS"]
+cls_str = ["hdi_3%", "hdi_97%"]
 cls_val = [0.03, 0.97]
 dist = st.norm(0, np.sqrt(5))
 results = []
 for sampler in samplers:
     for cl_str, cl_val in zip(cls_str, cls_val):
-        mask = summaries.Sampler==sampler
+        mask = summaries.Sampler == sampler
         # collect the credible limits for each MCMC run
         mcmc_cls = summaries.loc[mask, cl_str]
 
@@ -494,10 +596,12 @@ for sampler in samplers:
 
         # one sided t-test!
         p_value = st.ttest_1samp(mcmc_cls, analytical_cl).pvalue
-        results.append(pd.DataFrame(dict(
-            Sampler=[sampler], ConfidenceLimit=[cl_str], Pvalue=[p_value]
-        )))
-pd.concat(results).style.set_caption("MCMC Replicates Compared to Analytical Solution for Selected Confidence Limits")
+        results.append(
+            pd.DataFrame(dict(Sampler=[sampler], ConfidenceLimit=[cl_str], Pvalue=[p_value]))
+        )
+pd.concat(results).style.set_caption(
+    "MCMC Replicates Compared to Analytical Solution for Selected Confidence Limits"
+)
 ```
 
 A higher p-value indicates that the MCMC algorithm captures the analytical value with high confidence.  A lower p-value means that the MCMC algorithm was unexpectedly high or low compared to the analytically calculated confidence limit.  The `NUTS` sampler is capturing the analytically calculated value with high confidence.  The `DEMetropolis` algorithms have lower confidence but are giving reasonable results.    
@@ -510,21 +614,28 @@ Higher dimensions get increasingly difficult for Metropolis algorithms.  Here we
 ```{code-cell} ipython3
 :tags: [hide-output]
 
-D = 50       
-reps = 10                                           
-samplers = [pm.DEMetropolis]*reps + [pm.DEMetropolisZ]*reps + [pm.NUTS]*reps
-coreses = [1]*reps*3                                       
-chainses = [2*D]*reps + [4]*reps*2                          
-tunes = drawses = [5000]*reps + [100000]*reps + [1000]*reps
+D = 50
+reps = 10
+samplers = [pm.DEMetropolis] * reps + [pm.DEMetropolisZ] * reps + [pm.NUTS] * reps
+coreses = [1] * reps * 3
+chainses = [2 * D] * reps + [4] * reps * 2
+tunes = drawses = [5000] * reps + [100000] * reps + [1000] * reps
 
 results = []
-run=0
+run = 0
 for sampler, tune, draws, cores, chains in zip(samplers, tunes, drawses, coreses, chainses):
-    if sampler.name=='nuts':
-        results.append(sample_model_calc_metrics(sampler, D, tune, draws, cores=cores, chains=chains, run=run, step_kwargs={}))
+    if sampler.name == "nuts":
+        results.append(
+            sample_model_calc_metrics(
+                sampler, D, tune, draws, cores=cores, chains=chains, run=run, 
+                step_kwargs={}, sample_kwargs=dict(target_accept=0.95)
+            )
+        )
     else:
-        results.append(sample_model_calc_metrics(sampler, D, tune, draws, cores=cores, chains=chains, run=run))
-    run+=1
+        results.append(
+            sample_model_calc_metrics(sampler, D, tune, draws, cores=cores, chains=chains, run=run)
+        )
+    run += 1
 
 results_df = concat_results(results)
 results_df = results_df.reset_index(drop=True)
@@ -532,17 +643,19 @@ results_df = results_df.reset_index(drop=True)
 
 ```{code-cell} ipython3
 summaries, summary_means = plot_forest_compare_analytical_dim5(results_df)
-summary_means.style.set_caption("MCMC and Analytical Results for 5th Dimension of 50 Dimensional Target Distribution")
+summary_means.style.set_caption(
+    "MCMC and Analytical Results for 5th Dimension of 50 Dimensional Target Distribution"
+)
 ```
 
 ```{code-cell} ipython3
-samplers = ['DEMetropolis', 'DEMetropolisZ', 'NUTS']
-cls_str = ['hdi_3%', 'hdi_97%']
+samplers = ["DEMetropolis", "DEMetropolisZ", "NUTS"]
+cls_str = ["hdi_3%", "hdi_97%"]
 cls_val = [0.03, 0.97]
 results = []
 for sampler in samplers:
     for cl_str, cl_val in zip(cls_str, cls_val):
-        mask = summaries.Sampler==sampler
+        mask = summaries.Sampler == sampler
 
         # collect the credible limits for each MCMC run
         mcmc_cls = summaries.loc[mask, cl_str]
@@ -553,10 +666,12 @@ for sampler in samplers:
         # one sided t-test!
         p_value = st.ttest_1samp(mcmc_cls, analytical_cl).pvalue
 
-        results.append(pd.DataFrame(dict(
-            Sampler=[sampler], ConfidenceLimit=[cl_str], Pvalue=[p_value]
-        )))
-pd.concat(results).style.set_caption("MCMC Replicates Compared to Analytical Solution for Selected Confidence Limits")
+        results.append(
+            pd.DataFrame(dict(Sampler=[sampler], ConfidenceLimit=[cl_str], Pvalue=[p_value]))
+        )
+pd.concat(results).style.set_caption(
+    "MCMC Replicates Compared to Analytical Solution for Selected Confidence Limits"
+)
 ```
 
 We can see that at 50 dimensions, the `DEMetropolisZ` sampler has poor coverage compared to `DEMetropolis`.  Therefore, even though `DEMetropolisZ` is more efficient and has lower $\hat{R}$ values than `DEMetropolis`, `DEMetropolis` is suggested for higher dimensional problems.     
