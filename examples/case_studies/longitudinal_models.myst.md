@@ -79,9 +79,9 @@ for i, ax in zip(df["id"].unique()[0:8], axs):
     ax.set_xlabel("Age")
 ```
 
-We might think that the alcohol usage patterns varies by the effects of gender, but individual trajectories are noisy. In the next series of plots we fit simple regression models over the individual data and color the trend line by whether or not the slope coefficient is negative or positive. This very crudely gives an impression of whether and how the consumption patterns change for individuals of each gender. 
+We might think that the alcohol usage patterns varies by the effects of gender, but individual trajectories are noisy. In the next series of plots we fit simple regression models over the individual data and color the trend line by whether or not the slope coefficient is $\color{red}{negative}$ or $\color{green}{positive}$. This very crudely gives an impression of whether and how the consumption patterns change for individuals of each gender. 
 
-The green and red lines represent an individual's OLS fit, but the grey dotted lines represent an individual's observed trajectory.
+The green and red lines represent an individual's OLS fit, but the grey dotted lines represent an individual's observed trajectory. 
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(1, 2, figsize=(20, 5), sharey=True)
@@ -101,8 +101,10 @@ for i in df["id"].unique():
     else:
         color = "darkgreen"
     y = params[0] * temp["age"] + params[1]
-    axs[index].plot(temp["age"], y, "-", color=color, alpha=0.4)
-    axs[index].plot(temp["age"], temp["alcuse"], "--o", mec="black", markersize=9, color="black")
+    axs[index].plot(temp["age"], y, "-", color=color, linewidth=2)
+    axs[index].plot(
+        temp["age"], temp["alcuse"], "--o", mec="black", alpha=0.1, markersize=9, color="black"
+    )
     axs[index].set_title(f"Regression Trajectories by Gender: {lkup[index]}")
     axs[index].set_ylabel("alcohol Usage")
     axs[index].set_xlabel("Age")
@@ -127,8 +129,10 @@ for i in df["id"].unique():
     else:
         color = "darkgreen"
     y = params[0] * temp["age"] + params[1]
-    axs[index].plot(temp["age"], y, "-", color=color, alpha=0.4)
-    axs[index].plot(temp["age"], temp["alcuse"], "--o", mec="black", markersize=9, color="black")
+    axs[index].plot(temp["age"], y, "-", color=color, linewidth=2)
+    axs[index].plot(
+        temp["age"], temp["alcuse"], "--o", alpha=0.1, mec="black", markersize=9, color="black"
+    )
     axs[index].set_title(f"Regression Trajectories by Parental alcoholism: {lkup[index]}")
     axs[index].set_ylabel("alcohol Usage")
     axs[index].set_xlabel("Age")
@@ -153,12 +157,13 @@ for i in df["id"].unique():
     else:
         color = "darkgreen"
     y = params[0] * temp["age"] + params[1]
-    axs[index].plot(temp["age"], y, "-", color=color, alpha=0.4, label="Regression Fit")
+    axs[index].plot(temp["age"], y, "-", color=color, label="Regression Fit")
     axs[index].plot(
         temp["age"],
         temp["alcuse"],
         "--o",
         mec="black",
+        alpha=0.1,
         markersize=9,
         color="black",
         label="Observed",
@@ -223,8 +228,18 @@ We see here the variation in the implied modification of the grand mean by each 
 
 Next we will more explictly model the individual contribution to the slope of a regression model where time is the key predictor. The structure of this model is worth pausing to consider. There are various instantiations of this kind of hierarchical model across different domains and disciplines. Economics, political science, psychometrics and ecology all have their own slightly varied vocabulary for naming the parts of the model: fixed effects, random effects, within-estimators, between estimators...etc, the list goes and the discourse is cursed. The terms are ambiguous and used divergingly. Wilett and Singer refer to the Level 1 and Level 2 sub-models, but the precise terminology is not important. 
 
-The important thing about these models is the *hierarchy*. There is a global phenomena and a subject specific instantiation of the phenomena. The model allows us to compose the global model with the individual contributions from each subject. Fitting the model then informs us about how each individual modifies the global model, but also lets us learn global parameters. In particular we allow for a subject specific modification of the coefficient on the variable representing time. Implementing the model is PyMC is as follows:
+The important thing about these models is the *hierarchy*. There is a global phenomena and a subject specific instantiation of the phenomena. The model allows us to compose the global model with the individual contributions from each subject. 
 
+$$ alcohol \sim Norm(\color{purple}{\mu, \sigma}) $$
+$$ \color{purple}{\mu} = \color{red}{\alpha} + \color{green}{\beta} \cdot age $$
+$$ \color{red}{\alpha} = \sum_{j=0}^{N} \alpha_{1} + \alpha_{2, j} \ \ \ \ \forall j \in Subjects $$
+$$ \color{green}{\beta} = \sum_{j=0}^{N} \beta_{1} + \beta_{2, j}  \ \ \ \ \forall j \in Subjects $$
+$$ \color{purple}{\sigma} = HalfStudentT(?, ?) $$
+$$ \alpha_{i, j} \sim Normal(?, ?) $$
+$$ \beta_{i, j} \sim Normal(?, ?) $$
+
+
+Fitting the model then informs us about how each individual modifies the global model, but also lets us learn global parameters. In particular we allow for a subject specific modification of the coefficient on the variable representing time. A broadly similar pattern of combination holds for all the hierarchical models we outline in the following series of models .In the Bayesian setting we're trying to learn the parameters that best fit the data. Implementing the model is PyMC is as follows:
 
 ```{code-cell} ipython3
 id_indx, unique_ids = pd.factorize(df["id"])
@@ -557,6 +572,8 @@ az.plot_forest(
 # Interlude: Hierarchical Models with Bambi
 
 While we're fitting these models directly within PyMC there is an alternative bayesian multi-level modelling package, Bambi which is built on top of the PyMC framework. Bambi is optimised in a number of ways for fitting hierarchical Bayesian models including the option for specifying the model structure using formulas. We'll demonstrate briefly how to fit the last model using this syntax. 
+
+The formula specification uses `1` to denote an intercept term and a conditional `|` operator to denote a subject level parameter combined with the global parameter of the same type in the manner specified above.
 
 ```{code-cell} ipython3
 formula = "alcuse ~ 0 + 1 + age_14 + coa + cpeer + age_14:coa + age_14:cpeer + (1 + age_14 | id)"
@@ -1110,7 +1127,8 @@ The implications of this model suggest that there is a very slight differences i
 
 # Conclusion
 
-We've now seen how the Bayesian hierarchical models can be adapted to study and interrogate questions about change over time. We seen how the flexible nature of the Bayesian workflow can incorporate different combinations of priors and model specifications to capture aspects of the data generating process. Crucially, we've seen how to move between the within individual view  and the between individual iimplications of our model fits.  
+We've now seen how the Bayesian hierarchical models can be adapted to study and interrogate questions about change over time. We seen how the flexible nature of the Bayesian workflow can incorporate different combinations of priors and model specifications to capture subtle aspects of the data generating process. Crucially, we've seen how to move between the within individual view  and the between individual implications of our model fits. There are subtle issues around how to assess causal inference questions in the panel data context, but it is also clear that longitudinal modeling allows us to sift through the complexities of individual difference in a systematic and principled fashion. 
+
 
 +++
 
