@@ -230,7 +230,7 @@ We see here the variation in the implied modification of the grand mean by each 
 
 Next we will more explictly model the individual contribution to the slope of a regression model where time is the key predictor. The structure of this model is worth pausing to consider. There are various instantiations of this kind of hierarchical model across different domains and disciplines. Economics, political science, psychometrics and ecology all have their own slightly varied vocabulary for naming the parts of the model: fixed effects, random effects, within-estimators, between estimators...etc, the list goes and the discourse is cursed. The terms are ambiguous and used divergingly. Wilett and Singer refer to the Level 1 and Level 2 sub-models, but the precise terminology is not important. 
 
-The important thing about these models is the *hierarchy*. There is a global phenomena and a subject specific instantiation of the phenomena. The model allows us to compose the global model with the individual contributions from each subject. 
+The important thing about these models is the *hierarchy*. There is a global phenomena and a subject specific instantiation of the phenomena. The model allows us to compose the global model with the individual contributions from each subject. This helps the model account for unobserved heterogeneity at the subject level. It can't solve all forms of bias but it does account for this source of skew in the model predictions.
 
 $$ alcohol \sim Normal(\color{purple}{\mu, \sigma}) $$
 $$ \color{purple}{\mu} = \color{red}{\alpha} + \color{green}{\beta} \cdot age $$
@@ -415,9 +415,9 @@ ax.legend()
 ax.set_title("Individual Consumption Growth", fontsize=20)
 ```
 
-This is already suggestive of the manner in which hierarchical longitudinal models allow us to interrogate questions of policy and impact of causal interventions. The implications of a policy shift or a specific intervention in the implied growth trajectories can warrant dramatic investment decisions. However we'll leave these remarks as suggestive because there is a rich and contentious literature of the use of causal inference with panel data designs. The differences-in-differences literature is rife with warnings about the conditions required to meaningfully interpret causal questions. See for instance {ref}`difference_in_differences` for more discussion and references to the debate. 
+This is already suggestive of the manner in which hierarchical longitudinal models allow us to interrogate questions of policy and impact of causal interventions. The implications of a policy shift or a specific intervention in the implied growth trajectories can warrant dramatic investment decisions. However we'll leave these remarks as suggestive because there is a rich and contentious literature of the use of causal inference with panel data designs. The differences-in-differences literature is rife with warnings about the conditions required to meaningfully interpret causal questions. See for instance {ref}`difference_in_differences` for more discussion and references to the debate. One key point is that while the subject-level terms help account for one kind of hetereogeniety in the data, they cannot account for all sources of individual variation, especially variation which is time-dependent. 
 
-We'll forge on for now ignoring the subtleties of causal inference, just considering how the inclusion of peer effects can alter the association implied by our model. 
+We'll forge on for now ignoring the subtleties of causal inference, considering next how the inclusion of peer effects can alter the association implied by our model. 
 
 +++
 
@@ -544,7 +544,9 @@ for q, i in zip([0.5, 0.75, 0.90, 0.99], [0, 1, 2, 3]):
 
 ## Comparison of Model Estimates
 
-Finally, collating all our modelling efforts so far we can see how a number of things evident from the above plots:(i) the global slope parameter on the age term is quite stable across all three models in which it features. Similarly for the subject specific slope parameters on each of three individuals displayed. The global intercept parameters are pulled towards zero as we can offset more of the outcome effects into the influence of the parental and peer relationships. The global effect of parental alcoholism is broadly consistent across the models we fit.
+Finally, collating all our modelling efforts so far we can see how a number of things evident from the above plots:(i) the global slope parameter on the age term is quite stable across all three models in which it features. Similarly for the subject specific slope parameters on each of three individuals displayed. The global intercept parameters are pulled towards zero as we can offset more of the outcome effects into the influence of the parental and peer relationships. The global effect of parental alcoholism is broadly consistent across the models we fit. 
+
+However, a note of caution - interpreting hierarchical models of this kind can be difficult and the meaning of particular parameters can be skewed depending on the nature of model and scale of which the variables are measured. In this notebook we've focused on understanding the implied contrasts in the marginal effects induced in our posterior predictive trajectories, by different input values of our data. This is typically the cleanest way to understand what your model has learned about the growth trajectories in question. 
 
 ```{code-cell} ipython3
 az.plot_forest(
@@ -835,7 +837,7 @@ ax.legend()
 ax.set_title("Within Individual Typical Trajctories", fontsize=20)
 ```
 
-We can see here how the model is constrained to apply a very linear fit to the behavioural trajectories. The immediate impression is of a relatively stable behaviourial pattern for each individual. But this is artefact of the model's inability to express the natural curvature of the behaviourial data.
+We can see here how the model is constrained to apply a very linear fit to the behavioural trajectories. The immediate impression is of a relatively stable behaviourial pattern for each individual. But this is artefact of the model's inability to express the curvature of the behaviourial data. Nevertheless we can see the individual variation forces the intercept terms to range between 5 and 25 on the scale. 
 
 +++
 
@@ -933,7 +935,7 @@ Granting the model more flexibility allows it to ascribe more nuanced growth tra
 
 ## Comparing Trajectories across Gender
 
-We'll allow the model greater flexibility and pull in the gender of the subject to analyse whether and to what degree the gender of the teenager influences their behaviorial changes. 
+We'll now allow the model greater flexibility and pull in the gender of the subject to analyse whether and to what degree the gender of the teenager influences their behaviorial changes. 
 
 ```{code-cell} ipython3
 id_indx, unique_ids = pd.factorize(df_external["ID"])
@@ -1067,6 +1069,10 @@ compare
 az.plot_compare(compare);
 ```
 
+As perhaps expected our final gender based model is deemed to be best according the WAIC ranking. But somewhat suprisingly the Linear model with fixed trajectories is not far behind. 
+
++++
+
 ## Plotting the Final Model
 
 ```{code-cell} ipython3
@@ -1175,13 +1181,13 @@ axs[4].legend()
 axs[4].set_title("Between Individual Trajectories \n By Gender", fontsize=20);
 ```
 
-The implications of this final model suggest that there is a very slight differences in the probable growth trajectories between men and women, and moreover that the change in level of externalising behaviours over time is quite minimal, but tends to tick upwards by grade 6. 
+The implications of this final model suggest that there is a very slight differences in the probable growth trajectories between men and women, and moreover that the change in level of externalising behaviours over time is quite minimal, but tends to tick upwards by grade 6. Notice how for Individual 40, the model implied fits cannot capture the wild swings in the observed data. This is due to the shrinkage effect which strongly pulls our our intercept term towards the global mean. This is a good reminder that the model is aid to generalisation, not a perfect representation of individual trajectories.  
 
 # Conclusion
 
 We've now seen how the Bayesian hierarchical models can be adapted to study and interrogate questions about change over time. We seen how the flexible nature of the Bayesian workflow can incorporate different combinations of priors and model specifications to capture subtle aspects of the data generating process. Crucially, we've seen how to move between the within individual view  and the between individual implications of our model fits, while assessing the models for their fidelity to the data. There are subtle issues around how to assess causal inference questions in the panel data context, but it is also clear that longitudinal modeling allows us to sift through the complexities of individual difference in a systematic and principled fashion. 
 
-These are powerful models for capturing and assessing patterns of change to compare within and across cohorts. Without random controlled trials or other designed experiments and quasi-experimental patterns, panel data analysis of this kind is as close as you're going to get to deriving a causal conclusion from observational data. 
+These are powerful models for capturing and assessing patterns of change to compare within and across cohorts. Without random controlled trials or other designed experiments and quasi-experimental patterns, panel data analysis of this kind is as close as you're going to get to deriving a causal conclusion from observational data that accounts (at least partially) for heterogeneity in the treatment outcomes of individuals. 
 
 
 +++
