@@ -114,12 +114,12 @@ def sample_model(
     # sample model
 
     # if nuts then do not provide step method
-    if sampler=='nuts':
+    if sampler == "nuts":
         with model:
             step = step_class(**step_kwargs)
             t_start = time.time()
             idata = pm.sample(
-                #step=step,
+                # step=step,
                 chains=chains,
                 cores=cores,
                 initvals={"x": [0] * D},
@@ -499,8 +499,15 @@ for sampler, tune, draws, cores, chains in zip(samplers, tunes, drawses, coreses
     if sampler.name == "nuts":
         results.append(
             sample_model_calc_metrics(
-                sampler, D, tune, draws, cores=cores, chains=chains, run=run, step_kwargs={}, 
-                sample_kwargs=dict(nuts=dict(target_accept=0.95))
+                sampler,
+                D,
+                tune,
+                draws,
+                cores=cores,
+                chains=chains,
+                run=run,
+                step_kwargs={},
+                sample_kwargs=dict(nuts=dict(target_accept=0.95)),
             )
         )
     else:
@@ -523,7 +530,7 @@ results_df[cols[~cols.isin(["Trace", "Run"])]].round(2).style.set_caption(
 plot_comparison_bars(results_df)
 ```
 
-The efficiency advantage for `NUTS` over `DEMetropolisZ` over `DEMetropolis` is more pronounced in higher dimensions.  $\hat{R}$ is also large for `DEMetropolis` for this sample size and number of chains.  For `DEMetropolis`, a smaller number of chains ($2N$) with a larger number of samples performed better than more chains with fewer samples.  Counter-intuitively, the `NUTS` sampler yields $ESS$ values greater than the number of samples, which can occur as discussed [here](https://discourse.pymc.io/t/effective-sample-size-larger-than-number-of-samples-for-nuts/6275).
+The efficiency advantage for `NUTS` over `DEMetropolisZ` over `DEMetropolis` is more pronounced in higher dimensions.  $\hat{R}$ is also large for `DEMetropolis` for this sample size and number of chains.  For `DEMetropolis`, a smaller number of chains ($2N$) with a larger number of samples performed better than more chains with fewer samples.  Counter-intuitively, the `NUTS` sampler yeilds $ESS$ values greater than the number of samples, which can occur as discussed [here](https://discourse.pymc.io/t/effective-sample-size-larger-than-number-of-samples-for-nuts/6275).
 
 ```{code-cell} ipython3
 plot_forest_compare_analytical(results_df)
@@ -557,8 +564,15 @@ for sampler, tune, draws, cores, chains in zip(samplers, tunes, drawses, coreses
     if sampler.name == "nuts":
         results.append(
             sample_model_calc_metrics(
-                sampler, D, tune, draws, cores=cores, chains=chains, run=run, 
-                step_kwargs={}, sample_kwargs=dict(target_accept=0.95)
+                sampler,
+                D,
+                tune,
+                draws,
+                cores=cores,
+                chains=chains,
+                run=run,
+                step_kwargs={},
+                sample_kwargs=dict(target_accept=0.95),
             )
         )
     else:
@@ -627,8 +641,15 @@ for sampler, tune, draws, cores, chains in zip(samplers, tunes, drawses, coreses
     if sampler.name == "nuts":
         results.append(
             sample_model_calc_metrics(
-                sampler, D, tune, draws, cores=cores, chains=chains, run=run, 
-                step_kwargs={}, sample_kwargs=dict(target_accept=0.95)
+                sampler,
+                D,
+                tune,
+                draws,
+                cores=cores,
+                chains=chains,
+                run=run,
+                step_kwargs={},
+                sample_kwargs=dict(target_accept=0.95),
             )
         )
     else:

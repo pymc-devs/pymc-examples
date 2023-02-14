@@ -84,7 +84,7 @@ In PyMC, we can tune either `lamb` ($\gamma$), or `scaling` ($b$), and the other
 +++
 
 ## Problem Statement
-In this notebook, a 10-dimensional multivariate normal target density will be sampled with `DEMetropolisZ` while varying four parameters to identify efficient sampling schemes.  The four parameters are the following:
+In this notebook, a 10-dimensional multivariate normal target density will be sampled with `DEMetropolisZ` while varing four parameters to identify efficient sampling schemes.  The four parameters are the following:
 * `drop_tuning_fraction`, which determines the number of samples from the tuning phase that are recycled for the purpose of random vector $(x_{R1}-x_{R2})$ selection,  
 * `lamb` ($\gamma$), which scales the size of the jumps relative to the random vector, 
 * `scaling` ($b$), which scales the size of the jumps for the noise term $\epsilon$, and 
@@ -592,7 +592,7 @@ for ax in axes.flatten():
     ax.set_xticklabels(labels, rotation=45)
 ```
 
-All the distribution perform reasonably well.  The Normal and Uniform distributions appear to perform slightly better than the others, considering all three metrics.  Note that {cite:t}`terBraak2008differential` suggest that the `proposal_dist` should have unbounded support to maintain ergodicity, therefore the Normal distribution is preferred.
+All the distributions perform reasonably well.  The Normal and Uniform distributions appear to perform slightly better than the others, considering all three metrics.  Note that {cite:t}`terBraak2008differential` suggest that the `proposal_dist` should have unbounded support to maintain ergodicity, therefore the Normal distribution is preferred.
 
 +++
 
