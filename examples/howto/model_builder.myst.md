@@ -12,14 +12,14 @@ kernelspec:
 
 # Using ModelBuilder class for deploying PyMC models 
 :::{post} Sep 12, 2022
-:tags: model builder class, model class, linear model
+:tags: deployment
 :category: Advanced
 :author: Shashank Kirtania, Thomas Wiecki
 :::
 
 +++
 
-##### Motivation
+## Motivation
 
 +++
 
@@ -38,18 +38,22 @@ import numpy as np
 import pandas as pd
 import pymc as pm
 
+from numpy.random import RandomState
+
 %config InlineBackend.figure_format = 'retina'
 RANDOM_SEED = 8927
-np.random.seed(RANDOM_SEED)
+
+rs = RandomState(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
 
 ```{code-cell} ipython3
 # Generate data
 x = np.linspace(start=0, stop=1, num=100)
-y = 0.3 * x + 0.5 + np.random.normal(0, 1, len(x))
+y = 0.3 * x + 0.5 + rs.normal(0, 1, len(x))
 ```
 
+## Standard syntax
 Usually a PyMC model will have this form:
 
 ```{code-cell} ipython3
@@ -73,6 +77,10 @@ with pm.Model() as model:
 How would we deploy this model? Save the fitted model, load it on an instance, and predict? Not so simple.
 
 `ModelBuilder` is built for this purpose. It is currently part of the  `pymc-experimental` package which we can pip install with `pip install pymc-experimental`. As the name implies, this feature is still experimental and subject to change.
+
++++
+
+## Model builder class
 
 +++
 
@@ -179,6 +187,10 @@ After making the object of class `LinearModel` we can fit the model using the `.
 
 +++
 
+## Fitting to data
+
++++
+
 The `fit()` method takes one argument `data` on which we need to fit the model. The meta-data is saved in the `InferenceData` object where also the trace is stored. These are the fields that are stored:
 
 * `id` : This is a unique id given to a model based on model_config, sample_conifg, version, and model_type. Users can use it to check if the model matches to another model they have defined.
@@ -190,6 +202,10 @@ The `fit()` method takes one argument `data` on which we need to fit the model. 
 ```{code-cell} ipython3
 idata = model.fit()
 ```
+
+## Saving model to file
+
++++
 
 After fitting the model, we can probably save it to share the model as a file so one can use it again.
 To `save()` or `load()`, we can quickly call methods for respective tasks with the following syntax.
@@ -210,6 +226,10 @@ A NetCDF `.nc` file that stores the inference data of the model.
 
 +++
 
+## Loading a model
+
++++
+
 Now if we wanted to deploy this model, or just have other people use it to predict data, they need two things:
 1. the `LinearModel` class (probably in a .py file)
 2. the linear_model_v1.nc file
@@ -225,6 +245,10 @@ Note that `load()` is a class-method, we do not need to instantiate the `LinearM
 ```{code-cell} ipython3
 model_2
 ```
+
+## Prediction
+
++++
 
 Next we might want to predict on new data. The `predict()` method allows users to do posterior prediction with the fitted model on new data.
 
