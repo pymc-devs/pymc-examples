@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3.9.0 ('pymc_ar_ex')
+  display_name: myjlabenv
   language: python
-  name: python3
+  name: myjlabenv
 ---
 
 (Bayesian Vector Autoregressive Models)=
@@ -145,7 +145,7 @@ def calc_ar_step(lag_coefs, n_eqs, n_lags, df):
             ],
             axis=0,
         )
-    ars.append(ar)
+        ars.append(ar)
     beta = pm.math.stack(ars, axis=-1)
 
     return beta
@@ -275,7 +275,7 @@ az.summary(idata_fake_data, var_names=["alpha", "lag_coefs", "noise_chol_corr"])
 ```
 
 ```{code-cell} ipython3
-az.plot_posterior(idata_fake_data, var_names=["alpha"], ref_val=[18, 8]);
+az.plot_posterior(idata_fake_data, var_names=["alpha"], ref_val=[8, 18]);
 ```
 
 Next we'll plot the posterior predictive distribution to check that the fitted model can capture the patterns in the observed data. This is the primary test of goodness of fit.
