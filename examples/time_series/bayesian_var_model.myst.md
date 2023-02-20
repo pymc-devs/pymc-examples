@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3.9.0 ('pymc_ar_ex')
+  display_name: myjlabenv
   language: python
-  name: python3
+  name: myjlabenv
 ---
 
 (Bayesian Vector Autoregressive Models)=
@@ -145,7 +145,7 @@ def calc_ar_step(lag_coefs, n_eqs, n_lags, df):
             ],
             axis=0,
         )
-    ars.append(ar)
+        ars.append(ar)
     beta = pm.math.stack(ars, axis=-1)
 
     return beta
@@ -275,7 +275,7 @@ az.summary(idata_fake_data, var_names=["alpha", "lag_coefs", "noise_chol_corr"])
 ```
 
 ```{code-cell} ipython3
-az.plot_posterior(idata_fake_data, var_names=["alpha"], ref_val=[18, 8]);
+az.plot_posterior(idata_fake_data, var_names=["alpha"], ref_val=[8, 18]);
 ```
 
 Next we'll plot the posterior predictive distribution to check that the fitted model can capture the patterns in the observed data. This is the primary test of goodness of fit.
@@ -754,6 +754,7 @@ In the next post in this series we will spend some time digging into the implied
 
 ## Authors
 * Adapted from the PYMC labs [Blog post](https://www.pymc-labs.io/blog-posts/bayesian-vector-autoregression/) and Jim Savage's discussion [here](https://rpubs.com/jimsavage/hierarchical_var) by [Nathaniel Forde](https://nathanielf.github.io/) in November 2022 ([pymc-examples#456](https://github.com/pymc-devs/pymc-examples/pull/456))
+* Reexecuted by Nathaniel Forde on Feb, 2023 ([pymc_examples#523](https://github.com/pymc-devs/pymc-examples/issues/523))
 
 +++
 
