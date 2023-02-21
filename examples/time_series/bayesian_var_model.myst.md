@@ -311,7 +311,7 @@ def plot_ppc(idata, df, group="posterior_predictive"):
     fig, axs = plt.subplots(2, 1, figsize=(25, 15))
     df = pd.DataFrame(idata_fake_data["observed_data"]["obs"].data, columns=["x", "y"])
     axs = axs.flatten()
-    ppc = az.extract_dataset(idata, group=group, num_samples=100)["obs"]
+    ppc = az.extract(idata, group=group, num_samples=100)["obs"]
     # Minus the lagged terms and the constant
     shade_background(ppc, axs, 0, "inferno")
     axs[0].plot(np.arange(ppc.shape[0]), ppc[:, 0, :].mean(axis=1), color="cyan", label="Mean")
@@ -409,7 +409,7 @@ def plot_ppc_macro(idata, df, group="posterior_predictive"):
     df = pd.DataFrame(idata["observed_data"]["obs"].data, columns=["dl_gdp", "dl_cons"])
     fig, axs = plt.subplots(2, 1, figsize=(20, 10))
     axs = axs.flatten()
-    ppc = az.extract_dataset(idata, group=group, num_samples=100)["obs"]
+    ppc = az.extract(idata, group=group, num_samples=100)["obs"]
 
     shade_background(ppc, axs, 0, "inferno")
     axs[0].plot(np.arange(ppc.shape[0]), ppc[:, 0, :].mean(axis=1), color="cyan", label="Mean")
@@ -704,7 +704,7 @@ for ax, country in zip(axs, countries):
         idata_full_test["observed_data"][f"obs_{country}"].data,
         columns=["dl_gdp", "dl_cons", "dl_gfcf"],
     )
-    ppc = az.extract_dataset(idata_full_test, group="posterior_predictive", num_samples=100)[
+    ppc = az.extract(idata_full_test, group="posterior_predictive", num_samples=100)[
         f"obs_{country}"
     ]
     if country == "Ireland":
