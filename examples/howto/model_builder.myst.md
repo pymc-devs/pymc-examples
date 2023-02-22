@@ -11,7 +11,7 @@ kernelspec:
 ---
 
 # Using ModelBuilder class for deploying PyMC models 
-:::{post} Sep 12, 2022
+:::{post} Feb 22, 2023
 :tags: deployment
 :category: Advanced
 :author: Shashank Kirtania, Thomas Wiecki
@@ -43,14 +43,14 @@ from numpy.random import RandomState
 %config InlineBackend.figure_format = 'retina'
 RANDOM_SEED = 8927
 
-rs = RandomState(RANDOM_SEED)
+rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
 
 ```{code-cell} ipython3
 # Generate data
 x = np.linspace(start=0, stop=1, num=100)
-y = 0.3 * x + 0.5 + rs.normal(0, 1, len(x))
+y = 0.3 * x + 0.5 + rng.normal(0, 1, len(x))
 ```
 
 ## Standard syntax
@@ -211,10 +211,6 @@ After fitting the model, we can probably save it to share the model as a file so
 To `save()` or `load()`, we can quickly call methods for respective tasks with the following syntax.
 
 ```{code-cell} ipython3
-!rm linear_model_v1.nc
-```
-
-```{code-cell} ipython3
 :tags: []
 
 fname = "linear_model_v1.nc"
@@ -243,7 +239,7 @@ model_2 = LinearModel.load(fname)
 Note that `load()` is a class-method, we do not need to instantiate the `LinearModel` object.
 
 ```{code-cell} ipython3
-model_2
+type(model_2)
 ```
 
 ## Prediction
@@ -290,3 +286,8 @@ plt.legend(loc=0);
 
 ## Authors
 * Authored by Shashank Kirtania and Thomas Wiecki in 2023.
+
++++
+
+:::{include} ../page_footer.md
+:::
