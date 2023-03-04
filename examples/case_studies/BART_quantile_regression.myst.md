@@ -67,7 +67,7 @@ We are going to use a simple dataset to model the Body Mass Index for Dutch kids
 try:
     bmi = pd.read_csv(Path("..", "data", "bmi.csv"))
 except FileNotFoundError:
-    bmi = np.loadtxt(pm.get_data("bmi.csv"))
+    bmi = pd.read_csv(pm.get_data("bmi.csv"))
 
 bmi.plot(x="age", y="bmi", kind="scatter");
 ```
@@ -164,7 +164,7 @@ quiroga2022bart
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w
+%watermark -n -u -v -iv -w -p pytensor,xarray
 ```
 
 :::{include} ../page_footer.md
