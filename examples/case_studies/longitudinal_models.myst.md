@@ -14,7 +14,7 @@ kernelspec:
 # Longitudinal Models of Change
 
 :::{post} January, 2023
-:tags: hierarchical, longitudinal, 
+:tags: hierarchical, longitudinal, time series
 :category: advanced, reference
 :author: Nathaniel Forde
 :::
@@ -241,16 +241,15 @@ Next we will more explictly model the individual contribution to the slope of a 
 
 The important thing about these models is the *hierarchy*. There is a global phenomena and a subject specific instantiation of the phenomena. The model allows us to compose the global model with the individual contributions from each subject. This helps the model account for unobserved heterogeneity at the subject level.Resulting in varying slopes and intercepts for each subject where allowed by the model specification. It can't solve all forms of bias but it does help account for this source of skew in the model predictions.
 
-$$ \begin{aligned}
-alcohol \sim Normal(\color{purple}{\mu, \sigma})  \\
-\color{purple}{\mu} = \color{red}{\alpha} + \color{green}{\beta} \cdot age \\
-\color{red}{\alpha} = \sum_{j=0}^{N} \alpha_{1} + \alpha_{2, j} \ \ \ \ \forall j \in Subjects  \\ 
-\color{green}{\beta} = \sum_{j=0}^{N} \beta_{1} + \beta_{2, j}  \ \ \ \ \forall j \in Subjects  \\
-\color{purple}{\sigma} = HalfStudentT(?, ?) \\
-\alpha_{i, j} \sim Normal(?, ?) \\
-\beta_{i, j} \sim Normal(?, ?) 
-\end{aligned}
-$$
+$$ \begin{aligned} 
+    & alcohol \sim Normal(\color{purple}{\mu, \sigma})  \\
+    & \color{purple}{\mu} = \color{red}{\alpha} + \color{green}{\beta} \cdot age \\
+    & \color{red}{\alpha} = \sum_{j=0}^{N} \alpha_{1} + \alpha_{2, j} \ \ \ \ \forall j \in Subjects  \\ 
+    & \color{green}{\beta} = \sum_{j=0}^{N} \beta_{1} + \beta_{2, j}  \ \ \ \ \forall j \in Subjects  \\
+    & \color{purple}{\sigma} = HalfStudentT(?, ?) \\
+    & \alpha_{i, j} \sim Normal(?, ?) \\
+    & \beta_{i, j} \sim Normal(?, ?) 
+\end{aligned} $$
 
 
 Fitting the model then informs us about how each individual modifies the global model, but also lets us learn global parameters. In particular we allow for a subject specific modification of the coefficient on the variable representing time. A broadly similar pattern of combination holds for all the hierarchical models we outline in the following series of models. In the Bayesian setting we're trying to learn the parameters that best fit the data. Implementing the model is PyMC is as follows:
@@ -288,7 +287,7 @@ with pm.Model(coords=coords) as model:
 pm.model_to_graphviz(model)
 ```
 
-The sigma terms (variance components) are likely the most important pieces of the model to understand. The global and subject specific sigma terms represent the sources of variation that we allow in our model.The global effects can be considered "fixed" over the population while the subject specific terms "random" draws from the same population. 
+The sigma terms (variance components) are likely the most important pieces of the model to understand. The global and subject specific sigma terms represent the sources of variation that we allow in our model. The global effects can be considered "fixed" over the population while the subject specific terms "random" draws from the same population. 
 
 ```{code-cell} ipython3
 az.summary(
@@ -320,7 +319,7 @@ ax.plot(
 ax.set_ylabel("Alcohol Usage")
 ax.set_xlabel("Time in Years from 14")
 ax.legend()
-ax.set_title("Individual Consumption Growth", fontsize=20)
+ax.set_title("Individual Consumption Growth", fontsize=20);
 ```
 
 ## The Uncontrolled Effects of Parental Alcoholism
@@ -424,7 +423,7 @@ ax.plot(
 ax.set_ylabel("Alcohol Usage")
 ax.set_xlabel("Time in Years from 14")
 ax.legend()
-ax.set_title("Individual Consumption Growth", fontsize=20)
+ax.set_title("Individual Consumption Growth", fontsize=20);
 ```
 
 This is already suggestive of the manner in which hierarchical longitudinal models allow us to interrogate questions of policy and impact of causal interventions. The implications of a policy shift or a specific intervention in the implied growth trajectories can warrant dramatic investment decisions. However we'll leave these remarks as suggestive because there is a rich and contentious literature of the use of causal inference with panel data designs. The differences-in-differences literature is rife with warnings about the conditions required to meaningfully interpret causal questions. See for instance {ref}`difference_in_differences` for more discussion and references to the debate. One key point is that while the subject-level terms help account for one kind of hetereogeniety in the data, they cannot account for all sources of individual variation, especially variation which is time-dependent. 
@@ -553,7 +552,7 @@ for q, i in zip([0.5, 0.75, 0.90, 0.99], [0, 1, 2, 3]):
     axs[i].set_ylabel("Alcohol Usage")
     axs[i].set_xlabel("Time in Years from 14")
     axs[i].legend()
-    axs[i].set_title(f"Individual Consumption Growth \n moderated by Peer: {q_v}", fontsize=20)
+    axs[i].set_title(f"Individual Consumption Growth \n moderated by Peer: {q_v}", fontsize=20);
 ```
 
 ## Comparison of Model Estimates
@@ -584,7 +583,7 @@ az.plot_forest(
     combined=True,
     ridgeplot_alpha=0.3,
     coords={"ids": [1, 2, 70]},
-)
+);
 ```
 
 For a numerical summary of the models Willett and Singer suggest using deviance statistics. In the Bayesian workflow we'll use the widely applicable information criteria. 
@@ -673,7 +672,7 @@ az.plot_forest(
     kind="ridgeplot",
     combined=True,
     ridgeplot_alpha=0.3,
-)
+);
 ```
 
 We can see here how the bambi model specification recovers the same parameterisation we derived with PyMC. In practice and in production you should use bambi when you can if you're using a Bayesian hierarchical model. It is flexible for many use-cases and you should likely only need PyMC for highly customised models, where the flexibility of the model specification cannot be accomodated with the constraints of the formula syntax.  
@@ -733,7 +732,6 @@ As before we'll begin with a fairly minimal model, specifying a hierarchical mod
 id_indx, unique_ids = pd.factorize(df_external["ID"])
 coords = {"ids": unique_ids}
 with pm.Model(coords=coords) as model:
-    # grade = pm.MutableData('grade_data', df_external['GRADE'].values)
     external = pm.MutableData("external_data", df_external["EXTERNAL"].values + 1e-25)
     global_intercept = pm.Normal("global_intercept", 6, 1)
     global_sigma = pm.HalfNormal("global_sigma", 7)
@@ -827,7 +825,7 @@ az.summary(
 We can now examine the posterior predictive plot for our model. The outcomes seem to make a reasonable fit to the data. 
 
 ```{code-cell} ipython3
-az.plot_ppc(idata_m5, figsize=(20, 7))
+az.plot_ppc(idata_m5, figsize=(20, 7));
 ```
 
 But we want to see individual model fits for each person. Here we plot the expected trajectories.
@@ -850,7 +848,7 @@ ax.plot(
 ax.set_ylabel("Externalised Behaviour Score")
 ax.set_xlabel("Time in Grade")
 ax.legend()
-ax.set_title("Within Individual Typical Trajctories", fontsize=20)
+ax.set_title("Within Individual Typical Trajctories", fontsize=20);
 ```
 
 We can see here how the model is constrained to apply a very linear fit to the behavioural trajectories. The immediate impression is of a relatively stable behaviourial pattern for each individual. But this is artefact of the model's inability to express the curvature of the behaviourial data. Nevertheless we can see the individual variation forces the intercept terms to range between 5 and 25 on the scale. 
@@ -917,7 +915,7 @@ az.summary(
 ```
 
 ```{code-cell} ipython3
-az.plot_ppc(idata_m6, figsize=(20, 7))
+az.plot_ppc(idata_m6, figsize=(20, 7));
 ```
 
 ```{code-cell} ipython3
@@ -944,7 +942,7 @@ ax.plot(
 ax.set_ylabel("Externalalising Behaviour Score")
 ax.set_xlabel("Time in Grade")
 ax.legend()
-ax.set_title("Within Individual Typical Trajctories", fontsize=20)
+ax.set_title("Within Individual Typical Trajctories", fontsize=20);
 ```
 
 Granting the model more flexibility allows it to ascribe more nuanced growth trajectories.
@@ -956,6 +954,8 @@ Granting the model more flexibility allows it to ascribe more nuanced growth tra
 We'll now allow the model greater flexibility and pull in the gender of the subject to analyse whether and to what degree the gender of the teenager influences their behaviorial changes. 
 
 ```{code-cell} ipython3
+:tags: [hide-output]
+
 id_indx, unique_ids = pd.factorize(df_external["ID"])
 coords = {"ids": unique_ids}
 with pm.Model(coords=coords) as model:
@@ -1010,7 +1010,9 @@ with pm.Model(coords=coords) as model:
         )
     )
     idata_m7.extend(pm.sample_posterior_predictive(idata_m7))
+```
 
+```{code-cell} ipython3
 pm.model_to_graphviz(model)
 ```
 
@@ -1039,7 +1041,7 @@ az.summary(
 ```
 
 ```{code-cell} ipython3
-az.plot_ppc(idata_m7, figsize=(20, 7))
+az.plot_ppc(idata_m7, figsize=(20, 7));
 ```
 
 ## Comparing Models
@@ -1067,7 +1069,7 @@ az.plot_forest(
     combined=True,
     coords={"ids": [1, 2, 30]},
     ridgeplot_alpha=0.3,
-)
+);
 ```
 
 ```{code-cell} ipython3
@@ -1178,7 +1180,6 @@ axs[4].plot(
     lw=2,
     label="Expected Growth Trajectory - Female",
 )
-
 
 for indx, id in zip([0, 1, 2, 3, 5, 6, 7, 8], [2, 8, 10, 30, 34, 40, 9, 11]):
     female = df_external[df_external["ID"] == id]["FEMALE"].unique()[0] == 1
