@@ -10,7 +10,7 @@ kernelspec:
   name: myjlabenv
 ---
 
-(Longitudinal Models of Change )=
+(longitudinal_models)=
 # Longitudinal Models of Change
 
 :::{post} January, 2023
@@ -29,7 +29,7 @@ import pymc as pm
 import statsmodels.api as sm
 import xarray as xr
 
-from pymc.sampling_jax import sample_blackjax_nuts, sample_numpyro_nuts
+from pymc.sampling_jax import sample_numpyro_nuts
 
 lowess = sm.nonparametric.lowess
 ```
@@ -42,12 +42,12 @@ rng = np.random.default_rng(42)
 
 The study of change involves simultaneously analysing the individual trajectories of change and abstracting over the set of individuals studied to extract broader insight about the nature of the change in question. As such it's easy to lose sight of the forest for the focus on the trees. In this example we'll demonstrate some of the subtleties of using hierarchical bayesian models to study the change within a population of individuals  - moving from the *within individual* view to the *between/cross individuals* perspective. 
 
-We'll follow the discussion and iterative approach to model building outlined in Singer and Willett's *Applied Longitudinal Data Analysis*. For more details {cite:t}`singer2003`). We'll differ from their presentation in that while they focus on maximum likelihood methods for fitting their data we'll use PyMC bayesian methods. In this approach we're following Solomon Kurz's work with brms in {cite:t}`kurzAppliedLongitudinalDataAnalysis2021`. We strongly recommend both books for more detailed presentation of the issues discussed here. 
+We'll follow the discussion and iterative approach to model building outlined in Singer and Willett's *Applied Longitudinal Data Analysis*. For more details {cite:t}`singer2003`). We'll differ from their presentation in that while they focus on maximum likelihood methods for fitting their data we'll use PyMC and Bayesian methods. In this approach we're following Solomon Kurz's work with brms in {cite:t}`kurzAppliedLongitudinalDataAnalysis2021`. We strongly recommend both books for more detailed presentation of the issues discussed here. 
 
 ### Structure of the Presentation
 
 - Analysis of the Change over time in Alcohol consumption among teens
-- Model Specification in Bambi
+- Interlude: Alternative Model Specification with Bambi
 - Analysis of the Change over time in Externalising Behaviours among teens
 - Conclusion
 
@@ -62,6 +62,7 @@ try:
     df = pd.read_csv("../data/alcohol1_pp.csv")
 except FileNotFoundError:
     df = pd.read_csv(pm.get_data("alcohol1_pp.csv"))
+
 df["peer_hi_lo"] = np.where(df["peer"] > df["peer"].mean(), 1, 0)
 df
 ```
@@ -79,11 +80,13 @@ for i, ax in zip(df["id"].unique()[0:8], axs):
     ax.set_xlabel("Age")
 ```
 
-We might think that the alcohol usage patterns varies by the effects of gender, but individual trajectories are noisy. In the next series of plots we fit simple regression models over the individual data and color the trend line by whether or not the slope coefficient is $\color{red}{negative}$ or $\color{green}{positive}$. This very crudely gives an impression of whether and how the consumption patterns change for individuals of each gender. 
+We might think that the alcohol usage patterns varies by the effects of gender, but individual trajectories are noisy. In the next series of plots we fit simple regression models over the individual data and color the trend line by whether or not the slope coefficient is $\color{green}{negative}$ or $\color{red}{positive}$. This very crudely gives an impression of whether and how the consumption patterns change for individuals of each gender. 
 
 The green and red lines represent an individual's OLS fit, but the grey dotted lines represent an individual's observed trajectory. 
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 fig, axs = plt.subplots(1, 2, figsize=(20, 5), sharey=True)
 lkup = {0: "Male", 1: "Female"}
 
@@ -113,6 +116,8 @@ for i in df["id"].unique():
 Next we examine the same plot but stratify the children by whether or not they were a child of an alcoholic parent. 
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 fig, axs = plt.subplots(1, 2, figsize=(20, 5), sharey=True)
 lkup = {0: "Yes", 1: "No"}
 axs = axs.flatten()
@@ -141,6 +146,8 @@ for i in df["id"].unique():
 We'll conclude our exploration of this data set by crudely grouping the children into whether or not their peer group reports a high score of alcohol usage. 
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 fig, axs = plt.subplots(1, 2, figsize=(20, 5), sharey=True)
 lkup = {0: "Hi", 1: "Lo"}
 axs = axs.flatten()
@@ -185,6 +192,8 @@ We begin with a simple unconditional model where we model only the individual's 
 
 
 ```{code-cell} ipython3
+:tags: []
+
 id_indx, unique_ids = pd.factorize(df["id"])
 coords = {"ids": unique_ids}
 with pm.Model(coords=coords) as model:
@@ -230,18 +239,21 @@ We see here the variation in the implied modification of the grand mean by each 
 
 Next we will more explictly model the individual contribution to the slope of a regression model where time is the key predictor. The structure of this model is worth pausing to consider. There are various instantiations of this kind of hierarchical model across different domains and disciplines. Economics, political science, psychometrics and ecology all have their own slightly varied vocabulary for naming the parts of the model: fixed effects, random effects, within-estimators, between estimators...etc, the list goes and the discourse is cursed. The terms are ambiguous and used divergingly. Wilett and Singer refer to the Level 1 and Level 2 sub-models, but the precise terminology is not important. 
 
-The important thing about these models is the *hierarchy*. There is a global phenomena and a subject specific instantiation of the phenomena. The model allows us to compose the global model with the individual contributions from each subject. This helps the model account for unobserved heterogeneity at the subject level. It can't solve all forms of bias but it does account for this source of skew in the model predictions.
+The important thing about these models is the *hierarchy*. There is a global phenomena and a subject specific instantiation of the phenomena. The model allows us to compose the global model with the individual contributions from each subject. This helps the model account for unobserved heterogeneity at the subject level.Resulting in varying slopes and intercepts for each subject where allowed by the model specification. It can't solve all forms of bias but it does help account for this source of skew in the model predictions.
 
-$$ alcohol \sim Normal(\color{purple}{\mu, \sigma}) $$
-$$ \color{purple}{\mu} = \color{red}{\alpha} + \color{green}{\beta} \cdot age $$
-$$ \color{red}{\alpha} = \sum_{j=0}^{N} \alpha_{1} + \alpha_{2, j} \ \ \ \ \forall j \in Subjects $$
-$$ \color{green}{\beta} = \sum_{j=0}^{N} \beta_{1} + \beta_{2, j}  \ \ \ \ \forall j \in Subjects $$
-$$ \color{purple}{\sigma} = HalfStudentT(?, ?) $$
-$$ \alpha_{i, j} \sim Normal(?, ?) $$
-$$ \beta_{i, j} \sim Normal(?, ?) $$
+$$ \begin{aligned}
+alcohol \sim Normal(\color{purple}{\mu, \sigma})  \\
+\color{purple}{\mu} = \color{red}{\alpha} + \color{green}{\beta} \cdot age \\
+\color{red}{\alpha} = \sum_{j=0}^{N} \alpha_{1} + \alpha_{2, j} \ \ \ \ \forall j \in Subjects  \\ 
+\color{green}{\beta} = \sum_{j=0}^{N} \beta_{1} + \beta_{2, j}  \ \ \ \ \forall j \in Subjects  \\
+\color{purple}{\sigma} = HalfStudentT(?, ?) \\
+\alpha_{i, j} \sim Normal(?, ?) \\
+\beta_{i, j} \sim Normal(?, ?) 
+\end{aligned}
+$$
 
 
-Fitting the model then informs us about how each individual modifies the global model, but also lets us learn global parameters. In particular we allow for a subject specific modification of the coefficient on the variable representing time. A broadly similar pattern of combination holds for all the hierarchical models we outline in the following series of models .In the Bayesian setting we're trying to learn the parameters that best fit the data. Implementing the model is PyMC is as follows:
+Fitting the model then informs us about how each individual modifies the global model, but also lets us learn global parameters. In particular we allow for a subject specific modification of the coefficient on the variable representing time. A broadly similar pattern of combination holds for all the hierarchical models we outline in the following series of models. In the Bayesian setting we're trying to learn the parameters that best fit the data. Implementing the model is PyMC is as follows:
 
 ```{code-cell} ipython3
 id_indx, unique_ids = pd.factorize(df["id"])
@@ -491,6 +503,8 @@ az.summary(
 Next we'll plot the prototypical trajectories of change for individuals conditional on their parental and peer relationships. Notice how the peer score in the data drives the intercept of the polynomial curve up the y-axis of the chart. 
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 fig, axs = plt.subplots(2, 2, figsize=(20, 10), sharey=True)
 axs = axs.flatten()
 posterior = az.extract(idata_m3.posterior, num_samples=300)
@@ -694,7 +708,7 @@ fig, axs = plt.subplots(2, 3, figsize=(20, 6))
 axs = axs.flatten()
 for ax, g in zip(axs, [1, 2, 3, 4, 5, 6]):
     temp = df_external[df_external["GRADE"] == g]
-    ax.hist(temp["EXTERNAL"], bins=10, ec="black", color="magenta")
+    ax.hist(temp["EXTERNAL"], bins=10, ec="black", color="C0")
     ax.set_title(f"External Behaviour in Grade {g}")
 ```
 
@@ -708,7 +722,7 @@ print(guess)
 ```
 
 ```{code-cell} ipython3
-plt.hist(np.random.gumbel(guess["mu"], guess["beta"], 1000), bins=30, ec="black", color="cyan");
+plt.hist(np.random.gumbel(guess["mu"], guess["beta"], 1000), bins=30, ec="black", color="C0");
 ```
 
 ## A Minimal Model
@@ -819,6 +833,8 @@ az.plot_ppc(idata_m5, figsize=(20, 7))
 But we want to see individual model fits for each person. Here we plot the expected trajectories.
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 fig, ax = plt.subplots(figsize=(20, 7))
 posterior = az.extract(idata_m5.posterior)
 intercept_group_specific = posterior["subject_intercept"].mean("sample")
@@ -905,6 +921,8 @@ az.plot_ppc(idata_m6, figsize=(20, 7))
 ```
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 fig, ax = plt.subplots(figsize=(20, 7))
 posterior = az.extract(idata_m6.posterior)
 intercept_group_specific = posterior["subject_intercept"].mean("sample")
@@ -1076,6 +1094,8 @@ As perhaps expected our final gender based model is deemed to be best according 
 ## Plotting the Final Model
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 def plot_individual(posterior, individual, female, ax):
     posterior = posterior.sel(ids=individual)
     time_xi = xr.DataArray(np.arange(7))
@@ -1094,9 +1114,8 @@ def plot_individual(posterior, individual, female, ax):
     for i in range(len(fit)):
         ax.plot(time_xi, fit[i], color=color, alpha=0.1, linewidth=0.2)
     ax.plot(time_xi, fit.mean(axis=0), color="magenta")
-```
 
-```{code-cell} ipython3
+
 mosaic = """BCDE
             AAAA
             FGHI"""
@@ -1202,11 +1221,14 @@ These are powerful models for capturing and assessing patterns of change to comp
 :filter: docname in docnames
 :::
 
++++
+
+## Watermark
+
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w -p pytensor
 ```
 
-```{code-cell} ipython3
-
-```
+:::{include} ../page_footer.md
+:::
