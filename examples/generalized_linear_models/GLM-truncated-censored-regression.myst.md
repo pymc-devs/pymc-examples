@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc_env
   language: python
   name: python3
 ---
@@ -175,9 +175,9 @@ def pp_plot(x, y, fit, ax):
     ax.plot(x, y, "k.")
     # plot posterior predicted... samples from posterior
     xi = xr.DataArray(np.array([np.min(x), np.max(x)]), dims=["obs_id"])
-    post = fit.posterior
+    post = az.extract(fit)
     y_ppc = xi * post["slope"] + post["intercept"]
-    ax.plot(xi, y_ppc.stack(sample=("chain", "draw")), c="steelblue", alpha=0.01, rasterized=True)
+    ax.plot(xi, y_ppc, c="steelblue", alpha=0.01, rasterized=True)
     # plot true
     ax.plot(xi, slope * xi + intercept, "k", lw=3, label="True")
     # plot bounds
@@ -361,7 +361,8 @@ When looking into this topic, I found that most of the material out there focuse
 * Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in May 2021
 * Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in January 2022
 * Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in September 2022
-* Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5
+* Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 to run on PyMC v5
+* Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 to use `az.extract`, ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
 
 +++
 

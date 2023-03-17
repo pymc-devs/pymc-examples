@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc_env
   language: python
   name: python3
 ---
@@ -74,13 +74,11 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
+import pytensor.tensor as pt
 import scipy as sp
 import seaborn as sns
-import theano.tensor as tt
 import xarray as xr
-
-print(f"Running on PyMC3 v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -235,7 +233,7 @@ ax.set_yticklabels([])
 ax.legend(loc=1);
 ```
 
-Sampling from these stochastic processes is fun, but these ideas become truly useful when we fit them to data.  The discreteness of samples and the stick-breaking representation of the Dirichlet process lend themselves nicely to Markov chain Monte Carlo simulation of posterior distributions.  We will perform this sampling using `PyMC3`.
+Sampling from these stochastic processes is fun, but these ideas become truly useful when we fit them to data.  The discreteness of samples and the stick-breaking representation of the Dirichlet process lend themselves nicely to Markov chain Monte Carlo simulation of posterior distributions.  We will perform this sampling using `PyMC`.
 
 Our first example uses a Dirichlet process mixture to estimate the density of waiting times between eruptions of the [Old Faithful](https://en.wikipedia.org/wiki/Old_Faithful) geyser in [Yellowstone National Park](https://en.wikipedia.org/wiki/Yellowstone_National_Park).
 
@@ -297,18 +295,16 @@ $$
 
 Note that instead of fixing a value of $\alpha$, as in our previous simulations, we specify a prior on $\alpha$, so that we may learn its posterior distribution from the observations.
 
-We now construct this model using `pymc3`.
+We now construct this model using `PyMC`.
 
 ```{code-cell} ipython3
 N = old_faithful_df.shape[0]
-
 K = 30
 ```
 
 ```{code-cell} ipython3
 def stick_breaking(beta):
-    portion_remaining = tt.concatenate([[1], tt.extra_ops.cumprod(1 - beta)[:-1]])
-
+    portion_remaining = pt.concatenate([[1], pt.extra_ops.cumprod(1 - beta)[:-1]])
     return beta * portion_remaining
 ```
 
@@ -331,13 +327,10 @@ We sample from the model 1,000 times using NUTS initialized with ADVI.
 ```{code-cell} ipython3
 with model:
     trace = pm.sample(
-        1000,
         tune=2500,
-        chains=2,
         init="advi",
-        target_accept=0.9,
+        target_accept=0.975,
         random_seed=RANDOM_SEED,
-        return_inferencedata=True,
     )
 ```
 
@@ -395,7 +388,7 @@ ax.fill_between(
 ax.plot(x_plot, post_pdfs.sel(chain=0, draw=0), c="gray", label="Posterior sample densities")
 ax.plot(
     x_plot,
-    post_pdfs.stack(pooled_chain=("chain", "draw")).sel(pooled_chain=slice(None, None, 100)),
+    az.extract(post_pdfs, var_names="x", num_samples=100),
     c="gray",
 )
 ax.plot(x_plot, post_pdfs.mean(dim=("chain", "draw")), c="k", label="Posterior expected density")
@@ -492,13 +485,10 @@ with pm.Model(coords={"component": np.arange(K), "obs_id": np.arange(N)}) as mod
 ```{code-cell} ipython3
 with model:
     trace = pm.sample(
-        2000,
         tune=5000,
-        chains=4,
         init="advi",
-        target_accept=0.8,
+        target_accept=0.95,
         random_seed=RANDOM_SEED,
-        return_inferencedata=True,
     )
 ```
 
@@ -550,7 +540,7 @@ ax.fill_between(
 ax.plot(x_plot, post_pmfs.sel(chain=0, draw=0), c="gray", label="Posterior sample densities")
 ax.plot(
     x_plot,
-    post_pmfs.stack(pooled_chain=("chain", "draw")).sel(pooled_chain=slice(None, None, 200)),
+    az.extract(post_pmfs, var_names="x", num_samples=100),
     c="gray",
 )
 ax.plot(x_plot, post_pmfs.mean(dim=("chain", "draw")), c="k", label="Posterior expected density")
@@ -599,6 +589,7 @@ ax.legend(loc=1);
 ## Authors
 * Adapted by [Austin Rochford](https://github.com/AustinRochford/) from [his own blog post](http://austinrochford.com/posts/2016-02-25-density-estimation-dpm.html)
 * Updated by Abhipsha Das on August, 2021 ([pymc-examples#212](https://github.com/pymc-devs/pymc-examples/pull/212))
+* Updated to PyMC v5 and to use `az.extract` by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
 
 +++
 
@@ -611,7 +602,3 @@ ax.legend(loc=1);
 
 :::{include} page_footer.md
 :::
-
-```{code-cell} ipython3
-
-```

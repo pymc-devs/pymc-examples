@@ -5,23 +5,25 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc
   language: python
   name: python3
 ---
 
+(MvGaussianRandomWalk)=
 # Multivariate Gaussian Random Walk
-:::{post} Sep 25, 2021
+:::{post} Feb 2, 2023
 :tags: linear model, regression, time series 
 :category: beginner
+:author: Lorenzo Itoniazzi, Chris Fonnesbeck
 :::
 
 ```{code-cell} ipython3
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano
+import pymc as pm
+import pytensor
 
 from scipy.linalg import cholesky
 
@@ -112,13 +114,13 @@ class Scaler:
         return x * self.std_ + self.mean_
 ```
 
-We now construct the regression model in {eq}`eqn:model` imposing priors on the GRWs $\alpha$ and $\beta$, on the standard deviation $\sigma$ and hyperpriors on the Cholesky matrices. We use the LKJ prior {cite:p}`lewandowski2009generating` for the Cholesky matrices (see this {func}`link for the documentation <pymc3.distributions.multivariate.LKJCholeskyCov>` and also the PyMC notebook {doc}`/case_studies/LKJ` for some usage examples.)
+We now construct the regression model in {eq}`eqn:model` imposing priors on the GRWs $\alpha$ and $\beta$, on the standard deviation $\sigma$ and hyperpriors on the Cholesky matrices. We use the LKJ prior {cite:p}`lewandowski2009generating` for the Cholesky matrices (see this {func}`link for the documentation <pymc.LKJCholeskyCov>` and also the PyMC notebook {doc}`/case_studies/LKJ` for some usage examples.)
 
 ```{code-cell} ipython3
 def inference(t, y, sections, n_samples=100):
     N, D = y.shape
 
-    # Standardies y and t
+    # Standardize y and t
     y_scaler = Scaler()
     t_scaler = Scaler()
     y = y_scaler.fit_transform(y)
@@ -126,26 +128,26 @@ def inference(t, y, sections, n_samples=100):
     # Create a section index
     t_section = np.repeat(np.arange(sections), N / sections)
 
-    # Create theano equivalent
-    t_t = theano.shared(np.repeat(t, D, axis=1))
-    y_t = theano.shared(y)
-    t_section_t = theano.shared(t_section)
+    # Create PyTensor equivalent
+    t_t = pytensor.shared(np.repeat(t, D, axis=1))
+    y_t = pytensor.shared(y)
+    t_section_t = pytensor.shared(t_section)
 
     coords = {"y_": ["y_0", "y_1", "y_2"], "steps": np.arange(N)}
     with pm.Model(coords=coords) as model:
         # Hyperpriors on Cholesky matrices
-        packed_L_alpha = pm.LKJCholeskyCov(
-            "packed_L_alpha", n=D, eta=2.0, sd_dist=pm.HalfCauchy.dist(2.5)
+        chol_alpha, *_ = pm.LKJCholeskyCov(
+            "chol_cov_alpha", n=D, eta=2, sd_dist=pm.HalfCauchy.dist(2.5), compute_corr=True
         )
-        L_alpha = pm.expand_packed_triangular(D, packed_L_alpha)
-        packed_L_beta = pm.LKJCholeskyCov(
-            "packed_L_beta", n=D, eta=2.0, sd_dist=pm.HalfCauchy.dist(2.5)
+        chol_beta, *_ = pm.LKJCholeskyCov(
+            "chol_cov_beta", n=D, eta=2, sd_dist=pm.HalfCauchy.dist(2.5), compute_corr=True
         )
-        L_beta = pm.expand_packed_triangular(D, packed_L_beta)
 
         # Priors on Gaussian random walks
-        alpha = pm.MvGaussianRandomWalk("alpha", shape=(sections, D), chol=L_alpha)
-        beta = pm.MvGaussianRandomWalk("beta", shape=(sections, D), chol=L_beta)
+        alpha = pm.MvGaussianRandomWalk(
+            "alpha", mu=np.zeros(D), chol=chol_alpha, shape=(sections, D)
+        )
+        beta = pm.MvGaussianRandomWalk("beta", mu=np.zeros(D), chol=chol_beta, shape=(sections, D))
 
         # Deterministic construction of the correlated random walk
         alpha_r = alpha[t_section_t]
@@ -159,10 +161,10 @@ def inference(t, y, sections, n_samples=100):
         likelihood = pm.Normal("y", mu=regression, sigma=sigma, observed=y_t, dims=("steps", "y_"))
 
         # MCMC sampling
-        trace = pm.sample(n_samples, cores=4, return_inferencedata=True)
+        trace = pm.sample(n_samples, tune=1000, chains=4, target_accept=0.9)
 
         # Posterior predictive sampling
-        trace.extend(az.from_pymc3(posterior_predictive=pm.sample_posterior_predictive(trace)))
+        pm.sample_posterior_predictive(trace, extend_inferencedata=True)
 
     return trace, y_scaler, t_scaler, t_section
 ```
@@ -226,6 +228,12 @@ ax.legend()
 ax.set_title("Posterior Predictive Samples and the Three Correlated Series");
 ```
 
+## Authors
+* updated to best practices by Lorenzon Itoniazzi in October, 2021 ([pymc-examples#195](https://github.com/pymc-devs/pymc-examples/pull/195))
+* updated to v5 by Chris Fonnesbeck in February, 2023 
+
++++
+
 ## References
 
 :::{bibliography}
@@ -238,3 +246,6 @@ ax.set_title("Posterior Predictive Samples and the Three Correlated Series");
 %load_ext watermark
 %watermark -n -u -v -iv -w -p theano,xarray
 ```
+
+:::{include} ../page_footer.md
+:::

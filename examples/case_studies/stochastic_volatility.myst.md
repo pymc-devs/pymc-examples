@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc_env
   language: python
   name: python3
 ---
@@ -106,7 +106,7 @@ pm.model_to_graphviz(stochastic_vol_model)
 with stochastic_vol_model:
     idata = pm.sample_prior_predictive(500, random_seed=rng)
 
-prior_predictive = idata.prior_predictive.stack(pooled_chain=("chain", "draw"))
+prior_predictive = az.extract(idata, group="prior_predictive")
 ```
 
 We plot and inspect the prior predictive. This is *many* orders of magnitude larger than the actual returns we observed. In fact, I cherry-picked a few draws to keep the plot from looking silly. This may suggest changing our priors: a return that our model considers plausible would violate all sorts of constraints by a huge margin: the total value of all goods and services the world produces is ~$\$10^9$, so we might reasonably *not* expect any returns above that magnitude.
@@ -117,7 +117,7 @@ That said, we get somewhat reasonable results fitting this model anyways, and it
 fig, ax = plt.subplots(figsize=(14, 4))
 returns["change"].plot(ax=ax, lw=1, color="black")
 ax.plot(
-    prior_predictive["returns"].isel(pooled_chain=slice(4, 6, None)),
+    prior_predictive["returns"][:, 0::10],
     "g",
     alpha=0.5,
     lw=1,
@@ -138,9 +138,9 @@ Once we are happy with our model, we can sample from the posterior. This is a so
 
 ```{code-cell} ipython3
 with stochastic_vol_model:
-    idata.extend(pm.sample(2000, tune=2000, random_seed=rng))
+    idata.extend(pm.sample(random_seed=rng))
 
-posterior = idata.posterior.stack(pooled_chain=("chain", "draw"))
+posterior = az.extract(idata)
 posterior["exp_volatility"] = np.exp(posterior["volatility"])
 ```
 
@@ -148,7 +148,7 @@ posterior["exp_volatility"] = np.exp(posterior["volatility"])
 with stochastic_vol_model:
     idata.extend(pm.sample_posterior_predictive(idata, random_seed=rng))
 
-posterior_predictive = idata.posterior_predictive.stack(pooled_chain=("chain", "draw"))
+posterior_predictive = az.extract(idata, group="posterior_predictive")
 ```
 
 Note that the `step_size` parameter does not look perfect: the different chains look somewhat different. This again indicates some weakness in our model: it may make sense to allow the step_size to change over time, especially over this 11 year time span.
@@ -162,7 +162,7 @@ Now we can look at our posterior estimates of the volatility in S&P 500 returns 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(14, 4))
 
-y_vals = posterior["exp_volatility"].isel(pooled_chain=slice(None, None, 5))
+y_vals = posterior["exp_volatility"]
 x_vals = y_vals.time.astype(np.datetime64)
 
 plt.plot(x_vals, y_vals, "k", alpha=0.002)
@@ -177,9 +177,9 @@ Finally, we can use the posterior predictive distribution to see the how the lea
 fig, axes = plt.subplots(nrows=2, figsize=(14, 7), sharex=True)
 returns["change"].plot(ax=axes[0], color="black")
 
-axes[1].plot(posterior["exp_volatility"].isel(pooled_chain=slice(None, None, 100)), "r", alpha=0.5)
+axes[1].plot(posterior["exp_volatility"], "r", alpha=0.5)
 axes[0].plot(
-    posterior_predictive["returns"].isel(pooled_chain=slice(None, None, 100)),
+    posterior_predictive["returns"],
     "g",
     alpha=0.5,
     zorder=-10,
@@ -215,6 +215,7 @@ axes[1].set_title("Posterior volatility");
 * Updated by Michael Osthege on June 1, 2022 ([pymc-examples#343](https://github.com/pymc-devs/pymc-examples/pull/343))
 * Updated by Christopher Krapu on June 17, 2022 ([pymc-examples#378](https://github.com/pymc-devs/pymc-examples/pull/378))
 * Updated for compatibility with PyMC v5 by Beryl Kanali and Sangam Swadik on Jan 22, 2023 ([pymc-examples#517](https://github.com/pymc-devs/pymc-examples/pull/517))
+* Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) to use `az.extract` ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
 
 +++
 
