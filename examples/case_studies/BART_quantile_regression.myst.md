@@ -146,6 +146,7 @@ We can see that when we use a Normal likelihood, and from that fit we compute th
 
 ## Authors
 * Authored by Osvaldo Martin in Jan, 2023
+* Rerun by Osvaldo Martin in March 2023
 
 +++
 
