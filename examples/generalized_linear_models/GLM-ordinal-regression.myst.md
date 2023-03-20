@@ -201,7 +201,7 @@ idata4, model4 = make_model(priors, model_spec=3, constrained_uniform=True)
 ```{code-cell} ipython3
 :tags: []
 
-az.summary(idata3)
+az.summary(idata3, var_names=["sigma", "cutpoints", "beta"])
 ```
 
 ```{code-cell} ipython3
@@ -304,7 +304,7 @@ ax[0].set_title("Model Parameter Estimates", fontsize=20)
 az.summary(idata3, var_names=["cutpoints", "beta", "sigma"])
 ```
 
-## Compare Cutpoints: Normal V Uniform Priors
+## Compare Cutpoints: Normal V Uniform Priors
 
 ```{code-cell} ipython3
 :tags: []
@@ -334,6 +334,8 @@ plot_fit(idata3)
 az.plot_posterior(idata3, var_names=["beta"], ref_val=[0.08432, 0.2, 0.4]);
 ```
 
+While the parameter estimates seem reasonable and the posterior predictive checks seem good too, the point to see here is that the cutpoints are unconstrained by the definition of the ordinal scale. They vary below 0 in the above model.
+
 ```{code-cell} ipython3
 :tags: []
 
@@ -345,6 +347,10 @@ plot_fit(idata4)
 
 az.plot_posterior(idata4, var_names=["beta"], ref_val=[0.08432, 0.2, 0.4]);
 ```
+
+Again the parameters seem reasonable, and posterior predictive checks are sound. But now, having using the constrained uniform prior over the cutpoints our estimated cutpoints respect the definition of the ordinal scale. 
+
++++
 
 ## Comparison to Statsmodels
 
@@ -379,5 +385,3 @@ resf_logit.summary()
 
 :::{include} ../page_footer.md
 :::
-
-+++
