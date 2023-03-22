@@ -145,7 +145,7 @@ In this notebook we'll show how to fit regression models to outcomes with ordere
 ## Fit a variety of Model Specifications
 
 ```{code-cell} ipython3
-:tags: [hide-output]
+:tags: []
 
 def constrainedUniform(N, min=0, max=1):
     return pm.Deterministic(
@@ -158,9 +158,12 @@ def constrainedUniform(N, min=0, max=1):
             ]
         ),
     )
+```
 
+```{code-cell} ipython3
+:tags: [hide-output]
 
-def make_model(priors, model_spec=1, constrained_uniform=False):
+def make_model(priors, model_spec=1, constrained_uniform=False, logit=True):
     with pm.Model() as model:
 
         if constrained_uniform:
@@ -185,7 +188,10 @@ def make_model(priors, model_spec=1, constrained_uniform=False):
             mu = pm.Deterministic(
                 "mu", beta[0] * df.salary + beta[1] * df.work_sat + beta[2] * df.work_from_home
             )
-        y_ = pm.OrderedLogistic("y", cutpoints=cutpoints, eta=mu, observed=df.explicit_rating)
+        if logit:
+            y_ = pm.OrderedLogistic("y", cutpoints=cutpoints, eta=mu, observed=df.explicit_rating)
+        else:
+            y_ = pm.OrderedProbit("y", cutpoints=cutpoints, eta=mu, observed=df.explicit_rating)
         idata = pm.sample(nuts_sampler="numpyro", idata_kwargs={"log_likelihood": True})
         idata.extend(pm.sample_posterior_predictive(idata))
     return idata, model
@@ -196,6 +202,7 @@ idata1, model1 = make_model(priors, model_spec=1)
 idata2, model2 = make_model(priors, model_spec=2)
 idata3, model3 = make_model(priors, model_spec=3)
 idata4, model4 = make_model(priors, model_spec=3, constrained_uniform=True)
+idata5, model5 = make_model(priors, model_spec=3, constrained_uniform=True)
 ```
 
 ```{code-cell} ipython3
@@ -270,6 +277,7 @@ compare = az.compare(
         "model_salary_worksat": idata2,
         "model_full": idata3,
         "constrained_uniform": idata4,
+        "probit_full": idata5,
     }
 )
 
@@ -281,7 +289,7 @@ compare
 :tags: []
 
 ax = az.plot_forest(
-    [idata1, idata2, idata3, idata4],
+    [idata1, idata2, idata3, idata4, idata5],
     var_names=["sigma", "beta", "cutpoints"],
     combined=True,
     ridgeplot_overlap=4,
@@ -293,9 +301,10 @@ ax = az.plot_forest(
         "rating ~ salary + work_sat",
         "rating ~ salary + work_sat + work_from_home",
         "full_constrained_uniform",
+        "full_constrained_probit",
     ],
 )
-ax[0].set_title("Model Parameter Estimates", fontsize=20)
+ax[0].set_title("Model Parameter Estimates", fontsize=20);
 ```
 
 ```{code-cell} ipython3
@@ -362,6 +371,157 @@ modf_logit = OrderedModel.from_formula(
 )
 resf_logit = modf_logit.fit(method="bfgs")
 resf_logit.summary()
+```
+
+## Kruschke's IMDB movie Ratings Data
+
+There are substantial reasons for using an ordinal regression model rather than trusting to alternatives. The temptation to treat the ordered category as a continuous metric will lead to false inferences. The details are discussed in Kruschke's paper on this topic. We'll briefly replicate his example about this phenomenon can appear in analysis of movies ratings data.
+
+```{code-cell} ipython3
+:tags: []
+
+movies = pd.read_csv("../data/MoviesData.csv")
+movies.head()
+```
+
+```{code-cell} ipython3
+:tags: []
+
+import pandas as pd
+
+movies = pd.read_csv("../data/MoviesData.csv")
+
+
+def pivot_movie(row):
+    row_ratings = row[["n1", "n2", "n3", "n4", "n5"]]
+    totals = []
+    for c, i in zip(row_ratings.index, range(5)):
+        totals.append(row_ratings[c] * [i])
+    totals = [item for sublist in totals for item in sublist]
+    movie = [row["Descrip"]] * len(totals)
+    id = [row["ID"]] * len(totals)
+    return pd.DataFrame({"rating": totals, "movie": movie, "movie_id": id})
+
+
+movies_by_rating = pd.concat([pivot_movie(movies.iloc[i]) for i in range(len(movies))])
+movies_by_rating.reset_index(inplace=True, drop=True)
+movies_by_rating.shape
+```
+
+```{code-cell} ipython3
+:tags: []
+
+movies_by_rating.sample(100).head()
+```
+
+```{code-cell} ipython3
+:tags: []
+
+def constrainedUniform(N, group, min=0, max=1):
+    return pm.Deterministic(
+        f"cutpoints_{group}",
+        pt.concatenate(
+            [
+                np.ones(1) * min,
+                pt.extra_ops.cumsum(pm.Dirichlet(f"cuts_unknown_{group}", a=np.ones(N - 2)))
+                * (min + (max - min)),
+            ]
+        ),
+    )
+```
+
+We will fit this data with both an ordinal model and as a metric. This will show how the ordinal fit is subtantially more compelling. 
+
+```{code-cell} ipython3
+:tags: []
+
+K = 5
+movies_by_rating = movies_by_rating[movies_by_rating["movie_id"].isin([1, 2, 3, 4, 5, 6])]
+indx, unique = pd.factorize(movies_by_rating["movie_id"])
+priors = {"sigma": 1, "mu": [0, 1], "cut_mu": np.linspace(0, K, K - 1)}
+coords = {"movie_id": unique}
+ordered = False
+
+
+def make_movies_model(ordered=False):
+    with pm.Model(coords=coords) as model:
+
+        for g in movies_by_rating["movie_id"].unique():
+            if ordered:
+                cutpoints = constrainedUniform(K, g, 0, K - 1)
+                mu = pm.Normal(f"mu_{g}", priors["mu"][0], priors["mu"][1])
+                y_ = pm.OrderedLogistic(
+                    f"y_{g}",
+                    cutpoints=cutpoints,
+                    eta=mu,
+                    observed=movies_by_rating[movies_by_rating["movie_id"] == g].rating.values,
+                )
+            else:
+                mu = pm.Normal(f"mu_{g}", 3, 1)
+                sigma = pm.HalfNormal(f"sigma_{g}", 1)
+                y_ = pm.Normal(
+                    f"y_{g}",
+                    mu,
+                    sigma,
+                    observed=movies_by_rating[movies_by_rating["movie_id"] == g].rating.values,
+                )
+
+        idata = pm.sample_prior_predictive()
+        idata.extend(pm.sample(nuts_sampler="numpyro", idata_kwargs={"log_likelihood": True}))
+        idata.extend(pm.sample_posterior_predictive(idata))
+    return idata, model
+
+
+idata_ordered, model_ordered = make_movies_model(ordered=True)
+idata_normal_metric, model_normal_metric = make_movies_model(ordered=False)
+```
+
+### Posterior Predictive Fit: Normal Metric Model
+
+This is a horrific fit to the movies rating data for six movies.
+
+```{code-cell} ipython3
+:tags: []
+
+az.plot_ppc(idata_normal_metric);
+```
+
+### Posterior Predictive Fit: Ordered Response Model
+
+This shows a much nicer fit for each of the six movies. 
+
+```{code-cell} ipython3
+:tags: []
+
+az.plot_ppc(idata_ordered);
+```
+
+### Compare Inferences between Models
+
+Aside from the predictive fits, the inference drawns from the different modelling choices also vary quite significantly.
+
+```{code-cell} ipython3
+:tags: []
+
+fig, axs = plt.subplots(2, 3, figsize=(15, 7))
+axs = axs.flatten()
+ordered_5 = az.extract(idata_ordered.posterior)["mu_5"]
+ordered_6 = az.extract(idata_ordered.posterior)["mu_6"]
+diff = ordered_5 - ordered_6
+metric_5 = az.extract(idata_normal_metric.posterior)["mu_5"]
+metric_6 = az.extract(idata_normal_metric.posterior)["mu_6"]
+diff1 = metric_5 - metric_6
+axs[0].hist(ordered_5, bins=30, ec="white", color="slateblue")
+axs[1].hist(diff, ec="white", label="Ordered Fit", bins=30)
+axs[2].hist(ordered_6, bins=30, ec="white", color="cyan")
+axs[3].hist(metric_5, ec="white", bins=30, color="magenta")
+axs[4].hist(diff1, ec="white", label="Metric Fit", bins=30, color="red")
+axs[5].hist(metric_6, ec="white", bins=30, color="pink")
+axs[1].set_title("Difference Between the \n Expected Movie Ratings")
+axs[0].set_title("Posterior Estimate of Mu for Movie 5")
+axs[2].set_title("Posterior Estimate of Mu for Movie 6")
+axs[1].legend()
+axs[4].legend();
 ```
 
 ## Authors
