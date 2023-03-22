@@ -55,8 +55,9 @@ def make_data():
     salary = np.random.normal(40, 10, 500)
     work_sat = np.random.beta(1, 0.4, 500)
     work_from_home = bernoulli.rvs(0.7, size=500)
+    work_from_home_calc = np.where(work_from_home, 1.4 * work_from_home, work_from_home)
     latent_rating = (
-        0.08423 * salary + 0.2 * work_sat + 0.4 * work_from_home + np.random.normal(0, 1, 500)
+        0.08423 * salary + 0.2 * work_sat + work_from_home_calc + np.random.normal(0, 1, 500)
     )
     explicit_rating = np.round(latent_rating, 0)
     df = pd.DataFrame(
@@ -110,7 +111,7 @@ axs[2].set_xlabel("Employee Work Satisfaction")
 axs[1].legend();
 ```
 
-We can see here however that if we fit this model with a simple OLS fit it implies values beyond the categorical scale, which might motivate spurious salary increases by an overzealous HR manager. The OLS approximation is not bad, but is limited in that it cannot account for the proper nature of the outcome variable. 
+We can see here however that if we fit this model with a simple OLS fit it implies values beyond the categorical scale, which might motivate spurious salary increases by an overzealous HR manager. The OLS approximation is limited in that it cannot account for the proper nature of the outcome variable. 
 
 ```{code-cell} ipython3
 :tags: []
@@ -138,11 +139,42 @@ axs[0].set_title("Simple OLS Residuals on Training Data");
 
 ## Ordinal Regression Models: The Idea
 
-In this notebook we'll show how to fit regression models to outcomes with ordered categories. These types of models can be considered as an application logistic regression models with multiple thresholds on a latent continuous scale. 
+In this notebook we'll show how to fit regression models to outcomes with ordered categories. These types of models can be considered as an application logistic regression models with multiple thresholds on a latent continuous scale. This is quite a natural perspective e.g. imagine the bundling of complexity that gets hidden in crude political classifications: liberal, moderate and conservative. You may have a range of views on any number of political issues, but they all get collapsed in the political calculus to finite set of (generally poor) choices. Which of the last 10 political choices pushed you from liberal to moderate?
+
+
+The idea is to treat the outcome variable (our categorical) judgment as deriving from an underlying continuous measure. We see the outcomes we do just when some threshold on that continuous measure has been achieved. The primary inferential task of ordinal regression is to derive an estimate of those thresholds in the latent continuous space. 
+
+In the data set above we've explicitly specified the relationship, and in the following steps we'll estimate a variety of ordinal regression models.
 
 +++
 
 ## Fit a variety of Model Specifications
+
+The model specification for ordinal regression models typically makes use of the the logit transformation and the cumulative probabilities implied. For $c$ outcome categories with probabilities $\pi_1, .... \pi_n$ the *cumulative logits* are defined:
+
+$$ logit[P(Y \leq j)]  = log \frac{P(Y \leq j)}{1 - p(Y \leq j)}  = log \frac{\pi_1 + ... + \pi_j}{\pi_{j+1} + ... + \pi_n} \text{ where  j = 1, ..., c-1} $$
+
+This gets employed in a regression context where we specify the factors which determine our latent outcome in a linear fashion:
+
+$$ logit[P(Y \leq j)] = \alpha_{j} + \beta'x $$
+
+which implies that:
+
+$$ P(Y \leq j) = \frac{exp(\alpha_{j} + \beta'x)}{1 + exp(\alpha_{j} + \beta'x)} $$
+
+and that the probability for belonging within a particular category $j$ is determined by the probability of being in the cell defined by: 
+
+$$ P(Y = j) = \frac{exp(\alpha_{j} + \beta'x)}{1 + exp(\alpha_{j} + \beta'x)} - \frac{exp(\alpha_{j-1} + \beta'x)}{1 + exp(\alpha_{j-1} + \beta'x)} $$
+
+One nice feature of ordinal regressions specified in this fashion is that the interpretation of the coefficients on the beta terms remain the same across each interval on the latent space. The interpretaiton of the model parameters is typical: a unit increase in $x_{k}$ corresponds to an increase in $Y_{latent}$ of $\beta_{k}$ Similar interpretation holds for probit regression specification too. 
+
+### Bayesian Particularities 
+
+While Ordinal regression is often performed in a frequentist paradigm, the same techniques can be applied in a Bayesian setting with all the benefits of posterior probability distributions and posterior predictive simulations. In PyMC there are at least two ways we can go about specifying the priors over the this model. The first one uses a constrained Dirichlet distribution to define a prior over the thresholds. The second method, a little looser allows the specification of any prior distribution with suitable number of cutpoints applying a ordering transformation on the generated samples from the prior distribution. 
+
+We'll show both in this notebook, but as we'll see, the definition of the Dirchlet ensures properties which make it a better fit for the constrained outcome space. In each approach we can include covariates as in more standard regression models. 
+
+PyMC has both `OrderedLogistic` and `OrderedProbit` distributions available. 
 
 ```{code-cell} ipython3
 :tags: []
@@ -159,6 +191,8 @@ def constrainedUniform(N, min=0, max=1):
         ),
     )
 ```
+
+The above function, (brainchild of Dr Ben Vincent), looks a little indimidating, but it's just a convenience function to specify a prior over the cutpoints in our $Y_{latent}$. The Dirichlet distribution is special in that draws from the distribution must sum to one. The above function ensures that each draw from the prior distribution is a cumulative share of the maximum category greater than the minimum of our ordinal categorisation. 
 
 ```{code-cell} ipython3
 :tags: [hide-output]
@@ -183,7 +217,7 @@ def make_model(priors, model_spec=1, constrained_uniform=False, logit=True):
         elif model_spec == 2:
             beta = pm.Normal("beta", priors["beta"][0], priors["beta"][1], size=2)
             mu = pm.Deterministic("mu", beta[0] * df.salary + beta[1] * df.work_sat)
-        else:
+        elif model_spec == 3:
             beta = pm.Normal("beta", priors["beta"][0], priors["beta"][1], size=3)
             mu = pm.Deterministic(
                 "mu", beta[0] * df.salary + beta[1] * df.work_sat + beta[2] * df.work_from_home
@@ -219,6 +253,8 @@ pm.model_to_graphviz(model3)
 
 ### Extracting the Probabilities 
 
+We can now for each individual manager's rating, look at the probability associated with each of the available categories. Across the posterior distributions of our cuts which section of the latent continous measure the employee is most likely to fall into.
+
 ```{code-cell} ipython3
 :tags: []
 
@@ -239,8 +275,8 @@ fig, ax = plt.subplots(figsize=(20, 6))
 for i in range(K):
     ax.hist(implied_probs[0, i, :], label=f"Cutpoint: {i}", ec="white", bins=20)
 ax.set_xlabel("Probability")
-ax.set_title("Probability by Interval of Manager Rating \n by Individual 0")
-ax.legend()
+ax.set_title("Probability by Interval of Manager Rating \n by Individual 0", fontsize=20)
+ax.legend();
 ```
 
 ```{code-cell} ipython3
@@ -263,7 +299,7 @@ mode(implied_class[0])
 
 fig, ax = plt.subplots(figsize=(20, 6))
 ax.hist(implied_class[0], ec="white", bins=20)
-ax.set_title("Distribution of Allocated Intervals for Individual O");
+ax.set_title("Distribution of Allocated Intervals for Individual O", fontsize=20);
 ```
 
 ## Compare Models: Parameter Fits and LOO
@@ -276,8 +312,8 @@ compare = az.compare(
         "model_salary": idata1,
         "model_salary_worksat": idata2,
         "model_full": idata3,
-        "constrained_uniform": idata4,
-        "probit_full": idata5,
+        "constrained_logit_full": idata4,
+        "constrained_probit_full": idata5,
     }
 )
 
@@ -293,15 +329,15 @@ ax = az.plot_forest(
     var_names=["sigma", "beta", "cutpoints"],
     combined=True,
     ridgeplot_overlap=4,
-    figsize=(20, 10),
+    figsize=(20, 15),
     r_hat=True,
     ridgeplot_alpha=0.3,
     model_names=[
-        "rating ~ salary",
-        "rating ~ salary + work_sat",
-        "rating ~ salary + work_sat + work_from_home",
-        "full_constrained_uniform",
-        "full_constrained_probit",
+        "model_salary",
+        "model_salary_worksat",
+        "model_full",
+        "constrained_logit_full",
+        "constrained_probit_full",
     ],
 )
 ax[0].set_title("Model Parameter Estimates", fontsize=20);
@@ -314,6 +350,8 @@ az.summary(idata3, var_names=["cutpoints", "beta", "sigma"])
 ```
 
 ## Compare Cutpoints: Normal V Uniform Priors
+
+Note how the model with unconstrianed cutpoints allows the occurence of a threshold estimated to be below zero. This does not make much conceptual sense, but can lead to a plausible enough posterior predictive distribution.
 
 ```{code-cell} ipython3
 :tags: []
@@ -340,10 +378,12 @@ plot_fit(idata3)
 ```{code-cell} ipython3
 :tags: []
 
-az.plot_posterior(idata3, var_names=["beta"], ref_val=[0.08432, 0.2, 0.4]);
+az.plot_posterior(idata3, var_names=["beta"]);
 ```
 
 While the parameter estimates seem reasonable and the posterior predictive checks seem good too, the point to see here is that the cutpoints are unconstrained by the definition of the ordinal scale. They vary below 0 in the above model.
+
+However if we look at the model with the constrained Dirchlet prior: 
 
 ```{code-cell} ipython3
 :tags: []
@@ -354,7 +394,7 @@ plot_fit(idata4)
 ```{code-cell} ipython3
 :tags: []
 
-az.plot_posterior(idata4, var_names=["beta"], ref_val=[0.08432, 0.2, 0.4]);
+az.plot_posterior(idata4, var_names=["beta"]);
 ```
 
 Again the parameters seem reasonable, and posterior predictive checks are sound. But now, having using the constrained uniform prior over the cutpoints our estimated cutpoints respect the definition of the ordinal scale. 
@@ -433,18 +473,16 @@ def constrainedUniform(N, group, min=0, max=1):
 We will fit this data with both an ordinal model and as a metric. This will show how the ordinal fit is subtantially more compelling. 
 
 ```{code-cell} ipython3
-:tags: []
+:tags: [hide-output]
 
 K = 5
 movies_by_rating = movies_by_rating[movies_by_rating["movie_id"].isin([1, 2, 3, 4, 5, 6])]
 indx, unique = pd.factorize(movies_by_rating["movie_id"])
 priors = {"sigma": 1, "mu": [0, 1], "cut_mu": np.linspace(0, K, K - 1)}
-coords = {"movie_id": unique}
-ordered = False
 
 
 def make_movies_model(ordered=False):
-    with pm.Model(coords=coords) as model:
+    with pm.Model() as model:
 
         for g in movies_by_rating["movie_id"].unique():
             if ordered:
@@ -483,7 +521,10 @@ This is a horrific fit to the movies rating data for six movies.
 ```{code-cell} ipython3
 :tags: []
 
-az.plot_ppc(idata_normal_metric);
+axs = az.plot_ppc(idata_normal_metric)
+axs = axs.flatten()
+for ax in axs:
+    ax.set_xlim(0, 5);
 ```
 
 ### Posterior Predictive Fit: Ordered Response Model
@@ -494,6 +535,34 @@ This shows a much nicer fit for each of the six movies.
 :tags: []
 
 az.plot_ppc(idata_ordered);
+```
+
+### Compare Model Fits
+
+```{code-cell} ipython3
+:tags: []
+
+y_5_compare = az.compare({"ordered": idata_ordered, "metric": idata_normal_metric}, var_name="y_5")
+y_5_compare
+```
+
+```{code-cell} ipython3
+:tags: []
+
+y_6_compare = az.compare({"ordered": idata_ordered, "metric": idata_normal_metric}, var_name="y_6")
+y_6_compare
+```
+
+```{code-cell} ipython3
+:tags: []
+
+az.plot_compare(y_5_compare)
+```
+
+```{code-cell} ipython3
+:tags: []
+
+az.plot_compare(y_6_compare)
 ```
 
 ### Compare Inferences between Models
@@ -523,6 +592,12 @@ axs[2].set_title("Posterior Estimate of Mu for Movie 6")
 axs[1].legend()
 axs[4].legend();
 ```
+
+# Conclusion
+
+In this notebook we've seen how to build ordinal regression models with PyMC and motivated the modelling exercise using the interpretation of ordinal outcomes as the discrete outcomes of a latent continuous phenomena. We've seen how different model specifications can generate more or less interpretable estimates of the parameters underlying the model. We've also compared the ordinal regression approach to a more naive regression approach on ordinal data. The results strongly suggest that the ordinal regression avoids some of the inferential pitfalls that occur with the naive approach. 
+
++++
 
 ## Authors
 - Authored by [Nathaniel Forde](https://github.com/NathanielF) in April 2023 
