@@ -115,7 +115,7 @@ def setup(app: Sphinx):
 # theme options
 html_theme = "pymc_sphinx_theme"
 html_theme_options = {
-    "secondary_sidebar_items": ["ablog/postcard", "page-toc", "edit-this-page", "sourcelink", "donate"],
+    "secondary_sidebar_items": ["postcard", "page-toc", "edit-this-page", "sourcelink", "donate"],
     "navbar_start": ["navbar-logo"],
     "logo": {
         "link": "https://www.pymc.io",
@@ -151,7 +151,7 @@ html_sidebars = {
     "**": [
         "sidebar-nav-bs.html",
         "postcard_categories.html",
-        "ablog/tagcloud.html",
+        "tagcloud.html",
     ],
 }
 
