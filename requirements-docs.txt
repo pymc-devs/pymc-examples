@@ -1,6 +1,6 @@
 myst-nb
 sphinx==5.0.2 # see https://github.com/pymc-devs/pymc-examples/issues/409
-git+https://github.com/pymc-devs/pymc-sphinx-theme
+git+https://github.com/pymc-devs/pymc-sphinx-theme@pst_013_compatibility
 sphinx-design
 sphinx-copybutton
 sphinxcontrib-bibtex
