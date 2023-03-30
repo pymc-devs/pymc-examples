@@ -679,12 +679,12 @@ az.summary(trace)
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace, figsize=(7, 7))
+az.plot_trace(trace, kind="rank_bars")
 plt.suptitle(f"Trace Plot {sampler}");
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(7, 4))
+_, ax = plt.subplots(figsize=(12, 4))
 plot_inference(ax, trace, title=f"Data and Inference Model Runs\n{sampler} Sampler");
 ```
 
@@ -753,7 +753,7 @@ def lv_scan_simulation_model(theta, steps_year=100, years=21):
 Run the simulation for various time steps and plot the results.   
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(7, 4))
+_, ax = plt.subplots(figsize=(12, 4))
 
 steps_years = [12, 100, 1000, 10000]
 for steps_year in steps_years:
@@ -841,7 +841,7 @@ az.summary(trace)
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace, figsize=(7, 7))
+az.plot_trace(trace, kind="rank_bars")
 plt.suptitle(f"Trace Plot {sampler}");
 ```
 
@@ -851,7 +851,7 @@ odeint(func=rhs, y0=theta[-2:], t=time, args=(theta,)).shape
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(7, 4))
+_, ax = plt.subplots(figsize=(12, 4))
 plot_inference(ax, trace, title=f"Data and Inference Model Runs\n{sampler} Sampler");
 ```
 
