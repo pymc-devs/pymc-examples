@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc5
+  display_name: pymc-dev
   language: python
-  name: pymc5
+  name: python3
 ---
 
 # Using ModelBuilder class for deploying PyMC models 
@@ -271,8 +271,12 @@ After using the `predict()`, we can plot our data and see graphically how satisf
 fig, ax = plt.subplots(figsize=(7, 7))
 ax.plot(
     x_pred,
+    marker="x",
+    label="predict",
+),
+ax.plot(
     pred_mean["y"],
-    "x",
+    marker="x",
     label="predict",
 )
 ax.set(title="Posterior predictive regression lines", xlabel="x", ylabel="y")
