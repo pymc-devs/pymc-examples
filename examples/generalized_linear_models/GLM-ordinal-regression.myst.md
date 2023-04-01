@@ -139,7 +139,7 @@ axs[0].set_title("Simple OLS Residuals on Training Data");
 
 ## Ordinal Regression Models: The Idea
 
-In this notebook we'll show how to fit regression models to outcomes with ordered categories. These types of models can be considered as an application logistic regression models with multiple thresholds on a latent continuous scale. This is quite a natural perspective e.g. imagine the bundling of complexity that gets hidden in crude political classifications: liberal, moderate and conservative. You may have a range of views on any number of political issues, but they all get collapsed in the political calculus to finite set of (generally poor) choices. Which of the last 10 political choices pushed you from liberal to moderate?
+In this notebook we'll show how to fit regression models to outcomes with ordered categories. These types of models can be considered as an application logistic regression models with multiple thresholds on a latent continuous scale. The idea is that there is a latent metric which can be partitioned by the extremity of the measure, but we observe only the indicator for which partition of the scale an individual resides. This is quite a natural perspective e.g. imagine the bundling of complexity that gets hidden in crude political classifications: liberal, moderate and conservative. You may have a range of views on any number of political issues, but they all get collapsed in the political calculus to finite set of (generally poor) choices. Which of the last 10 political choices pushed you from liberal to moderate?
 
 
 The idea is to treat the outcome variable (our categorical) judgment as deriving from an underlying continuous measure. We see the outcomes we do just when some threshold on that continuous measure has been achieved. The primary inferential task of ordinal regression is to derive an estimate of those thresholds in the latent continuous space. 
@@ -567,29 +567,45 @@ az.plot_compare(y_6_compare)
 
 ### Compare Inferences between Models
 
-Aside from the predictive fits, the inference drawns from the different modelling choices also vary quite significantly.
+Aside from the predictive fits, the inference drawn from the different modelling choices also vary quite significantly.
 
 ```{code-cell} ipython3
 :tags: []
 
-fig, axs = plt.subplots(2, 3, figsize=(15, 7))
-axs = axs.flatten()
+mosaic = """
+AC
+DE
+BB
+"""
+fig, axs = plt.subplot_mosaic(mosaic, figsize=(15, 7))
+axs = [axs[k] for k in axs.keys()]
+axs
 ordered_5 = az.extract(idata_ordered.posterior)["mu_5"]
 ordered_6 = az.extract(idata_ordered.posterior)["mu_6"]
 diff = ordered_5 - ordered_6
 metric_5 = az.extract(idata_normal_metric.posterior)["mu_5"]
 metric_6 = az.extract(idata_normal_metric.posterior)["mu_6"]
 diff1 = metric_5 - metric_6
-axs[0].hist(ordered_5, bins=30, ec="white", color="slateblue")
-axs[1].hist(diff, ec="white", label="Ordered Fit", bins=30)
-axs[2].hist(ordered_6, bins=30, ec="white", color="cyan")
-axs[3].hist(metric_5, ec="white", bins=30, color="magenta")
-axs[4].hist(diff1, ec="white", label="Metric Fit", bins=30, color="red")
-axs[5].hist(metric_6, ec="white", bins=30, color="pink")
-axs[1].set_title("Difference Between the \n Expected Movie Ratings")
-axs[0].set_title("Posterior Estimate of Mu for Movie 5")
-axs[2].set_title("Posterior Estimate of Mu for Movie 6")
+axs[0].hist(ordered_5, bins=30, ec="white", color="slateblue", label="Ordered Fit Movie 5")
+axs[4].plot(
+    az.hdi(diff.unstack())["x"].values, [1, 1], "ro-", color="slateblue", label="Ordered Fits"
+)
+axs[4].plot(
+    az.hdi(diff1.unstack())["x"].values, [1.2, 1.2], "ro-", color="magenta", label="Metric Fits"
+)
+axs[2].hist(ordered_6, bins=30, ec="white", color="slateblue", label="Ordered Fit Movie 6")
+axs[3].hist(metric_5, ec="white", label="Metric Fit Movie 5", bins=30, color="magenta")
+axs[1].hist(metric_6, ec="white", label="Metric Fit Movie 6", bins=30, color="magenta")
+axs[4].set_title("Implied Differences Between the \n Expected Mu Parameter")
+axs[4].set_ylim(0.8, 1.4)
+axs[4].set_yticks([])
+axs[0].set_title("Posterior Estimate of Mu for Movies Ordered Fits")
+axs[1].set_title("Posterior Estimate of Mu for Movie Metric Fits")
+axs[4].set_xlabel("Difference between Movie 5 and 6")
 axs[1].legend()
+axs[0].legend()
+axs[2].legend()
+axs[3].legend()
 axs[4].legend();
 ```
 
