@@ -30,6 +30,7 @@ import pymc as pm
 import pytensor
 import pytensor.tensor as pt
 
+from numba import njit
 from pymc.ode import DifferentialEquation
 from pytensor.compile.ops import as_op
 from scipy.integrate import odeint
@@ -112,7 +113,7 @@ def plot_data(ax, lw=2, title="Hudson's Bay Company Data"):
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(7, 4))
+_, ax = plt.subplots(figsize=(12, 4))
 plot_data(ax);
 ```
 
@@ -129,6 +130,10 @@ Here, we make a Python function that represents the right-hand-side of the ODE e
 
 ```{code-cell} ipython3
 # define the right hand side of the ODE equations in the Scipy odeint signature
+from numba import njit
+
+
+@njit
 def rhs(X, t, theta):
     # unpack parameters
     x, y = X
@@ -161,14 +166,14 @@ def plot_model(
 
 ```{code-cell} ipython3
 # note theta = alpha, beta, gamma, delta, xt0, yt0
-theta = [0.52, 0.026, 0.84, 0.026, 34.0, 5.9]
+theta = np.array([0.52, 0.026, 0.84, 0.026, 34.0, 5.9])
 time = np.arange(1900, 1921, 0.01)
 
 # call Scipy's odeint function
 x_y = odeint(func=rhs, y0=theta[-2:], t=time, args=(theta,))
 
 # plot
-fig, ax = plt.subplots(figsize=(7, 4))
+_, ax = plt.subplots(figsize=(12, 4))
 plot_data(ax, lw=0)
 plot_model(ax, x_y);
 ```
@@ -211,7 +216,7 @@ Plot
 time = np.arange(1900, 1921, 0.01)
 theta = results.x
 x_y = odeint(func=rhs, y0=theta[-2:], t=time, args=(theta,))
-fig, ax = plt.subplots(figsize=(7, 4))
+fig, ax = plt.subplots(figsize=(12, 4))
 plot_data(ax, lw=0)
 plot_model(ax, x_y, title="Least Squares Solution");
 ```
@@ -250,13 +255,13 @@ We will use a normal likelihood on untransformed data (i.e., not log transformed
 theta = results.x  # least squares solution used to inform the priors
 with pm.Model() as model:
     # Priors
-    alpha = pm.TruncatedNormal("alpha", mu=theta[0], sigma=theta[0], lower=0, initval=theta[0])
-    beta = pm.TruncatedNormal("beta", mu=theta[1], sigma=theta[1], lower=0, initval=theta[1])
-    gamma = pm.TruncatedNormal("gamma", mu=theta[2], sigma=theta[2], lower=0, initval=theta[2])
-    delta = pm.TruncatedNormal("delta", mu=theta[3], sigma=theta[3], lower=0, initval=theta[3])
-    xt0 = pm.TruncatedNormal("xto", mu=theta[4], sigma=theta[4], lower=0, initval=theta[4])
-    yt0 = pm.TruncatedNormal("yto", mu=theta[5], sigma=theta[5], lower=0, initval=theta[5])
-    sigma = pm.TruncatedNormal("sigma", mu=10, sigma=10, lower=0)
+    alpha = pm.TruncatedNormal("alpha", mu=theta[0], sigma=0.1, lower=0, initval=theta[0])
+    beta = pm.TruncatedNormal("beta", mu=theta[1], sigma=0.01, lower=0, initval=theta[1])
+    gamma = pm.TruncatedNormal("gamma", mu=theta[2], sigma=0.1, lower=0, initval=theta[2])
+    delta = pm.TruncatedNormal("delta", mu=theta[3], sigma=0.01, lower=0, initval=theta[3])
+    xt0 = pm.TruncatedNormal("xto", mu=theta[4], sigma=1, lower=0, initval=theta[4])
+    yt0 = pm.TruncatedNormal("yto", mu=theta[5], sigma=1, lower=0, initval=theta[5])
+    sigma = pm.HalfNormal("sigma", 10)
 
     # Ode solution function
     ode_solution = pytensor_forward_model_matrix(
@@ -277,7 +282,7 @@ A couple of plotting functions that we will reuse below.
 ```{code-cell} ipython3
 def plot_model_trace(ax, trace_df, row_idx, lw=1, alpha=0.2):
     cols = ["alpha", "beta", "gamma", "delta", "xto", "yto"]
-    row = trace_df.iloc[row_idx, :][cols]
+    row = trace_df.iloc[row_idx, :][cols].values
 
     # alpha, beta, gamma, delta, Xt0, Yt0
     time = np.arange(1900, 1921, 0.01)
@@ -328,22 +333,22 @@ vars_list = list(model.values_to_rvs.keys())[:-1]
 ```{code-cell} ipython3
 # Specify the sampler
 sampler = "Slice Sampler"
-tune = draws = 500
+tune = draws = 2000
 
 # Inference!
 with model:
-    trace_slice = pm.sample(step=[pm.Slice(vars_list)], tune=tune, draws=draws, cores=1)
+    trace_slice = pm.sample(step=[pm.Slice(vars_list)], tune=tune, draws=draws)
 trace = trace_slice
 az.summary(trace)
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace, figsize=(7, 7))
+az.plot_trace(trace, kind="rank_bars")
 plt.suptitle(f"Trace Plot {sampler}");
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(7, 4))
+fig, ax = plt.subplots(figsize=(12, 4))
 plot_inference(ax, trace, title=f"Data and Inference Model Runs\n{sampler} Sampler");
 ```
 
@@ -358,18 +363,18 @@ The Slice sampler was slow and resulted in a low effective sample size.  Despite
 sampler = "DEMetropolisZ"
 tune = draws = 5000
 with model:
-    trace_DEMZ = pm.sample(step=[pm.DEMetropolisZ(vars_list)], tune=tune, draws=draws, cores=1)
+    trace_DEMZ = pm.sample(step=[pm.DEMetropolisZ(vars_list)], tune=tune, draws=draws)
 trace = trace_DEMZ
 az.summary(trace)
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace, figsize=(7, 7))
+az.plot_trace(trace, kind="rank_bars")
 plt.suptitle(f"Trace Plot {sampler}");
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(7, 4))
+fig, ax = plt.subplots(figsize=(12, 4))
 plot_inference(ax, trace, title=f"Data and Inference\n{sampler} Sampler")
 ```
 
@@ -382,45 +387,30 @@ DEMetropolisZ sampled much quicker than the Slice sampler and therefore had a hi
 
 +++
 
-In these experiments, DEMetropolis sampler was not accepting `tune` and requiring `chains` to be at least 8.  We will go with 8 chains and truncate the trace following inference to remove the tuning steps (i.e., the "burn-in").   
+In these experiments, DEMetropolis sampler was not accepting `tune` and requiring `chains` to be at least 8. We set draws at 5000, lower number like 3000 produce bad mixing.
 
 ```{code-cell} ipython3
 sampler = "DEMetropolis"
 chains = 8
-draws = 3000
+draws = 6000
 with model:
-    trace_DEM = pm.sample(step=[pm.DEMetropolis(vars_list)], draws=draws, chains=chains, cores=1)
+    trace_DEM = pm.sample(step=[pm.DEMetropolis(vars_list)], draws=draws, chains=chains)
 trace = trace_DEM
 az.summary(trace)
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace, figsize=(7, 7))
+az.plot_trace(trace, kind="rank_bars")
 plt.suptitle(f"Trace Plot {sampler}");
 ```
 
-Truncate the trace based on a visual check (~1500 samples).  
-
 ```{code-cell} ipython3
-# truncate the trace
-burn = 1500
-trace_DEM = trace_DEM.sel(draw=slice(burn, None), groups="posterior")
-trace = trace_DEM
-az.summary(trace)
-```
-
-```{code-cell} ipython3
-az.plot_trace(trace, figsize=(7, 7))
-plt.suptitle(f"Trace Plot {sampler} - Burn-in Removed");
-```
-
-```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(7, 4))
+fig, ax = plt.subplots(figsize=(12, 4))
 plot_inference(ax, trace, title=f"Data and Inference Model Runs\n{sampler} Sampler");
 ```
 
 **Notes:**  
-After cleaning up the burn-in portion of the trace, the ESS is high, given the duration of sampling.  
+KDEs looks too wiggly, but ESS is high R-hat is good and rank_plots also look good
 
 +++
 
@@ -428,20 +418,20 @@ After cleaning up the burn-in portion of the trace, the ESS is high, given the d
 
 ```{code-cell} ipython3
 sampler = "Metropolis"
-tune = draws = 2000
+tune = draws = 5000
 with model:
-    trace_M = pm.sample(step=[pm.Metropolis(vars_list)], tune=tune, draws=draws, cores=1)
+    trace_M = pm.sample(step=[pm.Metropolis(vars_list)], tune=tune, draws=draws)
 trace = trace_M
 az.summary(trace)
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace, figsize=(7, 7))
+az.plot_trace(trace, kind="rank_bars")
 plt.suptitle(f"Trace Plot {sampler}");
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(7, 4))
+fig, ax = plt.subplots(figsize=(12, 4))
 plot_inference(ax, trace, title=f"Data and Inference Model Runs\n{sampler} Sampler");
 ```
 
@@ -454,7 +444,7 @@ The old-school Metropolis sampler is less reliable and slower than the DEMetropl
 
 +++
 
-The Sequential Monte Carlo (SMC) sampler is often presented as a likelihood-free method, however, it can also be used with a likelihood function.  First, we will demonstrate its use with a likelihood function based on the model above, and then we will demonstrate its use with a distance function and compare the results.   
+The Sequential Monte Carlo (SMC) sampler can be used to sample a regular Bayesian model or to run model without a likelihood (Aproximate Bayesian Computation). Let's try first with a regular model,
 
 +++
 
@@ -462,20 +452,24 @@ The Sequential Monte Carlo (SMC) sampler is often presented as a likelihood-free
 
 ```{code-cell} ipython3
 sampler = "SMC with Likelihood"
-draws = 500
+draws = 2000
 with model:
-    trace_SMC_like = pm.sample_smc(draws=draws, progressbar=True, cores=1)
+    trace_SMC_like = pm.sample_smc(draws)
 trace = trace_SMC_like
 az.summary(trace)
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace, figsize=(7, 7))
+trace.sample_stats._t_sampling
+```
+
+```{code-cell} ipython3
+az.plot_trace(trace, kind="rank_bars")
 plt.suptitle(f"Trace Plot {sampler}");
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(7, 4))
+fig, ax = plt.subplots(figsize=(12, 4))
 plot_inference(ax, trace, title=f"Data and Inference Model Runs\n{sampler} Sampler");
 ```
 
@@ -488,34 +482,36 @@ At this number of samples and tuning scheme, the SMC algorithm results in wider 
 
 +++
 
-As outlined in the SMC tutorial on PyMC.io, the SMC sampler is often combined with a `pm.Simulator` function rather than a Pytensor op.  Here is a rewrite of the PyMC - odeint model for the SMC sampler.
+As outlined in the SMC tutorial on PyMC.io, the SMC sampler can be used for Aproximate Bayesian Computation, i.e. we can use a `pm.Simulator` instead of a explicit likelihood.  Here is a rewrite of the PyMC - odeint model for SMC-ABC.
 
 The simulator function needs to have the correct signature (e.g., accept an rng argument first).  
 
 ```{code-cell} ipython3
 # simulator function based on the signature rng, parameters, size.
-def simulator_forward_model(rng, alpha, beta, gamma, delta, xt0, yt0, size=None):
+def simulator_forward_model(rng, alpha, beta, gamma, delta, xt0, yt0, sigma, size=None):
     theta = alpha, beta, gamma, delta, xt0, yt0
-    return odeint(func=rhs, y0=theta[-2:], t=data.year, args=(theta,))
+    mu = odeint(func=rhs, y0=theta[-2:], t=data.year, args=(theta,))
+    return rng.normal(mu, sigma)
 ```
 
-Here is the model with the simulator function.  This specification of SMC does not use a likelihood function but rather specifies a distance metric epsilon between the model and observed values.   
+Here is the model with the simulator function. Instead of a explicit likelihood function, the simulator uses distance metric (defaults to `gaussian`) between the simulated and observed values. When using a simulator we also need to specify epsilon, that is a tolerance value for the discrepancy between simulated and observed values. If epsilon is too low, SMC will not be able to move away from the initial values or a few values. We can easily see this with `az.plot_trace`. If epsilon is too high, the posterior will virtually be the prior. So
 
 ```{code-cell} ipython3
 with pm.Model() as model:
     # Specify prior distributions for model parameters
-    alpha = pm.TruncatedNormal("alpha", mu=theta[0], sigma=theta[0], lower=0, initval=theta[0])
-    beta = pm.TruncatedNormal("beta", mu=theta[1], sigma=theta[1], lower=0, initval=theta[1])
-    gamma = pm.TruncatedNormal("gamma", mu=theta[2], sigma=theta[2], lower=0, initval=theta[2])
-    delta = pm.TruncatedNormal("delta", mu=theta[3], sigma=theta[3], lower=0, initval=theta[3])
-    xt0 = pm.TruncatedNormal("xto", mu=theta[4], sigma=theta[4], lower=0, initval=theta[4])
-    yt0 = pm.TruncatedNormal("yto", mu=theta[5], sigma=theta[5], lower=0, initval=theta[5])
+    alpha = pm.TruncatedNormal("alpha", mu=theta[0], sigma=0.1, lower=0, initval=theta[0])
+    beta = pm.TruncatedNormal("beta", mu=theta[1], sigma=0.01, lower=0, initval=theta[1])
+    gamma = pm.TruncatedNormal("gamma", mu=theta[2], sigma=0.1, lower=0, initval=theta[2])
+    delta = pm.TruncatedNormal("delta", mu=theta[3], sigma=0.01, lower=0, initval=theta[3])
+    xt0 = pm.TruncatedNormal("xto", mu=theta[4], sigma=1, lower=0, initval=theta[4])
+    yt0 = pm.TruncatedNormal("yto", mu=theta[5], sigma=1, lower=0, initval=theta[5])
+    sigma = pm.HalfNormal("sigma", 10)
 
     # ode_solution
     pm.Simulator(
         "Y_obs",
         simulator_forward_model,
-        params=(alpha, beta, gamma, delta, xt0, yt0),
+        params=(alpha, beta, gamma, delta, xt0, yt0, sigma),
         epsilon=1,
         observed=data[["hare", "lynx"]].values,
     )
@@ -525,7 +521,7 @@ Inference.  Note the `progressbar` was throwing an error so it is turned off.
 
 ```{code-cell} ipython3
 sampler = "SMC_epsilon=1"
-draws = 300
+draws = 2000
 with model:
     trace_SMC_e1 = pm.sample_smc(draws=draws, progressbar=False)
 trace = trace_SMC_e1
@@ -533,17 +529,17 @@ az.summary(trace)
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace, figsize=(7, 7))
+az.plot_trace(trace, kind="rank_bars")
 plt.suptitle(f"Trace Plot {sampler}");
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(7, 4))
+fig, ax = plt.subplots(figsize=(12, 4))
 plot_inference(ax, trace, title=f"Data and Inference Model Runs\n{sampler} Sampler");
 ```
 
 **Notes:**  
-This is interesting.  The SMC sampler underestimates uncertainty compared to the other samplers.  What is going on?  Remember that the SMC sampler is using distance rather than a likelihood function.  So when epsilon is small, the parameter estimates are essentially converging toward the least squares estimate.  Let's try again with a larger epsilon.
+We can see that if epsilon is too low `plot_trace` will clearly show it.
 
 +++
 
@@ -551,19 +547,20 @@ This is interesting.  The SMC sampler underestimates uncertainty compared to the
 
 ```{code-cell} ipython3
 with pm.Model() as model:
-    # Priors
-    alpha = pm.TruncatedNormal("alpha", mu=theta[0], sigma=theta[0], lower=0, initval=theta[0])
-    beta = pm.TruncatedNormal("beta", mu=theta[1], sigma=theta[1], lower=0, initval=theta[1])
-    gamma = pm.TruncatedNormal("gamma", mu=theta[2], sigma=theta[2], lower=0, initval=theta[2])
-    delta = pm.TruncatedNormal("delta", mu=theta[3], sigma=theta[3], lower=0, initval=theta[3])
-    xt0 = pm.TruncatedNormal("xto", mu=theta[4], sigma=theta[4], lower=0, initval=theta[4])
-    yt0 = pm.TruncatedNormal("yto", mu=theta[5], sigma=theta[5], lower=0, initval=theta[5])
+    # Specify prior distributions for model parameters
+    alpha = pm.TruncatedNormal("alpha", mu=theta[0], sigma=0.1, lower=0, initval=theta[0])
+    beta = pm.TruncatedNormal("beta", mu=theta[1], sigma=0.01, lower=0, initval=theta[1])
+    gamma = pm.TruncatedNormal("gamma", mu=theta[2], sigma=0.1, lower=0, initval=theta[2])
+    delta = pm.TruncatedNormal("delta", mu=theta[3], sigma=0.01, lower=0, initval=theta[3])
+    xt0 = pm.TruncatedNormal("xto", mu=theta[4], sigma=1, lower=0, initval=theta[4])
+    yt0 = pm.TruncatedNormal("yto", mu=theta[5], sigma=1, lower=0, initval=theta[5])
+    sigma = pm.HalfNormal("sigma", 10)
 
     # ode_solution
     pm.Simulator(
         "Y_obs",
         simulator_forward_model,
-        params=(alpha, beta, gamma, delta, xt0, yt0),
+        params=(alpha, beta, gamma, delta, xt0, yt0, sigma),
         epsilon=10,
         observed=data[["hare", "lynx"]].values,
     )
@@ -571,25 +568,25 @@ with pm.Model() as model:
 
 ```{code-cell} ipython3
 sampler = "SMC epsilon=10"
-draws = 300
+draws = 2000
 with model:
-    trace_SMC_e10 = pm.sample_smc(draws=draws, progressbar=False)
+    trace_SMC_e10 = pm.sample_smc(draws=draws)
 trace = trace_SMC_e10
 az.summary(trace)
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace, figsize=(7, 7))
+az.plot_trace(trace, kind="rank_bars")
 plt.suptitle(f"Trace Plot {sampler}");
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(7, 4))
+fig, ax = plt.subplots(figsize=(12, 4))
 plot_inference(ax, trace, title=f"Data and Inference Model Runs\n{sampler} Sampler");
 ```
 
 **Notes:**  
-Now, we see that the SMC sampler with a larger epsilon over-estimates parameter uncertainty compared to the other samplers.  So which value for epsilon in "right"?  In a sense, the likelihood function used in other model specification finds the right value for the model error (sigma), to balance the uncertainty in model parameters and noise in the data.  This specification of SMC does not have that feature, since epsilon is specified by the user rather than discovered by the model.     
+Now that we set a larger value for epsilon we can see that the SMC sampler (plus simulator) provides good results. Choosing a value for epsilon will always involve some trial and error. So, what to do in practice? As epsilon is the scale of the distance function. If you don't have any idea of how much error do you expected to get between simulated and observed values then a rule of thumb for picking an initial guess for epsilon is to use a number smaller than the standard deviation of the observed data, how much smaller maybe one order of magnitude or so.
 
 +++
 
@@ -609,7 +606,7 @@ The major observation here is that the posterior shape is pretty difficult for a
 
 +++
 
-The PyMC default NUTs sampler can only be used if gradients are supplied to the sampler.  In this section, we will solve the system of ODEs within PyMC in two different ways that supply the sampler with gradients.  The first is the built-in `pymc.ode.DifferentialEquation` solver, and the second is to forward simulate using `pytensor.scan`, which allows looping.  Note that there may be other better and faster ways to perform Bayesian inference with ODEs using gradients, such as the [sunode](https://sunode.readthedocs.io/en/latest/index.html) project, and [diffrax](https://www.pymc-labs.io/blog-posts/jax-functions-in-pymc-3-quick-examples/), which relies on JAX.
+NUTS, the PyMC default sampler can only be used if gradients are supplied to the sampler.  In this section, we will solve the system of ODEs within PyMC in two different ways that supply the sampler with gradients.  The first is the built-in `pymc.ode.DifferentialEquation` solver, and the second is to forward simulate using `pytensor.scan`, which allows looping.  Note that there may be other better and faster ways to perform Bayesian inference with ODEs using gradients, such as the [sunode](https://sunode.readthedocs.io/en/latest/index.html) project, and [diffrax](https://www.pymc-labs.io/blog-posts/jax-functions-in-pymc-3-quick-examples/), which relies on JAX.
 
 +++
 
@@ -648,19 +645,19 @@ Once the ODE is specified, we can use it in our PyMC model.
 
 +++
 
-#### NUTs Inference
+#### Inference with NUTS
 `pymc.ode` is quite slow, so for demonstration purposes, we will only draw a few samples.  
 
 ```{code-cell} ipython3
 with pm.Model() as model:
     # Priors
-    alpha = pm.TruncatedNormal("alpha", mu=theta[0], sigma=theta[0], lower=0, initval=theta[0])
-    beta = pm.TruncatedNormal("beta", mu=theta[1], sigma=theta[1], lower=0, initval=theta[1])
-    gamma = pm.TruncatedNormal("gamma", mu=theta[2], sigma=theta[2], lower=0, initval=theta[2])
-    delta = pm.TruncatedNormal("delta", mu=theta[3], sigma=theta[3], lower=0, initval=theta[3])
-    xt0 = pm.TruncatedNormal("xto", mu=theta[4], sigma=theta[4], lower=0, initval=theta[4])
-    yt0 = pm.TruncatedNormal("yto", mu=theta[5], sigma=theta[5], lower=0, initval=theta[5])
-    sigma = pm.TruncatedNormal("sigma", mu=10, sigma=10, lower=0)
+    alpha = pm.TruncatedNormal("alpha", mu=theta[0], sigma=0.1, lower=0, initval=theta[0])
+    beta = pm.TruncatedNormal("beta", mu=theta[1], sigma=0.01, lower=0, initval=theta[1])
+    gamma = pm.TruncatedNormal("gamma", mu=theta[2], sigma=0.1, lower=0, initval=theta[2])
+    delta = pm.TruncatedNormal("delta", mu=theta[3], sigma=0.01, lower=0, initval=theta[3])
+    xt0 = pm.TruncatedNormal("xto", mu=theta[4], sigma=1, lower=0, initval=theta[4])
+    yt0 = pm.TruncatedNormal("yto", mu=theta[5], sigma=1, lower=0, initval=theta[5])
+    sigma = pm.HalfNormal("sigma", 10)
 
     # ode_solution
     ode_solution = ode_model(y0=[xt0, yt0], theta=[alpha, beta, gamma, delta])
@@ -670,7 +667,7 @@ with pm.Model() as model:
 ```
 
 ```{code-cell} ipython3
-sampler = "NUTs PyMC ODE"
+sampler = "NUTS PyMC ODE"
 tune = draws = 15
 with model:
     trace_pymc_ode = pm.sample(tune=tune, draws=draws)
@@ -682,17 +679,17 @@ az.summary(trace)
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace, figsize=(7, 7))
+az.plot_trace(trace, kind="rank_bars")
 plt.suptitle(f"Trace Plot {sampler}");
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(7, 4))
+_, ax = plt.subplots(figsize=(12, 4))
 plot_inference(ax, trace, title=f"Data and Inference Model Runs\n{sampler} Sampler");
 ```
 
 **Notes:**  
-The NUTs sampler is starting to find to the correct posterior, but would need a whole lot more time to make a good inference.   
+NUTS is starting to find to the correct posterior, but would need a whole lot more time to make a good inference.   
 
 +++
 
@@ -756,7 +753,7 @@ def lv_scan_simulation_model(theta, steps_year=100, years=21):
 Run the simulation for various time steps and plot the results.   
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(7, 4))
+_, ax = plt.subplots(figsize=(12, 4))
 
 steps_years = [12, 100, 1000, 10000]
 for steps_year in steps_years:
@@ -795,13 +792,13 @@ def lv_scan_inference_model(theta, steps_year=100, years=21):
     # PyMC model
     with pm.Model() as model:
         # Priors
-        alpha = pm.TruncatedNormal("alpha", mu=theta[0], sigma=theta[0], lower=0, initval=theta[0])
-        beta = pm.TruncatedNormal("beta", mu=theta[1], sigma=theta[1], lower=0, initval=theta[1])
-        gamma = pm.TruncatedNormal("gamma", mu=theta[2], sigma=theta[2], lower=0, initval=theta[2])
-        delta = pm.TruncatedNormal("delta", mu=theta[3], sigma=theta[3], lower=0, initval=theta[3])
-        xt0 = pm.TruncatedNormal("xto", mu=theta[4], sigma=theta[4], lower=0, initval=theta[4])
-        yt0 = pm.TruncatedNormal("yto", mu=theta[5], sigma=theta[5], lower=0, initval=theta[5])
-        sigma = pm.TruncatedNormal("sigma", mu=10, sigma=10, lower=0)
+        alpha = pm.TruncatedNormal("alpha", mu=theta[0], sigma=0.1, lower=0, initval=theta[0])
+        beta = pm.TruncatedNormal("beta", mu=theta[1], sigma=0.01, lower=0, initval=theta[1])
+        gamma = pm.TruncatedNormal("gamma", mu=theta[2], sigma=0.1, lower=0, initval=theta[2])
+        delta = pm.TruncatedNormal("delta", mu=theta[3], sigma=0.01, lower=0, initval=theta[3])
+        xt0 = pm.TruncatedNormal("xto", mu=theta[4], sigma=1, lower=0, initval=theta[4])
+        yt0 = pm.TruncatedNormal("yto", mu=theta[5], sigma=1, lower=0, initval=theta[5])
+        sigma = pm.HalfNormal("sigma", 10)
 
         # Lotka-Volterra calculation function
         def ode_update_function(x, y, alpha, beta, gamma, delta):
@@ -832,7 +829,7 @@ This is also quite slow, so we will just pull a few samples for demonstration pu
 ```{code-cell} ipython3
 steps_year = 100
 model = lv_scan_inference_model(theta, steps_year=steps_year)
-sampler = "NUTs Pytensor Scan"
+sampler = "NUTS Pytensor Scan"
 tune = draws = 50
 with model:
     trace_scan = pm.sample(tune=tune, draws=draws)
@@ -844,7 +841,7 @@ az.summary(trace)
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace, figsize=(7, 7))
+az.plot_trace(trace, kind="rank_bars")
 plt.suptitle(f"Trace Plot {sampler}");
 ```
 
@@ -854,7 +851,7 @@ odeint(func=rhs, y0=theta[-2:], t=time, args=(theta,)).shape
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(7, 4))
+_, ax = plt.subplots(figsize=(12, 4))
 plot_inference(ax, trace, title=f"Data and Inference Model Runs\n{sampler} Sampler");
 ```
 
@@ -922,7 +919,7 @@ for var_name in var_names:
 ```
 
 **Notes:**  
-If we ran the samplers for long enough to get good inferences, we would expect them to converge on the same posterior probability distributions, with the exception of SMC when using a distance parameter (SMC e=1 and SMC e=10).  When using a distance parameter, the model does not include a likelihood function and therefore represents a different posterior probability distribution than the other models.
+If we ran the samplers for long enough to get good inferences, we would expect them to converge on the same posterior probability distributions. This is not necessarily true for Aproximate Bayssian Computation, unless we first ensure that the approximation too the likelihood is good enough. For instance SMCe=1 is providing a wrong result, we have been warning that this was most likely the case when we use `plot_trace` as a diagnostic. For SMC e=10, we see that posterior mean agrees with the other samplers, but the posterior is wider. This is expected with ABC methods. A smaller value of epsilon, maybe 5, should provide a posterior closer to the true one.
 
 +++
 
@@ -933,12 +930,14 @@ We performed Bayesian inference on a system of ODEs in 4 main ways:
 * PyMC `ode.DifferentialEquation` sampled with NUTs.  
 * Forward simulation using `pytensor.scan` and sampled with NUTs.  
 
-The "winner" for this problem was the Scipy `odeint` solver with a differential evolution (DE) Metropolis sampler.  The improved efficiency of the NUTs sampler did not make up for the inefficiency in using the slow ODE solvers with gradients.  Sticking with Scipy and DEMetropolis is also the simplest workflow for a scientist with a working numeric model and the desire to perform Bayesian inference.  Just wrapping the numeric model in a Pytensor op and plugging it into a PyMC model can get you a long way!  
+The "winner" for this problem was the Scipy `odeint` solver with a differential evolution (DE) Metropolis sampler and SMC (for a model with a Likelihood) provide good results with SMC being somewhat slower (but also better diagnostics). The improved efficiency of the NUTS sampler did not make up for the inefficiency in using the slow ODE solvers with gradients.  Both DEMetropolis and SMC enable the simplest workflow for a scientist with a working numeric model and the desire to perform Bayesian inference. Just wrapping the numeric model in a Pytensor op and plugging it into a PyMC model can get you a long way!
 
 +++ {"tags": []}
 
 ## Authors
 Organized and rewritten by [Greg Brunkhorst](https://github.com/gbrunkhorst)  from multiple legacy PyMC.io example notebooks by Sanmitra Ghosh, Demetri Pananos, and the PyMC Team ({ref}`ABC_introduction`).
+
+Osvaldo Martin added some clarification about SMC-ABC and  minor fixes in Mar, 2023
 
 +++ {"tags": []}
 
