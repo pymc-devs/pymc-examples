@@ -381,6 +381,12 @@ plot_fit(idata3)
 az.plot_posterior(idata3, var_names=["beta"]);
 ```
 
+```{code-cell} ipython3
+:tags: []
+
+az.summary(idata3, var_names=["cutpoints"])
+```
+
 While the parameter estimates seem reasonable and the posterior predictive checks seem good too, the point to see here is that the cutpoints are unconstrained by the definition of the ordinal scale. They vary below 0 in the above model.
 
 However if we look at the model with the constrained Dirchlet prior: 
@@ -399,7 +405,11 @@ az.plot_posterior(idata4, var_names=["beta"]);
 
 Again the parameters seem reasonable, and posterior predictive checks are sound. But now, having using the constrained uniform prior over the cutpoints our estimated cutpoints respect the definition of the ordinal scale. 
 
-+++
+```{code-cell} ipython3
+:tags: []
+
+az.summary(idata4, var_names=["cutpoints"])
+```
 
 ## Comparison to Statsmodels
 
@@ -411,6 +421,60 @@ modf_logit = OrderedModel.from_formula(
 )
 resf_logit = modf_logit.fit(method="bfgs")
 resf_logit.summary()
+```
+
+## Interrogating the Model's Implications
+
+```{code-cell} ipython3
+:tags: []
+
+betas_posterior = az.extract(idata4)["beta"]
+
+fig, ax = plt.subplots(figsize=(20, 10))
+calc_wfh = [
+    df.iloc[i]["salary"] * betas_posterior[0, :]
+    + df.iloc[i]["work_sat"] * betas_posterior[1, :]
+    + 1 * betas_posterior[2, :]
+    for i in range(500)
+]
+calc_not_wfh = [
+    df.iloc[i]["salary"] * betas_posterior[0, :]
+    + df.iloc[i]["work_sat"] * betas_posterior[1, :]
+    + 0 * betas_posterior[2, :]
+    for i in range(500)
+]
+sal = np.random.normal(25, 5, 500)
+calc_wfh_and_low_sal = [
+    sal[i] * betas_posterior[0, :]
+    + df.iloc[i]["work_sat"] * betas_posterior[1, :]
+    + 1 * betas_posterior[2, :]
+    for i in range(500)
+]
+
+### Use implied threshold on latent score to predict proportion of ratings above 7
+prop_wfh = np.sum([np.mean(calc_wfh[i].values) > 6.78 for i in range(500)]) / 500
+prop_not_wfh = np.sum([np.mean(calc_not_wfh[i].values) > 6.78 for i in range(500)]) / 500
+prop_wfh_low = np.sum([np.mean(calc_wfh_and_low_sal[i].values) > 6.78 for i in range(500)]) / 500
+
+for i in range(500):
+    if i == 499:
+        ax.hist(calc_wfh[i], alpha=0.6, color="skyblue", ec="black", label="WFH")
+        ax.hist(calc_not_wfh[i], alpha=0.3, color="grey", ec="black", label="Not WFH")
+        ax.hist(
+            calc_wfh_and_low_sal[i], alpha=0.4, color="red", ec="black", label="WFH + Low Salary"
+        )
+    else:
+        ax.hist(calc_wfh[i], alpha=0.6, color="skyblue", ec="black")
+        ax.hist(calc_wfh_and_low_sal[i], alpha=0.4, color="red", ec="black")
+        ax.hist(calc_not_wfh[i], alpha=0.3, color="grey", ec="black")
+ax.set_title("Implied of Effect of Work from Home", fontsize=20)
+ax.annotate(
+    f"Expected Proportion > 7: \nWFH:{prop_wfh} \nWFH + LOW: {prop_wfh_low} \nNot WFH {prop_not_wfh}",
+    xy=(-0.5, 1000),
+    fontsize=20,
+    fontweight="bold",
+)
+ax.legend();
 ```
 
 ## Kruschke's IMDB movie Ratings Data
