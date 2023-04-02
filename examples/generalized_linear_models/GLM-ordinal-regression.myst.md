@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_examples_new
+  display_name: pymc_ex_nf
   language: python
-  name: pymc_examples_new
+  name: pymc_ex_nf
 ---
 
 (ordinal_regression)=
@@ -329,7 +329,7 @@ ax = az.plot_forest(
     var_names=["sigma", "beta", "cutpoints"],
     combined=True,
     ridgeplot_overlap=4,
-    figsize=(20, 15),
+    figsize=(20, 25),
     r_hat=True,
     ridgeplot_alpha=0.3,
     model_names=[
@@ -415,7 +415,7 @@ resf_logit.summary()
 
 ## Kruschke's IMDB movie Ratings Data
 
-There are substantial reasons for using an ordinal regression model rather than trusting to alternatives. The temptation to treat the ordered category as a continuous metric will lead to false inferences. The details are discussed in Kruschke's paper on this topic. We'll briefly replicate his example about this phenomenon can appear in analysis of movies ratings data.
+There are substantial reasons for using an ordinal regression model rather than trusting to alternatives. The temptation to treat the ordered category as a continuous metric will lead to false inferences. The details are discussed in Kruschke's paper on this topic. We'll briefly replicate his example about how this phenomenon can appear in analysis of movies ratings data.
 
 ```{code-cell} ipython3
 :tags: []
@@ -429,7 +429,10 @@ movies.head()
 
 import pandas as pd
 
-movies = pd.read_csv("../data/MoviesData.csv")
+try:
+    movies = pd.read_csv("../data/MoviesData.csv")
+except FileNotFoundError:
+    movies = pd.DataFrame(pm.get_data("MoviesData.csv"))
 
 
 def pivot_movie(row):
@@ -487,7 +490,7 @@ def make_movies_model(ordered=False):
         for g in movies_by_rating["movie_id"].unique():
             if ordered:
                 cutpoints = constrainedUniform(K, g, 0, K - 1)
-                mu = pm.Normal(f"mu_{g}", priors["mu"][0], priors["mu"][1])
+                mu = pm.Normal(f"mu_{g}", 0, 1)
                 y_ = pm.OrderedLogistic(
                     f"y_{g}",
                     cutpoints=cutpoints,
@@ -495,7 +498,7 @@ def make_movies_model(ordered=False):
                     observed=movies_by_rating[movies_by_rating["movie_id"] == g].rating.values,
                 )
             else:
-                mu = pm.Normal(f"mu_{g}", 3, 1)
+                mu = pm.Normal(f"mu_{g}", 0, 1)
                 sigma = pm.HalfNormal(f"sigma_{g}", 1)
                 y_ = pm.Normal(
                     f"y_{g}",
@@ -536,6 +539,10 @@ This shows a much nicer fit for each of the six movies.
 
 az.plot_ppc(idata_ordered);
 ```
+
+Since this is real data and we don't know the true data generating process it's impossible to say which is the correct model but I hope you'll agree that the posterior predictive checks strongly support the claim that the ordered categorical fit is a stronger candidate. The simpler point to make here is just that the implications of the metric models are wrong and if we hope to make sound inferences about what perhaps drives good movie ratings, then we'd better be sure not to introduce noise into the modelling exercise with a poor choice of likelihood function. 
+
++++
 
 ### Compare Model Fits
 
@@ -580,27 +587,27 @@ BB
 fig, axs = plt.subplot_mosaic(mosaic, figsize=(15, 7))
 axs = [axs[k] for k in axs.keys()]
 axs
-ordered_5 = az.extract(idata_ordered.posterior)["mu_5"]
-ordered_6 = az.extract(idata_ordered.posterior)["mu_6"]
+ordered_5 = az.extract(idata_ordered.posterior_predictive)["y_5"].mean(axis=0)
+ordered_6 = az.extract(idata_ordered.posterior_predictive)["y_6"].mean(axis=0)
 diff = ordered_5 - ordered_6
-metric_5 = az.extract(idata_normal_metric.posterior)["mu_5"]
-metric_6 = az.extract(idata_normal_metric.posterior)["mu_6"]
+metric_5 = az.extract(idata_normal_metric.posterior_predictive)["y_5"].mean(axis=0)
+metric_6 = az.extract(idata_normal_metric.posterior_predictive)["y_6"].mean(axis=0)
 diff1 = metric_5 - metric_6
 axs[0].hist(ordered_5, bins=30, ec="white", color="slateblue", label="Ordered Fit Movie 5")
 axs[4].plot(
-    az.hdi(diff.unstack())["x"].values, [1, 1], "ro-", color="slateblue", label="Ordered Fits"
+    az.hdi(diff.unstack())["x"].values, [1, 1], "o-", color="slateblue", label="Ordered Fits"
 )
 axs[4].plot(
-    az.hdi(diff1.unstack())["x"].values, [1.2, 1.2], "ro-", color="magenta", label="Metric Fits"
+    az.hdi(diff1.unstack())["x"].values, [1.2, 1.2], "o-", color="magenta", label="Metric Fits"
 )
 axs[2].hist(ordered_6, bins=30, ec="white", color="slateblue", label="Ordered Fit Movie 6")
 axs[3].hist(metric_5, ec="white", label="Metric Fit Movie 5", bins=30, color="magenta")
 axs[1].hist(metric_6, ec="white", label="Metric Fit Movie 6", bins=30, color="magenta")
-axs[4].set_title("Implied Differences Between the \n Expected Mu Parameter")
+axs[4].set_title("Implied Differences Between the \n Expected Rating")
 axs[4].set_ylim(0.8, 1.4)
 axs[4].set_yticks([])
-axs[0].set_title("Posterior Estimate of Mu for Movies Ordered Fits")
-axs[1].set_title("Posterior Estimate of Mu for Movie Metric Fits")
+axs[0].set_title("Expected Posterior Predictive Estimate \n for Movies Ordered Fits")
+axs[1].set_title("Expected Posterior Predictive Estimate \n for Movie Metric Fits")
 axs[4].set_xlabel("Difference between Movie 5 and 6")
 axs[1].legend()
 axs[0].legend()
@@ -608,6 +615,10 @@ axs[2].legend()
 axs[3].legend()
 axs[4].legend();
 ```
+
+There are many millions of dollars on the line when making the decision to put a movie into production. The return on that investment is a least partially a function of the movie's popularity which is both measured and influenced by the rating scales on Rotten Tomatoes and IMDB. Understanding the relative popularity of different movies therefore can shift huge amounts of money through hollywood, and the implied differences seen here really do matter. 
+
++++
 
 # Conclusion
 
