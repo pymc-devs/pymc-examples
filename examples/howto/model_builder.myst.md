@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc5
+  display_name: pymc-dev
   language: python
-  name: pymc5
+  name: python3
 ---
 
 # Using ModelBuilder class for deploying PyMC models 
@@ -37,6 +37,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
+import xarray as xr
 
 from numpy.random import RandomState
 
@@ -269,14 +270,15 @@ After using the `predict()`, we can plot our data and see graphically how satisf
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(7, 7))
-ax.plot(
-    x_pred,
-    pred_mean["y"],
-    "x",
-    label="predict",
-)
+posterior = az.extract(idata, num_samples=20)
+x_plot = xr.DataArray(np.linspace(1, 2, 100))
+y_plot = posterior["b"] * x_plot + posterior["a"]
+Line2 = ax.plot(x_plot, y_plot.transpose(), color="C1")
+Line1 = ax.plot(x_pred, pred_mean["y"], "x")
 ax.set(title="Posterior predictive regression lines", xlabel="x", ylabel="y")
-plt.legend(loc=0);
+ax.legend(
+    handles=[Line1[0], Line2[0]], labels=["predicted average", "inferred regression line"], loc=0
+);
 ```
 
 ```{code-cell} ipython3
