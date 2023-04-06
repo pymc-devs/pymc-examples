@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-examples-env
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -14,9 +14,9 @@ kernelspec:
 # Modeling Heteroscedasticity with BART
 
 :::{post} January, 2023
-:tags: bart regression 
+:tags: BART, regression
 :category: beginner, reference
-:author: [Juan Orduz](https://juanitorduz.github.io/)
+:author: Juan Orduz
 :::
 
 +++

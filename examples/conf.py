@@ -75,6 +75,9 @@ html_theme_options = {
     "logo": {
         "link": "https://www.pymc.io",
     },
+    "article_header_end": ["nb-badges"],
+    "show_prev_next": True,
+    "article_footer_items": ["rendered_citation.html"],
 }
 version = os.environ.get("READTHEDOCS_VERSION", "")
 version = version if "." in version else "main"
@@ -106,7 +109,7 @@ html_sidebars = {
     "**": [
         "sidebar-nav-bs.html",
         "postcard_categories.html",
-        "tagcloud.html",
+        "ablog/tagcloud.html",
     ],
 }
 
@@ -118,6 +121,7 @@ blog_authors = {
     "contributors": ("PyMC Contributors", "https://docs.pymc.io"),
 }
 blog_default_author = "contributors"
+post_show_prev_next = False
 fontawesome_included = True
 # post_redirect_refresh = 1
 # post_auto_image = 1
