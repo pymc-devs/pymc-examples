@@ -108,6 +108,7 @@ folder_title_map = {
     "howto": "How to",
 }
 
+
 def create_thumbnail(infile, width=275, height=275, cx=0.5, cy=0.5, border=4):
     """Overwrites `infile` with a new file of the given size"""
     im = image.imread(infile)
@@ -183,7 +184,7 @@ def main(app):
     for folder, title in folder_title_map.items():
 
         nb_paths = glob(f"{folder}/*.ipynb")
-        file.append(SECTION_TEMPLATE.format(section_title=title, underlines="-"*len(title)))
+        file.append(SECTION_TEMPLATE.format(section_title=title, underlines="-" * len(title)))
         target_dir = os.path.join("..", "_thumbnails", folder)
         if not os.path.isdir(target_dir):
             os.mkdir(target_dir)
@@ -191,12 +192,17 @@ def main(app):
         for nb_path in nb_paths:
             nbg = NotebookGenerator(nb_path, "..", folder)
             nbg.gen_previews()
-            file.append(ITEM_TEMPLATE.format(doc_reference=os.path.join(folder, nbg.stripped_name), image=nbg.png_path))
+            file.append(
+                ITEM_TEMPLATE.format(
+                    doc_reference=os.path.join(folder, nbg.stripped_name), image=nbg.png_path
+                )
+            )
 
     with open("gallery.rst", "w", encoding="utf-8") as f:
         f.write("\n".join(file))
 
     os.chdir(working_dir)
+
 
 def setup(app):
     app.connect("builder-inited", main)

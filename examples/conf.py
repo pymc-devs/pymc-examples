@@ -45,7 +45,6 @@ exclude_patterns = [
 ]
 
 
-
 def remove_index(app):
     """
     This removes the index pages so rediraffe generates the redirect placeholder
