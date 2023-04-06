@@ -75,9 +75,9 @@ html_theme_options = {
     "logo": {
         "link": "https://www.pymc.io",
     },
-    # "article_header_end": ["nb-badges"],
-    # "show_prev_next": True,
-    # "article_footer_items": ["rendered_citation.html"],
+    "article_header_end": ["nb-badges"],
+    "show_prev_next": True,
+    "article_footer_items": ["rendered_citation.html"],
 }
 version = os.environ.get("READTHEDOCS_VERSION", "")
 version = version if "." in version else "main"
