@@ -1,6 +1,6 @@
 myst-nb
 sphinx>=5
-pymc-sphinx-theme==0.13
+pymc-sphinx-theme==0.1
 sphinx-design
 sphinx-copybutton
 sphinxcontrib-bibtex
