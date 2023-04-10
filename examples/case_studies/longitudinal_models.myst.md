@@ -5,21 +5,23 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: myjlabenv
+  display_name: pymc_examples_new
   language: python
-  name: myjlabenv
+  name: pymc_examples_new
 ---
 
 (longitudinal_models)=
 # Longitudinal Models of Change
 
-:::{post} January, 2023
+:::{post} April, 2023
 :tags: hierarchical, longitudinal, time series
 :category: advanced, reference
 :author: Nathaniel Forde
 :::
 
 ```{code-cell} ipython3
+:tags: []
+
 import arviz as az
 import bambi as bmb
 import matplotlib.pyplot as plt
@@ -35,6 +37,8 @@ lowess = sm.nonparametric.lowess
 ```
 
 ```{code-cell} ipython3
+:tags: []
+
 %config InlineBackend.figure_format = 'retina'  # high resolution figures
 az.style.use("arviz-darkgrid")
 rng = np.random.default_rng(42)
@@ -58,6 +62,8 @@ We'll follow the discussion and iterative approach to model building outlined in
 For any longitudinal analysis we need three components: (1) multiple waves of data collection (2) a suitable definition of time and (3) an outcome of interest. Combining these we can assess how the individual changes over time with respect that outcome. In this first series of models we will look at how adolescent alcohol usage varies between children from the age of 14 onwards with data collected annually over three years.
 
 ```{code-cell} ipython3
+:tags: []
+
 try:
     df = pd.read_csv("../data/alcohol1_pp.csv")
 except FileNotFoundError:
@@ -195,14 +201,14 @@ We begin with a simple unconditional model where we model only the individual's 
 :tags: []
 
 id_indx, unique_ids = pd.factorize(df["id"])
-coords = {"ids": unique_ids}
+coords = {"ids": unique_ids, "obs": range(len(df["alcuse"]))}
 with pm.Model(coords=coords) as model:
     subject_intercept_sigma = pm.HalfNormal("subject_intercept_sigma", 2)
     subject_intercept = pm.Normal("subject_intercept", 0, subject_intercept_sigma, dims="ids")
     global_sigma = pm.HalfStudentT("global_sigma", 1, 3)
     global_intercept = pm.Normal("global_intercept", 0, 1)
     grand_mean = pm.Deterministic("grand_mean", global_intercept + subject_intercept[id_indx])
-    outcome = pm.Normal("outcome", grand_mean, global_sigma, observed=df["alcuse"])
+    outcome = pm.Normal("outcome", grand_mean, global_sigma, observed=df["alcuse"], dims="obs")
     idata_m0 = pm.sample_prior_predictive()
     idata_m0.extend(
         pm.sample(random_seed=100, target_accept=0.95, idata_kwargs={"log_likelihood": True})
@@ -252,11 +258,13 @@ $$ \begin{aligned}
 \end{aligned} $$
 
 
-Fitting the model then informs us about how each individual modifies the global model, but also lets us learn global parameters. In particular we allow for a subject specific modification of the coefficient on the variable representing time. A broadly similar pattern of combination holds for all the hierarchical models we outline in the following series of models. In the Bayesian setting we're trying to learn the parameters that best fit the data. Implementing the model is PyMC is as follows:
+Fitting the model then informs us about how each individual modifies the global model, but also lets us learn global parameters. In particular we allow for a subject specific modification of the coefficient on the variable representing time. A broadly similar pattern of combination holds for all the hierarchical models we outline in the following series of models. In the Bayesian setting we're trying to learn the parameters that best fit the data. Implementing the model in PyMC is as follows:
 
 ```{code-cell} ipython3
+:tags: []
+
 id_indx, unique_ids = pd.factorize(df["id"])
-coords = {"ids": unique_ids}
+coords = {"ids": unique_ids, "obs": range(len(df["alcuse"]))}
 with pm.Model(coords=coords) as model:
     age_14 = pm.MutableData("age_14_data", df["age_14"].values)
 
@@ -277,7 +285,9 @@ with pm.Model(coords=coords) as model:
         (global_intercept + subject_intercept[id_indx])
         + (global_age_beta + subject_age_beta[id_indx]) * age_14,
     )
-    outcome = pm.Normal("outcome", growth_model, global_sigma, observed=df["alcuse"].values)
+    outcome = pm.Normal(
+        "outcome", growth_model, global_sigma, observed=df["alcuse"].values, dims="obs"
+    )
     idata_m1 = pm.sample_prior_predictive()
     idata_m1.extend(
         pm.sample(random_seed=100, target_accept=0.95, idata_kwargs={"log_likelihood": True})
@@ -324,11 +334,25 @@ ax.set_title("Individual Consumption Growth", fontsize=20);
 
 ## The Uncontrolled Effects of Parental Alcoholism
 
-Next we'll add in a second predictor and the interaction of the predictor with age to modify the outcome. 
+Next we'll add in a second predictor and the interaction of the predictor with age to modify the outcome. This extends the above model as follows: 
+
+$$ \begin{aligned} 
+    & alcohol \sim Normal(\color{purple}{\mu, \sigma})  \\
+    & \color{purple}{\mu} = \color{red}{\alpha} + \color{green}{\beta_{age}} \cdot age + \color{blue}{\beta_{coa}} \cdot coa +  \color{orange}{\beta_{coa*age}}(coa*age) \\
+    & \color{red}{\alpha} = \sum_{j=0}^{N} \alpha_{1} + \alpha_{2, j} \ \ \ \ \forall j \in Subjects  \\ 
+    & \color{green}{\beta} = \sum_{j=0}^{N} \beta_{1} + \beta_{2, j}  \ \ \ \ \forall j \in Subjects  \\
+    & \color{purple}{\sigma} = HalfStudentT(?, ?) \\
+    & \alpha_{i, j} \sim Normal(?, ?) \\
+    & \beta_{i, j} \sim Normal(?, ?)  \\
+    & \color{blue}{\beta_{coa}} \sim Normal(?, ?) \\
+    & \color{orange}{\beta_{coa*age}} \sim Normal(?,?)
+\end{aligned} $$
 
 ```{code-cell} ipython3
+:tags: []
+
 id_indx, unique_ids = pd.factorize(df["id"])
-coords = {"ids": unique_ids}
+coords = {"ids": unique_ids, "obs": range(len(df["alcuse"]))}
 with pm.Model(coords=coords) as model:
     age_14 = pm.MutableData("age_14_data", df["age_14"].values)
     coa = pm.MutableData("coa_data", df["coa"].values)
@@ -354,7 +378,9 @@ with pm.Model(coords=coords) as model:
         + global_coa_age_beta * (coa * age_14)
         + (global_age_beta + subject_age_beta[id_indx]) * age_14,
     )
-    outcome = pm.Normal("outcome", growth_model, global_sigma, observed=df["alcuse"].values)
+    outcome = pm.Normal(
+        "outcome", growth_model, global_sigma, observed=df["alcuse"].values, dims="obs"
+    )
     idata_m2 = pm.sample_prior_predictive()
     idata_m2.extend(
         pm.sample(random_seed=100, target_accept=0.95, idata_kwargs={"log_likelihood": True})
@@ -434,11 +460,27 @@ We'll forge on for now ignoring the subtleties of causal inference, considering 
 
 ## Model controlling for Peer Effects
 
-For interpretablility and to make life simpler for our sampler we'll centre the peer data around their mean.
+For interpretablility and to make life simpler for our sampler we'll centre the peer data around their mean. Again this model is naturally specified using these controlling factors and their interaction terms with the focal variable of age.
+
+$$ \begin{aligned} 
+    & alcohol \sim Normal(\color{purple}{\mu, \sigma})  \\
+    & \color{purple}{\mu} = \color{red}{\alpha} + \color{green}{\beta_{age}} \cdot age + \color{blue}{\beta_{coa}} \cdot coa +  \color{orange}{\beta_{coa*age}}(coa*age) + \color{pink}{\beta_{peer}}*peer + \color{lightblue}{\beta_{peer*age}}(peer*age) \\
+    & \color{red}{\alpha} = \sum_{j=0}^{N} \alpha_{1} + \alpha_{2, j} \ \ \ \ \forall j \in Subjects  \\ 
+    & \color{green}{\beta} = \sum_{j=0}^{N} \beta_{1} + \beta_{2, j}  \ \ \ \ \forall j \in Subjects  \\
+    & \color{purple}{\sigma} = HalfStudentT(?, ?) \\
+    & \alpha_{i, j} \sim Normal(?, ?) \\
+    & \beta_{i, j} \sim Normal(?, ?)  \\
+    & \color{blue}{\beta_{coa}} \sim Normal(?, ?) \\
+    & \color{orange}{\beta_{coa*age}} \sim Normal(?,?) \\
+    & \color{pink}{\beta_{peer}} \sim Normal(?, ?) \\
+    & \color{lightblue}{\beta_{peer*age}} \sim Normal(?, ?)
+\end{aligned} $$
 
 ```{code-cell} ipython3
+:tags: []
+
 id_indx, unique_ids = pd.factorize(df["id"])
-coords = {"ids": unique_ids}
+coords = {"ids": unique_ids, "obs": range(len(df["alcuse"]))}
 with pm.Model(coords=coords) as model:
     age_14 = pm.MutableData("age_14_data", df["age_14"].values)
     coa = pm.MutableData("coa_data", df["coa"].values)
@@ -469,7 +511,9 @@ with pm.Model(coords=coords) as model:
         + global_peer_age_beta * (peer * age_14)
         + (global_age_beta + subject_age_beta[id_indx]) * age_14,
     )
-    outcome = pm.Normal("outcome", growth_model, global_sigma, observed=df["alcuse"].values)
+    outcome = pm.Normal(
+        "outcome", growth_model, global_sigma, observed=df["alcuse"].values, dims="obs"
+    )
     idata_m3 = pm.sample_prior_predictive()
     idata_m3.extend(
         pm.sample(random_seed=100, target_accept=0.95, idata_kwargs={"log_likelihood": True})
@@ -613,10 +657,12 @@ Willett and Singer have a detailed discussion about how to analyse the differenc
 
 While we're fitting these models directly within PyMC there is an alternative bayesian multi-level modelling package, Bambi which is built on top of the PyMC framework. Bambi is optimised in a number of ways for fitting hierarchical Bayesian models including the option for specifying the model structure using formulas. We'll demonstrate briefly how to fit the last model using this syntax. 
 
-The formula specification uses `1` to denote an intercept term and a conditional `|` operator to denote a subject level parameter combined with the global parameter of the same type in the manner specified above.
+The formula specification uses `1` to denote an intercept term and a conditional `|` operator to denote a subject level parameter combined with the global parameter of the same type in the manner specified above. We will add subject specific modifications of the intercept term and beta coefficient on the focal variable of age as in the models above. We do so using the syntax `(1 + age_14 | id)` in the formula syntax for Bambi.
 
 ```{code-cell} ipython3
-formula = "alcuse ~ 0 + 1 + age_14 + coa + cpeer + age_14:coa + age_14:cpeer + (1 + age_14 | id)"
+:tags: []
+
+formula = "alcuse ~ 1 + age_14 + coa + cpeer + age_14:coa + age_14:cpeer + (1 + age_14 | id)"
 model = bmb.Model(formula, df)
 
 # Fit the model using 1000 on each of 4 chains
@@ -625,9 +671,11 @@ model.predict(idata_bambi, kind="pps")
 idata_bambi
 ```
 
-The model is nicely specified and details the structure of hierarchical and subject level parameters. By default the bambi model assigns priors and uses a non-centred parameterisation. The Bambi model definition uses the language of common and group level effects as opposed to the global and subject distinction we have beeen using in this example so far. Again, the important point to stress is just the hierarchy of levels, not the names.
+The model is nicely specified and details the structure of hierarchical and subject level parameters. By default the Bambi model assigns priors and uses a non-centred parameterisation. The Bambi model definition uses the language of common and group level effects as opposed to the global and subject distinction we have beeen using in this example so far. Again, the important point to stress is just the hierarchy of levels, not the names.
 
 ```{code-cell} ipython3
+:tags: []
+
 model
 ```
 
@@ -638,6 +686,8 @@ model.graph()
 ```
 
 ```{code-cell} ipython3
+:tags: []
+
 az.summary(
     idata_bambi,
     var_names=[
@@ -684,6 +734,8 @@ We can see here how the bambi model specification recovers the same parameterisa
 Next we'll look at a dataset where the individual trajectories show wild swings in behaviour across the individuals. The data reports a score per child of externalizing behaviors. This can measure a variety of behaviours including but not limited to: physical aggression, verbal bullying, relational aggression, defiance, theft, and vandalism. The higher on the scale the more external behaviours demonstrated by the child. The scale is bounded at 0 and has a maximum possible score of 68. Each individual child is measured for these behaviours in each grade of school. 
 
 ```{code-cell} ipython3
+:tags: []
+
 try:
     df_external = pd.read_csv("../data/external_pp.csv")
 except FileNotFoundError:
@@ -729,8 +781,10 @@ plt.hist(np.random.gumbel(guess["mu"], guess["beta"], 1000), bins=30, ec="black"
 As before we'll begin with a fairly minimal model, specifying a hierarchical model where each individual modifies the grand mean. We allow for a non-normal censored likelihood term. 
 
 ```{code-cell} ipython3
+:tags: []
+
 id_indx, unique_ids = pd.factorize(df_external["ID"])
-coords = {"ids": unique_ids}
+coords = {"ids": unique_ids, "obs": range(len(df_external["EXTERNAL"]))}
 with pm.Model(coords=coords) as model:
     external = pm.MutableData("external_data", df_external["EXTERNAL"].values + 1e-25)
     global_intercept = pm.Normal("global_intercept", 6, 1)
@@ -740,7 +794,9 @@ with pm.Model(coords=coords) as model:
     subject_intercept = pm.Normal("subject_intercept", 0, subject_intercept_sigma, dims="ids")
     mu = pm.Deterministic("mu", global_intercept + subject_intercept[id_indx])
     outcome_latent = pm.Gumbel.dist(mu, global_sigma)
-    outcome = pm.Censored("outcome", outcome_latent, lower=0, upper=68, observed=external)
+    outcome = pm.Censored(
+        "outcome", outcome_latent, lower=0, upper=68, observed=external, dims="obs"
+    )
     idata_m4 = pm.sample_prior_predictive()
     idata_m4.extend(
         pm.sample(random_seed=100, target_accept=0.95, idata_kwargs={"log_likelihood": True})
@@ -778,8 +834,10 @@ ax.set_title("Distribution of Individual Modifications to the Grand Mean");
 We now model the evolution of the behaviours over time in a hierarchical fashion. We start with a simple hierarhical linear regression with a focal predictor of grade. 
 
 ```{code-cell} ipython3
+:tags: []
+
 id_indx, unique_ids = pd.factorize(df_external["ID"])
-coords = {"ids": unique_ids}
+coords = {"ids": unique_ids, "obs": range(len(df_external["EXTERNAL"]))}
 with pm.Model(coords=coords) as model:
     grade = pm.MutableData("grade_data", df_external["GRADE"].values)
     external = pm.MutableData("external_data", df_external["EXTERNAL"].values + 1e-25)
@@ -799,7 +857,9 @@ with pm.Model(coords=coords) as model:
         + (global_beta_grade + subject_beta_grade[id_indx]) * grade,
     )
     outcome_latent = pm.Gumbel.dist(mu, global_sigma)
-    outcome = pm.Censored("outcome", outcome_latent, lower=0, upper=68, observed=external)
+    outcome = pm.Censored(
+        "outcome", outcome_latent, lower=0, upper=68, observed=external, dims="obs"
+    )
     idata_m5 = pm.sample_prior_predictive()
     idata_m5.extend(
         pm.sample(random_seed=100, target_accept=0.95, idata_kwargs={"log_likelihood": True})
@@ -860,8 +920,10 @@ We can see here how the model is constrained to apply a very linear fit to the b
 To give the model more flexibility to model change over time we can add in polynomial terms. 
 
 ```{code-cell} ipython3
+:tags: []
+
 id_indx, unique_ids = pd.factorize(df_external["ID"])
-coords = {"ids": unique_ids}
+coords = {"ids": unique_ids, "obs": range(len(df_external["EXTERNAL"]))}
 with pm.Model(coords=coords) as model:
     grade = pm.MutableData("grade_data", df_external["GRADE"].values)
     grade2 = pm.MutableData("grade2_data", df_external["GRADE"].values ** 2)
@@ -889,7 +951,9 @@ with pm.Model(coords=coords) as model:
         + (global_beta_grade2 + subject_beta_grade2[id_indx]) * grade2,
     )
     outcome_latent = pm.Gumbel.dist(mu, global_sigma)
-    outcome = pm.Censored("outcome", outcome_latent, lower=0, upper=68, observed=external)
+    outcome = pm.Censored(
+        "outcome", outcome_latent, lower=0, upper=68, observed=external, dims="obs"
+    )
     idata_m6 = pm.sample_prior_predictive()
     idata_m6.extend(
         pm.sample(random_seed=100, target_accept=0.95, idata_kwargs={"log_likelihood": True})
@@ -957,7 +1021,7 @@ We'll now allow the model greater flexibility and pull in the gender of the subj
 :tags: [hide-output]
 
 id_indx, unique_ids = pd.factorize(df_external["ID"])
-coords = {"ids": unique_ids}
+coords = {"ids": unique_ids, "obs": range(len(df_external["EXTERNAL"]))}
 with pm.Model(coords=coords) as model:
     grade = pm.MutableData("grade_data", df_external["GRADE"].values)
     grade2 = pm.MutableData("grade2_data", df_external["GRADE"].values ** 2)
@@ -1001,7 +1065,9 @@ with pm.Model(coords=coords) as model:
     )
 
     outcome_latent = pm.Gumbel.dist(mu, global_sigma)
-    outcome = pm.Censored("outcome", outcome_latent, lower=0, upper=68, observed=external)
+    outcome = pm.Censored(
+        "outcome", outcome_latent, lower=0, upper=68, observed=external, dims="obs"
+    )
 
     idata_m7 = pm.sample_prior_predictive()
     idata_m7.extend(
@@ -1013,6 +1079,8 @@ with pm.Model(coords=coords) as model:
 ```
 
 ```{code-cell} ipython3
+:tags: []
+
 pm.model_to_graphviz(model)
 ```
 
@@ -1213,7 +1281,7 @@ These are powerful models for capturing and assessing patterns of change to comp
 +++
 
 ## Authors
-- Authored by [Nathaniel Forde](https://nathanielf.github.io/) in February 2023 
+- Authored by [Nathaniel Forde](https://nathanielf.github.io/) in April 2023 
 
 +++
 
