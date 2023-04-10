@@ -1114,6 +1114,8 @@ az.plot_ppc(idata_m7, figsize=(20, 7));
 
 ## Comparing Models
 
+As above we'll compare the various models for parameter fits and model performance measures using WAIC. 
+
 ```{code-cell} ipython3
 az.plot_forest(
     [idata_m4, idata_m5, idata_m6, idata_m7],
@@ -1162,6 +1164,8 @@ As perhaps expected our final gender based model is deemed to be best according 
 +++
 
 ## Plotting the Final Model
+
+We want to show the model fits for a number of individuals and the more generally implied trajectory across the population. 
 
 ```{code-cell} ipython3
 :tags: [hide-input]
