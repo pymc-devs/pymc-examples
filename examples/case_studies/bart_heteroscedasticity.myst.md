@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-examples-env
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -14,9 +14,9 @@ kernelspec:
 # Modeling Heteroscedasticity with BART
 
 :::{post} January, 2023
-:tags: bart regression 
+:tags: BART, regression
 :category: beginner, reference
-:author: [Juan Orduz](https://juanitorduz.github.io/)
+:author: Juan Orduz
 :::
 
 +++
@@ -85,8 +85,8 @@ Next, we specify the model. Note that we just need one BART distribution which c
 
 ```{code-cell} ipython3
 with pm.Model() as model_marketing_full:
-    w = pmb.BART(name="w", X=X, Y=Y, m=200, shape=(2, n_obs))
-    y = pm.Gamma(name="y", mu=w[0], sigma=pm.math.abs(w[1]), observed=Y)
+    w = pmb.BART("w", X=X, Y=np.log(Y), m=200, shape=(2, n_obs))
+    y = pm.Gamma("y", mu=pm.math.exp(w[0]), sigma=pm.math.exp(w[1]), observed=Y)
 
 pm.model_to_graphviz(model=model_marketing_full)
 ```
@@ -123,11 +123,11 @@ fig, ax = plt.subplots()
 az.plot_hdi(x=X[:, 0], y=pps, ax=ax, fill_kwargs={"alpha": 0.3, "label": r"Likelihood $94\%$ HDI"})
 az.plot_hdi(
     x=X[:, 0],
-    hdi_data=w_hdi["w"].sel(w_dim_0=0),
+    hdi_data=np.exp(w_hdi["w"].sel(w_dim_0=0)),
     ax=ax,
     fill_kwargs={"alpha": 0.6, "label": r"Mean $94\%$ HDI"},
 )
-ax.plot(X[:, 0][idx], posterior_mean[idx], c="black", lw=3, label="Posterior Mean")
+ax.plot(X[:, 0][idx], np.exp(posterior_mean[idx]), c="black", lw=3, label="Posterior Mean")
 ax.plot(df["youtube"], df["sales"], "o", c="C0", label="Raw Data")
 ax.legend(loc="upper left")
 ax.set(
@@ -143,6 +143,7 @@ The fit looks good! In fact, we see that the mean and variance increase as a fun
 
 ## Authors
 - Authored by [Juan Orduz](https://juanitorduz.github.io/) in February 2023 
+- Rerun by Osvaldo Martin in March 2023
 
 +++
 

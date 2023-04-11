@@ -87,7 +87,7 @@ $$\begin{align*}
 
 Solving this differential equation for the survival function shows that
 
-$$S(t) = \exp\left(-\int_0^s \lambda(s)\ ds\right).$$
+$$S(t) = \exp\left(-\int_0^t \lambda(s)\ ds\right).$$
 
 This representation of the survival function shows that the cumulative hazard function
 

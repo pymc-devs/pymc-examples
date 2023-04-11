@@ -1,15 +1,12 @@
 myst-nb
-sphinx==5.0.2 # see https://github.com/pymc-devs/pymc-examples/issues/409
-git+https://github.com/pymc-devs/pymc-sphinx-theme
+sphinx>=5
+pymc-sphinx-theme==0.1
 sphinx-design
 sphinx-copybutton
 sphinxcontrib-bibtex
-ablog
+ablog<0.11
 sphinxext-opengraph
 sphinx-codeautolink
 sphinx-notfound-page
-nbsphinx
-sphinx-gallery==0.10.1 # see https://github.com/pymc-devs/pymc-examples/issues/409
 matplotlib
 sphinxext-rediraffe
-sphinx-remove-toctrees
