@@ -46,7 +46,7 @@ Core notebooks
 
    .. grid-item-card:: GLM: Linear regression
       :img-top: ../_thumbnails/core_notebooks/glm_linear.png
-      :link: pymc:GLM_linear
+      :link: pymc:glm_linear
       :link-type: ref
       :shadow: none
 
