@@ -175,7 +175,7 @@ intersphinx_mapping = {
     "mpl": ("https://matplotlib.org/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
-    "pymc": ("https://pymcio--6714.org.readthedocs.build/projects/docs/en/6714/", None),
+    "pymc": ("https://www.pymc.io/projects/docs/en/stable/", None),
     "pytensor": ("https://pytensor.readthedocs.io/en/latest/", None),
     "pmx": ("https://www.pymc.io/projects/experimental/en/latest/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
