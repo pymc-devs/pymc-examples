@@ -186,7 +186,11 @@ def main(app):
     for folder, title in folder_title_map.items():
 
         nb_paths = glob(f"{folder}/*.ipynb")
-        file.append(SECTION_TEMPLATE.format(section_title=title, section_id=folder, underlines="-" * len(title)))
+        file.append(
+            SECTION_TEMPLATE.format(
+                section_title=title, section_id=folder, underlines="-" * len(title)
+            )
+        )
         target_dir = os.path.join("..", "_thumbnails", folder)
         if not os.path.isdir(target_dir):
             os.mkdir(target_dir)
