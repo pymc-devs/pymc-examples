@@ -3,7 +3,11 @@ version: 2
 sphinx:
     configuration: examples/conf.py
 
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.10"
+
 python:
-   version: "3.8"
    install:
    - requirements: requirements-docs.txt
