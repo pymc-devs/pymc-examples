@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_ex_nf
+  display_name: pymc_examples_new
   language: python
-  name: pymc_ex_nf
+  name: python3
 ---
 
 (ordinal_regression)=
@@ -42,11 +42,17 @@ az.style.use("arviz-darkgrid")
 rng = np.random.default_rng(42)
 ```
 
+# Likert Scales and Survey Data
+
+Like many concepts in statistics, the topic of survey data comes with an overloaded vocabulary. When discussing survey design you will often hear about the contrast between *design* based and *model* based approaches to (i) sampling strategies and (ii) statistical inference on the associated data. We won't wade into the details about different sample strategies such as: simple random sampling, cluster random sampling or stratified random sampling using population weighting schemes. The literature on each of these is vast, but in this notebook we'll talk about when any why it's useful to apply model driven statistical inference to Likert scaled survey response data and other kinds of ordered categorical data. 
+
++++
+
 ## Ordered Categories: Known Distribution
 
 We'll start by generating some fake data. Imagine an employee/manager relationship where part of the annual process involves conducting a 360 degree review. The manager gets a rating (1 - 10) by their team and HR collects these ratings. The HR manager wants to know which factors influence the manager's rating and what can move a manager who receives a 4 into a 5 or a 7 into an 8. They have a theory that the rating is largely a function of salary. 
 
-Ordinal Regression is a statistical technique designed to model these kinds of relationships. 
+Ordinal Regression is a statistical technique designed to **model** these kinds of relationships and can be contrasted to a design based approach where the focus is to extract simple statistical summaries e.g. proportions, counts or ratios in the context of a survey design under strong guarantees about the error tolerance in those derived summaries.
 
 ```{code-cell} ipython3
 :tags: []
@@ -137,9 +143,13 @@ axs[0].hist(results.resid, ec="white")
 axs[0].set_title("Simple OLS Residuals on Training Data");
 ```
 
+This suggests a reason for the contrast between *design* and *model* based approaches to inference with survey data. The modelling approach often hides or buries assumptions which makes the model infeasible, and the conservative approach tends towards inference under a design philosophy that avoids the risk of model misspecification. 
+
++++
+
 ## Ordinal Regression Models: The Idea
 
-In this notebook we'll show how to fit regression models to outcomes with ordered categories. These types of models can be considered as an application logistic regression models with multiple thresholds on a latent continuous scale. The idea is that there is a latent metric which can be partitioned by the extremity of the measure, but we observe only the indicator for which partition of the scale an individual resides. This is quite a natural perspective e.g. imagine the bundling of complexity that gets hidden in crude political classifications: liberal, moderate and conservative. You may have a range of views on any number of political issues, but they all get collapsed in the political calculus to finite set of (generally poor) choices. Which of the last 10 political choices pushed you from liberal to moderate?
+In this notebook we'll show how to fit regression models to outcomes with ordered categories to avoid one type of model misspecification. These types of models can be considered as an application logistic regression models with multiple thresholds on a latent continuous scale. The idea is that there is a latent metric which can be partitioned by the extremity of the measure, but we observe only the indicator for which partition of the scale an individual resides. This is quite a natural perspective e.g. imagine the bundling of complexity that gets hidden in crude political classifications: liberal, moderate and conservative. You may have a range of views on any number of political issues, but they all get collapsed in the political calculus to finite set of (generally poor) choices. Which of the last 10 political choices pushed you from liberal to moderate?
 
 
 The idea is to treat the outcome variable (our categorical) judgment as deriving from an underlying continuous measure. We see the outcomes we do just when some threshold on that continuous measure has been achieved. The primary inferential task of ordinal regression is to derive an estimate of those thresholds in the latent continuous space. 
@@ -251,7 +261,7 @@ az.summary(idata3, var_names=["sigma", "cutpoints", "beta"])
 pm.model_to_graphviz(model3)
 ```
 
-### Extracting the Probabilities 
+### Extracting Individual Probabilities 
 
 We can now for each individual manager's rating, look at the probability associated with each of the available categories. Across the posterior distributions of our cuts which section of the latent continous measure the employee is most likely to fall into.
 
@@ -304,6 +314,10 @@ ax.set_title("Distribution of Allocated Intervals for Individual O", fontsize=20
 
 ## Compare Models: Parameter Fits and LOO
 
++++
+
+One tool for ameliorating the risk of model misspecification is to compare amongst different candidate model to check for  predictive accuracy. 
+
 ```{code-cell} ipython3
 :tags: []
 
@@ -320,6 +334,8 @@ compare = az.compare(
 az.plot_compare(compare)
 compare
 ```
+
+We can also compare the estimated parameters which govern each regression model to see how robust our model fit is to alternative parameterisation. 
 
 ```{code-cell} ipython3
 :tags: []
@@ -477,27 +493,21 @@ ax.annotate(
 ax.legend();
 ```
 
-## Kruschke's IMDB movie Ratings Data
+## Liddell and Kruschke's IMDB movie Ratings Data
 
-There are substantial reasons for using an ordinal regression model rather than trusting to alternatives. The temptation to treat the ordered category as a continuous metric will lead to false inferences. The details are discussed in Kruschke's paper on this topic. We'll briefly replicate his example about how this phenomenon can appear in analysis of movies ratings data.
-
-```{code-cell} ipython3
-:tags: []
-
-movies = pd.read_csv("../data/MoviesData.csv")
-movies.head()
-```
+There are substantial reasons for using an ordinal regression model rather than trusting to alternative model specifications. For instance, the temptation to treat the ordered category as a continuous metric will lead to false inferences. The details are discussed in the Liddell and Kruschke paper {cite:p}`LIDDELL2018328` on this topic. We'll briefly replicate their example about how this phenomenon can appear in analysis of movies ratings data.
 
 ```{code-cell} ipython3
 :tags: []
-
-import pandas as pd
 
 try:
     movies = pd.read_csv("../data/MoviesData.csv")
 except FileNotFoundError:
     movies = pd.DataFrame(pm.get_data("MoviesData.csv"))
+```
 
+```{code-cell} ipython3
+:tags: []
 
 def pivot_movie(row):
     row_ratings = row[["n1", "n2", "n3", "n4", "n5"]]
@@ -638,7 +648,7 @@ az.plot_compare(y_6_compare)
 
 ### Compare Inferences between Models
 
-Aside from the predictive fits, the inference drawn from the different modelling choices also vary quite significantly.
+Aside from the predictive fits, the inferences drawn from the different modelling choices also vary quite significantly. Imagine being a movie executive trying to decide whether to commit to a sequel, then relative movie performance rating against competitor  benchmarks might be a pivotal feature of this decision, and difference induced by the analyst's choice of model can have an outsized effect on that choice. 
 
 ```{code-cell} ipython3
 :tags: []
@@ -680,18 +690,18 @@ axs[3].legend()
 axs[4].legend();
 ```
 
-There are many millions of dollars on the line when making the decision to put a movie into production. The return on that investment is a least partially a function of the movie's popularity which is both measured and influenced by the rating scales on Rotten Tomatoes and IMDB. Understanding the relative popularity of different movies therefore can shift huge amounts of money through hollywood, and the implied differences seen here really do matter. 
+There are many millions of dollars on the line when making the decision to put a movie into production. The return on that investment is a least partially a function of the movie's popularity which is both measured and influenced by the rating scales on Rotten Tomatoes and IMDB. Understanding the relative popularity of different movies therefore can shift huge amounts of money through hollywood, and the implied differences seen here really do matter. Similar considerations follow for considering more significant rating scales which measure happiness and depression. 
 
 +++
 
 # Conclusion
 
-In this notebook we've seen how to build ordinal regression models with PyMC and motivated the modelling exercise using the interpretation of ordinal outcomes as the discrete outcomes of a latent continuous phenomena. We've seen how different model specifications can generate more or less interpretable estimates of the parameters underlying the model. We've also compared the ordinal regression approach to a more naive regression approach on ordinal data. The results strongly suggest that the ordinal regression avoids some of the inferential pitfalls that occur with the naive approach. 
+In this notebook we've seen how to build ordinal regression models with PyMC and motivated the modelling exercise using the interpretation of ordinal outcomes as the discrete outcomes of a latent continuous phenomena. We've seen how different model specifications can generate more or less interpretable estimates of the parameters underlying the model. We've also compared the ordinal regression approach to a more naive regression approach on ordinal data. The results strongly suggest that the ordinal regression avoids some of the inferential pitfalls that occur with the naive approach. In addition we've shown that the flexibility of the bayesian modelling work flow can provide assurances against the risk of model misspecification making it a viable and compelling approach for the analysis of ordinal data. 
 
 +++
 
 ## Authors
-- Authored by [Nathaniel Forde](https://github.com/NathanielF) in April 2023 
+- Authored by [Nathaniel Forde](https://github.com/NathanielF) in May 2023 
 
 +++
 
