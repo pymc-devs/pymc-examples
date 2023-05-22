@@ -44,7 +44,7 @@ rng = np.random.default_rng(42)
 
 # Likert Scales and Survey Data
 
-Like many concepts in statistics, the topic of survey data comes with an overloaded vocabulary. When discussing survey design you will often hear about the contrast between *design* based and *model* based approaches to (i) sampling strategies and (ii) statistical inference on the associated data. We won't wade into the details about different sample strategies such as: simple random sampling, cluster random sampling or stratified random sampling using population weighting schemes. The literature on each of these is vast, but in this notebook we'll talk about when any why it's useful to apply model driven statistical inference to Likert scaled survey response data and other kinds of ordered categorical data. 
+Like many concepts in statistics the topic of survey data comes with an overloaded vocabulary. When discussing survey design you will often hear about the contrast between *design* based and *model* based approaches to (i) sampling strategies and (ii) statistical inference on the associated data. We won't wade into the details about different sample strategies such as: simple random sampling, cluster random sampling or stratified random sampling using population weighting schemes. The literature on each of these is vast, but in this notebook we'll talk about when any why it's useful to apply model driven statistical inference to Likert scaled survey response data and other kinds of ordered categorical data. 
 
 +++
 
