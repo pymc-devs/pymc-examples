@@ -10,15 +10,15 @@ kernelspec:
   language: python
   name: python3
 substitutions:
-  extra_dependencies: bambi seaborn
+  extra_dependencies: libpysal bokeh geopandas
 ---
 
 (conditional_autoregressive_priors)=
 # Conditional Autoregressive (CAR) Models for Spatial Data
 
 :::{post} Jul 29, 2022 
-:tags: beginner, tutorial, spatial
-:category: beginner
+:tags: spatial
+:category: beginner, tutorial
 :author: Conor Hassan 
 :::
 
@@ -35,14 +35,13 @@ import pymc as pm
 :::
 
 ```{code-cell} ipython3
+# THESE ARE THE LIBRARIES THAT ARE NOT DEPENDENCIES ON PYMC
 # import mapclassify
 import libpysal
 
 # import bokeh
 from bokeh.plotting import output_notebook
 
-# THESE ARE THE LIBRARIES THAT ARE NOT DEPENDENCIES ON PYMC
-# import seaborn as sns
 # import geopandas
 from geopandas import read_file
 ```
@@ -332,7 +331,7 @@ This motivates having the ability that is equivalent to setting $\alpha=1$. In t
 
 ## Authors
 
-* Adapted from a previous PyMC example notebook, authored by Junpeng Lao {cite:p}`lao2020conditional` by Conor Hassan on July, 2022.
+* Adapted from a previous PyMC example notebook, authored by Junpeng Lao {ref}`conditional_autoregressive_model` by Conor Hassan on July, 2022.
 
 +++
 

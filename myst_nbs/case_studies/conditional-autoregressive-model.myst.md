@@ -31,7 +31,7 @@ np.random.seed(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 floatX = "float32"
 ```
-
+(conditional_autoregressive_model)=
 # Conditional Autoregressive (CAR) model
 A walkthrough of implementing a Conditional Autoregressive (CAR) model in `PyMC3`, with `WinBUGS`/`PyMC2` and `Stan` code as references.
 
