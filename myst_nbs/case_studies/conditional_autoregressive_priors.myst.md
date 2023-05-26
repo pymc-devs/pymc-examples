@@ -6,11 +6,11 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3.10.5 ('pymc-dev-car-nb')
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 substitutions:
-  extra_dependencies: libpysal bokeh geopandas
+  extra_dependencies: bambi seaborn
 ---
 
 (conditional_autoregressive_priors)=
@@ -23,12 +23,12 @@ substitutions:
 :::
 
 ```{code-cell} ipython3
-import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
+import pytensor.tensor as pt
 ```
 
 :::{include} ../extra_installs.md
@@ -175,7 +175,7 @@ with pm.Model(coords={"area_idx": np.arange(N)}) as independent_model:
     theta = pm.Normal("theta", mu=0, tau=tau_ind, dims="area_idx")
 
     # exponential of the linear predictor -> the mean of the likelihood
-    mu = pm.Deterministic("mu", at.exp(logE + beta0 + beta1 * x + theta), dims="area_idx")
+    mu = pm.Deterministic("mu", pt.exp(logE + beta0 + beta1 * x + theta), dims="area_idx")
 
     # likelihood of the observed data
     y_i = pm.Poisson("y_i", mu=mu, observed=y, dims="area_idx")
@@ -238,7 +238,7 @@ with pm.Model(coords={"area_idx": np.arange(N)}) as fixed_spatial_model:
     phi = pm.CAR("phi", mu=np.zeros(N), tau=tau_spat, alpha=0.95, W=adj_matrix, dims="area_idx")
 
     # exponential of the linear predictor -> the mean of the likelihood
-    mu = pm.Deterministic("mu", at.exp(logE + beta0 + beta1 * x + theta + phi), dims="area_idx")
+    mu = pm.Deterministic("mu", pt.exp(logE + beta0 + beta1 * x + theta + phi), dims="area_idx")
 
     # saving the residual between the observation and the mean response for the area
     res = pm.Deterministic("res", y_i - mu, dims="area_idx")
@@ -292,7 +292,7 @@ with pm.Model(coords={"area_idx": np.arange(N)}) as car_model:
     phi = pm.CAR("phi", mu=np.zeros(N), tau=tau_spat, alpha=alpha, W=adj_matrix, dims="area_idx")
 
     # exponential of the linear predictor -> the mean of the likelihood
-    mu = pm.Deterministic("mu", at.exp(logE + beta0 + beta1 * x + theta + phi), dims="area_idx")
+    mu = pm.Deterministic("mu", pt.exp(logE + beta0 + beta1 * x + theta + phi), dims="area_idx")
 
     # likelihood of the observed data
     pm.Poisson("y_i", mu=mu, observed=y, dims="area_idx")
