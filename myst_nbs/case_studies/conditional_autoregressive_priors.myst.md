@@ -6,9 +6,9 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.13.7
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: Python [conda env:spatial_pymc_env]
   language: python
-  name: python3
+  name: conda-env-spatial_pymc_env-py
 substitutions:
   extra_dependencies: bambi seaborn
 ---
@@ -39,17 +39,12 @@ import pytensor.tensor as pt
 # import mapclassify
 import libpysal
 
-# import bokeh
-from bokeh.plotting import output_notebook
-
 # import geopandas
 from geopandas import read_file
 ```
 
 ```{code-cell} ipython3
 az.style.use("arviz-darkgrid")
-output_notebook()
-# plt.rcParams["figure.constrained_layout.use"] = False
 ```
 
 # Conditional Autoregressive (CAR) model
@@ -190,7 +185,7 @@ with pm.Model(coords={"area_idx": np.arange(N)}) as independent_model:
 We can plot the residuals of this first model.
 
 ```{code-cell} ipython3
-independent_stacked = az.extract_dataset(independent_idata)
+independent_stacked = az.extract(independent_idata)
 spat_df["INDEPENDENT_RES"] = independent_stacked.res.mean(axis=1)
 ```
 
@@ -240,11 +235,11 @@ with pm.Model(coords={"area_idx": np.arange(N)}) as fixed_spatial_model:
     # exponential of the linear predictor -> the mean of the likelihood
     mu = pm.Deterministic("mu", pt.exp(logE + beta0 + beta1 * x + theta + phi), dims="area_idx")
 
+    # likelihood of the observed data
+    y_i = pm.Poisson("y_i", mu=mu, observed=y, dims="area_idx")
+
     # saving the residual between the observation and the mean response for the area
     res = pm.Deterministic("res", y_i - mu, dims="area_idx")
-
-    # likelihood of the observed data
-    pm.Poisson("y_i", mu=mu, observed=y, dims="area_idx")
 
     # sampling the model
     fixed_spatial_idata = pm.sample(2000, tune=3000, cores=8)
@@ -253,7 +248,7 @@ with pm.Model(coords={"area_idx": np.arange(N)}) as fixed_spatial_model:
 We can see by plotting the residuals of the second model, by accounting for spatial dependency with the CAR prior, the residuals of the model appear more independent with respect to the spatial location of the observation.
 
 ```{code-cell} ipython3
-fixed_spatial_stacked = az.extract_dataset(fixed_spatial_idata)
+fixed_spatial_stacked = az.extract(fixed_spatial_idata)
 spat_df["SPATIAL_RES"] = fixed_spatial_stacked.res.mean(axis=1)
 ```
 
@@ -304,7 +299,7 @@ with pm.Model(coords={"area_idx": np.arange(N)}) as car_model:
 ```
 
 ```{code-cell} ipython3
-car_stacked = az.extract_dataset(car_idata)
+car_stacked = az.extract(car_idata)
 ```
 
 Comparing the regression parameters $\beta_0$ and $\beta_1$ between the three models that we have fit, we can see that accounting for the spatial dependence between observations has the ability to greatly impact the interpretation of the effect of covariates on the response variable.
@@ -315,14 +310,13 @@ beta_density = az.plot_density(
     data_labels=["Independent", "Spatial with alpha fixed", "Spatial with alpha random"],
     var_names=["beta0", "beta1"],
     shade=0.1,
-    backend="bokeh",
 )
 ```
 
-As you can see from the warning messages given above, we have a difficult time effectively sampling from the third model. This is not an issue with PyMC, and is a common issue among software packages for models of this form: the model structure is unidentifiable. Though this should not be taken as guaranteed to be accurate, we can plot the marginal posterior for $\alpha$, and see that it is very near $1$.
+As you can see from the divergences given above, we have a difficult time effectively sampling from the third model. This is not an issue with PyMC, and is a common issue among software packages for models of this form: the model structure is unidentifiable. Though this should not be taken as guaranteed to be accurate, we can plot the marginal posterior for $\alpha$, and see that it is very near $1$.
 
 ```{code-cell} ipython3
-alpha_density = az.plot_density([car_idata], var_names=["alpha"], shade=0.1, backend="bokeh")
+az.plot_density([car_idata], var_names=["alpha"], shade=0.1)
 ```
 
 This motivates having the ability that is equivalent to setting $\alpha=1$. In the definition of the CAR prior, $\alpha \in(0, 1)$. If $\alpha \rightarrow 1$, we get an alternate prior called the *intrinsic conditional autoregressive (ICAR)* prior. The ICAR prior has some desirable properties compared to the CAR prior, and is more widely used in spatial models, specifically the BYM {cite:p}`besag1991bayesian`, Leroux {cite:p}`leroux2000estimation` and BYM2 {cite:p}`riebler2016intuitive` models. Currently, work is being done to include the ICAR prior within PyMC.
@@ -332,6 +326,7 @@ This motivates having the ability that is equivalent to setting $\alpha=1$. In t
 ## Authors
 
 * Adapted from a previous PyMC example notebook, authored by Junpeng Lao {ref}`conditional_autoregressive_model` by Conor Hassan on July, 2022.
+* Re-executed by Daniel Saunders in May, 2023
 
 +++
 
@@ -347,7 +342,7 @@ This motivates having the ability that is equivalent to setting $\alpha=1$. In t
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aesara,aeppl,xarray
+%watermark -n -u -v -iv -w -p pytensor,xarray
 ```
 
 :::{include} ../page_footer.md
