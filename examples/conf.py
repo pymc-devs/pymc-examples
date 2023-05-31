@@ -1,4 +1,5 @@
-import os, sys
+import os
+import sys
 from pathlib import Path
 from sphinx.application import Sphinx
 
@@ -25,10 +26,8 @@ extensions = [
     "sphinxcontrib.bibtex",
     "sphinx_codeautolink",
     "notfound.extension",
-    "sphinx_gallery.load_style",
     "thumbnail_extractor",
     "sphinxext.rediraffe",
-    "sphinx_remove_toctrees",
 ]
 
 # List of patterns, relative to source directory, that match files and
@@ -42,50 +41,8 @@ exclude_patterns = [
     "**/.ipynb_checkpoints/*",
     "extra_installs.md",
     "page_footer.md",
+    "**/*.myst.md",
 ]
-
-
-def hack_nbsphinx(app: Sphinx) -> None:
-    from nbsphinx import (
-        depart_gallery_html,
-        doctree_resolved,
-        GalleryNode,
-        NbGallery,
-        patched_toctree_resolve,
-    )
-    from sphinx.environment.adapters import toctree
-
-    from glob import glob
-
-    nb_paths = glob("*/*.ipynb")
-    nbsphinx_thumbnails = {}
-    for nb_path in nb_paths:
-        png_file = os.path.join(
-            "thumbnails", os.path.splitext(os.path.split(nb_path)[-1])[0] + ".png"
-        )
-        nb_path_rel = os.path.splitext(nb_path)[0]
-        nbsphinx_thumbnails[nb_path_rel] = png_file
-
-    def builder_inited(app: Sphinx):
-        if not hasattr(app.env, "nbsphinx_thumbnails"):
-            app.env.nbsphinx_thumbnails = {}
-
-    def do_nothing(*node):
-        pass
-
-    app.add_config_value("nbsphinx_thumbnails", nbsphinx_thumbnails, rebuild="html")
-    app.add_directive("nbgallery", NbGallery)
-    app.add_node(
-        GalleryNode,
-        html=(do_nothing, depart_gallery_html),
-        latex=(do_nothing, do_nothing),
-        text=(do_nothing, do_nothing),
-    )
-    app.connect("builder-inited", builder_inited)
-    app.connect("doctree-resolved", doctree_resolved)
-
-    # Monkey-patch Sphinx TocTree adapter
-    toctree.TocTree.resolve = patched_toctree_resolve
 
 
 def remove_index(app):
@@ -102,7 +59,6 @@ def remove_index(app):
 
 
 def setup(app: Sphinx):
-    hack_nbsphinx(app)
     app.connect("html-collect-pages", remove_index, 100)
 
 
@@ -112,36 +68,16 @@ def setup(app: Sphinx):
 # a list of builtin themes.
 
 # theme options
-html_theme = "pydata_sphinx_theme"
+html_theme = "pymc_sphinx_theme"
 html_theme_options = {
-    "icon_links": [
-        {
-            "name": "GitHub",
-            "url": "https://github.com/pymc-devs/pymc-examples",
-            "icon": "fab fa-github-square",
-        },
-        {
-            "name": "Twitter",
-            "url": "https://twitter.com/pymc_devs",
-            "icon": "fab fa-twitter-square",
-        },
-        {
-            "name": "YouTube",
-            "url": "https://www.youtube.com/c/PyMCDevelopers",
-            "icon": "fab fa-youtube",
-        },
-        {
-            "name": "Discourse",
-            "url": "https://discourse.pymc.io",
-            "icon": "fab fa-discourse",
-        },
-    ],
-    "logo_link": "https://www.pymc.io",
-    "search_bar_text": "Search...",
-    "navbar_end": ["search-field.html", "navbar-icon-links.html"],
-    "page_sidebar_items": ["postcard", "page-toc", "edit-this-page", "donate"],
-    "google_analytics_id": "G-6KPRBTE6WV",
-    "logo_link": "https://www.pymc.io",
+    "secondary_sidebar_items": ["postcard", "page-toc", "edit-this-page", "sourcelink", "donate"],
+    "navbar_start": ["navbar-logo"],
+    "logo": {
+        "link": "https://www.pymc.io",
+    },
+    "article_header_end": ["nb-badges"],
+    "show_prev_next": True,
+    "article_footer_items": ["rendered_citation.html"],
 }
 version = os.environ.get("READTHEDOCS_VERSION", "")
 version = version if "." in version else "main"
@@ -168,7 +104,6 @@ html_title = "PyMC example gallery"
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["../_static"]
 html_extra_path = ["../_thumbnails"]
-html_css_files = ["custom.css"]
 templates_path = ["../_templates"]
 html_sidebars = {
     "**": [
@@ -186,6 +121,7 @@ blog_authors = {
     "contributors": ("PyMC Contributors", "https://docs.pymc.io"),
 }
 blog_default_author = "contributors"
+post_show_prev_next = False
 fontawesome_included = True
 # post_redirect_refresh = 1
 # post_auto_image = 1
@@ -198,7 +134,7 @@ myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "amsmath", "su
 citation_code = f"""
 ```bibtex
 @incollection{{citekey,
-  author    = "<notebook authors, see above>"
+  author    = "<notebook authors, see above>",
   title     = "<notebook title>",
   editor    = "PyMC Team",
   booktitle = "PyMC examples",
@@ -214,26 +150,11 @@ myst_substitutions = {
     "extra_install_notes": "",
     "citation_code": citation_code,
 }
-jupyter_execute_notebooks = "off"
+nb_execution_mode = "off"
 
 rediraffe_redirects = {
     "index.md": "gallery.md",
 }
-remove_from_toctrees = [
-    "BART/*",
-    "case_studies/*",
-    "diagnostics_and_criticism/*",
-    "gaussian_processes/*",
-    "generalized_linear_models/*",
-    "mixture_models/*",
-    "ode_models/*",
-    "howto/*",
-    "samplers/*",
-    "splines/*",
-    "survival_analysis/*",
-    "time_series/*",
-    "variational_inference/*",
-]
 
 # bibtex config
 bibtex_bibfiles = ["references.bib"]
@@ -248,15 +169,15 @@ codeautolink_concat_default = True
 
 # intersphinx mappings
 intersphinx_mapping = {
-    "aesara": ("https://aesara.readthedocs.io/en/latest/", None),
     "arviz": ("https://python.arviz.org/en/latest/", None),
-    "bambi": ("https://bambinos.github.io/bambi/main", None),
+    "bambi": ("https://bambinos.github.io/bambi", None),
     "einstats": ("https://einstats.python.arviz.org/en/latest/", None),
     "mpl": ("https://matplotlib.org/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
     "pymc": ("https://www.pymc.io/projects/docs/en/stable/", None),
+    "pytensor": ("https://pytensor.readthedocs.io/en/latest/", None),
     "pmx": ("https://www.pymc.io/projects/experimental/en/latest/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
-    "xarray": ("http://docs.xarray.dev/en/stable/", None),
+    "xarray": ("https://docs.xarray.dev/en/stable/", None),
 }
