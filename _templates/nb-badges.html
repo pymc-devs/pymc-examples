@@ -1,9 +1,11 @@
+{% if pagename in ablog %}
+
 <!-- Generate correct links and render github/binder/colab badges -->
 {% set gh_basepath =  github_user + '/' + github_repo + '/blob/' + github_version + '/' %}
 {% set encoded_base =  github_user + '%252F' + github_repo  %}
 {% set gh_binder = github_user + '/' + github_repo + '/' + github_version %}
 {% set doc_path_aux = doc_path | trim('/') %}
-{% set file_path = doc_path_aux + '/' + pagename + page_source_suffix %}
+{% set file_path = doc_path_aux + '/' + pagename + ".ipynb" %}
 {% set encoded_path = file_path | replace("/", "%252F") %}
 
 
@@ -19,3 +21,4 @@
     <img src="{{ pathto('_static/colab.svg', 1) }}" alt="Open In Colab"/></a>
   </p>
 </div>
+{% endif %}

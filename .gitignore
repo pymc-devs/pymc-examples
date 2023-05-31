@@ -4,5 +4,7 @@
 *.DS_Store
 
 _build
+build
 jupyter_execute
 _thumbnails
+examples/gallery.rst
