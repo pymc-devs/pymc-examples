@@ -49,8 +49,10 @@ az.style.use("arviz-darkgrid")
 # Conditional Autoregressive (CAR) model
 
 A *conditional autoregressive CAR prior* on a set of random effects $\{\phi_i\}_{i=1}^N$ models the random effect $\phi_i$ as having a mean, that is the weighted average the random effects of observation $i$'s adjacent neighbours. Mathematically, this can be expressed as 
-$$\phi_i \big | \mathbf{\phi}_{j\sim i}\sim\text{Normal}\bigg(\alpha\frac{\sum_{j=1}^{n_i}w_{ij}\phi_j}{n_i}, \sigma_{i}^2\bigg ),$$
-where ${j\sim i}$ indicates the set of adjacent neighbours to observation $i$, $n_i$ denotes the number of adjacent neighbours that observation $i$ has, $w_{ij}$ is the weighting of the spatial relationship between observation $i$ and $j$. If $i$ and $j$ are not adjacent, then $w_{ij}=0$. Lastly, $\sigma_i^2$ is a spatially varying variance parameter for each area. Note that information such as an adjacency matrix, indicating the neighbour relationships, and a weight matrix $\textbf{w}$, indicating the weights of the spatial relationships, is required as input data. The parameters that we infer are $\{\phi\}_{i=1}^N, \{\sigma_i\}_{i=1}^N$, and $\alpha$. 
+
+$$\phi_i \big | \mathbf{\phi}_{j\sim i} \sim \text{Normal} \bigg( \alpha \frac{ \sum_{j=1}^{n_i}w_{ij} \phi_j}{n_i}, \sigma_{i}^2\bigg)$$
+
+where ${j \sim i}$ indicates the set of adjacent neighbours to observation $i$, $n_i$ denotes the number of adjacent neighbours that observation $i$ has, $w_{ij}$ is the weighting of the spatial relationship between observation $i$ and $j$. If $i$ and $j$ are not adjacent, then $w_{ij}=0$. Lastly, $\sigma_i^2$ is a spatially varying variance parameter for each area. Note that information such as an adjacency matrix, indicating the neighbour relationships, and a weight matrix $\textbf{w}$, indicating the weights of the spatial relationships, is required as input data. The parameters that we infer are $\{\phi\}_{i=1}^N, \{\sigma_i\}_{i=1}^N$, and $\alpha$. 
 
 ## Model specification 
 
