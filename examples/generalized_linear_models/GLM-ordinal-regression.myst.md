@@ -42,9 +42,9 @@ az.style.use("arviz-darkgrid")
 rng = np.random.default_rng(42)
 ```
 
-# Likert Scales and Survey Data
+# Ordinal Scales and Survey Data
 
-Like many concepts in statistics the topic of survey data comes with an overloaded vocabulary. When discussing survey design you will often hear about the contrast between *design* based and *model* based approaches to (i) sampling strategies and (ii) statistical inference on the associated data. We won't wade into the details about different sample strategies such as: simple random sampling, cluster random sampling or stratified random sampling using population weighting schemes. The literature on each of these is vast, but in this notebook we'll talk about when any why it's useful to apply model driven statistical inference to Likert scaled survey response data and other kinds of ordered categorical data. 
+Like many areas of statistics the language of survey data comes with an overloaded vocabulary. When discussing survey design you will often hear about the contrast between *design* based and *model* based approaches to (i) sampling strategies and (ii) statistical inference on the associated data. We won't wade into the details about different sample strategies such as: simple random sampling, cluster random sampling or stratified random sampling using population weighting schemes. The literature on each of these is vast, but in this notebook we'll talk about when any why it's useful to apply model driven statistical inference to Likert scaled survey response data and other kinds of ordered categorical data. 
 
 +++
 
@@ -176,7 +176,7 @@ and that the probability for belonging within a particular category $j$ is deter
 
 $$ P(Y = j) = \frac{exp(\alpha_{j} + \beta'x)}{1 + exp(\alpha_{j} + \beta'x)} - \frac{exp(\alpha_{j-1} + \beta'x)}{1 + exp(\alpha_{j-1} + \beta'x)} $$
 
-One nice feature of ordinal regressions specified in this fashion is that the interpretation of the coefficients on the beta terms remain the same across each interval on the latent space. The interpretaiton of the model parameters is typical: a unit increase in $x_{k}$ corresponds to an increase in $Y_{latent}$ of $\beta_{k}$ Similar interpretation holds for probit regression specification too. 
+One nice feature of ordinal regressions specified in this fashion is that the interpretation of the coefficients on the beta terms remain the same across each interval on the latent space. The interpretaiton of the model parameters is typical: a unit increase in $x_{k}$ corresponds to an increase in $Y_{latent}$ of $\beta_{k}$ Similar interpretation holds for probit regression specification too. However we must be careful about comparing the interpretation of coefficients across different model specifications with different variables. The above coefficient interpretation makes sense as conditional interpretation based on holding fixed precisely the variables in the model. Adding or removing variables changes the conditionalisation which breaks the comparability of the models due the phenomena of non-collapsability. We'll show below how it's better to compare the models on their predictive implications using the posterior predictive distribution. 
 
 ### Bayesian Particularities 
 
