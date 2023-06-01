@@ -44,7 +44,7 @@ rng = np.random.default_rng(42)
 
 # Ordinal Scales and Survey Data
 
-Like many areas of statistics the language of survey data comes with an overloaded vocabulary. When discussing survey design you will often hear about the contrast between *design* based and *model* based approaches to (i) sampling strategies and (ii) statistical inference on the associated data. We won't wade into the details about different sample strategies such as: simple random sampling, cluster random sampling or stratified random sampling using population weighting schemes. The literature on each of these is vast, but in this notebook we'll talk about when any why it's useful to apply model driven statistical inference to Likert scaled survey response data and other kinds of ordered categorical data. 
+Like many areas of statistics the language of survey data comes with an overloaded vocabulary. When discussing survey design you will often hear about the contrast between *design* based and *model* based approaches to (i) sampling strategies and (ii) statistical inference on the associated data. We won't wade into the details about different sample strategies such as: simple random sampling, cluster random sampling or stratified random sampling using population weighting schemes. The literature on each of these is vast, but in this notebook we'll talk about when any why it's useful to apply model driven statistical inference to [Likert](https://en.wikipedia.org/wiki/Likert_scale) scaled survey response data and other kinds of ordered categorical data. 
 
 +++
 
@@ -58,6 +58,7 @@ Ordinal Regression is a statistical technique designed to **model** these kinds 
 :tags: []
 
 def make_data():
+    np.random.seed(100)
     salary = np.random.normal(40, 10, 500)
     work_sat = np.random.beta(1, 0.4, 500)
     work_from_home = bernoulli.rvs(0.7, size=500)
@@ -80,6 +81,7 @@ def make_data():
 
 try:
     df = pd.read_csv("../data/fake_employee_manger_rating.csv")
+    df = df[["salary", "work_sat", "work_from_home", "latent_rating", "explicit_rating"]]
 except FileNotFoundError:
     df = make_data()
 
@@ -202,7 +204,7 @@ def constrainedUniform(N, min=0, max=1):
     )
 ```
 
-The above function, (brainchild of Dr Ben Vincent), looks a little indimidating, but it's just a convenience function to specify a prior over the cutpoints in our $Y_{latent}$. The Dirichlet distribution is special in that draws from the distribution must sum to one. The above function ensures that each draw from the prior distribution is a cumulative share of the maximum category greater than the minimum of our ordinal categorisation. 
+The above function, (brainchild of Dr Ben Vincen and Adrian Seyboldt), looks a little indimidating, but it's just a convenience function to specify a prior over the cutpoints in our $Y_{latent}$. The Dirichlet distribution is special in that draws from the distribution must sum to one. The above function ensures that each draw from the prior distribution is a cumulative share of the maximum category greater than the minimum of our ordinal categorisation. 
 
 ```{code-cell} ipython3
 :tags: [hide-output]
@@ -283,7 +285,7 @@ implied_probs[0].mean(axis=1)
 
 fig, ax = plt.subplots(figsize=(20, 6))
 for i in range(K):
-    ax.hist(implied_probs[0, i, :], label=f"Cutpoint: {i}", ec="white", bins=20)
+    ax.hist(implied_probs[0, i, :], label=f"Cutpoint: {i}", ec="white", bins=20, alpha=0.4)
 ax.set_xlabel("Probability")
 ax.set_title("Probability by Interval of Manager Rating \n by Individual 0", fontsize=20)
 ax.legend();
@@ -308,7 +310,7 @@ mode(implied_class[0])
 :tags: []
 
 fig, ax = plt.subplots(figsize=(20, 6))
-ax.hist(implied_class[0], ec="white", bins=20)
+ax.hist(implied_class[0], ec="white", bins=20, alpha=0.4)
 ax.set_title("Distribution of Allocated Intervals for Individual O", fontsize=20);
 ```
 
@@ -365,7 +367,7 @@ ax[0].set_title("Model Parameter Estimates", fontsize=20);
 az.summary(idata3, var_names=["cutpoints", "beta", "sigma"])
 ```
 
-## Compare Cutpoints: Normal V Uniform Priors
+## Compare Cutpoints: Normal versus Uniform Priors
 
 Note how the model with unconstrianed cutpoints allows the occurence of a threshold estimated to be below zero. This does not make much conceptual sense, but can lead to a plausible enough posterior predictive distribution.
 
@@ -429,6 +431,8 @@ az.summary(idata4, var_names=["cutpoints"])
 
 ## Comparison to Statsmodels
 
+This type of model can also be estimated in the frequentist tradition using maximum likelihood methods.
+
 ```{code-cell} ipython3
 :tags: []
 
@@ -439,7 +443,16 @@ resf_logit = modf_logit.fit(method="bfgs")
 resf_logit.summary()
 ```
 
+We can also extract the threshold or cut point estimates, which match closely with the cutpoints above where used a normal distribution to represent the latent manager rating. 
+
+```{code-cell} ipython3
+num_of_thresholds = 8
+modf_logit.transform_threshold_params(resf_logit.params[-num_of_thresholds:])
+```
+
 ## Interrogating the Model's Implications
+
+When we want to asses the implications of the model we can use the learned posterior estimates for the data generating equation, to simulate what proportions of survey results would have resulted in a rating over a particular threshold score. Here we allow for full uncertainty of the various beta-distributions to be represented under different working conditions and measure the proportion of employees who would give their manager a rating above a 7. 
 
 ```{code-cell} ipython3
 :tags: []
@@ -701,7 +714,7 @@ In this notebook we've seen how to build ordinal regression models with PyMC and
 +++
 
 ## Authors
-- Authored by [Nathaniel Forde](https://github.com/NathanielF) in May 2023 
+- Authored by [Nathaniel Forde](https://github.com/NathanielF) in June 2023 
 
 +++
 
