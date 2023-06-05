@@ -16,12 +16,14 @@ substitutions:
 # Conditional Autoregressive (CAR) Models for Spatial Data
 
 :::{post} Jul 29, 2022 
-:tags: spatial
+:tags: spatial, autoregressive, count data
 :category: beginner, tutorial
-:author: Conor Hassan 
+:author: Conor Hassan, Daniel Saunders
 :::
 
 ```{code-cell} ipython3
+import os
+
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
@@ -35,14 +37,14 @@ import pytensor.tensor as pt
 
 ```{code-cell} ipython3
 # THESE ARE THE LIBRARIES THAT ARE NOT DEPENDENCIES ON PYMC
-# import mapclassify
 import libpysal
 
-# import geopandas
 from geopandas import read_file
 ```
 
 ```{code-cell} ipython3
+RANDOM_SEED = 8927
+rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
 
@@ -67,13 +69,18 @@ where $a$ is the some chosen hyperparameter for the variance of the prior distri
 
 ## Preparing the data 
 
-We need to load in the dataset to access the variables $\{y_i, x_i, E_i\}_{i=1}^N$. But more unique to the use of CAR models, is the creation of the necessary spatial adjacency matrix. For the models that we fit, all neighbours are weighted as $1$, circumventing the need for a weight matrix. The dataset can be accessed via the `pm.get_data` function.
+We need to load in the dataset to access the variables $\{y_i, x_i, E_i\}_{i=1}^N$. But more unique to the use of CAR models, is the creation of the necessary spatial adjacency matrix. For the models that we fit, all neighbours are weighted as $1$, circumventing the need for a weight matrix.
 
 ```{code-cell} ipython3
-df_scot_cancer = pd.read_csv(pm.get_data("scotland_lips_cancer.csv"))
+try:
+    df_scot_cancer = pd.read_csv(os.path.join("..", "data", "scotland_lips_cancer.csv"))
+except FileNotFoundError:
+    df_scot_cancer = pd.read_csv(pm.get_data("scotland_lips_cancer.csv"))
 ```
 
 ```{code-cell} ipython3
+:tags: []
+
 df_scot_cancer.head()
 ```
 
@@ -149,7 +156,7 @@ scotland_map = spat_df.plot(
 
 +++
 
-#### Our first model: an *independent* random effects model
+### Our first model: an *independent* random effects model
 We begin by fitting an independent random effect's model. We are not modelling any *spatial dependency* between the areas. This model is equivalent to a Poisson regression model with a normal random effect, and mathematically looks like
 \begin{align*} 
 y_i &\sim \text{Poisson}\big (\lambda_i),\\
@@ -177,17 +184,16 @@ with pm.Model(coords={"area_idx": np.arange(N)}) as independent_model:
     y_i = pm.Poisson("y_i", mu=mu, observed=y, dims="area_idx")
 
     # saving the residual between the observation and the mean response for the area
-    res = pm.Deterministic("res", y_i - mu, dims="area_idx")
+    res = pm.Deterministic("res", y - mu, dims="area_idx")
 
     # sampling the model
-    independent_idata = pm.sample(2000, tune=2000, cores=8)
+    independent_idata = pm.sample(2000, tune=2000)
 ```
 
 We can plot the residuals of this first model.
 
 ```{code-cell} ipython3
-independent_stacked = az.extract(independent_idata)
-spat_df["INDEPENDENT_RES"] = independent_stacked.res.mean(axis=1)
+spat_df["INDEPENDENT_RES"] = independent_idata["posterior"]["res"].mean(dim=["chain", "draw"])
 ```
 
 ```{code-cell} ipython3
@@ -203,7 +209,7 @@ independent_map = spat_df.plot(
 
 The mean of the residuals for the areas appear spatially correlated. This leads us to explore the addition of a spatially dependent random effect, by using a **conditional autoregressive (CAR)** prior.
 
-#### Our second model: a *spatial* random effects model (with fixed spatial dependence)
+### Our second model: a *spatial* random effects model (with fixed spatial dependence)
 Let us fit a model that has two random effects for each area: an *independent* random effect, and a *spatial* random effect first. This models looks
 \begin{align*} 
 y_i &\sim \text{Poisson}\big (\lambda_i),\\
@@ -240,17 +246,16 @@ with pm.Model(coords={"area_idx": np.arange(N)}) as fixed_spatial_model:
     y_i = pm.Poisson("y_i", mu=mu, observed=y, dims="area_idx")
 
     # saving the residual between the observation and the mean response for the area
-    res = pm.Deterministic("res", y_i - mu, dims="area_idx")
+    res = pm.Deterministic("res", y - mu, dims="area_idx")
 
     # sampling the model
-    fixed_spatial_idata = pm.sample(2000, tune=3000, cores=8)
+    fixed_spatial_idata = pm.sample(2000, tune=2000)
 ```
 
 We can see by plotting the residuals of the second model, by accounting for spatial dependency with the CAR prior, the residuals of the model appear more independent with respect to the spatial location of the observation.
 
 ```{code-cell} ipython3
-fixed_spatial_stacked = az.extract(fixed_spatial_idata)
-spat_df["SPATIAL_RES"] = fixed_spatial_stacked.res.mean(axis=1)
+spat_df["SPATIAL_RES"] = fixed_spatial_idata["posterior"]["res"].mean(dim=["chain", "draw"])
 ```
 
 ```{code-cell} ipython3
@@ -266,8 +271,8 @@ fixed_spatial_map = spat_df.plot(
 
 If we wanted to be *fully Bayesian* about the model that we specify, we would estimate the spatial dependence parameter $\alpha$. This leads to ... 
 
-#### Our third model: a *spatial* random effects model, with unknown spatial dependence
-The only difference between model 3 and model 2, is that in model 3, $\alpha$ is unknown, so we put a prior $\alpha\sim\text{Beta}\big (\alpha = 1, \beta=1\big )$ over it.
+### Our third model: a *spatial* random effects model, with unknown spatial dependence
+The only difference between model 3 and model 2, is that in model 3, $\alpha$ is unknown, so we put a prior $\alpha \sim \text{Beta} \big (\alpha = 1, \beta=1\big )$ over it.
 
 ```{code-cell} ipython3
 with pm.Model(coords={"area_idx": np.arange(N)}) as car_model:
@@ -291,16 +296,16 @@ with pm.Model(coords={"area_idx": np.arange(N)}) as car_model:
     mu = pm.Deterministic("mu", pt.exp(logE + beta0 + beta1 * x + theta + phi), dims="area_idx")
 
     # likelihood of the observed data
-    pm.Poisson("y_i", mu=mu, observed=y, dims="area_idx")
+    y_i = pm.Poisson("y_i", mu=mu, observed=y, dims="area_idx")
 
     # sampling the model
-    car_idata = pm.sample(
-        2000, tune=3000, cores=8, step=[pm.NUTS(max_treedepth=20, target_accept=0.8)]
-    )
+    car_idata = pm.sample(2000, tune=2000)
 ```
 
+We can plot the marginal posterior for $\alpha$, and see that it is very near $1$, suggesting strong levels of spatial dependence.
+
 ```{code-cell} ipython3
-car_stacked = az.extract(car_idata)
+az.plot_density([car_idata], var_names=["alpha"], shade=0.1)
 ```
 
 Comparing the regression parameters $\beta_0$ and $\beta_1$ between the three models that we have fit, we can see that accounting for the spatial dependence between observations has the ability to greatly impact the interpretation of the effect of covariates on the response variable.
@@ -314,20 +319,17 @@ beta_density = az.plot_density(
 )
 ```
 
-As you can see from the divergences given above, we have a difficult time effectively sampling from the third model. This is not an issue with PyMC, and is a common issue among software packages for models of this form: the model structure is unidentifiable. Though this should not be taken as guaranteed to be accurate, we can plot the marginal posterior for $\alpha$, and see that it is very near $1$.
+## Limitations
 
-```{code-cell} ipython3
-az.plot_density([car_idata], var_names=["alpha"], shade=0.1)
-```
++++
 
-This motivates having the ability that is equivalent to setting $\alpha=1$. In the definition of the CAR prior, $\alpha \in(0, 1)$. If $\alpha \rightarrow 1$, we get an alternate prior called the *intrinsic conditional autoregressive (ICAR)* prior. The ICAR prior has some desirable properties compared to the CAR prior, and is more widely used in spatial models, specifically the BYM {cite:p}`besag1991bayesian`, Leroux {cite:p}`leroux2000estimation` and BYM2 {cite:p}`riebler2016intuitive` models. Currently, work is being done to include the ICAR prior within PyMC.
+Our final model provided some evidence that the spatial dependence parameter might be $1$. However, in the definition of the CAR prior, $\alpha$ can only take on values up to and excluding $1$. If $\alpha = 1$, we get an alternate prior called the *intrinsic conditional autoregressive (ICAR)* prior. The ICAR prior is more widely used in spatial models, specifically the BYM {cite:p}`besag1991bayesian`, Leroux {cite:p}`leroux2000estimation` and BYM2 {cite:p}`riebler2016intuitive` models. It also allows scales efficiently with large datasets, a limitation of the CAR distribution. Currently, work is being done to include the ICAR prior within PyMC.
 
 +++
 
 ## Authors
 
-* Adapted from a previous PyMC example notebook, authored by Junpeng Lao {ref}`conditional_autoregressive_model` by Conor Hassan on July, 2022.
-* Re-executed by Daniel Saunders in May, 2023
+* Adapted from {ref}`another PyMC example notebook <conditional_autoregressive_model>` by Conor Hassan ([pymc-examples#417](https://github.com/pymc-devs/pymc-examples/pull/417)) and Daniel Saunders ([pymc-examples#547](https://github.com/pymc-devs/pymc-examples/pull/547/)).
 
 +++
 
@@ -343,7 +345,7 @@ This motivates having the ability that is equivalent to setting $\alpha=1$. In t
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p pytensor,xarray
+%watermark -n -u -v -iv -w -p xarray
 ```
 
 :::{include} ../page_footer.md
