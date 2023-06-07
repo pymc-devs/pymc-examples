@@ -8,9 +8,9 @@ kernelspec:
   display_name: Python [conda env:spatial_pymc_env]
   language: python
   name: conda-env-spatial_pymc_env-py
-substitutions:
-  extra_dependencies: bambi seaborn
 ---
+
++++ {"tags": []}
 
 (conditional_autoregressive_priors)=
 # Conditional Autoregressive (CAR) Models for Spatial Data
