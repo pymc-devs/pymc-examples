@@ -8,8 +8,6 @@ kernelspec:
   display_name: Python [conda env:spatial_pymc_env]
   language: python
   name: conda-env-spatial_pymc_env-py
-substitutions:
-  extra_dependencies: geopandas libpysal
 ---
 
 +++ {"tags": []}
@@ -325,7 +323,7 @@ beta_density = az.plot_density(
 
 +++
 
-Our final model provided some evidence that the spatial dependence parameter might be $1$. However, in the definition of the CAR prior, $\alpha$ can only take on values up to and excluding $1$. If $\alpha = 1$, we get an alternate prior called the *intrinsic conditional autoregressive (ICAR)* prior. The ICAR prior is more widely used in spatial models, specifically the BYM {cite:p}`besag1991bayesian`, Leroux {cite:p}`leroux2000estimation` and BYM2 {cite:p}`riebler2016intuitive` models. It also allows scales efficiently with large datasets, a limitation of the CAR distribution. Currently, work is being done to include the ICAR prior within PyMC.
+Our final model provided some evidence that the spatial dependence parameter might be $1$. However, in the definition of the CAR prior, $\alpha$ can only take on values up to and excluding $1$. If $\alpha = 1$, we get an alternate prior called the *intrinsic conditional autoregressive (ICAR)* prior. The ICAR prior is more widely used in spatial models, specifically the BYM {cite:p}`besag1991bayesian`, Leroux {cite:p}`leroux2000estimation` and BYM2 {cite:p}`riebler2016intuitive` models. It also scales efficiently with large datasets, a limitation of the CAR distribution. Currently, work is being done to include the ICAR prior within PyMC.
 
 +++
 
