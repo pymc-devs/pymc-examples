@@ -21,7 +21,7 @@ kernelspec:
 :author: Junpeng Lao
 :::
 
-This notebook explains the design principles behind the Conditional Autoregressive (CAR) distribution [reference to pymc.CAR] as implemented in PyMC. For a simple tutorial of why and how to use the CAR distribution, see [reference to conditional_autoregressive_priors].
+This notebook explains the design principles behind the Conditional Autoregressive (CAR) distribution as implemented in PyMC. For a simple tutorial of why and how to use the CAR distribution, see {ref}`this notebook <conditional_autoregressive_prior>`.
 
 ```{code-cell} ipython3
 import arviz as az
