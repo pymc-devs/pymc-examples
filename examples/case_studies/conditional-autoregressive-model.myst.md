@@ -17,7 +17,7 @@ kernelspec:
 
 :::{post} Aug 14, 2020 
 :tags: spatial, autoregressive, count data
-:category: advanced, reference
+:category: advanced, explanation
 :author: Junpeng Lao
 :::
 
