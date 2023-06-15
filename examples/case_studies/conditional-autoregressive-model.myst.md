@@ -10,6 +10,19 @@ kernelspec:
   name: python3
 ---
 
+(conditional_autoregressive_model)=
+(about_CAR_models_in_pymc)=
+
+# About Conditional Autoregressive models in PyMC
+
+:::{post} Aug 14, 2020 
+:tags: spatial, autoregressive, count data
+:category: advanced, explanation
+:author: Junpeng Lao
+:::
+
+This notebook explains the design principles behind the Conditional Autoregressive (CAR) distribution as implemented in PyMC. For a simple tutorial of why and how to use the CAR distribution, see {ref}`this notebook <conditional_autoregressive_priors>`.
+
 ```{code-cell} ipython3
 import arviz as az
 import numpy as np
@@ -30,11 +43,6 @@ np.random.seed(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 floatX = "float32"
 ```
-
-# Conditional Autoregressive (CAR) model
-A walkthrough of implementing a Conditional Autoregressive (CAR) model in `PyMC3`, with `WinBUGS`/`PyMC2` and `Stan` code as references.
-
-+++
 
 As a probabilistic language, there are some fundamental differences between `PyMC3` and other alternatives such as `WinBUGS`, `JAGS`, and `Stan`. In this notebook, I will summarise some heuristics and intuition I got over the past two years using `PyMC3`. I will outline some thinking in how I approach a modelling problem using `PyMC3`, and how thinking in linear algebra solves most of the programming problems. I hope this notebook will shed some light onto the design and features of `PyMC3`, and similar languages that are built on linear algebra packages with a static world view (e.g., Edward, which is based on Tensorflow).  
 
