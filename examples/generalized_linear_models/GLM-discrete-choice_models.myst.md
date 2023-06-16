@@ -393,9 +393,13 @@ Moving to another example, we see a choice scenario where the same individual ha
 
 ```{code-cell} ipython3
 c_df = pd.read_csv("../data/cracker_choice_short.csv")
-## Focus on smaller subset of the decision makers. Need to use scan due bracket nesting level error
+## Focus on smaller subset of the decision makers. Need to use scan for full data set due bracket nesting level error
 c_df = c_df[c_df["personId"] < 50]
 c_df
+```
+
+```{code-cell} ipython3
+c_df.groupby("personId")[["choiceId"]].count().T
 ```
 
 ```{code-cell} ipython3
@@ -409,13 +413,14 @@ coords = {
     "obs": range(N),
 }
 with pm.Model(coords=coords) as model_4:
-    beta_feat = pm.Normal("beta_feat", 0, 0.1)
-    beta_disp = pm.Normal("beta_disp", 0, 0.1)
+    beta_feat = pm.TruncatedNormal("beta_feat", 0, 1, upper=10, lower=0)
+    beta_disp = pm.TruncatedNormal("beta_disp", 0, 1, upper=10, lower=0)
     ## Stronger Prior on Price to ensure an increase in price negatively impacts utility
     beta_price = pm.TruncatedNormal("beta_price", 0, 1, upper=0, lower=-10)
     alphas = pm.Normal("alpha", 0, 1, dims="alts_intercepts")
     beta_individual = pm.Normal("beta_individual", 0, 0.05, dims=("alts_intercepts", "individuals"))
 
+    ## Loop through each person's choice scenarios
     person_choice_scenario = []
     for id, indx in zip(uniques, range(len(uniques))):
         ## Construct Utility matrix and Pivot using an intercept per alternative
@@ -441,7 +446,7 @@ with pm.Model(coords=coords) as model_4:
         u3 = np.zeros(n)  # Outside Good
         s = pm.math.stack([u0, u1, u2, u3]).T
         person_choice_scenario.append(s)
-
+    # Reconstruct the total data
     s = pm.Deterministic("stacked", pt.concatenate(person_choice_scenario))
 
     ## Apply Softmax Transform
