@@ -10,7 +10,14 @@ kernelspec:
   name: pymc_examples_new
 ---
 
-# Discrete Choice Models
+(template_notebook)=
+# Discrete Choice and Random Utility Models
+
+:::{post} June, 2023
+:tags: categorical regression, generalized linear model, discrete choice 
+:category: advance, reference
+:author: Nathaniel Forde
+:::
 
 ```{code-cell} ipython3
 import arviz as az
@@ -20,6 +27,12 @@ import pymc as pm
 import pytensor.tensor as pt
 
 from matplotlib import pyplot as plt
+```
+
+```{code-cell} ipython3
+%config InlineBackend.figure_format = 'retina'  # high resolution figures
+az.style.use("arviz-darkgrid")
+rng = np.random.default_rng(42)
 ```
 
 In this example we'll examine the technique of discrete choice modelling using a data set from the R `mlogit` package. However we'll pursue a Bayesian approach to estimating the model rather than the MLE methodology used reported in their vigenette. The data set shows household choices over offeres of heating systems in California.  The observations consist of single-family houses in California that were newly built and had central air-conditioning. Five types of systems are considered to have been possible:
@@ -257,7 +270,7 @@ This model represents a substantial improvement. It's worth pausing to consider 
 
 ## Experimental Model: Adding Correlation Structure
 
-We might think that there is a correlation among the alternative goods that we should capture too. 
+We might think that there is a correlation among the alternative goods that we should capture too. We can capture those effects in so far as they exist by placing a multvariate normal prior on the intercepts, (or alternatively the beta parameters). In addition we add information about how the effect of income influences the utility accorded to each alternative. 
 
 ```{code-cell} ipython3
 coords = {
@@ -314,6 +327,8 @@ with pm.Model(coords=coords) as model:
 pm.model_to_graphviz(model)
 ```
 
+Plotting the model fit we see a similar story.The model predictive performance is not drastically improved and we have added some complexity to the model.
+
 ```{code-cell} ipython3
 fig, axs = plt.subplots(1, 2, figsize=(10, 5))
 ax = axs[0]
@@ -337,6 +352,8 @@ ax.set_xlabel("Shares")
 ax.set_ylabel("Heating System");
 ```
 
+However, that complexity can be informative. 
+
 ```{code-cell} ipython3
 az.summary(idata_m3, var_names=["beta_income", "beta_ic", "beta_oc", "alpha", "chol_corr"])
 ```
@@ -354,6 +371,10 @@ ax = az.plot_posterior(
 )
 ```
 
+## Compare Models
+
+We'll now evaluate all three model fits on their predictive performance. 
+
 ```{code-cell} ipython3
 compare = az.compare({"m1": idata_m1, "m2": idata_m2, "m3": idata_m3})
 compare
@@ -363,10 +384,155 @@ compare
 az.plot_compare(compare)
 ```
 
+# Choosing Crackers over Repeated Choices
+
+Moving to another example, we see a choice scenario where the same individual has been repeatedly polled on their choice of crackers among alternatives. This affords us the opportunity to evaluate the preferences of individuals by adding in coefficients for individuals for each product. 
+
 ```{code-cell} ipython3
-az.extract(idata_m3, var_names=["p"]).mean(axis=2).mean(axis=0)
+c_df = pd.read_csv("../data/cracker_choice_short.csv")
+## Focus on smaller subset of the decision makers. Need to use scan due bracket nesting level error
+c_df = c_df[c_df["personId"] < 50]
+c_df
 ```
 
 ```{code-cell} ipython3
+N = c_df.shape[0]
+observed = pd.Categorical(c_df["choice"]).codes
+uniques = c_df["personId"].unique()
+coords = {
+    "alts_intercepts": ["sunshine", "keebler", "nabisco"],
+    "alts_probs": ["sunshine", "keebler", "nabisco", "private"],
+    "individuals": uniques,
+    "obs": range(N),
+}
+with pm.Model(coords=coords) as model_4:
+    beta_feat = pm.Normal("beta_feat", 0, 0.1)
+    beta_disp = pm.Normal("beta_disp", 0, 0.1)
+    beta_price = pm.Normal("beta_price", 0, 0.1)
+    alphas = pm.Normal("alpha", 0, 1, dims="alts_intercepts")
+    beta_individual = pm.Normal("beta_individual", 0, 0.05, dims=("alts_intercepts", "individuals"))
 
+    person_choice_scenario = []
+    for id, indx in zip(uniques, range(len(uniques))):
+        ## Construct Utility matrix and Pivot using an intercept per alternative
+        n = c_df[c_df["personId"] == id].shape[0]
+        u0 = (
+            (alphas[0] + beta_individual[0, indx])
+            + beta_disp * c_df[c_df["personId"] == id]["disp.sunshine"]
+            + beta_feat * c_df[c_df["personId"] == id]["feat.sunshine"]
+            + beta_price * c_df[c_df["personId"] == id]["price.sunshine"]
+        )
+        u1 = (
+            (alphas[1] + beta_individual[1, indx])
+            + beta_disp * c_df[c_df["personId"] == id]["disp.keebler"]
+            + beta_feat * c_df[c_df["personId"] == id]["feat.keebler"]
+            + beta_price * c_df[c_df["personId"] == id]["price.keebler"]
+        )
+        u2 = (
+            (alphas[2] + beta_individual[2, indx])
+            + beta_disp * c_df[c_df["personId"] == id]["disp.nabisco"]
+            + beta_feat * c_df[c_df["personId"] == id]["feat.nabisco"]
+            + beta_price * c_df[c_df["personId"] == id]["price.nabisco"]
+        )
+        u3 = np.zeros(n)  # Outside Good
+        s = pm.math.stack([u0, u1, u2, u3]).T
+        person_choice_scenario.append(s)
+
+    s = pm.Deterministic("stacked", pt.concatenate(person_choice_scenario))
+
+    ## Apply Softmax Transform
+    p_ = pm.Deterministic("p", pm.math.softmax(s, axis=1), dims=("obs", "alts_probs"))
+
+    ## Likelihood
+    choice_obs = pm.Categorical("y_cat", p=p_, observed=observed, dims="obs")
+
+    idata_m4 = pm.sample_prior_predictive()
+    idata_m4.extend(
+        pm.sample(nuts_sampler="numpyro", idata_kwargs={"log_likelihood": True}, random_seed=103)
+    )
+    idata_m4.extend(pm.sample_posterior_predictive(idata_m4))
+
+
+pm.model_to_graphviz(model_4)
 ```
+
+```{code-cell} ipython3
+az.summary(idata_m4, var_names=["beta_disp", "beta_feat", "beta_price", "alpha", "beta_individual"])
+```
+
+```{code-cell} ipython3
+fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+ax = axs[0]
+counts = c_df.groupby("choice")["choiceId"].count()
+predicted_shares = az.extract(idata_m4, var_names=["p"]).mean(axis=2).mean(axis=0)
+ci_lb = np.quantile(az.extract(idata_m4, var_names=["p"]).mean(axis=2), 0.025, axis=0)
+ci_ub = np.quantile(az.extract(idata_m4, var_names=["p"]).mean(axis=2), 0.975, axis=0)
+median = np.mean(az.extract(idata_m4, var_names=["p"]).mean(axis=2), axis=0)
+ax.scatter(ci_lb, ["sunshine", "keebler", "nabisco", "private"], color="k", s=2)
+ax.scatter(ci_ub, ["sunshine", "keebler", "nabisco", "private"], color="k", s=2)
+ax.scatter(
+    counts / counts.sum(),
+    ["sunshine", "keebler", "nabisco", "private"],
+    label="Observed Shares",
+    color="red",
+)
+ax.scatter(
+    median, ["sunshine", "keebler", "nabisco", "private"], label="Predicted Median", color="purple"
+)
+ax.hlines(
+    ["sunshine", "keebler", "nabisco", "private"],
+    ci_lb,
+    ci_ub,
+    label="Predicted 95% Interval",
+    color="black",
+)
+ax.legend()
+ax.set_title("Observed V Predicted Shares")
+az.plot_ppc(idata_m4, ax=axs[1])
+axs[1].set_title("Posterior Predictive Checks")
+ax.set_xlabel("Shares")
+ax.set_ylabel("Crackers");
+```
+
+```{code-cell} ipython3
+idata_m4
+```
+
+```{code-cell} ipython3
+fig, axs = plt.subplots(1, 3, figsize=(20, 8))
+axs = axs.flatten()
+axs[0].bar(range(49), az.extract(idata_m4, var_names=["beta_individual"])[0, :, :].mean(axis=1))
+axs[1].bar(range(49), az.extract(idata_m4, var_names=["beta_individual"])[1, :, :].mean(axis=1))
+axs[2].bar(range(49), az.extract(idata_m4, var_names=["beta_individual"])[2, :, :].mean(axis=1))
+axs[0].set_title("Individual Modifications of the Sunshine Intercept ")
+axs[1].set_title("Individual Modifications of the Keebler Intercept ")
+axs[2].set_title("Individual Modifications of the Nabisco Intercept ")
+axs[1].set_xlabel("Individual ID")
+axs[0].set_xlabel("Individual ID")
+axs[2].set_xlabel("Individual ID")
+axs[0].set_ylabel("Individual Beta Parameter");
+```
+
+## Authors
+- Authored by [Nathaniel Forde](https://nathanielf.github.io/) in June 2023 
+
++++
+
+## References
+:::{bibliography}
+:filter: docname in docnames
+:::
+
++++
+
+## Watermark
+
+```{code-cell} ipython3
+%load_ext watermark
+%watermark -n -u -v -iv -w -p pytensor
+```
+
+:::{include} ../page_footer.md
+:::
+
++++
