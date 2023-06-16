@@ -37,7 +37,7 @@ rng = np.random.default_rng(42)
 
 ## Discrete Choice Modelling: The Idea
 
-Discrete choice modelling is related to the idea of a latent utility scale as discussed in {ref}`ordina_regression`, but it generalises the idea in that it posits that we model human decision making a function of latent utility measurements over a set of mutually exclusive alternative options. The theory is that any decision maker will go with the option that maximises their subjective utility, and that utility can be modelled as a latent linear function of observable features of the world. 
+Discrete choice modelling is related to the idea of a latent utility scale as discussed in {ref}`ordinal_regression`, but it kind of generalises the idea. It posits that we model human decision making as a function of latent utility measurements over a set of mutually exclusive alternative options. The theory is that any decision maker will go with the option that maximises their subjective utility, and that utility can be modelled as a latent linear function of observable features of the world. 
 
 The idea is perhaps most famously applied by Daniel McFadden in the 1970s to predict the market share of California after the proposed introduction of BART light rail system. It's worth pausing on that point. The theory is one of micro level human decision making, that has in real applications been scaled up to make broadly accurate societal level predictions. For more details we recommend {cite:t}`train2009`
 
