@@ -37,15 +37,15 @@ rng = np.random.default_rng(42)
 
 ## Discrete Choice Modelling: The Idea
 
-Discrete choice modelling is related to the idea of a latent utility scale as discussed in {ref}`ordinal_regression`, but it generalises the idea. It posits that human decision making can be modelled as a function of a latent utility measurements over a set of mutually exclusive alternatives. The theory is that any decision maker will go with the option that maximises their subjective utility, and that utility can be modelled as a latent linear function of observable features of the world. 
+Discrete choice modelling is related to the idea of a latent utility scale as discussed in {ref}`ordinal_regression`, but it generalises the idea to decision making. It posits that human decision making can be modelled as a function of latent/subjective utility measurements over a set of mutually exclusive alternatives. The theory is that any decision maker will go with the option that maximises their subjective utility, and that utility can be modelled as a latent linear function of observable features of the world. 
 
-The idea is perhaps most famously applied by Daniel McFadden in the 1970s to predict the market share of California after the proposed introduction of BART light rail system. It's worth pausing on that point. The theory is one of micro level human decision making, that has in real applications been scaled up to make broadly accurate societal level predictions. For more details we recommend {cite:t}`train2009`
+The idea is perhaps most famously applied by Daniel McFadden in the 1970s to predict the market share accruing to transportation choices (i.e. car, rail, walking etc..) in California after the proposed introduction of BART light rail system. It's worth pausing on that point. The theory is one of micro level human decision making that has, in real applications, been scaled up to make broadly accurate societal level predictions. For more details we recommend {cite:t}`train2009`
 
 We don't need to be too credulous either. This is just a statistical model and success here is entirely dependent on the skill of modeller and the available measurements coupled with plausible theory. But it's worth just noting the scale of the ambition underlying these models. The structure of the model encourages you to articulate your theory of the decision makers. 
 
 ### The Data
 
-In this example, we'll examine the technique of discrete choice modelling using a (i) heating system data set from the R `mlogit` package and (ii) repeat choice data set over cracker. However we'll be pursuing a Bayesian approach to estimating the models rather than the MLE methodology reported in their vigenette. The first data set shows household choices over offere of heating systems in California.  The observations consist of single-family houses in California that were newly built and had central air-conditioning. Five types of systems are considered to have been possible:
+In this example, we'll examine the technique of discrete choice modelling using a (i) heating system data set from the R `mlogit` package and (ii) repeat choice data set over cracker brands. We'll be pursuing a Bayesian approach to estimating the models rather than the MLE methodology reported in their vigenette. The first data set shows household choices over offere of heating systems in California.  The observations consist of single-family houses in California that were newly built and had central air-conditioning. Five types of systems are considered to have been possible:
 
  - gas central (gc),
  - gas room (gr),
@@ -53,14 +53,14 @@ In this example, we'll examine the technique of discrete choice modelling using 
  - electric room (er),
  - heat pump (hp).
 
-The data set reports the installation `ic.alt` and operating costs `oc.alt` each household was faced with for each of the five alternatives with some broad demographic information about the household and crucially the choice `depvar`. This is what one choice scenario over the five alternative looks like in the data.
+The data set reports the installation `ic.alt` and operating costs `oc.alt` each household was faced with for each of the five alternatives with some broad demographic information about the household and crucially the choice `depvar`. This is what one choice scenario over the five alternative looks like in the data:
 
 ```{code-cell} ipython3
 wide_heating_df = pd.read_csv("../data/heating_data_r.csv")
 wide_heating_df[wide_heating_df["idcase"] == 1]
 ```
 
-The core idea of these kinds of models is to conceive of this as a choice over exhaustive options with attached latent utility. The utility ascribed to each option is viewed as a linear combination of the attributes for each option, which drives the probability of choosing amongst each option. For each $j$ in all the alternatives $Alt$ which is assumed to take a Gumbel distribution. 
+The core idea of these kinds of models is to conceive of this scenario as a choice over exhaustive options with attached latent utility. The utility ascribed to each option is viewed as a linear combination of the attributes for each option. The utility ascribed to each alternative drives the probability of choosing amongst each option. For each $j$ in all the alternatives $Alt$ which is assumed to take a Gumbel distribution because this has a particularly nice mathematical property. 
 
 $$ \mathbf{U} \sim Gumbel $$
 
@@ -85,7 +85,7 @@ This assumption proves to be mathematically convenient because the difference be
 
 $$ \text{softmax}(u)_{j} = \frac{\exp(u_{j})}{\sum_{q=1}^{J}\exp(u_{q})} $$
 
-The model then assumes that decision maker chooses the option that maximises their subjective utility, the individual utility functions can be richly parameterised. The model is identified just when the utility measures of the alternatives are benchmarked against the fixed utility of the "outside good." The last quantity is fixed at 0. 
+The model then assumes that decision maker chooses the option that maximises their subjective utility. The individual utility functions can be richly parameterised. The model is identified just when the utility measures of the alternatives are benchmarked against the fixed utility of the "outside good." The last quantity is fixed at 0. 
 
 $$\begin{pmatrix}
 u_{gc}   \\
@@ -96,8 +96,8 @@ u_{gr}   \\
 \end{pmatrix}
 $$
 
-With these constraints applied we can build out conditional random utility model and it's hierarchical variants. Like nearly all subjects in statistics the precise vocabulary for the model specification is overloaded. The conditional logit parameters $\beta$
-may be fixed at the level of the individual, but can vary across individuals too. 
+With all these constraints applied we can build out conditional random utility model and it's hierarchical variants. Like nearly all subjects in statistics the precise vocabulary for the model specification is overloaded. The conditional logit parameters $\beta$
+may be fixed at the level of the individual, but can vary across individuals and the alternatives `gc, gr, ec, er` too. In this manner we can compose an elaborate theory of how we expect drivers of subjective utility to change the market share amongst a set of competing goods.
 
 +++
 
@@ -113,7 +113,7 @@ long_heating_df[long_heating_df["idcase"] == 1]
 
 ## The Basic Model
 
-We will show here how to incorporate the random utility specifications in PyMC. 
+We will show here how to incorporate the random utility specifications in PyMC. PyMC is a nice interface for this kind of modelling because it can express the model quite cleanly following the natural mathematical expression for this system of equations. You can see in this simple model how we go about constructing equations for the utility measure of each alternative seperately, and then stacking them together to create the input matrix for our softmax transform. 
 
 ```{code-cell} ipython3
 N = wide_heating_df.shape[0]
@@ -168,16 +168,16 @@ then
 $$ dU = \beta_{ic} dic + \beta_{oc} doc = 0 \Rightarrow 
 -\frac{dic}{doc}\mid_{dU=0}=\frac{\beta_{oc}}{\beta_{ic}}$$
 
-Our parameter estimates differ slightly from the reported estimates, but we agree the model is inadequate. We will show a number of Bayesian model checks to demonstrate this fact, but the main call out is that the parameter values for installation costs should probably be negative. To interpret the beta coefficient as the increase in utility as a function of a one unit increase in terms of price, so it's strange that an increase in price would increase the utility of generated by the installation even marginally as here. Although we might imagine that some kind of quality assurance comes with price which drives satisfaction with higher installation costs. The coefficient for repeat operating costs is negative as expected. Below we'll show how we can incorporate prior knowledge to adjust for this kind of interpretation. 
+Our parameter estimates differ slightly from the reported estimates, but we agree the model is inadequate. We will show a number of Bayesian model checks to demonstrate this fact, but the main call out is that the parameter values for installation costs should probably be negative. It's counter-intuitive that a $\beta_{ic}$ increase in price would increase the utility of generated by the installation even marginally as here. Although we might imagine that some kind of quality assurance comes with price which drives satisfaction with higher installation costs. The coefficient for repeat operating costs is negative as expected. Putting this issue aside for now, we'll show below how we can incorporate prior knowledge to adjust for this kind of conflicts with theory. 
 
-We can calculate the marginal rate of substitution as follows:
+But in any case, once we have a fitted model we can calculate the marginal rate of substitution as follows:
 
 ```{code-cell} ipython3
 ## marginal rate of substitution for a reduction in installation costs
 summaries["mean"]["beta_oc"] / summaries["mean"]["beta_ic"]
 ```
 
-But being good Bayesians we actually want to calculate the posterior distribution for this statistic.
+This statistic gives a view of the relative importance of the attributes which drive our utility measures. But being good Bayesians we actually want to calculate the posterior distribution for this statistic.
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(20, 10))
@@ -190,7 +190,9 @@ ax.hist(
 ax.set_title("Uncertainty in Marginal Rate of Substitution \n Operating Costs / Installation Costs");
 ```
 
-which suggests that there is almost twice the value accorded to the a unit reduction in recurring operating costs over the one-off installation costs. Whether this is remotely plausible is almost beside the point since the model does not even closely capture the data generating process. 
+which suggests that there is almost twice the value accorded to the a unit reduction in recurring operating costs over the one-off installation costs. Whether this is remotely plausible is almost beside the point since the model does not even closely capture the data generating process. But it's worth repeating that the native scale of utility is not straightforwardly meaningful, but the ratio of the coefficients in the utility equations can be directly interpreted.  
+
+To assess overall model adequacy we can rely on the posterior predictive checks to see if the model can recover an approximation to the data generating process.
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(1, 2, figsize=(20, 10))
@@ -225,7 +227,7 @@ We can see here that the model is fairly inadequate, and fails quite dramaticall
 
 ## Improved Model: Adding Alternative Specific Intercepts
 
-We can address some of the issues with the prior model specification by adding intercept terms for each of the unique alternatives `gr, gc, ec, er`. 
+We can address some of the issues with the prior model specification by adding intercept terms for each of the unique alternatives `gr, gc, ec, er`. These terms will absorb some of the error seen in the last model by allowing us to control some of the heterogenity of utility measures across products. 
 
 ```{code-cell} ipython3
 N = wide_heating_df.shape[0]
@@ -298,7 +300,7 @@ ax.set_xlabel("Shares")
 ax.set_ylabel("Heating System");
 ```
 
-This model represents a substantial improvement. It's worth pausing to consider how
+This model represents a substantial improvement. 
 
 +++
 
