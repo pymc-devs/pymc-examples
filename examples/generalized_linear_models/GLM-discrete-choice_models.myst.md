@@ -15,7 +15,7 @@ kernelspec:
 
 :::{post} June, 2023
 :tags: categorical regression, generalized linear model, discrete choice 
-:category: advance, reference
+:category: advanced, reference
 :author: Nathaniel Forde
 :::
 
@@ -27,6 +27,7 @@ import pymc as pm
 import pytensor.tensor as pt
 
 from matplotlib import pyplot as plt
+from matplotlib.lines import Line2D
 ```
 
 ```{code-cell} ipython3
@@ -359,7 +360,7 @@ with pm.Model(coords=coords) as model_3:
 pm.model_to_graphviz(model_3)
 ```
 
-Plotting the model fit we see a similar story.The model predictive performance is not drastically improved and we have added some complexity to the model.
+Plotting the model fit we see a similar story.The model predictive performance is not drastically improved and we have added some complexity to the model. This extra complexity ought to be penalised in model assessment metrics such as AIC and WAIC. But often the correlation amongst products are some of the features of interest, independent of issues of historic predictions.
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(1, 2, figsize=(20, 10))
@@ -388,7 +389,7 @@ ax.set_xlabel("Shares")
 ax.set_ylabel("Heating System");
 ```
 
-However, that complexity can be informative, and the degree of relationship amongst the alternative products will inform the substitution patterns under policy changes.
+That extra complexity can be informative, and the degree of relationship amongst the alternative products will inform the substitution patterns under policy changes. Also, note how under this model specification the parameter for `beta_ic` has a expected value of 0. Suggestive perhaps of a resignation towards the reality of installation costs that doesn't change the  utility metric one way or other after a decision to purchase.
 
 ```{code-cell} ipython3
 az.summary(idata_m3, var_names=["beta_income", "beta_ic", "beta_oc", "alpha", "chol_corr"])
@@ -452,16 +453,16 @@ ax.hlines(
 )
 ax.set_title("Predicted Market Shares under Old and New Pricing Policy", fontsize=20)
 ax.set_xlabel("Market Share")
-ax.legend()
+ax.legend();
 ```
 
-Here we can, as expected that a rise in the operating costs of the electrical options has a negative impact on their predicted market share. 
+Here we can, as expected, see that a rise in the operating costs of the electrical options has a negative impact on their predicted market share.  
 
 +++
 
 ### Compare Models
 
-We'll now evaluate all three model fits on their predictive performance. Predictive performance on the original data is a good benchmark that the model has appropriately captured the data generating process, but it is not the only feature of interest in these models. 
+We'll now evaluate all three model fits on their predictive performance. Predictive performance on the original data is a good benchmark that the model has appropriately captured the data generating process. But it is not (as we've seen) the only feature of interest in these models. These models are sensetive to our theoretical beliefs about the agents making the decisions, the view of the decision process and the elements of the choice scenario.
 
 ```{code-cell} ipython3
 compare = az.compare({"m1": idata_m1, "m2": idata_m2, "m3": idata_m3})
@@ -486,6 +487,46 @@ c_df
 ```{code-cell} ipython3
 c_df.groupby("personId")[["choiceId"]].count().T
 ```
+
+The issue of repeated choice over time complicates the issue. We now have to contend with issues of personal taste and the evolving or dynamic effects of pricing in a competitive environment. Plotting the simple linear and polynomial fits for each person exposure to the brand price, seems to suggest that (a) pricing differentiates the product offering and (b) pricing evolves over time. 
+
+```{code-cell} ipython3
+fig, axs = plt.subplots(1, 2, figsize=(20, 10))
+axs = axs.flatten()
+map_color = {"nabisco": "red", "keebler": "blue", "sunshine": "purple", "private": "orange"}
+
+
+for i in c_df["personId"].unique():
+    temp = c_df[c_df["personId"] == i].copy(deep=True)
+    temp["color"] = temp["choice"].map(map_color)
+    predict = np.poly1d(np.polyfit(temp["personChoiceId"], temp["price.sunshine"], deg=1))
+    axs[0].plot(predict(range(25)), color="red", label="Sunshine", alpha=0.4)
+    predict = np.poly1d(np.polyfit(temp["personChoiceId"], temp["price.keebler"], deg=1))
+    axs[0].plot(predict(range(25)), color="blue", label="Keebler", alpha=0.4)
+    predict = np.poly1d(np.polyfit(temp["personChoiceId"], temp["price.nabisco"], deg=1))
+    axs[0].plot(predict(range(25)), color="grey", label="Nabisco", alpha=0.4)
+
+    predict = np.poly1d(np.polyfit(temp["personChoiceId"], temp["price.sunshine"], deg=2))
+    axs[1].plot(predict(range(25)), color="red", label="Sunshine", alpha=0.4)
+    predict = np.poly1d(np.polyfit(temp["personChoiceId"], temp["price.keebler"], deg=2))
+    axs[1].plot(predict(range(25)), color="blue", label="Keebler", alpha=0.4)
+    predict = np.poly1d(np.polyfit(temp["personChoiceId"], temp["price.nabisco"], deg=2))
+    axs[1].plot(predict(range(25)), color="grey", label="Nabisco", alpha=0.4)
+
+axs[0].set_title("Linear Regression Fit \n Customer Price Exposure over Time", fontsize=20)
+axs[1].set_title("Polynomial Regression Fit \n Customer Price Exposure over Time", fontsize=20)
+axs[0].set_xlabel("Nth Decision/Time point")
+axs[1].set_xlabel("Nth Decision/Time point")
+axs[0].set_ylabel("Product Price Offered")
+
+colors = ["red", "blue", "grey"]
+lines = [Line2D([0], [0], color=c, linewidth=3, linestyle="-") for c in colors]
+labels = ["Sunshine", "Keebler", "Nabisco"]
+axs[0].legend(lines, labels)
+axs[1].legend(lines, labels);
+```
+
+We'll model now how individual taste enters into discrete choice problems, but ignore the complexities of the time-dimension. Leaving that as an exercise for the reader. 
 
 ```{code-cell} ipython3
 N = c_df.shape[0]
@@ -554,7 +595,13 @@ pm.model_to_graphviz(model_4)
 az.summary(idata_m4, var_names=["beta_disp", "beta_feat", "beta_price", "alpha", "beta_individual"])
 ```
 
-Note here that we have explicitly set a negative prior on price and recovered a parameter specification more in line with the basic theory of rational choice. The effect of price should have a negative impact on utility. The flexibility of priors here is key for incorporating theoretical knowledge about the process involved in choice.  
+What have we learned? We've imposed a negative slope on the price coefficient but given it a wide prior. We can see that the data is sufficient to have narrowed the likely range of the coefficient considerably. 
+
+```{code-cell} ipython3
+az.plot_dist_comparison(idata_m4, var_names=["beta_price"]);
+```
+
+We have explicitly set a negative prior on price and recovered a parameter specification more in line with the basic theory of rational choice. The effect of price should have a negative impact on utility. The flexibility of priors here is key for incorporating theoretical knowledge about the process involved in choice. Priors are important for building a better picture of the decision making process and we'd be foolish to ignore their value in this setting. 
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(1, 2, figsize=(20, 10))
@@ -614,7 +661,7 @@ az.plot_forest(
     coords={"alts_intercepts": ["sunshine"], "obs": range(49)},
     ax=axs[0],
 )
-axs[0].fill_betweenx(range(49), 0.05, 0.15, alpha=0.2, color="red")
+axs[0].fill_betweenx(range(49), -0.03, 0.03, alpha=0.2, color="red")
 
 
 baseline_sunshine = az.extract(idata_m4["posterior"])["alpha"][0].mean().values
@@ -628,7 +675,7 @@ az.plot_forest(
     coords={"alts_intercepts": ["keebler"], "obs": range(49)},
     ax=axs[1],
 )
-axs[1].fill_betweenx(range(49), -0.02, -0.15, alpha=0.2, color="red", label="Outlier Region")
+axs[1].fill_betweenx(range(49), -0.03, 0.03, alpha=0.2, color="red", label="Negligible Region")
 
 baseline_keebler = az.extract(idata_m4["posterior"])["alpha"][1].mean().values
 
@@ -642,7 +689,7 @@ az.plot_forest(
     ax=axs[2],
 )
 
-axs[2].fill_betweenx(range(49), 0.04, 0.15, alpha=0.2, color="red")
+axs[2].fill_betweenx(range(49), -0.03, 0.03, alpha=0.2, color="red")
 axs[1].legend()
 
 baseline_nabisco = az.extract(idata_m4["posterior"])["alpha"][2].mean().values
