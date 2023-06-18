@@ -42,7 +42,7 @@ Discrete choice modelling is related to the idea of a latent utility scale as di
 
 The idea is perhaps most famously applied by Daniel McFadden in the 1970s to predict the market share accruing to transportation choices (i.e. car, rail, walking etc..) in California after the proposed introduction of BART light rail system. It's worth pausing on that point. The theory is one of micro level human decision making that has, in real applications, been scaled up to make broadly accurate societal level predictions. For more details we recommend {cite:t}`train2009`
 
-We don't need to be too credulous either. This is just a statistical model and success here is entirely dependent on the skill of modeller and the available measurements coupled with plausible theory. But it's worth just noting the scale of the ambition underlying these models. The structure of the model encourages you to articulate your theory of the decision makers. 
+We don't need to be too credulous either. This is merely a statistical model and success here is entirely dependent on the skill of modeller and the available measurements coupled with plausible theory. But it's worth just noting the scale of the ambition underlying these models. The structure of the model encourages you to articulate your theory of the decision makers. 
 
 ### The Data
 
@@ -69,20 +69,20 @@ $$ \begin{pmatrix}
 u_{gc}   \\
 u_{gr}   \\
 u_{ec}   \\
-u_{gr}   \\
+u_{er}   \\
 u_{hp}   \\
 \end{pmatrix} =  \begin{pmatrix}
 gc_{ic} & gc_{oc}  \\
 gr_{ic} & gr_{oc}  \\
 ec_{ic} & ec_{oc}  \\
-gr_{ic} & gr_{oc}  \\
+er_{ic} & er_{oc}  \\
 hp_{ic} & hp_{oc}  \\
 \end{pmatrix} \begin{pmatrix}
 \beta_{ic}   \\
 \beta_{oc}   \\
 \end{pmatrix}  $$
 
-This assumption proves to be mathematically convenient because the difference between two Gumbel distributions can be modelled as a logistic function, meaning we can model a contrast difference among multiple alternatives with the softmax function: 
+This assumption proves to be mathematically convenient because the difference between two Gumbel distributions can be modelled as a logistic function, meaning we can model a contrast difference among multiple alternatives with the softmax function. Details of the derivation can be found in {cite:t}`train2009`
 
 $$ \text{softmax}(u)_{j} = \frac{\exp(u_{j})}{\sum_{q=1}^{J}\exp(u_{q})} $$
 
@@ -92,7 +92,7 @@ $$\begin{pmatrix}
 u_{gc}   \\
 u_{gr}   \\
 u_{ec}   \\
-u_{gr}   \\
+u_{er}   \\
 0   \\
 \end{pmatrix}
 $$
@@ -114,7 +114,7 @@ long_heating_df[long_heating_df["idcase"] == 1]
 
 ## The Basic Model
 
-We will show here how to incorporate the random utility specifications in PyMC. PyMC is a nice interface for this kind of modelling because it can express the model quite cleanly following the natural mathematical expression for this system of equations. You can see in this simple model how we go about constructing equations for the utility measure of each alternative seperately, and then stacking them together to create the input matrix for our softmax transform. 
+We will show here how to incorporate the utility specifications in PyMC. PyMC is a nice interface for this kind of modelling because it can express the model quite cleanly following the natural mathematical expression for this system of equations. You can see in this simple model how we go about constructing equations for the utility measure of each alternative seperately, and then stacking them together to create the input matrix for our softmax transform. 
 
 ```{code-cell} ipython3
 N = wide_heating_df.shape[0]
@@ -488,7 +488,7 @@ c_df
 c_df.groupby("personId")[["choiceId"]].count().T
 ```
 
-The issue of repeated choice over time complicates the issue. We now have to contend with issues of personal taste and the evolving or dynamic effects of pricing in a competitive environment. Plotting the simple linear and polynomial fits for each person exposure to the brand price, seems to suggest that (a) pricing differentiates the product offering and (b) pricing evolves over time. 
+The presence of repeated choice over time complicates the issue. We now have to contend with issues of personal taste and the evolving or dynamic effects of pricing in a competitive environment. Plotting the simple linear and polynomial fits for each person's successive exposure to the brand price, seems to suggest that (a) pricing differentiates the product offering and (b) pricing evolves over time. 
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(1, 2, figsize=(20, 10))
@@ -514,10 +514,12 @@ for i in c_df["personId"].unique():
     axs[1].plot(predict(range(25)), color="grey", label="Nabisco", alpha=0.4)
 
 axs[0].set_title("Linear Regression Fit \n Customer Price Exposure over Time", fontsize=20)
-axs[1].set_title("Polynomial Regression Fit \n Customer Price Exposure over Time", fontsize=20)
+axs[1].set_title("Polynomial^(2) Regression Fit \n Customer Price Exposure over Time", fontsize=20)
 axs[0].set_xlabel("Nth Decision/Time point")
 axs[1].set_xlabel("Nth Decision/Time point")
 axs[0].set_ylabel("Product Price Offered")
+axs[1].set_ylim(0, 2)
+axs[0].set_ylim(0, 2)
 
 colors = ["red", "blue", "grey"]
 lines = [Line2D([0], [0], color=c, linewidth=3, linestyle="-") for c in colors]
@@ -526,7 +528,7 @@ axs[0].legend(lines, labels)
 axs[1].legend(lines, labels);
 ```
 
-We'll model now how individual taste enters into discrete choice problems, but ignore the complexities of the time-dimension. Leaving that as an exercise for the reader. 
+We'll model now how individual taste enters into discrete choice problems, but ignore the complexities of the time-dimension. Leaving the complication of temporal dynamics as an exercise for the reader. 
 
 ```{code-cell} ipython3
 N = c_df.shape[0]
@@ -649,7 +651,7 @@ idata_m4
 ```
 
 ```{code-cell} ipython3
-fig, axs = plt.subplots(1, 3, figsize=(20, 10))
+fig, axs = plt.subplots(1, 3, figsize=(20, 15))
 axs = axs.flatten()
 # axs[0].bar(range(49), az.extract(idata_m4, var_names=["beta_individual"])[0, :, :].mean(axis=1))
 az.plot_forest(
@@ -716,7 +718,7 @@ This type of plot is often useful for identifying loyal customers. Similarly it 
 
 ## Conclusion
 
-We can see here the flexibility and richly parameterised possibilities for modelling individual choice of discrete options. These techniques are useful in a wide variety of domains from microeconomics, to marketing and product development. The notions of utility, probability and their interaction lie at the heart of Savage's Representation theorem and justification(s) for Bayesian approaches to statistical inference. So discrete modelling is a natural fit for the Bayesian, but Bayesian statistics is also a natural fit for discrete choice modelling. The traditional estimation techniques are often brittle and very sensetive to starting values of the MLE process. The Bayesian setting trades this brittleness for a framework which allows us to incorporate our beliefs about what drives human utility calculations. We've only scratched the surface in this example notebook, but encourage you to further explore the technique. 
+We can see here the flexibility and richly parameterised possibilities for modelling individual choice of discrete options. These techniques are useful in a wide variety of domains from microeconomics, to marketing and product development. The notions of utility, probability and their interaction lie at the heart of [Savage's Representation theorem](https://plato.stanford.edu/entries/decision-theory/) and justification(s) for Bayesian approaches to statistical inference. So discrete modelling is a natural fit for the Bayesian, but Bayesian statistics is also a natural fit for discrete choice modelling. The traditional estimation techniques are often brittle and very dependent on starting values of the MLE process. The Bayesian setting trades this brittleness for a framework which allows us to incorporate our beliefs about what drives human utility calculations. We've only scratched the surface in this example notebook, but encourage you to further explore the technique. 
 
 
 +++
