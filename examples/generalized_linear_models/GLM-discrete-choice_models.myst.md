@@ -164,7 +164,7 @@ In the `mlogit` vignette they report how the above model specification leads to 
 
 $$ U = \beta_{oc}oc + \beta_{ic}ic $$
 
-then the marginal rate of substitution is just the ratio of the two beta coefficients. The relative importance of one component of the utility equation to another is an economically meaningful quantity even if the notion of subjective utility itself unobservable. 
+then the marginal rate of substitution is just the ratio of the two beta coefficients. The relative importance of one component of the utility equation to another is an economically meaningful quantity even if the notion of subjective utility is itself unobservable. 
 
 $$ dU = \beta_{ic} dic + \beta_{oc} doc = 0 \Rightarrow 
 -\frac{dic}{doc}\mid_{dU=0}=\frac{\beta_{oc}}{\beta_{ic}}$$
@@ -529,10 +529,6 @@ axs[1].legend(lines, labels);
 We'll model now how individual taste enters into discrete choice problems, but ignore the complexities of the time-dimension or the endogenity of price in the system. There are adaptions of the basic discrete choice model that are designed to address each of these complications. We'll leave the temporal dynamics as a suggested exercise for the reader. 
 
 ```{code-cell} ipython3
-person_indx, uniques = pd.factorize(c_df["personId"])
-```
-
-```{code-cell} ipython3
 N = c_df.shape[0]
 observed = pd.Categorical(c_df["choice"]).codes
 person_indx, uniques = pd.factorize(c_df["personId"])
@@ -549,7 +545,6 @@ with pm.Model(coords=coords) as model_4:
     ## Stronger Prior on Price to ensure an increase in price negatively impacts utility
     beta_price = pm.TruncatedNormal("beta_price", 0, 1, upper=0, lower=-10)
     alphas = pm.Normal("alpha", 0, 1, dims="alts_intercepts")
-    ## Use the
     beta_individual = pm.Normal("beta_individual", 0, 0.05, dims=("individuals", "alts_intercepts"))
 
     u0 = (
@@ -606,28 +601,29 @@ We have explicitly set a negative prior on price and recovered a parameter speci
 fig, axs = plt.subplots(1, 2, figsize=(20, 10))
 ax = axs[0]
 counts = c_df.groupby("choice")["choiceId"].count()
+labels = c_df.groupby("choice")["choiceId"].count().index
 predicted_shares = az.extract(idata_m4, var_names=["p"]).mean(axis=2).mean(axis=0)
 ci_lb = np.quantile(az.extract(idata_m4, var_names=["p"]).mean(axis=2), 0.025, axis=0)
 ci_ub = np.quantile(az.extract(idata_m4, var_names=["p"]).mean(axis=2), 0.975, axis=0)
 mean = np.mean(az.extract(idata_m4, var_names=["p"]).mean(axis=2), axis=0)
-ax.scatter(ci_lb, ["sunshine", "keebler", "nabisco", "private"], color="k", s=2)
-ax.scatter(ci_ub, ["sunshine", "keebler", "nabisco", "private"], color="k", s=2)
+ax.scatter(ci_lb, labels, color="k", s=2)
+ax.scatter(ci_ub, labels, color="k", s=2)
 ax.scatter(
     counts / counts.sum(),
-    ["sunshine", "keebler", "nabisco", "private"],
+    labels,
     label="Observed Shares",
     color="red",
     s=100,
 )
 ax.scatter(
     mean,
-    ["sunshine", "keebler", "nabisco", "private"],
+    labels,
     label="Predicted Mean",
     color="green",
     s=100,
 )
 ax.hlines(
-    ["sunshine", "keebler", "nabisco", "private"],
+    labels,
     ci_lb,
     ci_ub,
     label="Predicted 95% Interval",
@@ -650,7 +646,6 @@ idata_m4
 ```{code-cell} ipython3
 fig, axs = plt.subplots(1, 3, figsize=(20, 20))
 axs = axs.flatten()
-# axs[0].bar(range(49), az.extract(idata_m4, var_names=["beta_individual"])[0, :, :].mean(axis=1))
 az.plot_forest(
     idata_m4,
     kind="ridgeplot",
