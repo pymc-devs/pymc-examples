@@ -134,7 +134,7 @@ with pm.Model(coords=coords) as model_1:
     u2 = beta_ic * wide_heating_df["ic.gc"] + beta_oc * wide_heating_df["oc.gc"]
     u3 = beta_ic * wide_heating_df["ic.gr"] + beta_oc * wide_heating_df["oc.gr"]
     u4 = np.zeros(N)  # Outside Good
-    s = pm.Deterministic("u", pm.math.stack([u0, u1, u2, u3, u4]).T)
+    s = pm.math.stack([u0, u1, u2, u3, u4]).T
 
     ## Apply Softmax Transform
     p_ = pm.Deterministic("p", pm.math.softmax(s, axis=1), dims=("obs", "alts_probs"))
@@ -164,7 +164,7 @@ In the `mlogit` vignette they report how the above model specification leads to 
 
 $$ U = \beta_{oc}oc + \beta_{ic}ic $$
 
-then
+then the marginal rate of substitution is just the ratio of the two beta coefficients. The relative importance of one component of the utility equation to another is an economically meaningful quantity even if the notion of subjective utility itself unobservable. 
 
 $$ dU = \beta_{ic} dic + \beta_{oc} doc = 0 \Rightarrow 
 -\frac{dic}{doc}\mid_{dU=0}=\frac{\beta_{oc}}{\beta_{ic}}$$
@@ -250,7 +250,7 @@ with pm.Model(coords=coords) as model_2:
     u2 = alphas[2] + beta_ic * wide_heating_df["ic.gc"] + beta_oc * wide_heating_df["oc.gc"]
     u3 = alphas[3] + beta_ic * wide_heating_df["ic.gr"] + beta_oc * wide_heating_df["oc.gr"]
     u4 = np.zeros(N)  # Outside Good
-    s = pm.Deterministic("u", pm.math.stack([u0, u1, u2, u3, u4]).T)
+    s = pm.math.stack([u0, u1, u2, u3, u4]).T
 
     ## Apply Softmax Transform
     p_ = pm.Deterministic("p", pm.math.softmax(s, axis=1), dims=("obs", "alts_probs"))
@@ -345,7 +345,7 @@ with pm.Model(coords=coords) as model_3:
         + beta_income[3] * wide_heating_df["income"]
     )
     u4 = np.zeros(N)  # pivot
-    s = pm.Deterministic("u", pm.math.stack([u0, u1, u2, u3, u4]).T)
+    s = pm.math.stack([u0, u1, u2, u3, u4]).T
 
     p_ = pm.Deterministic("p", pm.math.softmax(s, axis=1), dims=("obs", "alts_probs"))
     choice_obs = pm.Categorical("y_cat", p=p_, observed=observed, dims="obs")
@@ -479,8 +479,6 @@ Moving to another example, we see a choice scenario where the same individual ha
 
 ```{code-cell} ipython3
 c_df = pd.read_csv("../data/cracker_choice_short.csv")
-## Focus on smaller subset of the decision makers. Need to use scan for full data set due bracket nesting level error
-c_df = c_df[c_df["personId"] < 50]
 c_df
 ```
 
@@ -528,12 +526,17 @@ axs[0].legend(lines, labels)
 axs[1].legend(lines, labels);
 ```
 
-We'll model now how individual taste enters into discrete choice problems, but ignore the complexities of the time-dimension. Leaving the complication of temporal dynamics as an exercise for the reader. 
+We'll model now how individual taste enters into discrete choice problems, but ignore the complexities of the time-dimension or the endogenity of price in the system. There are adaptions of the basic discrete choice model that are designed to address each of these complications. We'll leave the temporal dynamics as a suggested exercise for the reader. 
+
+```{code-cell} ipython3
+person_indx, uniques = pd.factorize(c_df["personId"])
+```
 
 ```{code-cell} ipython3
 N = c_df.shape[0]
 observed = pd.Categorical(c_df["choice"]).codes
-uniques = c_df["personId"].unique()
+person_indx, uniques = pd.factorize(c_df["personId"])
+
 coords = {
     "alts_intercepts": ["sunshine", "keebler", "nabisco"],
     "alts_probs": ["sunshine", "keebler", "nabisco", "private"],
@@ -546,36 +549,30 @@ with pm.Model(coords=coords) as model_4:
     ## Stronger Prior on Price to ensure an increase in price negatively impacts utility
     beta_price = pm.TruncatedNormal("beta_price", 0, 1, upper=0, lower=-10)
     alphas = pm.Normal("alpha", 0, 1, dims="alts_intercepts")
-    beta_individual = pm.Normal("beta_individual", 0, 0.05, dims=("alts_intercepts", "individuals"))
+    ## Use the
+    beta_individual = pm.Normal("beta_individual", 0, 0.05, dims=("individuals", "alts_intercepts"))
 
-    ## Loop through each person's choice scenarios
-    person_choice_scenario = []
-    for id, indx in zip(uniques, range(len(uniques))):
-        ## Construct Utility matrix and Pivot using an intercept per alternative
-        n = c_df[c_df["personId"] == id].shape[0]
-        u0 = (
-            (alphas[0] + beta_individual[0, indx])
-            + beta_disp * c_df[c_df["personId"] == id]["disp.sunshine"]
-            + beta_feat * c_df[c_df["personId"] == id]["feat.sunshine"]
-            + beta_price * c_df[c_df["personId"] == id]["price.sunshine"]
-        )
-        u1 = (
-            (alphas[1] + beta_individual[1, indx])
-            + beta_disp * c_df[c_df["personId"] == id]["disp.keebler"]
-            + beta_feat * c_df[c_df["personId"] == id]["feat.keebler"]
-            + beta_price * c_df[c_df["personId"] == id]["price.keebler"]
-        )
-        u2 = (
-            (alphas[2] + beta_individual[2, indx])
-            + beta_disp * c_df[c_df["personId"] == id]["disp.nabisco"]
-            + beta_feat * c_df[c_df["personId"] == id]["feat.nabisco"]
-            + beta_price * c_df[c_df["personId"] == id]["price.nabisco"]
-        )
-        u3 = np.zeros(n)  # Outside Good
-        s = pm.math.stack([u0, u1, u2, u3]).T
-        person_choice_scenario.append(s)
+    u0 = (
+        (alphas[0] + beta_individual[person_indx, 0])
+        + beta_disp * c_df["disp.sunshine"]
+        + beta_feat * c_df["feat.sunshine"]
+        + beta_price * c_df["price.sunshine"]
+    )
+    u1 = (
+        (alphas[1] + beta_individual[person_indx, 1])
+        + beta_disp * c_df["disp.keebler"]
+        + beta_feat * c_df["feat.keebler"]
+        + beta_price * c_df["price.keebler"]
+    )
+    u2 = (
+        (alphas[2] + beta_individual[person_indx, 2])
+        + beta_disp * c_df["disp.nabisco"]
+        + beta_feat * c_df["feat.nabisco"]
+        + beta_price * c_df["price.nabisco"]
+    )
+    u3 = np.zeros(N)  # Outside Good
+    s = pm.math.stack([u0, u1, u2, u3]).T
     # Reconstruct the total data
-    s = pm.Deterministic("stacked", pt.concatenate(person_choice_scenario))
 
     ## Apply Softmax Transform
     p_ = pm.Deterministic("p", pm.math.softmax(s, axis=1), dims=("obs", "alts_probs"))
@@ -651,7 +648,7 @@ idata_m4
 ```
 
 ```{code-cell} ipython3
-fig, axs = plt.subplots(1, 3, figsize=(20, 15))
+fig, axs = plt.subplots(1, 3, figsize=(20, 20))
 axs = axs.flatten()
 # axs[0].bar(range(49), az.extract(idata_m4, var_names=["beta_individual"])[0, :, :].mean(axis=1))
 az.plot_forest(
@@ -660,10 +657,10 @@ az.plot_forest(
     var_names=["beta_individual"],
     ridgeplot_alpha=0.4,
     combined=True,
-    coords={"alts_intercepts": ["sunshine"], "obs": range(49)},
+    coords={"alts_intercepts": ["sunshine"], "obs": range(139)},
     ax=axs[0],
 )
-axs[0].fill_betweenx(range(49), -0.03, 0.03, alpha=0.2, color="red")
+axs[0].fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="red")
 
 
 baseline_sunshine = az.extract(idata_m4["posterior"])["alpha"][0].mean().values
@@ -674,10 +671,10 @@ az.plot_forest(
     var_names=["beta_individual"],
     ridgeplot_alpha=0.4,
     combined=True,
-    coords={"alts_intercepts": ["keebler"], "obs": range(49)},
+    coords={"alts_intercepts": ["keebler"], "obs": range(139)},
     ax=axs[1],
 )
-axs[1].fill_betweenx(range(49), -0.03, 0.03, alpha=0.2, color="red", label="Negligible Region")
+axs[1].fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="red", label="Negligible Region")
 
 baseline_keebler = az.extract(idata_m4["posterior"])["alpha"][1].mean().values
 
@@ -687,11 +684,11 @@ az.plot_forest(
     var_names=["beta_individual"],
     ridgeplot_alpha=0.4,
     combined=True,
-    coords={"alts_intercepts": ["nabisco"], "obs": range(49)},
+    coords={"alts_intercepts": ["nabisco"], "obs": range(139)},
     ax=axs[2],
 )
 
-axs[2].fill_betweenx(range(49), -0.03, 0.03, alpha=0.2, color="red")
+axs[2].fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="red")
 axs[1].legend()
 
 baseline_nabisco = az.extract(idata_m4["posterior"])["alpha"][2].mean().values
