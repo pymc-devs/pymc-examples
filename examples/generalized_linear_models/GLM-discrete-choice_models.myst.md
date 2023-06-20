@@ -8,6 +8,8 @@ kernelspec:
   display_name: pymc_examples_new
   language: python
   name: pymc_examples_new
+substitutions:
+  extra_dependencies: jax, jaxlib, numpyro
 ---
 
 (discrete_choice)=
@@ -57,7 +59,11 @@ In this example, we'll examine the technique of discrete choice modelling using 
 The data set reports the installation `ic.alt` and operating costs `oc.alt` each household was faced with for each of the five alternatives with some broad demographic information about the household and crucially the choice `depvar`. This is what one choice scenario over the five alternative looks like in the data:
 
 ```{code-cell} ipython3
-wide_heating_df = pd.read_csv("../data/heating_data_r.csv")
+try:
+    wide_heating_df = pd.read_csv("../data/heating_data_r.csv")
+except:
+    wide_heating_df = pd.read_csv(pm.get_data("heating_data_r.csv"))
+
 wide_heating_df[wide_heating_df["idcase"] == 1]
 ```
 
@@ -108,8 +114,13 @@ Discrete choice models are often estimated using a long-data format where each c
 
 
 ```{code-cell} ipython3
-long_heating_df = pd.read_csv("../data/long_heating_data.csv")
-long_heating_df[long_heating_df["idcase"] == 1]
+try:
+    long_heating_df = pd.read_csv("../data/long_heating_data.csv")
+except:
+    long_heating_df = pd.read_csv(pm.get_data("long_heating_data.csv"))
+
+columns = [c for c in long_heating_df.columns if c != "Unnamed: 0"]
+long_heating_df[long_heating_df["idcase"] == 1][columns]
 ```
 
 ## The Basic Model
@@ -478,8 +489,12 @@ az.plot_compare(compare)
 Moving to another example, we see a choice scenario where the same individual has been repeatedly polled on their choice of crackers among alternatives. This affords us the opportunity to evaluate the preferences of individuals by adding in coefficients for individuals for each product. 
 
 ```{code-cell} ipython3
-c_df = pd.read_csv("../data/cracker_choice_short.csv")
-c_df
+try:
+    c_df = pd.read_csv("../data/cracker_choice_short.csv")
+except:
+    c_df = pd.read_csv(pm.get_data("cracker_choice_short.csv"))
+columns = [c for c in c_df.columns if c != "Unnamed: 0"]
+c_df[columns]
 ```
 
 ```{code-cell} ipython3
@@ -698,9 +713,9 @@ axs[1].set_title(
 axs[2].set_title(
     f"Individual Modifications of the Nabisco Baseline \n Intercept: {np.round(baseline_nabisco, 4)}"
 )
-axs[1].set_xlabel("Individual ID")
-axs[0].set_xlabel("Individual ID")
-axs[2].set_xlabel("Individual ID")
+axs[1].set_xlabel("Individual Modification")
+axs[0].set_xlabel("Individual Modification")
+axs[2].set_xlabel("Individual Modification")
 axs[0].set_ylabel("Individual Beta Parameters \n Modifying the Product Baseline");
 ```
 
