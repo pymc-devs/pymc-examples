@@ -21,6 +21,11 @@ substitutions:
 :author: Nathaniel Forde
 :::
 
++++
+
+:::{include} ../extra_installs.md
+:::
+
 ```{code-cell} ipython3
 import arviz as az
 import numpy as np  # For vectorized math operations
