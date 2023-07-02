@@ -327,6 +327,8 @@ df_conditional = pd.concat([df1_new, df2_new, df3_new])
 df_conditional.reset_index(drop=True, inplace=True)
 ```
 
+So now we've got our MCMC estimates of $P(y|x=2)$ for all of the DAGS. But you're going to have to wait just a moment before we plot them. Let's move on to calculate $P(y|\operatorname{do}(x=2))$ and then plot them in one go so we can compare.
+
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
 ### Interventional distributions, $P(y|\operatorname{do}(x=2))$
@@ -451,11 +453,62 @@ ax[1].set(xlabel="y", title="Interventional distributions\n$P(y|\\operatorname{d
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-We can see, as expected, that the conditional distributions are the same for all 3 DAGs. The story is different for the interventional distributions however. Here, DAG 1 differs because it is the only one where our $\operatorname{do}(x=2)$ intervention causally effects $y$. This intervention severed any causal influence of $x$ on $y$ in DAGs 2 and 3.
+We can see, as expected, that the conditional distributions are the same for all 3 DAGs. 
+
+The story is different for the interventional distributions however. Here, DAG 1 differs because it is the only one where our $\operatorname{do}(x=2)$ intervention causally effects $y$. If we think about it further, because the $\operatorname{do}$ has not affected the structure _for this DAG_, in this example $P(y|\operatorname{do}(x=2)) = P(y|x=2)$. However this is _not_ something to be generalised, it is just something specific to this particular simple DAG. 
+
+The intervention severed any causal influence of $x$ on $y$ in DAGs 2 and 3. Let's just recap what the mutilated DAGS look like; the mutulated DAG 2 is shown below. 
 
 ```{code-cell} ipython3
+---
+editable: true
+slideshow:
+  slide_type: ''
+tags: [hide-input]
+---
+g = gr.Digraph()
 
+# DAG 2
+g.node(name="y2", label="y")
+g.node(name="x2", label="x")
+g
 ```
+
++++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
+
+The mutulated DAG 3 is shown below. We can see that for this DAG, $P(y|\operatorname{do}(x=2)) = P(y|z)$. 
+
+```{code-cell} ipython3
+---
+editable: true
+slideshow:
+  slide_type: ''
+tags: [hide-input]
+---
+g = gr.Digraph()
+
+# DAG 3
+g.node(name="z", label="z")
+g.node(name="x", label="x")
+g.node(name="y", label="y")
+g.edge(tail_name="z", head_name="y")
+g
+```
+
++++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
+
+We can see that for DAG 2, $P(y|\operatorname{do}(x=2)) = P(y)$. And for DAG 3 $P(y|\operatorname{do}(x=2)) = P(y|z)$. These will acutally be the same in this contrived example because the details were arranged to arrive at the same marginal distribution $P(y)$ for all DAGS.
+
++++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
+
+## Summary
+This notebook has outlined how we can use the $\operatorname{do}$ operator to intervene on nodes in our DAG. We saw that it acts by setting the values of the intervened nodes, which removes any causal influence of any parent nodes on our target node. 
+
+We saw that the `do` function ingests a model and a dictionary of interventions and returns a new, mutilated, model.
+
+Interventions and the $\operatorname{do}$ operator are vital parts of a causal inference workflow, and we've explored the basic ideas and how they can be used with PyMC.
+
+Readers looking to learn more are suggested to check out the cited blog posts as well as textbooks, {cite:t}`pearl2000causality`, {cite:t}`pearl2016causal`, {cite:t}`mcelreath2018statistical`, {cite:t}`molak2023ciadip`.
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
