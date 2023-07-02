@@ -30,7 +30,11 @@ This notebook relies on experimental functionality currently in the [pymc-experi
 
 +++
 
-In this post we are going to learn about the `do` operator. The do-operator is a vital ingredient of doing causal inference, and this notebook will demonstrate what it is, how it works, and how to use it in PyMC.
+In this post we are going to go beyond _statistical_ concepts and cover some important _causal_ concepts. In particular we are going to examine how we can ask "what-it?" questions based on possible interventions we could make, or could have made in the past.
+
+So intervention is not necessarily something we actually have to carry out in the real world - hence the "what-if?" nature of the questions. But we can ask, given what we know, what do we believe if we intervene (or had intervened) on a system.
+
+This notion of intervention can be carried out by the $\operatorname{do}$ operator. We will learn what this mysterious sounding thing is, how it works, and how we can do it in PyMC.
 
 +++
 
@@ -59,6 +63,7 @@ from packaging import version
 RANDOM_SEED = 123
 rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
+sns.color_palette("tab10")
 %config InlineBackend.figure_format = 'retina'
 ```
 
@@ -80,6 +85,32 @@ assert version.parse(pmx.__version__) >= version.parse("0.0.7")
 from pymc_experimental.model_transform.conditioning import do, observe
 ```
 
+## The $\operatorname{do}$ operator
+
+The $\operatorname{do}$ operator implements an intervention that we want to make. It consists of 2 simple steps:
+1. It takes a given node in a graph and sets that node at the desired value.
+2. It removes any causal influence of this node by other nodes. It does this by removing all incoming edges into that node.
+
+Here is a visual demonstration of that using an example from Pearl's book, [Causality](https://en.wikipedia.org/wiki/Causality_(book)).
+
+![](sprinkler.png)
+
+On the left of the figure we have a causal directed acyclic graph describing the causal relationships between season, whether a sprinkler has been on, whether it has rained, if the grass is wet, and if the grass is slippery. The joint distribution could be described as: 
+
+$$
+P(x_1, x_2, x_3, x_4, x_5) = P(x_1) P(x_3|x_1) P(x_2|x_1) P(x_4|x_3, x_2) P(x_5|x_4)
+$$
+
+On the right of the figure we have applied the $\operatorname{do}$ operator to examine what will happen if we set the sprinkler to be on. You can see that we have now set the value of that node, $x_3=1$ and we have removed the incoming edge (influence) of season, meaning that once we turn on the sprinkler manually, it's not influenced by the season anymore.
+
+We could now describe this _interventional distribution_ as:
+
+$$
+P(x_1, x_2, \operatorname{do}(x_3=1), x_4, x_5) = P(x_1) P(x_2|x_1) P(x_4|x_3=1, x_2) P(x_5|x_4)
+$$
+
+Interested readers should check out the richly diagrammed and well-explained blog post [Causal Effects via the Do-operator](https://towardsdatascience.com/causal-effects-via-the-do-operator-5415aefc834a) by [Shawhin Talebi](https://shawhin.medium.com) as a good place to start.
+
 +++ {"editable": true, "raw_mimetype": "", "slideshow": {"slide_type": ""}, "tags": []}
 
 ## Three different causal DAGS
@@ -88,7 +119,7 @@ from pymc_experimental.model_transform.conditioning import do, observe
 This section take inspiration from the post [Causal Inference 2: Illustrating Interventions via a Toy Example](https://www.inference.vc/causal-inference-2-illustrating-interventions-in-a-toy-example/) by Ferenc Huszár.
 :::
 
-If we think about how variables $x$ and $y$ are related, we can come up with many different causal DAGS. Below we consider just 3 possibilities, which we'll label Script 1, 2, and 3.
+If we think about how 2 variables, $x$ and $y$, are related we can come up with many different causal DAGS. Below we consider just 3 possibilities, which we'll label DAG 1, 2, and 3.
 
 1. $x$ causally influences $y$
 2. $y$ causally influences $x$
@@ -105,17 +136,17 @@ tags: [hide-input]
 ---
 g = gr.Digraph()
 
-# script 1
+# DAG 1
 g.node(name="x1", label="x")
 g.node(name="y1", label="y")
 g.edge(tail_name="x1", head_name="y1")
 
-# script 2
+# DAG 2
 g.node(name="y2", label="y")
 g.node(name="x2", label="x")
 g.edge(tail_name="y2", head_name="x2")
 
-# script 3
+# DAG 3
 g.node(name="z", label="z")
 g.node(name="x", label="x")
 g.node(name="y", label="y")
@@ -129,21 +160,21 @@ g
 
 We can also imagine implementing such causal DAGS in Python code to generate `N` random numbers. Each of these will give rise to specific joint distributions, $P(x, y)$, and in fact, because Ferenc Huszár was clever in his blog post, we'll see later that these will all give rise to the same joint distributions.
 
-**Script 1**
+**DAG 1**
 
 ```{code-block} python
 x = rng.normal(loc=0, scale=1, size=N)
 y = x + 1 + np.sqrt(3) * rng.normal(size=N)
 ```
 
-**Script 2**
+**DAG 2**
 
 ```{code-block} python
 y = 1 + 2 * rng.normal(size=N)
 x = (y - 1) / 4 + np.sqrt(3) * rng.normal(size=N) / 2
 ```
 
-**Script 3**
+**DAG 3**
 
 ```{code-block} python
 z = rng.normal(size=N)
@@ -153,7 +184,7 @@ x = z
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-However, we are going to implement these using Bayesian causal DAGS with PyMC. Let's see how we can do this, then generate samples from them using `pm.sample_prior_predictive`. As we go with each script, we'll package the data up in `DataFrame`'s for plotting later, and also plot the graphviz representation of the PyMC models. You'll see that while these are a fraction more visually complex, they do actually match up with the causal DAGs we've specified above.
+However, we are going to implement these using Bayesian causal DAGS with PyMC. Let's see how we can do this, then generate samples from them using `pm.sample_prior_predictive`. As we go with each DAG, we'll package the data up in `DataFrame`'s for plotting later, and also plot the graphviz representation of the PyMC models. You'll see that while these are a fraction more visually complex, they do actually match up with the causal DAGs we've specified above.
 
 ```{code-cell} ipython3
 ---
@@ -225,7 +256,7 @@ pm.model_to_graphviz(model3)
 
 ### Joint distributions, $P(x,y)$
 
-First, let's take a look at the joint distributions for each of the scripts to convince ourselves that these are actually the same.
+First, let's take a look at the joint distributions for each of the DAGs to convince ourselves that these are actually the same.
 
 ```{code-cell} ipython3
 ---
@@ -234,7 +265,7 @@ slideshow:
   slide_type: ''
 tags: [hide-input]
 ---
-fig, ax = plt.subplots(1, 3, figsize=(12, 6), sharex=True, sharey=True)
+fig, ax = plt.subplots(1, 3, figsize=(12, 8), sharex=True, sharey=True)
 
 for i, df in enumerate([df1, df2, df3]):
     az.plot_kde(
@@ -246,18 +277,19 @@ for i, df in enumerate([df1, df2, df3]):
         ax=ax[i],
     )
     ax[i].set(
-        title=f"$P(x, y)$, Script {i+1}",
+        title=f"$P(x, y)$, DAG {i+1}",
         xlim=[-4, 4],
         xticks=np.arange(-4, 4 + 1, step=2),
         ylim=[-6, 8],
         yticks=np.arange(-6, 8 + 1, step=2),
+        aspect="equal",
     )
     ax[i].axvline(x=2, ls="--", c="k")
 ```
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-The dashed lines at $x=2$ help us imagine the conditional distribution $P(y|x=2)$ that we'll examine in the next section. Seeing as the joint distributions are the same, it is intuitive to imagine that the conditional distributions $P(y|x=2)$ will be identical for each of the 3 scripts.
+The dashed lines at $x=2$ help us imagine the conditional distribution $P(y|x=2)$ that we'll examine in the next section. Seeing as the joint distributions are the same, it is intuitive to imagine that the conditional distributions $P(y|x=2)$ will be identical for each of the 3 DAGs.
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
@@ -274,7 +306,7 @@ slideshow:
   slide_type: ''
 tags: []
 ---
-# Extract samples from P(y|x=2)
+# Extract samples from P(y|x≈2)
 conditional1 = df1.query("1.99 < x < 2.01")["y"]
 conditional2 = df2.query("1.99 < x < 2.01")["y"]
 conditional3 = df3.query("1.99 < x < 2.01")["y"]
@@ -288,18 +320,18 @@ slideshow:
 tags: [hide-input]
 ---
 # put the conditional distributions into a convenient long-format data frame
-df1_new = pd.DataFrame({"Conditional": conditional1, "Script": "Script 1"})
-df2_new = pd.DataFrame({"Conditional": conditional2, "Script": "Script 2"})
-df3_new = pd.DataFrame({"Conditional": conditional3, "Script": "Script 3"})
+df1_new = pd.DataFrame({"Conditional": conditional1, "DAG": 1})
+df2_new = pd.DataFrame({"Conditional": conditional2, "DAG": 2})
+df3_new = pd.DataFrame({"Conditional": conditional3, "DAG": 3})
 df_conditional = pd.concat([df1_new, df2_new, df3_new])
 df_conditional.reset_index(drop=True, inplace=True)
 ```
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-### Interventional distributions, $P(y|do(x=2))$
+### Interventional distributions, $P(y|\operatorname{do}(x=2))$
 
-In turn for each of the 3 scripts, let's use the `do` operator, setting $x=2$. This will give us a new DAG and we'll plot the graphviz representation and then take samples to represent the interventional distribution.
+In turn for each of the 3 DAGs, let's use the $\operatorname{do}$ operator, setting $x=2$. This will give us a new DAG and we'll plot the graphviz representation and then take samples to represent the interventional distribution.
 
 ```{code-cell} ipython3
 ---
@@ -311,6 +343,10 @@ tags: []
 model1_do = do(model1, {"x": 2})
 pm.model_to_graphviz(model1_do)
 ```
+
+:::{important}
+Let's just take a moment to reflect on what we've done here! We took a model (`model1`) and then used the $\operatorname{do}$ function and specified an intervention we wanted to make. In this case it was to set $x=2$. We then got back a new model where the original DAG has been mutilated in the way that we set out above. Namely, we defined $x=2$ _and_ removed edges from incoming nodes to $x$. In this first DAG, there were no incoming edges, but this is the case in DAG2 and DAG 3 below.
+:::
 
 ```{code-cell} ipython3
 model2_do = do(model2, {"x": 2})
@@ -324,7 +360,7 @@ pm.model_to_graphviz(model3_do)
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-So we can see that in script 1, the $x$ variable still has causal influence on $y$. However, in scripts 2 and 3, $y$ is no longer causally influenced by $x$. So in scripts 2 and 3, our intervention $do(x=2)$ have no influence on $y$.
+So we can see that in DAG 1, the $x$ variable still has causal influence on $y$. However, in DAGs 2 and 3, $y$ is no longer causally influenced by $x$. So in DAGs 2 and 3, our intervention $\operatorname{do}(x=2)$ have no influence on $y$.
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
@@ -358,19 +394,19 @@ tags: [hide-input]
 df1_new = pd.DataFrame(
     {
         "Interventional": az.extract(idata1_do.prior, var_names="y").squeeze().data,
-        "Script": "Script 1",
+        "DAG": 1,
     }
 )
 df2_new = pd.DataFrame(
     {
         "Interventional": az.extract(idata2_do.prior, var_names="y").squeeze().data,
-        "Script": "Script 2",
+        "DAG": 2,
     }
 )
 df3_new = pd.DataFrame(
     {
         "Interventional": az.extract(idata3_do.prior, var_names="y").squeeze().data,
-        "Script": "Script 3",
+        "DAG": 3,
     }
 )
 df_interventional = pd.concat([df1_new, df2_new, df3_new])
@@ -379,27 +415,43 @@ df_interventional.reset_index(drop=True, inplace=True)
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-So let's compare the conditional and interventional distributions for all 3 scripts.
+So let's compare the conditional and interventional distributions for all 3 DAGs.
 
 ```{code-cell} ipython3
 ---
 editable: true
 slideshow:
   slide_type: ''
-tags: []
+tags: [hide-input]
 ---
-fig, ax = plt.subplots(1, 2, figsize=(10, 5), sharex=True, sharey=True)
+fig, ax = plt.subplots(1, 2, figsize=(10, 4), sharex=True, sharey=True)
 
-sns.kdeplot(df_conditional, x="Conditional", hue="Script", common_norm=True, ax=ax[0])
+sns.kdeplot(
+    df_conditional,
+    x="Conditional",
+    hue="DAG",
+    common_norm=True,
+    ax=ax[0],
+    palette="tab10",
+    lw=3,
+)
 ax[0].set(xlabel="y", title="Conditional distributions\n$P(y|x=2)$")
 
-sns.kdeplot(df_interventional, x="Interventional", hue="Script", common_norm=True, ax=ax[1])
-ax[1].set(xlabel="y", title="Interventional distributions\n$P(y|do(x=2))$");
+sns.kdeplot(
+    df_interventional,
+    x="Interventional",
+    hue="DAG",
+    common_norm=True,
+    ax=ax[1],
+    palette="tab10",
+    lw=3,
+)
+ax[1].set(xlabel="y", title="Interventional distributions\n$P(y|\\operatorname{do}(x=2))$");
 ```
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-We can see, as expected, that the conditional distributions are the same for all 3 scripts. The story is different for the interventional distributions however. Here, script 1 differs because it is the only one where our $do(x=2)$ intervention causally effects $y$. This intervention severed any causal influence of $x$ on $y$ in scripts 2 and 3.
+We can see, as expected, that the conditional distributions are the same for all 3 DAGs. The story is different for the interventional distributions however. Here, DAG 1 differs because it is the only one where our $\operatorname{do}(x=2)$ intervention causally effects $y$. This intervention severed any causal influence of $x$ on $y$ in DAGs 2 and 3.
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
