@@ -30,7 +30,7 @@ This notebook relies on experimental functionality currently in the [pymc-experi
 
 +++
 
-In this post we are going to go beyond _statistical_ concepts and cover some important _causal_ concepts. In particular we are going to examine how we can ask "what-it?" questions based on possible interventions we could make, or could have made in the past.
+In this post we are going to go beyond _statistical_ concepts and cover some important _causal_ concepts. In particular we are going to examine how we can ask "what-if?" questions based on possible interventions we could make, or could have made in the past.
 
 So intervention is not necessarily something we actually have to carry out in the real world - hence the "what-if?" nature of the questions. But we can ask, given what we know, what do we believe if we intervene (or had intervened) on a system.
 
@@ -82,14 +82,14 @@ assert version.parse(pm.__version__) >= version.parse("5.5.0")
 assert version.parse(pmx.__version__) >= version.parse("0.0.7")
 
 # import the new functionality
-from pymc_experimental.model_transform.conditioning import do, observe
+from pymc_experimental.model_transform.conditioning import do
 ```
 
 ## The $\operatorname{do}$ operator
 
 The $\operatorname{do}$ operator implements an intervention that we want to make. It consists of 2 simple steps:
 1. It takes a given node in a graph and sets that node at the desired value.
-2. It removes any causal influence of this node by other nodes. It does this by removing all incoming edges into that node.
+2. It removes any causal influence on this node by other nodes. It does this by removing all incoming edges into that node.
 
 Here is a visual demonstration of that using an example from {cite:t}`pearl2000causality`.
 
@@ -109,7 +109,7 @@ $$
 P(x_1, x_2, \operatorname{do}(x_3=1), x_4, x_5) = P(x_1) P(x_2|x_1) P(x_4|x_3=1, x_2) P(x_5|x_4)
 $$
 
-Interested readers should check out the richly diagrammed and well-explained blog post [Causal Effects via the Do-operator](https://towardsdatascience.com/causal-effects-via-the-do-operator-5415aefc834a) {cite:p}`Talebi2022dooperator` as a good place to start.
+Interested readers should check out the richly diagrammed and well-explained blog post [Causal Effects via the Do-operator](https://towardsdatascience.com/causal-effects-via-the-do-operator-5415aefc834a) {cite:p}`Talebi2022dooperator` to get more information on the $\operatorname{do}$ operator.
 
 +++ {"editable": true, "raw_mimetype": "", "slideshow": {"slide_type": ""}, "tags": []}
 
@@ -452,6 +452,10 @@ ax[1].set(xlabel="y", title="Interventional distributions\n$P(y|\\operatorname{d
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
 We can see, as expected, that the conditional distributions are the same for all 3 DAGs. The story is different for the interventional distributions however. Here, DAG 1 differs because it is the only one where our $\operatorname{do}(x=2)$ intervention causally effects $y$. This intervention severed any causal influence of $x$ on $y$ in DAGs 2 and 3.
+
+```{code-cell} ipython3
+
+```
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
