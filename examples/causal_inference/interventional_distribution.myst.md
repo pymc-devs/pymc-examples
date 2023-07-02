@@ -91,7 +91,7 @@ The $\operatorname{do}$ operator implements an intervention that we want to make
 1. It takes a given node in a graph and sets that node at the desired value.
 2. It removes any causal influence of this node by other nodes. It does this by removing all incoming edges into that node.
 
-Here is a visual demonstration of that using an example from Pearl's book, [Causality](https://en.wikipedia.org/wiki/Causality_(book)).
+Here is a visual demonstration of that using an example from {cite:t}`pearl2000causality`.
 
 ![](sprinkler.png)
 
@@ -109,14 +109,14 @@ $$
 P(x_1, x_2, \operatorname{do}(x_3=1), x_4, x_5) = P(x_1) P(x_2|x_1) P(x_4|x_3=1, x_2) P(x_5|x_4)
 $$
 
-Interested readers should check out the richly diagrammed and well-explained blog post [Causal Effects via the Do-operator](https://towardsdatascience.com/causal-effects-via-the-do-operator-5415aefc834a) by [Shawhin Talebi](https://shawhin.medium.com) as a good place to start.
+Interested readers should check out the richly diagrammed and well-explained blog post [Causal Effects via the Do-operator](https://towardsdatascience.com/causal-effects-via-the-do-operator-5415aefc834a) {cite:p}`Talebi2022dooperator` as a good place to start.
 
 +++ {"editable": true, "raw_mimetype": "", "slideshow": {"slide_type": ""}, "tags": []}
 
 ## Three different causal DAGS
 
 :::{note}
-This section take inspiration from the post [Causal Inference 2: Illustrating Interventions via a Toy Example](https://www.inference.vc/causal-inference-2-illustrating-interventions-in-a-toy-example/) by Ferenc Huszár.
+This section takes heavy inspiration from the post [Causal Inference 2: Illustrating Interventions via a Toy Example](https://www.inference.vc/causal-inference-2-illustrating-interventions-in-a-toy-example/) {cite:p}`Huszár2019causal2`. Imitation is the sincerest form of flattery.
 :::
 
 If we think about how 2 variables, $x$ and $y$, are related we can come up with many different causal DAGS. Below we consider just 3 possibilities, which we'll label DAG 1, 2, and 3.
@@ -457,6 +457,14 @@ We can see, as expected, that the conditional distributions are the same for all
 
 ## Authors
 - Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in July 2023
+
++++
+
+## References
+
+:::{bibliography}
+:filter: docname in docnames
+:::
 
 +++
 
