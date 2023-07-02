@@ -22,15 +22,19 @@ kernelspec:
 :author: Benjamin T. Vincent
 :::
 
-In this post we are going to learn about the `do` operator. The do-operator is a vital ingredient of doing causal inference, and this notebook will demonstrate what it is, how it works, and how to use it in PyMC.
-
-Note: This post take significant inspiration from the post [Causal Inference 2: Illustrating Interventions via a Toy Example](https://www.inference.vc/causal-inference-2-illustrating-interventions-in-a-toy-example/) by Ferenc Huszár.
-
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-:::{important}
+:::{attention}
 This notebook relies on experimental functionality currently in the [pymc-experimental](https://github.com/pymc-devs/pymc-experimental) repository. In the near future this will be moved into the main [pymc](https://github.com/pymc-devs/pymc) repository.
 :::
+
++++
+
+In this post we are going to learn about the `do` operator. The do-operator is a vital ingredient of doing causal inference, and this notebook will demonstrate what it is, how it works, and how to use it in PyMC.
+
++++
+
+## Set up the notebook
 
 ```{code-cell} ipython3
 ---
@@ -78,12 +82,17 @@ from pymc_experimental.model_transform.conditioning import do, observe
 
 +++ {"editable": true, "raw_mimetype": "", "slideshow": {"slide_type": ""}, "tags": []}
 
-# Three different causal DAGS
+## Three different causal DAGS
+
+:::{note}
+This section take inspiration from the post [Causal Inference 2: Illustrating Interventions via a Toy Example](https://www.inference.vc/causal-inference-2-illustrating-interventions-in-a-toy-example/) by Ferenc Huszár.
+:::
+
 If we think about how variables $x$ and $y$ are related, we can come up with many different causal DAGS. Below we consider just 3 possibilities, which we'll label Script 1, 2, and 3.
 
-1. $x$ could causally influence $y$
-2. $y$ could causally influence $x$
-3. $z$ could causally influence both $x$ and $y$
+1. $x$ causally influences $y$
+2. $y$ causally influences $x$
+3. $z$ causally influences both $x$ and $y$
 
 We can draw these more graphically below:
 
@@ -118,25 +127,25 @@ g
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-We can also imagine implementing such causal DAGS in Python code to generate `N` random numbers. Each of these will give rise to specific joint distributions, $P(x, y)$, and in fact, because Ferenc Huszár was clever in his blog post, these will all give rise to the same joint distributions.
+We can also imagine implementing such causal DAGS in Python code to generate `N` random numbers. Each of these will give rise to specific joint distributions, $P(x, y)$, and in fact, because Ferenc Huszár was clever in his blog post, we'll see later that these will all give rise to the same joint distributions.
 
 **Script 1**
 
-```python
+```{code-block} python
 x = rng.normal(loc=0, scale=1, size=N)
 y = x + 1 + np.sqrt(3) * rng.normal(size=N)
 ```
 
 **Script 2**
 
-```python
+```{code-block} python
 y = 1 + 2 * rng.normal(size=N)
 x = (y - 1) / 4 + np.sqrt(3) * rng.normal(size=N) / 2
 ```
 
 **Script 3**
 
-```python
+```{code-block} python
 z = rng.normal(size=N)
 y = z + 1 + np.sqrt(3) * rng.normal(size=N)
 x = z
@@ -154,7 +163,7 @@ slideshow:
 tags: []
 ---
 # number of samples to generate
-N = 100_000
+N = 1_000_000
 ```
 
 ```{code-cell} ipython3
@@ -165,17 +174,12 @@ slideshow:
 tags: []
 ---
 with pm.Model() as model1:
-    x = pm.Normal("x", shape=N)
-    temp = pm.Normal("temp", shape=N)
+    x = pm.Normal("x")
+    temp = pm.Normal("temp")
     y = pm.Deterministic("y", x + 1 + np.sqrt(3) * temp)
-    idata1 = pm.sample_prior_predictive(samples=1)
+    idata1 = pm.sample_prior_predictive(samples=N)
 
-df1 = pd.DataFrame(
-    {
-        "x": az.extract(idata1.prior, var_names="x").squeeze().data,
-        "y": az.extract(idata1.prior, var_names="y").squeeze().data,
-    }
-)
+df1 = az.extract(idata1.prior, var_names=["x", "y"]).to_dataframe()
 
 pm.model_to_graphviz(model1)
 ```
@@ -188,17 +192,12 @@ slideshow:
 tags: []
 ---
 with pm.Model() as model2:
-    y = pm.Normal("y", mu=1, sigma=2, shape=N)
-    temp = pm.Normal("temp", shape=N)
+    y = pm.Normal("y", mu=1, sigma=2)
+    temp = pm.Normal("temp")
     x = pm.Deterministic("x", (y - 1) / 4 + np.sqrt(3) * temp / 2)
-    idata2 = pm.sample_prior_predictive(samples=1)
+    idata2 = pm.sample_prior_predictive(samples=N)
 
-df2 = pd.DataFrame(
-    {
-        "x": az.extract(idata2.prior, var_names="x").squeeze().data,
-        "y": az.extract(idata2.prior, var_names="y").squeeze().data,
-    }
-)
+df2 = az.extract(idata2.prior, var_names=["x", "y"]).to_dataframe()
 
 pm.model_to_graphviz(model2)
 ```
@@ -211,25 +210,20 @@ slideshow:
 tags: []
 ---
 with pm.Model() as model3:
-    z = pm.Normal("z", shape=N)
-    temp = pm.Normal("temp", shape=N)
+    z = pm.Normal("z")
+    temp = pm.Normal("temp")
     y = pm.Deterministic("y", z + 1 + np.sqrt(3) * temp)
     x = pm.Deterministic("x", z)
-    idata3 = pm.sample_prior_predictive(samples=1)
+    idata3 = pm.sample_prior_predictive(samples=N)
 
-df3 = pd.DataFrame(
-    {
-        "x": az.extract(idata3.prior, var_names="x").squeeze().data,
-        "y": az.extract(idata3.prior, var_names="y").squeeze().data,
-    }
-)
+df3 = az.extract(idata3.prior, var_names=["x", "y"]).to_dataframe()
 
 pm.model_to_graphviz(model3)
 ```
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-## Joint distributions, $P(x,y)$
+### Joint distributions, $P(x,y)$
 
 First, let's take a look at the joint distributions for each of the scripts to convince ourselves that these are actually the same.
 
@@ -242,51 +236,36 @@ tags: [hide-input]
 ---
 fig, ax = plt.subplots(1, 3, figsize=(12, 6), sharex=True, sharey=True)
 
-df1.plot.scatter(
-    x="x",
-    y="y",
-    ax=ax[0],
-    color="r",
-    alpha=0.1,
-    title="$P(x, y)$, Script 1",
-    rasterized=True,
-)
-df2.plot.scatter(
-    x="x",
-    y="y",
-    ax=ax[1],
-    color="g",
-    alpha=0.1,
-    title="$P(x, y)$, Script 2",
-    rasterized=True,
-)
-df3.plot.scatter(
-    x="x",
-    y="y",
-    ax=ax[2],
-    color="b",
-    alpha=0.1,
-    title="$P(x, y)$, Script 3",
-    rasterized=True,
-)
-
-for axes in ax:
-    axes.axvline(x=3, ls="--", c="k")
-    axes.set_xticks(np.arange(-6, 6 + 1, step=2))
-    axes.set_yticks(np.arange(-8, 8 + 1, step=2))
+for i, df in enumerate([df1, df2, df3]):
+    az.plot_kde(
+        df["x"],
+        df["y"],
+        hdi_probs=[0.25, 0.5, 0.75, 0.9, 0.95],
+        contour_kwargs={"colors": None},
+        contourf_kwargs={"alpha": 0.5},
+        ax=ax[i],
+    )
+    ax[i].set(
+        title=f"$P(x, y)$, Script {i+1}",
+        xlim=[-4, 4],
+        xticks=np.arange(-4, 4 + 1, step=2),
+        ylim=[-6, 8],
+        yticks=np.arange(-6, 8 + 1, step=2),
+    )
+    ax[i].axvline(x=2, ls="--", c="k")
 ```
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-The dashed lines at $x=3$ help us imagine the conditional distribution $P(y|x=3)$ that we'll examine in the next section. Seeing as the joint distributions are the same, it is intuitive to imagine that the conditional distributions $P(y|x=3)$ will be identical for each of the 3 scripts.
+The dashed lines at $x=2$ help us imagine the conditional distribution $P(y|x=2)$ that we'll examine in the next section. Seeing as the joint distributions are the same, it is intuitive to imagine that the conditional distributions $P(y|x=2)$ will be identical for each of the 3 scripts.
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-## Conditional distributions, $P(y|x=3)$
+### Conditional distributions, $P(y|x=2)$
 
 +++
 
-In the MCMC spirit of representing probability distributions by samples, let's now calculate the conditional distributions. If we picked all the values where $x$ was _exactly_ 3, then we might not end up with any samples at all, so what we'll do is to take a very narrow slice of samples around 3. So these will be approximations - as the number of samples increases and the width of the slice decreases, then our approximation would become more accurate.
+In the MCMC spirit of representing probability distributions by samples, let's now calculate the conditional distributions. If we picked all the values where $x$ was _exactly_ 2, then we might not end up with any samples at all, so what we'll do is to take a very narrow slice of samples around 2. So these will be approximations - as the number of samples increases and the width of the slice decreases, then our approximation would become more accurate.
 
 ```{code-cell} ipython3
 ---
@@ -295,10 +274,10 @@ slideshow:
   slide_type: ''
 tags: []
 ---
-# Combine conditional values from all DataFrames
-conditional1 = df1.query("0.29 < x < 0.31")["y"]
-conditional2 = df2.query("0.29 < x < 0.31")["y"]
-conditional3 = df3.query("0.29 < x < 0.31")["y"]
+# Extract samples from P(y|x=2)
+conditional1 = df1.query("1.99 < x < 2.01")["y"]
+conditional2 = df2.query("1.99 < x < 2.01")["y"]
+conditional3 = df3.query("1.99 < x < 2.01")["y"]
 ```
 
 ```{code-cell} ipython3
@@ -318,9 +297,9 @@ df_conditional.reset_index(drop=True, inplace=True)
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-## Interventional distributions, $P(y|do(x=3))$
+### Interventional distributions, $P(y|do(x=2))$
 
-In turn for each of the 3 scripts, let's use the `do` operator, setting $x=3$. This will give us a new DAG and we'll plot the graphviz representation and then take samples to represent the interventional distribution.
+In turn for each of the 3 scripts, let's use the `do` operator, setting $x=2$. This will give us a new DAG and we'll plot the graphviz representation and then take samples to represent the interventional distribution.
 
 ```{code-cell} ipython3
 ---
@@ -329,23 +308,23 @@ slideshow:
   slide_type: ''
 tags: []
 ---
-model1_do = do(model1, {"x": 3 * np.ones(N, dtype="int32")})
+model1_do = do(model1, {"x": 2})
 pm.model_to_graphviz(model1_do)
 ```
 
 ```{code-cell} ipython3
-model2_do = do(model2, {"x": 3 * np.ones(N, dtype="int32")})
+model2_do = do(model2, {"x": 2})
 pm.model_to_graphviz(model2_do)
 ```
 
 ```{code-cell} ipython3
-model3_do = do(model3, {"x": 3 * np.ones(N, dtype="int32")})
+model3_do = do(model3, {"x": 2})
 pm.model_to_graphviz(model3_do)
 ```
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-So we can see that in script 1, the $x$ variable still has causal influence on $y$. However, in scripts 2 and 3, $y$ is no longer causally influenced by $x$. So in scripts 2 and 3, our intervention $do(x=3)$ have no influence on $y$.
+So we can see that in script 1, the $x$ variable still has causal influence on $y$. However, in scripts 2 and 3, $y$ is no longer causally influenced by $x$. So in scripts 2 and 3, our intervention $do(x=2)$ have no influence on $y$.
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
@@ -359,13 +338,13 @@ slideshow:
 tags: []
 ---
 with model1_do:
-    idata1_do = pm.sample_prior_predictive(samples=1)
+    idata1_do = pm.sample_prior_predictive(samples=N)
 
 with model2_do:
-    idata2_do = pm.sample_prior_predictive(samples=1)
+    idata2_do = pm.sample_prior_predictive(samples=N)
 
 with model3_do:
-    idata3_do = pm.sample_prior_predictive(samples=1)
+    idata3_do = pm.sample_prior_predictive(samples=N)
 ```
 
 ```{code-cell} ipython3
@@ -412,15 +391,15 @@ tags: []
 fig, ax = plt.subplots(1, 2, figsize=(10, 5), sharex=True, sharey=True)
 
 sns.kdeplot(df_conditional, x="Conditional", hue="Script", common_norm=True, ax=ax[0])
-ax[0].set(xlabel="y", title="Conditional distributions\n$P(y|x=3)$")
+ax[0].set(xlabel="y", title="Conditional distributions\n$P(y|x=2)$")
 
 sns.kdeplot(df_interventional, x="Interventional", hue="Script", common_norm=True, ax=ax[1])
-ax[1].set(xlabel="y", title="Interventional distributions\n$P(y|do(x=3))$");
+ax[1].set(xlabel="y", title="Interventional distributions\n$P(y|do(x=2))$");
 ```
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-We can see, as expected, that the conditional distributions are the same for all 3 scripts. The story is different for the interventional distributions however. Here, script 1 differs because it is the only one where our $do(x=3)$ intervention causally effects $y$. This intervention severed any causal influence of $x$ on $y$ in scripts 2 and 3.
+We can see, as expected, that the conditional distributions are the same for all 3 scripts. The story is different for the interventional distributions however. Here, script 1 differs because it is the only one where our $do(x=2)$ intervention causally effects $y$. This intervention severed any causal influence of $x$ on $y$ in scripts 2 and 3.
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
