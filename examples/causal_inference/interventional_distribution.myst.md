@@ -100,7 +100,7 @@ from pymc_experimental.model_transform.conditioning import do
 
 ## What can we do with Bayesian inference?
 
-Whether we are building _descriptive_ models or those that try to model the underlying processes, Bayesians are very used to building whitebox (i.e. the opposite of [black box](https://en.wikipedia.org/wiki/Black_box)), interpretable, models of [data generating processes](https://en.wikipedia.org/wiki/Data_generating_process). While we construct PyMC models using code, behind the scenes this is represented as a DAG, which we can visualise with graphviz. Let's see how this works using the example in the docs:
+Whether we are building _descriptive_ models or those that try to model the underlying processes, Bayesians are very used to building white box (i.e. the opposite of [black box](https://en.wikipedia.org/wiki/Black_box)), interpretable, models of [data generating processes](https://en.wikipedia.org/wiki/Data_generating_process). While we construct PyMC models using code, behind the scenes this is represented as a DAG, which we can visualise with graphviz. Let's see how this works using the example in the docs:
 
 ```{code-cell} ipython3
 ---
