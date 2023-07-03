@@ -95,21 +95,51 @@ Here is a visual demonstration of that using an example from {cite:t}`pearl2000c
 
 ![](sprinkler.png)
 
-On the left of the figure we have a causal directed acyclic graph describing the causal relationships between season, whether a sprinkler has been on, whether it has rained, if the grass is wet, and if the grass is slippery. The joint distribution could be described as: 
+On the left of the figure we have a causal directed acyclic graph describing the causal relationships between season, whether a sprinkler has been on, whether it has rained, if the grass is wet, and if the grass is slippery. 
+
+The joint distribution can be factorised as: 
 
 $$
 P(x_1, x_2, x_3, x_4, x_5) = P(x_1) P(x_3|x_1) P(x_2|x_1) P(x_4|x_3, x_2) P(x_5|x_4)
 $$
 
+```{card} Factorizing joint distributions
+For a DAG, a complex joint distribution can be broken down into the product of conditional distributions:
+
+$$
+P(x_1, x_2, \ldots, x_n) = \prod_i P(x_i|pa_i)
+$$
+
+where $pa_i$ are the parents of node $x_i$, and $i = \{ 1, \ldots, n \}$.
+```
+
 On the right of the figure we have applied the $\operatorname{do}$ operator to examine what will happen if we set the sprinkler to be on. You can see that we have now set the value of that node, $x_3=1$ and we have removed the incoming edge (influence) of season, meaning that once we turn on the sprinkler manually, it's not influenced by the season anymore.
 
-We could now describe this _interventional distribution_ as:
+In order to describe this new interventional distribution we need truncated factorization:
+
+```{card} Truncated factorization
+{cite:t}`pearl2000causality` describes truncated factorization as follows. If we have a probability distribution $P(v)$ on a set of $V$ variables, then $P_x(v)$ is the interventional distribution that results from $\operatorname{do}(X=x)$ that sets a subset of $X$ variables to constants $x$. Then we can describe the interventional distribution with truncated factorization as:
+
+$$
+P_x(v) = \prod_{ \{ i | V_i \notin X \} } P(v_i|pa_i)
+$$
+
+This is actually quite simple. It can be thought of as exactly the same as the regular factorization of the joint distribution, but we are only including terms which do _not_ influence any intervened upon variable.
+
+Interested readers are referred to section 1.3 of {cite:t}`pearl2000causality` on Causal Bayesian Networks.
+```
+
+Applying that to the spinkler example, we can define the _interventional distribution_ as:
 
 $$
 P(x_1, x_2, \operatorname{do}(x_3=1), x_4, x_5) = P(x_1) P(x_2|x_1) P(x_4|x_3=1, x_2) P(x_5|x_4)
 $$
 
-Interested readers should check out the richly diagrammed and well-explained blog post [Causal Effects via the Do-operator](https://towardsdatascience.com/causal-effects-via-the-do-operator-5415aefc834a) {cite:p}`Talebi2022dooperator` to get more information on the $\operatorname{do}$ operator.
+There are two important changes here:
+1. Note that $x_3$ was previously a random variable, but this has now been 'locked' at a particular value, $x_3=1$, because of our intervention.
+2. Note the absense of the $P(x_3|x_1)$ term, because $x_1$ no longer has any causal influence over $x_3$.
+
+For those wanting further background information on the $\operatorname{do}$ operator, explained from a different angle, readers should check out the richly diagrammed and well-explained blog post [Causal Effects via the Do-operator](https://towardsdatascience.com/causal-effects-via-the-do-operator-5415aefc834a) {cite:p}`Talebi2022dooperator` or the textbook by {cite:t}`molak2023ciadip`.
 
 +++ {"editable": true, "raw_mimetype": "", "slideshow": {"slide_type": ""}, "tags": []}
 
