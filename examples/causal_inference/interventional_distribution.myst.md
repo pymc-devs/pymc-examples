@@ -32,9 +32,9 @@ This notebook relies on experimental functionality currently in the [pymc-experi
 
 [PyMC](https://github.com/pymc-devs/pymc) is a pivotal component of the open source Bayesian statistics ecosystem. It helps solve real problems across a wide range of industries and academic research areas every day. And it has gained this level of utility by being accessible, powerful, and practically useful at solving _Bayesian statistical inference_ problems.
 
-But times are changing. There's a [causal revolution](https://en.wikipedia.org/wiki/The_Book_of_Why) underway and there's a growing recognition that to answer some of the most interesting and challenging questions requires us to intergrate _causal_ reasoning into our efforts.
+But times are changing. There's a [causal revolution](https://en.wikipedia.org/wiki/The_Book_of_Why) underway and there's a growing recognition that to answer some of the most interesting and challenging questions requires us to intergrate causal reasoning into our efforts.
 
-PyMC is rising to this challenge! While there are many novel causal concepts to learn, Bayesians will find that they are not starting from scratch. They are already pretty famliar with [Directed Acyclic Graphs (DAGs)](https://en.wikipedia.org/wiki/Directed_acyclic_graph) and so this gives a good jumping off point to gain relatively easy access into the world of **Bayesian causal inference**.
+PyMC is rising to this challenge! While there are many novel causal concepts to learn, Bayesians will find that they are not starting from scratch. They are already pretty familiar with [Directed Acyclic Graphs (DAGs)](https://en.wikipedia.org/wiki/Directed_acyclic_graph) and so this gives a good jumping off point to gain relatively easy access into the world of **Bayesian causal inference**.
 
 This notebook is going to cover one of the foundational components of causal reasoning which has newly arrived to the PyMC ecosystem, the $\operatorname{do}$ operator. Indeed, depending on whose definitions you want to use, adding the $\operatorname{do}$ operator into the kind of Bayesian DAGs that PyMC users build every day gets us to the status of building [causal Bayesian networks](https://en.wikipedia.org/wiki/Causal_graph). 
 
@@ -130,8 +130,8 @@ Regardless of the particular model or models we are working with, we can do a wh
 * We could examine the [prior predictive distribution](https://en.wikipedia.org/wiki/Posterior_predictive_distribution#Prior_vs._posterior_predictive_distribution) to see what we'd expect to see in the given DAG based on our stated prior beliefs with `pymc.sample_prior_predictive`. An example use case would be when we want to understand our predictions of how inflation may evolve into the future based on the structure of our model (e.g.  the national and international economy) and our prior beliefs over latent variables.
 * We could conduct Bayesian inference by sampling from the posterior distribution with `pymc.sample`. This would update our beliefs to assign credibility to different values of latent variables given the data that we have observed. For example, maybe we get another inflation data point added to our dataset and we want to update our beliefs about the latent variables in the model of the economy.
 * We could examine the [posterior predictive distribution](https://en.wikipedia.org/wiki/Posterior_predictive_distribution) using `pymc.sample_posterior_predictive`. This is closely related to the prior predictive distribution, but in our running example it would allow us to create a revised set of predictions about future inflation rates after we've observed another data point.
-* If we wanted, we could get fancy and {doc}`compare different models<GLM-model-selection>` (data generating processes). This could be particularly useful because we arguably don't have complete faith that we know the "true" model of the economy, even at a coarse level of abstraction. So we could build multiple models (DAGs) and evaluate the relative credibility that each model generated the observed data.
-* If we have a number of candidate data generating processes, we could incorporate our uncertainty in the data generating process through {doc}`model averaging<model_averaging>`.
+* If we wanted, we could get fancy and :doc:`compare different models<GLM-model-selection>` (data generating processes). This could be particularly useful because we arguably don't have complete faith that we know the "true" model of the economy, even at a coarse level of abstraction. So we could build multiple models (DAGs) and evaluate the relative credibility that each model generated the observed data.
+* If we have a number of candidate data generating processes, we could incorporate our uncertainty in the data generating process through :doc:`model averaging<model_averaging>`.
 
 If we've mastered all of these steps, we can rightfully feel pretty happy with ourselves. We can accomplish a lot with these statistical and predictive procedures.
 
@@ -139,13 +139,13 @@ If we've mastered all of these steps, we can rightfully feel pretty happy with o
 
 ## Why causality is important
 
-But now it's time to get smacked in the face. As others have argued (e.g. {cite:t}`pearl2000causality`), it is entirely possible to build a pretty good _predictive_ model, but one which can catestrophically fail the moment you (or anyone else) intervenes in the system. Such interventions can totally destroy predictive modelling approaches and wake you up real fast to the necessity of adding causal reasoning into our skillset. 
+But now it's time to get smacked in our smug Bayesian face. As others have argued (e.g. {cite:t}`pearl2018why,pearl2000causality`), it is entirely possible to build a pretty good _predictive_ model, but one which can catestrophically fail the moment you (or anyone else) intervenes in the system. Such interventions can totally destroy predictive modelling approaches and wake you up real fast to the necessity of adding causal reasoning into our skillset. 
 
 In our running example, this could correspond to when a central bank switches from making predictions about inflation to now _acting_ and _intervening_ in the system by, for example, changing interest rates. All of a sudden you might be faced with a situation where the economy does not respond to your intervention as you predicted.
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-Let's consider a seemingly trivial example with 3 nodes to see how we can get fooled. The image below shows two different causal DAGs. On the left we are interested in how $X$ causally affects $Y$, both directly and indirectly through a mediating variable $M$. If we take a purely statistical approach (e.g. {doc}`Bayesian mediation analysis<mediation_analysis>) we might find that the data is very plausibly generated by this DAG. This might give us the confidence to conduct an intervention on $M$ with the aim of influencing our target outcome, $Y$. But when we do this intervention in the real world and change $M$, we actually find absolutely no change in $Y$. What is going on here?
+Let's consider a seemingly trivial example with 3 nodes to see how we can get fooled. The image below shows two different causal DAGs. On the left we are interested in how $X$ causally affects $Y$, both directly and indirectly through a mediating variable $M$. If we take a purely statistical approach (e.g. :doc:`Bayesian mediation analysis<mediation_analysis>) we might find that the data is very plausibly generated by this DAG. This might give us the confidence to conduct an intervention on $M$ with the aim of influencing our target outcome, $Y$. But when we do this intervention in the real world and change $M$, we actually find absolutely no change in $Y$. What is going on here?
 
 ```{code-cell} ipython3
 ---
@@ -181,7 +181,7 @@ g
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-Little did we know, but the _actual_ data generating process is captured by the DAG on the right. This shows that $X$ does causally influence both $M$ and $Y$, however $M$ does not in fact causally affect $Y$. Instead, there is an unobserved variable which causally influences both $M$ and $Y$. This unobserved confounder creates a backdoor path in which _statistical_ association may flow between the path $X \rightarrow M \rightarrow U \rightarrow Y$. All this causes a statistical association between $M$ and $Y$ which our purely statistical approach mislead us into thinking that $M$ did causally influence $Y$ when it did not. No wonder our intervention failed to have any effects.
+Little did we know, but the _actual_ data generating process is captured by the DAG on the right. This shows that $X$ does causally influence both $M$ and $Y$, however $M$ does not in fact causally affect $Y$. Instead, there is an unobserved variable $U$ which causally influences both $M$ and $Y$. This unobserved confounder creates a backdoor path in which _statistical_ association may flow between the path $X \rightarrow M \rightarrow U \rightarrow Y$. All this causes a statistical association between $M$ and $Y$ which our purely statistical approach mislead us into thinking that $M$ did causally influence $Y$ when it did not. No wonder our intervention failed to have any effects.
 
 Our mistake was to interpret a statistical model causally.
 
@@ -192,7 +192,9 @@ So far this has been quite high-level, but let's try to pin this down a little. 
 
 Though the real question we might want an answer to is "What would have happened in the past if we had set the interest rates to 2%?" or "What will happen going forward if we set the interest rates to 2%?" Despite the subtle changing of wording, this now radically changes what we have to do in order to answer the question. So a key point here is **interventional distributions require causal (not statistical) approaches**.
 
-From now on, the main point of this notebook will be to provide some understanding and intuition about the differences between conditional and interventional distributions, and how to estimate interventional distributions with PyMC. As we said above, interventional distributions require using the $\operatorname{do}$ operator, so let's dive in and see how that works.
+Interventional distributions are cool because they allow us to ask what-if (or counterfactual questions). For example, with a causal DAG we could ask questions of the form, "What do I think will happen in the future if I do X?" or "What do I think would have happened in the past if X had happened?" See how these types of questions have a very different flavour to purely statistical kinds of questions - they would be more like "Given what I've seen, what do I think will happen." See how this has a more passive, observational focus.
+
+From hereon, the main point of this notebook will be to provide some understanding and intuition about the differences between conditional and interventional distributions, and how to estimate interventional distributions with PyMC. As we said above, we can use the $\operatorname{do}$ operator to estimate interventional distributions. So let's dive in and see how that works.
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
@@ -205,7 +207,7 @@ We'll consider an example from {cite:t}`pearl2000causality` where we examine a D
 
 ![](sprinkler.png)
 
-On the left of the figure we have a causal directed acyclic graph describing the causal relationships between season, whether a sprinkler has been on, whether it has rained, if the grass is wet, and if the grass is slippery. 
+On the left of the figure we have a causal DAG describing the causal relationships between season, whether a sprinkler has been on, whether it has rained, if the grass is wet, and if the grass is slippery. 
 
 The joint distribution can be factorised as: 
 
@@ -249,7 +251,9 @@ There are two important changes here:
 1. Note that $x_3$ was previously a random variable, but this has now been 'locked' at a particular value, $x_3=1$, because of our intervention.
 2. Note the absense of the $P(x_3|x_1)$ term, because $x_1$ no longer has any causal influence over $x_3$.
 
-For those wanting further background information on the $\operatorname{do}$ operator, explained from a different angle, readers should check out the richly diagrammed and well-explained blog post [Causal Effects via the Do-operator](https://towardsdatascience.com/causal-effects-via-the-do-operator-5415aefc834a) {cite:p}`Talebi2022dooperator` or the textbook by {cite:t}`molak2023ciadip`.
+So in summary, this is pretty cool. We can use the $\operatorname{do}$ operator to make in intervention in our model of the world. We can then observe the consequences of this intervention and make much better predictions of what will happen when we are active and intervene (actually or hypothetically) in the world. The accuracy is of course subject to how well our causal DAG reflects the real processes in the world.
+
+For those wanting further background information on the $\operatorname{do}$ operator, explained from a different angle, readers should check out the richly diagrammed and well-explained blog post [Causal Effects via the Do-operator](https://towardsdatascience.com/causal-effects-via-the-do-operator-5415aefc834a) {cite:p}`Talebi2022dooperator`, the popular science book by {cite:t}`pearl2018why`, or the textbook by {cite:t}`molak2023ciadip`.
 
 +++ {"editable": true, "raw_mimetype": "", "slideshow": {"slide_type": ""}, "tags": []}
 
