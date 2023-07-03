@@ -523,7 +523,7 @@ g
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-We can see that for DAG 2, $P(y|\operatorname{do}(x=2)) = P(y)$. And for DAG 3 $P(y|\operatorname{do}(x=2)) = P(y|z)$. These will acutally be the same in this contrived example because the details were arranged to arrive at the same marginal distribution $P(y)$ for all DAGS.
+We can see that for DAG 2, $P(y|\operatorname{do}(x=2)) = P(y)$. And for DAG 3 $P(y|\operatorname{do}(x=2)) = P(y|z)$. These will actually be the same in this contrived example because the details were arranged to arrive at the same marginal distribution $P(y)$ for all DAGS.
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
