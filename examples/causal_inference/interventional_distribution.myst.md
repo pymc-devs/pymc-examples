@@ -238,7 +238,7 @@ with pm.Model() as model1:
     x = pm.Normal("x")
     temp = pm.Normal("temp")
     y = pm.Deterministic("y", x + 1 + np.sqrt(3) * temp)
-    idata1 = pm.sample_prior_predictive(samples=N)
+    idata1 = pm.sample_prior_predictive(samples=N, random_seed=rng)
 
 df1 = az.extract(idata1.prior, var_names=["x", "y"]).to_dataframe()
 
@@ -256,7 +256,7 @@ with pm.Model() as model2:
     y = pm.Normal("y", mu=1, sigma=2)
     temp = pm.Normal("temp")
     x = pm.Deterministic("x", (y - 1) / 4 + np.sqrt(3) * temp / 2)
-    idata2 = pm.sample_prior_predictive(samples=N)
+    idata2 = pm.sample_prior_predictive(samples=N, random_seed=rng)
 
 df2 = az.extract(idata2.prior, var_names=["x", "y"]).to_dataframe()
 
@@ -406,13 +406,13 @@ slideshow:
 tags: []
 ---
 with model1_do:
-    idata1_do = pm.sample_prior_predictive(samples=N)
+    idata1_do = pm.sample_prior_predictive(samples=N, random_seed=rng)
 
 with model2_do:
-    idata2_do = pm.sample_prior_predictive(samples=N)
+    idata2_do = pm.sample_prior_predictive(samples=N, random_seed=rng)
 
 with model3_do:
-    idata3_do = pm.sample_prior_predictive(samples=N)
+    idata3_do = pm.sample_prior_predictive(samples=N, random_seed=rng)
 ```
 
 ```{code-cell} ipython3
@@ -497,8 +497,6 @@ slideshow:
 tags: [hide-input]
 ---
 g = gr.Digraph()
-
-# DAG 2
 g.node(name="y2", label="y")
 g.node(name="x2", label="x")
 g
@@ -516,8 +514,6 @@ slideshow:
 tags: [hide-input]
 ---
 g = gr.Digraph()
-
-# DAG 3
 g.node(name="z", label="z")
 g.node(name="x", label="x")
 g.node(name="y", label="y")
