@@ -28,7 +28,7 @@ kernelspec:
 This notebook relies on experimental functionality currently in the [pymc-experimental](https://github.com/pymc-devs/pymc-experimental) repository. In the near future this will be moved into the main [pymc](https://github.com/pymc-devs/pymc) repository.
 :::
 
-+++
++++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
 [PyMC](https://github.com/pymc-devs/pymc) is a pivotal component of the open source Bayesian statistics ecosystem. It helps solve real problems across a wide range of industries and academic research areas every day. And it has gained this level of utility by being accessible, powerful, and practically useful at solving _Bayesian statistical inference_ problems.
 
@@ -52,6 +52,7 @@ slideshow:
 tags: []
 ---
 import arviz as az
+import daft
 import graphviz as gr
 import matplotlib.pyplot as plt
 import numpy as np
@@ -64,6 +65,12 @@ from packaging import version
 ```
 
 ```{code-cell} ipython3
+---
+editable: true
+slideshow:
+  slide_type: ''
+tags: []
+---
 RANDOM_SEED = 123
 rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
@@ -89,13 +96,112 @@ assert version.parse(pmx.__version__) >= version.parse("0.0.7")
 from pymc_experimental.model_transform.conditioning import do
 ```
 
-## The $\operatorname{do}$ operator
++++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-The $\operatorname{do}$ operator implements an intervention that we want to make. It consists of 2 simple steps:
+## What can we do with Bayesian inference?
+
+Whether we are building _descriptive_ models or those that try to model the underlying processes, Bayesians are very used to building whitebox (i.e. the opposite of [black box](https://en.wikipedia.org/wiki/Black_box)), interpretable, models of [data generating processes](https://en.wikipedia.org/wiki/Data_generating_process). While we construct PyMC models using code, behind the scenes this is represented as a DAG, which we can visualise with graphviz. Let's see how this works using the example in the docs:
+
+```{code-cell} ipython3
+---
+editable: true
+slideshow:
+  slide_type: ''
+tags: []
+---
+J = 8
+y = np.array([28, 8, -3, 7, -1, 1, 18, 12])
+sigma = np.array([15, 10, 16, 11, 9, 11, 10, 18])
+
+with pm.Model() as schools:
+    eta = pm.Normal("eta", 0, 1, shape=J)
+    mu = pm.Normal("mu", 0, sigma=1e6)
+    tau = pm.HalfCauchy("tau", 25)
+    theta = mu + tau * eta
+    obs = pm.Normal("obs", theta, sigma=sigma, observed=y)
+
+pm.model_to_graphviz(schools)
+```
+
++++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
+
+Regardless of the particular model or models we are working with, we can do a whole range of _statistical_ procedures:
+
+* We could examine the [prior predictive distribution](https://en.wikipedia.org/wiki/Posterior_predictive_distribution#Prior_vs._posterior_predictive_distribution) to see what we'd expect to see in the given DAG based on our stated prior beliefs with `pymc.sample_prior_predictive`. An example use case would be when we want to understand our predictions of how inflation may evolve into the future based on the structure of our model (e.g.  the national and international economy) and our prior beliefs over latent variables.
+* We could conduct Bayesian inference by sampling from the posterior distribution with `pymc.sample`. This would update our beliefs to assign credibility to different values of latent variables given the data that we have observed. For example, maybe we get another inflation data point added to our dataset and we want to update our beliefs about the latent variables in the model of the economy.
+* We could examine the [posterior predictive distribution](https://en.wikipedia.org/wiki/Posterior_predictive_distribution) using `pymc.sample_posterior_predictive`. This is closely related to the prior predictive distribution, but in our running example it would allow us to create a revised set of predictions about future inflation rates after we've observed another data point.
+* If we wanted, we could get fancy and {doc}`compare different models<GLM-model-selection>` (data generating processes). This could be particularly useful because we arguably don't have complete faith that we know the "true" model of the economy, even at a coarse level of abstraction. So we could build multiple models (DAGs) and evaluate the relative credibility that each model generated the observed data.
+* If we have a number of candidate data generating processes, we could incorporate our uncertainty in the data generating process through {doc}`model averaging<model_averaging>`.
+
+If we've mastered all of these steps, we can rightfully feel pretty happy with ourselves. We can accomplish a lot with these statistical and predictive procedures.
+
++++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": ["hide-input"]}
+
+## Why causality is important
+
+But now it's time to get smacked in the face. As others have argued (e.g. {cite:t}`pearl2000causality`), it is entirely possible to build a pretty good _predictive_ model, but one which can catestrophically fail the moment you (or anyone else) intervenes in the system. Such interventions can totally destroy predictive modelling approaches and wake you up real fast to the necessity of adding causal reasoning into our skillset. 
+
+In our running example, this could correspond to when a central bank switches from making predictions about inflation to now _acting_ and _intervening_ in the system by, for example, changing interest rates. All of a sudden you might be faced with a situation where the economy does not respond to your intervention as you predicted.
+
++++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
+
+Let's consider a seemingly trivial example with 3 nodes to see how we can get fooled. The image below shows two different causal DAGs. On the left we are interested in how $X$ causally affects $Y$, both directly and indirectly through a mediating variable $M$. If we take a purely statistical approach (e.g. {doc}`Bayesian mediation analysis<mediation_analysis>) we might find that the data is very plausibly generated by this DAG. This might give us the confidence to conduct an intervention on $M$ with the aim of influencing our target outcome, $Y$. But when we do this intervention in the real world and change $M$, we actually find absolutely no change in $Y$. What is going on here?
+
+```{code-cell} ipython3
+---
+editable: true
+slideshow:
+  slide_type: ''
+tags: [hide-input]
+---
+g = gr.Digraph()
+# Wrong data generating process
+g.node(name="x2", label="X")
+g.node(name="y2", label="Y")
+g.node(name="m2", label="M")
+g.edge(tail_name="x2", head_name="y2")
+g.edge(tail_name="x2", head_name="m2")
+g.edge(tail_name="m2", head_name="y2")
+# Actual causal DAG
+g.node(name="x", label="X")
+g.node(name="y", label="Y")
+g.node(name="m", label="M")
+g.node(name="u", label="U", color="lightgrey", style="filled")
+g.edge(
+    tail_name="x",
+    head_name="y",
+)
+g.edge(tail_name="x", head_name="m")
+g.edge(tail_name="m", head_name="y", style="dashed", dir="none")
+g.edge(tail_name="u", head_name="m", color="lightgrey")
+g.edge(tail_name="u", head_name="y", color="lightgrey")
+# Render
+g
+```
+
++++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
+
+Little did we know, but the _actual_ data generating process is captured by the DAG on the right. This shows that $X$ does causally influence both $M$ and $Y$, however $M$ does not in fact causally affect $Y$. Instead, there is an unobserved variable which causally influences both $M$ and $Y$. This unobserved confounder creates a backdoor path in which _statistical_ association may flow between the path $X \rightarrow M \rightarrow U \rightarrow Y$. All this causes a statistical association between $M$ and $Y$ which our purely statistical approach mislead us into thinking that $M$ did causally influence $Y$ when it did not. No wonder our intervention failed to have any effects.
+
+Our mistake was to interpret a statistical model causally.
+
++++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
+
+## Statistical versus interventional distributions
+So far this has been quite high-level, but let's try to pin this down a little. In our example, if we were to take a purely statistical approach we could ask "What happened when interest rates were 2%?" This is a statistical question because we are basically looking back in our dataset and filtering (or conditioning) upon time points where interest rates were at (or very close to 2%). So let's flag up - **conditional distributions are purely statistical quantities**.
+
+Though the real question we might want an answer to is "What would have happened in the past if we had set the interest rates to 2%?" or "What will happen going forward if we set the interest rates to 2%?" Despite the subtle changing of wording, this now radically changes what we have to do in order to answer the question. So a key point here is **interventional distributions require causal (not statistical) approaches**.
+
+From now on, the main point of this notebook will be to provide some understanding and intuition about the differences between conditional and interventional distributions, and how to estimate interventional distributions with PyMC. As we said above, interventional distributions require using the $\operatorname{do}$ operator, so let's dive in and see how that works.
+
++++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
+
+## Interventions and the $\operatorname{do}$ operator
+
+We'll consider an example from {cite:t}`pearl2000causality` where we examine a DAG which is a putative causal explanation of how various factors influence each other to result in grass becoming slippery. The left shows our causal DAG, and the right shows how the DAG is changed if we consider an intervention (hypothetical or actual) where we turn the sprinkler on. The $\operatorname{do}$ operator implements an intervention that we want to make. It consists of 2 simple steps:
+
 1. It takes a given node in a graph and sets that node at the desired value.
 2. It removes any causal influence on this node by other nodes. It does this by removing all incoming edges into that node.
-
-Here is a visual demonstration of that using an example from {cite:t}`pearl2000causality`.
 
 ![](sprinkler.png)
 
