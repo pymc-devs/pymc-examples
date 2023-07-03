@@ -326,6 +326,12 @@ y = z + 1 + np.sqrt(3) * rng.normal(size=N)
 x = z
 ```
 
++++
+
+:::{note}
+These code snippets are important because they define identical joint distributions $P(x,y)$ but they have different DAG structures. Therefore they may respond differently when it comes to making an intervention with the $\operatorname{do}$ operator. It is worth referring back to these code snippets to make sure you understand how they relate to the DAG structures above and to think through how making interventions on variables will affect the values of each of the variables $x, y, z$ if at all.
+:::
+
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
 However, we are going to implement these using Bayesian causal DAGS with PyMC. Let's see how we can do this, then generate samples from them using `pm.sample_prior_predictive`. As we go with each DAG, we'll package the data up in `DataFrame`'s for plotting later, and also plot the graphviz representation of the PyMC models. You'll see that while these are a fraction more visually complex, they do actually match up with the causal DAGs we've specified above.
