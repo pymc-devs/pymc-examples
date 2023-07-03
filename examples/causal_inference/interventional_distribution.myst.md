@@ -483,7 +483,7 @@ ax[1].set(xlabel="y", title="Interventional distributions\n$P(y|\\operatorname{d
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-We can see, as expected, that the conditional distributions are the same for all 3 DAGs. 
+We can see, as expected, that the conditional distributions are the same for all 3 DAGs. Note that these distributions are not posterior distributions of estimated parameters - we have not conducted any parameter estimation here.
 
 The story is different for the interventional distributions however. Here, DAG 1 differs because it is the only one where our $\operatorname{do}(x=2)$ intervention causally effects $y$. If we think about it further, because the $\operatorname{do}$ has not affected the structure _for this DAG_, in this example $P(y|\operatorname{do}(x=2)) = P(y|x=2)$. However this is _not_ something to be generalised, it is just something specific to this particular simple DAG. 
 
