@@ -17,7 +17,7 @@ kernelspec:
 # Interventional distributions and graph mutilation with the do-operator
 
 :::{post} July, 2023
-:tags: causal inference, do-operator
+:tags: causal inference, do-operator, graph mutilation
 :category: beginner, explanation
 :author: Benjamin T. Vincent
 :::
@@ -648,11 +648,12 @@ We can see that for DAG 2, $P(y|\operatorname{do}(x=2)) = P(y)$. And for DAG 3 $
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
 ## Summary
-This notebook has outlined how we can use the $\operatorname{do}$ operator to intervene on nodes in our DAG. We saw that it acts by setting the values of the intervened nodes, which removes any causal influence of any parent nodes on our target node. 
 
-We saw that the `do` function ingests a model and a dictionary of interventions and returns a new, mutilated, model.
+Hopefuly, I've established a strong case for why we need to expand our skillset beyond the realm of Bayesian statistics alone. While these approaches are, and will always be, at the core of PyMC, the ecosystem is embracing causal reasoning.
 
-Interventions and the $\operatorname{do}$ operator are vital parts of a causal inference workflow, and we've explored the basic ideas and how they can be used with PyMC.
+In particular, we've seen how we can use the new $\operatorname{do}$ operator to implement realised or hypothetical interventions on causal models of the world to obtain interventional distributions. Understanding the underlying causal DAG and how interventions change this DAG are crucial components in building our understanding of causal reasoning.
+
+The exciting thing is that there are many more causal reasoning ideas and concepts to learn. And PyMC is adapting as needed to support all your Bayesian causal inference needs.
 
 Readers looking to learn more are suggested to check out the cited blog posts as well as textbooks, {cite:t}`pearl2000causality`, {cite:t}`pearl2016causal`, {cite:t}`mcelreath2018statistical`, {cite:t}`molak2023ciadip`.
 
