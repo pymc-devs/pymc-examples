@@ -554,7 +554,7 @@ We can see, as expected, that the conditional distributions are the same for all
 
 The story is different for the interventional distributions however. Here, DAG 1 differs because it is the only one where our $\operatorname{do}(x=2)$ intervention causally effects $y$. If we think about it further, because the $\operatorname{do}$ has not affected the structure _for this DAG_, in this example $P(y|\operatorname{do}(x=2)) = P(y|x=2)$. However this is _not_ something to be generalised, it is just something specific to this particular simple DAG. 
 
-The intervention severed any causal influence of $x$ on $y$ in DAGs 2 and 3. Let's just recap what the mutated DAGs look like; the mutated DAG 2 is shown below. 
+The intervention severed any causal influence of $x$ on $y$ in DAGs 2 and 3. Let's just recap what the mutated DAGs look like; the mutated DAG 2 is shown below, and we can see that $P(y|\operatorname{do}(x=2)) = P(y)$.
 
 ```{code-cell} ipython3
 ---
@@ -590,7 +590,7 @@ g
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-We can see that for DAG 2, $P(y|\operatorname{do}(x=2)) = P(y)$. And for DAG 3 $P(y|\operatorname{do}(x=2)) = P(y|z)$. These will actually be the same in this contrived example because the details were arranged to arrive at the same marginal distribution $P(y)$ for all DAGs.
+$P(y|\operatorname{do}(x=2))$ for DAG 2 and DAG 3 will actually be the same in this contrived example because the details were arranged to arrive at the same marginal distribution $P(y)$ for all DAGs.
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
