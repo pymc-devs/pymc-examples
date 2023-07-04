@@ -256,13 +256,13 @@ For those wanting further background information on the $\operatorname{do}$ oper
 
 +++ {"editable": true, "raw_mimetype": "", "slideshow": {"slide_type": ""}, "tags": []}
 
-## Three different causal DAGS
+## Three different causal DAGs
 
 :::{note}
 This section takes heavy inspiration from the post [Causal Inference 2: Illustrating Interventions via a Toy Example](https://www.inference.vc/causal-inference-2-illustrating-interventions-in-a-toy-example/) {cite:p}`Huszár2019causal2`. Imitation is the sincerest form of flattery.
 :::
 
-If we think about how 2 variables, $x$ and $y$, are related we can come up with many different causal DAGS. Below we consider just 3 possibilities, which we'll label DAG 1, 2, and 3.
+If we think about how 2 variables, $x$ and $y$, are related we can come up with many different causal DAGs. Below we consider just 3 possibilities, which we'll label DAG 1, 2, and 3.
 
 1. $x$ causally influences $y$
 2. $y$ causally influences $x$
@@ -301,7 +301,7 @@ g
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-We can also imagine implementing such causal DAGS in Python code to generate `N` random numbers. Each of these will give rise to specific joint distributions, $P(x, y)$, and in fact, because Ferenc Huszár was clever in his blog post, we'll see later that these will all give rise to the same joint distributions.
+We can also imagine implementing such causal DAGs in Python code to generate `N` random numbers. Each of these will give rise to specific joint distributions, $P(x, y)$, and in fact, because Ferenc Huszár was clever in his blog post, we'll see later that these will all give rise to the same joint distributions.
 
 **DAG 1**
 
@@ -333,7 +333,7 @@ These code snippets are important because they define identical joint distributi
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-However, we are going to implement these using Bayesian causal DAGS with PyMC. Let's see how we can do this, then generate samples from them using `pm.sample_prior_predictive`. As we go with each DAG, we'll package the data up in `DataFrame`'s for plotting later, and also plot the graphviz representation of the PyMC models. You'll see that while these are a fraction more visually complex, they do actually match up with the causal DAGs we've specified above.
+However, we are going to implement these using Bayesian causal DAGs with PyMC. Let's see how we can do this, then generate samples from them using `pm.sample_prior_predictive`. As we go with each DAG, we'll package the data up in `DataFrame`'s for plotting later, and also plot the graphviz representation of the PyMC models. You'll see that while these are a fraction more visually complex, they do actually match up with the causal DAGs we've specified above.
 
 ```{code-cell} ipython3
 ---
@@ -438,7 +438,7 @@ for i, ds in enumerate([ds1, ds2, ds3]):
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-At this point we have met 3 different data generating processes (and their corresponding DAGS). We've drawn many MCMC samples from the prior distribution and visualised this joint distribution $P(x,y)$ for each of the models. We are now in position to recap the conditional distributions (e.g. $P(y|x=2$, see the next section) and how they compare to the interventional distribution $P(y|\operatorname{do}=2)$ in the section following that.
+At this point we have met 3 different data generating processes (and their corresponding DAGs). We've drawn many MCMC samples from the prior distribution and visualised this joint distribution $P(x,y)$ for each of the models. We are now in position to recap the conditional distributions (e.g. $P(y|x=2$, see the next section) and how they compare to the interventional distribution $P(y|\operatorname{do}=2)$ in the section following that.
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
@@ -461,7 +461,7 @@ conditional2 = ds2.query(sample="1.99 < x < 2.01")["y"]
 conditional3 = ds3.query(sample="1.99 < x < 2.01")["y"]
 ```
 
-So now we've got our MCMC estimates of $P(y|x=2)$ for all of the DAGS. But you're going to have to wait just a moment before we plot them. Let's move on to calculate $P(y|\operatorname{do}(x=2))$ and then plot them in one go so we can compare.
+So now we've got our MCMC estimates of $P(y|x=2)$ for all of the DAGs. But you're going to have to wait just a moment before we plot them. Let's move on to calculate $P(y|\operatorname{do}(x=2))$ and then plot them in one go so we can compare.
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
@@ -558,7 +558,7 @@ We can see, as expected, that the conditional distributions are the same for all
 
 The story is different for the interventional distributions however. Here, DAG 1 differs because it is the only one where our $\operatorname{do}(x=2)$ intervention causally effects $y$. If we think about it further, because the $\operatorname{do}$ has not affected the structure _for this DAG_, in this example $P(y|\operatorname{do}(x=2)) = P(y|x=2)$. However this is _not_ something to be generalised, it is just something specific to this particular simple DAG. 
 
-The intervention severed any causal influence of $x$ on $y$ in DAGs 2 and 3. Let's just recap what the mutilated DAGS look like; the mutulated DAG 2 is shown below. 
+The intervention severed any causal influence of $x$ on $y$ in DAGs 2 and 3. Let's just recap what the mutilated DAGs look like; the mutulated DAG 2 is shown below. 
 
 ```{code-cell} ipython3
 ---
@@ -594,7 +594,7 @@ g
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-We can see that for DAG 2, $P(y|\operatorname{do}(x=2)) = P(y)$. And for DAG 3 $P(y|\operatorname{do}(x=2)) = P(y|z)$. These will actually be the same in this contrived example because the details were arranged to arrive at the same marginal distribution $P(y)$ for all DAGS.
+We can see that for DAG 2, $P(y|\operatorname{do}(x=2)) = P(y)$. And for DAG 3 $P(y|\operatorname{do}(x=2)) = P(y|z)$. These will actually be the same in this contrived example because the details were arranged to arrive at the same marginal distribution $P(y)$ for all DAGs.
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
