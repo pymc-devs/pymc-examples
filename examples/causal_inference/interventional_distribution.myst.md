@@ -6,9 +6,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc_env
   language: python
-  name: python3
+  name: pymc_env
 ---
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
