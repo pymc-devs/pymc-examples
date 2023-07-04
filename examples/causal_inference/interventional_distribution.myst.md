@@ -17,7 +17,7 @@ kernelspec:
 # Interventional distributions and graph mutilation with the do-operator
 
 :::{post} July, 2023
-:tags: causal inference, do-operator, graph mutilation
+:tags: causal inference, do-operator, graph mutation
 :category: beginner, explanation
 :author: Benjamin T. Vincent
 :::
@@ -481,7 +481,7 @@ pm.model_to_graphviz(model1_do)
 ```
 
 :::{important}
-Let's just take a moment to reflect on what we've done here! We took a model (`model1`) and then used the $\operatorname{do}$ function and specified an intervention we wanted to make. In this case it was to set $x=2$. We then got back a new model where the original DAG has been mutilated in the way that we set out above. Namely, we defined $x=2$ _and_ removed edges from incoming nodes to $x$. In this first DAG, there were no incoming edges, but this is the case in DAG2 and DAG 3 below.
+Let's just take a moment to reflect on what we've done here! We took a model (`model1`) and then used the $\operatorname{do}$ function and specified an intervention we wanted to make. In this case it was to set $x=2$. We then got back a new model where the original DAG has been mutated in the way that we set out above. Namely, we defined $x=2$ _and_ removed edges from incoming nodes to $x$. In this first DAG, there were no incoming edges, but this is the case in DAG2 and DAG 3 below.
 :::
 
 ```{code-cell} ipython3
@@ -558,7 +558,7 @@ We can see, as expected, that the conditional distributions are the same for all
 
 The story is different for the interventional distributions however. Here, DAG 1 differs because it is the only one where our $\operatorname{do}(x=2)$ intervention causally effects $y$. If we think about it further, because the $\operatorname{do}$ has not affected the structure _for this DAG_, in this example $P(y|\operatorname{do}(x=2)) = P(y|x=2)$. However this is _not_ something to be generalised, it is just something specific to this particular simple DAG. 
 
-The intervention severed any causal influence of $x$ on $y$ in DAGs 2 and 3. Let's just recap what the mutilated DAGs look like; the mutulated DAG 2 is shown below. 
+The intervention severed any causal influence of $x$ on $y$ in DAGs 2 and 3. Let's just recap what the mutated DAGs look like; the mutated DAG 2 is shown below. 
 
 ```{code-cell} ipython3
 ---
@@ -575,7 +575,7 @@ g
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-The mutulated DAG 3 is shown below. We can see that for this DAG, $P(y|\operatorname{do}(x=2)) = P(y|z)$. 
+The mutated DAG 3 is shown below. We can see that for this DAG, $P(y|\operatorname{do}(x=2)) = P(y|z)$. 
 
 ```{code-cell} ipython3
 ---
