@@ -14,7 +14,7 @@ kernelspec:
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
 (interventional_distribution)=
-# Interventional distributions and graph mutilation with the do-operator
+# Interventional distributions and graph mutation with the do-operator
 
 :::{post} July, 2023
 :tags: causal inference, do-operator, graph mutation
