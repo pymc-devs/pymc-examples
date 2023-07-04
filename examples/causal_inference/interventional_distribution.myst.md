@@ -329,7 +329,7 @@ These code snippets are important because they define identical joint distributi
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-However, we are going to implement these using Bayesian causal DAGs with PyMC. Let's see how we can do this, then generate samples from them using `pm.sample_prior_predictive`. As we go with each DAG, we'll package the data up in `DataFrame`'s for plotting later, and also plot the graphviz representation of the PyMC models. You'll see that while these are a fraction more visually complex, they do actually match up with the causal DAGs we've specified above.
+However, we are going to implement these using Bayesian causal DAGs with PyMC. Let's see how we can do this, then generate samples from them using `pm.sample_prior_predictive`. As we go with each DAG, we'll extract the samples for plotting later, and also plot the graphviz representation of the PyMC models. You'll see that while these are a fraction more visually complex, they do actually match up with the causal DAGs we've specified above.
 
 ```{code-cell} ipython3
 ---
