@@ -8,8 +8,9 @@ kernelspec:
   display_name: Python 3
   language: python
   name: python3
-substitutions:
-  extra_dependencies: bokeh
+myst:
+  substitutions:
+    extra_dependencies: bokeh
 ---
 
 (GP-MaunaLoa)=

@@ -9,6 +9,9 @@ kernelspec:
   display_name: pymc_env
   language: python
   name: pymc_env
+myst:
+  substitutions:
+    extra_dependencies: daft pymc_experimental
 ---
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
