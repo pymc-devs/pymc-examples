@@ -24,12 +24,6 @@ kernelspec:
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
-:::{attention}
-This notebook relies on experimental functionality currently in the [pymc-experimental](https://github.com/pymc-devs/pymc-experimental) repository. In the near future this will be moved into the main [pymc](https://github.com/pymc-devs/pymc) repository.
-:::
-
-+++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
-
 [PyMC](https://github.com/pymc-devs/pymc) is a pivotal component of the open source Bayesian statistics ecosystem. It helps solve real problems across a wide range of industries and academic research areas every day. And it has gained this level of utility by being accessible, powerful, and practically useful at solving _Bayesian statistical inference_ problems.
 
 But times are changing. There's a [causal revolution](https://en.wikipedia.org/wiki/The_Book_of_Why) underway and there's a growing recognition that to answer some of the most interesting and challenging questions requires us to intergrate causal reasoning into our efforts.
@@ -65,6 +59,8 @@ from packaging import version
 
 :::{include} ../extra_installs.md
 :::
+
+This notebook relies on experimental functionality currently in the [pymc-experimental](https://github.com/pymc-devs/pymc-experimental) repository. In the near future this will be moved into the main [pymc](https://github.com/pymc-devs/pymc) repository.
 
 ```{code-cell} ipython3
 ---
