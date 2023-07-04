@@ -52,16 +52,37 @@ slideshow:
 tags: []
 ---
 import arviz as az
-import daft
 import graphviz as gr
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import pymc as pm
-import pymc_experimental as pmx
 import seaborn as sns
 
 from packaging import version
+```
+
++++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
+
+:::{include} ../extra_installs.md
+:::
+
+```{code-cell} ipython3
+---
+editable: true
+slideshow:
+  slide_type: ''
+tags: []
+---
+# Import additional libraries that are not dependencies of PyMC
+import daft
+import pymc_experimental as pmx
+
+# Check we have the necessary versions to get the new experimental functionality.
+assert version.parse(pm.__version__) >= version.parse("5.5.0")
+assert version.parse(pmx.__version__) >= version.parse("0.0.7")
+
+# import the new functionality
+from pymc_experimental.model_transform.conditioning import do
 ```
 
 ```{code-cell} ipython3
@@ -74,26 +95,7 @@ tags: []
 RANDOM_SEED = 123
 rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
-sns.color_palette("tab10")
 %config InlineBackend.figure_format = 'retina'
-```
-
-+++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
-
-Check we have the necessary versions to get the new experimental functionality.
-
-```{code-cell} ipython3
----
-editable: true
-slideshow:
-  slide_type: ''
-tags: []
----
-assert version.parse(pm.__version__) >= version.parse("5.5.0")
-assert version.parse(pmx.__version__) >= version.parse("0.0.7")
-
-# import the new functionality
-from pymc_experimental.model_transform.conditioning import do
 ```
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
@@ -130,8 +132,8 @@ Regardless of the particular model or models we are working with, we can do a wh
 * We could examine the [prior predictive distribution](https://en.wikipedia.org/wiki/Posterior_predictive_distribution#Prior_vs._posterior_predictive_distribution) to see what we'd expect to see in the given DAG based on our stated prior beliefs with `pymc.sample_prior_predictive`. An example use case would be when we want to understand our predictions of how inflation may evolve into the future based on the structure of our model (e.g.  the national and international economy) and our prior beliefs over latent variables.
 * We could conduct Bayesian inference by sampling from the posterior distribution with `pymc.sample`. This would update our beliefs to assign credibility to different values of latent variables given the data that we have observed. For example, maybe we get another inflation data point added to our dataset and we want to update our beliefs about the latent variables in the model of the economy.
 * We could examine the [posterior predictive distribution](https://en.wikipedia.org/wiki/Posterior_predictive_distribution) using `pymc.sample_posterior_predictive`. This is closely related to the prior predictive distribution, but in our running example it would allow us to create a revised set of predictions about future inflation rates after we've observed another data point.
-* If we wanted, we could get fancy and {doc}`compare different models</generalized_linear_models/GLM-model-selection>` (data generating processes). This could be particularly useful because we arguably don't have complete faith that we know the "true" model of the economy, even at a coarse level of abstraction. So we could build multiple models (DAGs) and evaluate the relative credibility that each model generated the observed data.
-* If we have a number of candidate data generating processes, we could incorporate our uncertainty in the data generating process through {doc}`model averaging</diagnostics_and_criticism/model_averaging>`.
+* If we wanted, we could get fancy and {ref}`GLM-model-selection` (data generating processes). This could be particularly useful because we arguably don't have complete faith that we know the "true" model of the economy, even at a coarse level of abstraction. So we could build multiple models (DAGs) and evaluate the relative credibility that each model generated the observed data.
+* If we have a number of candidate data generating processes, we could incorporate our uncertainty in the data generating process through {ref}`model_averaging`.
 
 If we've mastered all of these steps, we can rightfully feel pretty happy with ourselves. We can accomplish a lot with these statistical and predictive procedures.
 
@@ -188,7 +190,7 @@ Our mistake was to interpret a statistical model causally.
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
 ## Statistical versus interventional distributions
-So far this has been quite high-level, but let's try to pin this down a little. In our example, if we were to take a purely statistical approach we could ask "What happened when interest rates were 2%?" This is a statistical question because we are basically looking back in our dataset and filtering (or conditioning) upon time points where interest rates were at (or very close to 2%). So let's flag up - **conditional distributions are purely statistical quantities**.
+So far this has been quite high-level, but let's try to pin this down a little. In our example, if we were to take a purely statistical approach we could ask "What happened when interest rates were 2%?" This is a statistical question because we are basically looking back in our dataset and filtering (or conditioning) upon time points where interest rates were at (or very close to) 2%. So let's flag up - **conditional distributions are purely statistical quantities**.
 
 Though the real question we might want an answer to is "What would have happened in the past if we had set the interest rates to 2%?" or "What will happen going forward if we set the interest rates to 2%?" Despite the subtle changing of wording, this now radically changes what we have to do in order to answer the question. So a key point here is **interventional distributions require causal (not statistical) approaches**.
 
@@ -539,7 +541,7 @@ az.plot_density(
     combine_dims={"sample"},
     ax=ax[0],
 )
-ax[0].set(title="Conditional distributions\n$P(y|x=2)$")
+ax[0].set(xlabel="y", title="Conditional distributions\n$P(y|x=2)$")
 
 az.plot_density(
     [idata1_do, idata2_do, idata3_do],
@@ -628,5 +630,7 @@ Readers looking to learn more are suggested to check out the cited blog posts as
 %load_ext watermark
 %watermark -n -u -v -iv -w -p pytensor,xarray
 ```
+
++++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
 :::{include} ../page_footer.md :::
