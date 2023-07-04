@@ -6,9 +6,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_env
+  display_name: Python 3 (ipykernel)
   language: python
-  name: pymc_env
+  name: python3
 ---
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
@@ -360,7 +360,7 @@ with pm.Model() as model1:
     y = pm.Deterministic("y", x + 1 + np.sqrt(3) * temp)
     idata1 = pm.sample_prior_predictive(samples=N, random_seed=rng)
 
-df1 = az.extract(idata1.prior, var_names=["x", "y"]).to_dataframe()
+ds1 = az.extract(idata1.prior, var_names=["x", "y"])
 
 pm.model_to_graphviz(model1)
 ```
@@ -378,7 +378,7 @@ with pm.Model() as model2:
     x = pm.Deterministic("x", (y - 1) / 4 + np.sqrt(3) * temp / 2)
     idata2 = pm.sample_prior_predictive(samples=N, random_seed=rng)
 
-df2 = az.extract(idata2.prior, var_names=["x", "y"]).to_dataframe()
+ds2 = az.extract(idata2.prior, var_names=["x", "y"])
 
 pm.model_to_graphviz(model2)
 ```
@@ -397,7 +397,7 @@ with pm.Model() as model3:
     x = pm.Deterministic("x", z)
     idata3 = pm.sample_prior_predictive(samples=N)
 
-df3 = az.extract(idata3.prior, var_names=["x", "y"]).to_dataframe()
+ds3 = az.extract(idata3.prior, var_names=["x", "y"])
 
 pm.model_to_graphviz(model3)
 ```
@@ -417,10 +417,10 @@ tags: [hide-input]
 ---
 fig, ax = plt.subplots(1, 3, figsize=(12, 8), sharex=True, sharey=True)
 
-for i, df in enumerate([df1, df2, df3]):
+for i, ds in enumerate([ds1, ds2, ds3]):
     az.plot_kde(
-        df["x"],
-        df["y"],
+        ds["x"],
+        ds["y"],
         hdi_probs=[0.25, 0.5, 0.75, 0.9, 0.95],
         contour_kwargs={"colors": None},
         contourf_kwargs={"alpha": 0.5},
@@ -457,24 +457,9 @@ slideshow:
 tags: []
 ---
 # Extract samples from P(y|x≈2)
-conditional1 = df1.query("1.99 < x < 2.01")["y"]
-conditional2 = df2.query("1.99 < x < 2.01")["y"]
-conditional3 = df3.query("1.99 < x < 2.01")["y"]
-```
-
-```{code-cell} ipython3
----
-editable: true
-slideshow:
-  slide_type: ''
-tags: [hide-input]
----
-# put the conditional distributions into a convenient long-format data frame
-df1_new = pd.DataFrame({"Conditional": conditional1, "DAG": 1})
-df2_new = pd.DataFrame({"Conditional": conditional2, "DAG": 2})
-df3_new = pd.DataFrame({"Conditional": conditional3, "DAG": 3})
-df_conditional = pd.concat([df1_new, df2_new, df3_new])
-df_conditional.reset_index(drop=True, inplace=True)
+conditional1 = ds1.query(sample="1.99 < x < 2.01")["y"]
+conditional2 = ds2.query(sample="1.99 < x < 2.01")["y"]
+conditional3 = ds3.query(sample="1.99 < x < 2.01")["y"]
 ```
 
 So now we've got our MCMC estimates of $P(y|x=2)$ for all of the DAGS. But you're going to have to wait just a moment before we plot them. Let's move on to calculate $P(y|\operatorname{do}(x=2))$ and then plot them in one go so we can compare.
@@ -535,36 +520,6 @@ with model3_do:
     idata3_do = pm.sample_prior_predictive(samples=N, random_seed=rng)
 ```
 
-```{code-cell} ipython3
----
-editable: true
-slideshow:
-  slide_type: ''
-tags: [hide-input]
----
-# put the interventional distributions into a convenient long-format data frame
-df1_new = pd.DataFrame(
-    {
-        "Interventional": az.extract(idata1_do.prior, var_names="y").squeeze().data,
-        "DAG": 1,
-    }
-)
-df2_new = pd.DataFrame(
-    {
-        "Interventional": az.extract(idata2_do.prior, var_names="y").squeeze().data,
-        "DAG": 2,
-    }
-)
-df3_new = pd.DataFrame(
-    {
-        "Interventional": az.extract(idata3_do.prior, var_names="y").squeeze().data,
-        "DAG": 3,
-    }
-)
-df_interventional = pd.concat([df1_new, df2_new, df3_new])
-df_interventional.reset_index(drop=True, inplace=True)
-```
-
 +++ {"editable": true, "slideshow": {"slide_type": ""}, "tags": []}
 
 So let's compare the conditional and interventional distributions for all 3 DAGs.
@@ -578,25 +533,20 @@ tags: [hide-input]
 ---
 fig, ax = plt.subplots(1, 2, figsize=(10, 4), sharex=True, sharey=True)
 
-sns.kdeplot(
-    df_conditional,
-    x="Conditional",
-    hue="DAG",
-    common_norm=True,
+az.plot_density(
+    [conditional1, conditional2, conditional3],
+    data_labels=["DAG 1", "DAG 2", "DAG 3"],
+    combine_dims={"sample"},
     ax=ax[0],
-    palette="tab10",
-    lw=3,
 )
-ax[0].set(xlabel="y", title="Conditional distributions\n$P(y|x=2)$")
+ax[0].set(title="Conditional distributions\n$P(y|x=2)$")
 
-sns.kdeplot(
-    df_interventional,
-    x="Interventional",
-    hue="DAG",
-    common_norm=True,
+az.plot_density(
+    [idata1_do, idata2_do, idata3_do],
+    data_labels=["DAG 1", "DAG 2", "DAG 3"],
+    group="prior",
+    var_names="y",
     ax=ax[1],
-    palette="tab10",
-    lw=3,
 )
 ax[1].set(xlabel="y", title="Interventional distributions\n$P(y|\\operatorname{do}(x=2))$");
 ```
