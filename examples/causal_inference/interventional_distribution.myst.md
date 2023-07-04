@@ -132,7 +132,7 @@ Regardless of the particular model or models we are working with, we can do a wh
 * We could examine the [prior predictive distribution](https://en.wikipedia.org/wiki/Posterior_predictive_distribution#Prior_vs._posterior_predictive_distribution) to see what we'd expect to see in the given DAG based on our stated prior beliefs with `pymc.sample_prior_predictive`. An example use case would be when we want to understand our predictions of how inflation may evolve into the future based on the structure of our model (e.g.  the national and international economy) and our prior beliefs over latent variables.
 * We could conduct Bayesian inference by sampling from the posterior distribution with `pymc.sample`. This would update our beliefs to assign credibility to different values of latent variables given the data that we have observed. For example, maybe we get another inflation data point added to our dataset and we want to update our beliefs about the latent variables in the model of the economy.
 * We could examine the [posterior predictive distribution](https://en.wikipedia.org/wiki/Posterior_predictive_distribution) using `pymc.sample_posterior_predictive`. This is closely related to the prior predictive distribution, but in our running example it would allow us to create a revised set of predictions about future inflation rates after we've observed another data point.
-* If we wanted, we could get fancy and {ref}`GLM-model-selection` (data generating processes). This could be particularly useful because we arguably don't have complete faith that we know the "true" model of the economy, even at a coarse level of abstraction. So we could build multiple models (DAGs) and evaluate the relative credibility that each model generated the observed data.
+* If we wanted, we could get fancy with {ref}`GLM-model-selection` to compare different models (data generating processes). This could be particularly useful because we arguably don't have complete faith that we know the "true" model of the economy, even at a coarse level of abstraction. So we could build multiple models (DAGs) and evaluate the relative credibility that each model generated the observed data.
 * If we have a number of candidate data generating processes, we could incorporate our uncertainty in the data generating process through {ref}`model_averaging`.
 
 If we've mastered all of these steps, we can rightfully feel pretty happy with ourselves. We can accomplish a lot with these statistical and predictive procedures.
@@ -169,10 +169,7 @@ g.node(name="x", label="X")
 g.node(name="y", label="Y")
 g.node(name="m", label="M")
 g.node(name="u", label="U", color="lightgrey", style="filled")
-g.edge(
-    tail_name="x",
-    head_name="y",
-)
+g.edge(tail_name="x", head_name="y")
 g.edge(tail_name="x", head_name="m")
 g.edge(tail_name="m", head_name="y", style="dashed", dir="none")
 g.edge(tail_name="u", head_name="m", color="lightgrey")
@@ -540,6 +537,7 @@ az.plot_density(
     data_labels=["DAG 1", "DAG 2", "DAG 3"],
     combine_dims={"sample"},
     ax=ax[0],
+    hdi_prob=1.0,
 )
 ax[0].set(xlabel="y", title="Conditional distributions\n$P(y|x=2)$")
 
@@ -549,6 +547,7 @@ az.plot_density(
     group="prior",
     var_names="y",
     ax=ax[1],
+    hdi_prob=1.0,
 )
 ax[1].set(xlabel="y", title="Interventional distributions\n$P(y|\\operatorname{do}(x=2))$");
 ```
