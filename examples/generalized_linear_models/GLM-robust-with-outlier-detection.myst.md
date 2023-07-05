@@ -8,8 +8,9 @@ kernelspec:
   display_name: pymc_env
   language: python
   name: python3
-substitutions:
-  extra_dependencies: seaborn
+myst:
+  substitutions:
+    extra_dependencies: seaborn
 ---
 
 (GLM-robust-with-outlier-detection)=

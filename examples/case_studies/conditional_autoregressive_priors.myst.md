@@ -8,6 +8,9 @@ kernelspec:
   display_name: Python [conda env:spatial_pymc_env]
   language: python
   name: conda-env-spatial_pymc_env-py
+myst:
+  substitutions:
+    extra_dependencies: geopandas libpysal
 ---
 
 +++ {"tags": []}

@@ -9,8 +9,9 @@ kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
-substitutions:
-  extra_dependencies: seaborn xarray-einstats
+myst:
+  substitutions:
+    extra_dependencies: seaborn
 ---
 
 (factor_analysis)=
