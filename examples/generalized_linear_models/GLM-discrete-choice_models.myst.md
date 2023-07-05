@@ -8,8 +8,6 @@ kernelspec:
   display_name: pymc_examples_new
   language: python
   name: pymc_examples_new
-substitutions:
-  extra_dependencies: jax, jaxlib, numpyro
 ---
 
 (discrete_choice)=
