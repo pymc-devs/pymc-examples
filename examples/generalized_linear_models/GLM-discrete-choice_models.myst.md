@@ -212,12 +212,16 @@ which suggests that there is almost twice the value accorded to the a unit reduc
 To assess overall model adequacy we can rely on the posterior predictive checks to see if the model can recover an approximation to the data generating process.
 
 ```{code-cell} ipython3
+idata_m1["posterior"]["p"].mean(dim=["chain", "draw", "obs"])
+```
+
+```{code-cell} ipython3
 fig, axs = plt.subplots(1, 2, figsize=(20, 10))
 ax = axs[0]
 counts = wide_heating_df.groupby("depvar")["idcase"].count()
-predicted_shares = az.extract(idata_m1, var_names=["p"]).mean(axis=2).mean(axis=0)
-ci_lb = np.quantile(az.extract(idata_m1, var_names=["p"]).mean(axis=2), 0.025, axis=0)
-ci_ub = np.quantile(az.extract(idata_m1, var_names=["p"]).mean(axis=2), 0.975, axis=0)
+predicted_shares = idata_m1["posterior"]["p"].mean(dim=["chain", "draw", "obs"])
+ci_lb = idata_m1["posterior"]["p"].quantile(0.025, dim=["chain", "draw", "obs"])
+ci_ub = idata_m1["posterior"]["p"].quantile(0.975, dim=["chain", "draw", "obs"])
 ax.scatter(ci_lb, ["ec", "er", "gc", "gr", "hp"], color="k", s=2)
 ax.scatter(ci_ub, ["ec", "er", "gc", "gr", "hp"], color="k", s=2)
 ax.scatter(
@@ -294,9 +298,10 @@ We can see now how this model performs much better in capturing aspects of the d
 fig, axs = plt.subplots(1, 2, figsize=(20, 10))
 ax = axs[0]
 counts = wide_heating_df.groupby("depvar")["idcase"].count()
-predicted_shares = az.extract(idata_m2, var_names=["p"]).mean(axis=2).mean(axis=0)
-ci_lb = np.quantile(az.extract(idata_m2, var_names=["p"]).mean(axis=2), 0.025, axis=0)
-ci_ub = np.quantile(az.extract(idata_m2, var_names=["p"]).mean(axis=2), 0.975, axis=0)
+predicted_shares = idata_m2["posterior"]["p"].mean(dim=["chain", "draw", "obs"])
+ci_lb = idata_m2["posterior"]["p"].quantile(0.025, dim=["chain", "draw", "obs"])
+ci_ub = idata_m2["posterior"]["p"].quantile(0.975, dim=["chain", "draw", "obs"])
+
 ax.scatter(ci_lb, ["ec", "er", "gc", "gr", "hp"], color="k", s=2)
 ax.scatter(ci_ub, ["ec", "er", "gc", "gr", "hp"], color="k", s=2)
 ax.scatter(
@@ -382,9 +387,10 @@ Plotting the model fit we see a similar story.The model predictive performance i
 fig, axs = plt.subplots(1, 2, figsize=(20, 10))
 ax = axs[0]
 counts = wide_heating_df.groupby("depvar")["idcase"].count()
-predicted_shares = az.extract(idata_m3, var_names=["p"]).mean(axis=2).mean(axis=0)
-ci_lb = np.quantile(az.extract(idata_m3, var_names=["p"]).mean(axis=2), 0.025, axis=0)
-ci_ub = np.quantile(az.extract(idata_m3, var_names=["p"]).mean(axis=2), 0.975, axis=0)
+predicted_shares = idata_m3["posterior"]["p"].mean(dim=["chain", "draw", "obs"])
+ci_lb = idata_m3["posterior"]["p"].quantile(0.025, dim=["chain", "draw", "obs"])
+ci_ub = idata_m3["posterior"]["p"].quantile(0.975, dim=["chain", "draw", "obs"])
+
 ax.scatter(ci_lb, ["ec", "er", "gc", "gr", "hp"], color="k", s=2)
 ax.scatter(ci_ub, ["ec", "er", "gc", "gr", "hp"], color="k", s=2)
 ax.scatter(
@@ -408,7 +414,15 @@ ax.set_ylabel("Heating System");
 That extra complexity can be informative, and the degree of relationship amongst the alternative products will inform the substitution patterns under policy changes. Also, note how under this model specification the parameter for `beta_ic` has a expected value of 0. Suggestive perhaps of a resignation towards the reality of installation costs that doesn't change the  utility metric one way or other after a decision to purchase.
 
 ```{code-cell} ipython3
-az.summary(idata_m3, var_names=["beta_income", "beta_ic", "beta_oc", "alpha", "chol_corr"])
+az.summary(
+    idata_m3, var_names=["beta_income", "beta_ic", "beta_oc", "alpha", "chol_corr"], round_to=6
+)
+```
+
+In this model we see that the marginal rate of substitution shows that an increase of one dollar for the operating costs is almost 9 times more impactful on the utility calculus than a similar increase in installation costs. Which makes sense in so far as we can expect the installation costs to be a one-off expense we're pretty resigned to. 
+
+```{code-cell} ipython3
+idata_m3["posterior"]["beta_oc"].mean() / idata_m3["posterior"]["beta_ic"].mean()
 ```
 
 ### Market Inteventions and Predicting Market Share
@@ -435,19 +449,19 @@ idata_new_policy
 ```
 
 ```{code-cell} ipython3
-idata_new_policy["predictions"]["p"].stack({"sample": ["chain", "draw"]}).mean(axis=2).mean(axis=0)
+idata_new_policy["predictions"]["p"].mean(dim=["chain", "draw", "obs"])
 ```
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(1, figsize=(20, 10))
 counts = wide_heating_df.groupby("depvar")["idcase"].count()
-new_predictions = idata_new_policy["predictions"]["p"].stack({"sample": ["chain", "draw"]})
-ci_lb = np.quantile(az.extract(idata_m3, var_names=["p"]).mean(axis=2), 0.025, axis=0)
-ci_ub = np.quantile(az.extract(idata_m3, var_names=["p"]).mean(axis=2), 0.975, axis=0)
+new_predictions = idata_new_policy["predictions"]["p"].mean(dim=["chain", "draw", "obs"]).values
+ci_lb = idata_m3["posterior"]["p"].quantile(0.025, dim=["chain", "draw", "obs"])
+ci_ub = idata_m3["posterior"]["p"].quantile(0.975, dim=["chain", "draw", "obs"])
 ax.scatter(ci_lb, ["ec", "er", "gc", "gr", "hp"], color="k", s=2)
 ax.scatter(ci_ub, ["ec", "er", "gc", "gr", "hp"], color="k", s=2)
 ax.scatter(
-    new_predictions.mean(axis=2).mean(axis=0).values,
+    new_predictions,
     ["ec", "er", "gc", "gr", "hp"],
     color="green",
     label="New Policy Predicted Share",
@@ -622,10 +636,9 @@ fig, axs = plt.subplots(1, 2, figsize=(20, 10))
 ax = axs[0]
 counts = c_df.groupby("choice")["choiceId"].count()
 labels = c_df.groupby("choice")["choiceId"].count().index
-predicted_shares = az.extract(idata_m4, var_names=["p"]).mean(axis=2).mean(axis=0)
-ci_lb = np.quantile(az.extract(idata_m4, var_names=["p"]).mean(axis=2), 0.025, axis=0)
-ci_ub = np.quantile(az.extract(idata_m4, var_names=["p"]).mean(axis=2), 0.975, axis=0)
-mean = np.mean(az.extract(idata_m4, var_names=["p"]).mean(axis=2), axis=0)
+predicted_shares = idata_m4["posterior"]["p"].mean(dim=["chain", "draw", "obs"])
+ci_lb = idata_m4["posterior"]["p"].quantile(0.025, dim=["chain", "draw", "obs"])
+ci_ub = idata_m4["posterior"]["p"].quantile(0.975, dim=["chain", "draw", "obs"])
 ax.scatter(ci_lb, labels, color="k", s=2)
 ax.scatter(ci_ub, labels, color="k", s=2)
 ax.scatter(
@@ -636,7 +649,7 @@ ax.scatter(
     s=100,
 )
 ax.scatter(
-    mean,
+    predicted_shares,
     labels,
     label="Predicted Mean",
     color="green",
@@ -678,7 +691,7 @@ az.plot_forest(
 axs[0].fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="red")
 
 
-baseline_sunshine = az.extract(idata_m4["posterior"])["alpha"][0].mean().values
+baseline_sunshine = idata_m4["posterior"]["alpha"].sel(alts_intercepts=["sunshine"]).mean().values
 
 az.plot_forest(
     idata_m4,
@@ -691,7 +704,7 @@ az.plot_forest(
 )
 axs[1].fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="red", label="Negligible Region")
 
-baseline_keebler = az.extract(idata_m4["posterior"])["alpha"][1].mean().values
+baseline_keebler = idata_m4["posterior"]["alpha"].sel(alts_intercepts=["keebler"]).mean().values
 
 az.plot_forest(
     idata_m4,
@@ -706,7 +719,7 @@ az.plot_forest(
 axs[2].fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="red")
 axs[1].legend()
 
-baseline_nabisco = az.extract(idata_m4["posterior"])["alpha"][2].mean().values
+baseline_nabisco = idata_m4["posterior"]["alpha"].sel(alts_intercepts=["nabisco"]).mean().values
 
 
 axs[0].set_title(
