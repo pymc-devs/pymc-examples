@@ -10,6 +10,8 @@ kernelspec:
   name: pymc5recent
 ---
 
+(faster_sampling_notebook)=
+
 # Faster Sampling with JAX and Numba
 
 :::{post} July 11, 2023
@@ -119,6 +121,13 @@ with PPCA:
 ```{code-cell} ipython3
 az.plot_trace(idata, var_names=["w"]);
 ```
+
+## Authors
+Authored by Thomas Wiecki in July 2023
+
+## References
+
+:::{bibliography} :filter: docname in docnames :::
 
 ```{code-cell} ipython3
 %load_ext watermark
