@@ -19,7 +19,7 @@ kernelspec:
 :author: Bill Engels, Chris Fonnesbeck
 :::
 
-The `gp.Marginal` class implements the more common case of GP regression:  the observed data are the sum of a GP and Gaussian noise.  `gp.Marginal` has a `marginal_likelihood` method, a `conditional` method, and a `predict` method.  Given a mean and covariance function, the function $f(x)$ is modeled as,
+The {class}`pymc.gp.Marginal` class implements the more common case of GP regression:  the observed data are the sum of a GP and Gaussian noise.  `gp.Marginal` has a {meth}`~pymc.gp.Marginal.marginal_likelihood` method, a {meth}`~pymc.gp.Marginal.conditional` method, and a {meth}`~pymc.gp.Marginal.predict` method.  Given a mean and covariance function, the function $f(x)$ is modeled as,
 
 $$
 f(x) \sim \mathcal{GP}(m(x),\, k(x, x')) \,.
