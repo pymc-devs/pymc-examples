@@ -64,7 +64,7 @@ def build_toy_dataset(N, D, K, sigma=1):
     mean = np.dot(w, z)
     for d in range(D):
         for n in range(N):
-            x_train[d, n] = np.random.normal(mean[d, n], sigma)
+            x_train[d, n] = rng.normal(mean[d, n], sigma)
 
     print("True principal axes:")
     print(w)
@@ -96,7 +96,7 @@ with pm.Model() as PPCA:
 ```{code-cell} ipython3
 %%time
 with PPCA:
-    idata = pm.sample()
+    idata_pymc = pm.sample()
 ```
 
 ## Sampling using NumPyro JAX NUTS sampler
@@ -104,7 +104,7 @@ with PPCA:
 ```{code-cell} ipython3
 %%time
 with PPCA:
-    idata = pm.sample(nuts_sampler="numpyro", progressbar=False)
+    idata_numpyro = pm.sample(nuts_sampler="numpyro", progressbar=False)
 ```
 
 ## Sampling using BlackJAX NUTS sampler
@@ -112,7 +112,7 @@ with PPCA:
 ```{code-cell} ipython3
 %%time
 with PPCA:
-    idata = pm.sample(nuts_sampler="blackjax")
+    idata_blackjax = pm.sample(nuts_sampler="blackjax")
 ```
 
 ## Sampling using Nutpie Rust NUTS sampler
@@ -120,11 +120,7 @@ with PPCA:
 ```{code-cell} ipython3
 %%time
 with PPCA:
-    idata = pm.sample(nuts_sampler="nutpie")
-```
-
-```{code-cell} ipython3
-az.plot_trace(idata, var_names=["w"]);
+    idata_nutpie = pm.sample(nuts_sampler="nutpie")
 ```
 
 ## Authors
