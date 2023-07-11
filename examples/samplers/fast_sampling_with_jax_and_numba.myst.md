@@ -41,6 +41,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
 
+rng = np.random.default_rng(seed=42)
 print(f"Running on PyMC v{pm.__version__}")
 ```
 
@@ -54,8 +55,12 @@ We will use a simple probabilistic PCA model as our example.
 ```{code-cell} ipython3
 def build_toy_dataset(N, D, K, sigma=1):
     x_train = np.zeros((D, N))
-    w = np.random.normal(0.0, 2.0, size=(D, K))
-    z = np.random.normal(0.0, 1.0, size=(K, N))
+    w = rng.normal(
+        0.0,
+        2.0,
+        size=(D, K),
+    )
+    z = rng.normal(0.0, 1.0, size=(K, N))
     mean = np.dot(w, z)
     for d in range(D):
         for n in range(N):
@@ -131,7 +136,7 @@ Authored by Thomas Wiecki in July 2023
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p pytensor,aeppl,xarray
+%watermark -n -u -v -iv -w -p pytensor,arviz,pymc,numpyro,blackjax,nutpie
 ```
 
 :::{include} ../page_footer.md
