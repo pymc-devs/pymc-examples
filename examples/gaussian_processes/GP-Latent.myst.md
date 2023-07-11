@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: bayes_course
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -16,7 +16,7 @@ kernelspec:
 :::{post} June 6, 2023
 :tags: gaussian processes, time series
 :category: reference, intermediate
-:author: Bill Engels, Chris Fonnesbeck
+:author: Bill Engels
 :::
 
 +++
@@ -79,6 +79,11 @@ with latent_gp_model:
 ## Example 1: Regression with Student-T distributed noise
 
 The following is an example showing how to specify a simple model with a GP prior using the {class}`gp.Latent` class.  We use a GP to generate the data so we can verify that the inference we perform is correct.  Note that the likelihood is not normal, but IID Student-T.  For a more efficient implementation when the likelihood is Gaussian, use {class}`gp.Marginal`.
+
+```{code-cell} ipython3
+# If not already installed, install Jax and Numpyro by uncommenting the following lines:
+# %pip install -U -q jax numpyro
+```
 
 ```{code-cell} ipython3
 import arviz as az

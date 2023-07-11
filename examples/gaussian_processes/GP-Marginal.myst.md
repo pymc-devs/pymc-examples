@@ -10,7 +10,7 @@ kernelspec:
   name: python3
 ---
 
-(gp_latent)=
+(gp_marginal)=
 # Marginal Likelihood Implementation
 
 :::{post} June 4, 2023
@@ -19,7 +19,7 @@ kernelspec:
 :author: Bill Engels, Chris Fonnesbeck
 :::
 
-The {class}`pymc.gp.Marginal` class implements the more common case of GP regression:  the observed data are the sum of a GP and Gaussian noise.  `gp.Marginal` has a {meth}`~pymc.gp.Marginal.marginal_likelihood` method, a {meth}`~pymc.gp.Marginal.conditional` method, and a {meth}`~pymc.gp.Marginal.predict` method.  Given a mean and covariance function, the function $f(x)$ is modeled as,
+The `gp.Marginal` class implements the more common case of GP regression:  the observed data are the sum of a GP and Gaussian noise.  `gp.Marginal` has a `marginal_likelihood` method, a `conditional` method, and a `predict` method.  Given a mean and covariance function, the function $f(x)$ is modeled as,
 
 $$
 f(x) \sim \mathcal{GP}(m(x),\, k(x, x')) \,.
@@ -258,7 +258,7 @@ plot_gp_dist(ax, y_pred_samples.T, X_new, plot_samples=False, palette="bone_r")
 
 # overlay a scatter of one draw of random points from the
 #   posterior predictive distribution
-plt.plot(X_new, y_pred_samples.values.T[1], "co", ms=2, label="Predicted data")
+plt.plot(X_new, y_pred_samples.sel(sample=1), "co", ms=2, label="Predicted data")
 
 # plot original data and true function
 plt.plot(X, y, "ok", ms=3, alpha=1.0, label="observed data")
@@ -291,7 +291,7 @@ fig = plt.figure(figsize=(12, 5))
 ax = fig.gca()
 
 # plot mean and 2sigma intervals
-plt.plot(X_new, mu, "r", lw=2, label="mean and 2sigma region")
+plt.plot(X_new, mu, "r", lw=2, label="mean and 2σ region")
 plt.plot(X_new, mu + 2 * sd, "r", lw=1)
 plt.plot(X_new, mu - 2 * sd, "r", lw=1)
 plt.fill_between(X_new.flatten(), mu - 2 * sd, mu + 2 * sd, color="r", alpha=0.5)
