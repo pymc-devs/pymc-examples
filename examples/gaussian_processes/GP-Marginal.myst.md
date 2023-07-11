@@ -306,6 +306,17 @@ plt.title("predictive mean and 2sigma interval")
 plt.legend();
 ```
 
+## Authors
+
+* Created by [Bill Engels](https://github.com/bwengals) in 2017 ([pymc#1674](https://github.com/pymc-devs/pymc/pull/1674))
+* Reexecuted by [Colin Caroll](https://github.com/ColCarroll) in 2019 ([pymc#3397](https://github.com/pymc-devs/pymc/pull/3397))
+* Updated for V4 by Bill Engels in September 2022 ([pymc-examples#237](https://github.com/pymc-devs/pymc-examples/pull/237))
+* Updated for V5 by Chris Fonnesbeck in July 2023 ([pymc-examples#549](https://github.com/pymc-devs/pymc-examples/pull/549))
+
++++
+
+## Watermark
+
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w
