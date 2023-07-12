@@ -34,7 +34,7 @@ print(f"Running on PyMC v{pm.__version__}")
 ```{code-cell} ipython3
 %matplotlib inline
 %config InlineBackend.figure_format = 'retina'
-RANDOM_SEED = 8927
+RANDOM_SEED = sum(map(ord, "Data Containers in PyMC5"))
 rng = default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
@@ -210,26 +210,24 @@ except FileNotFoundError:
 data.plot.scatter("Month", "Length", alpha=0.4);
 ```
 
-To model this data, we will introduce one new feature: mutable `coords`. To achieve this, we set the model coords using the `pm.Model.add_cord` API, rather than via the `coords` keyword. This will allow us to pass the `mutable=True` flag to the coords, allowing them to be changed in the prediction step
+To model this data, we will introduce one new feature: mutable `coords`. When we know we have a coord that is going to need to change in the future, like the index of data we will change between training and test sets, we can set the model `coords` via the `coords_mutable` keyword argument.
+
+You are also allowed to specify both `coords` and `coords_mutable` in the same model. In this next model, we will always have the same parameters, so the `parameters` coord is specified as constant via `coords`, while the `obs_idx` will change when we go to do out-of-sample prediction.  
 
 ```{code-cell} ipython3
-with pm.Model() as model_babies:
-    # Here is where we add mutable coords to the model
-    model_babies.add_coord("time_idx", np.arange(len(data)), mutable=True)
+with pm.Model(
+    coords_mutable={"obs_idx": np.arange(len(data))}, coords={"parameter": ["intercept", "slope"]}
+) as model_babies:
+    mean_params = pm.Normal("mean_params", sigma=10, dims=["parameter"])
+    sigma_params = pm.Normal("sigma_params", sigma=10, dims=["parameter"])
+    month = pm.MutableData("month", data.Month.values.astype(float), dims="obs_idx")
 
-    α = pm.Normal("α", sigma=10)
-    β = pm.Normal("β", sigma=10)
-    γ = pm.HalfNormal("γ", sigma=10)
-    δ = pm.HalfNormal("δ", sigma=10)
+    mu = pm.Deterministic("mu", mean_params[0] + mean_params[1] * month**0.5, dims="obs_idx")
+    sigma = pm.Deterministic("sigma", sigma_params[0] + sigma_params[1] * month, dims="obs_idx")
 
-    month = pm.MutableData("month", data.Month.values.astype(float), dims="time_idx")
+    length = pm.Normal("length", mu=mu, sigma=sigma, observed=data.Length, dims="obs_idx")
 
-    μ = pm.Deterministic("μ", α + β * month**0.5, dims="time_idx")
-    ε = pm.Deterministic("ε", γ + δ * month, dims="time_idx")
-
-    length = pm.Normal("length", mu=μ, sigma=ε, observed=data.Length, dims="time_idx")
-
-    idata_babies = pm.sample(tune=2000, return_inferencedata=True)
+    idata_babies = pm.sample(random_seed=RANDOM_SEED)
 ```
 
 The following figure shows the result of our model. The expected length, $\mu$, is represented with a blue curve, and two semi-transparent orange bands represent the 60% and 94% highest posterior density intervals of posterior predictive length measurements:
@@ -248,7 +246,7 @@ ax = az.plot_hdi(
 )
 ax.plot(
     data.Month,
-    idata_babies.posterior["μ"].mean(("chain", "draw")),
+    idata_babies.posterior["mu"].mean(("chain", "draw")),
     label="Posterior predictive mean",
 )
 ax = az.plot_lm(
@@ -264,12 +262,14 @@ ax = az.plot_lm(
 
 At the moment of writing Osvaldo's daughter is two weeks ($\approx 0.5$ months) old, and thus he wonders how her length compares to the growth chart we have just created. One way to answer this question is to ask the model for the distribution of the variable length for babies of 0.5 months. Using PyMC we can ask this questions with the function `sample_posterior_predictive` , as this will return samples of _Length_ conditioned on the obseved data and the estimated distribution of parameters, that is including uncertainties. 
 
-The only problem is that by default this function will return predictions for _Length_ for the observed values of _Month_, and $0.5$ months (the value Osvaldo cares about) has not been observed, -- all measures are reported for integer months. The easier way to get predictions for non-observed values of _Month_ is to pass new values to the `Data` container we defined above in our model. To do that, we need to use `pm.set_data` and then we just have to sample from the posterior predictve distribution. We will also have to set `coords` for these new observations, which we are allowed to do in the `pm.set_data` function because we have set our coords as mutable.
+The only problem is that by default this function will return predictions for _Length_ for the observed values of _Month_, and $0.5$ months (the value Osvaldo cares about) has not been observed, -- all measures are reported for integer months. The easier way to get predictions for non-observed values of _Month_ is to pass new values to the `Data` container we defined above in our model. To do that, we need to use `pm.set_data` and then we just have to sample from the posterior predictve distribution. We will also have to set `coords` for these new observations, which we are allowed to do in the `pm.set_data` function because we have set the `obs_idx` coord as mutable. 
+
+Note that the actual value we pass for `obs_idx` is totally irrevelant *in this case*, so we give it a value of 0. What is important is that we update it to have the same length as the ages we want to do out-of-sample prediction for, and that each age has a unique index identifier.
 
 ```{code-cell} ipython3
 ages_to_check = [0.5]
 with model_babies:
-    pm.set_data({"month": ages_to_check}, coords={"time_idx": [0.5]})
+    pm.set_data({"month": ages_to_check}, coords={"obs_idx": [0]})
 
     # Setting predictions=True will add a new "predictions" group to our idata. This lets us store the posterior,
     # posterior_predictive, and predictions all in the same object.
@@ -286,7 +286,7 @@ ref_length = 51.5
 az.plot_posterior(
     idata_babies,
     group="predictions",
-    ref_val={"length": [{"age (months)": 0.5, "ref_val": ref_length}]},
+    ref_val={"length": [{"ref_val": ref_length}]},
     labeller=az.labels.DimCoordLabeller(),
 );
 ```
