@@ -131,8 +131,6 @@ The methods and functions related to the Data container class are:
 
 ## Using Data container variables to fit the same model to several datasets
 
-This and the next sections are an adaptation of the notebook ["Advanced usage of pytensor in PyMC"](../Advanced_usage_of_pytensor_in_PyMC.html#using-shared-variables) using `pm.MutableData`.
-
 We can use `MutableData` container variables in PyMC to fit the same model to several datasets without the need to recreate the model each time (which can be time consuming if the number of datasets is large):
 
 ```{code-cell} ipython3
@@ -296,6 +294,7 @@ az.plot_posterior(
 ## Authors
 * Authored by [Juan Martin Loyola](https://github.com/jmloyola) in March, 2019 ([pymc#3389](https://github.com/pymc-devs/pymc/pull/3389))
 * Updated by [Kavya Jaiswal](https://github.com/KavyaJaiswal) and [Oriol Abril](https://github.com/OriolAbril) in December, 2021 ([pymc-examples#151](https://github.com/pymc-devs/pymc-examples/pull/151))
+* Updated by [Jesse Grabowski](https://github.com/jessegrabowski) in July 2023 ([pymc-examples#559](https://github.com/pymc-devs/pymc-examples/pull/559))
 
 +++
 
