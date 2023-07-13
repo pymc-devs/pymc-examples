@@ -167,7 +167,7 @@ The methods and functions related to the Data container class are:
 type(model["data"])
 ```
 
-To get the values, use the `get_data` method:
+To get the values, use the `get_value` method:
 
 ```{code-cell} ipython3
 model["data"].get_value()
@@ -256,18 +256,20 @@ To model this data, we will introduce one new feature: mutable `coords`. When we
 
 You are also allowed to specify both `coords` and `coords_mutable` in the same model. In this next model, we will always have the same parameters, so the `parameters` coord is specified as constant via `coords`, while the `obs_idx` will change when we go to do out-of-sample prediction.  
 
+Finally, we plan to use to use this model to do some out-of-sample prediction. Thus, we will opt for `pm.MutableData` as the data container. Note that we are allowed to label the dimensions of a `pm.MutableData` just like `pm.ConstantData`.
+
 ```{code-cell} ipython3
 with pm.Model(
     coords_mutable={"obs_idx": np.arange(len(data))}, coords={"parameter": ["intercept", "slope"]}
 ) as model_babies:
     mean_params = pm.Normal("mean_params", sigma=10, dims=["parameter"])
     sigma_params = pm.Normal("sigma_params", sigma=10, dims=["parameter"])
-    month = pm.MutableData("month", data.Month.values.astype(float), dims="obs_idx")
+    month = pm.MutableData("month", data.Month.values.astype(float), dims=["obs_idx"])
 
-    mu = pm.Deterministic("mu", mean_params[0] + mean_params[1] * month**0.5, dims="obs_idx")
-    sigma = pm.Deterministic("sigma", sigma_params[0] + sigma_params[1] * month, dims="obs_idx")
+    mu = pm.Deterministic("mu", mean_params[0] + mean_params[1] * month**0.5, dims=["obs_idx"])
+    sigma = pm.Deterministic("sigma", sigma_params[0] + sigma_params[1] * month, dims=["obs_idx"])
 
-    length = pm.Normal("length", mu=mu, sigma=sigma, observed=data.Length, dims="obs_idx")
+    length = pm.Normal("length", mu=mu, sigma=sigma, observed=data.Length, dims=["obs_idx"])
 
     idata_babies = pm.sample(random_seed=RANDOM_SEED)
 ```
