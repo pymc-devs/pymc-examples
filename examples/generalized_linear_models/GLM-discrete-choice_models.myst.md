@@ -682,42 +682,19 @@ idata_m4
 ```
 
 ```{code-cell} ipython3
-def get_brand(brand):
-    predicted = (
-        idata_m4["posterior"]["beta_individual"]
-        .sel(alts_intercepts=[brand])
-        .mean(dim=["chain", "draw"])
-    )
-    ci_lb = (
-        idata_m4["posterior"]["beta_individual"]
-        .sel(alts_intercepts=[brand])
-        .quantile(0.025, dim=["chain", "draw"])
-    )
-    ci_ub = (
-        idata_m4["posterior"]["beta_individual"]
-        .sel(alts_intercepts=[brand])
-        .quantile(0.975, dim=["chain", "draw"])
-    )
-
-    intervals_df = pd.DataFrame(
-        {
-            f"means_{brand}": predicted.values.flatten(),
-            f"lb_{brand}": ci_lb.values.flatten(),
-            f"ub_{brand}": ci_ub.values.flatten(),
-        }
-    )
-
-    return intervals_df
-
-
-interval_dfs = [get_brand(b) for b in ["nabisco", "keebler", "sunshine"]]
-interval_dfs = pd.concat(interval_dfs, axis=1)
-interval_dfs = interval_dfs.sort_values("means_nabisco")
-interval_dfs.head()
+beta_individual = idata_m4["posterior"]["beta_individual"]
+predicted = beta_individual.mean(("chain", "draw"))
+predicted = predicted.sortby(predicted.sel(alts_intercepts="nabisco"))
+ci_lb = beta_individual.quantile(0.025, ("chain", "draw")).sortby(
+    predicted.sel(alts_intercepts="nabisco")
+)
+ci_ub = beta_individual.quantile(0.975, ("chain", "draw")).sortby(
+    predicted.sel(alts_intercepts="nabisco")
+)
 ```
 
 ```{code-cell} ipython3
-fig = plt.figure(figsize=(10, 6))
+fig = plt.figure(figsize=(10, 9))
 gs = fig.add_gridspec(
     2,
     3,
@@ -735,19 +712,19 @@ ax = fig.add_subplot(gs[1, 0])
 ax.set_yticklabels([])
 ax_histx = fig.add_subplot(gs[0, 0], sharex=ax)
 ax_histx.set_title("Expected Modifications \n to Nabisco Baseline", fontsize=10)
-ax_histx.hist(interval_dfs["means_nabisco"], bins=30, ec="black", color="red")
+ax_histx.hist(predicted.sel(alts_intercepts="nabisco"), bins=30, ec="black", color="red")
 ax_histx.set_yticklabels([])
 ax_histx.tick_params(labelsize=8)
 ax.set_ylabel("Individuals", fontsize=10)
 ax.tick_params(labelsize=8)
 ax.hlines(
-    range(len(interval_dfs)),
-    interval_dfs["lb_nabisco"],
-    interval_dfs["ub_nabisco"],
+    range(len(predicted)),
+    ci_lb.sel(alts_intercepts="nabisco"),
+    ci_ub.sel(alts_intercepts="nabisco"),
     color="black",
     alpha=0.3,
 )
-ax.scatter(interval_dfs["means_nabisco"], range(len(interval_dfs)), color="red", ec="white")
+ax.scatter(predicted.sel(alts_intercepts="nabisco"), range(len(predicted)), color="red", ec="white")
 ax.fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="red")
 
 ax1 = fig.add_subplot(gs[1, 1])
@@ -756,15 +733,17 @@ ax_histx = fig.add_subplot(gs[0, 1], sharex=ax1)
 ax_histx.set_title("Expected Modifications \n to Keebler Baseline", fontsize=10)
 ax_histx.set_yticklabels([])
 ax_histx.tick_params(labelsize=8)
-ax_histx.hist(interval_dfs["means_keebler"], bins=30, ec="black", color="red")
+ax_histx.hist(predicted.sel(alts_intercepts="keebler"), bins=30, ec="black", color="red")
 ax1.hlines(
-    range(len(interval_dfs)),
-    interval_dfs["lb_keebler"],
-    interval_dfs["ub_keebler"],
+    range(len(predicted)),
+    ci_lb.sel(alts_intercepts="keebler"),
+    ci_ub.sel(alts_intercepts="keebler"),
     color="black",
     alpha=0.3,
 )
-ax1.scatter(interval_dfs["means_keebler"], range(len(interval_dfs)), color="red", ec="white")
+ax1.scatter(
+    predicted.sel(alts_intercepts="keebler"), range(len(predicted)), color="red", ec="white"
+)
 ax1.set_xlabel("Individual Modifications to the Product Intercept", fontsize=10)
 ax1.fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="red", label="Negligible \n Region")
 ax1.tick_params(labelsize=8)
@@ -775,16 +754,18 @@ ax2.set_yticklabels([])
 ax_histx = fig.add_subplot(gs[0, 2], sharex=ax2)
 ax_histx.set_title("Expected Modifications \n to Sunshine Baseline", fontsize=10)
 ax_histx.set_yticklabels([])
-ax_histx.hist(interval_dfs["means_sunshine"], bins=30, ec="black", color="red")
+ax_histx.hist(predicted.sel(alts_intercepts="sunshine"), bins=30, ec="black", color="red")
 ax2.hlines(
-    range(len(interval_dfs)),
-    interval_dfs["lb_sunshine"],
-    interval_dfs["ub_sunshine"],
+    range(len(predicted)),
+    ci_lb.sel(alts_intercepts="sunshine"),
+    ci_ub.sel(alts_intercepts="sunshine"),
     color="black",
     alpha=0.3,
 )
 ax2.fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="red")
-ax2.scatter(interval_dfs["means_sunshine"], range(len(interval_dfs)), color="red", ec="white")
+ax2.scatter(
+    predicted.sel(alts_intercepts="sunshine"), range(len(predicted)), color="red", ec="white"
+)
 ax2.tick_params(labelsize=8)
 ax_histx.tick_params(labelsize=8)
 plt.suptitle("Individual Differences by Product", fontsize=20);
