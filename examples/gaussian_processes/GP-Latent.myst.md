@@ -8,6 +8,9 @@ kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
+myst:
+  substitutions:
+    extra_dependencies: jax numpyro
 ---
 
 (gp_latent)=
@@ -80,10 +83,8 @@ with latent_gp_model:
 
 The following is an example showing how to specify a simple model with a GP prior using the {class}`gp.Latent` class.  We use a GP to generate the data so we can verify that the inference we perform is correct.  Note that the likelihood is not normal, but IID Student-T.  For a more efficient implementation when the likelihood is Gaussian, use {class}`gp.Marginal`.
 
-```{code-cell} ipython3
-# If not already installed, install Jax and Numpyro by uncommenting the following lines:
-# %pip install -U -q jax numpyro
-```
+:::{include} ../extra_installs.md
+:::
 
 ```{code-cell} ipython3
 import arviz as az
