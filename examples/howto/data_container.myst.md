@@ -39,11 +39,19 @@ rng = default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
 
-## The Data class
+## Data Containers
 
-The {class}`pymc.Data` container class wraps the pytensor shared variable class and lets the model be aware of its inputs and outputs. This allows one to change the value of an observed variable to predict or refit on new data. All variables of this class must be declared inside a model context and specify a name for them.
+The {class}`pymc.Data` container allows users to keep track of dimensions (like dates or cities) and coordinates (such as the actual date times or city names) of multi-dimensional data. It offers two wrappers for this: {class}`pymc.ConstantData` and {class}`MutableData`. Both allow you to specify the dimension names and coordinates of random variables, instead of specifying the shapes of those random variables as numbers. The difference is whether you intend to change this data after fitting the model, to perform out-of-sample prediciton, for example. 
 
-In the following example, this is demonstrated with fictional temperature observations.
+In past versions of PyMC, the only data container was `pm.Data`. This container is still available for backwards compatability, but the current best practice is to use either `pm.MutableData` or `pm.ConstantData`, depending on your needs.  This notebook will demonstrate how each of these containers are used, and when they are appropriate.
+
++++
+
+### Constant Data
+
+The `pm.ConstantData` is a way to add fixed data to a model. It provides a speed boost in exchange for the ability to change the data. If you don't plan on doing out-of-sample prediction, `pm.ConstantData` is for you. 
+
+In the following example, the usage of `pm.ConstantData` is demonstrated with fictional temperature observations.
 
 ```{code-cell} ipython3
 df_data = pd.DataFrame(columns=["date"]).set_index("date")
@@ -57,10 +65,9 @@ df_data.index.name = "date"
 df_data.head()
 ```
 
-PyMC can also keep track of the dimensions (like dates or cities) and coordinates (such as the actual date times or city names) of multi-dimensional data. It offers two wrappers for this: `ConstantData` and `MutableData`. Both allow you to specify the dimension names and coordinates of random variables, instead of specifying the shapes of those random variables as numbers. The difference is whether you intend to change this data after fitting the model, to perform out-of-sample prediciton, for example. It's most common to specify data as a `MutableData`, so we will do that here as well.
+As noted above, `ConstantData` gives you the ability to give named labels to the dimensions of your data. This can be done in two ways:  
 
-More generally, there are two ways to specify new dimensions and their coordinates:
-- Entering the dimensions in the `dims` kwarg of a `pm.Data` variable with a pandas Series or DataFrame. The name of the index and columns will be remembered as the dimensions, and PyMC will infer that the values of the given columns must be the coordinates.
+- Entering the dimensions in the `dims` kwarg of a `pm.ConstantData` variable with a pandas Series or DataFrame. The name of the index and columns will be remembered as the dimensions, and PyMC will infer that the values of the given columns must be the coordinates.
 - Using the new `coords` argument to {class}`pymc.Model` to set the coordinates explicitly.
 
 For more explanation about dimensions, coordinates and their big benefits, we encourage you to take a look at the {ref}`ArviZ documentation <arviz:xarray_for_arviz>`.
@@ -78,7 +85,7 @@ with pm.Model(coords=coords) as model:
     city_offset = pm.Normal("city_offset", mu=0.0, sigma=3.0, dims="city")
     city_temperature = pm.Deterministic("city_temperature", europe_mean + city_offset, dims="city")
 
-    data = pm.MutableData("data", df_data, dims=("date", "city"))
+    data = pm.ConstantData("data", df_data, dims=("date", "city"))
     pm.Normal("likelihood", mu=city_temperature, sigma=0.5, observed=data)
 
     idata = pm.sample(
@@ -109,33 +116,35 @@ idata.posterior.coords
 az.plot_trace(idata, var_names=["europe_mean_temp", "city_temperature"]);
 ```
 
-We can get the data container variable from the model using:
-
-```{code-cell} ipython3
-model["data"].get_value()
-```
-
-Note that we used a pytensor method {meth}`pytensor.compile.sharedvalue.SharedVariable.get_value` of class {class}`pytensor.compile.sharedvalue.SharedVariable` to get the value of the variable. This is because our variable is actually a `SharedVariable`.
+When we use `pm.ConstantData`, the data are internally represented as a pytensor `TensorConstant`.
 
 ```{code-cell} ipython3
 type(data)
 ```
 
-The methods and functions related to the Data container class are:
+If you need to, you can view the data using the `data` method. All `PyMC` variables, including `Data` containers, can be accessed by indexing the model object with a variable name. Since this line:
 
-- `data_container.get_value` (method inherited from the pytensor SharedVariable): gets the value associated with the `data_container`.
-- `data_container.set_value` (method inherited from the pytensor SharedVariable): sets the value associated with the `data_container`.
-- {func}`pymc.set_data`: PyMC function that sets the value associated with each Data container variable indicated in the dictionary `new_data` with it corresponding new value.
+```python
+    data = pm.ConstantData("data", df_data, dims=("date", "city"))
+```
+
+Gave the name "data" to the data, we can access it as follows: 
+
+```{code-cell} ipython3
+model["data"].data
+```
+
+## MutableData
+
+In many cases, you will want the ability to switch out data between model runs. This arises when you want to fit a model to multiple datasets, or if you are interested in out-of-sample prediction. For these cases, `pm.MutableData` is the correct tool.
 
 +++
 
-## Using Data container variables to fit the same model to several datasets
+### Using MutabelData container variables to fit the same model to several datasets
 
 We can use `MutableData` container variables in PyMC to fit the same model to several datasets without the need to recreate the model each time (which can be time consuming if the number of datasets is large):
 
 ```{code-cell} ipython3
-:tags: [hide-output]
-
 # We generate 10 datasets
 true_mu = [rng.random() for _ in range(10)]
 observed_data = [mu + rng.random(20) for mu in true_mu]
@@ -144,6 +153,30 @@ with pm.Model() as model:
     data = pm.MutableData("data", observed_data[0])
     mu = pm.Normal("mu", 0, 10)
     pm.Normal("y", mu=mu, sigma=1, observed=data)
+```
+
+Once again, the name of our data is `data`, so we can look at it's type. Unlike `pm.ConstantData`, we now see a {meth}`pytensor.compile.sharedvalue.SharedVariable.get_value` of class {class}`pytensor.compile.sharedvalue.SharedVariable` to get the value of the variable. This is because our data is now a `SharedVariable`.
+
+The methods and functions related to the Data container class are:
+
+- `data_container.get_value` (method inherited from the pytensor SharedVariable): gets the value associated with the `data_container`.
+- `data_container.set_value` (method inherited from the pytensor SharedVariable): sets the value associated with the `data_container`.
+- {func}`pymc.set_data`: PyMC function that sets the value associated with each Data container variable indicated in the dictionary `new_data` with it corresponding new value.
+
+```{code-cell} ipython3
+type(model["data"])
+```
+
+To get the values, use the `get_data` method:
+
+```{code-cell} ipython3
+model["data"].get_value()
+```
+
+In practice, however, you will not need to use `get_value()` or `set_value()`. Instead, it is best to use {func}`pymc.set_data`. Let's use the `MutableData` to repeatedly fit the same model to multiple datasets: 
+
+```{code-cell} ipython3
+:tags: [hide-output]
 
 # Generate one trace for each dataset
 traces = []
@@ -151,12 +184,19 @@ for data_vals in observed_data:
     with model:
         # Switch out the observed dataset
         pm.set_data({"data": data_vals})
-        traces.append(pm.sample(return_inferencedata=True))
+        traces.append(pm.sample())
 ```
 
-## Using Data container variables to predict on new data
+## Using MutableData container variables to predict on new data
 
-We can also sometimes use `MutableData` container variables to work around limitations in the current PyMC API. A common task in machine learning is to predict values for unseen data, and one way to achieve this is to use a `MutableData` container variable for our observations. When we make these predictions, the shape of the test data may not be the same as the training data. Because of this, we need to explicitly link the shapes of the input data and the output variable, via the `size` keyword.
+A common task in machine learning is to predict values for unseen data, and the `MutableData` container variable is exactly what we need to do this. 
+
+One small detail to pay attention to in this case is that the shapes of the input data (`x`) and output data (`obs`) must be the same. When we make out-of-sample predictions, we typically change only the input data, the shape of which may not be the same as the training observations. Naively changing only one will result in a shape error. There are two solutions:
+
+1. Use a `pm.MutableData` for the `x` data and the `y` data, and use `pm.set_data` to change `y` to something of the same shape as the test inputs. 
+2. Tell PyMC that the shape of the `obs` should always be the shape of the input data.
+
+In the next model, we use option 2. This way, we don't need to pass dummy data to `y` every time we want to change `x`.
 
 ```{code-cell} ipython3
 x = rng.random(100)
@@ -179,6 +219,8 @@ with pm.Model() as model:
 new_values = [-1, 0, 1.0]
 with model:
     # Switch out the observations and use `sample_posterior_predictive` to predict
+    # We do not need to set data for the outputs because we told the model to always link the shape of the output to the shape
+    # of the input.
     pm.set_data({"x_shared": new_values})
     post_pred = pm.sample_posterior_predictive(trace)
 ```
