@@ -5,15 +5,18 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-dev
+  display_name: Python 3 (ipykernel)
   language: python
-  name: pymc-dev
+  name: python3
+myst:
+  substitutions:
+    extra_dependencies: jax numpyro
 ---
 
 (gp_latent)=
 # Gaussian Processes: Latent Variable Implementation
 
-:::{post} Sept 28, 2022
+:::{post} June 6, 2023
 :tags: gaussian processes, time series
 :category: reference, intermediate
 :author: Bill Engels
@@ -79,6 +82,9 @@ with latent_gp_model:
 ## Example 1: Regression with Student-T distributed noise
 
 The following is an example showing how to specify a simple model with a GP prior using the {class}`gp.Latent` class.  We use a GP to generate the data so we can verify that the inference we perform is correct.  Note that the likelihood is not normal, but IID Student-T.  For a more efficient implementation when the likelihood is Gaussian, use {class}`gp.Marginal`.
+
+:::{include} ../extra_installs.md
+:::
 
 ```{code-cell} ipython3
 import arviz as az
@@ -158,7 +164,7 @@ with pm.Model() as model:
     )  # add one because student t is undefined for degrees of freedom less than one
     y_ = pm.StudentT("y", mu=f, lam=1.0 / sigma, nu=nu, observed=y)
 
-    idata = pm.sample(1000, tune=1000, chains=2, cores=1)
+    idata = pm.sample(1000, tune=1000, chains=2, cores=2, nuts_sampler="numpyro")
 ```
 
 ```{code-cell} ipython3
@@ -349,7 +355,7 @@ with pm.Model() as model:
     p = pm.Deterministic("p", pm.math.invlogit(f))
     y_ = pm.Bernoulli("y", p=p, observed=y)
 
-    idata = pm.sample(1000, chains=2, cores=1)
+    idata = pm.sample(1000, chains=2, cores=2, nuts_sampler="numpyro")
 ```
 
 ```{code-cell} ipython3
@@ -429,6 +435,7 @@ plt.legend(loc=(0.32, 0.65), frameon=True);
 * Created by [Bill Engels](https://github.com/bwengals) in 2017 ([pymc#1674](https://github.com/pymc-devs/pymc/pull/1674))
 * Reexecuted by [Colin Caroll](https://github.com/ColCarroll) in 2019 ([pymc#3397](https://github.com/pymc-devs/pymc/pull/3397))
 * Updated for V4 by Bill Engels in September 2022 ([pymc-examples#237](https://github.com/pymc-devs/pymc-examples/pull/237))
+* Updated for V5 by Chris Fonnesbeck in July 2023 ([pymc-examples#549](https://github.com/pymc-devs/pymc-examples/pull/549))
 
 +++
 
