@@ -17,7 +17,7 @@ myst:
 # Discrete Choice and Random Utility Models
 
 :::{post} June, 2023
-:tags: categorical regression, generalized linear model, discrete choice 
+:tags: categorical regression, generalized linear model, discrete choice, model expansion
 :category: advanced, reference
 :author: Nathaniel Forde
 :::
@@ -46,15 +46,15 @@ rng = np.random.default_rng(42)
 
 ## Discrete Choice Modelling: The Idea
 
-Discrete choice modelling is related to the idea of a latent utility scale as discussed in {ref}`ordinal_regression`, but it generalises the idea to decision making. It posits that human decision making can be modelled as a function of latent/subjective utility measurements over a set of mutually exclusive alternatives. The theory is that any decision maker will go with the option that maximises their subjective utility, and that utility can be modelled as a latent linear function of observable features of the world. 
+Discrete choice modelling is related to the idea of a latent utility scale as discussed in {ref}`ordinal_regression`, but it generalises the idea to decision making. It posits that human decision making can be modelled as a function of latent/subjective utility measurements over a set of mutually exclusive alternatives. The theory states that any decision maker will go with the option that maximises their subjective utility, __and__ that utility can be modelled as a latent linear function of observable features of the world. 
 
-The idea is perhaps most famously applied by Daniel McFadden in the 1970s to predict the market share accruing to transportation choices (i.e. car, rail, walking etc..) in California after the proposed introduction of BART light rail system. It's worth pausing on that point. The theory is one of micro level human decision making that has, in real applications, been scaled up to make broadly accurate societal level predictions. For more details we recommend {cite:t}`train2009`
+The idea is perhaps most famously applied by Daniel McFadden in the 1970s to predict the market share accruing to transportation choices (i.e. car, rail, walking etc..) in California after the proposed introduction of BART light rail system. It's worth pausing on that point. The theory is one of micro level human decision making that has, in real applications, been scaled up to make broadly accurate macro level predictions. For more details we recommend {cite:t}`train2009`
 
-We don't need to be too credulous either. This is merely a statistical model and success here is entirely dependent on the skill of modeller and the available measurements coupled with plausible theory. But it's worth just noting the scale of the ambition underlying these models. The structure of the model encourages you to articulate your theory of the decision makers. 
+We don't need to be too credulous either. This is merely a statistical model and success here is entirely dependent on the skill of modeller and the available measurements coupled with plausible theory. But it's worth noting the scale of the ambition underlying these models. The structure of the model encourages you to articulate your theory of the decision makers and the environment they inhabit. 
 
 ### The Data
 
-In this example, we'll examine the technique of discrete choice modelling using a (i) heating system data set from the R `mlogit` package and (ii) repeat choice data set over cracker brands. We'll be pursuing a Bayesian approach to estimating the models rather than the MLE methodology reported in their vigenette. The first data set shows household choices over offere of heating systems in California.  The observations consist of single-family houses in California that were newly built and had central air-conditioning. Five types of systems are considered to have been possible:
+In this example, we'll examine the technique of discrete choice modelling using a (i) heating system data set from the R `mlogit` package and (ii) repeat choice data set over cracker brands. We'll be pursuing a Bayesian approach to estimating the models rather than the MLE methodology reported in their vigenette. The first data set shows household choices over offers of heating systems in California.  The observations consist of single-family houses in California that were newly built and had central air-conditioning. Five types of systems are considered to have been possible:
 
  - gas central (gc),
  - gas room (gr),
@@ -73,7 +73,7 @@ except:
 wide_heating_df[wide_heating_df["idcase"] == 1]
 ```
 
-The core idea of these kinds of models is to conceive of this scenario as a choice over exhaustive options with attached latent utility. The utility ascribed to each option is viewed as a linear combination of the attributes for each option. The utility ascribed to each alternative drives the probability of choosing amongst each option. For each $j$ in all the alternatives $Alt$ which is assumed to take a Gumbel distribution because this has a particularly nice mathematical property. 
+The core idea of these kinds of models is to conceive of this scenario as a choice over exhaustive options with attached latent utility. The utility ascribed to each option is viewed as a linear combination of the attributes for each option. The utility ascribed to each alternative drives the probability of choosing amongst each option. For each $j$ in all the alternatives $Alt = \{ gc, gr, ec, er, hp \}$ which is assumed to take a Gumbel distribution because this has a particularly nice mathematical property. 
 
 $$ \mathbf{U} \sim Gumbel $$
 
@@ -192,7 +192,9 @@ But in any case, once we have a fitted model we can calculate the marginal rate 
 
 ```{code-cell} ipython3
 ## marginal rate of substitution for a reduction in installation costs
-summaries["mean"]["beta_oc"] / summaries["mean"]["beta_ic"]
+post = az.extract(idata_m1)
+substitution_rate = post["beta_oc"] / post["beta_ic"]
+substitution_rate.mean().item()
 ```
 
 This statistic gives a view of the relative importance of the attributes which drive our utility measures. But being good Bayesians we actually want to calculate the posterior distribution for this statistic.
@@ -201,7 +203,7 @@ This statistic gives a view of the relative importance of the attributes which d
 fig, ax = plt.subplots(figsize=(20, 10))
 
 ax.hist(
-    az.extract(idata_m1["posterior"]["beta_oc"] / idata_m1["posterior"]["beta_ic"])["x"],
+    substitution_rate,
     bins=30,
     ec="black",
 )
@@ -416,14 +418,16 @@ That extra complexity can be informative, and the degree of relationship amongst
 
 ```{code-cell} ipython3
 az.summary(
-    idata_m3, var_names=["beta_income", "beta_ic", "beta_oc", "alpha", "chol_corr"], round_to=6
+    idata_m3, var_names=["beta_income", "beta_ic", "beta_oc", "alpha", "chol_corr"], round_to=4
 )
 ```
 
-In this model we see that the marginal rate of substitution shows that an increase of one dollar for the operating costs is almost 9 times more impactful on the utility calculus than a similar increase in installation costs. Which makes sense in so far as we can expect the installation costs to be a one-off expense we're pretty resigned to. 
+In this model we see that the marginal rate of substitution shows that an increase of one dollar for the operating costs is almost 17 times more impactful on the utility calculus than a similar increase in installation costs. Which makes sense in so far as we can expect the installation costs to be a one-off expense we're pretty resigned to. 
 
 ```{code-cell} ipython3
-idata_m3["posterior"]["beta_oc"].mean() / idata_m3["posterior"]["beta_ic"].mean()
+post = az.extract(idata_m3)
+substitution_rate = post["beta_oc"] / post["beta_ic"]
+substitution_rate.mean().item()
 ```
 
 ### Market Inteventions and Predicting Market Share
@@ -671,71 +675,119 @@ ax.set_xlabel("Shares")
 ax.set_ylabel("Crackers");
 ```
 
-We can now also recover the differences among individuals estimated by the model for particular cracker choices. 
+We can now also recover the differences among individuals estimated by the model for particular cracker choices. More precisely we'll plot how the individual specific contribution to the intercept drives preferences among the cracker choices. 
 
 ```{code-cell} ipython3
 idata_m4
 ```
 
 ```{code-cell} ipython3
-fig, axs = plt.subplots(1, 3, figsize=(20, 20))
-axs = axs.flatten()
-az.plot_forest(
-    idata_m4,
-    kind="ridgeplot",
-    var_names=["beta_individual"],
-    ridgeplot_alpha=0.4,
-    combined=True,
-    coords={"alts_intercepts": ["sunshine"], "obs": range(139)},
-    ax=axs[0],
+def get_brand(brand):
+    predicted = (
+        idata_m4["posterior"]["beta_individual"]
+        .sel(alts_intercepts=[brand])
+        .mean(dim=["chain", "draw"])
+    )
+    ci_lb = (
+        idata_m4["posterior"]["beta_individual"]
+        .sel(alts_intercepts=[brand])
+        .quantile(0.025, dim=["chain", "draw"])
+    )
+    ci_ub = (
+        idata_m4["posterior"]["beta_individual"]
+        .sel(alts_intercepts=[brand])
+        .quantile(0.975, dim=["chain", "draw"])
+    )
+
+    intervals_df = pd.DataFrame(
+        {
+            f"means_{brand}": predicted.values.flatten(),
+            f"lb_{brand}": ci_lb.values.flatten(),
+            f"ub_{brand}": ci_ub.values.flatten(),
+        }
+    )
+
+    return intervals_df
+
+
+interval_dfs = [get_brand(b) for b in ["nabisco", "keebler", "sunshine"]]
+interval_dfs = pd.concat(interval_dfs, axis=1)
+interval_dfs = interval_dfs.sort_values("means_nabisco")
+interval_dfs.head()
+```
+
+```{code-cell} ipython3
+fig = plt.figure(figsize=(10, 6))
+gs = fig.add_gridspec(
+    2,
+    3,
+    width_ratios=(4, 4, 4),
+    height_ratios=(1, 7),
+    left=0.1,
+    right=0.9,
+    bottom=0.1,
+    top=0.9,
+    wspace=0.05,
+    hspace=0.05,
 )
-axs[0].fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="red")
-
-
-baseline_sunshine = idata_m4["posterior"]["alpha"].sel(alts_intercepts=["sunshine"]).mean().values
-
-az.plot_forest(
-    idata_m4,
-    kind="ridgeplot",
-    var_names=["beta_individual"],
-    ridgeplot_alpha=0.4,
-    combined=True,
-    coords={"alts_intercepts": ["keebler"], "obs": range(139)},
-    ax=axs[1],
+# Create the Axes.
+ax = fig.add_subplot(gs[1, 0])
+ax.set_yticklabels([])
+ax_histx = fig.add_subplot(gs[0, 0], sharex=ax)
+ax_histx.set_title("Expected Modifications \n to Nabisco Baseline", fontsize=10)
+ax_histx.hist(interval_dfs["means_nabisco"], bins=30, ec="black", color="red")
+ax_histx.set_yticklabels([])
+ax_histx.tick_params(labelsize=8)
+ax.set_ylabel("Individuals", fontsize=10)
+ax.tick_params(labelsize=8)
+ax.hlines(
+    range(len(interval_dfs)),
+    interval_dfs["lb_nabisco"],
+    interval_dfs["ub_nabisco"],
+    color="black",
+    alpha=0.3,
 )
-axs[1].fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="red", label="Negligible Region")
+ax.scatter(interval_dfs["means_nabisco"], range(len(interval_dfs)), color="red", ec="white")
+ax.fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="red")
 
-baseline_keebler = idata_m4["posterior"]["alpha"].sel(alts_intercepts=["keebler"]).mean().values
-
-az.plot_forest(
-    idata_m4,
-    kind="ridgeplot",
-    var_names=["beta_individual"],
-    ridgeplot_alpha=0.4,
-    combined=True,
-    coords={"alts_intercepts": ["nabisco"], "obs": range(139)},
-    ax=axs[2],
+ax1 = fig.add_subplot(gs[1, 1])
+ax1.set_yticklabels([])
+ax_histx = fig.add_subplot(gs[0, 1], sharex=ax1)
+ax_histx.set_title("Expected Modifications \n to Keebler Baseline", fontsize=10)
+ax_histx.set_yticklabels([])
+ax_histx.tick_params(labelsize=8)
+ax_histx.hist(interval_dfs["means_keebler"], bins=30, ec="black", color="red")
+ax1.hlines(
+    range(len(interval_dfs)),
+    interval_dfs["lb_keebler"],
+    interval_dfs["ub_keebler"],
+    color="black",
+    alpha=0.3,
 )
+ax1.scatter(interval_dfs["means_keebler"], range(len(interval_dfs)), color="red", ec="white")
+ax1.set_xlabel("Individual Modifications to the Product Intercept", fontsize=10)
+ax1.fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="red", label="Negligible \n Region")
+ax1.tick_params(labelsize=8)
+ax1.legend(fontsize=10)
 
-axs[2].fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="red")
-axs[1].legend()
-
-baseline_nabisco = idata_m4["posterior"]["alpha"].sel(alts_intercepts=["nabisco"]).mean().values
-
-
-axs[0].set_title(
-    f"Individual Modifications of the Sunshine Baseline \n Intercept: {np.round(baseline_sunshine, 4)}"
+ax2 = fig.add_subplot(gs[1, 2])
+ax2.set_yticklabels([])
+ax_histx = fig.add_subplot(gs[0, 2], sharex=ax2)
+ax_histx.set_title("Expected Modifications \n to Sunshine Baseline", fontsize=10)
+ax_histx.set_yticklabels([])
+ax_histx.hist(interval_dfs["means_sunshine"], bins=30, ec="black", color="red")
+ax2.hlines(
+    range(len(interval_dfs)),
+    interval_dfs["lb_sunshine"],
+    interval_dfs["ub_sunshine"],
+    color="black",
+    alpha=0.3,
 )
-axs[1].set_title(
-    f"Individual Modifications of the Keebler Baseline \n Intercept: {np.round(baseline_keebler, 4)}"
-)
-axs[2].set_title(
-    f"Individual Modifications of the Nabisco Baseline \n Intercept: {np.round(baseline_nabisco, 4)}"
-)
-axs[1].set_xlabel("Individual Modification")
-axs[0].set_xlabel("Individual Modification")
-axs[2].set_xlabel("Individual Modification")
-axs[0].set_ylabel("Individual Beta Parameters \n Modifying the Product Baseline");
+ax2.fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="red")
+ax2.scatter(interval_dfs["means_sunshine"], range(len(interval_dfs)), color="red", ec="white")
+ax2.tick_params(labelsize=8)
+ax_histx.tick_params(labelsize=8)
+plt.suptitle("Individual Differences by Product", fontsize=20);
 ```
 
 This type of plot is often useful for identifying loyal customers. Similarly it can be used to identify cohorts of customers that ought to be better incentivised if we hope them to switch to our product.
