@@ -11,7 +11,7 @@ kernelspec:
 ---
 
 (data_container)=
-# Using shared variables (`Data` container adaptation)
+# Using Data Containers
 
 :::{post} Dec 16, 2021
 :tags: posterior predictive, shared data 
@@ -57,7 +57,7 @@ df_data.index.name = "date"
 df_data.head()
 ```
 
-PyMC can also keep track of the dimensions (like dates or cities) and coordinates (such as the actual date times or city names) of multi-dimensional data. It offers two wrappers for this: `ConstantData` and `MutableData`. Both allow you specify the dimension names and coordinates of random variables, instead of specifying the shapes of those random variables as numbers. The difference is whether you intend to change this data after fitting the model, to perform out-of-sample prediciton, for example. It's most common to specify data as a `MutableData`, so we will do that here as well.
+PyMC can also keep track of the dimensions (like dates or cities) and coordinates (such as the actual date times or city names) of multi-dimensional data. It offers two wrappers for this: `ConstantData` and `MutableData`. Both allow you to specify the dimension names and coordinates of random variables, instead of specifying the shapes of those random variables as numbers. The difference is whether you intend to change this data after fitting the model, to perform out-of-sample prediciton, for example. It's most common to specify data as a `MutableData`, so we will do that here as well.
 
 More generally, there are two ways to specify new dimensions and their coordinates:
 - Entering the dimensions in the `dims` kwarg of a `pm.Data` variable with a pandas Series or DataFrame. The name of the index and columns will be remembered as the dimensions, and PyMC will infer that the values of the given columns must be the coordinates.
@@ -169,7 +169,7 @@ with pm.Model() as model:
     logistic = pm.math.sigmoid(coeff * x_shared)
 
     # Here is were we link the shapes of the inputs (x_shared) and the output
-    pm.Bernoulli("obs", p=logistic, observed=y, size=x_shared.shape[0])
+    pm.Bernoulli("obs", p=logistic, observed=y, shape=x_shared.shape[0])
 
     # fit the model
     trace = pm.sample(return_inferencedata=True, tune=2000)
