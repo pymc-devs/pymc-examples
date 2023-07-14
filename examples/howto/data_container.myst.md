@@ -34,12 +34,12 @@ print(f"Running on PyMC v{pm.__version__}")
 ```{code-cell} ipython3
 %matplotlib inline
 %config InlineBackend.figure_format = 'retina'
-RANDOM_SEED = sum(map(ord, "Data Containers in PyMC5"))
+RANDOM_SEED = sum(map(ord, "Data Containers in PyMC"))
 rng = default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
 
-## Data Containers
+## Introduction
 
 The {class}`pymc.Data` container allows users to keep track of dimensions (like dates or cities) and coordinates (such as the actual date times or city names) of multi-dimensional data. It offers two wrappers for this: {class}`pymc.ConstantData` and {class}`MutableData`. Both allow you to specify the dimension names and coordinates of random variables, instead of specifying the shapes of those random variables as numbers. The difference is whether you intend to change this data after fitting the model, to perform out-of-sample prediciton, for example. 
 
