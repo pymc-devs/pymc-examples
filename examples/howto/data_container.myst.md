@@ -16,7 +16,7 @@ kernelspec:
 :::{post} Dec 16, 2021
 :tags: posterior predictive, shared data 
 :category: beginner
-:author: Juan Martin Loyola, Kavya Jaiswal, Oriol Abril
+:author: Juan Martin Loyola, Kavya Jaiswal, Oriol Abril, Jesse Grabowski
 :::
 
 ```{code-cell} ipython3
@@ -47,7 +47,7 @@ In past versions of PyMC, the only data container was `pm.Data`. This container 
 
 +++
 
-### Constant Data
+## Constant Data
 
 The `pm.ConstantData` is a way to add fixed data to a model. It provides a speed boost in exchange for the ability to change the data. If you don't plan on doing out-of-sample prediction, `pm.ConstantData` is for you. 
 
@@ -86,7 +86,7 @@ with pm.Model(coords=coords) as model:
     city_temperature = pm.Deterministic("city_temperature", europe_mean + city_offset, dims="city")
 
     data = pm.ConstantData("data", df_data, dims=("date", "city"))
-    pm.Normal("likelihood", mu=city_temperature, sigma=0.5, observed=data)
+    pm.Normal("likelihood", mu=city_temperature, sigma=0.5, observed=data, dims=("date", "city"))
 
     idata = pm.sample(
         target_accept=0.85,
@@ -113,7 +113,7 @@ idata.posterior.coords
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(idata, var_names=["europe_mean_temp", "city_temperature"]);
+axes = az.plot_trace(idata, var_names=["europe_mean_temp", "city_temperature"], legend=True);
 ```
 
 When we use `pm.ConstantData`, the data are internally represented as a pytensor `TensorConstant`.
@@ -140,7 +140,7 @@ In many cases, you will want the ability to switch out data between model runs. 
 
 +++
 
-### Using MutabelData container variables to fit the same model to several datasets
+### Using MutableData container variables to fit the same model to several datasets
 
 We can use `MutableData` container variables in PyMC to fit the same model to several datasets without the need to recreate the model each time (which can be time consuming if the number of datasets is large):
 
@@ -157,17 +157,18 @@ with pm.Model() as model:
 
 Once again, the name of our data is `data`, so we can look at it's type. Unlike `pm.ConstantData`, we now see a {meth}`pytensor.compile.sharedvalue.SharedVariable.get_value` of class {class}`pytensor.compile.sharedvalue.SharedVariable` to get the value of the variable. This is because our data is now a `SharedVariable`.
 
-The methods and functions related to the Data container class are:
-
-- `data_container.get_value` (method inherited from the pytensor SharedVariable): gets the value associated with the `data_container`.
-- `data_container.set_value` (method inherited from the pytensor SharedVariable): sets the value associated with the `data_container`.
-- {func}`pymc.set_data`: PyMC function that sets the value associated with each Data container variable indicated in the dictionary `new_data` with it corresponding new value.
-
 ```{code-cell} ipython3
 type(model["data"])
 ```
 
-To get the values, use the `get_value` method:
+
+The methods and functions related to the Data container class are:
+
+- {meth}`data_container.get_value <pytensor.compile.sharedvalue.SharedVariable.get_value>` (method inherited from the pytensor SharedVariable): gets the value associated with the `data_container`.
+- {meth}`data_container.set_value <pytensor.compile.sharedvalue.SharedVariable.set_value>` (method inherited from the pytensor SharedVariable): sets the value associated with the `data_container`.
+- {func}`pymc.set_data`: PyMC function that sets the value associated with each Data container variable indicated in the dictionary `new_data` with it corresponding new value.
+
+Here we use the `get_value` method to see the data stored in the container:
 
 ```{code-cell} ipython3
 model["data"].get_value()
@@ -187,7 +188,7 @@ for data_vals in observed_data:
         traces.append(pm.sample())
 ```
 
-## Using MutableData container variables to predict on new data
+### Using MutableData container variables to predict on new data
 
 A common task in machine learning is to predict values for unseen data, and the `MutableData` container variable is exactly what we need to do this. 
 
