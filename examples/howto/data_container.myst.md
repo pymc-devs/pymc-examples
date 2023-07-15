@@ -20,6 +20,8 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
+import warnings
+
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,6 +29,10 @@ import pandas as pd
 import pymc as pm
 
 from numpy.random import default_rng
+
+warnings.filterwarnings("ignore")
+
+plt.rcParams["figure.constrained_layout.use"] = True
 
 print(f"Running on PyMC v{pm.__version__}")
 ```
@@ -172,13 +178,13 @@ Coordinates are also used by `arviz` when making plots. Here we pass `legend=Tru
 axes = az.plot_trace(idata, var_names=["europe_mean_temp", "expected_city_temp"], legend=True);
 ```
 
-When we use `pm.ConstantData`, the data are internally represented as a pytensor `TensorConstant`.
+When we use `pm.ConstantData`, the data are internally represented as a pytensor {class}`pytensor.tensor.TensorConstant`.
 
 ```{code-cell} ipython3
 type(data)
 ```
 
-If you need to, you can view the data using the `data` method. All `PyMC` variables, including `Data` containers, can be accessed by indexing the model object with a variable name. Since this line:
+The values of all `pytensor` tensors, which includes both `ConstantData` and `MutableData`, can be checked using the `eval` method. All `PyMC` variables, including `Data` containers, can be accessed by indexing the model object with a variable name. Since this line:
 
 ```python
     data = pm.ConstantData("observed_temp", df_data, dims=("date", "city"))
@@ -187,7 +193,7 @@ If you need to, you can view the data using the `data` method. All `PyMC` variab
 Gave the name "observed_temp" to the data, we can access it as follows: 
 
 ```{code-cell} ipython3
-model["observed_temp"].data[:15]
+model["observed_temp"].eval()[:15]
 ```
 
 ## MutableData
@@ -198,13 +204,17 @@ In many cases, you will want the ability to switch out data between model runs. 
 
 ### Using MutableData container variables to fit the same model to several datasets
 
-We can use `MutableData` container variables in PyMC to fit the same model to several datasets without the need to recreate the model each time (which can be time consuming if the number of datasets is large):
+We can use `MutableData` container variables in PyMC to fit the same model to several datasets without the need to recreate the model each time (which can be time consuming if the number of datasets is large). Note, however, that the model will still be recompilied each time. 
+
+In the next example, we will generate 10 models with a single parameter, `mu`. Each model will have a dataset with a different number of observations, from 10 to 100. We will use this setup to explore the effect of data quantity on parameter recovery. 
 
 ```{code-cell} ipython3
 # We generate 10 datasets
 n_models = 10
+obs_multiplier = 10
+
 true_mu = [rng.random() for _ in range(n_models)]
-observed_data = [mu + rng.random(20) for mu in true_mu]
+observed_data = [mu + rng.normal(size=(i + 1) * obs_multiplier) for i, mu in enumerate(true_mu)]
 
 with pm.Model() as model:
     data = pm.MutableData("data", observed_data[0])
@@ -212,26 +222,19 @@ with pm.Model() as model:
     pm.Normal("y", mu=mu, sigma=1, observed=data)
 ```
 
-Once again, the name of our data is `data`, so we can look at it's type. Unlike `pm.ConstantData`, we now see a {meth}`pytensor.compile.sharedvalue.SharedVariable.get_value` of class {class}`pytensor.compile.sharedvalue.SharedVariable` to get the value of the variable. This is because our data is now a `SharedVariable`.
+Once again, the name of our data is `data`, so we can look at it's type. Unlike `pm.ConstantData`, we now see class is now {class}`pytensor.compile.sharedvalue.SharedVariable`.
 
 ```{code-cell} ipython3
 type(model["data"])
 ```
 
-
-The methods and functions related to the Data container class are:
-
-- {meth}`data_container.get_value <pytensor.compile.sharedvalue.SharedVariable.get_value>` (method inherited from the pytensor SharedVariable): gets the value associated with the `data_container`.
-- {meth}`data_container.set_value <pytensor.compile.sharedvalue.SharedVariable.set_value>` (method inherited from the pytensor SharedVariable): sets the value associated with the `data_container`.
-- {func}`pymc.set_data`: PyMC function that sets the value associated with each Data container variable indicated in the dictionary `new_data` with it corresponding new value.
-
-Here we use the `get_value` method to see the data stored in the container:
+This difference in type is just an implemention detail. If you are interested in learning more about the ins and outs of pytensor, you can check out this tutorial on how it is used in PyMC: {ref}pymc_pytensor. For our purposes here, it suffices to note that both are symbolic tensors, and the values of all symbolic tensors can be quickly checked using the `eval` method: 
 
 ```{code-cell} ipython3
-model["data"].get_value()
+model["data"].eval()
 ```
 
-In practice, however, you will not need to use `get_value()` or `set_value()`. Instead, it is best to use {func}`pymc.set_data`. Let's use the `MutableData` to repeatedly fit the same model to multiple datasets: 
+While `eval` can be used to check the values, {func}`pymc.set_data` is used to change them. Let's use the `MutableData` together with `pymc.set_data` to repeatedly fit the same model to multiple datasets. Note that it doesn't matter that each dataset has a different size!
 
 ```{code-cell} ipython3
 :tags: [hide-output]
@@ -245,16 +248,18 @@ for data_vals in observed_data:
         traces.append(pm.sample())
 ```
 
-Arviz's {func}`arviz.plot_forest` allows you to pass a list of `idata`  objects with the same variables names. In this way, we can quickly visualize the different estimates from the 10 different datasets.
+Arviz's {func}`arviz.plot_forest` allows you to pass a list of `idata`  objects with the same variables names. In this way, we can quickly visualize the different estimates from the 10 different datasets. We also use `matplotlib` to scatter the true parameter values on top of the `plot_forest`. We can see that as we go from 10 observations in model 1 to 100 observations in model 10, the estimates become increasing centered on the true value of mu, and the uncertainty around the estimate goes down.
 
 ```{code-cell} ipython3
-az.plot_forest(
-    traces,
-    var_names=["mu"],
-    model_names=np.arange(n_models, dtype="int"),
-    combined=True,
-    figsize=(4, 9),
-)
+model_idx = np.arange(n_models, dtype="int")
+axes = az.plot_forest(traces, var_names=["mu"], combined=True, figsize=(6, 6), legend=False)
+
+ax = axes[0]
+y_vals = np.stack([ax.get_lines()[i].get_ydata() for i in np.arange(n_models)]).ravel()
+ax.scatter(true_mu, y_vals[::-1], marker="^", color="k", zorder=100, label="True Value")
+ax.set(yticklabels=[f"Model {i+1}" for i in model_idx[::-1]], xlabel="Posterior mu")
+ax.legend()
+plt.show()
 ```
 
 ### Using MutableData container variables to predict on new data
