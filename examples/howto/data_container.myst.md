@@ -45,13 +45,14 @@ az.style.use("arviz-darkgrid")
 
 ## Introduction
 
-After building the statistical model of your dreams, you're going to need to feed it some data. Data is typically introduced to a PyMC model in one of two ways. Some data is used as an exogenous input, called `X` in linear regression models, where `mu = X @ beta`. Other data are "observed" examples of the enodgenous outputs of your model, called `y` in regression models, and is used as inputs to the likelihood function implied by your model. These data, either exogenous or endogenous, can be included in your model as wide variety of datatypes, including numpy `ndarrays`, pandas `Series` and `DataFrame`, and even pytensor `TensorVariables`. Although you can pass these "raw" datatypes to your PyMC model, the best way is to use one of two {class}`pymc.Data` containers. 
+After building the statistical model of your dreams, you're going to need to feed it some data. Data is typically introduced to a PyMC model in one of two ways. Some data is used as an exogenous input, called `X` in linear regression models, where `mu = X @ beta`. Other data are "observed" examples of the endogenous outputs of your model, called `y` in regression models, and is used as input to the likelihood function implied by your model. These data, either exogenous or endogenous, can be included in your model as wide variety of datatypes, including numpy `ndarrays`, pandas `Series` and `DataFrame`, and even pytensor `TensorVariables`. 
 
-These containers make it extremely easy to work with data in a PyMC model. They offer a range of benefits, including:
+Although you can pass these "raw" datatypes to your PyMC model, the best way to introduce data into your model is to use one of two {class}`pymc.Data` containers. These containers make it extremely easy to work with data in a PyMC model. They offer a range of benefits, including:
 
 1. Visualization of data as a component of your probabilistic graph
 2. Access to labeled dimensions for readability and accessibility
 3. Support for swapping out data for out-of-sample prediction, interpolation/extrapolation, forcasting, etc.
+4. All data, not just observed data, will be stored in your {class}`arviz.InferenceData`
 
 This notebook will illustrate each of these benefits in turn, and show you the best way to integrate data into your PyMC modeling workflow. 
 
@@ -59,53 +60,73 @@ This notebook will illustrate each of these benefits in turn, and show you the b
 
 ## Types of Data Containers
 
- PyMC offers two data containers, depending on your needs: {class}`pymc.ConstantData` and {class}`MutableData`. Both will help you visualize how data fits into your model, store the data in an `InfereceData` for reproducibility, and give access to labeled dimenions. As the names suggest, however, only `MutableData` allows you to change your data. When `X` is `MutableData`, this enables out-of-sample inference tasks. When `y` is `MutableData`, it allows you to reuse the same model on multiple datasets to perform parameter recovery studies or sensitivity analysis.  These abilities do, however, come with a small performance cost.
+ PyMC offers two data containers, depending on your needs: {class}`pymc.data.ConstantData` and {class}`pymc.data.MutableData`. Both will help you visualize how data fits into your model, store the data in an `InfereceData` for reproducibility, and give access to labeled dimenions. As the names suggest, however, only `MutableData` allows you to change your data. When `X` is `MutableData`, this enables out-of-sample inference tasks. When `y` is `MutableData`, it allows you to reuse the same model on multiple datasets to perform parameter recovery studies or sensitivity analysis.  These abilities do, however, come with a small performance cost.
  
- In past versions of PyMC, the only data container was `pm.Data`. This container is still available for backwards compatability, but the current best practice is to use either `pm.MutableData` or `pm.ConstantData`, depending on your needs. 
+ In past versions of PyMC, the only data container was `pm.Data`. This container is still available for backwards compatability, but the current best practice is to use either `pm.MutableData` or `pm.ConstantData`. 
 
 +++
 
 ## Constant Data
 
-The `pm.ConstantData` is a way to add fixed data to a model. It provides a speed boost in exchange for the ability to change the data. If you don't plan on doing out-of-sample prediction, `pm.ConstantData` is for you. 
+`pm.ConstantData` is a way to add fixed data to a model. It provides a speed boost in exchange for the ability to change the data. If you don't plan on changing a given data in your model, `pm.ConstantData` is right for that data. 
 
-In the example shows some of the differences between using a data container, in this case `pm.ConstantData`, and "raw" data. This first model shows how raw data, in this case a numpy array, can be directly provided to a PyMC model.
+In the example shows some of the differences between using a data container, in this case `pm.ConstantData`, and "raw" data. This first model shows how raw data, in this case a numpy arrays, can be directly provided to a PyMC model.
 
 ```{code-cell} ipython3
-true_mu = 3
+true_beta = 3
 true_std = 5
-x = rng.normal(loc=true_mu, scale=true_std, size=100)
+n_obs = 100
+x = rng.normal(size=n_obs)
+y = rng.normal(loc=true_beta * x, scale=true_std, size=n_obs)
+
 with pm.Model() as no_data_model:
-    mu = pm.Normal("mu")
+    beta = pm.Normal("beta")
+    mu = pm.Deterministic("mu", beta * x)
     sigma = pm.Exponential("sigma", 1)
-    obs = pm.Normal("obs", mu=mu, sigma=sigma, observed=x)
+    obs = pm.Normal("obs", mu=mu, sigma=sigma, observed=y)
+    idata = pm.sample(random_seed=RANDOM_SEED)
 ```
 
-Looking at the resulting computational graph, the `obs` node is shaded gray to indicate that it has observed data. But the data itself is not shown on the graph.  
+Looking at the resulting computational graph, the `obs` node is shaded gray to indicate that it has observed data, in this case `y`. But the data itself is not shown on the graph, so there's no hint about what data has been observed. In addition, the `x` data doesn't appear in the graph anywhere, so it's not obvious that this model used exogenous data as an input.
 
 ```{code-cell} ipython3
 pm.model_to_graphviz(no_data_model)
 ```
 
-In this next model, we create a `pm.ConstantData` container to hold the observations, and pass this container to the `observed`:
+Furthermore, inside `idata`, PyMC has automatically saved the observed (endogenous) `y` data, but not the exogenous `x` data. If we wanted to save this inference data for reuse, or to make it available as part of a reproducible research package, we would have to be sure to include the `x` data separately. 
+
+```{code-cell} ipython3
+idata.observed_data
+```
+
+In this next model, we create a `pm.ConstantData` containers to hold the observations, and pass this container to the `observed`. We also make a `pm.ConstantData` container to hold the `x` data:
 
 ```{code-cell} ipython3
 with pm.Model() as no_data_model:
-    data = pm.ConstantData("data", x)
-    mu = pm.Normal("mu")
+    x_data = pm.ConstantData("x_data", x)
+    y_data = pm.ConstantData("y_data", y)
+    beta = pm.Normal("beta")
+    mu = pm.Deterministic("mu", beta * x_data)
     sigma = pm.Exponential("sigma", 1)
-    obs = pm.Normal("obs", mu=mu, sigma=sigma, observed=data)
+    obs = pm.Normal("obs", mu=mu, sigma=sigma, observed=y_data)
+    idata = pm.sample(random_seed=RANDOM_SEED)
 ```
 
-Because we used a `pm.ConstantData` container, the data now appears on our probabilistic graph. It is downstream from `obs` (since the `obs` variable "causes" the data), shaded in gray (because it is observed), and has a special rounded square shape to emphasize that it is data.    
+Because we used a `pm.ConstantData` container, the data now appears on our probabilistic graph. It is downstream from `obs` (since the `obs` variable "causes" the data), shaded in gray (because it is observed), and has a special rounded square shape to emphasize that it is data. We also see that `x_data` has been added to the graph.
 
 ```{code-cell} ipython3
 pm.model_to_graphviz(no_data_model)
+```
+
+Finally, we can check the inference data to see that the `x` data has been stored there as well. It is now a complete summary of all information needed to reproduce our model.
+
+```{code-cell} ipython3
+idata.constant_data
 ```
 
 ### Named dimensions with data containers
 
-Both `pm.MutableData` and `pm.ConstantData` allow users to keep track of dimensions (like dates or cities) and coordinates (such as the actual date times or city names) of multi-dimensional data. Both allow you to specify the dimension names and coordinates of random variables, instead of specifying the shapes of those random variables as numbers. Notice that in the previous probabilistic graphs, the nodes `obs` and `data` were in a box with the number 100. A natural question for anyone is, "100 what?". Dimensions and coordinates help organize models, variables, and data by answering exactly this question.
+Named dimensions are another powerful benefit of working with data containers. Both `pm.MutableData` and `pm.ConstantData` allow users to keep track of dimensions (like dates or cities) and coordinates (such as the actual date times or city names) of multi-dimensional data. Both allow you to specify the dimension names and coordinates of random variables, instead of specifying the shapes of those random variables as numbers. Notice that in the previous probabilistic graphs, all of the nodes `x_data`, `mu`, `obs` and `y_data` were in a box with the number 100. A natural question for a reader to ask is, "100 what?". Dimensions and coordinates help organize models, variables, and data by answering exactly this question.
 
 In the next example, we generate an artifical dataset of temperatures in 3 cities over 2 months. We will then use named dimensions and coordinates to improve the readability of the model code and the quality of the visualizations.
 
@@ -121,7 +142,7 @@ df_data.index.name = "date"
 df_data.head()
 ```
 
-As noted above, `ConstantData` gives you the ability to give named labels to the dimensions of your data. This is done by passing a dictionary of `dimension: coordinate` key-value paris to the `coords` argument of {class}`pymc.Model` when you create your model.
+As noted above, `ConstantData` gives you the ability to give named labels to the dimensions of your data. This is done by passing a dictionary of `dimension: coordinate` key-value pairs to the `coords` argument of {class}`pymc.Model` when you create your model.
 
 For more explanation about dimensions, coordinates and their big benefits, we encourage you to take a look at the {ref}`ArviZ documentation <arviz:xarray_for_arviz>`.
 
@@ -182,7 +203,7 @@ When we use `pm.ConstantData`, the data are internally represented as a pytensor
 type(data)
 ```
 
-The values of all `pytensor` tensors, which includes both `ConstantData` and `MutableData`, can be checked using the `eval` method. All `PyMC` variables, including `Data` containers, can be accessed by indexing the model object with a variable name. Since this line:
+The values of all `pytensor` tensors, including both `ConstantData` and `MutableData`, can be checked using the {meth}`pytensor.graph.eval` method. To access the data, we can use the {class}`pymc.Model` object. All model variables, including data containers, can be accessed by indexing the model object itself with a variable name. Since this line:
 
 ```python
     data = pm.ConstantData("observed_temp", df_data, dims=("date", "city"))
@@ -196,7 +217,7 @@ model["observed_temp"].eval()[:15]
 
 ## MutableData
 
-In many cases, you will want the ability to switch out data between model runs. This arises when you want to fit a model to multiple datasets, or if you are interested in out-of-sample prediction. For these cases, `pm.MutableData` is the correct tool.
+In many cases, you will want the ability to switch out data between model runs. This arises when you want to fit a model to multiple datasets, if you are interested in out-of-sample prediction, and in many other applications. For these cases, `pm.MutableData` is the correct tool.
 
 +++
 
@@ -226,7 +247,7 @@ Once again, the name of our data is `data`, so we can look at it's type. Unlike 
 type(model["data"])
 ```
 
-This difference in type is just an implemention detail. If you are interested in learning more about the ins and outs of pytensor, you can check out this tutorial on how it is used in PyMC: {ref}pymc_pytensor. For our purposes here, it suffices to note that both are symbolic tensors, and the values of all symbolic tensors can be quickly checked using the `eval` method: 
+This difference in type is just an implemention detail. If you are interested in learning more about the ins and outs of pytensor, you can check out this {ref}`this tutorial on how Pytensor is used in PyMC <pymc:pymc_pytensor>`. For our purposes here, we just need to know that the `eval` method works great for checking values:  
 
 ```{code-cell} ipython3
 model["data"].eval()
@@ -238,19 +259,19 @@ While `eval` can be used to check the values, {func}`pymc.set_data` is used to c
 :tags: [hide-output]
 
 # Generate one trace for each dataset
-traces = []
+idatas = []
 for data_vals in observed_data:
     with model:
         # Switch out the observed dataset
         pm.set_data({"data": data_vals})
-        traces.append(pm.sample())
+        idatas.append(pm.sample(random_seed=RANDOM_SEED))
 ```
 
 Arviz's {func}`arviz.plot_forest` allows you to pass a list of `idata`  objects with the same variables names. In this way, we can quickly visualize the different estimates from the 10 different datasets. We also use `matplotlib` to scatter the true parameter values on top of the `plot_forest`. We can see that as we go from 10 observations in model 1 to 100 observations in model 10, the estimates become increasing centered on the true value of mu, and the uncertainty around the estimate goes down.
 
 ```{code-cell} ipython3
 model_idx = np.arange(n_models, dtype="int")
-axes = az.plot_forest(traces, var_names=["mu"], combined=True, figsize=(6, 6), legend=False)
+axes = az.plot_forest(idatas, var_names=["mu"], combined=True, figsize=(6, 6), legend=False)
 
 ax = axes[0]
 y_vals = np.stack([ax.get_lines()[i].get_ydata() for i in np.arange(n_models)]).ravel()
@@ -260,7 +281,7 @@ ax.legend()
 plt.show()
 ```
 
-### Using MutableData container variables to predict on new data
+## Appled Example: Using MutableData as input to a binomial GLM
 
 A common task in machine learning is to predict values for unseen data, and the `MutableData` container variable is exactly what we need to do this. 
 
@@ -298,13 +319,17 @@ with pm.Model() as logistic_model:
     obs = pm.Bernoulli("obs", p=p, observed=y_data, shape=x_data.shape[0])
 
     # fit the model
-    idata = pm.sample()
-    idata = pm.sample_posterior_predictive(idata, extend_inferencedata=True)
+    idata = pm.sample(random_seed=RANDOM_SEED)
+
+    # Generate a counterfactual dataset using our model
+    idata = pm.sample_posterior_predictive(
+        idata, extend_inferencedata=True, random_seed=RANDOM_SEED
+    )
 ```
 
 A common post-estimation diagonstic is to look at a posterior predictive plot, using {func}`arviz.plot_ppc`. This shows the distribution of data sampled from your model along side the observed data. If they look similar, we have some evidence that the model isn't so bad.
 
-In this case, however, it can be difficult to interpret a posterior predictive plot. Since we're doing a logistic regression, observed values can only be zero or one. The posterior predictive graph thus has this tetris-block shape. What are we to make of it? 
+In this case, however, it can be difficult to interpret a posterior predictive plot. Since we're doing a logistic regression, observed values can only be zero or one. As a result, the posterior predictive graph has this tetris-block shape. What are we to make of it? Evidently our model produces more 1's than 0's, and the mean proportion matches the data. But there's also a lot of uncertainty in that proportion. We else can we say about the model's performance?  
 
 ```{code-cell} ipython3
 az.plot_ppc(idata)
@@ -312,7 +337,7 @@ az.plot_ppc(idata)
 
 Another graph we could make to see how our model is doing is to look at how the latent variable `p` evolves over the space of covariates. We expect some relationship between the covariate and the data, and our model encodes that relationship in the variable `p`. In this model, the only covariate is `x`. If the relationship between `x` and `y` is positive, we expect low `p` and lots of observed zeros where `x` is small, and high `p` and lots of observed ones where it is large.  
 
-That's nice and all, but for plotting `x` is all jumbled up. We could just sort the values, but another way is to pass sorted grid of `x` values into our model. This corresponds to making a preditiction for `p` at every point on the grid, which will give us a nice plottable result.
+That's nice and all, but for plotting `x` is all jumbled up. Admittedly, we could just sort the values. But another way (that shows off how to use our `MutableData`!) is to pass an evenly spaced grid of `x` values into our model. This corresponds to making a preditiction for `p` at every point on the grid, which will give us a nice plottable result. This is also how we could do interpolation of extrapolation using our model, so it's a very nice technique to know.
 
 In the next code block, we swap out the (randomly shuffled) values of `x` for an evenly-spaced grid of values that spans the range of observed `x`.
 
@@ -324,7 +349,9 @@ with logistic_model:
     # We do not need to set data for the outputs because we told the model to always link the shape of the output to the shape
     # of the input.
     pm.set_data({"x": x_grid})
-    post_idata = pm.sample_posterior_predictive(idata, var_names=["p", "obs"])
+    post_idata = pm.sample_posterior_predictive(
+        idata, var_names=["p", "obs"], random_seed=RANDOM_SEED
+    )
 ```
 
 Using the new `post_idata`, which holds the out-of-sample "predictions" for `p`, we make the plot of `x_grid` against `p`. We also plot the observed data. We can see that the model expects low probability (`p`) where `x` is small, and that the probability changes very gradually with `x`. 
@@ -395,7 +422,7 @@ The following figure shows the result of our model. The expected length, $\mu$, 
 
 ```{code-cell} ipython3
 with model_babies:
-    pm.sample_posterior_predictive(idata_babies, extend_inferencedata=True)
+    pm.sample_posterior_predictive(idata_babies, extend_inferencedata=True, random_seed=RANDOM_SEED)
 ```
 
 ```{code-cell} ipython3
@@ -435,7 +462,7 @@ with model_babies:
     # Setting predictions=True will add a new "predictions" group to our idata. This lets us store the posterior,
     # posterior_predictive, and predictions all in the same object.
     idata_babies = pm.sample_posterior_predictive(
-        idata_babies, extend_inferencedata=True, predictions=True
+        idata_babies, extend_inferencedata=True, predictions=True, random_seed=RANDOM_SEED
     )
 ```
 
