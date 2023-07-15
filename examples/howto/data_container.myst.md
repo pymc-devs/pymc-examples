@@ -47,7 +47,7 @@ az.style.use("arviz-darkgrid")
 
 After building the statistical model of your dreams, you're going to need to feed it some data. Data is typically introduced to a PyMC model in one of two ways. Some data is used as an exogenous input, called `X` in linear regression models, where `mu = X @ beta`. Other data are "observed" examples of the endogenous outputs of your model, called `y` in regression models, and is used as input to the likelihood function implied by your model. These data, either exogenous or endogenous, can be included in your model as wide variety of datatypes, including numpy `ndarrays`, pandas `Series` and `DataFrame`, and even pytensor `TensorVariables`. 
 
-Although you can pass these "raw" datatypes to your PyMC model, the best way to introduce data into your model is to use one of two {func}`pymc.data.Data` containers. These containers make it extremely easy to work with data in a PyMC model. They offer a range of benefits, including:
+Although you can pass these "raw" datatypes to your PyMC model, the best way to introduce data into your model is to use one of two {func}`pymc.Data` containers. These containers make it extremely easy to work with data in a PyMC model. They offer a range of benefits, including:
 
 1. Visualization of data as a component of your probabilistic graph
 2. Access to labeled dimensions for readability and accessibility
@@ -60,7 +60,7 @@ This notebook will illustrate each of these benefits in turn, and show you the b
 
 ## Types of Data Containers
 
- PyMC offers two data containers, depending on your needs: {func}`pymc.data.ConstantData` and {func}`pymc.data.MutableData`. Both will help you visualize how data fits into your model, store the data in an `InfereceData` for reproducibility, and give access to labeled dimenions. As the names suggest, however, only `MutableData` allows you to change your data. When `X` is `MutableData`, this enables out-of-sample inference tasks. When `y` is `MutableData`, it allows you to reuse the same model on multiple datasets to perform parameter recovery studies or sensitivity analysis.  These abilities do, however, come with a small performance cost.
+ PyMC offers two data containers, depending on your needs: {func}`pymc.ConstantData` and {func}`pymc.MutableData`. Both will help you visualize how data fits into your model, store the data in an `InfereceData` for reproducibility, and give access to labeled dimenions. As the names suggest, however, only `MutableData` allows you to change your data. When `X` is `MutableData`, this enables out-of-sample inference tasks. When `y` is `MutableData`, it allows you to reuse the same model on multiple datasets to perform parameter recovery studies or sensitivity analysis.  These abilities do, however, come with a small performance cost.
  
  In past versions of PyMC, the only data container was `pm.Data`. This container is still available for backwards compatability, but the current best practice is to use either `pm.MutableData` or `pm.ConstantData`. 
 
