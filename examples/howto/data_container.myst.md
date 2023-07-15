@@ -41,7 +41,7 @@ az.style.use("arviz-darkgrid")
 
 ## Introduction
 
-After building the statistical model of your dreams, you're going to need to feed it some data. Data is "shown" to a PyMC model via the `observed` keyword argument of all random variables. This argument accepts a wide variety of datatypes, including numpy `ndarrays`, pandas `Series` and `DataFrame`, and even pytensor `TensorVariables`. Although you can pass these "raw" datatypes to your PyMC model, the best way is to use one of two {class}`pymc.Data` containers. 
+After building the statistical model of your dreams, you're going to need to feed it some data. Data is typically introduced to a PyMC model in one of two ways. Some data is used as an exogenous input, such as in regression models, where $\mathbb E[y] = X\beta$. Other data are "observed" examples of the enodgenous outputs of your model, and used as inputs to the likelihood function implied by your model. These data, either exogenous or endogenous, can be included in y a wide variety of datatypes, including numpy `ndarrays`, pandas `Series` and `DataFrame`, and even pytensor `TensorVariables`. Although you can pass these "raw" datatypes to your PyMC model, the best way is to use one of two {class}`pymc.Data` containers. 
 
 These containers make it extremely easy to work with data in a PyMC model. They offer a range of benefits, including:
 
