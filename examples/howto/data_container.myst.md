@@ -30,8 +30,6 @@ import pymc as pm
 
 from numpy.random import default_rng
 
-warnings.filterwarnings("ignore")
-
 plt.rcParams["figure.constrained_layout.use"] = True
 
 print(f"Running on PyMC v{pm.__version__}")
