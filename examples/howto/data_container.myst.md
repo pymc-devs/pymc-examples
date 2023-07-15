@@ -41,7 +41,7 @@ az.style.use("arviz-darkgrid")
 
 ## Introduction
 
-After building the statistical model of your dreams, you're going to need to feed it some data. Data is typically introduced to a PyMC model in one of two ways. Some data is used as an exogenous input, such as in linear regression models, where `mu = X @ beta`. Other data are "observed" examples of the enodgenous outputs of your model, and used as inputs to the likelihood function implied by your model. These data, either exogenous or endogenous, can be included in your model as wide variety of datatypes, including numpy `ndarrays`, pandas `Series` and `DataFrame`, and even pytensor `TensorVariables`. Although you can pass these "raw" datatypes to your PyMC model, the best way is to use one of two {class}`pymc.Data` containers. 
+After building the statistical model of your dreams, you're going to need to feed it some data. Data is typically introduced to a PyMC model in one of two ways. Some data is used as an exogenous input, called `X` in linear regression models, where `mu = X @ beta`. Other data are "observed" examples of the enodgenous outputs of your model, called `y` in regression models, and is used as inputs to the likelihood function implied by your model. These data, either exogenous or endogenous, can be included in your model as wide variety of datatypes, including numpy `ndarrays`, pandas `Series` and `DataFrame`, and even pytensor `TensorVariables`. Although you can pass these "raw" datatypes to your PyMC model, the best way is to use one of two {class}`pymc.Data` containers. 
 
 These containers make it extremely easy to work with data in a PyMC model. They offer a range of benefits, including:
 
@@ -55,7 +55,7 @@ This notebook will illustrate each of these benefits in turn, and show you the b
 
 ## Types of Data Containers
 
- PyMC offers two data containers, depending on your needs: {class}`pymc.ConstantData` and {class}`MutableData`. Both will help you visualize how data fits into your model, store the data in an `InfereceData` for reproducibility, and give access to labeled dimenions. As the names suggest, however, only `MutableData` allows you to change your data. When `X` is `MutableData`, this enables out-of-sample inference tasks. When `y` is `MutableData`, it allows you to reuse the same model on multiple datasets to perform parameter recovery stud.  This ability does, however, come with a small performance cost.
+ PyMC offers two data containers, depending on your needs: {class}`pymc.ConstantData` and {class}`MutableData`. Both will help you visualize how data fits into your model, store the data in an `InfereceData` for reproducibility, and give access to labeled dimenions. As the names suggest, however, only `MutableData` allows you to change your data. When `X` is `MutableData`, this enables out-of-sample inference tasks. When `y` is `MutableData`, it allows you to reuse the same model on multiple datasets to perform parameter recovery studies or sensitivity analysis.  These abilities do, however, come with a small performance cost.
  
  In past versions of PyMC, the only data container was `pm.Data`. This container is still available for backwards compatability, but the current best practice is to use either `pm.MutableData` or `pm.ConstantData`, depending on your needs. 
 
@@ -117,10 +117,7 @@ df_data.index.name = "date"
 df_data.head()
 ```
 
-As noted above, `ConstantData` gives you the ability to give named labels to the dimensions of your data. This can be done in two ways:  
-
-- Entering the dimensions in the `dims` kwarg of a `pm.ConstantData` variable with a pandas Series or DataFrame. The name of the index and columns will be remembered as the dimensions, and PyMC will infer that the values of the given columns must be the coordinates.
-- Using the new `coords` argument to {class}`pymc.Model` to set the coordinates explicitly.
+As noted above, `ConstantData` gives you the ability to give named labels to the dimensions of your data. This is done by passing a dictionary of `dimension: coordinate` key-value paris to the `coords` argument of {class}`pymc.Model` when you create your model.
 
 For more explanation about dimensions, coordinates and their big benefits, we encourage you to take a look at the {ref}`ArviZ documentation <arviz:xarray_for_arviz>`.
 
@@ -128,6 +125,7 @@ This is a lot of explanation -- let's see how it's done! We will use a hierarchi
 
 ```{code-cell} ipython3
 # The data has two dimensions: date and city
+# The "coordinates" are the unique values that these dimensions can take
 coords = {"date": df_data.index, "city": df_data.columns}
 ```
 
