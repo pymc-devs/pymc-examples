@@ -51,8 +51,8 @@ Although you can pass these "raw" datatypes to your PyMC model, the best way to 
 
 1. Visualization of data as a component of your probabilistic graph
 2. Access to labeled dimensions for readability and accessibility
-3. Support for swapping out data for out-of-sample prediction, interpolation/extrapolation, forcasting, etc.
-4. All data, not just observed data, will be stored in your {class}`arviz.InferenceData`
+3. Support for swapping out data for out-of-sample prediction, interpolation/extrapolation, forecasting, etc.
+4. All data will be stored in your {class}`arviz.InferenceData`, which is useful for plotting and reproducible workflows.
 
 This notebook will illustrate each of these benefits in turn, and show you the best way to integrate data into your PyMC modeling workflow. 
 
