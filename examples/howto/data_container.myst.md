@@ -281,7 +281,7 @@ ax.legend()
 plt.show()
 ```
 
-## Appled Example: Using MutableData as input to a binomial GLM
+## Applied Example: Using MutableData as input to a binomial GLM
 
 A common task in machine learning is to predict values for unseen data, and the `MutableData` container variable is exactly what we need to do this. 
 
