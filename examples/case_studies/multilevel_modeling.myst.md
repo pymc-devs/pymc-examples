@@ -242,13 +242,13 @@ Let's now turn our attention to the unpooled model, and see how it fares in comp
 coords = {"county": mn_counties}
 
 with pm.Model(coords=coords) as unpooled_model:
-    floor_idx = pm.MutableData("floor_ind", floor_measure, dims="obs_id")
+    floor_idx = pm.MutableData("floor_idx", floor_measure, dims="obs_id")
 
     alpha = pm.Normal("alpha", 0, sigma=10, dims="county")
     beta = pm.Normal("beta", 0, sigma=10)
     sigma = pm.Exponential("sigma", 1)
 
-    theta = alpha[county] + beta * floor_ind
+    theta = alpha[county] + beta * floor_idx
 
     y = pm.Normal("y", theta, sigma=sigma, observed=log_radon, dims="obs_id")
 ```
