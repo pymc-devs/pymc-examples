@@ -197,8 +197,8 @@ def constrainedUniform(N, min=0, max=1):
         pt.concatenate(
             [
                 np.ones(1) * min,
-                pt.extra_ops.cumsum(pm.Dirichlet("cuts_unknown", a=np.ones(N - 2)))
-                * (min + (max - min)),
+                pt.extra_ops.cumsum(pm.Dirichlet("cuts_unknown", a=np.ones(N - 2))) * (max - min)
+                + min,
             ]
         ),
     )
