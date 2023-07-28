@@ -20,7 +20,6 @@ repos:
             (?x)^
             ^examples/ode_models/ODE_with_manual_gradients\.ipynb$
             |examples/samplers/DEMetropolisZ_EfficiencyComparison\.ipynb$
-            |examples/gaussian_processes/GP-Latent\.ipynb$
             |examples/gaussian_processes/GP-MaunaLoa2\.ipynb$
             |examples/samplers/MLDA_gravity_surveying\.ipynb$
             |examples/howto/sampling_callback\.ipynb$

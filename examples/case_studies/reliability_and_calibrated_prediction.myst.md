@@ -8,8 +8,9 @@ kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
-substitutions:
-  extra_dependencies: lifelines
+myst:
+  substitutions:
+    extra_dependencies: lifelines
 ---
 
 (Reliability Statistics and Predictive Calibration)=
