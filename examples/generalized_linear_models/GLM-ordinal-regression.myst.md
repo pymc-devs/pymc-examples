@@ -197,14 +197,14 @@ def constrainedUniform(N, min=0, max=1):
         pt.concatenate(
             [
                 np.ones(1) * min,
-                pt.extra_ops.cumsum(pm.Dirichlet("cuts_unknown", a=np.ones(N - 2)))
-                * (min + (max - min)),
+                pt.extra_ops.cumsum(pm.Dirichlet("cuts_unknown", a=np.ones(N - 2))) * (max - min)
+                + min,
             ]
         ),
     )
 ```
 
-The above function, (brainchild of Dr Ben Vincen and Adrian Seyboldt), looks a little indimidating, but it's just a convenience function to specify a prior over the cutpoints in our $Y_{latent}$. The Dirichlet distribution is special in that draws from the distribution must sum to one. The above function ensures that each draw from the prior distribution is a cumulative share of the maximum category greater than the minimum of our ordinal categorisation. 
+The above function, (brainchild of Dr Ben Vincent and Adrian Seyboldt), looks a little indimidating, but it's just a convenience function to specify a prior over the cutpoints in our $Y_{latent}$. The Dirichlet distribution is special in that draws from the distribution must sum to one. The above function ensures that each draw from the prior distribution is a cumulative share of the maximum category greater than the minimum of our ordinal categorisation. 
 
 ```{code-cell} ipython3
 :tags: [hide-output]
@@ -554,7 +554,8 @@ def constrainedUniform(N, group, min=0, max=1):
             [
                 np.ones(1) * min,
                 pt.extra_ops.cumsum(pm.Dirichlet(f"cuts_unknown_{group}", a=np.ones(N - 2)))
-                * (min + (max - min)),
+                * (max - min)
+                + min,
             ]
         ),
     )
