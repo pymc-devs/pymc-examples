@@ -181,7 +181,7 @@ for node in nodes:
 W_nyc = adj.T + adj
 ```
 
-We'll compute the scaling factor. It will require a special function which is fairly involved. A proper explanation of the function would take us pretty far afield from the NYC case study so I'll leave discussion of the scaling factor for section (#scaling-factor).
+We'll compute the scaling factor. It will require a special function which is fairly involved. A proper explanation of the function would take us pretty far afield from the NYC case study so I'll leave {ref}`discussion of the scaling factor for later <scaling-factor>`.
 
 ```{code-cell} ipython3
 def scaling_factor_sp(A):
@@ -297,7 +297,7 @@ nx.draw_networkx(
 
 ## Specifying a BYM model with PyMC
 
-All the parameters of the BYM were already introduced in [section 1](#bym-components) or {ref}`section 1 <bym-components>`. Now it's just a matter of assigning some priors. The priors on $\theta$ are picky - we need to assign a mean of 0 and a standard deviation 1 so that we can interpret it as comparable with $\phi$. Otherwise, the priors distributions afford the opportunity to incorporate domain expertise. In this problem, I'll pick some weakly informative priors.
+All the parameters of the BYM were already introduced in {ref}`section 1 <bym-components>`. Now it's just a matter of assigning some priors. The priors on $\theta$ are picky - we need to assign a mean of 0 and a standard deviation 1 so that we can interpret it as comparable with $\phi$. Otherwise, the priors distributions afford the opportunity to incorporate domain expertise. In this problem, I'll pick some weakly informative priors.
 
 Lastly, we'll use a Poisson outcome distribution. The number of traffic accidents is a count outcome and the maximium possible value is very large. To ensure our predictions remain positive, we'll exponentiate the linear model before passing it to the Poisson distribution.
 
@@ -367,7 +367,7 @@ sigma_pred = idata.posterior.sigma.mean(("chain", "draw"))
 y_predict = np.exp(log_E + (beta_pred + sigma_pred * (1 / scaling_factor) * phi_pred).values)
 ```
 
-Then we'll overlay our predictions onto the same adjacency map from section (#adjacency-map).
+Then we'll overlay our predictions onto the same {ref}`adjacency map we built in early <adjacency-map>`. 
 
 ```{code-cell} ipython3
 yz_predict = y_predict
