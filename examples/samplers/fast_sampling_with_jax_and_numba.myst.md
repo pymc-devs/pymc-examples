@@ -16,7 +16,7 @@ kernelspec:
 
 :::{post} July 11, 2023
 :tags: hierarchical model, JAX, numba, scaling
-:category: How-to, intermediate
+:category: reference, intermediate
 :author: Thomas Wiecki
 :::
 
@@ -125,10 +125,6 @@ with PPCA:
 
 ## Authors
 Authored by Thomas Wiecki in July 2023
-
-## References
-
-:::{bibliography} :filter: docname in docnames :::
 
 ```{code-cell} ipython3
 %load_ext watermark
