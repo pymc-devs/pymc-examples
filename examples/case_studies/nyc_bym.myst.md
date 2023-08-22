@@ -51,9 +51,9 @@ import nutpie
 ```{code-cell} ipython3
 RANDOM_SEED = 8967
 rng = np.random.default_rng(RANDOM_SEED)
+az.style.use("arviz-darkgrid")
 ```
 
-(bym_components)=
 # Why use the Besag-York-Mollie model?
 
 This notebook explains why and how to deploy the Besag-York-Mollie (BYM) model in PyMC. The BYM model is an attractive approach to many spatial statistics problems. It's flexible - once you add the BYM components, the rest of the workflow proceeds like any other Bayesian generalized linear model. You can add predictors to estimate causal effects. You can swap out link functions and outcome distributions to handle different data types. You can mix and match whatever samplers work best. 
@@ -84,7 +84,7 @@ colors = np.array([0.8, 1, 1.5, 2])
 nx.draw_networkx(G, node_color=colors, vmin=0, vmax=2, node_size=500, cmap="plasma")
 ```
 
-The adjacency matrix encodes which nodes are connected to which other nodes. If node i and j are connected, there will be a 1 at row i, column j. Otherwise, there will be a zero. For example, node 1 and 3 are connected. There is a 1 in the matrix at row 3, column 1. However node 3 is not connected to node 2, so there is a 0 at row 3 column 2. We have to, of course, remember python indexing. The first row is 0 and the last is 3. Adjacency matrices are also symmetrical - Canada is adjacent to the United States, the United States is adjacent to Canada.
+The adjacency matrix encodes which nodes are connected to which other nodes. If node i and j are connected, there will be a 1 at row i, column j. Otherwise, there will be a zero. For example, node 1 and 3 are connected. There is a 1 in the matrix at row 3, column 1. However node 3 is not connected to node 2, so there is a 0 at row 3 column 2. We have to, of course, remember python indexing. The first row is 0 and the last is 3. Adjacency matrices are also symmetrical - if Canada is adjacent to the United States, the United States is adjacent to Canada.
 
 The density function for ICAR takes in an adjacency matrix `W`` and a variance $\sigma$. We usually assume $\sigma = 1$ and deal with variance in other ways so I'll ignore that first fraction for now.
 
@@ -97,10 +97,11 @@ So, for example, imagine that the intensity of the color represents the value of
 
 In this way, ICAR encodes the core assumption of spatial statistics - *nearby areas should be more similar to each other than distant areas*. The most likely outcome is a graph where every node has the same value. In this case, the square distance between neighbors is always zero. The more a graph experiences abrupt changes between neighboring areas, the lower the log density.
 
-ICAR has a few other special features: it is contrained so all the $\phi$'s add up to zero. This also implies the mean of the $\phi$'s is zero. It can be helpful to think of ICAR values as similar to z-scores. They represent relative deviations centered around 0. ICAR is also typically only used as a sub-component of a larger model. Other parts of the model typically adjust the scale (with a variance parameter) or the location (with an intercept parameter). An accessible discussion of the math behind ICAR and its relationship to CAR can be found [here](https://mc-stan.org/users/documentation/case-studies/icar_stan.html) or in the academic paper version {cite:p}morris2021bym.
+ICAR has a few other special features: it is contrained so all the $\phi$'s add up to zero. This also implies the mean of the $\phi$'s is zero. It can be helpful to think of ICAR values as similar to z-scores. They represent relative deviations centered around 0. ICAR is also typically only used as a sub-component of a larger model. Other parts of the model typically adjust the scale (with a variance parameter) or the location (with an intercept parameter). An accessible discussion of the math behind ICAR and its relationship to CAR can be found [here](https://mc-stan.org/users/documentation/case-studies/icar_stan.html) or in the academic paper version {cite:p}`morris2021bym`.
 
 +++
 
+(bym-components)=
 ## The flexbility of random effects
 
 One of the typical goals of statistical modeling is to partition the variance of the data into three categories: variance explained by the causes of interest, structured variance and unstructured variance. In our case, the ICAR model is meant to capture the (spatially) structured variance. Adding predictor variables can handle the first category. The BYM model approaches the third category with random effects, $\theta$. A random effect is a vector of random variables of length `n` where `n` is the number of areas. It is meant to capture all the remaining variance not explained by spatial or causal effects. 
@@ -115,7 +116,7 @@ When $\rho$ is close to 1, most of the variance is spatially structured. When $\
 
 $\sigma$ is a scale parameter shared by both $\theta$ and $\phi$. Both $\theta$ and $\phi$ are centered at zero and have a variance of 1. So they both function like z-scores. $\sigma$ can stretch or shrink the mixture of effects so it is appropriate for the actual data. $\beta$ is a shared intercept that recenters the mixture to fit the data. Finally, $\text{s}$ is the scaling factor. It is a constant computed from the adjacency matrix. It rescales the $\phi$'s so that they have the same expected variance as $\theta$. A more detailed discussion of why this works [appears below](#scaling-factor).
 
-Fitting this model takes care of the challenge of partitioning variance into structure and unstructured components. The only challenge left is settling on predictor variables, a challenge that varies from case to case. The paper {cite:p}`riebler2016intuitive` put forward this particular approach to the BYM model and offers more explanation of why this parameterization of the BYM model is both interpretable and identifiable while naive BYM models are often not.
+Fitting this model takes care of the challenge of partitioning variance into structure and unstructured components. The only challenge left is settling on predictor variables, a challenge that varies from case to case. {cite:t}`riebler2016intuitive` put forward this particular approach to the BYM model and offers more explanation of why this parameterization of the BYM model is both interpretable and identifiable while naive BYM models are often not.
 
 +++
 
@@ -246,7 +247,8 @@ E = df_nyc.pop_2001.values
 
 E[E < 10] = 10
 log_E = np.log(E)
-tracts = df_nyc["nyc_tractIDs"].values
+area_idx = df_nyc["nyc_tractIDs"].values
+coords = {"area_idx": area_idx}
 ```
 
 We can get a sense of the spatial structure by visualizing the adjacency matrix. The figure below only captures the relative position of the census tracks. It doesn't bother with the absolute position so it doesn't look like New York City. This representation highlights how the city is composed of several regions of uniformly connected areas, a few central hubs that have a huge number of connections, and then a few narrow corridors.
@@ -295,19 +297,18 @@ nx.draw_networkx(
 
 ## Specifying a BYM model with PyMC
 
-All the parameters of the BYM were already introduced in section (#bym_components). Now it's just a matter of assigning some priors. The priors on $\theta$ are picky - we need to assign a mean of 0 and a standard deviation 1 so that we can interpret it as comparable with $\phi$. Otherwise, the priors distributions afford the opportunity to incorporate domain expertise. In this problem, I'll pick some weakly informative priors.
+All the parameters of the BYM were already introduced in [section 1](#bym-components) or {ref}`section 1 <bym-components>`. Now it's just a matter of assigning some priors. The priors on $\theta$ are picky - we need to assign a mean of 0 and a standard deviation 1 so that we can interpret it as comparable with $\phi$. Otherwise, the priors distributions afford the opportunity to incorporate domain expertise. In this problem, I'll pick some weakly informative priors.
 
 Lastly, we'll use a Poisson outcome distribution. The number of traffic accidents is a count outcome and the maximium possible value is very large. To ensure our predictions remain positive, we'll exponentiate the linear model before passing it to the Poisson distribution.
 
 ```{code-cell} ipython3
-with pm.Model() as BYM_model:
+with pm.Model(coords=coords) as BYM_model:
 
     # intercept
     beta0 = pm.Normal("beta0", 0, 1)
 
     # independent random effect
-    # N is the number of areas.
-    theta = pm.Normal("theta", 0, 1, shape=N)
+    theta = pm.Normal("theta", 0, 1, dims="area_idx")
 
     # spatially structured random effect
     phi = ICAR("phi", W=W_nyc)
