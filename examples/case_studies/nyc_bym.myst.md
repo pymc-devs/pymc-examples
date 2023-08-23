@@ -32,7 +32,6 @@ import pandas as pd
 import pymc as pm
 import pytensor.tensor as pt
 
-from icardist import ICAR
 from scipy import sparse
 from scipy.linalg import solve
 from scipy.sparse.linalg import spsolve
@@ -49,7 +48,7 @@ import nutpie
 ```
 
 ```{code-cell} ipython3
-RANDOM_SEED = 8967
+RANDOM_SEED = 8926
 rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
@@ -131,7 +130,7 @@ We'll demonstrate the BYM model on a dataset recording the number of traffic acc
 
 +++
 
-The spatial data comes in the form of an [edgelist](https://en.wikipedia.org/wiki/Edge_list). Beside adjacency matrices, edgelists are the other popular technique for representing spatial data on computers. An edgelist is a pair of lists that stores information about the edges in a graph. Suppose that i and j are the names of two nodes. If node i and node j are connected, then one list will contain i and the other will contain j on the same row. For example, in the dataframe below, node 1 is connected to node 1452 as well as node 1721. 
+The spatial data comes in the form of an [edgelist](https://en.wikipedia.org/wiki/Edge_list). Beside adjacency matrices, edgelists are the other popular technique for representing areal data on computers. An edgelist is a pair of lists that stores information about the edges in a graph. Suppose that i and j are the names of two nodes. If node i and node j are connected, then one list will contain i and the other will contain j on the same row. For example, in the dataframe below, node 1 is connected to node 1452 as well as node 1721. 
 
 ```{code-cell} ipython3
 try:
@@ -311,7 +310,7 @@ with pm.Model(coords=coords) as BYM_model:
     theta = pm.Normal("theta", 0, 1, dims="area_idx")
 
     # spatially structured random effect
-    phi = ICAR("phi", W=W_nyc)
+    phi = pm.ICAR("phi", W=W_nyc)
 
     # joint variance of random effects
     sigma = pm.HalfNormal("sigma", 1)
@@ -337,17 +336,17 @@ with pm.Model(coords=coords) as BYM_model:
 # my machine.
 
 with BYM_model:
-    idata = pm.sample(2000, tune=1000, target_accept=0.97, nuts_sampler="nutpie", random_seed=rng)
+    idata = pm.sample(2000, nuts_sampler="nutpie", random_seed=rng)
 ```
 
-We can get the sampler in several ways. First, it looks like all our chains converged. No parameter has an r-hat value greater than 1.
+We can evaluate the sampler in several ways. First, it looks like all our chains converged. All parameters have an rhat value very close to one.
 
 ```{code-cell} ipython3
 rhat = az.summary(idata).r_hat.values
-sum(rhat > 1.0)
+sum(rhat > 1.03)
 ```
 
-Similarly, the trace plots on all the main parameters look stationary and well-mixed. They also reveal that the mean of rho is somewhere around 0.55, indicating that spatial effects are likely present in the data.
+Second, the trace plots on all the main parameters look stationary and well-mixed. They also reveal that the mean of rho is somewhere around 0.55, indicating that spatial effects are likely present in the data.
 
 ```{code-cell} ipython3
 az.plot_trace(idata, var_names=["beta0", "sigma", "rho"])
