@@ -115,13 +115,13 @@ When $\rho$ is close to 1, most of the variance is spatially structured. When $\
 
 $\sigma$ is a scale parameter shared by both $\theta$ and $\phi$. Both $\theta$ and $\phi$ are centered at zero and have a variance of 1. So they both function like z-scores. $\sigma$ can stretch or shrink the mixture of effects so it is appropriate for the actual data. $\beta$ is a shared intercept that recenters the mixture to fit the data. Finally, $\text{s}$ is the scaling factor. It is a constant computed from the adjacency matrix. It rescales the $\phi$'s so that they have the same expected variance as $\theta$. A more detailed discussion of why this works [appears below](#scaling-factor).
 
-Fitting this model takes care of the challenge of partitioning variance into structure and unstructured components. The only challenge left is settling on predictor variables, a challenge that varies from case to case. {cite:t}`riebler2016intuitive` put forward this particular approach to the BYM model and offers more explanation of why this parameterization of the BYM model is both interpretable and identifiable while naive BYM models are often not.
+Fitting this model takes care of the challenge of partitioning variance into structure and unstructured components. The only challenge left is settling on predictor variables, a challenge that varies from case to case. {cite:t}`riebler2016intuitive` put forward this particular approach to the BYM model and offers more explanation of why this parameterization of the BYM model is both interpretable and identifiable while previous parameterizations of the BYM models are often not.
 
 +++
 
 # Demonstrating the BYM model on the New York City pedestrian accidents dataset
 
-We'll demonstrate the BYM model on a dataset recording the number of traffic accidents involving youth pedestrians in New York City. The data is organized into roughly 2000 census tracts, providing our spatial structure. Our goal is to demonstrate that we can partition the variance into spatial and unstructured components.
+We'll demonstrate the BYM model on a dataset recording the number of traffic accidents involving pedestrians in New York City. The data is organized into roughly 2000 census tracts, providing our spatial structure. Our goal is to demonstrate that we can partition the variance into explained, spatially structured, and unstructured components.
 
 +++
 
@@ -230,6 +230,8 @@ scaling_factor
 
 The first `.csv` file just has the spatial structure bits. The rest of the data comes seperately - here we'll pull in the number of accidents `y` and the population size of the census track, `E`. We'll use the population size as an offset - we should expect that more populated areas will have more accidents for trivial reasons. What is more interesting is something like the excess risk associated with an area.
 
+Finally, we'll also explore one predictor variable, the social fragmentation index. The index is built out of measures of the number of vacant housing units, people living alone, renters and people who have moved within the previous year. These communities tend to be less integrated and have weaker social support systems. The social epidemiology community is interested in how ecological variables can trickle down into various facets of public health. So we'll see if social fragmentation can explain the pattern of traffic accidents. The measure is standardized to have a mean of zero and standard deviation of 1.
+
 ```{code-cell} ipython3
 try:
     df_nyc = pd.read_csv(os.path.join("..", "data", "nyc_traffic.csv"))
@@ -238,6 +240,7 @@ except FileNotFoundError:
 
 y = df_nyc.events_2001.values
 E = df_nyc.pop_2001.values
+fragment_index = df_nyc.fragment_index.values
 
 # Most census tracts have huge populations
 # but a handful have 0. We round
@@ -246,13 +249,11 @@ E = df_nyc.pop_2001.values
 
 E[E < 10] = 10
 log_E = np.log(E)
-area_idx = df_nyc["nyc_tractIDs"].values
+area_idx = df_nyc["census_tract"].values
 coords = {"area_idx": area_idx}
 ```
 
 We can get a sense of the spatial structure by visualizing the adjacency matrix. The figure below only captures the relative position of the census tracks. It doesn't bother with the absolute position so it doesn't look like New York City. This representation highlights how the city is composed of several regions of uniformly connected areas, a few central hubs that have a huge number of connections, and then a few narrow corridors.
-
-The map also shows there are number of hotspots where most of the accidents take place and they are spatially clustered. This is a good indication that a spatial autocorrelation model is an appropriate choice.
 
 ```{code-cell} ipython3
 # build the positions of the nodes. We'll only
@@ -265,18 +266,15 @@ The map also shows there are number of hotspots where most of the accidents take
 
 G_nyc = nx.Graph(W_nyc)
 pos = nx.spectral_layout(G_nyc)
-pos = nx.spring_layout(G_nyc, pos=pos)
+pos = nx.spring_layout(G_nyc, pos=pos, seed=RANDOM_SEED)
 ```
 
 ```{code-cell} ipython3
-# the dispersion of the data is pretty high. Most areas have 0 accidents.
+# the spread of the data is pretty high. Most areas have 0 accidents.
 # one area has 300. Color-gradient based visualization doesn't work
 # well under those conditions. So for the purpose of the color
-# we'll cap the accidents at 30.
-
-yz = y
-yz[y > 30] = 30
-
+# we'll cap the accidents at 30 using vmax
+#
 # however, we'll also make the node size sensitive to the real
 # number of accidents. So big yellow nodes have way more accidents
 # than small yellow nodes.
@@ -285,12 +283,31 @@ plt.figure(figsize=(10, 8))
 nx.draw_networkx(
     G_nyc,
     pos=pos,
-    node_color=yz,
+    node_color=y,
+    cmap="plasma",
+    vmax=30,
+    width=0.5,
+    alpha=0.6,
+    with_labels=False,
+    node_size=20 + 3 * y,
+)
+```
+
+The map also shows there are number of hotspots where most of the accidents take place and they are spatially clustered, namely the bottom right corner, the bottom center and the center left region. This is a good indication that a spatial autocorrelation model is an appropriate choice.
+
+We can also visualize the spatial layout of social fragmentation. You'll notice that there is one neighborhood of social fragmentation that overlaps with the map of traffic accidents. The statistical analysis below will help us understand how strong that overlap really is.
+
+```{code-cell} ipython3
+plt.figure(figsize=(10, 8))
+nx.draw_networkx(
+    G_nyc,
+    pos=pos,
+    node_color=fragment_index,
     cmap="plasma",
     width=0.5,
     alpha=0.6,
     with_labels=False,
-    node_size=20 + 1.5 * y,
+    node_size=40 + 5 * fragment_index,
 )
 ```
 
@@ -305,6 +322,9 @@ with pm.Model(coords=coords) as BYM_model:
 
     # intercept
     beta0 = pm.Normal("beta0", 0, 1)
+
+    # fragmentation effect
+    beta1 = pm.Normal("beta1", 0, 1)
 
     # independent random effect
     theta = pm.Normal("theta", 0, 1, dims="area_idx")
@@ -323,7 +343,7 @@ with pm.Model(coords=coords) as BYM_model:
 
     # exponential link function to ensure
     # predictions are positive
-    mu = pt.exp(log_E + beta0 + sigma * mixture)
+    mu = pt.exp(log_E + beta0 + beta1 * fragment_index + sigma * mixture)
 
     y_i = pm.Poisson("y_i", mu, observed=y)
 ```
@@ -336,52 +356,54 @@ with pm.Model(coords=coords) as BYM_model:
 # my machine.
 
 with BYM_model:
-    idata = pm.sample(2000, nuts_sampler="nutpie", random_seed=rng)
+    idata = pm.sample(1000, nuts_sampler="nutpie", random_seed=rng)
 ```
 
-We can evaluate the sampler in several ways. First, it looks like all our chains converged. All parameters have an rhat value very close to one.
+We can evaluate the sampler in several ways. First, it looks like all our chains converged. All parameters have rhat values very close to one.
 
 ```{code-cell} ipython3
 rhat = az.summary(idata).r_hat.values
 sum(rhat > 1.03)
 ```
 
-Second, the trace plots on all the main parameters look stationary and well-mixed. They also reveal that the mean of rho is somewhere around 0.55, indicating that spatial effects are likely present in the data.
+Second, the trace plots on all the main parameters look stationary and well-mixed. They also reveal that the mean of rho is somewhere around 0.50, indicating that spatial effects are likely present in the data.
 
 ```{code-cell} ipython3
-az.plot_trace(idata, var_names=["beta0", "sigma", "rho"])
+az.plot_trace(idata, var_names=["beta0", "beta1", "sigma", "rho"])
 plt.tight_layout();
 ```
 
+Our trace plot also indicates there is a small effect of social fragmentation on traffic accidents with the bulk of the posterior mass between 0.06 and 0.12.
+
++++
+
 ## Posterior predictive checking
 
-The payoff of all this work is that we can now visualize what it means to decompose the variance into spatial and unstructured parts. One way to make this vivid is to inspect each half of BYM mixture individually. We'll see what the model thinks NYC should look like if spatial effects were the only source of variance. Then we'll looks at the map as if only random effects were present.
+The payoff of all this work is that we can now visualize what it means to decompose the variance into explanatory, spatial and unstructured parts. One way to make this vivid is to inspect each component of the model individually.  We'll see what the model thinks NYC should look like if spatial effects were the only source of variance, then we'll turn to the explanatory effect and finally the random effect.
 
-We'll extract the means of several parameters to generate predictions. In the first case, we'll visualize only the predictions that come from the spatial component of the model. In other words, we are assuming $\rho = 1$.
+We'll extract the means of several parameters to generate predictions. In the first case, we'll visualize only the predictions that come from the spatial component of the model. In other words, we are assuming $\rho = 1$ and we ignore $\theta$ and social fragmentation.
 
 ```{code-cell} ipython3
-phi_pred = idata.posterior.phi.mean(("chain", "draw"))
-beta_pred = idata.posterior.beta0.mean(("chain", "draw"))
-sigma_pred = idata.posterior.sigma.mean(("chain", "draw"))
-y_predict = np.exp(log_E + (beta_pred + sigma_pred * (1 / scaling_factor) * phi_pred).values)
+phi_pred = idata.posterior.phi.mean(("chain", "draw")).values
+beta0_pred = idata.posterior.beta0.mean(("chain", "draw")).values
+sigma_pred = idata.posterior.sigma.mean(("chain", "draw")).values
+y_predict = np.exp(log_E + beta0_pred + sigma_pred * (1 / scaling_factor) * phi_pred)
 ```
 
 Then we'll overlay our predictions onto the same {ref}`adjacency map we built in early <adjacency-map>`. 
 
 ```{code-cell} ipython3
-yz_predict = y_predict
-yz_predict[y_predict > 30] = 30
-
 plt.figure(figsize=(10, 8))
 nx.draw_networkx(
     G_nyc,
     pos=pos,
-    node_color=yz_predict,
+    node_color=y_predict,
     cmap="plasma",
+    vmax=30,
     width=0.5,
     alpha=0.6,
     with_labels=False,
-    node_size=20 + 1.5 * y_predict,
+    node_size=20 + 3 * y_predict,
 )
 ```
 
@@ -389,25 +411,43 @@ The resulting picture is called *spatial smoothing*. Nearby areas tend to be ver
 
 Spatial smoothing is especially useful for forecasting. Imagine there was a low-accident tract surrounded in a high accident neighborhood. Suppose you wanted to predict where would have high accident numbers in the future so that you could target an intervention on those areas. Focusing only on the ring of tracts that had high accident counts in the past might be a mistake. The focal low-accident tract in the middle probably just had good luck in the past. In the future, that area will probably resemble its neighbors more than its past. Spatial smoothing relies on the same principle behind partial pooling - we can learn more by pooling information from nearby areas to correct for anomalies.
 
-Finally, we might look at the unstructured variance by assuming $\rho = 0$. If our model managed to partition variance successfully, there should not be too many spatial clusters left over in the unstructured variance. Instead, variance should be scattered all over the map.
+We can notice that there are three neighborhoods of risk, represented by large yellow clusters, that are well-captured. This suggests that a lot of the explanation for traffic accidents has to do with unidentified but spatially structured causes. By contrast, the social fragmentation index only explains a single neighborhood of risk in the bottom center of the map (with a few small pockets of success elsewhere).
 
 ```{code-cell} ipython3
-theta_pred = idata.posterior.theta.mean(("chain", "draw"))
-y_predict = np.exp(log_E + (beta_pred + sigma_pred * theta_pred).values)
-
-yz_predict = y_predict
-yz_predict[y_predict > 30] = 30
+beta1_pred = idata.posterior.beta1.mean(("chain", "draw")).values
+y_predict = np.exp(log_E + beta0_pred + beta1_pred * fragment_index)
 
 plt.figure(figsize=(10, 8))
 nx.draw_networkx(
     G_nyc,
     pos=pos,
-    node_color=yz_predict,
+    node_color=y_predict,
     cmap="plasma",
+    vmax=30,
     width=0.5,
     alpha=0.6,
     with_labels=False,
-    node_size=20 + 1.5 * y_predict,
+    node_size=20 + 3 * y_predict,
+)
+```
+
+Finally, we might look at the unstructured variance by assuming $\rho = 0$. If our model managed to partition variance successfully, there should not be too many spatial clusters left over in the unstructured variance. Instead, variance should be scattered all over the map.
+
+```{code-cell} ipython3
+theta_pred = idata.posterior.theta.mean(("chain", "draw")).values
+y_predict = np.exp(log_E + beta0_pred + sigma_pred * theta_pred)
+
+plt.figure(figsize=(10, 8))
+nx.draw_networkx(
+    G_nyc,
+    pos=pos,
+    node_color=y_predict,
+    cmap="plasma",
+    vmax=30,
+    width=0.5,
+    alpha=0.6,
+    with_labels=False,
+    node_size=20 + 3 * y_predict,
 )
 ```
 
@@ -432,7 +472,7 @@ G = nx.Graph(W2)
 nx.draw(G)
 ```
 
-If there is strong spatial covariance between the nodes, we should expect the first graph to allow for more variance than the second graph. In the second graph, every node exercises influence on every other node. So the resulting outcomes should relatively uniform.
+If there is strong spatial covariance between the nodes, we should expect the first graph to allow for more variance than the second graph. In the second graph, every node exercises influence on every other node. So the resulting outcomes should be relatively uniform.
 
 The scaling factor is a measure of how much variance is implied by a particular adjacency matrix. If we compute the scaling factor for the two matrices above, it confirms our intuition. The first graph permits more variance than the second.
 
@@ -440,15 +480,7 @@ The scaling factor is a measure of how much variance is implied by a particular 
 scaling_factor_sp(W1), scaling_factor_sp(W2)
 ```
 
-A second example can really underscore the point. These are two preferential attachment graphs - a few nodes have a lot of edges and the majority of nodes have very few edges. The only difference is the minimal number of edges. The first graph, every node gets at least one. In the second, each nodes has at least two.
-
-```{code-cell} ipython3
-G = nx.barabasi_albert_graph(50, 1)
-nx.draw(G)
-W_sparse = nx.adjacency_matrix(G, dtype="int")
-W = W_sparse.toarray()
-print("scaling factor: " + str(scaling_factor_sp(W)))
-```
+A second example can really underscore the point. These are two preferential attachment graphs - a few nodes have a lot of edges and the majority of nodes have very few edges. The only difference is the minimal number of edges. In the first graph, every node gets at least two edges. In the second, each nodes has at least one.
 
 ```{code-cell} ipython3
 G = nx.barabasi_albert_graph(50, 2)
@@ -458,7 +490,15 @@ W = W_sparse.toarray()
 print("scaling factor: " + str(scaling_factor_sp(W)))
 ```
 
-The first graph has a much higher scaling factor because it is less uniformly connected. There is more opportunity for small pockets to form with distinctive traits. In the second graph, the regularity of connections moderates that opportunity. Again, the scaling factors confirm our intuition. 
+```{code-cell} ipython3
+G = nx.barabasi_albert_graph(50, 1)
+nx.draw(G)
+W_sparse = nx.adjacency_matrix(G, dtype="int")
+W = W_sparse.toarray()
+print("scaling factor: " + str(scaling_factor_sp(W)))
+```
+
+The second graph has a much higher scaling factor because it is less uniformly connected. There is more opportunity for small pockets to form with distinctive traits. In the first graph, the regularity of connections moderates that opportunity. Again, the scaling factors confirm our intuition. 
 
 This much clears up what the scaling factor measures. But why do we need to use it? Let's revisit the mathematical description of the BYM component:
 
