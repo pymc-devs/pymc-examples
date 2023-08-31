@@ -85,7 +85,7 @@ nx.draw_networkx(G, node_color=colors, vmin=0, vmax=2, node_size=500, cmap="plas
 
 The adjacency matrix encodes which nodes are connected to which other nodes. If node i and j are connected, there will be a 1 at row i, column j. Otherwise, there will be a zero. For example, node 1 and 3 are connected. There is a 1 in the matrix at row 3, column 1. However node 3 is not connected to node 2, so there is a 0 at row 3 column 2. We have to, of course, remember python indexing. The first row is 0 and the last is 3. Adjacency matrices are also symmetrical - if Canada is adjacent to the United States, the United States is adjacent to Canada.
 
-The density function for ICAR takes in an adjacency matrix `W`` and a variance $\sigma$. We usually assume $\sigma = 1$ and deal with variance in other ways so I'll ignore that first fraction for now.
+The density function for ICAR takes in an adjacency matrix `W` and a variance $\sigma$. We usually assume $\sigma = 1$ and deal with variance in other ways so I'll ignore that first fraction for now.
 
 $$f(\phi| W,\sigma) =
           -\frac{1}{2\sigma^{2}} \sum_{i\sim j} (\phi_{i} - \phi_{j})^2$$
@@ -390,7 +390,7 @@ sigma_pred = idata.posterior.sigma.mean(("chain", "draw")).values
 y_predict = np.exp(log_E + beta0_pred + sigma_pred * (1 / scaling_factor) * phi_pred)
 ```
 
-Then we'll overlay our predictions onto the same {ref}`adjacency map we built in early <adjacency-map>`. 
+Then we'll overlay our predictions onto the same {ref}`adjacency map we built earlier <adjacency-map>`. 
 
 ```{code-cell} ipython3
 plt.figure(figsize=(10, 8))
