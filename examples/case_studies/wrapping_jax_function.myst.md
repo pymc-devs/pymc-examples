@@ -8,8 +8,9 @@ kernelspec:
   display_name: pymc-examples
   language: python
   name: pymc-examples
-substitutions:
-  extra_dependencies: jax numpyro
+myst:
+  substitutions:
+    extra_dependencies: jax numpyro
 ---
 
 (wrapping_jax_function)=

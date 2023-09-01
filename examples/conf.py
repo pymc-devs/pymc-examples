@@ -1,4 +1,5 @@
-import os, sys
+import os
+import sys
 from pathlib import Path
 from sphinx.application import Sphinx
 
@@ -25,10 +26,8 @@ extensions = [
     "sphinxcontrib.bibtex",
     "sphinx_codeautolink",
     "notfound.extension",
-    "sphinx_gallery.load_style",
     "thumbnail_extractor",
     "sphinxext.rediraffe",
-    "sphinx_remove_toctrees",
 ]
 
 # List of patterns, relative to source directory, that match files and
@@ -46,49 +45,6 @@ exclude_patterns = [
 ]
 
 
-def hack_nbsphinx(app: Sphinx) -> None:
-    from nbsphinx import (
-        depart_gallery_html,
-        doctree_resolved,
-        GalleryNode,
-        NbGallery,
-        patched_toctree_resolve,
-    )
-    from sphinx.environment.adapters import toctree
-
-    from glob import glob
-
-    nb_paths = glob("*/*.ipynb")
-    nbsphinx_thumbnails = {}
-    for nb_path in nb_paths:
-        png_file = os.path.join(
-            "thumbnails", os.path.splitext(os.path.split(nb_path)[-1])[0] + ".png"
-        )
-        nb_path_rel = os.path.splitext(nb_path)[0]
-        nbsphinx_thumbnails[nb_path_rel] = png_file
-
-    def builder_inited(app: Sphinx):
-        if not hasattr(app.env, "nbsphinx_thumbnails"):
-            app.env.nbsphinx_thumbnails = {}
-
-    def do_nothing(*node):
-        pass
-
-    app.add_config_value("nbsphinx_thumbnails", nbsphinx_thumbnails, rebuild="html")
-    app.add_directive("nbgallery", NbGallery)
-    app.add_node(
-        GalleryNode,
-        html=(do_nothing, depart_gallery_html),
-        latex=(do_nothing, do_nothing),
-        text=(do_nothing, do_nothing),
-    )
-    app.connect("builder-inited", builder_inited)
-    app.connect("doctree-resolved", doctree_resolved)
-
-    # Monkey-patch Sphinx TocTree adapter
-    toctree.TocTree.resolve = patched_toctree_resolve
-
-
 def remove_index(app):
     """
     This removes the index pages so rediraffe generates the redirect placeholder
@@ -103,7 +59,6 @@ def remove_index(app):
 
 
 def setup(app: Sphinx):
-    hack_nbsphinx(app)
     app.connect("html-collect-pages", remove_index, 100)
 
 
@@ -120,6 +75,9 @@ html_theme_options = {
     "logo": {
         "link": "https://www.pymc.io",
     },
+    "article_header_end": ["nb-badges"],
+    "show_prev_next": True,
+    "article_footer_items": ["rendered_citation.html"],
 }
 version = os.environ.get("READTHEDOCS_VERSION", "")
 version = version if "." in version else "main"
@@ -163,6 +121,7 @@ blog_authors = {
     "contributors": ("PyMC Contributors", "https://docs.pymc.io"),
 }
 blog_default_author = "contributors"
+post_show_prev_next = False
 fontawesome_included = True
 # post_redirect_refresh = 1
 # post_auto_image = 1
@@ -196,22 +155,6 @@ nb_execution_mode = "off"
 rediraffe_redirects = {
     "index.md": "gallery.md",
 }
-remove_from_toctrees = [
-    "BART/*",
-    "case_studies/*",
-    "causal_inference/*",
-    "diagnostics_and_criticism/*",
-    "gaussian_processes/*",
-    "generalized_linear_models/*",
-    "mixture_models/*",
-    "ode_models/*",
-    "howto/*",
-    "samplers/*",
-    "splines/*",
-    "survival_analysis/*",
-    "time_series/*",
-    "variational_inference/*",
-]
 
 # bibtex config
 bibtex_bibfiles = ["references.bib"]

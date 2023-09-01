@@ -344,6 +344,7 @@ ax.legend(
 * Authored by Shashank Kirtania and Thomas Wiecki in 2023.
 * Modified and updated by Michał Raczycki in 08/2023
 
+
 +++
 
 :::{include} ../page_footer.md
