@@ -32,7 +32,7 @@ repos:
             |examples/samplers/MLDA_variance_reduction_linear_regression\.ipynb$
 
 - repo: https://github.com/FlamingTempura/bibtex-tidy
-  rev: v1.8.5
+  rev: v1.11.0
   hooks:
     - id: bibtex-tidy
       files: examples/references.bib
