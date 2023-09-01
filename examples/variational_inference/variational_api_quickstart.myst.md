@@ -54,7 +54,6 @@ sns.histplot(gamma_data);
 
 ```{code-cell} ipython3
 with pm.Model() as gamma_model:
-
     alpha = pm.Exponential("alpha", 0.1)
     beta = pm.Exponential("beta", 0.1)
 
@@ -63,7 +62,6 @@ with pm.Model() as gamma_model:
 
 ```{code-cell} ipython3
 with gamma_model:
-
     # mean_field = pm.fit()
     mean_field = pm.fit(obj_optimizer=pm.adagrad_window(learning_rate=1e-2))
 ```
@@ -133,7 +131,6 @@ Let's use the same model:
 
 ```{code-cell} ipython3
 with pm.Model() as model:
-
     x = pm.NormalMixture("x", w=w, mu=mu, sigma=sd)
     x2 = x**2
     sin_x = pm.math.sin(x)
@@ -397,7 +394,6 @@ Xt = pytensor.shared(X_train)
 yt = pytensor.shared(y_train)
 
 with pm.Model() as iris_model:
-
     # Coefficients for features
     β = pm.Normal("β", 0, sigma=1e2, shape=(4, 3))
     # Transoform to unit interval
@@ -418,7 +414,6 @@ PyMC models have symbolic inputs for latent variables. To evaluate an expression
 
 ```{code-cell} ipython3
 with iris_model:
-
     # We'll use SVGD
     inference = pm.SVGD(n_particles=500, jitter=1)
 
@@ -543,7 +538,6 @@ Now let's use minibatches. At every iteration, we will draw 500 random values:
 X = pm.Minibatch(data, batch_size=500)
 
 with pm.Model() as model:
-
     mu = pm.Normal("mu", 0, sigma=1e5, shape=(100,))
     sd = pm.HalfNormal("sd", shape=(100,))
     likelihood = pm.Normal("likelihood", mu, sigma=sd, observed=X, total_size=data.shape)

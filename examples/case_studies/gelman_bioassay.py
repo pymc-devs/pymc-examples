@@ -8,7 +8,6 @@ n = 5 * ones(4, dtype=int)
 dose = array([-0.86, -0.3, -0.05, 0.73])
 
 with pm.Model() as model:
-
     # Logit-linear model parameters
     alpha = pm.Normal("alpha", 0, sigma=100.0)
     beta = pm.Normal("beta", 0, sigma=1.0)

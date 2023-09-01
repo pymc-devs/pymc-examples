@@ -249,7 +249,6 @@ I must point out that the way I have defined the custom ODE Ops above there is t
 ```{code-cell} ipython3
 class solveCached:
     def __init__(self, times, n_params, n_outputs):
-
         self._times = times
         self._n_params = n_params
         self._n_outputs = n_outputs
@@ -258,7 +257,6 @@ class solveCached:
         self._cachedState = np.zeros((len(times), n_outputs))
 
     def __call__(self, x):
-
         if np.all(x == self._cachedParam):
             state, sens = self._cachedState, self._cachedSens
 
@@ -355,7 +353,6 @@ my_ODEop = ODEop(state, numpy_vsp)
 
 # The probabilistic model
 with pm.Model() as LV_model:
-
     # Priors for unknown model parameters
 
     alpha = pm.Normal("alpha", mu=1, sigma=0.5)
@@ -533,7 +530,6 @@ Notice how I have used the `start` argument for this example. Just like `pm.samp
 ```{code-cell} ipython3
 draws = 1000
 with pm.Model() as FN_model:
-
     a = pm.Gamma("a", alpha=2, beta=1)
     b = pm.Normal("b", mu=0, sigma=1)
     c = pm.Uniform("c", lower=0.1, upper=10)

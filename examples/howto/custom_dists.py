@@ -24,6 +24,7 @@ xdata = np.random.normal(xdata, 10)
 ydata = np.random.normal(ydata, 10)
 data = {"x": xdata, "y": ydata}
 
+
 # define loglikelihood outside of the model context, otherwise cores wont work:
 # Lambdas defined in local namespace are not picklable (see issue #1995)
 def loglike1(value):

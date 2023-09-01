@@ -27,7 +27,6 @@ papermill:
   exception: false
   start_time: '2020-11-29T12:13:02.878264'
   status: completed
-tags: []
 ---
 import arviz as az
 import matplotlib.pyplot as plt
@@ -46,14 +45,13 @@ papermill:
   exception: false
   start_time: '2020-11-29T12:13:07.836201'
   status: completed
-tags: []
 ---
 RANDOM_SEED = 8927
 np.random.seed(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
 
-+++ {"papermill": {"duration": 0.068882, "end_time": "2020-11-29T12:13:08.020372", "exception": false, "start_time": "2020-11-29T12:13:07.951490", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.068882, "end_time": "2020-11-29T12:13:08.020372", "exception": false, "start_time": "2020-11-29T12:13:07.951490", "status": "completed"}}
 
 When confronted with more than one model we have several options. One of them is to perform model selection, using for example a given Information Criterion as exemplified the PyMC examples {ref}`pymc:model_comparison` and the {ref}`GLM-model-selection`. Model selection is appealing for its simplicity, but we are discarding information about the uncertainty in our models. This is somehow similar to computing the full posterior and then just keep a point-estimate like the posterior mean; we may become overconfident of what we really know. You can also browse the {doc}`blog/tag/model-comparison` tag to find related posts. 
 
@@ -108,7 +106,6 @@ papermill:
   exception: false
   start_time: '2020-11-29T12:13:08.081202'
   status: completed
-tags: []
 ---
 d = pd.read_csv(
     "https://raw.githubusercontent.com/pymc-devs/resources/master/Rethinking_2/Data/milk.csv",
@@ -121,7 +118,7 @@ d.iloc[:, 1:] = d.iloc[:, 1:] - d.iloc[:, 1:].mean()
 d.head()
 ```
 
-+++ {"papermill": {"duration": 0.048113, "end_time": "2020-11-29T12:13:09.292526", "exception": false, "start_time": "2020-11-29T12:13:09.244413", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.048113, "end_time": "2020-11-29T12:13:09.292526", "exception": false, "start_time": "2020-11-29T12:13:09.244413", "status": "completed"}}
 
 Now that we have the data we are going to build our first model using only the `neocortex`.
 
@@ -133,7 +130,6 @@ papermill:
   exception: false
   start_time: '2020-11-29T12:13:09.340679'
   status: completed
-tags: []
 ---
 with pm.Model() as model_0:
     alpha = pm.Normal("alpha", mu=0, sigma=10)
@@ -146,7 +142,7 @@ with pm.Model() as model_0:
     trace_0 = pm.sample(2000, return_inferencedata=True)
 ```
 
-+++ {"papermill": {"duration": 0.049578, "end_time": "2020-11-29T12:14:25.401979", "exception": false, "start_time": "2020-11-29T12:14:25.352401", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.049578, "end_time": "2020-11-29T12:14:25.401979", "exception": false, "start_time": "2020-11-29T12:14:25.352401", "status": "completed"}}
 
 The second model is exactly the same as the first one, except we now use the logarithm of the mass
 
@@ -158,7 +154,6 @@ papermill:
   exception: false
   start_time: '2020-11-29T12:14:25.450888'
   status: completed
-tags: []
 ---
 with pm.Model() as model_1:
     alpha = pm.Normal("alpha", mu=0, sigma=10)
@@ -172,7 +167,7 @@ with pm.Model() as model_1:
     trace_1 = pm.sample(2000, return_inferencedata=True)
 ```
 
-+++ {"papermill": {"duration": 0.049839, "end_time": "2020-11-29T12:14:34.547268", "exception": false, "start_time": "2020-11-29T12:14:34.497429", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.049839, "end_time": "2020-11-29T12:14:34.547268", "exception": false, "start_time": "2020-11-29T12:14:34.497429", "status": "completed"}}
 
 And finally the third model using the `neocortex` and `log_mass` variables
 
@@ -184,7 +179,6 @@ papermill:
   exception: false
   start_time: '2020-11-29T12:14:34.597234'
   status: completed
-tags: []
 ---
 with pm.Model() as model_2:
     alpha = pm.Normal("alpha", mu=0, sigma=10)
@@ -198,7 +192,7 @@ with pm.Model() as model_2:
     trace_2 = pm.sample(2000, return_inferencedata=True)
 ```
 
-+++ {"papermill": {"duration": 0.050236, "end_time": "2020-11-29T12:14:54.072799", "exception": false, "start_time": "2020-11-29T12:14:54.022563", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.050236, "end_time": "2020-11-29T12:14:54.072799", "exception": false, "start_time": "2020-11-29T12:14:54.022563", "status": "completed"}}
 
 Now that we have sampled the posterior for the 3 models, we are going to compare them visually. One option is to use the `forestplot` function that supports plotting more than one trace.
 
@@ -210,13 +204,12 @@ papermill:
   exception: false
   start_time: '2020-11-29T12:14:54.123411'
   status: completed
-tags: []
 ---
 traces = [trace_0, trace_1, trace_2]
 az.plot_forest(traces, figsize=(10, 5));
 ```
 
-+++ {"papermill": {"duration": 0.052958, "end_time": "2020-11-29T12:14:55.196722", "exception": false, "start_time": "2020-11-29T12:14:55.143764", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.052958, "end_time": "2020-11-29T12:14:55.196722", "exception": false, "start_time": "2020-11-29T12:14:55.143764", "status": "completed"}}
 
 Another option is to plot several traces in a same plot is to use `plot_density`. This plot is somehow similar to a forestplot, but we get truncated KDE (kernel density estimation) plots (by default 95% credible intervals) grouped by variable names together with a point estimate (by default the mean).
 
@@ -228,7 +221,6 @@ papermill:
   exception: false
   start_time: '2020-11-29T12:14:55.249276'
   status: completed
-tags: []
 ---
 ax = az.plot_density(
     traces,
@@ -246,7 +238,7 @@ ax[0, 1].set_ylabel("")
 ax[0, 1].set_title("95% Credible Intervals: sigma")
 ```
 
-+++ {"papermill": {"duration": 0.055089, "end_time": "2020-11-29T12:14:57.977616", "exception": false, "start_time": "2020-11-29T12:14:57.922527", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.055089, "end_time": "2020-11-29T12:14:57.977616", "exception": false, "start_time": "2020-11-29T12:14:57.922527", "status": "completed"}}
 
 Now that we have sampled the posterior for the 3 models, we are going to use WAIC (Widely applicable information criterion) to compare the 3 models. We can do this using the `compare` function included with ArviZ.
 
@@ -258,14 +250,13 @@ papermill:
   exception: false
   start_time: '2020-11-29T12:14:58.033914'
   status: completed
-tags: []
 ---
 model_dict = dict(zip(["model_0", "model_1", "model_2"], traces))
 comp = az.compare(model_dict)
 comp
 ```
 
-+++ {"papermill": {"duration": 0.056609, "end_time": "2020-11-29T12:14:58.387481", "exception": false, "start_time": "2020-11-29T12:14:58.330872", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.056609, "end_time": "2020-11-29T12:14:58.387481", "exception": false, "start_time": "2020-11-29T12:14:58.330872", "status": "completed"}}
 
 We can see that the best model is `model_2`, the one with both predictor variables. Notice the DataFrame is ordered from lowest to highest WAIC (_i.e_ from _better_ to _worst_ model). Check the {ref}`pymc:model_comparison` for a more detailed discussion on model comparison.
 
@@ -281,7 +272,6 @@ papermill:
   exception: false
   start_time: '2020-11-29T12:14:58.444313'
   status: completed
-tags: []
 ---
 ppc_w = pm.sample_posterior_predictive_w(
     traces=traces,
@@ -291,7 +281,7 @@ ppc_w = pm.sample_posterior_predictive_w(
 )
 ```
 
-+++ {"papermill": {"duration": 0.058454, "end_time": "2020-11-29T12:15:30.024455", "exception": false, "start_time": "2020-11-29T12:15:29.966001", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.058454, "end_time": "2020-11-29T12:15:30.024455", "exception": false, "start_time": "2020-11-29T12:15:29.966001", "status": "completed"}}
 
 Notice that we are passing the weights ordered by their index. We are doing this because we pass `traces` and `models` ordered from model 0 to 2, but the computed weights are ordered from lowest to highest WAIC (or equivalently from larger to lowest weight). In summary, we must be sure that we are correctly pairing the weights and models.
 
@@ -305,12 +295,11 @@ papermill:
   exception: false
   start_time: '2020-11-29T12:15:30.082568'
   status: completed
-tags: []
 ---
 ppc_2 = pm.sample_posterior_predictive(trace=trace_2, model=model_2, progressbar=False)
 ```
 
-+++ {"papermill": {"duration": 0.058214, "end_time": "2020-11-29T12:15:55.404271", "exception": false, "start_time": "2020-11-29T12:15:55.346057", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.058214, "end_time": "2020-11-29T12:15:55.404271", "exception": false, "start_time": "2020-11-29T12:15:55.346057", "status": "completed"}}
 
 A simple way to compare both kind of predictions is to plot their mean and hpd interval.
 
@@ -322,7 +311,6 @@ papermill:
   exception: false
   start_time: '2020-11-29T12:15:55.462809'
   status: completed
-tags: []
 ---
 mean_w = ppc_w["kcal"].mean()
 hpd_w = az.hdi(ppc_w["kcal"].flatten())
@@ -341,7 +329,7 @@ plt.xlabel("kcal per g")
 plt.legend();
 ```
 
-+++ {"papermill": {"duration": 0.05969, "end_time": "2020-11-29T12:15:55.884685", "exception": false, "start_time": "2020-11-29T12:15:55.824995", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.05969, "end_time": "2020-11-29T12:15:55.884685", "exception": false, "start_time": "2020-11-29T12:15:55.824995", "status": "completed"}}
 
 As we can see the mean value is almost the same for both predictions but the uncertainty in the weighted model is larger. We have effectively propagated the uncertainty about which model we should select to the posterior predictive samples. You can now try with the other two methods for computing weights `stacking` (the default and recommended method) and `pseudo-BMA`.
 
@@ -382,7 +370,6 @@ papermill:
   exception: false
   start_time: '2020-11-29T12:16:06.264642'
   status: completed
-tags: []
 ---
 %load_ext watermark
 %watermark -n -u -v -iv -w

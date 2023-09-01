@@ -13,8 +13,6 @@ myst:
     extra_dependencies: geopandas libpysal
 ---
 
-+++ {"tags": []}
-
 (conditional_autoregressive_priors)=
 # Conditional Autoregressive (CAR) Models for Spatial Data
 
@@ -82,8 +80,6 @@ except FileNotFoundError:
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 df_scot_cancer.head()
 ```
 

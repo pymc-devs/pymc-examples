@@ -160,7 +160,6 @@ By increasing the smoothing parameter, we can gradually make the inferred values
 fig, axes = subplots(2, 2)
 
 for ax, smoothing in zip(axes.ravel(), [0.95, 0.99, 0.999, 0.9999]):
-
     z_val = infer_z(smoothing)
 
     ax.plot(x, y)

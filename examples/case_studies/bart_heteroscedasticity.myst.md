@@ -24,8 +24,6 @@ kernelspec:
 In this notebook we show how to use BART to model heteroscedasticity as described in Section 4.1 of [`pymc-bart`](https://github.com/pymc-devs/pymc-bart)'s paper {cite:p}`quiroga2022bart`. We use the `marketing` data set provided by the R package `datarium` {cite:p}`kassambara2019datarium`. The idea is to model a marketing channel contribution to sales as a function of budget.
 
 ```{code-cell} ipython3
-:tags: []
-
 import os
 
 import arviz as az
@@ -37,8 +35,6 @@ import pymc_bart as pmb
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 %config InlineBackend.figure_format = "retina"
 az.style.use("arviz-darkgrid")
 plt.rcParams["figure.figsize"] = [10, 6]
@@ -157,8 +153,6 @@ The fit looks good! In fact, we see that the mean and variance increase as a fun
 ## Watermark
 
 ```{code-cell} ipython3
-:tags: []
-
 %load_ext watermark
 %watermark -n -u -v -iv -w -p pytensor
 ```

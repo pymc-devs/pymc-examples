@@ -52,7 +52,7 @@ We could take many different approaches to the modelling. Because we are dealing
 
 But because the focus of this case study is on the counterfactual reasoning rather than the specifics of time-series modelling, I chose the simpler approach of linear regression for time-series model (see {cite:t}`martin2021bayesian` for more on this).
 
-+++ {"tags": []}
++++
 
 ## Causal inference disclaimer
 
@@ -250,7 +250,6 @@ We are going to estimate reported deaths over time with an intercept, a linear t
 
 ```{code-cell} ipython3
 with pm.Model(coords={"month": month_strings}) as model:
-
     # observed predictors and outcome
     month = pm.MutableData("month", pre["month"].to_numpy(), dims="t")
     time = pm.MutableData("time", pre["t"].to_numpy(), dims="t")

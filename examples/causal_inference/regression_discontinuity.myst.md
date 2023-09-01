@@ -96,8 +96,6 @@ def plot_data(df):
 plot_data(df);
 ```
 
-+++ {"tags": []}
-
 ## Sharp regression discontinuity model
 
 We can define our Bayesian regression discontinuity model as:
@@ -158,7 +156,7 @@ az.plot_posterior(
 
 The most important thing is the posterior over the `effect` parameter. We can use that to base a judgement about the strength of the effect (e.g. through the 95% credible interval) or the presence/absence of an effect (e.g. through a Bayes Factor or ROPE).
 
-+++ {"tags": []}
++++
 
 ## Counterfactual questions
 
@@ -169,8 +167,6 @@ We can use posterior prediction to ask what would we expect to see if:
 _Technical note:_ Formally we are doing posterior prediction of `y`. Running `pm.sample_posterior_predictive` multiple times with different random seeds will result in new and different samples of `y` each time. However, this is not the case (we are not formally doing posterior prediction) for `mu`. This is because `mu` is a deterministic function (`mu = x + delta*treated`), so for our already obtained posterior samples of `delta`, the values of `mu` will be entirely determined by the values of `x` and `treated` data).
 
 ```{code-cell} ipython3
-:tags: []
-
 # MODEL EXPECTATION WITHOUT TREATMENT ------------------------------------
 # probe data
 _x = np.linspace(np.min(df.x), np.max(df.x), 500)

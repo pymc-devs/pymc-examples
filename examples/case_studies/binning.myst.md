@@ -106,8 +106,6 @@ Hypothetically we could have used base python, or numpy, to describe the generat
 The approach was illustrated with a Gaussian distribution, and below we show a number of worked examples using Gaussian distributions. However, the approach is general, and at the end of the notebook we provide a demonstration that the approach does indeed extend to non-Gaussian distributions.
 
 ```{code-cell} ipython3
-:tags: []
-
 import warnings
 
 import arviz as az
@@ -219,8 +217,6 @@ We will start by investigating what happens when we use only one set of bins to 
 ### Model specification
 
 ```{code-cell} ipython3
-:tags: []
-
 with pm.Model() as model1:
     sigma = pm.HalfNormal("sigma")
     mu = pm.Normal("mu")
@@ -235,8 +231,6 @@ pm.model_to_graphviz(model1)
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 with model1:
     trace1 = pm.sample()
 ```
@@ -248,8 +242,6 @@ Given the posterior values,
 we should be able to generate observations that look close to what we observed.
 
 ```{code-cell} ipython3
-:tags: []
-
 with model1:
     ppc = pm.sample_posterior_predictive(trace1)
 ```
@@ -294,22 +286,16 @@ The more important question is whether we have recovered the parameters of the d
 Recall that we used `mu = -2` and `sigma = 2` to generate the data.
 
 ```{code-cell} ipython3
-:tags: []
-
 az.plot_posterior(trace1, var_names=["mu", "sigma"], ref_val=[true_mu, true_sigma]);
 ```
 
 Pretty good! And we can access the posterior mean estimates (stored as [xarray](http://xarray.pydata.org/en/stable/index.html) types) as below. The MCMC samples arrive back in a 2D matrix with one dimension for the MCMC chain (`chain`), and one for the sample number (`draw`). We can calculate the overall posterior average with `.mean(dim=["draw", "chain"])`.
 
 ```{code-cell} ipython3
-:tags: []
-
 trace1.posterior["mu"].mean(dim=["draw", "chain"]).values
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 trace1.posterior["sigma"].mean(dim=["draw", "chain"]).values
 ```
 
@@ -324,8 +310,6 @@ Above, we used one set of binned data. Let's see what happens when we swap out f
 As with the above, here's the model specification.
 
 ```{code-cell} ipython3
-:tags: []
-
 with pm.Model() as model2:
     sigma = pm.HalfNormal("sigma")
     mu = pm.Normal("mu")
@@ -336,15 +320,11 @@ with pm.Model() as model2:
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 with model2:
     trace2 = pm.sample()
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 az.plot_trace(trace2);
 ```
 
@@ -353,8 +333,6 @@ az.plot_trace(trace2);
 Let's run a PPC check to ensure we are generating data that are similar to what we observed.
 
 ```{code-cell} ipython3
-:tags: []
-
 with model2:
     ppc = pm.sample_posterior_predictive(trace2)
 ```
@@ -362,14 +340,10 @@ with model2:
 We calculate the mean bin posterior predictive bin counts, averaged over samples.
 
 ```{code-cell} ipython3
-:tags: []
-
 ppc.posterior_predictive.counts2.mean(dim=["chain", "draw"]).values
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 c2.values
 ```
 
@@ -399,14 +373,10 @@ az.plot_posterior(trace2, var_names=["mu", "sigma"], ref_val=[true_mu, true_sigm
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 trace2.posterior["mu"].mean(dim=["draw", "chain"]).values
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 trace2.posterior["sigma"].mean(dim=["draw", "chain"]).values
 ```
 
@@ -419,8 +389,6 @@ Now we need to see what happens if we add in both ways of binning.
 ### Model Specification
 
 ```{code-cell} ipython3
-:tags: []
-
 with pm.Model() as model3:
     sigma = pm.HalfNormal("sigma")
     mu = pm.Normal("mu")
@@ -442,8 +410,6 @@ pm.model_to_graphviz(model3)
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 with model3:
     trace3 = pm.sample()
 ```
@@ -488,20 +454,14 @@ ax[1].set_title("Seven bin discretization of N(-2, 2)")
 ### Recovering parameters
 
 ```{code-cell} ipython3
-:tags: []
-
 trace3.posterior["mu"].mean(dim=["draw", "chain"]).values
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 trace3.posterior["sigma"].mean(dim=["draw", "chain"]).values
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 az.plot_posterior(trace3, var_names=["mu", "sigma"], ref_val=[true_mu, true_sigma]);
 ```
 

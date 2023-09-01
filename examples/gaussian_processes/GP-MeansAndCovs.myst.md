@@ -31,7 +31,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:36:26.280834'
   status: completed
-tags: []
 ---
 import arviz as az
 import matplotlib.cm as cmap
@@ -51,7 +50,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:36:31.626925'
   status: completed
-tags: []
 ---
 RANDOM_SEED = 8927
 
@@ -60,7 +58,7 @@ az.style.use("arviz-darkgrid")
 plt.rcParams["figure.figsize"] = (10, 4)
 ```
 
-+++ {"papermill": {"duration": 0.037844, "end_time": "2020-12-22T18:36:31.751886", "exception": false, "start_time": "2020-12-22T18:36:31.714042", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.037844, "end_time": "2020-12-22T18:36:31.751886", "exception": false, "start_time": "2020-12-22T18:36:31.714042", "status": "completed"}}
 
 A large set of mean and covariance functions are available in PyMC.  It is relatively easy to define custom mean and covariance functions.  Since PyMC uses PyTensor, their gradients do not need to be defined by the user.  
 
@@ -84,7 +82,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:36:31.790061'
   status: completed
-tags: []
 ---
 zero_func = pm.gp.mean.Zero()
 
@@ -92,7 +89,7 @@ X = np.linspace(0, 1, 5)[:, None]
 print(zero_func(X).eval())
 ```
 
-+++ {"papermill": {"duration": 0.040891, "end_time": "2020-12-22T18:36:32.947028", "exception": false, "start_time": "2020-12-22T18:36:32.906137", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.040891, "end_time": "2020-12-22T18:36:32.947028", "exception": false, "start_time": "2020-12-22T18:36:32.906137", "status": "completed"}}
 
 The default mean functions for all GP implementations in PyMC is `Zero`.
 
@@ -108,14 +105,13 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:36:32.988259'
   status: completed
-tags: []
 ---
 const_func = pm.gp.mean.Constant(25.2)
 
 print(const_func(X).eval())
 ```
 
-+++ {"papermill": {"duration": 0.039627, "end_time": "2020-12-22T18:36:35.195057", "exception": false, "start_time": "2020-12-22T18:36:35.155430", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.039627, "end_time": "2020-12-22T18:36:35.195057", "exception": false, "start_time": "2020-12-22T18:36:35.155430", "status": "completed"}}
 
 As long as the shape matches the input it will receive, `gp.mean.Constant` can also accept a PyTensor tensor or vector of PyMC random variables.
 
@@ -127,14 +123,13 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:36:35.235931'
   status: completed
-tags: []
 ---
 const_func_vec = pm.gp.mean.Constant(pt.ones(5))
 
 print(const_func_vec(X).eval())
 ```
 
-+++ {"papermill": {"duration": 0.04127, "end_time": "2020-12-22T18:36:36.726017", "exception": false, "start_time": "2020-12-22T18:36:36.684747", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.04127, "end_time": "2020-12-22T18:36:36.726017", "exception": false, "start_time": "2020-12-22T18:36:36.684747", "status": "completed"}}
 
 ### Linear
 
@@ -148,7 +143,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:36:36.765472'
   status: completed
-tags: []
 ---
 beta = rng.normal(size=3)
 b = 0.0
@@ -159,7 +153,7 @@ X = rng.normal(size=(5, 3))
 print(lin_func(X).eval())
 ```
 
-+++ {"papermill": {"duration": 0.03931, "end_time": "2020-12-22T18:36:36.918672", "exception": false, "start_time": "2020-12-22T18:36:36.879362", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.03931, "end_time": "2020-12-22T18:36:36.918672", "exception": false, "start_time": "2020-12-22T18:36:36.879362", "status": "completed"}}
 
 ## Defining a custom mean function
 
@@ -181,13 +175,13 @@ class Constant(pm.gp.mean.Mean):
 
 Remember that PyTensor must be used instead of NumPy.
 
-+++ {"papermill": {"duration": 0.039306, "end_time": "2020-12-22T18:36:36.998649", "exception": false, "start_time": "2020-12-22T18:36:36.959343", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.039306, "end_time": "2020-12-22T18:36:36.998649", "exception": false, "start_time": "2020-12-22T18:36:36.959343", "status": "completed"}}
 
 ## Covariance functions
 
 PyMC contains a much larger suite of {mod}`built-in covariance functions <pymc.gp.cov>`.  The following shows functions drawn from a GP prior with a given covariance function, and demonstrates how composite covariance functions can be constructed with Python operators in a straightforward manner.  Our goal was for our API to follow kernel algebra (see Ch.4 of {cite:t}`rasmussen2003gaussian`) as closely as possible.  See the main documentation page for an overview on their usage in PyMC.
 
-+++ {"papermill": {"duration": 0.039789, "end_time": "2020-12-22T18:36:37.078199", "exception": false, "start_time": "2020-12-22T18:36:37.038410", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.039789, "end_time": "2020-12-22T18:36:37.078199", "exception": false, "start_time": "2020-12-22T18:36:37.038410", "status": "completed"}}
 
 ### Exponentiated Quadratic
 
@@ -203,7 +197,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:36:37.121601'
   status: completed
-tags: []
 ---
 lengthscale = 0.2
 eta = 2.0
@@ -225,7 +218,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.042546, "end_time": "2020-12-22T18:36:44.712169", "exception": false, "start_time": "2020-12-22T18:36:44.669623", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.042546, "end_time": "2020-12-22T18:36:44.712169", "exception": false, "start_time": "2020-12-22T18:36:44.669623", "status": "completed"}}
 
 ### Two (and higher) Dimensional Inputs
 
@@ -241,7 +234,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:36:44.755778'
   status: completed
-tags: []
 ---
 x1 = np.linspace(0, 1, 10)
 x2 = np.arange(1, 4)
@@ -255,7 +247,7 @@ m = plt.imshow(cov(X2).eval(), cmap="inferno", interpolation="none")
 plt.colorbar(m);
 ```
 
-+++ {"papermill": {"duration": 0.043142, "end_time": "2020-12-22T18:36:48.032797", "exception": false, "start_time": "2020-12-22T18:36:47.989655", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.043142, "end_time": "2020-12-22T18:36:48.032797", "exception": false, "start_time": "2020-12-22T18:36:47.989655", "status": "completed"}}
 
 #### One dimension active
 
@@ -267,7 +259,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:36:48.076077'
   status: completed
-tags: []
 ---
 ls = 0.2
 cov = pm.gp.cov.ExpQuad(input_dim=2, ls=ls, active_dims=[0])
@@ -276,7 +267,7 @@ m = plt.imshow(cov(X2).eval(), cmap="inferno", interpolation="none")
 plt.colorbar(m);
 ```
 
-+++ {"papermill": {"duration": 0.045376, "end_time": "2020-12-22T18:36:48.840086", "exception": false, "start_time": "2020-12-22T18:36:48.794710", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.045376, "end_time": "2020-12-22T18:36:48.840086", "exception": false, "start_time": "2020-12-22T18:36:48.794710", "status": "completed"}}
 
 #### Product of covariances over different dimensions
 
@@ -290,7 +281,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:36:48.885155'
   status: completed
-tags: []
 ---
 ls1 = 0.2
 ls2 = 1.0
@@ -302,7 +292,7 @@ m = plt.imshow(cov(X2).eval(), cmap="inferno", interpolation="none")
 plt.colorbar(m);
 ```
 
-+++ {"papermill": {"duration": 0.046821, "end_time": "2020-12-22T18:36:50.579012", "exception": false, "start_time": "2020-12-22T18:36:50.532191", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.046821, "end_time": "2020-12-22T18:36:50.579012", "exception": false, "start_time": "2020-12-22T18:36:50.532191", "status": "completed"}}
 
 ### White Noise
 
@@ -318,7 +308,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:36:50.625370'
   status: completed
-tags: []
 ---
 sigma = 2.0
 cov = pm.gp.cov.WhiteNoise(sigma)
@@ -335,7 +324,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.05125, "end_time": "2020-12-22T18:36:51.723154", "exception": false, "start_time": "2020-12-22T18:36:51.671904", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.05125, "end_time": "2020-12-22T18:36:51.723154", "exception": false, "start_time": "2020-12-22T18:36:51.671904", "status": "completed"}}
 
 ### Constant
 
@@ -351,7 +340,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:36:51.774183'
   status: completed
-tags: []
 ---
 c = 2.0
 cov = pm.gp.cov.Constant(c)
@@ -370,7 +358,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.051694, "end_time": "2020-12-22T18:36:53.810105", "exception": false, "start_time": "2020-12-22T18:36:53.758411", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.051694, "end_time": "2020-12-22T18:36:53.810105", "exception": false, "start_time": "2020-12-22T18:36:53.758411", "status": "completed"}}
 
 ### Rational Quadratic
 
@@ -386,7 +374,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:36:53.863653'
   status: completed
-tags: []
 ---
 alpha = 0.1
 ls = 0.2
@@ -405,7 +392,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.055808, "end_time": "2020-12-22T18:36:56.357806", "exception": false, "start_time": "2020-12-22T18:36:56.301998", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.055808, "end_time": "2020-12-22T18:36:56.357806", "exception": false, "start_time": "2020-12-22T18:36:56.301998", "status": "completed"}}
 
 ### Exponential
 
@@ -421,7 +408,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:36:56.413112'
   status: completed
-tags: []
 ---
 inverse_lengthscale = 5
 cov = pm.gp.cov.Exponential(1, ls_inv=inverse_lengthscale)
@@ -438,7 +424,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.058891, "end_time": "2020-12-22T18:36:57.874371", "exception": false, "start_time": "2020-12-22T18:36:57.815480", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.058891, "end_time": "2020-12-22T18:36:57.874371", "exception": false, "start_time": "2020-12-22T18:36:57.815480", "status": "completed"}}
 
 ### Matern 5/2
 
@@ -456,7 +442,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:36:57.933356'
   status: completed
-tags: []
 ---
 ls = 0.2
 tau = 2.0
@@ -474,7 +459,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.061663, "end_time": "2020-12-22T18:37:00.473343", "exception": false, "start_time": "2020-12-22T18:37:00.411680", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.061663, "end_time": "2020-12-22T18:37:00.473343", "exception": false, "start_time": "2020-12-22T18:37:00.411680", "status": "completed"}}
 
 ### Matern 3/2
 
@@ -491,7 +476,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:37:00.534344'
   status: completed
-tags: []
 ---
 ls = 0.2
 tau = 2.0
@@ -509,7 +493,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.064186, "end_time": "2020-12-22T18:37:01.159126", "exception": false, "start_time": "2020-12-22T18:37:01.094940", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.064186, "end_time": "2020-12-22T18:37:01.159126", "exception": false, "start_time": "2020-12-22T18:37:01.094940", "status": "completed"}}
 
 ### Matern 1/2
 
@@ -523,7 +507,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:37:01.223834'
   status: completed
-tags: []
 ---
 ls = 0.2
 tau = 2.0
@@ -541,7 +524,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.068504, "end_time": "2020-12-22T18:37:01.837835", "exception": false, "start_time": "2020-12-22T18:37:01.769331", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.068504, "end_time": "2020-12-22T18:37:01.837835", "exception": false, "start_time": "2020-12-22T18:37:01.769331", "status": "completed"}}
 
 ### Cosine
 
@@ -557,7 +540,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:37:01.907064'
   status: completed
-tags: []
 ---
 period = 0.5
 cov = pm.gp.cov.Cosine(1, period)
@@ -576,7 +558,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.077444, "end_time": "2020-12-22T18:37:03.548722", "exception": false, "start_time": "2020-12-22T18:37:03.471278", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.077444, "end_time": "2020-12-22T18:37:03.548722", "exception": false, "start_time": "2020-12-22T18:37:03.471278", "status": "completed"}}
 
 ### Linear
 
@@ -592,7 +574,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:37:03.621125'
   status: completed
-tags: []
 ---
 c = 1.0
 tau = 2.0
@@ -612,7 +593,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.073236, "end_time": "2020-12-22T18:37:05.293217", "exception": false, "start_time": "2020-12-22T18:37:05.219981", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.073236, "end_time": "2020-12-22T18:37:05.293217", "exception": false, "start_time": "2020-12-22T18:37:05.219981", "status": "completed"}}
 
 ### Polynomial
 
@@ -628,7 +609,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:37:05.367470'
   status: completed
-tags: []
 ---
 c = 1.0
 d = 3
@@ -650,7 +630,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.07702, "end_time": "2020-12-22T18:37:06.892733", "exception": false, "start_time": "2020-12-22T18:37:06.815713", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.07702, "end_time": "2020-12-22T18:37:06.892733", "exception": false, "start_time": "2020-12-22T18:37:06.815713", "status": "completed"}}
 
 ### Multiplication with a precomputed covariance matrix
 
@@ -664,7 +644,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:37:06.968855'
   status: completed
-tags: []
 ---
 # first evaluate a covariance function into a matrix
 period = 0.2
@@ -686,7 +665,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.078461, "end_time": "2020-12-22T18:37:08.672218", "exception": false, "start_time": "2020-12-22T18:37:08.593757", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.078461, "end_time": "2020-12-22T18:37:08.672218", "exception": false, "start_time": "2020-12-22T18:37:08.593757", "status": "completed"}}
 
 ### Applying an arbitrary warping function on the inputs
 
@@ -702,7 +681,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:37:08.751821'
   status: completed
-tags: []
 ---
 def warp_func(x, a, b, c):
     return 1.0 + x + (a * pt.tanh(b * (x - c)))
@@ -735,7 +713,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.085228, "end_time": "2020-12-22T18:37:14.983640", "exception": false, "start_time": "2020-12-22T18:37:14.898412", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.085228, "end_time": "2020-12-22T18:37:14.983640", "exception": false, "start_time": "2020-12-22T18:37:14.898412", "status": "completed"}}
 
 ### Constructing `Periodic` using `WarpedInput`
 
@@ -760,7 +738,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:37:15.070404'
   status: completed
-tags: []
 ---
 def mapping(x, T):
     c = 2.0 * np.pi * (1.0 / T)
@@ -787,7 +764,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.089186, "end_time": "2020-12-22T18:37:18.877629", "exception": false, "start_time": "2020-12-22T18:37:18.788443", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.089186, "end_time": "2020-12-22T18:37:18.877629", "exception": false, "start_time": "2020-12-22T18:37:18.788443", "status": "completed"}}
 
 ### Periodic
 
@@ -801,7 +778,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:37:18.966476'
   status: completed
-tags: []
 ---
 period = 0.6
 ls = 0.4
@@ -822,7 +798,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.090578, "end_time": "2020-12-22T18:37:21.604122", "exception": false, "start_time": "2020-12-22T18:37:21.513544", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.090578, "end_time": "2020-12-22T18:37:21.604122", "exception": false, "start_time": "2020-12-22T18:37:21.513544", "status": "completed"}}
 
 ### Circular
 
@@ -855,7 +831,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:37:21.695696'
   status: completed
-tags: []
 ---
 period = 0.6
 tau = 4
@@ -874,7 +849,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.094257, "end_time": "2020-12-22T18:37:26.237410", "exception": false, "start_time": "2020-12-22T18:37:26.143153", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.094257, "end_time": "2020-12-22T18:37:26.237410", "exception": false, "start_time": "2020-12-22T18:37:26.143153", "status": "completed"}}
 
 We can see the effect of $\tau$, it adds more non-smooth patterns
 
@@ -886,7 +861,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:37:26.332697'
   status: completed
-tags: []
 ---
 period = 0.6
 tau = 40
@@ -905,7 +879,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.099739, "end_time": "2020-12-22T18:37:27.146953", "exception": false, "start_time": "2020-12-22T18:37:27.047214", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.099739, "end_time": "2020-12-22T18:37:27.146953", "exception": false, "start_time": "2020-12-22T18:37:27.047214", "status": "completed"}}
 
 ### Gibbs
 
@@ -919,7 +893,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:37:27.246895'
   status: completed
-tags: []
 ---
 def tanh_func(x, ls1, ls2, w, x0):
     """
@@ -955,7 +928,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.106362, "end_time": "2020-12-22T18:37:32.238582", "exception": false, "start_time": "2020-12-22T18:37:32.132220", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.106362, "end_time": "2020-12-22T18:37:32.238582", "exception": false, "start_time": "2020-12-22T18:37:32.132220", "status": "completed"}}
 
 ### Scaled Covariance
 
@@ -975,7 +948,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:37:32.343873'
   status: completed
-tags: []
 ---
 def logistic(x, a, x0, c, d):
     # a is the slope, x0 is the location
@@ -1010,7 +982,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.109017, "end_time": "2020-12-22T18:37:39.017681", "exception": false, "start_time": "2020-12-22T18:37:38.908664", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.109017, "end_time": "2020-12-22T18:37:39.017681", "exception": false, "start_time": "2020-12-22T18:37:38.908664", "status": "completed"}}
 
 ### Constructing a Changepoint kernel using `ScaledCov`
 
@@ -1033,7 +1005,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:37:39.126841'
   status: completed
-tags: []
 ---
 def logistic(x, a, x0):
     # a is the slope, x0 is the location
@@ -1080,7 +1051,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.123091, "end_time": "2020-12-22T18:37:41.801550", "exception": false, "start_time": "2020-12-22T18:37:41.678459", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.123091, "end_time": "2020-12-22T18:37:41.801550", "exception": false, "start_time": "2020-12-22T18:37:41.678459", "status": "completed"}}
 
 ### Combination of two or more Covariance functions
 
@@ -1092,7 +1063,7 @@ In particular, you can perform the following operations on any covaraince functi
 - Multiply with a scalar or a covariance function with equal or broadcastable dimensions with first covariance function
 - Exponentiate with a scalar.
 
-+++ {"papermill": {"duration": 0.114783, "end_time": "2020-12-22T18:37:42.043753", "exception": false, "start_time": "2020-12-22T18:37:41.928970", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.114783, "end_time": "2020-12-22T18:37:42.043753", "exception": false, "start_time": "2020-12-22T18:37:41.928970", "status": "completed"}}
 
 #### Addition
 
@@ -1104,7 +1075,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:37:42.157152'
   status: completed
-tags: []
 ---
 ls_1 = 0.1
 tau_1 = 2.0
@@ -1129,7 +1099,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.11646, "end_time": "2020-12-22T18:37:42.956319", "exception": false, "start_time": "2020-12-22T18:37:42.839859", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.11646, "end_time": "2020-12-22T18:37:42.956319", "exception": false, "start_time": "2020-12-22T18:37:42.839859", "status": "completed"}}
 
 #### Multiplication
 
@@ -1141,7 +1111,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:37:43.072966'
   status: completed
-tags: []
 ---
 ls_1 = 0.1
 tau_1 = 2.0
@@ -1166,7 +1135,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.125568, "end_time": "2020-12-22T18:37:43.873379", "exception": false, "start_time": "2020-12-22T18:37:43.747811", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.125568, "end_time": "2020-12-22T18:37:43.873379", "exception": false, "start_time": "2020-12-22T18:37:43.747811", "status": "completed"}}
 
 #### Exponentiation
 
@@ -1178,7 +1147,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:37:43.996275'
   status: completed
-tags: []
 ---
 ls_1 = 0.1
 tau_1 = 2.0
@@ -1201,7 +1169,7 @@ plt.ylabel("y")
 plt.xlabel("X");
 ```
 
-+++ {"papermill": {"duration": 0.124028, "end_time": "2020-12-22T18:37:44.770709", "exception": false, "start_time": "2020-12-22T18:37:44.646681", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.124028, "end_time": "2020-12-22T18:37:44.770709", "exception": false, "start_time": "2020-12-22T18:37:44.646681", "status": "completed"}}
 
 ### Defining a custom covariance function
 
@@ -1253,7 +1221,6 @@ papermill:
   exception: false
   start_time: '2020-12-22T18:37:54.811393'
   status: completed
-tags: []
 ---
 %load_ext watermark
 %watermark -n -u -v -iv -w -p aeppl,xarray

@@ -10,8 +10,6 @@ kernelspec:
   name: pymc4-dev
 ---
 
-+++ {"tags": []}
-
 # Generalized Extreme Value Distribution
 
 :::{post} Sept 27, 2022
@@ -20,7 +18,7 @@ kernelspec:
 :author: Colin Caprani 
 :::
 
-+++ {"tags": []}
++++
 
 ## Introduction
 
@@ -94,8 +92,6 @@ And now set up the model using priors estimated from a quick review of the histo
 - $\xi$: we are agnostic to the tail behaviour so centre this at zero, but limit to physically reasonable bounds of $\pm 0.6$, and keep it somewhat tight near zero.
 
 ```{code-cell} ipython3
-:tags: []
-
 # Optionally centre the data, depending on fitting and divergences
 # cdata = (data - data.mean())/data.std()
 

@@ -20,8 +20,6 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-:tags: []
-
 %matplotlib inline
 import arviz as az
 import matplotlib.pyplot as plt
@@ -54,8 +52,6 @@ y_obs = x1 * 0.2 + x2 * 0.3 + noise
 Then define the random variables.
 
 ```{code-cell} ipython3
-:tags: []
-
 lam = 3000
 
 with pm.Model() as model:
@@ -84,8 +80,6 @@ with model:
 We conclude by plotting the sampled marginals and the joint distribution of `beta1` and `beta2`.
 
 ```{code-cell} ipython3
-:tags: []
-
 az.plot_trace(idata);
 ```
 
@@ -113,8 +107,6 @@ az.plot_pair(
 ## Watermark
 
 ```{code-cell} ipython3
-:tags: []
-
 %load_ext watermark
 %watermark -n -u -v -iv -w -p pytensor,aeppl,xarray
 ```

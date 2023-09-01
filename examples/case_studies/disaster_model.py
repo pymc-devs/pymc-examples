@@ -137,7 +137,6 @@ disasters_data = array(
 year = arange(1851, 1962)
 
 with pm.Model() as model:
-
     switchpoint = pm.DiscreteUniform("switchpoint", lower=year.min(), upper=year.max())
     early_mean = pm.Exponential("early_mean", lam=1.0)
     late_mean = pm.Exponential("late_mean", lam=1.0)

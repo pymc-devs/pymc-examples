@@ -92,7 +92,7 @@ In this notebook, a 10-dimensional multivariate normal target density will be sa
 
 We will evaluate these sampling parameters based on three sampling metrics: effective sample size, autocorrelation, and sample acceptance rates.
 
-+++ {"tags": []}
++++
 
 ## Target Distribution
 We use a multivariate normal target density with some correlation in the first few dimensions.  The function `gen_mvnormal_params` generates the parameters for the target distribution.
@@ -170,8 +170,6 @@ def sample_model(model, run=0, step_kwargs={}, sample_kwargs={}):
         t = time.time() - t_start
     return idata, t
 ```
-
-+++ {"tags": []}
 
 ### MCMC Metrics
 To evaluate the MCMC samples, we will use three different metrics.  
@@ -468,7 +466,7 @@ plot_autocorr_drop_tune_fraction(df_results)
 
 By step 100, the autocorrelation for `drop_tune_fraction` = 0.9 has already declined near zero.  The autocorrelation remains higher for the other `drop_tune_fractions` either because sample steps are too large (`drop_tune_fraction` = 0.0), or too small (`drop_tune_fraction` = 1.0).  When the entire tuning history is dropped (`drop_tune_fraction` = 1.0), the chain has to diverge from its current position back into the typical set, which takes much longer.
 
-+++ {"tags": []}
++++
 
 ### Acceptance Rate
 The rolling mean over the `'accepted'` sampler stat shows the difference in the sampler performance for various `drop_tune_fractions`.  A downward trend in the acceptance rate after tuning indicates that the proposals are starting off too narrow, and an upward trend in the acceptance rate after tuning indicates that the proposals are starting off too wide.
@@ -609,12 +607,10 @@ with model:
 print("ESS % =", calc_ess_pct(idata).mean().round(1))
 ```
 
-+++ {"tags": []}
-
 ## Authors
 Conceived by [Micheal Osthege](https://github.com/michaelosthege), expanded by [Greg Brunkhorst](https://github.com/gbrunkhorst).
 
-+++ {"tags": []}
++++
 
 ## References
 

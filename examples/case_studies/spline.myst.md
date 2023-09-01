@@ -19,7 +19,7 @@ kernelspec:
 :author: Joshua Cook
 :::
 
-+++ {"tags": []}
++++
 
 ## Introduction
 
@@ -87,8 +87,6 @@ blossom_data.plot.scatter(
     "year", "doy", color="cornflowerblue", s=10, title="Cherry Blossom Data", ylabel="Days in bloom"
 );
 ```
-
-+++ {"tags": []}
 
 ## The model
 
