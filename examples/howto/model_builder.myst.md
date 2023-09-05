@@ -5,16 +5,16 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-dev
+  display_name: pymc-marketing
   language: python
-  name: python3
+  name: pymc-marketing
 ---
 
 # Using ModelBuilder class for deploying PyMC models 
 :::{post} Feb 22, 2023
 :tags: deployment
 :category: Advanced
-:author: Shashank Kirtania, Thomas Wiecki
+:author: Shashank Kirtania, Thomas Wiecki, Michał Raczycki
 :::
 
 +++
@@ -32,6 +32,8 @@ The new `ModelBuilder` class allows users to use methods to `fit()`, `predict()`
 Let's go through the full workflow, starting with a simple linear regression PyMC model as it's usually written. Of course, this model is just a place-holder for your own model.
 
 ```{code-cell} ipython3
+from typing import Dict, List, Optional, Tuple, Union
+
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
@@ -99,10 +101,11 @@ To define our desired model we inherit from the `ModelBuilder` class. There are 
 class LinearModel(ModelBuilder):
     # Give the model a name
     _model_type = "LinearModel"
+
     # And a version
     version = "0.1"
 
-    def build_model(self, model_config, data=None):
+    def build_model(self, X: pd.DataFrame, y: Union[pd.Series, np.ndarray], **kwargs):
         """
         build_model creates the PyMC model
 
@@ -112,76 +115,126 @@ class LinearModel(ModelBuilder):
         data: Dict[str, Union[np.ndarray, pd.DataFrame, pd.Series]]
             Data we want our model fit on.
         """
-        # Note that we do not have to define a with-context
+        # Check the type of X and y and adjust access accordingly
+        X_values = X["input"].values
+        y_values = y.values if isinstance(y, pd.Series) else y
+        self._generate_and_preprocess_model_data(X_values, y_values)
 
-        # Create mutable data containers
-        x_data = pm.MutableData("x_data", data["input"].values)
-        y_data = pm.MutableData("y_data", data["output"].values)
+        with pm.Model(coords=self.model_coords) as self.model:
 
-        # prior parameters
-        a_mu_prior = model_config.get("a_mu_prior", 0.0)
-        a_sigma_prior = model_config.get("a_sigma_prior", 1.0)
-        b_mu_prior = model_config.get("b_mu_prior", 0.0)
-        b_sigma_prior = model_config.get("b_sigma_prior", 1.0)
-        eps_prior = model_config.get("eps_prior", 1.0)
+            # Create mutable data containers
+            x_data = pm.MutableData("x_data", X_values)
+            y_data = pm.MutableData("y_data", y_values)
 
-        # priors
-        a = pm.Normal("a", mu=a_mu_prior, sigma=a_sigma_prior)
-        b = pm.Normal("b", mu=b_mu_prior, sigma=b_sigma_prior)
-        eps = pm.HalfNormal("eps", eps_prior)
+            # prior parameters
+            a_mu_prior = self.model_config.get("a_mu_prior", 0.0)
+            a_sigma_prior = self.model_config.get("a_sigma_prior", 1.0)
+            b_mu_prior = self.model_config.get("b_mu_prior", 0.0)
+            b_sigma_prior = self.model_config.get("b_sigma_prior", 1.0)
+            eps_prior = self.model_config.get("eps_prior", 1.0)
 
-        obs = pm.Normal("y", mu=a + b * x_data, sigma=eps, shape=x_data.shape, observed=y_data)
+            # priors
+            a = pm.Normal("a", mu=a_mu_prior, sigma=a_sigma_prior)
+            b = pm.Normal("b", mu=b_mu_prior, sigma=b_sigma_prior)
+            eps = pm.HalfNormal("eps", eps_prior)
 
-    def _data_setter(self, data: pd.DataFrame):
-        """
-        _data_setter works as a set_data for the model and updates the data whenever we need to.
-        Parameters:
-        data: Dict[str, Union[np.ndarray, pd.DataFrame, pd.Series]]
-            It is the data we need to update for the model.
-        """
+            obs = pm.Normal("y", mu=a + b * x_data, sigma=eps, shape=x_data.shape, observed=y_data)
+
+    def _data_setter(
+        self, X: Union[pd.DataFrame, np.ndarray], y: Union[pd.Series, np.ndarray] = None
+    ):
+        if isinstance(X, pd.DataFrame):
+            x_values = X["input"].values
+        else:
+            # Assuming "input" is the first column
+            x_values = X[:, 0]
 
         with self.model:
-            pm.set_data({"x_data": data["input"].values})
-            if "output" in data.columns:
-                pm.set_data({"y_data": data["output"].values})
+            pm.set_data({"x_data": x_values})
+            if y is not None:
+                pm.set_data({"y_data": y.values if isinstance(y, pd.Series) else y})
 
-    @classmethod
-    def create_sample_input(cls):
+    @property
+    def default_model_config(self) -> Dict:
         """
-        Creates example input and parameters to test the model on.
-        This is optional but useful.
+        default_model_config is a property that returns a dictionary with all the prior values we want to build the model with.
+        It supports more complex data structures like lists, dictionaries, etc.
+        It will be passed to the class instance on initialization, in case the user doesn't provide any model_config of their own.
         """
-
-        x = np.linspace(start=0, stop=1, num=100)
-        y = 0.3 * x + 0.5
-        y = y + np.random.normal(0, 1, len(x))
-        data = pd.DataFrame({"input": x, "output": y})
-
-        model_config = {
+        model_config: Dict = {
             "a_mu_prior": 0.0,
             "a_sigma_prior": 1.0,
             "b_mu_prior": 0.0,
             "b_sigma_prior": 1.0,
             "eps_prior": 1.0,
         }
+        return model_config
 
-        sampler_config = {
+    @property
+    def default_sampler_config(self) -> Dict:
+        """
+        default_sampler_config is a property that returns a dictionary with all most important sampler parameters.
+        It will be used in case the user doesn't provide any sampler_config of their own.
+        """
+        sampler_config: Dict = {
             "draws": 1_000,
             "tune": 1_000,
             "chains": 3,
             "target_accept": 0.95,
         }
+        return sampler_config
 
-        return data, model_config, sampler_config
+    @property
+    def output_var(self):
+        return "y"
+
+    @property
+    def _serializable_model_config(self) -> Dict[str, Union[int, float, Dict]]:
+        """
+        _serializable_model_config is a property that returns a dictionary with all the model parameters that we want to save.
+        as some of the data structures are not json serializable, we need to convert them to json serializable objects.
+        Some models will need them, others can just define them to return the model_config.
+        """
+        return self.model_config
+
+    def _save_input_params(self, idata) -> None:
+        """
+        Saves any additional model parameters (other than the dataset) to the idata object.
+
+        These parameters are stored within `idata.attrs` using keys that correspond to the parameter names.
+        If you don't need to store any extra parameters, you can leave this method unimplemented.
+
+        Example:
+            For saving customer IDs provided as an 'customer_ids' input to the model:
+            self.customer_ids = customer_ids.values #this line is done outside of the function, preferably at the initialization of the model object.
+            idata.attrs["customer_ids"] = json.dumps(self.customer_ids.tolist())  # Convert numpy array to a JSON-serializable list.
+        """
+        pass
+
+        pass
+
+    def _generate_and_preprocess_model_data(
+        self, X: Union[pd.DataFrame, pd.Series], y: Union[pd.Series, np.ndarray]
+    ) -> None:
+        """
+        Depending on the model, we might need to preprocess the data before fitting the model.
+        all required preprocessing and conditional assignments should be defined here.
+        """
+        self.model_coords = None  # in our case we're not using coords, but if we were, we would define them here, or later on in the function, if extracting them from the data.
+        # as we don't do any data preprocessing, we just assign the data givenin by the user. Note that it's very basic model,
+        # and usually we would need to do some preprocessing, or generate the coords from the data.
+        self.X = X
+        self.y = y
 ```
 
-Now we can create the `LinearModel` object.
-
-But we need some example data. This is where defining a `create_sample_input()` method as done above is useful. It gives users of your model an easy way to generate data (and configurations) to test your model on.
+Now we can create the `LinearModel` object. First step we need to take care of, is data generation:
 
 ```{code-cell} ipython3
-data, model_config, sampler_config = LinearModel.create_sample_input()
-model = LinearModel(model_config, sampler_config, data)
+X = pd.DataFrame(data=np.linspace(start=0, stop=1, num=100), columns=["input"])
+y = 0.3 * x + 0.5
+y = y + np.random.normal(0, 1, len(x))
+
+model = LinearModel()
 ```
 
 After making the object of class `LinearModel` we can fit the model using the `.fit()` method.
@@ -201,7 +254,7 @@ The `fit()` method takes one argument `data` on which we need to fit the model. 
 * `model_config` : It stores values of the model configuration set by user for this particular model.
 
 ```{code-cell} ipython3
-idata = model.fit()
+idata = model.fit(X, y)
 ```
 
 ## Saving model to file
@@ -254,6 +307,7 @@ Our first task is to create data on which we need to predict.
 ```{code-cell} ipython3
 x_pred = np.random.uniform(low=1, high=2, size=10)
 prediction_data = pd.DataFrame({"input": x_pred})
+type(prediction_data["input"].values)
 ```
 
 `ModelBuilder` provides two methods for prediction:
@@ -274,7 +328,7 @@ posterior = az.extract(idata, num_samples=20)
 x_plot = xr.DataArray(np.linspace(1, 2, 100))
 y_plot = posterior["b"] * x_plot + posterior["a"]
 Line2 = ax.plot(x_plot, y_plot.transpose(), color="C1")
-Line1 = ax.plot(x_pred, pred_mean["y"], "x")
+Line1 = ax.plot(x_pred, pred_mean, "x")
 ax.set(title="Posterior predictive regression lines", xlabel="x", ylabel="y")
 ax.legend(
     handles=[Line1[0], Line2[0]], labels=["predicted average", "inferred regression line"], loc=0
@@ -288,6 +342,7 @@ ax.legend(
 
 ## Authors
 * Authored by Shashank Kirtania and Thomas Wiecki in 2023.
+* Modified and updated by Michał Raczycki in 08/2023
 
 +++
 
