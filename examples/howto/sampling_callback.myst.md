@@ -31,7 +31,6 @@ import pymc3 as pm
 X = np.array([1, 2, 3, 4, 5])
 y = X * 2 + np.random.randn(len(X))
 with pm.Model() as model:
-
     intercept = pm.Normal("intercept", 0, 10)
     slope = pm.Normal("slope", 0, 10)
 

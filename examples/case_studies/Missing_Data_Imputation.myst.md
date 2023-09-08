@@ -426,7 +426,6 @@ priors = {
 
 
 def make_model(priors, normal_pred_assumption=True):
-
     coords = {
         "alpha_dim": ["lmx_imputed", "climate_imputed", "empower_imputed"],
         "beta_dim": [
@@ -707,7 +706,6 @@ coords = {"team": teams, "employee": np.arange(len(df_employee))}
 
 
 with pm.Model(coords=coords) as hierarchical_model:
-
     # Priors
     company_beta_lmx = pm.Normal("company_beta_lmx", 0, 1)
     company_beta_male = pm.Normal("company_beta_male", 0, 1)

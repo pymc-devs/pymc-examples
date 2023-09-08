@@ -72,7 +72,6 @@ Our initial beliefs about the parameters are quite informative (sigma=1) and a b
 basic_model = Model()
 
 with basic_model:
-
     # Priors for unknown model parameters
     alpha = Normal("alpha", mu=0, sigma=1)
     beta0 = Normal("beta0", mu=12, sigma=1)
@@ -118,7 +117,6 @@ traces = [trace]
 
 ```{code-cell} ipython3
 for _ in range(10):
-
     # generate more data
     X1 = np.random.randn(size)
     X2 = np.random.randn(size) * 0.2

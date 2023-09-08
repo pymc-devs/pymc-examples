@@ -96,8 +96,6 @@ from pymc_experimental.model_builder import ModelBuilder
 To define our desired model we inherit from the `ModelBuilder` class. There are a couple of methods we need to define.
 
 ```{code-cell} ipython3
-:tags: []
-
 class LinearModel(ModelBuilder):
     # Give the model a name
     _model_type = "LinearModel"
@@ -265,8 +263,6 @@ After fitting the model, we can probably save it to share the model as a file so
 To `save()` or `load()`, we can quickly call methods for respective tasks with the following syntax.
 
 ```{code-cell} ipython3
-:tags: []
-
 fname = "linear_model_v1.nc"
 model.save(fname)
 ```

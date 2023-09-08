@@ -423,7 +423,6 @@ It's not quite so simple! The `grad()` method itself requires that its inputs ar
 ```{code-cell} ipython3
 # define a theano Op for our likelihood function
 class LogLikeWithGrad(tt.Op):
-
     itypes = [tt.dvector]  # expects a vector of parameter values when called
     otypes = [tt.dscalar]  # outputs a single scalar value (the log likelihood)
 
