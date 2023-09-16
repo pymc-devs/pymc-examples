@@ -10,3 +10,4 @@ sphinx-codeautolink
 sphinx-notfound-page
 matplotlib
 sphinxext-rediraffe
+seaborn
