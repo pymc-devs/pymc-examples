@@ -119,6 +119,7 @@ class LinearModel(ModelBuilder):
         self._generate_and_preprocess_model_data(X_values, y_values)
 
         with pm.Model(coords=self.model_coords) as self.model:
+
             # Create mutable data containers
             x_data = pm.MutableData("x_data", X_values)
             y_data = pm.MutableData("y_data", y_values)

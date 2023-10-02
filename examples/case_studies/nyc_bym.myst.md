@@ -319,6 +319,7 @@ Lastly, we'll use a Poisson outcome distribution. The number of traffic accident
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as BYM_model:
+
     # intercept
     beta0 = pm.Normal("beta0", 0, 1)
 

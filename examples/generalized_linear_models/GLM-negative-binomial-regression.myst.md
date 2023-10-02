@@ -16,12 +16,10 @@ kernelspec:
 :::{post} September, 2023
 :tags: negative binomial regression, generalized linear model, 
 :category: beginner
-:author: Ian Ozsvald, Abhipsha Das, Benjamin Vincent, Wesley Boelrijk
+:author: Ian Ozsvald, Abhipsha Das, Benjamin Vincent
 :::
 
 ```{code-cell} ipython3
-import warnings
-
 import arviz as az
 import numpy as np
 import pandas as pd
@@ -32,7 +30,6 @@ from scipy import stats
 ```
 
 ```{code-cell} ipython3
-warnings.simplefilter(action="ignore", category=FutureWarning)
 RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
 
