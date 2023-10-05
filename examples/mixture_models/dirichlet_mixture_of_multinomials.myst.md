@@ -149,32 +149,9 @@ with pm.Model(coords=coords) as model_multinomial:
 pm.model_to_graphviz(model_multinomial)
 ```
 
-Interestingly, NUTS frequently runs into numerical problems on this model, perhaps an example of the
-["Folk Theorem of Statistical Computing"](https://statmodeling.stat.columbia.edu/2008/05/13/the_folk_theore/).
-
-Because of a couple of identities of the multinomial distribution,
-we could reparameterize this model in a number of ways&mdash;we
-would obtain equivalent models by exploding our $n$ observations
-of $\mathrm{total\_count}$ items into $(n \times \mathrm{total\_count})$
-independent categorical trials, or collapsing them down into
-one Multinomial draw with $(n \times \mathrm{total\_count})$ items.
-(Importantly, this is _not_ true for the DM distribution.)
-
-Rather than _actually_ fixing our problem through reparameterization,
-here we'll instead switch to the Metropolis step method,
-which ignores some of the geometric pathologies of our naïve model.
-
-**Important**: switching to Metropolis does not not _fix_ our model's issues, rather it _sweeps them under the rug_.
-In fact, if you try running this model with NUTS (PyMC3's default step method), it will break loudly during sampling.
-When that happens, this should be a **red alert** that there is something wrong in our model.
-
-You'll also notice below that we have to increase considerably the number of draws we take from the posterior;
-this is because Metropolis is much less efficient at
-exploring the posterior than NUTS.
-
 ```{code-cell} ipython3
 with model_multinomial:
-    trace_multinomial = pm.sample(draws=5000, chains=4, step=pm.Metropolis())
+    trace_multinomial = pm.sample(chains=4)
 ```
 
 Let's ignore the warning about inefficient sampling for now.
@@ -279,12 +256,12 @@ axs[-1].set_ylim(0, 0.6);
 Here we're plotting histograms of the predicted counts
 against the observed counts for each species.
 
-_(Notice that the y-axis isn't full height and clips the distributions for species-4 in purple.)_
+_(Notice that the y-axis isn't full height and clips the distributions for species ``mahogany`` in purple.)_
 
 And now we can start to see why our posterior HDI deviates from the _true_ parameters for three of five species (vertical lines).
 See that for all of the species the observed counts are frequently quite far from the predictions
 conditioned on the posterior distribution.
-This is particularly obvious for (e.g.) species-2 where we have one observation of more than 20
+This is particularly obvious for (e.g.) ``oak`` where we have one observation of more than 30
 trees of this species, despite the posterior predicitive mass being concentrated far below that.
 
 This is overdispersion at work, and a clear sign that we need to adjust our model to accommodate it.
@@ -326,13 +303,14 @@ accounting for overdispersion of counts relative to the simple multinomial model
 
 ```{code-cell} ipython3
 with model_dm_explicit:
-    trace_dm_explicit = pm.sample(chains=4)
+    trace_dm_explicit = pm.sample(chains=4, target_accept=0.95)
 ```
 
-We got a warning, although we'll ignore it for now.
-More interesting is how much longer it took to sample this model than the
-first.
-This may be because our model has an additional ~$(n \times k)$ parameters,
+Here we had to increase ``target_accept`` from 0.8 to 0.95 to not get drowned in divergences. 
+
+We also got a warning about the ``rhat`` statistic, although we'll ignore it for now.
+More interesting is how much longer it took to sample this model than the first.
+This is partly because our model has an additional ~$(n \times k)$ parameters,
 but it seems like there are other geometric challenges for NUTS as well.
 
 We'll see if we can fix these in the next model, but for now let's take a look at the traces.
@@ -341,7 +319,7 @@ We'll see if we can fix these in the next model, but for now let's take a look a
 az.plot_trace(data=trace_dm_explicit, var_names=["frac", "conc"]);
 ```
 
-Obviously some sampling issues, but it's hard to see where divergences are occurring.
+The divergences seem to occur when the estimated fraction of the rare species (``mahogany``) is very close to zero.
 
 ```{code-cell} ipython3
 az.plot_forest(trace_dm_explicit, var_names=["frac"])
@@ -368,8 +346,8 @@ summary_dm_explicit
 ```
 
 This is great, but _we can do better_.
-The larger $\hat{R}$ value for $\mathrm{frac}_4$ is mildly concerning, and it's surprising
-that our $\mathrm{ESS} \; \mathrm{sec}^{-1}$ is relatively small.
+The large $\hat{R}$ values are quite concerning, and it's surprising
+that our $\mathrm{ESS} \; \mathrm{sec}^{-1}$ is very small.
 
 +++
 
@@ -379,7 +357,7 @@ that our $\mathrm{ESS} \; \mathrm{sec}^{-1}$ is relatively small.
 
 Happily, the Dirichlet distribution is conjugate to the multinomial
 and therefore there's a convenient, closed-form for the marginalized
-distribution, i.e. the Dirichlet-multinomial distribution, which was added to PyMC3 in [3.11.0](https://github.com/pymc-devs/pymc3/releases/tag/v3.11.0).
+distribution, i.e. the Dirichlet-multinomial distribution, which was added to PyMC in [3.11.0](https://github.com/pymc-devs/pymc3/releases/tag/v3.11.0).
 
 Let's take advantage of this, marginalizing out the explicit latent parameter, $p_i$,
 replacing the combination of this node and the multinomial
@@ -488,7 +466,7 @@ axs[-1, 0].set_ylim(0, 0.6)
 ax.set_ylim(0, 0.6);
 ```
 
-_(Notice, again, that the y-axis isn't full height, and clips the distributions for species-4 in purple.)_
+_(Notice, again, that the y-axis isn't full height, and clips the distributions for ``mahogany`` in purple.)_
 
 Compared to the multinomial (plots on the right), PPCs for the DM (left) show that the observed data is
 an entirely reasonable realization of our model.
@@ -519,8 +497,7 @@ az.compare(
 
 Unsurprisingly, the DM outclasses the multinomial by a mile, assigning a weight of nearly
 100% to the over-dispersed model.
-We can conclude that between the two, the DM should be greatly favored for prediction,
-parameter inference, etc.
+While the ``warning=True`` flag for the multinomial distribution indicates that the numerical value cannot be fully trusted, the large difference in ``elpd_loo`` is further confirmation that between the two, the DM should be greatly favored for prediction, parameter inference, etc.
 
 +++
 
