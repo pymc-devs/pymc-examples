@@ -171,11 +171,8 @@ summary_multinomial
 ```
 
 Likewise, diagnostics in the parameter summary table all look fine.
-Here I've added a column estimating the effective sample size per
+Here we've added a column estimating the effective sample size per
 second of sampling.
-
-Nonetheless, the fact that we were unable to use NUTS is still a red flag, and we should be
-very cautious in using these results.
 
 ```{code-cell} ipython3
 az.plot_forest(trace_multinomial, var_names=["frac"])
