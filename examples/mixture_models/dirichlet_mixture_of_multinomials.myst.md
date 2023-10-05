@@ -186,7 +186,7 @@ frequencies are for each species (dashed lines), we can comment on the accuracy
 of our inferences.
 And now the issues with our model become apparent;
 notice that the 94% HDIs _don't include the true values_ for
-tree species 0, 2, 3.
+tree species 0, 1, 3.
 We might have seen _one_ HDI miss, but _three_???
 
 ...what's going on?
@@ -298,7 +298,7 @@ with model_dm_explicit:
     trace_dm_explicit = pm.sample(chains=4, target_accept=0.9)
 ```
 
-Here we had to increase ``target_accept`` from 0.8 to 0.95 to not get drowned in divergences. 
+Here we had to increase ``target_accept`` from 0.8 to 0.9 to not get drowned in divergences. 
 
 We also got a warning about the ``rhat`` statistic, although we'll ignore it for now.
 More interesting is how much longer it took to sample this model than the first.
