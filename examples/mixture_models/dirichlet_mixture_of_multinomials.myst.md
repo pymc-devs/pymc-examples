@@ -119,8 +119,10 @@ k = len(trees)
 n = len(forests)
 total_count = 50
 
-true_p = sp.stats.dirichlet(true_conc * true_frac).rvs(size=n)
-observed_counts = np.vstack([sp.stats.multinomial(n=total_count, p=p_i).rvs() for p_i in true_p])
+true_p = sp.stats.dirichlet(true_conc * true_frac).rvs(size=n, random_state=rng)
+observed_counts = np.vstack(
+    [sp.stats.multinomial(n=total_count, p=p_i).rvs(random_state=rng) for p_i in true_p]
+)
 
 observed_counts
 ```
