@@ -154,16 +154,11 @@ with model_multinomial:
     trace_multinomial = pm.sample(chains=4)
 ```
 
-Let's ignore the warning about inefficient sampling for now.
-
 ```{code-cell} ipython3
 az.plot_trace(data=trace_multinomial, var_names=["frac"]);
 ```
 
-The trace plots look fairly good;
-visually, each parameter appears to be moving around the posterior well,
-although some sharp parts of the KDE plot suggests that
-sampling sometimes gets stuck in one place for a few steps.
+The trace plots look fairly good; visually, each parameter appears to be moving around the posterior well.
 
 ```{code-cell} ipython3
 summary_multinomial = az.summary(trace_multinomial, var_names=["frac"])
@@ -495,8 +490,7 @@ az.compare(
 )
 ```
 
-Unsurprisingly, the DM outclasses the multinomial by a mile, assigning a weight of nearly
-100% to the over-dispersed model.
+Unsurprisingly, the DM outclasses the multinomial by a mile, assigning a weight of 100% to the over-dispersed model.
 While the ``warning=True`` flag for the multinomial distribution indicates that the numerical value cannot be fully trusted, the large difference in ``elpd_loo`` is further confirmation that between the two, the DM should be greatly favored for prediction, parameter inference, etc.
 
 +++
