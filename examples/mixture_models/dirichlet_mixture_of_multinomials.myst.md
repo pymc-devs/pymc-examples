@@ -298,7 +298,7 @@ accounting for overdispersion of counts relative to the simple multinomial model
 
 ```{code-cell} ipython3
 with model_dm_explicit:
-    trace_dm_explicit = pm.sample(chains=4, target_accept=0.95)
+    trace_dm_explicit = pm.sample(chains=4, target_accept=0.9)
 ```
 
 Here we had to increase ``target_accept`` from 0.8 to 0.95 to not get drowned in divergences. 
@@ -341,8 +341,8 @@ summary_dm_explicit
 ```
 
 This is great, but _we can do better_.
-The large $\hat{R}$ values are quite concerning, and it's surprising
-that our $\mathrm{ESS} \; \mathrm{sec}^{-1}$ is very small.
+The slightly too large $\hat{R}$ value for ``frac[mahogany]`` is a bit concerning, and it's surprising
+that our $\mathrm{ESS} \; \mathrm{sec}^{-1}$ is quite small.
 
 +++
 
