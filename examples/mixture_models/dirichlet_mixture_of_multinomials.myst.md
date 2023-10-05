@@ -520,6 +520,7 @@ In that case, swapping the vanilla Dirichlet distribution for something fancier 
 ## Authors
 * Authored by [Byron J. Smith](https://github.com/bsmith89) on Jan, 2021 ([pymc-examples#18](https://github.com/pymc-devs/pymc-examples/pull/18))
 * Updated by Abhipsha Das and Oriol Abril-Pla on August, 2021 ([pymc-examples#212](https://github.com/pymc-devs/pymc-examples/pull/212))
+* Updated to PyMC v5 by Erik Werner on Oct, 2023 ([pymc-examples#581](https://github.com/pymc-devs/pymc-examples/pull/581))
 
 +++
 
