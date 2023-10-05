@@ -47,12 +47,10 @@ This notebook will demonstrate the performance benefits that come from taking th
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
+import pymc as pm
 import scipy as sp
-import scipy.stats
-import seaborn as sns
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -174,9 +172,7 @@ exploring the posterior than NUTS.
 
 ```{code-cell} ipython3
 with model_multinomial:
-    trace_multinomial = pm.sample(
-        draws=5000, chains=4, step=pm.Metropolis(), return_inferencedata=True
-    )
+    trace_multinomial = pm.sample(draws=5000, chains=4, step=pm.Metropolis())
 ```
 
 Let's ignore the warning about inefficient sampling for now.
@@ -228,9 +224,7 @@ Let's troubleshoot this model using a posterior-predictive check, comparing our 
 
 ```{code-cell} ipython3
 with model_multinomial:
-    pp_samples = az.from_pymc3(
-        posterior_predictive=pm.fast_sample_posterior_predictive(trace=trace_multinomial)
-    )
+    pp_samples = pm.sample_posterior_predictive(trace=trace_multinomial)
 
 # Concatenate with InferenceData object
 trace_multinomial.extend(pp_samples)
@@ -330,7 +324,7 @@ accounting for overdispersion of counts relative to the simple multinomial model
 
 ```{code-cell} ipython3
 with model_dm_explicit:
-    trace_dm_explicit = pm.sample(chains=4, return_inferencedata=True)
+    trace_dm_explicit = pm.sample(chains=4)
 ```
 
 We got a warning, although we'll ignore it for now.
@@ -405,7 +399,7 @@ nodes together into a single DM node.
 
 ```{code-cell} ipython3
 with model_dm_marginalized:
-    trace_dm_marginalized = pm.sample(chains=4, return_inferencedata=True)
+    trace_dm_marginalized = pm.sample(chains=4)
 ```
 
 It samples much more quickly and without any of the warnings from before!
@@ -437,9 +431,7 @@ Posterior predictive checks to the rescue (again)!
 
 ```{code-cell} ipython3
 with model_dm_marginalized:
-    pp_samples = az.from_pymc3(
-        posterior_predictive=pm.fast_sample_posterior_predictive(trace_dm_marginalized)
-    )
+    pp_samples = pm.sample_posterior_predictive(trace_dm_marginalized)
 
 # Concatenate with InferenceData object
 trace_dm_marginalized.extend(pp_samples)
@@ -512,6 +504,12 @@ We'll use leave-one-out cross validation to compare the
 out-of-sample predictive ability of the two.
 
 ```{code-cell} ipython3
+with model_multinomial:
+    pm.compute_log_likelihood(trace_multinomial)
+
+with model_dm_marginalized:
+    pm.compute_log_likelihood(trace_dm_marginalized)
+
 az.compare(
     {"multinomial": trace_multinomial, "dirichlet_multinomial": trace_dm_marginalized}, ic="loo"
 )
@@ -556,12 +554,8 @@ In that case, swapping the vanilla Dirichlet distribution for something fancier 
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p pytensor,xarray
 ```
 
 :::{include} page_footer.md
 :::
-
-```{code-cell} ipython3
-
-```
