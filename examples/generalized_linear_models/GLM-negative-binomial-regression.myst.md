@@ -8,6 +8,9 @@ kernelspec:
   display_name: pymc-dev
   language: python
   name: pymc-dev
+myst:
+  substitutions:
+    extra_dependencies: seaborn
 ---
 
 (GLM-negative-binomial-regression)=
@@ -237,4 +240,9 @@ See also, [`bambi's` negative binomial example](https://bambinos.github.io/bambi
 ```
 
 :::{include} ../page_footer.md
+:::{include} ../extra_installs.md
 :::
+
+```{code-cell} ipython3
+
+```
