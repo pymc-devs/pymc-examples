@@ -234,8 +234,9 @@ def make_coxph(preds):
         mu = pm.Deterministic("mu", exposure * lambda_)
 
         obs = pm.Poisson("obs", mu, observed=quit)
-        base_idata = pm.sample_prior_predictive()
-        base_idata.extend(pm.sample(random_seed=100, idata_kwargs={"log_likelihood": True}))
+        base_idata = pm.sample(
+            target_accept=0.95, random_seed=100, idata_kwargs={"log_likelihood": True}
+        )
 
     return base_idata, base_model
 
@@ -296,8 +297,18 @@ az.plot_hdi(
     base_idata["posterior"]["lambda0"],
     color="lightblue",
     ax=ax,
-    fill_kwargs={"label": "Baseline Survival"},
+    hdi_prob=0.95,
+    fill_kwargs={"label": "Baseline Hazard 95%", "alpha": 0.3},
 )
+az.plot_hdi(
+    range(12),
+    base_idata["posterior"]["lambda0"],
+    color="orange",
+    ax=ax,
+    hdi_prob=0.50,
+    fill_kwargs={"label": "Baseline Hazard 50%"},
+)
+ax.legend()
 ax.set_xlabel("Time")
 ax.set_title("Expected Baseline Hazard", fontsize=20);
 ```
@@ -618,6 +629,11 @@ weibull_idata, weibull_aft = make_aft(y)
 loglogistic_idata, loglogistic_aft = make_aft(np.log(y), weibull=False)
 ```
 
+```{code-cell} ipython3
+compare = az.compare({"weibull": weibull_idata, "loglogistic": loglogistic_idata}, ic="waic")
+compare
+```
+
 ### Deriving Individual Survival Predictions from AFT models
 
 From above we can see how the regression equation is calculated and enters into the Weibull likelihood as the $\beta$ term and the logistic distribution as the $\mu$ parameter. In both cases the $s$ parameter remains free to determine the shape of the distribution.
@@ -833,13 +849,15 @@ az.summary(shared_frailty_idata, var_names=["frailty"])
 ```
 
 ```{code-cell} ipython3
-az.plot_forest(
+ax = az.plot_forest(
     [base_idata, base_intention_idata, weibull_idata, frailty_idata],
     model_names=["coxph_sentiment", "coxph_intention", "weibull_sentiment", "frailty_intetion"],
     var_names=["beta"],
     combined=True,
     figsize=(20, 10),
 )
+
+ax[0].set_title("Parameter Estimates: Various Models", fontsize=20)
 ```
 
 We can now pull apart the frailty estimates and compare them to the demographic information we know about each individual. Since we modelled the data without the intention variable it's interesting to see how the model tries to compensate for the impact of stated intention with the individual frailty term. 
@@ -857,7 +875,7 @@ temp["frailty"] = frailty_terms.reset_index()["mean"]
 )
 ```
 
-which suggests that the model over weights the impact of low sentiment and low intention score particularly and the frailty term compensates by adding a reduction in the rate of multiplicative increase in the hazard term. There is a general pattern that the model overweights the risk which is "corrected" downwards by the frailty terms. This makes a kind of sense as it's a little strange to see such low sentiment coupled with no intent to quit. Indicating that the respondent's answers might not reflect their considered opinion. 
+which suggests that the model over weights the impact of low sentiment and low intention score particularly and the frailty term compensates by adding a reduction in the rate of multiplicative increase in the hazard term. There is a general pattern that the model overweights the risk which is "corrected" downwards by the frailty terms. This makes a kind of sense as it's a little strange to see such low sentiment coupled with no intent to quit. Indicating that the respondent's answers might not reflect their considered opinion. The effect is less pronounced where intention to quit is higher, which also makes sense in this context too. 
 
 +++
 
