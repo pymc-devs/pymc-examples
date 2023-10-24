@@ -34,7 +34,6 @@ Factor analysis is a widely used probabilistic model for identifying low-rank st
 
 ```{code-cell} ipython3
 import arviz as az
-import matplotlib
 import numpy as np
 import pymc as pm
 import pytensor.tensor as pt
@@ -48,7 +47,7 @@ from numpy.random import default_rng
 from xarray_einstats import linalg
 from xarray_einstats.stats import XrContinuousRV
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -220,7 +219,9 @@ If you are unfamiliar with the matrix normal distribution, you can consider it t
 coords["observed_columns2"] = coords["observed_columns"]
 with pm.Model(coords=coords) as PPCA_scaling:
     W = makeW(d, k, ("observed_columns", "latent_columns"))
-    Y_mb = pm.Minibatch(Y.T, 50)  # MvNormal parametrizes covariance of columns, so transpose Y
+    Y_mb = pm.Minibatch(
+        Y.T, batch_size=50
+    )  # MvNormal parametrizes covariance of columns, so transpose Y
     psi = pm.HalfNormal("psi", 1.0)
     E = pm.Deterministic(
         "cov",
@@ -337,7 +338,7 @@ ax.legend(
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aeppl
+%watermark -n -u -v -iv -w
 ```
 
 :::{include} ../page_footer.md
