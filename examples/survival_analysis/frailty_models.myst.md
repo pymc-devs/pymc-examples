@@ -13,7 +13,7 @@ kernelspec:
 (frailty_models)=
 # Frailty and Survival Regression Models
 
-:::{post} January, 2023
+:::{post} October, 2023
 :tags: frailty models, survival analysis, competing risks
 :category: intermediate, reference
 :author: Nathaniel Forde
@@ -37,7 +37,7 @@ az.style.use("arviz-darkgrid")
 rng = np.random.default_rng(42)
 ```
 
-The full generality and range of application for survival analysis is masked by the loaded semantics of medical jargon. It's obscured by the persistent anxiety of self-concern under the inevitable regime of time. But survival analysis broadly construed is not about you, it's not even necessarily about survival.  
+The full generality and range of application for survival analysis is masked by the loaded semantics of medical jargon. It is obscured by the persistent anxiety of self-concern amidst life tracked across calendars and milestones. But survival analysis broadly construed is not about you, it's not even necessarily about survival.  
 
 It requires an extra step in abstraction to move from the medical context towards seeing that time-to-event data is everywhere! Every task which has an implicit clock, every goal with a finish line, every reaper owed a toll - these are sources of time-to-event data. 
 
@@ -55,7 +55,7 @@ We will also show a hierarchical variant of survival modelling called frailty mo
 
 ## Exploration of the Data
 
-People Analytics is inherently about the understanding of efficiency and risk in business - survival analysis is uniquely suited to elucidating these dual concerns. Our example data is drawn from a HR themed case discussed in Keith McNulty's [Handbook of Regression Modelling in People Analytics](https://peopleanalytics-regression-book.org/survival.html). 
+People Analytics is inherently about the understanding of efficiency and risk in business - survival analysis is uniquely suited to elucidating these dual concerns. Our example data is drawn from a HR themed case discussed in Keith McNulty's [Handbook of Regression Modelling in People Analytics](https://peopleanalytics-regression-book.org/survival.html){cite:t}`mcknulty2020people`. 
 
 The data describes survey responses to questions about job satisfaction and the respondents intention to seek employment elsewhere. Additionally the data has broad "demographic" information of the respondent and crucially indications of whether they `left` employment at the company and on which `month` after the survey we still have record of them at the company. We want to understand the probability of attrition over time as a function of the employee survey responses to help (a) manage the risk of being caught short-handed and (b) ensure efficiency through the maintenance of suitably staffed company. 
 
@@ -77,7 +77,7 @@ retention_df = pd.concat([retention_df, dummies], axis=1)
 retention_df.head()
 ```
 
-First we'll look at a simple Kaplan Meier representation of the survival function estimated on our data. A survival function quantifies the probability that an event has not occurred before a given time i.e. the probability of employee attrition before a particular month.
+First we'll look at a simple Kaplan Meier representation of the survival function estimated on our data. A survival function quantifies the probability that an event has not occurred before a given time i.e. the probability of employee attrition before a particular month. Naturally, different types of risk profile lead to different survival functions. Regression models, as is typical, help to parse the nature of that risk where the risk profile is complicated to articulate. 
 
 ```{code-cell} ipython3
 from lifelines import KaplanMeierFitter
@@ -149,7 +149,7 @@ $$ \lambda_{0}(t)$$
 
 It is combined multiplicatively in the Cox Regression with a linear covariate representation of the individual case: 
 
-$$ \lambda_{0}(t) \cdot e^{\beta_{1}X_{1} + \beta_{2}X_{2}... \beta_{k}X_{k}} $$
+$$ \lambda_{0}(t) \cdot exp(\beta_{1}X_{1} + \beta_{2}X_{2}... \beta_{k}X_{k}) $$
 
 and represents the baseline hazard at each point in time when the predictor variables are set at their baseline/reference levels. In our case we are looking at data with granularity of monthly entries. So we need to understand how the risk of attrition changes over the next 12 months subsequent to the date of the annual survey. 
 
@@ -515,7 +515,7 @@ In the HR context we might be interested in the time-to-attrition metrics under 
 
 Next we examine a parametric family of regression based survival models called accelerated failure time models (AFTs). These are regression models that seek to describe the survival function of interest with appeal to one or other of the canonical statistical distributions that can be neatly characterised with a set of location and scale parameters e.g. the Weilbull distribution, the Log-Logistic distribution and the LogNormal distribution to name a few. One advantage of these family of distributions is that we have access to more flexible hazard functions without having to explicitly parameterise the time-interval. 
 
-See here for example how the log-logistic distribution exhibits a non-monotonic hazard function whereas the Weibull hazard is necessarily monotonic. 
+See here for example how the log-logistic distribution exhibits a non-monotonic hazard function whereas the Weibull hazard is necessarily monotonic. This is an important observation if your theory of the case allows for rising and falling risks of event occurence.
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(2, 2, figsize=(20, 7))
@@ -561,7 +561,7 @@ where $S_{0}$ is the baseline survival, but the model is often represented in lo
 
 $$ log T_{i} = \mu + \alpha_{i}x_{i} + \alpha_{2}x_{2} ... \alpha_{p}x_{p} + \sigma\epsilon_{i} $$
 
-where we have $S_{0} = P(exp(\mu + \sigma\epsilon_{i}) \geq t)$. The details are largely important for the estimation strategies, but they show how the impact of risk can be decomposed here just as in the CoxPH model. The effects of the covariates are additive on the log-scale towards the acceleration factor induced by the individual's risk profile.
+where we have the baseline survival function $S_{0} = P(exp(\mu + \sigma\epsilon_{i}) \geq t)$ modified by additional covariates. The details are largely important for the estimation strategies, but they show how the impact of risk can be decomposed here just as in the CoxPH model. The effects of the covariates are additive on the log-scale towards the acceleration factor induced by the individual's risk profile.
 
 Below we'll estimate two AFT models: the weibull model and the Log-Logistic model. Ultimately we're just fitting a censored parametric distribution but we've allowed that that one of the parameters of each distribution is specified as a linear function of the explainatory variables. So the log likelihood term is just: 
 
@@ -719,6 +719,7 @@ reg = az.summary(loglogistic_idata, var_names=["reg"])["mean"]
 s = az.summary(loglogistic_idata, var_names=["s"])["mean"][0]
 temp = retention_df
 t = np.log(np.arange(1, 13, 1))
+## Transforming to the Log-Logistic scale
 alpha = np.round((1 / s), 3)
 beta = np.round(np.exp(reg / alpha), 3)
 
@@ -1136,7 +1137,17 @@ ax1_hist.set_title(
 ax1.set_ylabel("Survival Function", fontsize=10);
 ```
 
+Here we see a plot of the individual frailty terms and the differential multiplicative they add to each individual's predicted hazard. This is a powerful lens on the question of how much the observed covariates capture for each individual and how much of a corrective adjustment is implied by the frailty terms. 
+
++++
+
 ## Conclusion
+
+In this example we've seen how to model time-to-attrition in a employee lifecycle, we might also want to know how much time it will take to hire a replacement for the role. These applications of survival analysis can be routinely applied in industry wherever process efficiency is at issue. The better our understanding of risk over time, the better we can adapt to threats posed in heightened periods of risk. 
+
+There are roughly two perspectives to be balanced: (i) the "actuarial" need to understand expected losses over the lifecycle, and (ii) the "diagnostic" needs to understand the causative factors that extend or reduce the lifecycle. Both are ultimately complementary as we need to "price in" differential flavours of risk that impact the expected bottom line whenever we plan for the future. Survival regression analysis neatly combines both these perspectives enabling the analyst to understand and take preventative action to offset periods of increased risk.
+
+We've seen above a number of distinct regression modelling strategies for time-to-event data, but there are more flavours to explore: joint longitidunal models with a survival component, survival models with time-varying covariates, cure-rate models. The Bayesian perspective on these survival models is useful because we often have detailed results from prior years or experiments where our priors add useful perspective on the problem - allowing us to numerically encode that information to help regularise model fits for complex survival modelling. In the case of frailty models like the ones above - we've seen how priors can be added to the frailty terms to describe the influence of unobserved covariates which influence individual trajectories. This can be especially important in the human centric disciplines where we seek to understand repeat measurments of the same individual time and again - accounting for the and the degree to which we can explain individual effects. 
 
 +++
 
