@@ -73,7 +73,7 @@ dummies = pd.concat(
     axis=1,
 ).rename({"M": "Male"}, axis=1)
 
-retention_df = pd.concat([retention_df, dummies], axis=1)
+retention_df = pd.concat([retention_df, dummies], axis=1).sort_values("Male")
 retention_df.head()
 ```
 
@@ -103,7 +103,7 @@ kmf_low.fit(
 fig, axs = plt.subplots(2, 1, figsize=(20, 13))
 axs = axs.flatten()
 ax = axs[0]
-for i in retention_df.index.unique()[0:30]:
+for i in retention_df.sample(30).index[0:30]:
     temp = retention_df[retention_df.index == i]
     event = temp["left"].max() == 1
     level = temp["level"].unique()
@@ -294,7 +294,7 @@ Each individual model coefficient records an estimate of the impact on the log h
 
 So our case we can see that having an occuptation in  the fields of Finance or Health would seem to induce a roughly 25% increase in the hazard risk of the event occuring over the baseline hazard. Interestingly we can see that the inclusion of the `intention` predictor seems to be important as a unit increase intention moves the dial similarly - and intention is a 0-10 scale. 
 
-These are not time-varying - they enter __once__ into the weighted sum that modifies the baseline hazard. The CoxPH model is popular because it allows us to estimate a changing hazard at each time-point and incorporates the impact of the demographic predictors multiplicatively across the period. 
+These are not time-varying - they enter __once__ into the weighted sum that modifies the baseline hazard. This is the proportional hazard assumption - that while the baseline hazard can change over time the difference in hazard induced by different levels in the covariates remains constant over time. The CoxPH model is popular because it allows us to estimate a changing hazard at each time-point and incorporates the impact of the demographic predictors multiplicatively across the period. This assumption does not always hold, and we'll see some adjustments below that can help deal with violations of the proportional hazards assumption. 
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(20, 6))
@@ -806,9 +806,9 @@ Above we've plotted a sample of individual predicted survival functions from eac
 
 One of the most compelling patterns in bayesian regression modelling more generally is the ability to incorporate hierarchical structure. The analogue of the hierarchical survival model is the individual frailty survival model. But "frailities" do not need to be specified only at an individual level - so called "shared" frailities can be deployed at a group level e.g. across the `field`. 
 
-In the above CoxPH models we fit the data to a standard regression formulation using indicator variables for different levels of the `field` variable which gets included in the weighted sum of the linear combination. With frailty models we instead allow the individual or group frailty term to enter into our model as a multiplicative factor over and above the combination of the baseline hazard with the weighted demographic characteristics of risk. This allows us to capture an estimate of the heterogenous effects accruing to being that particular individual or within that particular group. So our equation now becomes:
+In the above CoxPH models we fit the data to a standard regression formulation using indicator variables for different levels of the `field` variable which gets included in the weighted sum of the linear combination. With frailty models we instead allow the individual or group frailty term to enter into our model as a multiplicative factor over and above the combination of the baseline hazard with the weighted demographic characteristics of risk. This allows us to capture an estimate of the heterogenous effects accruing to being that particular individual or within that particular group. Additionally we can stratify baseline hazards e.g. for gender. So our equation now becomes:
 
-$$ \lambda_{i}(t) = z_{i}exp(\beta X)\lambda_{0}(t) $$
+$$ \lambda_{i}(t) = z_{i}exp(\beta X)\lambda_{0}^{g}(t) $$
 
 which can be estimated in the Bayesian fashion as seen below. Note how we must set a prior on the $z$ term which enters the equation multiplicatively. To set such a prior we reason that the individual heterogeneity will not induce more than 30% speed-up/slow-down in time to attrition and we select a gamma distribution as a prior over our frailty term. 
 
@@ -840,7 +840,6 @@ ax.set_title("Draws from Gamma constrained around Unity", fontsize=20);
 preds = [
     "sentiment",
     "intention",
-    "Male",
     "Low",
     "Medium",
     "Finance",
@@ -849,37 +848,67 @@ preds = [
     "Public/Government",
     "Sales/Marketing",
 ]
-preds3 = ["sentiment", "Male", "Low", "Medium"]
+preds3 = ["sentiment", "Low", "Medium"]
 
 
 def make_coxph_frailty(preds, factor):
     frailty_idx, frailty_labels = pd.factorize(factor)
-    coords = {"intervals": intervals, "preds": preds, "frailty_id": frailty_labels}
+    df_m = retention_df[retention_df["Male"] == 1]
+    df_f = retention_df[retention_df["Male"] == 0]
+    coords = {
+        "intervals": intervals,
+        "preds": preds,
+        "frailty_id": frailty_labels,
+        "gender": ["Male", "Female"],
+    }
 
     with pm.Model(coords=coords) as frailty_model:
-        X_data = pm.MutableData("X_data_obs", retention_df[preds])
-        lambda0 = pm.Gamma("lambda0", 0.01, 0.01, dims="intervals")
+        X_data_m = pm.MutableData("X_data_m", df_m[preds])
+        X_data_f = pm.MutableData("X_data_f", df_f[preds])
+        lambda0 = pm.Gamma("lambda0", 0.01, 0.01, dims=("intervals", "gender"))
         sigma_frailty = pm.Normal("sigma_frailty", opt_params["alpha"], 1)
         mu_frailty = pm.Normal("mu_frailty", opt_params["beta"], 1)
         frailty = pm.Gamma("frailty", mu_frailty, sigma_frailty, dims="frailty_id")
 
         beta = pm.Normal("beta", 0, sigma=1, dims="preds")
 
+        lambda_m = pm.Deterministic(
+            "lambda_m",
+            pt.outer(pt.exp(pm.math.dot(beta, X_data_m.T)), lambda0[:, 0]),
+        )
+        lambda_f = pm.Deterministic(
+            "lambda_f",
+            pt.outer(pt.exp(pm.math.dot(beta, X_data_f.T)), lambda0[:, 1]),
+        )
         lambda_ = pm.Deterministic(
-            "lambda_",
-            pt.outer((frailty[frailty_idx] * (pt.exp(pm.math.dot(beta, X_data.T)))), lambda0),
+            "lambda_", frailty[frailty_idx, None] * pt.concatenate([lambda_f, lambda_m], axis=0)
         )
 
         mu = pm.Deterministic("mu", exposure * lambda_)
 
         obs = pm.Poisson("obs", mu, observed=quit)
-        frailty_idata = pm.sample_prior_predictive()
-        frailty_idata.extend(pm.sample(random_seed=101))
+        # frailty_idata = pm.sample_prior_predictive()
+        frailty_idata = pm.sample(random_seed=101)
 
     return frailty_idata, frailty_model
 
 
 frailty_idata, frailty_model = make_coxph_frailty(preds, range(len(retention_df)))
+pm.model_to_graphviz(frailty_model)
+```
+
+which allows us to pull out the gender specific view on the baseline hazard. This kind of model specification can help account for failures of the proportional hazards assumption.
+
+```{code-cell} ipython3
+fig, ax = plt.subplots(figsize=(20, 6))
+base_m = frailty_idata["posterior"]["lambda0"].sel(gender="Male")
+base_f = frailty_idata["posterior"]["lambda0"].sel(gender="Female")
+az.plot_hdi(range(12), base_m, ax=ax, color="lightblue", fill_kwargs={"alpha": 0.3})
+az.plot_hdi(range(12), base_f, ax=ax, color="red", fill_kwargs={"alpha": 0.1})
+get_mean(base_m).plot(ax=ax, color="darkred", label="Male Baseline Hazard")
+get_mean(base_f).plot(ax=ax, color="blue", label="Female Baseline Hazard")
+ax.legend()
+ax.set_title("Stratified Baseline Hazards");
 ```
 
 We can also allow for shared frailty terms across groups as here in the case of allowing group effect based on the `field` of work. Often however this is not too distinct from including the field as a fixed effect in your model as we did above in the CoxPH model.
@@ -914,7 +943,7 @@ ax = az.plot_forest(
     model_names=["coxph_sentiment", "coxph_intention", "weibull_sentiment", "frailty_intetion"],
     var_names=["beta"],
     combined=True,
-    figsize=(20, 10),
+    figsize=(20, 15),
 )
 
 ax[0].set_title("Parameter Estimates: Various Models", fontsize=20);
@@ -926,10 +955,10 @@ We can now pull apart the frailty estimates and compare them to the demographic 
 temp = retention_df.copy()
 temp["frailty"] = frailty_terms.reset_index()["mean"]
 (
-    temp.groupby(["sentiment", "intention"])[["frailty"]]
-    .mean()
+    temp.groupby(["Male", "sentiment", "intention"])[["frailty"]]
+    .median()
     .reset_index()
-    .pivot(index="sentiment", columns="intention", values="frailty")
+    .pivot(index=["Male", "sentiment"], columns="intention", values="frailty")
     .style.background_gradient(cmap="OrRd", axis=None)
     .set_precision(2)
 )
@@ -950,15 +979,19 @@ def extract_individual_frailty(i, retention_df, intention=False):
         intention_posterior = beta.sel(preds="intention")
     else:
         intention_posterior = 0
-    hazard_base = frailty_idata["posterior"]["lambda0"]
+    hazard_base_m = frailty_idata["posterior"]["lambda0"].sel(gender="Male")
+    hazard_base_f = frailty_idata["posterior"]["lambda0"].sel(gender="Female")
     frailty = frailty_idata.posterior["frailty"]
+    if retention_df.iloc[i]["Male"] == 1:
+        hazard_base = hazard_base_m
+    else:
+        hazard_base = hazard_base_f
 
     full_hazard_idata = hazard_base * (
         frailty.sel(frailty_id=i).mean().item()
         * np.exp(
             beta.sel(preds="sentiment") * retention_df.iloc[i]["sentiment"]
             + np.where(intention, intention_posterior * retention_df.iloc[i]["intention"], 0)
-            + beta.sel(preds="Male") * retention_df.iloc[i]["Male"]
             + beta.sel(preds="Low") * retention_df.iloc[i]["Low"]
             + beta.sel(preds="Medium") * retention_df.iloc[i]["Medium"]
             + beta.sel(preds="Finance") * retention_df.iloc[i]["Finance"]
