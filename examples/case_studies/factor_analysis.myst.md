@@ -122,7 +122,7 @@ with pm.Model(coords=coords) as PPCA:
     psi = pm.HalfNormal("psi", 1.0)
     X = pm.Normal("X", mu=pt.dot(W, F), sigma=psi, observed=Y, dims=("observed_columns", "rows"))
 
-    trace = pm.sample(tune=2000, random_seed=RANDOM_SEED)  # target_accept=0.9
+    trace = pm.sample(tune=2000, random_seed=rng)  # target_accept=0.9
 ```
 
 At this point, there are already several warnings regarding diverging samples and failure of convergence checks. We can see further problems in the trace plot below. This plot shows the path taken by each sampler chain for a single entry in the matrix $W$ as well as the average evaluated over samples for each chain.
@@ -194,7 +194,7 @@ with pm.Model(coords=coords) as PPCA_identified:
     F = pm.Normal("F", dims=("latent_columns", "rows"))
     psi = pm.HalfNormal("psi", 1.0)
     X = pm.Normal("X", mu=pt.dot(W, F), sigma=psi, observed=Y, dims=("observed_columns", "rows"))
-    trace = pm.sample(tune=2000)  # target_accept=0.9
+    trace = pm.sample(tune=2000, random_seed=rng)  # target_accept=0.9
 
 for i in range(4):
     samples = trace.posterior["W"].sel(chain=i, observed_columns=3, latent_columns=1)
