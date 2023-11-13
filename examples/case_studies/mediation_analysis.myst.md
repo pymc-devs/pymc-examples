@@ -5,15 +5,15 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_env
+  display_name: pymc-dev
   language: python
-  name: pymc_env
+  name: pymc-dev
 ---
 
 (mediation_analysis)=
 # Bayesian mediation analysis
 
-:::{post} February, 2022
+:::{post} September, 2023
 :tags: mediation, path analysis, regression 
 :category: beginner
 :author: Benjamin T. Vincent
@@ -26,6 +26,8 @@ It is important to note that the approach to mediation analysis has evolved over
 Readers should be aware that mediation analysis is commonly confused with moderation analysis for which we have a separate example ({ref}`moderation_analysis`).
 
 ```{code-cell} ipython3
+import warnings
+
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
@@ -36,10 +38,12 @@ from pandas import DataFrame
 ```
 
 ```{code-cell} ipython3
-%config InlineBackend.figure_format = 'retina'
+%config InlineBackend.figure_format = "retina"
 plt.rcParams.update({"font.size": 14})
 seed = 42
-rng = np.random.default_rng(seed);
+rng = np.random.default_rng(seed)
+
+warnings.filterwarnings("ignore", category=FutureWarning)
 ```
 
 ## The mediation model
@@ -86,7 +90,7 @@ x, m, y = make_data()
 sns.pairplot(DataFrame({"x": x, "m": m, "y": y}));
 ```
 
-## Define the PyMC3 model and conduct inference
+## Define the PyMC model and conduct inference
 
 ```{code-cell} ipython3
 def mediation_model(x, m, y):
@@ -219,6 +223,7 @@ As stated at the outset, the procedures used in mediation analysis have evolved 
 ## Authors
 - Authored by Benjamin T. Vincent in August 2021
 - Updated by Benjamin T. Vincent in February 2022
+- Updated by Arman Sarjou in September 2023
 
 +++
 
