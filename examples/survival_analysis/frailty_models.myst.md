@@ -70,7 +70,7 @@ People Analytics is inherently about the understanding of efficiency and risk in
 
 The data describes survey responses to questions about job satisfaction and the respondents intention to seek employment elsewhere. Additionally the data has broad "demographic" information of the respondent and crucially indications of whether they `left` employment at the company and on which `month` after the survey we still have record of them at the company. We want to understand the probability of attrition over time as a function of the employee survey responses to help (a) manage the risk of being caught short-handed and (b) ensure efficiency through the maintenance of a suitably staffed company. 
 
-It's important to note that this kind of data is invariably censored data, since it is always pulled at a point in time. So there are some people for whom which we do not see an exit event. They may never leave the company - but importantly at the point of measurement, we simply do not know if they will leave tomorrow... so the data is meaningfully censored at the point in time of measurement. Our modelling strategy needs to account for how that changes the probabilities in question as discussed in {ref}(`GLM-truncated-censored-regression`).
+It's important to note that this kind of data is invariably censored data, since it is always pulled at a point in time. So there are some people for whom which we do not see an exit event. They may never leave the company - but importantly at the point of measurement, we simply do not know if they will leave tomorrow... so the data is meaningfully censored at the point in time of measurement. Our modelling strategy needs to account for how that changes the probabilities in question as discussed in {ref}`GLM-truncated-censored-regression`.
 
 ```{code-cell} ipython3
 try:
@@ -209,7 +209,7 @@ $$ CoxPH(left, month) \sim gender + level $$
 
 is akin to 
 
-$$ left \sim gender + level + (1 | month) $$
+$$ left \sim glm(gender + level + (1 | month)) \\ \text{ where link is } Poisson  $$
 
 which we estimate using the structures defined above and PyMC as follows: 
 
@@ -724,9 +724,10 @@ axs[1].legend();
 ```{code-cell} ipython3
 diff = reg.iloc[1000] - reg.iloc[0]
 pchange = np.round(100 * (diff / reg.iloc[1000]), 2)
+print(
+    f"In this case we could think of the relative change in acceleration factor between the individuals as representing a {pchange}% increase"
+)
 ```
-
-In this case we could think relative change in acceleration factor between the individuals as representing a {eval}`pchange`% increase
 
 ```{code-cell} ipython3
 reg = az.summary(weibull_idata, var_names=["reg"])["mean"]
@@ -773,9 +774,10 @@ axs[1].legend();
 ```{code-cell} ipython3
 diff = reg.iloc[1000] - reg.iloc[0]
 pchange = np.round(100 * (diff / reg.iloc[1000]), 2)
+print(
+    f"In this case we could think of the relative change in acceleration factor between the individuals as representing a {pchange}% increase"
+)
 ```
-
-In this case we could think relative change in acceleration factor between the individuals as representing a {eval}`pchange`% increase
 
 ```{code-cell} ipython3
 loglogistic_predicted_surv = pd.DataFrame(
@@ -988,7 +990,7 @@ For now we'll leave that suggestion aside and focus on the individual frailty mo
 ```{code-cell} ipython3
 ax = az.plot_forest(
     [base_idata, base_intention_idata, weibull_idata, frailty_idata],
-    model_names=["coxph_sentiment", "coxph_intention", "weibull_sentiment", "frailty_intetion"],
+    model_names=["coxph_sentiment", "coxph_intention", "weibull_sentiment", "frailty_intention"],
     var_names=["beta"],
     combined=True,
     figsize=(20, 15),
@@ -1227,11 +1229,11 @@ Here we see a plot of the individual frailty terms and the differential multipli
 
 ## Conclusion
 
-In this example we've seen how to model time-to-attrition in a employee lifecycle, we might also want to know how much time it will take to hire a replacement for the role. These applications of survival analysis can be routinely applied in industry wherever process efficiency is at issue. The better our understanding of risk over time, the better we can adapt to threats posed in heightened periods of risk. 
+In this example we've seen how to model time-to-attrition in a employee lifecycle - we might also want to know how much time it will take to hire a replacement for the role! These applications of survival analysis can be applied routinely in industry wherever process efficiency is at issue. The better our understanding of risk over time, the better we can adapt to threats posed in heightened periods of risk. 
 
 There are roughly two perspectives to be balanced: (i) the "actuarial" need to understand expected losses over the lifecycle, and (ii) the "diagnostic" needs to understand the causative factors that extend or reduce the lifecycle. Both are ultimately complementary as we need to "price in" differential flavours of risk that impact the expected bottom line whenever we plan for the future. Survival regression analysis neatly combines both these perspectives enabling the analyst to understand and take preventative action to offset periods of increased risk.
 
-We've seen above a number of distinct regression modelling strategies for time-to-event data, but there are more flavours to explore: joint longitidunal models with a survival component, survival models with time-varying covariates, cure-rate models. The Bayesian perspective on these survival models is useful because we often have detailed results from prior years or experiments where our priors add useful perspective on the problem - allowing us to numerically encode that information to help regularise model fits for complex survival modelling. In the case of frailty models like the ones above - we've seen how priors can be added to the frailty terms to describe the influence of unobserved covariates which influence individual trajectories. This can be especially important in the human centric disciplines where we seek to understand repeat measurments of the same individual time and again - accounting for the and the degree to which we can explain individual effects. 
+We've seen above a number of distinct regression modelling strategies for time-to-event data, but there are more flavours to explore: joint longitidunal models with a survival component, survival models with time-varying covariates, cure-rate models. The Bayesian perspective on these survival models is useful because we often have detailed results from prior years or experiments where our priors add useful perspective on the problem - allowing us to numerically encode that information to help regularise model fits for complex survival modelling. In the case of frailty models like the ones above - we've seen how priors can be added to the frailty terms to describe the influence of unobserved covariates which influence individual trajectories. Similarly the stratified approach to modelling baseline hazards allows us to carefully express trajectories of individual risk.  This can be especially important in the human centric disciplines where we seek to understand repeat measurments of the same individual time and again - accounting for the degree to which we can explain individual effects. Which is to say that while the framework of survival analysis suits a wide range of domains and problems, it nevertheless allows us to model, predict and infer aspects of specific and individual risk. 
 
 +++
 
