@@ -207,11 +207,11 @@ $W$ (and $F$!) now have entries with identical posterior distributions as compar
 
 Because the $k \times n$ parameters in F all need to be sampled, sampling can become quite expensive for very large `n`. In addition, the link between an observed data point $X_i$ and an associated latent value $F_i$ means that streaming inference with mini-batching cannot be performed.
 
-This scalability problem can be addressed analytically by integrating $F$ out of the model. By doing so, we postpone any calculation for individual values of $F_i$ until later. Hence, this approach is often described as *amortized inference*. However, this fixes the prior on $F$, allowing for no modeling flexibility. In keeping with $F_{ij} \sim N(0, 1)$ we have:
+This scalability problem can be addressed analytically by integrating $F$ out of the model. By doing so, we postpone any calculation for individual values of $F_i$ until later. Hence, this approach is often described as *amortized inference*. However, this fixes the prior on $F$, allowing for less modeling flexibility. In keeping with $F_{ij} \sim \mathcal{N(0, 1)}$ we have:
 
-$X|WF \sim \mathrm{MatrixNormal}(WF, \Psi, I), \;\; F_{ij} \sim N(0, 1)$
+$X|WF \sim \mathcal{N}(WF, \Psi^2), \;\; F_{ij} \sim N(0, 1)$
 
-$X|W \sim \mathrm{MatrixNormal}(0, \Psi + WW^T, I)$
+$X|W \sim \mathcal{N}(0, \Psi^2 + WW^T)$
 
 If you are unfamiliar with the matrix normal distribution, you can consider it to be an extension of the multivariate Gaussian to matrix-valued random variates. Then, the between-row correlations and the between-column correlations are handled by two separate covariance matrices specified as parameters to the matrix normal. Here, it simplifies our notation for a model formulation that has marginalized out $F_i$. The explicit integration of $F_i$ also enables batching the observations for faster computation of `ADVI` and `FullRankADVI` approximations.
 
@@ -225,7 +225,7 @@ with pm.Model(coords=coords) as PPCA_scaling:
     psi = pm.HalfNormal("psi", 1.0)
     E = pm.Deterministic(
         "cov",
-        pt.dot(W, pt.transpose(W)) + psi * pt.diag(pt.ones(d)),
+        pt.dot(W, pt.transpose(W)) + psi**2 * pt.diag(pt.ones(d)),
         dims=("observed_columns", "observed_columns2"),
     )
     X = pm.MvNormal("X", 0.0, cov=E, observed=Y_mb)
@@ -260,9 +260,9 @@ ax.legend(loc="upper right");
 The matrix $F$ is typically of interest for factor analysis, and is often used as a feature matrix for dimensionality reduction. However, $F$ has been
 marginalized away in order to make fitting the model easier; and now we need it back. This is, in effect, an exercise in least-squares as:
 
-$X|WF \sim N(WF, \Psi)$
+$X|WF \sim \mathcal{N}(WF, \Psi^2)$
 
-$(W^TW)^{-1}W^T\Psi^{-1/2}X|W,F \sim N(F, (W^TW)^{-1})$
+$(W^TW)^{-1}W^T X|W,F \sim \mathcal{N}(F, \Psi^2(W^TW)^{-1})$
 
 +++
 
@@ -280,25 +280,27 @@ def get_default_dims(dims, dims2):
 linalg.get_default_dims = get_default_dims
 ```
 
+
+
 ```{code-cell} ipython3
 post = trace_vi.posterior
 obs = trace.observed_data
 
-WW = linalg.inv(
+WW_inv = linalg.inv(
     linalg.matmul(
         post["W"], post["W"], dims=("latent_columns", "observed_columns", "latent_columns")
     )
 )
 WW_W = linalg.matmul(
-    WW,
+    WW_inv,
     post["W"],
     dims=(("latent_columns", "latent_columns2"), ("latent_columns", "observed_columns")),
 )
-F_mu = xr.dot(1 / np.sqrt(post["psi"]) * WW_W, obs["X"], dims="observed_columns")
-WW_chol = linalg.cholesky(WW)
+F_mu = xr.dot(WW_W, obs["X"], dims="observed_columns")
+WW_chol = linalg.cholesky(WW_inv)
 norm_dist = XrContinuousRV(sp.stats.norm, xr.zeros_like(F_mu))  # the zeros_like defines the shape
 F_sampled = F_mu + linalg.matmul(
-    WW_chol,
+    post["psi"] * WW_chol,
     norm_dist.rvs(),
     dims=(("latent_columns", "latent_columns2"), ("latent_columns", "rows")),
 )
