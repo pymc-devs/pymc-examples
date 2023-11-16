@@ -56,7 +56,7 @@ We will demonstrate how the concepts of survival based regression analysis, trad
 
 ### Survival Regression Models
 
-The emphasis here is on the generality of the framework. We are describing the trajectory of state-transitions within time. Anywhere speed or efficiency matters, it is important to understand the inputs to time-to-event trajectories. This is the benefit of survival analysis - clearly articulated models which quantify the impact of demographic characteristics and treatment effects (in terms of speed) on the probability of state-transition. Movement between life and death, hired and fired, ill and cured, subscribed to churned. These state transitions are all tranparently anc compellingly modelled using survival regression models. 
+The emphasis here is on the generality of the framework. We are describing the trajectory of state-transitions within time. Anywhere speed or efficiency matters, it is important to understand the inputs to time-to-event trajectories. This is the benefit of survival analysis - clearly articulated models which quantify the impact of demographic characteristics and treatment effects (in terms of speed) on the probability of state-transition. Movement between life and death, hired and fired, ill and cured, subscribed to churned. These state transitions are all tranparently and compellingly modelled using survival regression models. 
 
 We will see two varieties of regression modelling with respect to time-to-event data: (1) Cox's Proportional Hazard approach and (2) the Accelerated Failure time models. Both models enable the analyst to combine and assess the impacts of different covariates on the survival time outcomes, but each does so in a slightly different manner. 
 
@@ -158,7 +158,7 @@ Here we've used the Kaplan Meier non-parametric estimate of the survival curve w
 
 ## Data Preperation for Survival Regression
 
-The idea behind Cox Proportional Hazard regression models is, put crudely, to treat the temporal component of risk seriously. We imagine a latent baseline hazard of occurence over the time-interval. Michael Betancourt [asks](https://betanalpha.github.io/assets/case_studies/survival_modeling.html) that we think of the hazard as "the accumulation of some stimulating resource" that precedes the occurence of an event. In the context of a failure modelling it can be imagined as sporadic increasing wear and tear. In the context of HR dyanamics it could be imagined as increasing frustration is the work-environment. This term is often denoted:
+The idea behind Cox Proportional Hazard regression models is, put crudely, to treat the temporal component of risk seriously. We imagine a latent baseline hazard of occurrence over the time-interval. Michael Betancourt [asks](https://betanalpha.github.io/assets/case_studies/survival_modeling.html) that we think of the hazard as "the accumulation of some stimulating resource" that precedes the occurrence of an event. In the context of a failure modelling it can be imagined as sporadic increasing wear and tear. In the context of HR dyanamics it could be imagined as increasing frustration is the work-environment. This term is often denoted:
 
 $$ \lambda_{0}(t)$$
 
@@ -166,7 +166,7 @@ It is combined multiplicatively in the Cox Regression with a linear covariate re
 
 $$ \lambda_{0}(t) \cdot exp(\beta_{1}X_{1} + \beta_{2}X_{2}... \beta_{k}X_{k}) $$
 
-and represents the baseline hazard at each point in time when the predictor variables are set at their baseline/reference levels. Which is to say any unit increase over 0 to a covariate in the regression model changes the baseline hazard. In our case we are looking at data with granularity of monthly entries. So we need to understand how the risk of attrition changes over the next 12 months subsequent to the date of the annual survey and how the covariate profile of each individual changes the baseline hazard.
+and represents the baseline hazard at each point in time when the predictor variables are set at their baseline/reference levels. Which is to say any unit increase over 0 to any covariate $X_{i}$ in the regression model changes the baseline hazard. In our case we are looking at data with granularity of monthly entries. So we need to understand how the risk of attrition changes over the next 12 months subsequent to the date of the annual survey and how the covariate profile of each individual changes the baseline hazard.
 
 These models can be estimated using the approach of Bayesian estimation outlined by Austin Rochford in {ref}`survival_analysis`. In what follows we build on his examples.
 
@@ -349,7 +349,7 @@ ax.set_xlabel("Time")
 ax.set_title("Expected Baseline Hazard", fontsize=20);
 ```
 
-This is the baseline stimulus - the growing, sporadically shifting hazard that spurs the occurence of attrition. We build regression models incorporating a slew of control variables and treatment indicators to evaluate what if any effect they have on changing the baseline hazard over time. Survival regression modelling is a transparent tool for analysing the impact of demographic and behavioural features of risk over time. Note the sharp increase at the end of an annual cycle.
+This is the baseline stimulus - the growing, sporadically shifting hazard that spurs the occurrence of attrition. We build regression models incorporating a slew of control variables and treatment indicators to evaluate what if any effect they have on changing the baseline hazard over time. Survival regression modelling is a transparent tool for analysing the impact of demographic and behavioural features of risk over time. Note the sharp increase at the end of an annual cycle.
 
 +++
 
@@ -545,7 +545,7 @@ In the HR context we might be interested in the time-to-attrition metrics under 
 
 Next we examine a parametric family of regression based survival models called accelerated failure time models (AFTs). These are regression models that seek to describe the survival function of interest with appeal to one or other of the canonical statistical distributions that can be neatly characterised with a set of location and scale parameters e.g. the Weilbull distribution, the Log-Logistic distribution and the LogNormal distribution to name a few. One advantage of these family of distributions is that we have access to more flexible hazard functions without having to explicitly parameterise the time-interval. 
 
-See here for example how the log-logistic distribution exhibits a non-monotonic hazard function whereas the Weibull hazard is necessarily monotonic. This is an important observation if your theory of the case allows for rising and falling risks of event occurence.
+See here for example how the log-logistic distribution exhibits a non-monotonic hazard function whereas the Weibull hazard is necessarily monotonic. This is an important observation if your theory of the case allows for rising and falling risks of event occurrence.
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(2, 2, figsize=(20, 7))
@@ -725,7 +725,7 @@ axs[1].legend();
 diff = reg.iloc[1000] - reg.iloc[0]
 pchange = np.round(100 * (diff / reg.iloc[1000]), 2)
 print(
-    f"In this case we could think of the relative change in acceleration factor between the individuals as representing a {pchange}% increase"
+    f"In this case we could think of the relative change in acceleration \n factor between the individuals as representing a {pchange}% increase"
 )
 ```
 
@@ -775,7 +775,7 @@ axs[1].legend();
 diff = reg.iloc[1000] - reg.iloc[0]
 pchange = np.round(100 * (diff / reg.iloc[1000]), 2)
 print(
-    f"In this case we could think of the relative change in acceleration factor between the individuals as representing a {pchange}% increase"
+    f"In this case we could think of the relative change in acceleration \n factor between the individuals as representing a {pchange}% increase"
 )
 ```
 
