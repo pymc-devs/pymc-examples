@@ -8,6 +8,9 @@ kernelspec:
   display_name: pymc_examples_new
   language: python
   name: pymc_examples_new
+myst:
+  substitutions:
+    extra_dependencies: lifelines
 ---
 
 (frailty_models)=
@@ -19,7 +22,14 @@ kernelspec:
 :author: Nathaniel Forde
 :::
 
++++
+
+:::{include} ../extra_installs.md
+:::
+
 ```{code-cell} ipython3
+import os
+
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,6 +37,7 @@ import pandas as pd
 import pymc as pm
 import pytensor.tensor as pt
 
+from lifelines import KaplanMeierFitter
 from matplotlib import cm
 from scipy.stats import fisk, weibull_min
 ```
@@ -45,24 +56,28 @@ We will demonstrate how the concepts of survival based regression analysis, trad
 
 ### Survival Regression Models
 
-The emphasis here is on the generality of the framework. We are describing the trajectory of state-transitions within time. Anywhere speed or efficiency matters, it is important to understand the inputs to time-to-event trajectories. This is the benefit of survival analysis - clearly articulated models which quantify the impact of demographic characteristics and treatment effects (in terms of speed) on the probability of state-transition. 
+The emphasis here is on the generality of the framework. We are describing the trajectory of state-transitions within time. Anywhere speed or efficiency matters, it is important to understand the inputs to time-to-event trajectories. This is the benefit of survival analysis - clearly articulated models which quantify the impact of demographic characteristics and treatment effects (in terms of speed) on the probability of state-transition. Movement between life and death, hired and fired, ill and cured, subscribed to churned. These state transitions are all tranparently anc compellingly modelled using survival regression models. 
 
 We will see two varieties of regression modelling with respect to time-to-event data: (1) Cox's Proportional Hazard approach and (2) the Accelerated Failure time models. Both models enable the analyst to combine and assess the impacts of different covariates on the survival time outcomes, but each does so in a slightly different manner. 
 
-We will also show a hierarchical variant of survival modelling called frailty modelling, where we estimate the survival function using regression but allow for the inclusion of individual or groups specific "frailty" terms. These are a multiplicative factor applied to the estimation routine of an individual's survival curve allowing us to capture some of the unexplained heterogeneity in the population. Throughout we will draw on the discussion in {cite:t}`collett2014survival`
+We will also show a hierarchical variant of survival modelling called frailty modelling, where we estimate the survival function using regression but allow for the inclusion of individual or groups specific "frailty" terms. These are a multiplicative factor applied to the estimation routine of an individual's survival curve allowing us to capture some of the unexplained heterogeneity in the population. Throughout we will draw on the discussion in {cite:t}`collett2014survival`.
 
 +++
 
 ## Exploration of the Data
 
-People Analytics is inherently about the understanding of efficiency and risk in business - survival analysis is uniquely suited to elucidating these dual concerns. Our example data is drawn from a HR themed case discussed in Keith McNulty's [Handbook of Regression Modelling in People Analytics](https://peopleanalytics-regression-book.org/survival.html){cite:t}`mcknulty2020people`. 
+People Analytics is inherently about the understanding of efficiency and risk in business - survival analysis is uniquely suited to elucidating these dual concerns. Our example data is drawn from a HR themed case discussed in Keith McNulty's [Handbook of Regression Modelling in People Analytics](https://peopleanalytics-regression-book.org/survival.html) {cite:t}`mcknulty2020people`. 
 
-The data describes survey responses to questions about job satisfaction and the respondents intention to seek employment elsewhere. Additionally the data has broad "demographic" information of the respondent and crucially indications of whether they `left` employment at the company and on which `month` after the survey we still have record of them at the company. We want to understand the probability of attrition over time as a function of the employee survey responses to help (a) manage the risk of being caught short-handed and (b) ensure efficiency through the maintenance of suitably staffed company. 
+The data describes survey responses to questions about job satisfaction and the respondents intention to seek employment elsewhere. Additionally the data has broad "demographic" information of the respondent and crucially indications of whether they `left` employment at the company and on which `month` after the survey we still have record of them at the company. We want to understand the probability of attrition over time as a function of the employee survey responses to help (a) manage the risk of being caught short-handed and (b) ensure efficiency through the maintenance of a suitably staffed company. 
 
-It's important to note that this kind of data is invariably censored data, since it is always pulled at a point in time. So there are some people for whom which we do not see an exit event. They may never leave the company - but importantly at the point of measurement, we simply do not know if they will leave tomorrow... so the data is meaningfully censored at the point in time of measurement. Our modelling strategy needs to account for how that changes the probabilities in question. 
+It's important to note that this kind of data is invariably censored data, since it is always pulled at a point in time. So there are some people for whom which we do not see an exit event. They may never leave the company - but importantly at the point of measurement, we simply do not know if they will leave tomorrow... so the data is meaningfully censored at the point in time of measurement. Our modelling strategy needs to account for how that changes the probabilities in question as discussed in {ref}(`GLM-truncated-censored-regression`).
 
 ```{code-cell} ipython3
-retention_df = pd.read_csv("../data/time_to_attrition.csv")
+try:
+    retention_df = pd.read_csv(os.path.join("..", "data", "time_to_attrition.csv"))
+except FileNotFoundError:
+    retention_df = pd.read_csv(pm.get_data("time_to_attrition.csv"))
+
 
 dummies = pd.concat(
     [
@@ -77,11 +92,11 @@ retention_df = pd.concat([retention_df, dummies], axis=1).sort_values("Male")
 retention_df.head()
 ```
 
+We've added dummy-encoding of some of the categorical variables for use in regression models below. We drop the first encoded class because this avoids identification issues in the estimation procedure. Additionally this means that the coefficients estimated for each of these indicator variables have an interpretation relative to the dropped "reference" class.
+
 First we'll look at a simple Kaplan Meier representation of the survival function estimated on our data. A survival function quantifies the probability that an event has not occurred before a given time i.e. the probability of employee attrition before a particular month. Naturally, different types of risk profile lead to different survival functions. Regression models, as is typical, help to parse the nature of that risk where the risk profile is complicated to articulate. 
 
 ```{code-cell} ipython3
-from lifelines import KaplanMeierFitter
-
 kmf = KaplanMeierFitter()
 kmf.fit(retention_df["month"], event_observed=retention_df["left"])
 kmf_hi = KaplanMeierFitter()
@@ -100,7 +115,7 @@ kmf_low.fit(
     event_observed=retention_df[retention_df["sentiment"] == 2]["left"],
 )
 
-fig, axs = plt.subplots(2, 1, figsize=(20, 13))
+fig, axs = plt.subplots(1, 2, figsize=(20, 15))
 axs = axs.flatten()
 ax = axs[0]
 for i in retention_df.sample(30).index[0:30]:
@@ -137,7 +152,7 @@ axs[1].set_xlabel("Time in Months")
 axs[1].set_title("Kaplan Meier Fits by Level", fontsize=20);
 ```
 
-Here we've used the Kaplan Meier non-parametric estimate of the survival curve within levels of the `sentiment` variable to show how the anticipated levels of attrition over a 12 month period are modified by the levels of `sentiment` expressed by the participants at the outset of the trial period. This is just exploratory data analysis of the survival curves, but we want to understand how a probabilistic model can recover such survival curves and what are the appropriate interpretation of the probabilistic model. 
+Here we've used the Kaplan Meier non-parametric estimate of the survival curve within levels of the `sentiment` variable to show how the anticipated levels of attrition over a 12 month period are modified by the levels of `sentiment` expressed by the participants at the outset of the trial period. This is just exploratory data analysis of the survival curves, but we want to understand how a probabilistic model can recover such survival curves and what are the appropriate interpretation of the probabilistic model. The lower the sentiment the faster attrition occurs. 
 
 +++
 
@@ -151,28 +166,24 @@ It is combined multiplicatively in the Cox Regression with a linear covariate re
 
 $$ \lambda_{0}(t) \cdot exp(\beta_{1}X_{1} + \beta_{2}X_{2}... \beta_{k}X_{k}) $$
 
-and represents the baseline hazard at each point in time when the predictor variables are set at their baseline/reference levels. In our case we are looking at data with granularity of monthly entries. So we need to understand how the risk of attrition changes over the next 12 months subsequent to the date of the annual survey. 
+and represents the baseline hazard at each point in time when the predictor variables are set at their baseline/reference levels. Which is to say any unit increase over 0 to a covariate in the regression model changes the baseline hazard. In our case we are looking at data with granularity of monthly entries. So we need to understand how the risk of attrition changes over the next 12 months subsequent to the date of the annual survey and how the covariate profile of each individual changes the baseline hazard.
 
 These models can be estimated using the approach of Bayesian estimation outlined by Austin Rochford in {ref}`survival_analysis`. In what follows we build on his examples.
 
-First we specify the temporal dimension of risk, in our case we have intervals of one month over a year.
+First we specify the temporal dimension of risk, in our case we have intervals of one month over a year - representing time since the date of the survey response. 
 
-
-```{code-cell} ipython3
-interval_length = 1
-interval_bounds = np.arange(0, retention_df.month.max() + interval_length + 1, interval_length)
-n_intervals = interval_bounds.size - 1
-intervals = np.arange(n_intervals)
-intervals
-```
-
-We then arrange our data into a structure to show if and when each individual in the data set experienced an event of attrition. 
 
 ```{code-cell} ipython3
 intervals = np.arange(12)
+intervals
+```
+
+We then arrange our data into a structure to show if and when each individual in the data set experienced an event of attrition. The columns here are indicators for each month and the rows represent each individual in data set. The values show a 1 if the employee left the company in that month and a 0 otherwise. 
+
+```{code-cell} ipython3
 n_employees = retention_df.shape[0]
 n_intervals = len(intervals)
-last_period = np.floor((retention_df.month - 0.01) / interval_length).astype(int)
+last_period = np.floor((retention_df.month - 0.01) / 1).astype(int)
 employees = np.arange(n_employees)
 quit = np.zeros((n_employees, n_intervals))
 quit[employees, last_period] = retention_df["left"]
@@ -183,16 +194,24 @@ pd.DataFrame(quit)
 As outlined in {ref}`Reliability Statistics and Predictive Calibration` the hazard function, the cumulative density function and the survival function of a event time distribution are all intimately related. In particular each of these can be described in relation to the set of individuals at risk at any given time in the sequence. The pool of those individuals at risk changes over time as people experience events of attrition. This changes the conditional hazard over time - with knock on implications for the implied survival function. To account for this in our estimation strategy we need to configure our data to flag who is at risk and when. 
 
 ```{code-cell} ipython3
-exposure = (
-    np.greater_equal.outer(retention_df.month.to_numpy(), interval_bounds[:-2]) * interval_length
-)
-exposure[employees, last_period] = retention_df.month - interval_bounds[last_period]
+exposure = np.greater_equal.outer(retention_df.month.to_numpy(), intervals) * 1
+exposure[employees, last_period] = retention_df.month - intervals[last_period]
 pd.DataFrame(exposure)
 ```
 
-With these structures we are now in a position to estimate our our model. Following Austin Rochford's example we again use the Poisson trick to estimate the Proportional hazard model. This might be somewhat surprising because the CoxPH model is ussually advertised as a semi-parametric model which needs to be estimated using a partial likelihood due to the piecewise nature of the baseline hazard component. 
+A 0 in this data strucuture means the employee has already quit and no longer exists in the "at-risk" pool at that point in time. Whereas a 1 in this structure means the pool is in the risk pool and should be used to calculate the instantenous hazard at that interval. 
 
-The trick is to see that Poisson regression for event counts and CoxPH regression are linked through the parameters which determine the event-rate. In the case of predicting counts we need a latent risk of a event indexed to time by an offset for each time-interval. This ensures that the likelihood term for a kind of Poisson regression is similar enough to the likelihood under consideration in the CoxPH regression that we can substitute one for the other. 
+With these structures we are now in a position to estimate our model. Following Austin Rochford's example we again use the Poisson trick to estimate the Proportional hazard model. This might be somewhat surprising because the Cox Proportional Hazard model is normally advertised as a semi-parametric model which needs to be estimated using a partial likelihood due to the piecewise nature of the baseline hazard component. 
+
+The trick is to see that Poisson regression for event counts and CoxPH regression are linked through the parameters which determine the event-rate. In the case of predicting counts we need a latent risk of a event indexed to time by an offset for each time-interval. This ensures that the likelihood term for a kind of Poisson regression is similar enough to the likelihood under consideration in the Cox Proportional Hazard regression that we can substitute one for the other. In other words the Cox Proportional hazard model can be estimated as GLM using a Poisson likelihood where we specify an "off-set" or intercept modification for each point on the time-interval: 
+
+$$ CoxPH(left, month) \sim gender + level $$
+
+is akin to 
+
+$$ left \sim gender + level + (1 | month) $$
+
+which we estimate using the structures defined above and PyMC as follows: 
 
 +++
 
@@ -227,20 +246,22 @@ preds2 = [
 
 
 def make_coxph(preds):
-    coords = {"intervals": intervals, "preds": preds}
+    coords = {"intervals": intervals, "preds": preds, "individuals": range(len(retention_df))}
 
     with pm.Model(coords=coords) as base_model:
-        X_data = pm.MutableData("X_data_obs", retention_df[preds])
+        X_data = pm.MutableData("X_data_obs", retention_df[preds], dims=("individuals", "preds"))
         lambda0 = pm.Gamma("lambda0", 0.01, 0.01, dims="intervals")
 
         beta = pm.Normal("beta", 0, sigma=1, dims="preds")
         lambda_ = pm.Deterministic(
-            "lambda_", pt.outer(pt.exp(pm.math.dot(beta, X_data.T)), lambda0)
+            "lambda_",
+            pt.outer(pt.exp(pm.math.dot(beta, X_data.T)), lambda0),
+            dims=("individuals", "intervals"),
         )
 
-        mu = pm.Deterministic("mu", exposure * lambda_)
+        mu = pm.Deterministic("mu", exposure * lambda_, dims=("individuals", "intervals"))
 
-        obs = pm.Poisson("obs", mu, observed=quit)
+        obs = pm.Poisson("obs", mu, observed=quit, dims=("individuals", "intervals"))
         base_idata = pm.sample(
             target_accept=0.95, random_seed=100, idata_kwargs={"log_likelihood": True}
         )
@@ -257,13 +278,19 @@ compare = az.compare({"sentiment": base_idata, "intention": base_intention_idata
 compare
 ```
 
-We can see here how the structure of the model, while slightly different from a typical regression model, incorporates all the same elements. The observed variables are combined in a weighted sum that is fed forward to modify the outcome(s). In our case the outcomes are the hazards - or conditional risk at a specific point in time. It is this collection of estimates that serve as our view of the evolving nature of risk in the period. An obvious question then is how do the predictive variables contribute to the evolution of risk.
-
-A secondary question is how does the instance by instance view of hazard translate into a view of the probability of survival over time? How can we move between the hazard based perspective to the survival base one?
+```{code-cell} ipython3
+az.plot_compare(compare);
+```
 
 ```{code-cell} ipython3
 pm.model_to_graphviz(base_model)
 ```
+
+We can see here how the structure of the model, while slightly different from a typical regression model, incorporates all the same elements. The observed variables are combined in a weighted sum that is fed forward to modify the outcome(s). In our case the outcomes are the hazards - or conditional risk at a specific point in time. It is this collection of estimates that serve as our view of the evolving nature of risk in the period. An obvious question then is how do the predictive variables contribute to the evolution of risk.
+
+A secondary question is how does the instance by instance view of hazard translate into a view of the probability of survival over time? How can we move between the hazard based perspective to the survival base one?
+
++++
 
 ### Interpreting the Model Coefficients
 
@@ -292,9 +319,9 @@ Each individual model coefficient records an estimate of the impact on the log h
 - If $exp(\beta)$ < 1: An increase in X is associated with a decreased hazard (lower risk) of the event occurring.
 - If $exp(\beta)$ = 1: X has no effect on the hazard rate.
 
-So our case we can see that having an occuptation in  the fields of Finance or Health would seem to induce a roughly 25% increase in the hazard risk of the event occuring over the baseline hazard. Interestingly we can see that the inclusion of the `intention` predictor seems to be important as a unit increase intention moves the dial similarly - and intention is a 0-10 scale. 
+So our case we can see that having an occupation in  the fields of Finance or Health would seem to induce a roughly 25% increase in the hazard risk of the event occuring over the baseline hazard. Interestingly we can see that the inclusion of the `intention` predictor seems to be important as a unit increase intention moves the dial similarly - and intention is a 0-10 scale. 
 
-These are not time-varying - they enter __once__ into the weighted sum that modifies the baseline hazard. This is the proportional hazard assumption - that while the baseline hazard can change over time the difference in hazard induced by different levels in the covariates remains constant over time. The CoxPH model is popular because it allows us to estimate a changing hazard at each time-point and incorporates the impact of the demographic predictors multiplicatively across the period. This assumption does not always hold, and we'll see some adjustments below that can help deal with violations of the proportional hazards assumption. 
+These are not time-varying - they enter __once__ into the weighted sum that modifies the baseline hazard. This is the proportional hazard assumption - that while the baseline hazard can change over time the difference in hazard induced by different levels in the covariates remains constant over time. The Cox model is popular because it allows us to estimate a changing hazard at each time-point and incorporates the impact of the demographic predictors multiplicatively across the period. The proportional hazards assumption does not always hold, and we'll see some adjustments below that can help deal with violations of the proportional hazards assumption. 
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(20, 6))
@@ -306,6 +333,7 @@ az.plot_hdi(
     ax=ax,
     hdi_prob=0.99,
     fill_kwargs={"label": "Baseline Hazard 99%", "alpha": 0.3},
+    smooth=False,
 )
 az.plot_hdi(
     range(12),
@@ -314,6 +342,7 @@ az.plot_hdi(
     ax=ax,
     hdi_prob=0.50,
     fill_kwargs={"label": "Baseline Hazard 50%"},
+    smooth=False,
 )
 ax.legend()
 ax.set_xlabel("Time")
@@ -341,7 +370,7 @@ def get_mean(trace):
     return trace.mean(("draw", "chain"))
 ```
 
-The cumulative hazard smoothes out the jumpy nature of base hazard function, giving us a cleaner picture of the degree of increased risk over time. This is (in turn) translated into our survival function, which nicely expresses the risk on the 0-1 scale. Next we set up a function to derive the survival and cumulative hazard functions for each individual conditional of their risk profile. 
+The cumulative hazard smoothes out the jumpy nature of the base hazard function, giving us a cleaner picture of the degree of increased risk over time. This is (in turn) translated into our survival function, which nicely expresses the risk on the 0-1 scale. Next we set up a function to derive the survival and cumulative hazard functions for each individual conditional of their risk profile. 
 
 ```{code-cell} ipython3
 def extract_individual_hazard(idata, i, retention_df, intention=False):
@@ -371,16 +400,17 @@ def extract_individual_hazard(idata, i, retention_df, intention=False):
 
 
 def plot_individuals(retention_df, idata, individuals=[1, 300, 700], intention=False):
-    fig, axs = plt.subplots(1, 2, figsize=(20, 10))
+    fig, axs = plt.subplots(1, 2, figsize=(20, 7))
     axs = axs.flatten()
-    for i in individuals:
+    colors = ["slateblue", "magenta", "darkgreen"]
+    for i, c in zip(individuals, colors):
         haz_idata, cum_haz_idata, survival_idata, base_hazard = extract_individual_hazard(
             idata, i, retention_df, intention
         )
-        axs[0].plot(get_mean(survival_idata), label=f"individual_{i}")
-        az.plot_hdi(range(12), survival_idata, ax=axs[0], fill_kwargs={"color": "slateblue"})
-        axs[1].plot(get_mean(cum_haz_idata), label=f"individual_{i}")
-        az.plot_hdi(range(12), cum_haz_idata, ax=axs[1], fill_kwargs={"color": "magenta"})
+        axs[0].plot(get_mean(survival_idata), label=f"individual_{i}", color=c)
+        az.plot_hdi(range(12), survival_idata, ax=axs[0], fill_kwargs={"color": c})
+        axs[1].plot(get_mean(cum_haz_idata), label=f"individual_{i}", color=c)
+        az.plot_hdi(range(12), cum_haz_idata, ax=axs[1], fill_kwargs={"color": c})
         axs[0].set_title("Individual Survival Functions", fontsize=20)
         axs[1].set_title("Individual Cumulative Hazard Functions", fontsize=20)
     az.plot_hdi(
@@ -429,7 +459,7 @@ test_df
 
 ### The Intention Model
 
-If we plot the marginal effects increases in the `intention` variable in the model equipped to evaluate it, we see a sharp seperation in the individual predicted survival curves as implied by the significant and substantial parameter estimate. 
+If we plot the marginal effects increases in the `intention` variable in the model equipped to evaluate it, we see a sharp seperation in the individual predicted survival curves as implied by the significant and substantial parameter estimate seen in the coefficient table above. 
 
 ```{code-cell} ipython3
 plot_individuals(test_df, base_intention_idata, [0, 1, 2], intention=True)
@@ -453,7 +483,7 @@ Other combinations of test-data and input specifications can be used to experime
 
 ### Make Predictions for Individual Characteristics
 
-It's all well and good to use marginal effects analysis to better understand the impact of particular variables, but how we can use it to predict the likely trajectories within our pool of polled employees? Here we simply re-apply the model to our observed data set where each participant is characterised in some sense by the observable inputs of our model. 
+It's all well and good to use marginal effects analysis to better understand the impact of particular variables, but how can we use it to predict the likely trajectories within our pool of polled employees? Here we simply re-apply the model to our observed data set where each participant is characterised in some sense by the observable inputs of our model. 
 
 We can use these characteristics to predict the survival curves of our current or future employee base and make interventions where necessary to mitigate the implied risk of attrition for these and similar employee risk profiles.  
 
@@ -486,7 +516,7 @@ colors_m = [cm.Purples(x) for x in cm_subsection]
 colors = [cm.spring(x) for x in cm_subsection]
 
 
-fig, axs = plt.subplots(1, 2, figsize=(20, 10))
+fig, axs = plt.subplots(1, 2, figsize=(20, 7))
 axs = axs.flatten()
 cum_haz_df.plot(legend=False, color=colors, alpha=0.05, ax=axs[1])
 axs[1].plot(cum_haz_df.mean(axis=1), color="black", linewidth=4)
@@ -555,11 +585,11 @@ axs[3].set_title("Weibull Survival Function", fontsize=15);
 
 AFT models incorporate the explanatory variables in a regression model so that they act multiplicatively on the time scale effecting the rate at which an individual proceeds along the time axis. As such the model can be interpreted directly as parameterised by the speed of progression towards the event of interest. The Survival function of AFT models are generally specified as: 
 
-$$ S_{i}(t) = S_{0}(\frac{t}{exp(\alpha_{i}x_{i} + \alpha_{2}x_{2} ... \alpha_{p}x_{p})}) $$
+$$ S_{i}(t) = S_{0}\Bigg(\frac{t}{exp(\alpha_{i}x_{i} + \alpha_{2}x_{2} ... \alpha_{p}x_{p})} \Bigg) $$
 
 where $S_{0}$ is the baseline survival, but the model is often represented in log-linear form: 
 
-$$ log T_{i} = \mu + \alpha_{i}x_{i} + \alpha_{2}x_{2} ... \alpha_{p}x_{p} + \sigma\epsilon_{i} $$
+$$ log (T_{i}) = \mu + \alpha_{i}x_{i} + \alpha_{2}x_{2} ... \alpha_{p}x_{p} + \sigma\epsilon_{i} $$
 
 where we have the baseline survival function $S_{0} = P(exp(\mu + \sigma\epsilon_{i}) \geq t)$ modified by additional covariates. The details are largely important for the estimation strategies, but they show how the impact of risk can be decomposed here just as in the CoxPH model. The effects of the covariates are additive on the log-scale towards the acceleration factor induced by the individual's risk profile.
 
@@ -567,7 +597,7 @@ Below we'll estimate two AFT models: the weibull model and the Log-Logistic mode
 
 $$ log(L) = \sum_{i}^{n} \Big[ c_{i}log(f(t)) + (1-c_{i})log(S(t))) \Big]  $$ 
 
-where $f$ is the distribution pdf function , $S$ is the survival fucntion and $c$ is an indicator function for whether the observation is censored. Both $f$, $S$ are parameterised by some vector of parameters $\mathbf{\theta}$.  In the case of the Log-Logistic model we estimate it by transforming our time variable to a log-scale and fitting a logistic likelihood with parameters $\mu, s$. The resulting parameter fits can be adapted to recover the log-logistic survival function as we'll show below. In the case of the Weibull model the parameters are denote $\alpha, \beta$ respectively.
+where $f$ is the distribution pdf function , $S$ is the survival fucntion and $c$ is an indicator function for whether the observation is censored - meaning it takes a value in $\{0, 1\}$ depending on whether the individual is censored. Both $f$, $S$ are parameterised by some vector of parameters $\mathbf{\theta}$.  In the case of the Log-Logistic model we estimate it by transforming our time variable to a log-scale and fitting a logistic likelihood with parameters $\mu, s$. The resulting parameter fits can be adapted to recover the log-logistic survival function as we'll show below. In the case of the Weibull model the parameters are denote $\alpha, \beta$ respectively.
 
 ```{code-cell} ipython3
 coords = {
@@ -599,7 +629,7 @@ X = retention_df[
         "Public/Government",
         "Sales/Marketing",
     ]
-]
+].copy()
 y = retention_df["month"].values
 cens = retention_df.left.values == 0.0
 
@@ -649,11 +679,15 @@ compare = az.compare({"weibull": weibull_idata, "loglogistic": loglogistic_idata
 compare
 ```
 
+```{code-cell} ipython3
+az.plot_compare(compare);
+```
+
 ### Deriving Individual Survival Predictions from AFT models
 
 From above we can see how the regression equation is calculated and enters into the Weibull likelihood as the $\beta$ term and the logistic distribution as the $\mu$ parameter. In both cases the $s$ parameter remains free to determine the shape of the distribution. Recall from above that the regression equation enters into the survival function as a denominator for the sequence of time-points $t$
 
-$$ S_{i}(t) = S_{0}(\frac{t}{exp(\alpha_{i}x_{i} + \alpha_{2}x_{2} ... \alpha_{p}x_{p})}) $$
+$$ S_{i}(t) = S_{0}\Bigg(\frac{t}{exp(\alpha_{i}x_{i} + \alpha_{2}x_{2} ... \alpha_{p}x_{p})}\Bigg) $$
 
 So the smaller the weighted sum the greater the **acceleration factor** induced by the individual's risk profile. 
 
@@ -688,16 +722,11 @@ axs[1].legend();
 ```
 
 ```{code-cell} ipython3
-from IPython.display import Markdown as md
-
 diff = reg.iloc[1000] - reg.iloc[0]
 pchange = np.round(100 * (diff / reg.iloc[1000]), 2)
-md(
-    "<h4>"
-    + f"In this case we could think relative change in acceleration factor between the individuals as representing a {pchange}% increase"
-    + "<h4>"
-)
 ```
+
+In this case we could think relative change in acceleration factor between the individuals as representing a {eval}`pchange`% increase
 
 ```{code-cell} ipython3
 reg = az.summary(weibull_idata, var_names=["reg"])["mean"]
@@ -744,12 +773,9 @@ axs[1].legend();
 ```{code-cell} ipython3
 diff = reg.iloc[1000] - reg.iloc[0]
 pchange = np.round(100 * (diff / reg.iloc[1000]), 2)
-md(
-    "<h4>"
-    + f"In this case we could think relative change in acceleration factor between the individuals as representing a {pchange}% increase"
-    + "<h4>"
-)
 ```
+
+In this case we could think relative change in acceleration factor between the individuals as representing a {eval}`pchange`% increase
 
 ```{code-cell} ipython3
 loglogistic_predicted_surv = pd.DataFrame(
@@ -761,7 +787,7 @@ loglogistic_predicted_surv
 Both models fit comparable estimates for these two individuals. We'll see now how the marginal survival function compares across our entire sample of indivduals. 
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(20, 10))
+fig, ax = plt.subplots(figsize=(20, 7))
 ax.plot(
     loglogistic_predicted_surv.iloc[:, [1, 300]], label=["LL-Individual 1", "LL-Individual 300"]
 )
@@ -860,11 +886,14 @@ def make_coxph_frailty(preds, factor):
         "preds": preds,
         "frailty_id": frailty_labels,
         "gender": ["Male", "Female"],
+        "women": df_f.index,
+        "men": df_m.index,
+        "obs": range(len(retention_df)),
     }
 
     with pm.Model(coords=coords) as frailty_model:
-        X_data_m = pm.MutableData("X_data_m", df_m[preds])
-        X_data_f = pm.MutableData("X_data_f", df_f[preds])
+        X_data_m = pm.MutableData("X_data_m", df_m[preds], dims=("men", "preds"))
+        X_data_f = pm.MutableData("X_data_f", df_f[preds], dims=("women", "preds"))
         lambda0 = pm.Gamma("lambda0", 0.01, 0.01, dims=("intervals", "gender"))
         sigma_frailty = pm.Normal("sigma_frailty", opt_params["alpha"], 1)
         mu_frailty = pm.Normal("mu_frailty", opt_params["beta"], 1)
@@ -875,18 +904,22 @@ def make_coxph_frailty(preds, factor):
         lambda_m = pm.Deterministic(
             "lambda_m",
             pt.outer(pt.exp(pm.math.dot(beta, X_data_m.T)), lambda0[:, 0]),
+            dims=("men", "intervals"),
         )
         lambda_f = pm.Deterministic(
             "lambda_f",
             pt.outer(pt.exp(pm.math.dot(beta, X_data_f.T)), lambda0[:, 1]),
+            dims=("women", "intervals"),
         )
         lambda_ = pm.Deterministic(
-            "lambda_", frailty[frailty_idx, None] * pt.concatenate([lambda_f, lambda_m], axis=0)
+            "lambda_",
+            frailty[frailty_idx, None] * pt.concatenate([lambda_f, lambda_m], axis=0),
+            dims=("obs", "intervals"),
         )
 
-        mu = pm.Deterministic("mu", exposure * lambda_)
+        mu = pm.Deterministic("mu", exposure * lambda_, dims=("obs", "intervals"))
 
-        obs = pm.Poisson("obs", mu, observed=quit)
+        obs = pm.Poisson("outcome", mu, observed=quit, dims=("obs", "intervals"))
         # frailty_idata = pm.sample_prior_predictive()
         frailty_idata = pm.sample(random_seed=101)
 
@@ -897,27 +930,40 @@ frailty_idata, frailty_model = make_coxph_frailty(preds, range(len(retention_df)
 pm.model_to_graphviz(frailty_model)
 ```
 
-which allows us to pull out the gender specific view on the baseline hazard. This kind of model specification can help account for failures of the proportional hazards assumption.
-
-```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(20, 6))
-base_m = frailty_idata["posterior"]["lambda0"].sel(gender="Male")
-base_f = frailty_idata["posterior"]["lambda0"].sel(gender="Female")
-az.plot_hdi(range(12), base_m, ax=ax, color="lightblue", fill_kwargs={"alpha": 0.3})
-az.plot_hdi(range(12), base_f, ax=ax, color="red", fill_kwargs={"alpha": 0.1})
-get_mean(base_m).plot(ax=ax, color="darkred", label="Male Baseline Hazard")
-get_mean(base_f).plot(ax=ax, color="blue", label="Female Baseline Hazard")
-ax.legend()
-ax.set_title("Stratified Baseline Hazards");
-```
-
-We can also allow for shared frailty terms across groups as here in the case of allowing group effect based on the `field` of work. Often however this is not too distinct from including the field as a fixed effect in your model as we did above in the CoxPH model.
+which allows us to pull out the gender specific view on the baseline hazard. This kind of model specification can help account for failures of the proportional hazards assumption. We can also allow for shared frailty terms across groups as here in the case of allowing group effect based on the `field` of work. Often however this is not too distinct from including the field as a fixed effect in your model as we did above in the first CoxPH model, but here we allow that the coefficient estimates are drawn from the same distribution. 
 
 ```{code-cell} ipython3
 shared_frailty_idata, shared_frailty_model = make_coxph_frailty(preds3, retention_df["field"])
 ```
 
-Allowing us to pull out and inspect the individual frailty terms
+```{code-cell} ipython3
+pm.model_to_graphviz(shared_frailty_model)
+```
+
+Additionally this allows us to see how the inclusion of more covariates and individual frailty term absorbs the variance in the baseline hazard and shrinks the magnitude of the risk.
+
+```{code-cell} ipython3
+fig, ax = plt.subplots(figsize=(20, 6))
+base_m = shared_frailty_idata["posterior"]["lambda0"].sel(gender="Male")
+base_f = shared_frailty_idata["posterior"]["lambda0"].sel(gender="Female")
+az.plot_hdi(range(12), base_m, ax=ax, color="lightblue", fill_kwargs={"alpha": 0.7}, smooth=False)
+az.plot_hdi(range(12), base_f, ax=ax, color="red", fill_kwargs={"alpha": 0.3}, smooth=False)
+get_mean(base_m).plot(ax=ax, color="darkred", label="Male Baseline Hazard Shared Frailty")
+get_mean(base_f).plot(ax=ax, color="blue", label="Female Baseline Hazard Shared Frailty")
+
+base_m_i = frailty_idata["posterior"]["lambda0"].sel(gender="Male")
+base_f_i = frailty_idata["posterior"]["lambda0"].sel(gender="Female")
+az.plot_hdi(range(12), base_m_i, ax=ax, color="darkgreen", fill_kwargs={"alpha": 0.7}, smooth=False)
+az.plot_hdi(range(12), base_f_i, ax=ax, color="orange", fill_kwargs={"alpha": 0.3}, smooth=False)
+get_mean(base_m_i).plot(ax=ax, color="darkgreen", label="Male Baseline Hazard Individual")
+get_mean(base_f_i).plot(ax=ax, color="orange", label="Female Baseline Hazard Individual")
+
+
+ax.legend()
+ax.set_title("Stratified Baseline Hazards");
+```
+
+Let us to pull out and inspect the individual frailty terms:
 
 ```{code-cell} ipython3
 frailty_terms = az.summary(frailty_idata, var_names=["frailty"])
@@ -935,7 +981,9 @@ for ax in axs:
 plt.suptitle("Shared Frailty Estimates across the Job Area", fontsize=30);
 ```
 
-Shared frailty models such as this one are important in, for instance, medical trials where we want to measure the differences across institutions that are implementing a trial protocol. But similarly in the HR context we might imagine examining the the differential frailty terms across different manager/team dynamics. For now we'll leave that suggestion aside and focus on the individual frailty model.
+Shared frailty models such as this one are important in, for instance, medical trials where we want to measure the differences across institutions that are implementing a trial protocol. But similarly in the HR context we might imagine examining the the differential frailty terms across different manager/team dynamics. 
+
+For now we'll leave that suggestion aside and focus on the individual frailty model.
 
 ```{code-cell} ipython3
 ax = az.plot_forest(
@@ -1008,16 +1056,17 @@ def extract_individual_frailty(i, retention_df, intention=False):
 
 
 def plot_individual_frailty(retention_df, individuals=[1, 300, 700], intention=False):
-    fig, axs = plt.subplots(1, 2, figsize=(20, 10))
+    fig, axs = plt.subplots(1, 2, figsize=(20, 7))
     axs = axs.flatten()
-    for i in individuals:
+    colors = ["slateblue", "magenta", "darkgreen"]
+    for i, c in zip(individuals, colors):
         haz_idata, cum_haz_idata, survival_idata, base_hazard = extract_individual_frailty(
             i, retention_df, intention
         )
-        axs[0].plot(get_mean(survival_idata), label=f"individual_{i}")
-        az.plot_hdi(range(12), survival_idata, ax=axs[0], fill_kwargs={"color": "slateblue"})
-        axs[1].plot(get_mean(cum_haz_idata), label=f"individual_{i}")
-        az.plot_hdi(range(12), cum_haz_idata, ax=axs[1], fill_kwargs={"color": "magenta"})
+        axs[0].plot(get_mean(survival_idata), label=f"individual_{i}", color=c)
+        az.plot_hdi(range(12), survival_idata, ax=axs[0], fill_kwargs={"color": c})
+        axs[1].plot(get_mean(cum_haz_idata), label=f"individual_{i}", color=c)
+        az.plot_hdi(range(12), cum_haz_idata, ax=axs[1], fill_kwargs={"color": c})
         axs[0].set_title("Individual Survival Functions", fontsize=20)
         axs[1].set_title("Individual Cumulative Hazard Functions", fontsize=20)
     az.plot_hdi(
@@ -1040,6 +1089,8 @@ def plot_individual_frailty(retention_df, individuals=[1, 300, 700], intention=F
 
 plot_individual_frailty(retention_df, [0, 1, 2], intention=True)
 ```
+
+where we see a stark difference in the predicted survival functions for each individual explainted by the measure of their stated intention to leave:
 
 ```{code-cell} ipython3
 retention_df.iloc[0:3, :]
@@ -1070,7 +1121,7 @@ colors_m = [cm.Purples(x) for x in cm_subsection]
 colors = [cm.spring(x) for x in cm_subsection]
 
 
-fig, axs = plt.subplots(1, 2, figsize=(20, 10))
+fig, axs = plt.subplots(1, 2, figsize=(20, 7))
 axs = axs.flatten()
 cum_haz_frailty_df.plot(legend=False, color=colors, alpha=0.05, ax=axs[1])
 axs[1].plot(cum_haz_frailty_df.mean(axis=1), color="black", linewidth=4)
@@ -1110,7 +1161,7 @@ hdi2 = az.hdi(beta_individual, hdi_prob=0.8).sortby(predicted)
 cm_subsection = np.linspace(0, 1, 320)
 colors = [cm.cool(x) for x in cm_subsection]
 
-fig = plt.figure(figsize=(25, 20))
+fig = plt.figure(figsize=(20, 15))
 gs = fig.add_gridspec(
     2,
     2,
@@ -1130,7 +1181,7 @@ ax_histx.set_title("Expected Frailty Terms per Individual Risk Profile", fontsiz
 ax_histx.hist(predicted, bins=30, color="slateblue")
 ax_histx.set_yticklabels([])
 ax_histx.tick_params(labelsize=8)
-ax.set_ylabel("Individual Frailty Terms", fontsize=10)
+ax.set_ylabel("Individual Frailty Terms", fontsize=18)
 ax.tick_params(labelsize=8)
 ax.hlines(
     range(len(predicted)),
@@ -1147,8 +1198,7 @@ ax.hlines(
     alpha=0.2,
     label="80% HDI",
 )
-ax.scatter(predicted, range(len(predicted)), color="black", ec="black", s=30)
-ax.set_xlabel("Multiplicative Effect of Individual Frailty", fontsize=10)
+ax.set_xlabel("Multiplicative Effect of Individual Frailty", fontsize=18)
 ax.legend()
 ax.fill_betweenx(range(len(predicted)), 0.95, 1.0, alpha=0.4, color="grey")
 
@@ -1163,11 +1213,12 @@ ax1_hist.hist(
     color="slateblue",
     ec="black",
 )
-ax1.set_xlabel("Time", fontsize=12)
+ax1.set_xlabel("Time", fontsize=18)
 ax1_hist.set_title(
     "Predicted Distribution of Attrition \n by 6 Months across sampled risk profiles", fontsize=20
 )
-ax1.set_ylabel("Survival Function", fontsize=10);
+ax1.set_ylabel("Survival Function", fontsize=18)
+ax.scatter(predicted, range(len(predicted)), color="black", ec="black", s=30);
 ```
 
 Here we see a plot of the individual frailty terms and the differential multiplicative they add to each individual's predicted hazard. This is a powerful lens on the question of how much the observed covariates capture for each individual and how much of a corrective adjustment is implied by the frailty terms. 
