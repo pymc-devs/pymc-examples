@@ -47,7 +47,6 @@ papermill:
   status: completed
 ---
 RANDOM_SEED = 8927
-
 rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 plt.rcParams["figure.figsize"] = (10, 4)
