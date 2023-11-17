@@ -185,7 +185,7 @@ for ax, smoothing in zip(axes.ravel(), [0.95, 0.99, 0.999, 0.9999]):
 
 ## Authors
 * Authored by [Andrey Kuzmenko](http://github.com/akuz)
-* Updated to v5 by [Juan Orduz](https://juanitorduz.github.io/) in Nov 2023 ([pymc-examples#593](https://github.com/pymc-devs/pymc-examples/pull/593))
+* Updated to v5 by [Juan Orduz](https://juanitorduz.github.io/) in Nov 2023 ([pymc-examples#603](https://github.com/pymc-devs/pymc-examples/pull/603))
 
 ```{code-cell} ipython3
 %load_ext watermark
