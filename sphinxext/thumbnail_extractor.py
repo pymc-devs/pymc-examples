@@ -96,7 +96,7 @@ pytensor_nb = {
 }
 
 external_nbs = {
-    "introductory": [glm_nb, intro_nb],
+    "introductory": [intro_nb, glm_nb],
     "fundamentals": [dimensionality_nb, pytensor_nb],
     "howto": [prior_pred_nb, model_comparison_nb],
 }
