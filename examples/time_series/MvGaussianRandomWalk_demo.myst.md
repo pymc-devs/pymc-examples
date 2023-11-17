@@ -183,7 +183,7 @@ az.plot_energy(trace)
 az.plot_ppc(trace);
 ```
 
-+++ {"jupyter": {"outputs_hidden": true}, "tags": []}
++++ {"jupyter": {"outputs_hidden": true}}
 
 ## Posterior visualisation
 The graphs above look good. Now we plot the observed 3-dimensional series against the average predicted 3-dimensional series, or in other words, we plot the data against the estimated regression curve from the model {eq}`eqn:model`.
@@ -211,8 +211,6 @@ ax.set_title("Predicted Mean of Three Correlated Series");
 Finally, we plot the data against the posterior predictive samples.
 
 ```{code-cell} ipython3
-:tags: []
-
 # Rescale the posterior predictive samples
 ppc_y = y_scaler.inverse_transform(trace.posterior_predictive["y"].mean("chain"))
 

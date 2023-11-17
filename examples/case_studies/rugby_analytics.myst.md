@@ -8,8 +8,9 @@ kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
-substitutions:
-  extra_dependencies: seaborn numba xarray-einstats
+myst:
+  substitutions:
+    extra_dependencies: seaborn numba
 ---
 
 # A Hierarchical model for Rugby prediction

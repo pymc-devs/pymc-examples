@@ -22,8 +22,6 @@ kernelspec:
 The notebook provides an example of how to conduct linear regression when your outcome variable is either censored or truncated.
 
 ```{code-cell} ipython3
-:tags: []
-
 from copy import copy
 
 import arviz as az
@@ -37,8 +35,6 @@ from scipy.stats import norm, truncnorm
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 %config InlineBackend.figure_format = 'retina'
 rng = default_rng(12345)
 az.style.use("arviz-darkgrid")
@@ -54,8 +50,6 @@ Truncation and censoring are examples of missing data problems. It can sometimes
 Let's further explore this with some code and plots. First we will generate some true `(x, y)` scatter data, where `y` is our outcome measure and `x` is some predictor variable.
 
 ```{code-cell} ipython3
-:tags: []
-
 slope, intercept, σ, N = 1, 0, 2, 200
 x = rng.uniform(-10, 10, N)
 y = rng.normal(loc=slope * x + intercept, scale=σ)
@@ -64,8 +58,6 @@ y = rng.normal(loc=slope * x + intercept, scale=σ)
 For this example of `(x, y)` scatter data, we can describe the truncation process as simply filtering out any data for which our outcome variable `y` falls outside of a set of bounds.
 
 ```{code-cell} ipython3
-:tags: []
-
 def truncate_y(x, y, bounds):
     keep = (y >= bounds[0]) & (y <= bounds[1])
     return (x[keep], y[keep])
@@ -74,8 +66,6 @@ def truncate_y(x, y, bounds):
 With censoring however, we are setting the `y` value equal to the bounds that they exceed.
 
 ```{code-cell} ipython3
-:tags: []
-
 def censor_y(x, y, bounds):
     cy = copy(y)
     cy[y <= bounds[0]] = bounds[0]
@@ -86,8 +76,6 @@ def censor_y(x, y, bounds):
 Based on our generated `(x, y)` data (which an experimenter would never see in real life), we can generate our actual observed datasets for truncated data `(xt, yt)` and censored data `(xc, yc)`.
 
 ```{code-cell} ipython3
-:tags: []
-
 bounds = [-5, 5]
 xt, yt = truncate_y(x, y, bounds)
 xc, yc = censor_y(x, y, bounds)
@@ -96,8 +84,6 @@ xc, yc = censor_y(x, y, bounds)
 We can visualise this latent data (in grey) and the remaining truncated or censored data (black) as below.
 
 ```{code-cell} ipython3
-:tags: []
-
 fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
 for ax in axes:
@@ -119,8 +105,6 @@ If we were to run regular linear regression on either the truncated or censored 
 In this section we will run Bayesian linear regression on these datasets to see the extent of the problem. We start by defining a function which defines a PyMC model, conducts MCMC sampling, and returns the model and the MCMC sampling data.
 
 ```{code-cell} ipython3
-:tags: []
-
 def linear_regression(x, y):
     with pm.Model() as model:
         slope = pm.Normal("slope", mu=0, sigma=1)
@@ -134,8 +118,6 @@ def linear_regression(x, y):
 So we can run this on our truncated and our censored data, separately.
 
 ```{code-cell} ipython3
-:tags: []
-
 trunc_linear_model = linear_regression(xt, yt)
 
 with trunc_linear_model:
@@ -143,8 +125,6 @@ with trunc_linear_model:
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 cens_linear_model = linear_regression(xc, yc)
 
 with cens_linear_model:
@@ -154,8 +134,6 @@ with cens_linear_model:
 By plotting the posterior distribution over the slope parameters we can see that the estimates for the slope are pretty far off, so we are indeed underestimating the regression slope.
 
 ```{code-cell} ipython3
-:tags: []
-
 fig, ax = plt.subplots(1, 2, figsize=(10, 5), sharex=True)
 
 az.plot_posterior(trunc_linear_fit, var_names=["slope"], ref_val=slope, ax=ax[0])
@@ -168,8 +146,6 @@ ax[1].set(title="Linear regression\n(censored data)", xlabel="slope");
 To appreciate the extent of the problem (for this dataset) we can visualise the posterior predictive fits alongside the data.
 
 ```{code-cell} ipython3
-:tags: []
-
 def pp_plot(x, y, fit, ax):
     # plot data
     ax.plot(x, y, "k.")
@@ -209,8 +185,6 @@ Now we have seen the problem of conducting regression on truncated or censored d
 Truncated regression models are quite simple to implement. The normal likelihood is centered on the regression slope as normal, but now we just specify a normal distribution which is truncated at the bounds.
 
 ```{code-cell} ipython3
-:tags: []
-
 def truncated_regression(x, y, bounds):
     with pm.Model() as model:
         slope = pm.Normal("slope", mu=0, sigma=1)
@@ -224,8 +198,6 @@ def truncated_regression(x, y, bounds):
 Truncated regression solves the bias problem by updating the likelihood to reflect our knowledge about the process generating the observations. Namely, we have zero chance of observing any data outside of the truncation bounds, and so the likelihood should reflect this. We can visualise this in the plot below, where compared to a normal distribution, the probability density of a truncated normal is zero outside of the truncation bounds $(y<-1)$ in this case.
 
 ```{code-cell} ipython3
-:tags: []
-
 fig, ax = plt.subplots(figsize=(10, 3))
 y = np.linspace(-4, 4, 1000)
 ax.fill_between(y, norm.pdf(y, loc=0, scale=1), 0, alpha=0.2, ec="b", fc="b", label="Normal")
@@ -246,8 +218,6 @@ ax.legend();
 ### Censored regression model
 
 ```{code-cell} ipython3
-:tags: []
-
 def censored_regression(x, y, bounds):
     with pm.Model() as model:
         slope = pm.Normal("slope", mu=0, sigma=1)
@@ -292,8 +262,6 @@ ax.set(xlabel="$y$", ylabel="probability density", ylim=(-0.02, 0.4));
 Now we can conduct our parameter estimation with the truncated regression model on the truncated data...
 
 ```{code-cell} ipython3
-:tags: []
-
 truncated_model = truncated_regression(xt, yt, bounds)
 
 with truncated_model:
@@ -303,8 +271,6 @@ with truncated_model:
 and with the censored regression model on the censored data.
 
 ```{code-cell} ipython3
-:tags: []
-
 censored_model = censored_regression(xc, yc, bounds)
 
 with censored_model:
@@ -330,8 +296,6 @@ We could speculate then, that if an experimenter had the choice of truncating or
 Correspondingly, we can confirm the models are good through visual inspection of the posterior predictive plots.
 
 ```{code-cell} ipython3
-:tags: []
-
 fig, ax = plt.subplots(1, 2, figsize=(10, 5), sharex=True, sharey=True)
 
 pp_plot(xt, yt, truncated_fit, ax[0])

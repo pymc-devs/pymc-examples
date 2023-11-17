@@ -94,7 +94,6 @@ squared_distance = lambda x, y: (x[None, :] - y[:, None]) ** 2
 
 ```{code-cell} ipython3
 with pm.Model() as gp_fit:
-
     mu = np.zeros(N)
 
     eta_sq = pm.HalfCauchy("eta_sq", 5)

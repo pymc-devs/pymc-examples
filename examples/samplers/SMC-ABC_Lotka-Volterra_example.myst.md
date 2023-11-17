@@ -139,6 +139,7 @@ size = 100
 time = 15
 t = np.linspace(0, time, size)
 
+
 # Lotka - Volterra equation
 def dX_dt(X, t, a, b, c, d):
     """Return the growth rate of fox and rabbit populations."""

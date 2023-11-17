@@ -9,8 +9,9 @@ kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
-substitutions:
-  extra_dependencies: seaborn xarray-einstats
+myst:
+  substitutions:
+    extra_dependencies: seaborn
 ---
 
 (factor_analysis)=
@@ -33,7 +34,6 @@ Factor analysis is a widely used probabilistic model for identifying low-rank st
 
 ```{code-cell} ipython3
 import arviz as az
-import matplotlib
 import numpy as np
 import pymc as pm
 import pytensor.tensor as pt
@@ -47,7 +47,7 @@ from numpy.random import default_rng
 from xarray_einstats import linalg
 from xarray_einstats.stats import XrContinuousRV
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -122,7 +122,7 @@ with pm.Model(coords=coords) as PPCA:
     psi = pm.HalfNormal("psi", 1.0)
     X = pm.Normal("X", mu=pt.dot(W, F), sigma=psi, observed=Y, dims=("observed_columns", "rows"))
 
-    trace = pm.sample(tune=2000, random_seed=RANDOM_SEED)  # target_accept=0.9
+    trace = pm.sample(tune=2000, random_seed=rng)  # target_accept=0.9
 ```
 
 At this point, there are already several warnings regarding diverging samples and failure of convergence checks. We can see further problems in the trace plot below. This plot shows the path taken by each sampler chain for a single entry in the matrix $W$ as well as the average evaluated over samples for each chain.
@@ -194,7 +194,7 @@ with pm.Model(coords=coords) as PPCA_identified:
     F = pm.Normal("F", dims=("latent_columns", "rows"))
     psi = pm.HalfNormal("psi", 1.0)
     X = pm.Normal("X", mu=pt.dot(W, F), sigma=psi, observed=Y, dims=("observed_columns", "rows"))
-    trace = pm.sample(tune=2000)  # target_accept=0.9
+    trace = pm.sample(tune=2000, random_seed=rng)  # target_accept=0.9
 
 for i in range(4):
     samples = trace.posterior["W"].sel(chain=i, observed_columns=3, latent_columns=1)
@@ -219,7 +219,9 @@ If you are unfamiliar with the matrix normal distribution, you can consider it t
 coords["observed_columns2"] = coords["observed_columns"]
 with pm.Model(coords=coords) as PPCA_scaling:
     W = makeW(d, k, ("observed_columns", "latent_columns"))
-    Y_mb = pm.Minibatch(Y.T, 50)  # MvNormal parametrizes covariance of columns, so transpose Y
+    Y_mb = pm.Minibatch(
+        Y.T, batch_size=50
+    )  # MvNormal parametrizes covariance of columns, so transpose Y
     psi = pm.HalfNormal("psi", 1.0)
     E = pm.Deterministic(
         "cov",
@@ -336,7 +338,7 @@ ax.legend(
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aeppl
+%watermark -n -u -v -iv -w
 ```
 
 :::{include} ../page_footer.md

@@ -133,7 +133,6 @@ slideshow:
   slide_type: '-'
 ---
 with pm.Model() as model:
-
     # uniform prior, but we know it must be negative
     lam = pm.Flat("lam")
 

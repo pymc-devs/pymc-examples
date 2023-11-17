@@ -29,7 +29,6 @@ cov_matrix = np.diag(stds).dot(corr_r.dot(np.diag(stds)))
 dataset = multivariate_normal(mu_r, cov_matrix, size=n_obs)
 
 with pm.Model() as model:
-
     mu = pm.Normal("mu", mu=0, sigma=1, shape=n_var)
 
     # Note that we access the distribution for the standard

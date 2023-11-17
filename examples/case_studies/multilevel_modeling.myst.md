@@ -242,7 +242,7 @@ Let's now turn our attention to the unpooled model, and see how it fares in comp
 coords = {"county": mn_counties}
 
 with pm.Model(coords=coords) as unpooled_model:
-    floor_idx = pm.MutableData("floor_ind", floor_measure, dims="obs_id")
+    floor_ind = pm.MutableData("floor_ind", floor_measure, dims="obs_id")
 
     alpha = pm.Normal("alpha", 0, sigma=10, dims="county")
     beta = pm.Normal("beta", 0, sigma=10)
@@ -418,7 +418,6 @@ for ax, trace, level in zip(
     (unpooled_trace, partial_pooling_trace),
     ("no pooling", "partial pooling"),
 ):
-
     # add variable with x values to xarray dataset
     trace.posterior = trace.posterior.assign_coords({"N_county": ("county", N_county)})
     # plot means
@@ -787,7 +786,6 @@ This translates quite easily in PyMC:
 coords["param"] = ["alpha", "beta"]
 coords["param_bis"] = ["alpha", "beta"]
 with pm.Model(coords=coords) as covariation_intercept_slope:
-
     floor_idx = pm.MutableData("floor_idx", floor_measure, dims="obs_id")
     county_idx = pm.MutableData("county_idx", county, dims="obs_id")
 
@@ -822,7 +820,6 @@ As you may expect, we also want to non-center the random effects here. This agai
 coords["param"] = ["alpha", "beta"]
 coords["param_bis"] = ["alpha", "beta"]
 with pm.Model(coords=coords) as covariation_intercept_slope:
-
     floor_idx = pm.MutableData("floor_idx", floor_measure, dims="obs_id")
     county_idx = pm.MutableData("county_idx", county, dims="obs_id")
 
@@ -960,7 +957,6 @@ This is fairly straightforward to implement in PyMC -- we just add another level
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as hierarchical_intercept:
-
     # Priors
     sigma_a = pm.HalfCauchy("sigma_a", 5)
 

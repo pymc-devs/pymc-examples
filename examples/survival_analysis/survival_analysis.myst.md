@@ -226,7 +226,6 @@ We may approximate $d_{i, j}$ with a Poisson random variable with mean $t_{i, j}
 coords = {"intervals": intervals}
 
 with pm.Model(coords=coords) as model:
-
     lambda0 = pm.Gamma("lambda0", 0.01, 0.01, dims="intervals")
 
     beta = pm.Normal("beta", 0, sigma=1000)
@@ -345,7 +344,6 @@ We implement this model in `pymc` as follows.
 coords = {"intervals": intervals}
 
 with pm.Model(coords=coords) as time_varying_model:
-
     lambda0 = pm.Gamma("lambda0", 0.01, 0.01, dims="intervals")
     beta = GaussianRandomWalk("beta", init_dist=pm.Normal.dist(), sigma=1.0, dims="intervals")
 

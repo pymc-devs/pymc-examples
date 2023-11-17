@@ -8,9 +8,10 @@ kernelspec:
   display_name: Python [conda env:spatial_pymc_env]
   language: python
   name: conda-env-spatial_pymc_env-py
+myst:
+  substitutions:
+    extra_dependencies: geopandas libpysal
 ---
-
-+++ {"tags": []}
 
 (conditional_autoregressive_priors)=
 # Conditional Autoregressive (CAR) Models for Spatial Data
@@ -79,8 +80,6 @@ except FileNotFoundError:
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 df_scot_cancer.head()
 ```
 

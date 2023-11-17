@@ -203,8 +203,6 @@ X_new = np.hstack([X_new, output_idx])
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 %%time
 with model:
     preds = mogp.conditional("preds", X_new)
@@ -313,8 +311,6 @@ with model:
 ### Prediction
 
 ```{code-cell} ipython3
-:tags: []
-
 %%time
 with model:
     preds = mogp.conditional("preds", X_new)

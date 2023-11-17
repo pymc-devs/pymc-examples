@@ -246,7 +246,6 @@ It's not quite so simple! The `grad()` method itself requires that its inputs ar
 ```{code-cell} ipython3
 # define a pytensor Op for our likelihood function
 class LogLikeWithGrad(pt.Op):
-
     itypes = [pt.dvector]  # expects a vector of parameter values when called
     otypes = [pt.dscalar]  # outputs a single scalar value (the log likelihood)
 

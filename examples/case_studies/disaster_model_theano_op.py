@@ -142,7 +142,6 @@ def rate_(switchpoint, early_mean, late_mean):
 
 
 with pm.Model() as model:
-
     # Prior for distribution of switchpoint location
     switchpoint = pm.DiscreteUniform("switchpoint", lower=0, upper=years)
     # Priors for pre- and post-switch mean number of disasters

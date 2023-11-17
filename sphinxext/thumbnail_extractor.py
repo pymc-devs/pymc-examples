@@ -184,7 +184,6 @@ def main(app):
     file = [HEAD]
 
     for folder, title in folder_title_map.items():
-
         nb_paths = glob(f"{folder}/*.ipynb")
         file.append(
             SECTION_TEMPLATE.format(
