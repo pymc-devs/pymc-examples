@@ -1201,7 +1201,7 @@ If we have forgotten an important covariance or mean function, please feel free 
 ## Authors
 * Authored by Bill Engels
 * Updated to v4 by Oriol Abril Pla in Nov 2022 ([pymc-examples#301](https://github.com/pymc-devs/pymc-examples/pull/301))
-* Updated to v5 by Juan Orduz in Nov 2023
+* Updated to v5 by Juan Orduz in Nov 2023 ([pymc-examples#593](https://github.com/pymc-devs/pymc-examples/pull/593))
 
 +++
 
