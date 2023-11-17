@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3.9.7 ('base')
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -166,8 +166,8 @@ def add_noise(a, b):
 # plotting observed data.
 observed = add_noise(a, b)
 _, ax = plt.subplots(figsize=(12, 4))
-ax.plot(observed[:, 0], "x", label="prey")
-ax.plot(observed[:, 1], "x", label="predator")
+ax.plot(t, observed[:, 0], "x", label="prey")
+ax.plot(t, observed[:, 1], "x", label="predator")
 ax.set_xlabel("time")
 ax.set_ylabel("population")
 ax.set_title("Observed data")
@@ -198,8 +198,8 @@ az.plot_posterior(idata_lv);
 # plot results
 _, ax = plt.subplots(figsize=(14, 6))
 posterior = idata_lv.posterior.stack(samples=("draw", "chain"))
-ax.plot(observed[:, 0], "o", label="prey", c="C0", mec="k")
-ax.plot(observed[:, 1], "o", label="predator", c="C1", mec="k")
+ax.plot(t, observed[:, 0], "o", label="prey", c="C0", mec="k")
+ax.plot(t, observed[:, 1], "o", label="predator", c="C1", mec="k")
 ax.plot(competition_model(None, posterior["a"].mean(), posterior["b"].mean()), linewidth=3)
 for i in np.random.randint(0, size, 75):
     sim = competition_model(None, posterior["a"][i], posterior["b"][i])
@@ -224,3 +224,7 @@ martin2021bayesian
 
 :::{include} ../page_footer.md
 :::
+
+```{code-cell} ipython3
+
+```
