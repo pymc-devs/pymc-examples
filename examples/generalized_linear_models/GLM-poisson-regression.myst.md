@@ -10,7 +10,7 @@ kernelspec:
   name: pymc-ex
 ---
 
-+++ {"papermill": {"duration": 0.043172, "end_time": "2021-02-23T11:26:55.064791", "exception": false, "start_time": "2021-02-23T11:26:55.021619", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.043172, "end_time": "2021-02-23T11:26:55.064791", "exception": false, "start_time": "2021-02-23T11:26:55.021619", "status": "completed"}}
 
 (GLM-poisson-regression)=
 # GLM: Poisson Regression
@@ -21,7 +21,7 @@ kernelspec:
 :author: Jonathan Sedar, Benjamin Vincent
 :::
 
-+++ {"papermill": {"duration": 0.069202, "end_time": "2021-02-23T11:27:01.489628", "exception": false, "start_time": "2021-02-23T11:27:01.420426", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.069202, "end_time": "2021-02-23T11:27:01.489628", "exception": false, "start_time": "2021-02-23T11:27:01.420426", "status": "completed"}}
 
 This is a minimal reproducible example of Poisson regression to predict counts using dummy data.
 
@@ -47,7 +47,6 @@ papermill:
   exception: false
   start_time: '2021-02-23T11:26:55.108848'
   status: completed
-tags: []
 ---
 import arviz as az
 import bambi as bmb
@@ -68,7 +67,6 @@ papermill:
   exception: false
   start_time: '2021-02-23T11:27:01.237926'
   status: completed
-tags: []
 ---
 RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
@@ -77,15 +75,15 @@ rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
 
-+++ {"papermill": {"duration": 0.06268, "end_time": "2021-02-23T11:27:01.615645", "exception": false, "start_time": "2021-02-23T11:27:01.552965", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.06268, "end_time": "2021-02-23T11:27:01.615645", "exception": false, "start_time": "2021-02-23T11:27:01.552965", "status": "completed"}}
 
 ## Local Functions
 
-+++ {"papermill": {"duration": 0.073451, "end_time": "2021-02-23T11:27:01.763249", "exception": false, "start_time": "2021-02-23T11:27:01.689798", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.073451, "end_time": "2021-02-23T11:27:01.763249", "exception": false, "start_time": "2021-02-23T11:27:01.689798", "status": "completed"}}
 
 ## Generate Data
 
-+++ {"papermill": {"duration": 0.060542, "end_time": "2021-02-23T11:27:01.884617", "exception": false, "start_time": "2021-02-23T11:27:01.824075", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.060542, "end_time": "2021-02-23T11:27:01.884617", "exception": false, "start_time": "2021-02-23T11:27:01.824075", "status": "completed"}}
 
 This dummy dataset is created to emulate some data created as part of a study into quantified self, and the real data is more complicated than this. Ask Ian Osvald if you'd like to know more [@ianozvald](https://twitter.com/ianozsvald).
 
@@ -109,7 +107,6 @@ papermill:
   exception: false
   start_time: '2021-02-23T11:27:01.949653'
   status: completed
-tags: []
 ---
 # decide poisson theta values
 theta_noalcohol_meds = 1  # no alcohol, took an antihist
@@ -157,12 +154,11 @@ papermill:
   exception: false
   start_time: '2021-02-23T11:27:02.083286'
   status: completed
-tags: []
 ---
 df.tail()
 ```
 
-+++ {"papermill": {"duration": 0.071086, "end_time": "2021-02-23T11:27:02.312429", "exception": false, "start_time": "2021-02-23T11:27:02.241343", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.071086, "end_time": "2021-02-23T11:27:02.312429", "exception": false, "start_time": "2021-02-23T11:27:02.241343", "status": "completed"}}
 
 ##### View means of the various combinations (Poisson mean values)
 
@@ -174,12 +170,11 @@ papermill:
   exception: false
   start_time: '2021-02-23T11:27:02.367642'
   status: completed
-tags: []
 ---
 df.groupby(["alcohol", "nomeds"]).mean().unstack()
 ```
 
-+++ {"papermill": {"duration": 0.054583, "end_time": "2021-02-23T11:27:02.561633", "exception": false, "start_time": "2021-02-23T11:27:02.507050", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.054583, "end_time": "2021-02-23T11:27:02.561633", "exception": false, "start_time": "2021-02-23T11:27:02.507050", "status": "completed"}}
 
 ### Briefly Describe Dataset
 
@@ -191,7 +186,6 @@ papermill:
   exception: false
   start_time: '2021-02-23T11:27:02.613464'
   status: completed
-tags: []
 ---
 g = sns.catplot(
     x="nsneeze",
@@ -207,7 +201,7 @@ for ax in (g.axes[1, 0], g.axes[1, 1]):
         label.set_visible(n % 5 == 0)
 ```
 
-+++ {"papermill": {"duration": 0.049808, "end_time": "2021-02-23T11:27:05.231176", "exception": false, "start_time": "2021-02-23T11:27:05.181368", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.049808, "end_time": "2021-02-23T11:27:05.231176", "exception": false, "start_time": "2021-02-23T11:27:05.181368", "status": "completed"}}
 
 **Observe:**
 
@@ -217,15 +211,15 @@ for ax in (g.axes[1, 0], g.axes[1, 1]):
 + Changing `nomeds == True` (lower-left) increases the sneeze count `nsneeze` further
 + Changing both `alcohol == True and nomeds == True` (lower-right) increases the sneeze count `nsneeze` a lot, increasing both the mean and variance.
 
-+++ {"papermill": {"duration": 0.049476, "end_time": "2021-02-23T11:27:05.330914", "exception": false, "start_time": "2021-02-23T11:27:05.281438", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.049476, "end_time": "2021-02-23T11:27:05.330914", "exception": false, "start_time": "2021-02-23T11:27:05.281438", "status": "completed"}}
 
 ---
 
-+++ {"papermill": {"duration": 0.054536, "end_time": "2021-02-23T11:27:05.438038", "exception": false, "start_time": "2021-02-23T11:27:05.383502", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.054536, "end_time": "2021-02-23T11:27:05.438038", "exception": false, "start_time": "2021-02-23T11:27:05.383502", "status": "completed"}}
 
 ## Poisson Regression
 
-+++ {"papermill": {"duration": 0.048945, "end_time": "2021-02-23T11:27:05.540630", "exception": false, "start_time": "2021-02-23T11:27:05.491685", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.048945, "end_time": "2021-02-23T11:27:05.540630", "exception": false, "start_time": "2021-02-23T11:27:05.491685", "status": "completed"}}
 
 Our model here is a very simple Poisson regression, allowing for interaction of terms:
 
@@ -233,7 +227,7 @@ $$ \theta = exp(\beta X)$$
 
 $$ Y_{sneeze\_count} \sim Poisson(\theta)$$
 
-+++ {"papermill": {"duration": 0.04972, "end_time": "2021-02-23T11:27:05.641588", "exception": false, "start_time": "2021-02-23T11:27:05.591868", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.04972, "end_time": "2021-02-23T11:27:05.641588", "exception": false, "start_time": "2021-02-23T11:27:05.591868", "status": "completed"}}
 
 **Create linear model for interaction of terms**
 
@@ -245,7 +239,6 @@ papermill:
   exception: false
   start_time: '2021-02-23T11:27:05.691437'
   status: completed
-tags: []
 ---
 fml = "nsneeze ~ alcohol + nomeds + alcohol:nomeds"  # full formulae formulation
 ```
@@ -258,16 +251,15 @@ papermill:
   exception: false
   start_time: '2021-02-23T11:27:05.800805'
   status: completed
-tags: []
 ---
 fml = "nsneeze ~ alcohol * nomeds"  # lazy, alternative formulae formulation
 ```
 
-+++ {"papermill": {"duration": 0.048682, "end_time": "2021-02-23T11:27:05.958802", "exception": false, "start_time": "2021-02-23T11:27:05.910120", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.048682, "end_time": "2021-02-23T11:27:05.958802", "exception": false, "start_time": "2021-02-23T11:27:05.910120", "status": "completed"}}
 
 ### 1. Manual method, create design matrices and manually specify model
 
-+++ {"papermill": {"duration": 0.049076, "end_time": "2021-02-23T11:27:06.059305", "exception": false, "start_time": "2021-02-23T11:27:06.010229", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.049076, "end_time": "2021-02-23T11:27:06.059305", "exception": false, "start_time": "2021-02-23T11:27:06.010229", "status": "completed"}}
 
 **Create Design Matrices**
 
@@ -284,7 +276,7 @@ mx_en = dm.response.as_dataframe()
 mx_ex
 ```
 
-+++ {"papermill": {"duration": 0.062897, "end_time": "2021-02-23T11:27:06.420853", "exception": false, "start_time": "2021-02-23T11:27:06.357956", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.062897, "end_time": "2021-02-23T11:27:06.420853", "exception": false, "start_time": "2021-02-23T11:27:06.357956", "status": "completed"}}
 
 **Create Model**
 
@@ -296,10 +288,8 @@ papermill:
   exception: false
   start_time: '2021-02-23T11:27:06.483418'
   status: completed
-tags: []
 ---
 with pm.Model() as mdl_fish:
-
     # define priors, weakly informative Normal
     b0 = pm.Normal("Intercept", mu=0, sigma=10)
     b1 = pm.Normal("alcohol", mu=0, sigma=10)
@@ -318,7 +308,7 @@ with pm.Model() as mdl_fish:
     y = pm.Poisson("y", mu=pm.math.exp(theta), observed=mx_en["nsneeze"].values)
 ```
 
-+++ {"papermill": {"duration": 0.049445, "end_time": "2021-02-23T11:27:35.720870", "exception": false, "start_time": "2021-02-23T11:27:35.671425", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.049445, "end_time": "2021-02-23T11:27:35.720870", "exception": false, "start_time": "2021-02-23T11:27:35.671425", "status": "completed"}}
 
 **Sample Model**
 
@@ -330,14 +320,13 @@ papermill:
   exception: false
   start_time: '2021-02-23T11:27:35.769855'
   status: completed
-tags: []
 ---
 with mdl_fish:
     inf_fish = pm.sample()
     # inf_fish.extend(pm.sample_posterior_predictive(inf_fish))
 ```
 
-+++ {"papermill": {"duration": 0.118023, "end_time": "2021-02-23T11:29:24.142987", "exception": false, "start_time": "2021-02-23T11:29:24.024964", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.118023, "end_time": "2021-02-23T11:29:24.142987", "exception": false, "start_time": "2021-02-23T11:29:24.024964", "status": "completed"}}
 
 **View Diagnostics**
 
@@ -349,18 +338,17 @@ papermill:
   exception: false
   start_time: '2021-02-23T11:29:24.242675'
   status: completed
-tags: []
 ---
 az.plot_trace(inf_fish);
 ```
 
-+++ {"papermill": {"duration": 0.076462, "end_time": "2021-02-23T11:29:28.790410", "exception": false, "start_time": "2021-02-23T11:29:28.713948", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.076462, "end_time": "2021-02-23T11:29:28.790410", "exception": false, "start_time": "2021-02-23T11:29:28.713948", "status": "completed"}}
 
 **Observe:**
 
 + The model converges quickly and traceplots looks pretty well mixed
 
-+++ {"papermill": {"duration": 0.07685, "end_time": "2021-02-23T11:29:28.943674", "exception": false, "start_time": "2021-02-23T11:29:28.866824", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.07685, "end_time": "2021-02-23T11:29:28.943674", "exception": false, "start_time": "2021-02-23T11:29:28.866824", "status": "completed"}}
 
 ### Transform coeffs and recover theta values
 
@@ -368,7 +356,7 @@ az.plot_trace(inf_fish);
 az.summary(np.exp(inf_fish.posterior), kind="stats")
 ```
 
-+++ {"papermill": {"duration": 0.075014, "end_time": "2021-02-23T11:29:29.324266", "exception": false, "start_time": "2021-02-23T11:29:29.249252", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.075014, "end_time": "2021-02-23T11:29:29.324266", "exception": false, "start_time": "2021-02-23T11:29:29.249252", "status": "completed"}}
 
 **Observe:**
 
@@ -416,15 +404,15 @@ az.summary(np.exp(inf_fish.posterior), kind="stats")
                              = exp(Intercept) * exp(alcohol) * exp(nomeds * alcohol:nomeds)
                              = 1 * 3 * 6 * 2 = 36
 
-+++ {"papermill": {"duration": 0.076829, "end_time": "2021-02-23T11:29:29.477240", "exception": false, "start_time": "2021-02-23T11:29:29.400411", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.076829, "end_time": "2021-02-23T11:29:29.477240", "exception": false, "start_time": "2021-02-23T11:29:29.400411", "status": "completed"}}
 
 ### 2. Alternative method, using `bambi`
 
-+++ {"papermill": {"duration": 0.074408, "end_time": "2021-02-23T11:29:29.628052", "exception": false, "start_time": "2021-02-23T11:29:29.553644", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.074408, "end_time": "2021-02-23T11:29:29.628052", "exception": false, "start_time": "2021-02-23T11:29:29.553644", "status": "completed"}}
 
 **Create Model**
 
-+++ {"papermill": {"duration": 0.07467, "end_time": "2021-02-23T11:29:29.778406", "exception": false, "start_time": "2021-02-23T11:29:29.703736", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.07467, "end_time": "2021-02-23T11:29:29.778406", "exception": false, "start_time": "2021-02-23T11:29:29.703736", "status": "completed"}}
 
 **Alternative automatic formulation using `bambi`**
 
@@ -436,12 +424,11 @@ papermill:
   exception: false
   start_time: '2021-02-23T11:29:29.854648'
   status: completed
-tags: []
 ---
 model = bmb.Model(fml, df, family="poisson")
 ```
 
-+++ {"papermill": {"duration": 0.077285, "end_time": "2021-02-23T11:29:34.719403", "exception": false, "start_time": "2021-02-23T11:29:34.642118", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.077285, "end_time": "2021-02-23T11:29:34.719403", "exception": false, "start_time": "2021-02-23T11:29:34.642118", "status": "completed"}}
 
 **Fit Model**
 
@@ -453,12 +440,11 @@ papermill:
   exception: false
   start_time: '2021-02-23T11:29:34.796102'
   status: completed
-tags: []
 ---
 inf_fish_alt = model.fit()
 ```
 
-+++ {"papermill": {"duration": 0.075564, "end_time": "2021-02-23T11:31:30.375433", "exception": false, "start_time": "2021-02-23T11:31:30.299869", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.075564, "end_time": "2021-02-23T11:31:30.375433", "exception": false, "start_time": "2021-02-23T11:31:30.299869", "status": "completed"}}
 
 **View Traces**
 
@@ -470,12 +456,11 @@ papermill:
   exception: false
   start_time: '2021-02-23T11:31:30.453177'
   status: completed
-tags: []
 ---
 az.plot_trace(inf_fish_alt);
 ```
 
-+++ {"papermill": {"duration": 0.10274, "end_time": "2021-02-23T11:31:33.628707", "exception": false, "start_time": "2021-02-23T11:31:33.525967", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.10274, "end_time": "2021-02-23T11:31:33.628707", "exception": false, "start_time": "2021-02-23T11:31:33.525967", "status": "completed"}}
 
 ### Transform coeffs
 
@@ -483,7 +468,7 @@ az.plot_trace(inf_fish_alt);
 az.summary(np.exp(inf_fish_alt.posterior), kind="stats")
 ```
 
-+++ {"papermill": {"duration": 0.10059, "end_time": "2021-02-23T11:31:34.095731", "exception": false, "start_time": "2021-02-23T11:31:33.995141", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.10059, "end_time": "2021-02-23T11:31:34.095731", "exception": false, "start_time": "2021-02-23T11:31:33.995141", "status": "completed"}}
 
 **Observe:**
 
@@ -492,8 +477,6 @@ az.summary(np.exp(inf_fish_alt.posterior), kind="stats")
 + Note that the posterior predictive samples have an extreme skew
 
 ```{code-cell} ipython3
-:tags: []
-
 posterior_predictive = model.predict(inf_fish_alt, kind="pps")
 ```
 
@@ -505,7 +488,7 @@ For more information on posterior predictive checks, we can refer to {ref}`pymc:
 az.plot_ppc(inf_fish_alt);
 ```
 
-+++ {"papermill": {"duration": 0.106366, "end_time": "2021-02-23T11:31:34.956844", "exception": false, "start_time": "2021-02-23T11:31:34.850478", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.106366, "end_time": "2021-02-23T11:31:34.956844", "exception": false, "start_time": "2021-02-23T11:31:34.850478", "status": "completed"}}
 
 ## Authors
 - Example originally contributed by [Jonathan Sedar](https://github.com/jonsedar) 2016-05-15.
@@ -524,7 +507,6 @@ papermill:
   exception: false
   start_time: '2021-02-23T11:31:43.212087'
   status: completed
-tags: []
 ---
 %load_ext watermark
 %watermark -n -u -v -iv -w -p pytensor,aeppl

@@ -108,7 +108,6 @@ def make_model(mu, cov):
 def sample_model(
     model, D, run=0, step_class=pm.DEMetropolis, cores=1, chains=1, step_kwargs={}, sample_kwargs={}
 ):
-
     # sampler name
     sampler = step_class.name
     # sample model
@@ -268,7 +267,6 @@ def plot_comparison_bars(results_df):
 :tags: [hide-input]
 
 def plot_forest_compare_analytical(results_df):
-
     # extract the first 5 dimensions
     summaries = []
     truncated_traces = []

@@ -10,8 +10,6 @@ kernelspec:
   name: python3
 ---
 
-+++ {"tags": []}
-
 (ODE_Lotka_Volterra_fit_multiple_ways)= 
 # ODE Lotka-Volterra With Bayesian Inference in Multiple Ways
 
@@ -53,13 +51,13 @@ We will first present the Lotka-Volterra predator-prey ODE model and example dat
 ### Key Conclusions
 Based on the experiments in this notebook, the most simple and efficient method for performing Bayesian inference on the Lotka-Volterra equations was to specify the ODE system in Scipy, wrap the function as a Pytensor op, and use a Differential Evolution Metropolis (DEMetropolis) sampler in PyMC.  
 
-+++ {"tags": []}
++++
 
 ## Background
 ### Motivation
 Ordinary differential equation models (ODEs) are used in a variety of science and engineering domains to model the time evolution of physical variables.  A natural choice to estimate the values and uncertainty of model parameters given experimental data is Bayesian inference.  However, ODEs can be challenging to specify and solve in the Bayesian setting, therefore, this notebook steps through multiple methods for solving an ODE inference problem using PyMC. The Lotka-Volterra model used in this example has often been used for benchmarking Bayesian inference methods (e.g., in this Stan [case study](https://mc-stan.org/users/documentation/case-studies/lotka-volterra-predator-prey.html), and in Chapter 16 of *Statistical Rethinking* {cite:p}`mcelreath2018statistical`.
 
-+++ {"tags": []}
++++
 
 ### Lotka-Volterra Predator-Prey Model
 The Lotka-Volterra model describes the interaction between a predator and prey species. This ODE given by:
@@ -71,7 +69,7 @@ $$
 \end{aligned}
 $$
 
-+++ {"tags": []}
++++
 
 The state vector $X(t)=[x(t),y(t)]$ comprises the densities of the prey and the predator species respectively.  Parameters $\boldsymbol{\theta}=[\alpha,\beta,\gamma,\delta, x(0),y(0)]$ are the unknowns that we wish to infer from experimental observations.  $x(0), y(0)$ are the initial values of the states needed to solve the ODE, and $\alpha,\beta,\gamma$, and $\delta$ are unknown model parameters which represent the following:  
 * $\alpha$ is the growing rate of prey when there's no predator.
@@ -79,7 +77,7 @@ The state vector $X(t)=[x(t),y(t)]$ comprises the densities of the prey and the 
 * $\gamma$ is the dying rate of predator when there is no prey.
 * $\delta$ is the growing rate of predator in the presence of prey.    
 
-+++ {"tags": []}
++++
 
 ### The Hudson's Bay Company data
 The Lotka-Volterra predator prey model has been used to successfully explain the dynamics of natural populations of predators and prey, such as the lynx and snowshoe hare data of the Hudson's Bay Company. Since the dataset is small, we will hand-enter the values.
@@ -120,7 +118,7 @@ plot_data(ax);
 ### Problem Statement
 The purpose of this analysis is to estimate, with uncertainty, the parameters for the Lotka-Volterra model for the Hudson's Bay Company data from 1900 to 1920.  
 
-+++ {"tags": []}
++++
 
 ## Scipy `odeint`
 
@@ -156,7 +154,6 @@ def plot_model(
     lw=3,
     title="Hudson's Bay Company Data and\nExample Model Run",
 ):
-
     ax.plot(time, x_y[:, 1], color="b", alpha=alpha, lw=lw, label="Lynx (Model)")
     ax.plot(time, x_y[:, 0], color="g", alpha=alpha, lw=lw, label="Hare (Model)")
     ax.legend(fontsize=14, loc="center left", bbox_to_anchor=(1, 0.5))
@@ -712,7 +709,6 @@ Create a function that accepts different numbers of time steps for testing.  The
 ```{code-cell} ipython3
 # Lotka-Volterra forward simulation model using scan
 def lv_scan_simulation_model(theta, steps_year=100, years=21):
-
     # variables to control time steps
     n_steps = years * steps_year
     dt = 1 / steps_year
@@ -778,7 +774,6 @@ Now that we are OK with 100 time steps per year, we write the model with indexin
 
 ```{code-cell} ipython3
 def lv_scan_inference_model(theta, steps_year=100, years=21):
-
     # variables to control time steps
     n_steps = years * steps_year
     dt = 1 / steps_year
@@ -932,14 +927,14 @@ We performed Bayesian inference on a system of ODEs in 4 main ways:
 
 The "winner" for this problem was the Scipy `odeint` solver with a differential evolution (DE) Metropolis sampler and SMC (for a model with a Likelihood) provide good results with SMC being somewhat slower (but also better diagnostics). The improved efficiency of the NUTS sampler did not make up for the inefficiency in using the slow ODE solvers with gradients.  Both DEMetropolis and SMC enable the simplest workflow for a scientist with a working numeric model and the desire to perform Bayesian inference. Just wrapping the numeric model in a Pytensor op and plugging it into a PyMC model can get you a long way!
 
-+++ {"tags": []}
++++
 
 ## Authors
 Organized and rewritten by [Greg Brunkhorst](https://github.com/gbrunkhorst)  from multiple legacy PyMC.io example notebooks by Sanmitra Ghosh, Demetri Pananos, and the PyMC Team ({ref}`ABC_introduction`).
 
 Osvaldo Martin added some clarification about SMC-ABC and  minor fixes in Mar, 2023
 
-+++ {"tags": []}
++++
 
 ## References
 

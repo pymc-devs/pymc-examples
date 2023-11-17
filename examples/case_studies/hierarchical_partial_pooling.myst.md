@@ -96,7 +96,6 @@ player_names = data["FirstName"] + " " + data["LastName"]
 coords = {"player_names": player_names.tolist()}
 
 with pm.Model(coords=coords) as baseball_model:
-
     phi = pm.Uniform("phi", lower=0.0, upper=1.0)
 
     kappa_log = pm.Exponential("kappa_log", lam=1.5)
@@ -110,7 +109,6 @@ Recall our original question was with regard to the true batting average for a p
 
 ```{code-cell} ipython3
 with baseball_model:
-
     theta_new = pm.Beta("theta_new", alpha=phi * kappa, beta=(1.0 - phi) * kappa)
     y_new = pm.Binomial("y_new", n=4, p=theta_new, observed=0)
 ```

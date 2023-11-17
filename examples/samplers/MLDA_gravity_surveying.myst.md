@@ -266,7 +266,6 @@ class Gravity:
     """
 
     def __init__(self, f_function, depth, n_quad, n_data):
-
         # Set the function describing the distribution of subsurface density.
         self.f_function = f_function
 
@@ -311,7 +310,6 @@ class Gravity:
         self.g = np.dot(self.K, self.f)
 
     def plot_model(self):
-
         # Plot the density and the signal.
         fig, axes = plt.subplots(1, 2, figsize=(16, 6))
         axes[0].set_title("Density")
@@ -333,7 +331,6 @@ class Gravity:
         plt.show()
 
     def plot_kernel(self):
-
         # Plot the kernel.
         plt.figure(figsize=(8, 6))
         plt.imshow(self.K, cmap="plasma")
@@ -390,7 +387,6 @@ class Gravity_Forward(Gravity):
     """
 
     def __init__(self, depth, n_quad, n_data):
-
         # Set the depth of the density (distance to the surface measurements).
         self.depth = depth
 
@@ -426,7 +422,6 @@ class Gravity_Forward(Gravity):
         self.K = self.w * self.depth / dist**3
 
     def set_random_process(self, random_process, lamb, mkl):
-
         # Set the number of KL modes.
         self.mkl = mkl
 
@@ -436,7 +431,6 @@ class Gravity_Forward(Gravity):
         self.random_process.compute_eigenpairs()
 
     def solve(self, parameters):
-
         # Internalise the Random Field parameters
         self.parameters = parameters
 
@@ -452,7 +446,6 @@ class Gravity_Forward(Gravity):
         self.g = np.dot(self.K, self.f)
 
     def get_data(self):
-
         # Get the data vector.
         return self.g
 ```
@@ -633,7 +626,6 @@ for i, m_i in enumerate(my_models):
 coarse_models = []
 for j in range(len(my_models) - 1):
     with pm.Model() as model:
-
         # Multivariate normal prior.
         theta = pm.MvNormal("theta", mu=mu_prior, cov=cov_prior, shape=mkl)
 
@@ -654,7 +646,6 @@ traces = []
 runtimes = []
 
 with pm.Model() as model:
-
     # Multivariate normal prior.
     theta = pm.MvNormal("theta", mu=mu_prior, cov=cov_prior, shape=mkl)
 

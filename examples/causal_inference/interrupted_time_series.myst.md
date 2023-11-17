@@ -117,8 +117,6 @@ figsize = (10, 5)
 The focus of this example is on making causal claims using the interrupted time series approach. Therefore we will work with some relatively simple synthetic data which only requires a very simple model.
 
 ```{code-cell} ipython3
-:tags: []
-
 treatment_time = "2017-01-01"
 β0 = 0
 β1 = 0.1

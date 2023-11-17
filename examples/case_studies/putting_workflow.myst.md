@@ -8,9 +8,6 @@ kernelspec:
   display_name: pymc_env
   language: python
   name: python3
-substitutions:
-  conda_dependencies: '!!xarray-einstats not available!!'
-  pip_dependencies: xarray-einstats
 ---
 
 (putting_workflow)=

@@ -20,8 +20,6 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-:tags: []
-
 import arviz as az
 import bambi as bmb
 import matplotlib.pyplot as plt
@@ -37,8 +35,6 @@ lowess = sm.nonparametric.lowess
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 %config InlineBackend.figure_format = 'retina'  # high resolution figures
 az.style.use("arviz-darkgrid")
 rng = np.random.default_rng(42)
@@ -62,8 +58,6 @@ We'll follow the discussion and iterative approach to model building outlined in
 For any longitudinal analysis we need three components: (1) multiple waves of data collection (2) a suitable definition of time and (3) an outcome of interest. Combining these we can assess how the individual changes over time with respect that outcome. In this first series of models we will look at how adolescent alcohol usage varies between children from the age of 14 onwards with data collected annually over three years.
 
 ```{code-cell} ipython3
-:tags: []
-
 try:
     df = pd.read_csv("../data/alcohol1_pp.csv")
 except FileNotFoundError:
@@ -198,8 +192,6 @@ We begin with a simple unconditional model where we model only the individual's 
 
 
 ```{code-cell} ipython3
-:tags: []
-
 id_indx, unique_ids = pd.factorize(df["id"])
 coords = {"ids": unique_ids, "obs": range(len(df["alcuse"]))}
 with pm.Model(coords=coords) as model:
@@ -261,8 +253,6 @@ $$ \begin{aligned}
 Fitting the model then informs us about how each individual modifies the global model, but also lets us learn global parameters. In particular we allow for a subject specific modification of the coefficient on the variable representing time. A broadly similar pattern of combination holds for all the hierarchical models we outline in the following series of models. In the Bayesian setting we're trying to learn the parameters that best fit the data. Implementing the model in PyMC is as follows:
 
 ```{code-cell} ipython3
-:tags: []
-
 id_indx, unique_ids = pd.factorize(df["id"])
 coords = {"ids": unique_ids, "obs": range(len(df["alcuse"]))}
 with pm.Model(coords=coords) as model:
@@ -349,8 +339,6 @@ $$ \begin{aligned}
 \end{aligned} $$
 
 ```{code-cell} ipython3
-:tags: []
-
 id_indx, unique_ids = pd.factorize(df["id"])
 coords = {"ids": unique_ids, "obs": range(len(df["alcuse"]))}
 with pm.Model(coords=coords) as model:
@@ -477,8 +465,6 @@ $$ \begin{aligned}
 \end{aligned} $$
 
 ```{code-cell} ipython3
-:tags: []
-
 id_indx, unique_ids = pd.factorize(df["id"])
 coords = {"ids": unique_ids, "obs": range(len(df["alcuse"]))}
 with pm.Model(coords=coords) as model:
@@ -660,8 +646,6 @@ While we're fitting these models directly within PyMC there is an alternative ba
 The formula specification uses `1` to denote an intercept term and a conditional `|` operator to denote a subject level parameter combined with the global parameter of the same type in the manner specified above. We will add subject specific modifications of the intercept term and beta coefficient on the focal variable of age as in the models above. We do so using the syntax `(1 + age_14 | id)` in the formula syntax for Bambi.
 
 ```{code-cell} ipython3
-:tags: []
-
 formula = "alcuse ~ 1 + age_14 + coa + cpeer + age_14:coa + age_14:cpeer + (1 + age_14 | id)"
 model = bmb.Model(formula, df)
 
@@ -674,8 +658,6 @@ idata_bambi
 The model is nicely specified and details the structure of hierarchical and subject level parameters. By default the Bambi model assigns priors and uses a non-centred parameterisation. The Bambi model definition uses the language of common and group level effects as opposed to the global and subject distinction we have beeen using in this example so far. Again, the important point to stress is just the hierarchy of levels, not the names.
 
 ```{code-cell} ipython3
-:tags: []
-
 model
 ```
 
@@ -686,8 +668,6 @@ model.graph()
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 az.summary(
     idata_bambi,
     var_names=[
@@ -734,8 +714,6 @@ We can see here how the bambi model specification recovers the same parameterisa
 Next we'll look at a dataset where the individual trajectories show wild swings in behaviour across the individuals. The data reports a score per child of externalizing behaviors. This can measure a variety of behaviours including but not limited to: physical aggression, verbal bullying, relational aggression, defiance, theft, and vandalism. The higher on the scale the more external behaviours demonstrated by the child. The scale is bounded at 0 and has a maximum possible score of 68. Each individual child is measured for these behaviours in each grade of school. 
 
 ```{code-cell} ipython3
-:tags: []
-
 try:
     df_external = pd.read_csv("../data/external_pp.csv")
 except FileNotFoundError:
@@ -781,8 +759,6 @@ plt.hist(np.random.gumbel(guess["mu"], guess["beta"], 1000), bins=30, ec="black"
 As before we'll begin with a fairly minimal model, specifying a hierarchical model where each individual modifies the grand mean. We allow for a non-normal censored likelihood term. 
 
 ```{code-cell} ipython3
-:tags: []
-
 id_indx, unique_ids = pd.factorize(df_external["ID"])
 coords = {"ids": unique_ids, "obs": range(len(df_external["EXTERNAL"]))}
 with pm.Model(coords=coords) as model:
@@ -834,8 +810,6 @@ ax.set_title("Distribution of Individual Modifications to the Grand Mean");
 We now model the evolution of the behaviours over time in a hierarchical fashion. We start with a simple hierarhical linear regression with a focal predictor of grade. 
 
 ```{code-cell} ipython3
-:tags: []
-
 id_indx, unique_ids = pd.factorize(df_external["ID"])
 coords = {"ids": unique_ids, "obs": range(len(df_external["EXTERNAL"]))}
 with pm.Model(coords=coords) as model:
@@ -920,8 +894,6 @@ We can see here how the model is constrained to apply a very linear fit to the b
 To give the model more flexibility to model change over time we can add in polynomial terms. 
 
 ```{code-cell} ipython3
-:tags: []
-
 id_indx, unique_ids = pd.factorize(df_external["ID"])
 coords = {"ids": unique_ids, "obs": range(len(df_external["EXTERNAL"]))}
 with pm.Model(coords=coords) as model:
@@ -1079,8 +1051,6 @@ with pm.Model(coords=coords) as model:
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 pm.model_to_graphviz(model)
 ```
 

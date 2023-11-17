@@ -88,8 +88,6 @@ We first import data from the original data set, which can be found at [this URL
 We note that we  already removed  from the original  dataset the plays where less than two players are involved (for example travel calls or clock violations). Also, the original dataset does not contain information on the players' position, which we added ourselves.
 
 ```{code-cell} ipython3
-:tags: []
-
 try:
     df_orig = pd.read_csv(os.path.join("..", "data", "item_response_nba.csv"), index_col=0)
 except FileNotFoundError:
@@ -105,8 +103,6 @@ We now process our data in three steps:
 Finally, we display the head of our main dataframe `df` along with some basic statistics.
 
 ```{code-cell} ipython3
-:tags: []
-
 # 1. Construct df and df_position
 df = df_orig[["committing", "disadvantaged", "decision"]]
 
@@ -119,6 +115,7 @@ df_position = pd.concat(
 df_position = df_position[~df_position.index.duplicated(keep="first")]
 df_position.index.name = "player"
 df_position.columns = ["position"]
+
 
 # 2. Create the binary foul_called variable
 def foul_called(decision):
@@ -145,8 +142,6 @@ print(f"Number of committing players: {len(committing)}")
 print(f"Global probability of a foul being called: " f"{100*round(df.foul_called.mean(),3)}%\n\n")
 df.head()
 ```
-
-+++ {"tags": []}
 
 ## Item Response Model
 
@@ -201,7 +196,6 @@ We now implement the model above in PyMC. Note that, to easily keep track of the
 coords = {"disadvantaged": disadvantaged, "committing": committing}
 
 with pm.Model(coords=coords) as model:
-
     # Data
     foul_called_observed = pm.Data("foul_called_observed", df.foul_called, mutable=False)
 
@@ -226,8 +220,6 @@ with pm.Model(coords=coords) as model:
 We now plot our model to show the hierarchical structure (and the non-centered parametrisation) on the variables `theta` and `b`.
 
 ```{code-cell} ipython3
-:tags: []
-
 pm.model_to_graphviz(model)
 ```
 
@@ -255,8 +247,6 @@ Our first check is to plot
 These plots show, as expected, that the hierarchical structure of our model tends to estimate posteriors towards the global mean for players with a low amount of observations.
 
 ```{code-cell} ipython3
-:tags: []
-
 # Global posterior means of μ_theta and μ_b
 mu_theta_mean, mu_b_mean = trace.posterior["mu_theta"].mean(), 0
 # Raw mean from data of each disadvantaged player
@@ -272,6 +262,7 @@ committing_posterior_mean = (
     1
     / (1 + np.exp(-(mu_theta_mean - trace.posterior["b"].mean(dim=["chain", "draw"])))).to_pandas()
 )
+
 
 # Compute difference of raw and posterior mean for each
 # disadvantaged and committing player
@@ -403,7 +394,7 @@ plt.show();
 
 By visiting [Austin Rochford post](https://www.austinrochford.com/posts/2017-04-04-nba-irt.html) and checking the analogous table for the Rasch model there (which uses data from the 2016-17 season),  the reader can see that several top players in both skills are still in the top 10 with our larger data set (covering seasons 2015-16 to 2020-21).
 
-+++ {"tags": []}
++++
 
 ### Discovering extra hierarchical structure
 
@@ -467,8 +458,6 @@ These plots suggest that scoring high in `theta` does not correlate with high or
 Given the last observation, we decide to plot a histogram for the occurrence of different positions for top disadvantaged (`theta`) and committing (`b`) players. Interestingly, we see below that the largest share of best disadvantaged players are guards, meanwhile, the largest share of best committing players are centers (and at the same time a very small share of guards).
 
 ```{code-cell} ipython3
-:tags: []
-
 amount = 50  # How many top players we want to display
 top_theta_players = top_theta["disadvantaged"][:amount].values
 top_b_players = top_b["committing"][:amount].values
@@ -497,7 +486,7 @@ The histograms above suggest that it might be appropriate to add a hierarchical 
 
 A warm thank you goes to [Eric Ma](https://github.com/ericmjl) for many useful comments that improved this notebook.
 
-+++ {"tags": []}
++++
 
 ## Authors
  
@@ -518,8 +507,6 @@ A warm thank you goes to [Eric Ma](https://github.com/ericmjl) for many useful c
 ## Watermark
 
 ```{code-cell} ipython3
-:tags: []
-
 %load_ext watermark
 %watermark -n -u -v -iv -w -p pytensor,aeppl,xarray
 ```

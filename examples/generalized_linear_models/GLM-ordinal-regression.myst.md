@@ -20,8 +20,6 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-:tags: []
-
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
@@ -35,8 +33,6 @@ from statsmodels.miscmodels.ordinal_model import OrderedModel
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 %config InlineBackend.figure_format = 'retina'  # high resolution figures
 az.style.use("arviz-darkgrid")
 rng = np.random.default_rng(42)
@@ -55,8 +51,6 @@ We'll start by generating some fake data. Imagine an employee/manager relationsh
 Ordinal Regression is a statistical technique designed to **model** these kinds of relationships and can be contrasted to a design based approach where the focus is to extract simple statistical summaries e.g. proportions, counts or ratios in the context of a survey design under strong guarantees about the error tolerance in those derived summaries.
 
 ```{code-cell} ipython3
-:tags: []
-
 def make_data():
     np.random.seed(100)
     salary = np.random.normal(40, 10, 500)
@@ -92,8 +86,6 @@ df.head()
 We've specified our data in such a way that there is an underlying latent sentiment which is continuous in scale that gets crudely discretised to represent the ordinal rating scale. We've specified the data in such a way that salary drives a fairly linear increase in the manager's rating. 
 
 ```{code-cell} ipython3
-:tags: []
-
 fig, axs = plt.subplots(1, 3, figsize=(15, 5))
 axs = axs.flatten()
 ax = axs[0]
@@ -122,8 +114,6 @@ axs[1].legend();
 We can see here however that if we fit this model with a simple OLS fit it implies values beyond the categorical scale, which might motivate spurious salary increases by an overzealous HR manager. The OLS approximation is limited in that it cannot account for the proper nature of the outcome variable. 
 
 ```{code-cell} ipython3
-:tags: []
-
 exog = sm.add_constant(df[["salary", "work_from_home", "work_sat"]])
 mod = sm.OLS(df["explicit_rating"], exog)
 results = mod.fit()
@@ -189,29 +179,26 @@ We'll show both in this notebook, but as we'll see, the definition of the Dirchl
 PyMC has both `OrderedLogistic` and `OrderedProbit` distributions available. 
 
 ```{code-cell} ipython3
-:tags: []
-
 def constrainedUniform(N, min=0, max=1):
     return pm.Deterministic(
         "cutpoints",
         pt.concatenate(
             [
                 np.ones(1) * min,
-                pt.extra_ops.cumsum(pm.Dirichlet("cuts_unknown", a=np.ones(N - 2)))
-                * (min + (max - min)),
+                pt.extra_ops.cumsum(pm.Dirichlet("cuts_unknown", a=np.ones(N - 2))) * (max - min)
+                + min,
             ]
         ),
     )
 ```
 
-The above function, (brainchild of Dr Ben Vincen and Adrian Seyboldt), looks a little indimidating, but it's just a convenience function to specify a prior over the cutpoints in our $Y_{latent}$. The Dirichlet distribution is special in that draws from the distribution must sum to one. The above function ensures that each draw from the prior distribution is a cumulative share of the maximum category greater than the minimum of our ordinal categorisation. 
+The above function, (brainchild of Dr Ben Vincent and Adrian Seyboldt), looks a little indimidating, but it's just a convenience function to specify a prior over the cutpoints in our $Y_{latent}$. The Dirichlet distribution is special in that draws from the distribution must sum to one. The above function ensures that each draw from the prior distribution is a cumulative share of the maximum category greater than the minimum of our ordinal categorisation. 
 
 ```{code-cell} ipython3
 :tags: [hide-output]
 
 def make_model(priors, model_spec=1, constrained_uniform=False, logit=True):
     with pm.Model() as model:
-
         if constrained_uniform:
             cutpoints = constrainedUniform(K, 0, K)
         else:
@@ -252,14 +239,10 @@ idata5, model5 = make_model(priors, model_spec=3, constrained_uniform=True)
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 az.summary(idata3, var_names=["sigma", "cutpoints", "beta"])
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 pm.model_to_graphviz(model3)
 ```
 
@@ -268,21 +251,15 @@ pm.model_to_graphviz(model3)
 We can now for each individual manager's rating, look at the probability associated with each of the available categories. Across the posterior distributions of our cuts which section of the latent continous measure the employee is most likely to fall into.
 
 ```{code-cell} ipython3
-:tags: []
-
 implied_probs = az.extract(idata3, var_names=["y_probs"])
 implied_probs.shape
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 implied_probs[0].mean(axis=1)
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 fig, ax = plt.subplots(figsize=(20, 6))
 for i in range(K):
     ax.hist(implied_probs[0, i, :], label=f"Cutpoint: {i}", ec="white", bins=20, alpha=0.4)
@@ -292,23 +269,17 @@ ax.legend();
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 implied_class = az.extract(idata3, var_names=["y"], group="posterior_predictive")
 implied_class.shape
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 from scipy.stats import mode
 
 mode(implied_class[0])
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 fig, ax = plt.subplots(figsize=(20, 6))
 ax.hist(implied_class[0], ec="white", bins=20, alpha=0.4)
 ax.set_title("Distribution of Allocated Intervals for Individual O", fontsize=20);
@@ -321,8 +292,6 @@ ax.set_title("Distribution of Allocated Intervals for Individual O", fontsize=20
 One tool for ameliorating the risk of model misspecification is to compare amongst different candidate model to check for  predictive accuracy. 
 
 ```{code-cell} ipython3
-:tags: []
-
 compare = az.compare(
     {
         "model_salary": idata1,
@@ -340,8 +309,6 @@ compare
 We can also compare the estimated parameters which govern each regression model to see how robust our model fit is to alternative parameterisation. 
 
 ```{code-cell} ipython3
-:tags: []
-
 ax = az.plot_forest(
     [idata1, idata2, idata3, idata4, idata5],
     var_names=["sigma", "beta", "cutpoints"],
@@ -362,8 +329,6 @@ ax[0].set_title("Model Parameter Estimates", fontsize=20);
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 az.summary(idata3, var_names=["cutpoints", "beta", "sigma"])
 ```
 
@@ -372,8 +337,6 @@ az.summary(idata3, var_names=["cutpoints", "beta", "sigma"])
 Note how the model with unconstrianed cutpoints allows the occurence of a threshold estimated to be below zero. This does not make much conceptual sense, but can lead to a plausible enough posterior predictive distribution.
 
 ```{code-cell} ipython3
-:tags: []
-
 def plot_fit(idata):
     posterior = idata.posterior.stack(sample=("chain", "draw"))
     fig, axs = plt.subplots(1, 2, figsize=(20, 6))
@@ -394,14 +357,10 @@ plot_fit(idata3)
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 az.plot_posterior(idata3, var_names=["beta"]);
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 az.summary(idata3, var_names=["cutpoints"])
 ```
 
@@ -410,22 +369,16 @@ While the parameter estimates seem reasonable and the posterior predictive check
 However if we look at the model with the constrained Dirchlet prior: 
 
 ```{code-cell} ipython3
-:tags: []
-
 plot_fit(idata4)
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 az.plot_posterior(idata4, var_names=["beta"]);
 ```
 
 Again the parameters seem reasonable, and posterior predictive checks are sound. But now, having using the constrained uniform prior over the cutpoints our estimated cutpoints respect the definition of the ordinal scale. 
 
 ```{code-cell} ipython3
-:tags: []
-
 az.summary(idata4, var_names=["cutpoints"])
 ```
 
@@ -434,8 +387,6 @@ az.summary(idata4, var_names=["cutpoints"])
 This type of model can also be estimated in the frequentist tradition using maximum likelihood methods.
 
 ```{code-cell} ipython3
-:tags: []
-
 modf_logit = OrderedModel.from_formula(
     "explicit_rating ~ salary + work_sat + work_from_home", df, distr="logit"
 )
@@ -455,8 +406,6 @@ modf_logit.transform_threshold_params(resf_logit.params[-num_of_thresholds:])
 When we want to asses the implications of the model we can use the learned posterior estimates for the data generating equation, to simulate what proportions of survey results would have resulted in a rating over a particular threshold score. Here we allow for full uncertainty of the various beta-distributions to be represented under different working conditions and measure the proportion of employees who would give their manager a rating above a 7. 
 
 ```{code-cell} ipython3
-:tags: []
-
 betas_posterior = az.extract(idata4)["beta"]
 
 fig, ax = plt.subplots(figsize=(20, 10))
@@ -511,8 +460,6 @@ ax.legend();
 There are substantial reasons for using an ordinal regression model rather than trusting to alternative model specifications. For instance, the temptation to treat the ordered category as a continuous metric will lead to false inferences. The details are discussed in the Liddell and Kruschke paper {cite:p}`LIDDELL2018328` on this topic. We'll briefly replicate their example about how this phenomenon can appear in analysis of movies ratings data.
 
 ```{code-cell} ipython3
-:tags: []
-
 try:
     movies = pd.read_csv("../data/MoviesData.csv")
 except FileNotFoundError:
@@ -520,8 +467,6 @@ except FileNotFoundError:
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 def pivot_movie(row):
     row_ratings = row[["n1", "n2", "n3", "n4", "n5"]]
     totals = []
@@ -539,14 +484,10 @@ movies_by_rating.shape
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 movies_by_rating.sample(100).head()
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 def constrainedUniform(N, group, min=0, max=1):
     return pm.Deterministic(
         f"cutpoints_{group}",
@@ -554,7 +495,8 @@ def constrainedUniform(N, group, min=0, max=1):
             [
                 np.ones(1) * min,
                 pt.extra_ops.cumsum(pm.Dirichlet(f"cuts_unknown_{group}", a=np.ones(N - 2)))
-                * (min + (max - min)),
+                * (max - min)
+                + min,
             ]
         ),
     )
@@ -573,7 +515,6 @@ priors = {"sigma": 1, "mu": [0, 1], "cut_mu": np.linspace(0, K, K - 1)}
 
 def make_movies_model(ordered=False):
     with pm.Model() as model:
-
         for g in movies_by_rating["movie_id"].unique():
             if ordered:
                 cutpoints = constrainedUniform(K, g, 0, K - 1)
@@ -609,8 +550,6 @@ idata_normal_metric, model_normal_metric = make_movies_model(ordered=False)
 This is a horrific fit to the movies rating data for six movies.
 
 ```{code-cell} ipython3
-:tags: []
-
 axs = az.plot_ppc(idata_normal_metric)
 axs = axs.flatten()
 for ax in axs:
@@ -622,8 +561,6 @@ for ax in axs:
 This shows a much nicer fit for each of the six movies. 
 
 ```{code-cell} ipython3
-:tags: []
-
 az.plot_ppc(idata_ordered);
 ```
 
@@ -634,28 +571,20 @@ Since this is real data and we don't know the true data generating process it's 
 ### Compare Model Fits
 
 ```{code-cell} ipython3
-:tags: []
-
 y_5_compare = az.compare({"ordered": idata_ordered, "metric": idata_normal_metric}, var_name="y_5")
 y_5_compare
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 y_6_compare = az.compare({"ordered": idata_ordered, "metric": idata_normal_metric}, var_name="y_6")
 y_6_compare
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 az.plot_compare(y_5_compare)
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 az.plot_compare(y_6_compare)
 ```
 
@@ -664,8 +593,6 @@ az.plot_compare(y_6_compare)
 Aside from the predictive fits, the inferences drawn from the different modelling choices also vary quite significantly. Imagine being a movie executive trying to decide whether to commit to a sequel, then relative movie performance rating against competitor  benchmarks might be a pivotal feature of this decision, and difference induced by the analyst's choice of model can have an outsized effect on that choice. 
 
 ```{code-cell} ipython3
-:tags: []
-
 mosaic = """
 AC
 DE

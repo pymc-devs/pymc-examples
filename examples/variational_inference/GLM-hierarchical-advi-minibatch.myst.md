@@ -85,7 +85,6 @@ Intercept for each county, distributed around group mean `mu_a`. Above we just s
 
 ```{code-cell} ipython3
 with hierarchical_model:
-
     a = pm.Normal("alpha", mu=mu_a, sigma=sigma_a, dims="counties")
     # Intercept for each county, distributed around group mean mu_a
     b = pm.Normal("beta", mu=mu_b, sigma=sigma_b, dims="counties")
@@ -95,7 +94,6 @@ Model prediction of radon level `a[county_idx]` translates to `a[0, 0, 0, 1, 1, 
 
 ```{code-cell} ipython3
 with hierarchical_model:
-
     radon_est = a[county_idx_t] + b[county_idx_t] * floor_idx_t
 ```
 
@@ -103,7 +101,6 @@ Finally, we specify the likelihood:
 
 ```{code-cell} ipython3
 with hierarchical_model:
-
     # Model error
     eps = pm.Uniform("eps", lower=0, upper=100)
 
@@ -153,7 +150,6 @@ start_dict = list(sample[i] for i in range(n_chains))
 ```{code-cell} ipython3
 # Inference button (TM)!
 with pm.Model(coords=coords):
-
     mu_a = pm.Normal("mu_alpha", mu=0.0, sigma=100**2)
     sigma_a = pm.Uniform("sigma_alpha", lower=0, upper=100)
     mu_b = pm.Normal("mu_beta", mu=0.0, sigma=100**2)

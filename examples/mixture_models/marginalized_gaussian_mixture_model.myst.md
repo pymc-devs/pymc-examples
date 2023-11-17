@@ -10,7 +10,7 @@ kernelspec:
   name: python3
 ---
 
-+++ {"papermill": {"duration": 0.012112, "end_time": "2020-12-20T20:45:32.375345", "exception": false, "start_time": "2020-12-20T20:45:32.363233", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.012112, "end_time": "2020-12-20T20:45:32.375345", "exception": false, "start_time": "2020-12-20T20:45:32.363233", "status": "completed"}}
 
 # Marginalized Gaussian Mixture Model
 
@@ -27,7 +27,6 @@ papermill:
   exception: false
   start_time: '2020-12-20T20:45:32.386198'
   status: completed
-tags: []
 ---
 import arviz as az
 import numpy as np
@@ -47,7 +46,6 @@ papermill:
   exception: false
   start_time: '2020-12-20T20:45:38.305815'
   status: completed
-tags: []
 ---
 %config InlineBackend.figure_format = 'retina'
 RANDOM_SEED = 8927
@@ -55,7 +53,7 @@ rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
 
-+++ {"papermill": {"duration": 0.011094, "end_time": "2020-12-20T20:45:38.362640", "exception": false, "start_time": "2020-12-20T20:45:38.351546", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.011094, "end_time": "2020-12-20T20:45:38.362640", "exception": false, "start_time": "2020-12-20T20:45:38.351546", "status": "completed"}}
 
 Gaussian mixtures are a flexible class of models for data that exhibits subpopulation heterogeneity.  A toy example of such a data set is shown below.
 
@@ -67,7 +65,6 @@ papermill:
   exception: false
   start_time: '2020-12-20T20:45:38.373873'
   status: completed
-tags: []
 ---
 N = 1000
 
@@ -85,7 +82,6 @@ papermill:
   exception: false
   start_time: '2020-12-20T20:45:38.403986'
   status: completed
-tags: []
 ---
 component = rng.choice(MU.size, size=N, p=W)
 x = rng.normal(MU[component], SIGMA[component], size=N)
@@ -99,14 +95,13 @@ papermill:
   exception: false
   start_time: '2020-12-20T20:45:38.433666'
   status: completed
-tags: []
 ---
 fig, ax = plt.subplots(figsize=(8, 6))
 
 ax.hist(x, bins=30, density=True, lw=0);
 ```
 
-+++ {"papermill": {"duration": 0.012072, "end_time": "2020-12-20T20:45:38.881581", "exception": false, "start_time": "2020-12-20T20:45:38.869509", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.012072, "end_time": "2020-12-20T20:45:38.881581", "exception": false, "start_time": "2020-12-20T20:45:38.869509", "status": "completed"}}
 
 A natural parameterization of the Gaussian mixture model is as the [latent variable model](https://en.wikipedia.org/wiki/Latent_variable_model)
 
@@ -160,7 +155,6 @@ papermill:
   exception: false
   start_time: '2020-12-20T20:45:38.894066'
   status: completed
-tags: []
 ---
 with pm.Model(coords={"cluster": np.arange(len(W)), "obs_id": np.arange(N)}) as model:
     w = pm.Dirichlet("w", np.ones_like(W))
@@ -186,7 +180,6 @@ papermill:
   exception: false
   start_time: '2020-12-20T20:46:50.174773'
   status: completed
-tags: []
 ---
 with model:
     trace = pm.sample(5000, n_init=10000, tune=1000, return_inferencedata=True)
@@ -197,7 +190,7 @@ with model:
 trace.add_groups(posterior_predictive=ppc_trace)
 ```
 
-+++ {"papermill": {"duration": 0.013524, "end_time": "2020-12-20T20:56:38.036405", "exception": false, "start_time": "2020-12-20T20:56:38.022881", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.013524, "end_time": "2020-12-20T20:56:38.036405", "exception": false, "start_time": "2020-12-20T20:56:38.022881", "status": "completed"}}
 
 We see in the following plot that the posterior distribution on the weights and the component means has captured the true value quite well.
 
@@ -209,7 +202,7 @@ az.plot_trace(trace, var_names=["w", "mu"], compact=False);
 az.plot_posterior(trace, var_names=["w", "mu"]);
 ```
 
-+++ {"papermill": {"duration": 0.035988, "end_time": "2020-12-20T20:56:44.871074", "exception": false, "start_time": "2020-12-20T20:56:44.835086", "status": "completed"}, "tags": []}
++++ {"papermill": {"duration": 0.035988, "end_time": "2020-12-20T20:56:44.871074", "exception": false, "start_time": "2020-12-20T20:56:44.835086", "status": "completed"}}
 
 We see that the posterior predictive samples have a distribution quite close to that of the observed data.
 
@@ -231,7 +224,6 @@ papermill:
   exception: false
   start_time: '2020-12-20T20:58:54.903381'
   status: completed
-tags: []
 ---
 %load_ext watermark
 %watermark -n -u -v -iv -w -p theano,xarray

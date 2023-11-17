@@ -1,10 +1,10 @@
 repos:
 - repo: https://github.com/psf/black
-  rev: 22.3.0
+  rev: 23.7.0
   hooks:
     - id: black-jupyter
 - repo: https://github.com/nbQA-dev/nbQA
-  rev: 1.1.0
+  rev: 1.7.0
   hooks:
     - id: nbqa-isort
       additional_dependencies: [isort==5.6.4]
@@ -12,7 +12,7 @@ repos:
       additional_dependencies: [pyupgrade==2.7.4]
       args: [--py37-plus]
 - repo: https://github.com/MarcoGorelli/madforhooks
-  rev: 0.3.0
+  rev: 0.4.1
   hooks:
     - id: check-execution-order
       args: [--strict]
@@ -20,7 +20,6 @@ repos:
             (?x)^
             ^examples/ode_models/ODE_with_manual_gradients\.ipynb$
             |examples/samplers/DEMetropolisZ_EfficiencyComparison\.ipynb$
-            |examples/gaussian_processes/GP-Latent\.ipynb$
             |examples/gaussian_processes/GP-MaunaLoa2\.ipynb$
             |examples/samplers/MLDA_gravity_surveying\.ipynb$
             |examples/howto/sampling_callback\.ipynb$
@@ -33,7 +32,7 @@ repos:
             |examples/samplers/MLDA_variance_reduction_linear_regression\.ipynb$
 
 - repo: https://github.com/FlamingTempura/bibtex-tidy
-  rev: v1.8.5
+  rev: v1.11.0
   hooks:
     - id: bibtex-tidy
       files: examples/references.bib
@@ -97,7 +96,7 @@ repos:
       language: pygrep
       types_or: [markdown, rst, jupyter]
 - repo: https://github.com/mwouts/jupytext
-  rev: v1.13.7
+  rev: v1.15.1
   hooks:
   - id: jupytext
     files: ^examples/.+\.ipynb$

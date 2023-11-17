@@ -27,11 +27,9 @@ colab:
 id: 17Thh2DHr2Pa
 outputId: 90631275-86c9-4f4a-f81a-22465d0c8b8c
 ---
-%env MKL_THREADING_LAYER=GNU
 import arviz as az
 import numpy as np
 import pymc as pm
-import seaborn as sns
 
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
@@ -156,7 +154,7 @@ Often however, you'll be interested in the posterior distribution of the correla
 :id: ac3eQeMJr2Pf
 
 coords = {"axis": ["y", "z"], "axis_bis": ["y", "z"], "obs_id": np.arange(N)}
-with pm.Model(coords=coords, rng_seeder=RANDOM_SEED) as model:
+with pm.Model(coords=coords) as model:
     chol, corr, stds = pm.LKJCholeskyCov(
         "chol", n=2, eta=2.0, sd_dist=pm.Exponential.dist(1.0, shape=2)
     )
@@ -189,6 +187,7 @@ outputId: f039bfb8-1acf-42cb-b054-bc2c97697f96
 ---
 with model:
     trace = pm.sample(
+        random_seed=rng,
         idata_kwargs={"dims": {"chol_stds": ["axis"], "chol_corr": ["axis", "axis_bis"]}},
     )
 az.summary(trace, var_names="~chol", round_to=2)
@@ -264,7 +263,7 @@ Sigma_post = trace.posterior["cov"].mean(("chain", "draw")).values
 
 +++ {"id": "DMDwKtp0r2Pj"}
 
-So the posterior means are within 3% of the true values of $\mu$ and $\Sigma$.
+So the posterior means are within 1% of the true values of $\mu$ and $\Sigma$.
 
 Now let's replicate the plot we did at the beginning, but let's overlay the posterior distribution on top of the true distribution -- you'll see there is excellent visual agreement between both:
 

@@ -424,7 +424,6 @@ def run_models(df, upper_order=5):
     models, results = dict(), dict()
 
     for k in range(1, upper_order + 1):
-
         nm = f"k{k}"
         fml = create_poly_modelspec(k)
 

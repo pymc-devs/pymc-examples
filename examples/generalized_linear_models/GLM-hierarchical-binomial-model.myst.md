@@ -117,17 +117,14 @@ def log_likelihood(alpha, beta, y, n):
 
 
 def log_prior(A, B):
-
     return -5 / 2 * np.log(A + B)
 
 
 def trans_to_beta(x, y):
-
     return np.exp(y) / (np.exp(x) + 1)
 
 
 def trans_to_alpha(x, y):
-
     return np.exp(x) * trans_to_beta(x, y)
 
 

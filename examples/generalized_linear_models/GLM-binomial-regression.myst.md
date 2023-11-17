@@ -62,8 +62,6 @@ $$
 This defines our likelihood function. All you need now to get some Bayesian Binomial regression done is priors over the $\beta$ parameters. The observed data are $y_i$, $n$, and $x_i$.
 
 ```{code-cell} ipython3
-:tags: []
-
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
@@ -74,8 +72,6 @@ from scipy.special import expit
 ```
 
 ```{code-cell} ipython3
-:tags: []
-
 %config InlineBackend.figure_format = 'retina'
 az.style.use("arviz-darkgrid")
 rng = np.random.default_rng(1234)
@@ -252,8 +248,6 @@ A good introduction to generalized linear models is provided by {cite:t}`roback2
 ## Watermark
 
 ```{code-cell} ipython3
-:tags: []
-
 %load_ext watermark
 %watermark -n -u -v -iv -w -p pytensor,aeppl
 ```

@@ -8,8 +8,9 @@ kernelspec:
   display_name: pymc_env
   language: python
   name: python3
-substitutions:
-  extra_dependencies: seaborn
+myst:
+  substitutions:
+    extra_dependencies: seaborn
 ---
 
 (GLM-robust-with-outlier-detection)=
@@ -261,7 +262,6 @@ where:
 ```{code-cell} ipython3
 coords = {"coefs": ["intercept", "slope"], "datapoint_id": dfhoggs.index}
 with pm.Model(coords=coords) as mdl_ols:
-
     # Define weakly informative Normal priors to give Ridge regression
     beta = pm.Normal("beta", mu=0, sigma=10, dims="coefs")
 
@@ -354,7 +354,6 @@ Note: the dataset also has `sigma_x` and `rho_xy` available, but for this exerci
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as mdl_studentt:
-
     # define weakly informative Normal priors to give Ridge regression
     beta = pm.Normal("beta", mu=0, sigma=10, dims="coefs")
 
@@ -520,7 +519,6 @@ on `Potential` usage:
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as mdl_hogg:
-
     # state input data as Theano shared vars
     tsv_x = pm.ConstantData("tsv_x", dfhoggs["x"], dims="datapoint_id")
     tsv_y = pm.ConstantData("tsv_y", dfhoggs["y"], dims="datapoint_id")

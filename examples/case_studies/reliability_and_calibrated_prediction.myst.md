@@ -8,8 +8,9 @@ kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
-substitutions:
-  extra_dependencies: lifelines
+myst:
+  substitutions:
+    extra_dependencies: lifelines
 ---
 
 (Reliability Statistics and Predictive Calibration)=
@@ -458,7 +459,6 @@ We can use these bootstrapped statistics to further calculate quantities of the 
 
 ```{code-cell} ipython3
 def ecdf(sample):
-
     # convert sample to a numpy array, if it isn't already
     sample = np.atleast_1d(sample)
 
@@ -896,7 +896,6 @@ priors_informative = {"beta": [10_000, 500], "alpha": [2, 0.5, 0.02, 3]}
 
 def make_model(p, info=False):
     with pm.Model() as model:
-
         if info:
             beta = pm.Normal("beta", p["beta"][0], p["beta"][1])
         else:
