@@ -101,6 +101,7 @@ folder_title_map = {
     "causal_inference": "Causal Inference",
     "diagnostics_and_criticism": "Diagnostics and Model Criticism",
     "gaussian_processes": "Gaussian Processes",
+    "bayesian_additive_regressive_tree": "Bayesian Additive Regressive Trees",
     "ode_models": "Inference in ODE models",
     "samplers": "MCMC",
     "mixture_models": "Mixture Models",
