@@ -54,14 +54,14 @@ ITEM_TEMPLATE = """
 """
 
 intro_nb = {
-    "doc_name": "Introductory Overview of PyMC",
+    "doc_name": "General Overview",
     "image": "https://raw.githubusercontent.com/pymc-devs/brand/main/pymc/pymc_logos/PyMC_square.svg",
     "doc_reference": "pymc:pymc_overview",
     "link_type": "ref",
 }
 
 glm_nb = {
-    "doc_name": "GLM: Linear regression",
+    "doc_name": "Simple Linear Regression",
     "image": "../_thumbnails/core_notebooks/glm_linear.png",
     "doc_reference": "pymc:glm_linear",
     "link_type": "ref",
@@ -98,6 +98,7 @@ pytensor_nb = {
 external_nbs = {
     "introductory": [glm_nb, intro_nb],
     "fundamentals": [dimensionality_nb, pytensor_nb],
+    "howto": [prior_pred_nb, model_comparison_nb],
 }
 
 folder_title_map = {
