@@ -221,7 +221,7 @@ def main(app):
                     doc_name=os.path.join(folder, nbg.stripped_name),
                     image=nbg.png_path,
                     doc_reference=os.path.join(folder, nbg.stripped_name),
-                    link_ref="doc",
+                    link_type="doc",
                 )
             )
 
