@@ -192,7 +192,6 @@ def main(app):
     file = [HEAD]
 
     for folder, title in folder_title_map.items():
-        nb_paths = glob(f"{folder}/*.ipynb")
         file.append(
             SECTION_TEMPLATE.format(
                 section_title=title, section_id=folder, underlines="-" * len(title)
@@ -213,6 +212,7 @@ def main(app):
                     )
                 )
 
+        nb_paths = glob(f"{folder}/*.ipynb")
         for nb_path in nb_paths:
             nbg = NotebookGenerator(nb_path, "..", folder)
             nbg.gen_previews()
