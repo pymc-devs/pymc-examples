@@ -96,8 +96,8 @@ pytensor_nb = {
 }
 
 external_nbs = {
-    "introductory": [glm_nb],
-    "fundamentals": [intro_nb, dimensionality_nb, pytensor_nb],
+    "introductory": [glm_nb, intro_nb],
+    "fundamentals": [dimensionality_nb, pytensor_nb],
 }
 
 folder_title_map = {
@@ -195,9 +195,9 @@ def main(app):
             for descr in external_nbs[folder]:
                 file.append(
                     ITEM_TEMPLATE.format(
-                        doc_reference=descr["doc_name"],
+                        doc_name=descr["doc_name"],
                         image=descr["image"],
-                        link_ref=descr["doc_reference"],
+                        doc_reference=descr["doc_reference"],
                         link_type=descr["link_type"],
                     )
                 )
@@ -218,8 +218,8 @@ def main(app):
             file.append(
                 ITEM_TEMPLATE.format(
                     doc_name=os.path.join(folder, nbg.stripped_name),
-                    doc_reference=os.path.join(folder, nbg.stripped_name),
                     image=nbg.png_path,
+                    doc_reference=os.path.join(folder, nbg.stripped_name),
                     link_ref="doc",
                 )
             )
