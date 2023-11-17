@@ -115,6 +115,7 @@ folder_title_map = {
     "mixture_models": "Mixture Models",
     "survival_analysis": "Survival Analysis",
     "time_series": "Time Series",
+    "spatial": "Spatial Analysis",
     "variational_inference": "Variational Inference",
     "howto": "How to",
 }
