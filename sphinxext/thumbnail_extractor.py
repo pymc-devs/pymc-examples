@@ -105,7 +105,7 @@ folder_title_map = {
     "introductory": "Introductory",
     "fundamentals": "Library Fundamentals",
     "howto": "How to",
-    "generalized_linear_models": "(Generalized) Linear and Hierarchical Linear Models",
+    "generalized_linear_models": "Generalized Linear Models",
     "case_studies": "Case Studies",
     "causal_inference": "Causal Inference",
     "gaussian_processes": "Gaussian Processes",
@@ -115,7 +115,7 @@ folder_title_map = {
     "bart": "Bayesian Additive Regressive Trees",
     "mixture_models": "Mixture Models",
     "survival_analysis": "Survival Analysis",
-    "ode_models": "Inference in ODE models",
+    "ode_models": "ODE models",
     "samplers": "MCMC",
     "variational_inference": "Variational Inference",
 }
