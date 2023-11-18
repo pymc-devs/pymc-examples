@@ -112,7 +112,7 @@ folder_title_map = {
     "time_series": "Time Series",
     "spatial": "Spatial Analysis",
     "diagnostics_and_criticism": "Diagnostics and Model Criticism",
-    "bart": "Bayesian Additive Regressive Trees",
+    "bart": "Bayesian Additive Regression Trees",
     "mixture_models": "Mixture Models",
     "survival_analysis": "Survival Analysis",
     "ode_models": "ODE models",

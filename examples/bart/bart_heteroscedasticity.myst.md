@@ -1,5 +1,6 @@
 ---
 jupytext:
+  formats: ipynb,md
   text_representation:
     extension: .md
     format_name: myst
@@ -81,7 +82,7 @@ Next, we specify the model. Note that we just need one BART distribution which c
 
 ```{code-cell} ipython3
 with pm.Model() as model_marketing_full:
-    w = pmb.BART("w", X=X, Y=np.log(Y), m=200, shape=(2, n_obs))
+    w = pmb.BART("w", X=X, Y=np.log(Y), m=100, shape=(2, n_obs))
     y = pm.Gamma("y", mu=pm.math.exp(w[0]), sigma=pm.math.exp(w[1]), observed=Y)
 
 pm.model_to_graphviz(model=model_marketing_full)
@@ -91,7 +92,7 @@ We now fit the model.
 
 ```{code-cell} ipython3
 with model_marketing_full:
-    idata_marketing_full = pm.sample(random_seed=rng)
+    idata_marketing_full = pm.sample(2000, random_seed=rng, compute_convergence_checks=False)
     posterior_predictive_marketing_full = pm.sample_posterior_predictive(
         trace=idata_marketing_full, random_seed=rng
     )
@@ -104,7 +105,7 @@ We can now visualize the posterior predictive distribution of the mean and the l
 ```{code-cell} ipython3
 posterior_mean = idata_marketing_full.posterior["w"].mean(dim=("chain", "draw"))[0]
 
-w_hdi = az.hdi(ary=idata_marketing_full, group="posterior", var_names=["w"])
+w_hdi = az.hdi(ary=idata_marketing_full, group="posterior", var_names=["w"], hdi_prob=0.5)
 
 pps = az.extract(
     posterior_predictive_marketing_full, group="posterior_predictive", var_names=["y"]
@@ -116,14 +117,19 @@ idx = np.argsort(X[:, 0])
 
 
 fig, ax = plt.subplots()
-az.plot_hdi(x=X[:, 0], y=pps, ax=ax, fill_kwargs={"alpha": 0.3, "label": r"Likelihood $94\%$ HDI"})
+az.plot_hdi(
+    x=X[:, 0],
+    y=pps,
+    ax=ax,
+    hdi_prob=0.90,
+    fill_kwargs={"alpha": 0.3, "label": r"Observations $90\%$ HDI"},
+)
 az.plot_hdi(
     x=X[:, 0],
     hdi_data=np.exp(w_hdi["w"].sel(w_dim_0=0)),
     ax=ax,
-    fill_kwargs={"alpha": 0.6, "label": r"Mean $94\%$ HDI"},
+    fill_kwargs={"alpha": 0.6, "label": r"Mean $50\%$ HDI"},
 )
-ax.plot(X[:, 0][idx], np.exp(posterior_mean[idx]), c="black", lw=3, label="Posterior Mean")
 ax.plot(df["youtube"], df["sales"], "o", c="C0", label="Raw Data")
 ax.legend(loc="upper left")
 ax.set(
@@ -138,8 +144,9 @@ The fit looks good! In fact, we see that the mean and variance increase as a fun
 +++
 
 ## Authors
-- Authored by [Juan Orduz](https://juanitorduz.github.io/) in February 2023 
-- Rerun by Osvaldo Martin in March 2023
+- Authored by [Juan Orduz](https://juanitorduz.github.io/) in Feb, 2023 
+- Rerun by Osvaldo Martin in Mar, 2023
+- Rerun by Osvaldo Martin in Nov, 2023
 
 +++
 
