@@ -32,9 +32,9 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -139,7 +139,8 @@ with pm.Model() as model_0:
     mu = alpha + beta * d["neocortex"]
 
     kcal = pm.Normal("kcal", mu=mu, sigma=sigma, observed=d["kcal.per.g"])
-    trace_0 = pm.sample(2000, return_inferencedata=True)
+    trace_0 = pm.sample(2000, idata_kwargs={"log_likelihood": True})
+    pm.sample_posterior_predictive(trace_0, extend_inferencedata=True)
 ```
 
 +++ {"papermill": {"duration": 0.049578, "end_time": "2020-11-29T12:14:25.401979", "exception": false, "start_time": "2020-11-29T12:14:25.352401", "status": "completed"}}
@@ -164,7 +165,8 @@ with pm.Model() as model_1:
 
     kcal = pm.Normal("kcal", mu=mu, sigma=sigma, observed=d["kcal.per.g"])
 
-    trace_1 = pm.sample(2000, return_inferencedata=True)
+    trace_1 = pm.sample(2000, idata_kwargs={"log_likelihood": True})
+    pm.sample_posterior_predictive(trace_1, extend_inferencedata=True)
 ```
 
 +++ {"papermill": {"duration": 0.049839, "end_time": "2020-11-29T12:14:34.547268", "exception": false, "start_time": "2020-11-29T12:14:34.497429", "status": "completed"}}
@@ -189,7 +191,8 @@ with pm.Model() as model_2:
 
     kcal = pm.Normal("kcal", mu=mu, sigma=sigma, observed=d["kcal.per.g"])
 
-    trace_2 = pm.sample(2000, return_inferencedata=True)
+    trace_2 = pm.sample(2000, idata_kwargs={"log_likelihood": True})
+    pm.sample_posterior_predictive(trace_2, extend_inferencedata=True)
 ```
 
 +++ {"papermill": {"duration": 0.050236, "end_time": "2020-11-29T12:14:54.072799", "exception": false, "start_time": "2020-11-29T12:14:54.022563", "status": "completed"}}
@@ -273,19 +276,18 @@ papermill:
   start_time: '2020-11-29T12:14:58.444313'
   status: completed
 ---
-ppc_w = pm.sample_posterior_predictive_w(
-    traces=traces,
-    models=[model_0, model_1, model_2],
-    weights=comp.weight.sort_index(ascending=True),
-    progressbar=True,
-)
+ppc_w = az.stats.weight_predictions(
+    [model_dict[name] for name in comp.index],
+    # models=[model_0, model_1, model_2],
+    weights=comp.weight,
+).posterior_predictive
 ```
 
 +++ {"papermill": {"duration": 0.058454, "end_time": "2020-11-29T12:15:30.024455", "exception": false, "start_time": "2020-11-29T12:15:29.966001", "status": "completed"}}
 
 Notice that we are passing the weights ordered by their index. We are doing this because we pass `traces` and `models` ordered from model 0 to 2, but the computed weights are ordered from lowest to highest WAIC (or equivalently from larger to lowest weight). In summary, we must be sure that we are correctly pairing the weights and models.
 
-We are also going to compute PPCs for the lowest-WAIC model.
+We are also going to name the PPC for the lowest-WAIC model.
 
 ```{code-cell} ipython3
 ---
@@ -296,12 +298,16 @@ papermill:
   start_time: '2020-11-29T12:15:30.082568'
   status: completed
 ---
-ppc_2 = pm.sample_posterior_predictive(trace=trace_2, model=model_2, progressbar=False)
+ppc_2 = trace_2.posterior_predictive
 ```
 
 +++ {"papermill": {"duration": 0.058214, "end_time": "2020-11-29T12:15:55.404271", "exception": false, "start_time": "2020-11-29T12:15:55.346057", "status": "completed"}}
 
 A simple way to compare both kind of predictions is to plot their mean and hpd interval.
+
+```{code-cell} ipython3
+ppc_w
+```
 
 ```{code-cell} ipython3
 ---
@@ -313,10 +319,10 @@ papermill:
   status: completed
 ---
 mean_w = ppc_w["kcal"].mean()
-hpd_w = az.hdi(ppc_w["kcal"].flatten())
+hpd_w = az.hdi(ppc_w["kcal"], input_core_dims=[["sample"]])
 
 mean = ppc_2["kcal"].mean()
-hpd = az.hdi(ppc_2["kcal"].flatten())
+hpd = az.hdi(ppc_2["kcal"])
 
 plt.plot(mean_w, 1, "C0o", label="weighted models")
 plt.hlines(1, *hpd_w, "C0")
@@ -349,6 +355,7 @@ Besides averaging discrete models we can sometimes think of continuous versions 
 * Moved from pymc to pymc-examples repo in December 2020 ([pymc-examples#8](https://github.com/pymc-devs/pymc-examples/pull/8))
 * Updated by Raul Maldonado in February 2021 ([pymc#25](https://github.com/pymc-devs/pymc-examples/pull/25))
 * Updated Markdown and styling by @reshamas in August 2022, ([pymc-examples#414](https://github.com/pymc-devs/pymc-examples/pull/414))
+* Updated notebook to use pymc 5 by Adrien Porter in November 2023 
 
 +++
 
