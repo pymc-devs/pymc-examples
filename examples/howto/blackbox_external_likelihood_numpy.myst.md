@@ -43,7 +43,7 @@ az.style.use("arviz-darkgrid")
 ```
 
 ## Introduction
-[PyMC](https://docs.pymc.io) is a great tool for doing Bayesian inference and parameter estimation. It has a load of {doc}`in-built probability distributions <pymc:api/distributions>` that you can use to set up priors and likelihood functions for your particular model. You can even create your own {ref}`custom distributions <custom_distribution>`.
+PyMC is a great tool for doing Bayesian inference and parameter estimation. It has a load of {doc}`in-built probability distributions <pymc:api/distributions>` that you can use to set up priors and likelihood functions for your particular model. You can even create your own {ref}`custom distributions <custom_distribution>`.
 
 However, this is not necessarily that simple if you have a model function, or probability distribution, that, for example, relies on an external code that you have little/no control over (and may even be, for example, wrapped `C` code rather than Python). This can be problematic when you need to pass parameters as PyMC distributions to these external functions; your external function probably wants you to pass it floating point numbers rather than PyMC distributions!
 
@@ -62,7 +62,7 @@ with pm.Model():
 
 Another issue is that if you want to be able to use the gradient-based step samplers like {class}`pymc.NUTS` and {class}`Hamiltonian Monte Carlo (HMC) <pymc.HamiltonianMC>`, then your model/likelihood needs a gradient to be defined. If you have a model that is defined as a set of PyTensor operators then this is no problem - internally it will be able to do automatic differentiation - but if your model is essentially a "black box" then you won't necessarily know what the gradients are.
 
-Defining a model/likelihood that PyMC can use and that calls your "black box" function is possible, but it relies on creating a [custom PyTensor Op](https://docs.pymc.io/advanced_pytensor.html#writing-custom-pytensor-ops). This is, hopefully, a clear description of how to do this, including one way of writing a gradient function that could be generally applicable.
+Defining a model/likelihood that PyMC can use and that calls your "black box" function is possible, but it relies on creating a custom PyTensor Op. This is, hopefully, a clear description of how to do this, including one way of writing a gradient function that could be generally applicable.
 
 In the examples below, we create a very simple model and log-likelihood function in numpy.
 
@@ -203,11 +203,9 @@ az.plot_trace(idata_mh, lines=[("m", {}, mtrue), ("c", {}, ctrue)]);
 
 ## PyTensor Op with grad
 
-What if we wanted to use NUTS or HMC? If we knew the analytical derivatives of the model/likelihood function then we could add a [grad() method](http://deeplearning.net/software/pytensor/extending/op.html#grad) to the Op using that analytical form.
+What if we wanted to use NUTS or HMC? If we knew the analytical derivatives of the model/likelihood function then we could add a {ref}`grad() method <pytensor:creating_an_op>` to the Op using that analytical form.
 
-But, what if we don't know the analytical form. If our model/likelihood is purely Python and made up of standard maths operators and Numpy functions, then the [autograd](https://github.com/HIPS/autograd) module could potentially be used to find gradients (also, see [here](https://github.com/ActiveState/code/blob/master/recipes/Python/580610_Auto_differentiation/recipe-580610.py) for a nice Python example of automatic differentiation). But, if our model/likelihood truly is a "black box" then we can just use the good-old-fashioned [finite difference](https://en.wikipedia.org/wiki/Finite_difference) to find the gradients - this can be slow, especially if there are a large number of variables, or the model takes a long time to evaluate. Below, a function to find gradients has been defined that uses the finite difference (the central difference) - it uses an iterative method with successively smaller interval sizes to check that the gradient converges. But, you could do something far simpler and just use, for example, the SciPy [approx_fprime](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.approx_fprime.html) function.
-
-Note that since PyMC 3.11.0, normalization constants are dropped from the computation, thus, we will do the same to ensure both gradients return exactly the same value (which will be checked below). As `sigma=1` in this case the dropped factor is only a factor 2, but for completeness, the term is shown as a comment. Try to see what happens if you uncomment this term and rerun the whole notebook.
+But, what if we don't know the analytical form. If our model/likelihood is purely Python and made up of standard maths operators and Numpy functions, then the [autograd](https://github.com/HIPS/autograd) module could potentially be used to find gradients (also, see [here](https://github.com/ActiveState/code/blob/master/recipes/Python/580610_Auto_differentiation/recipe-580610.py) for a nice Python example of automatic differentiation). But, if our model/likelihood truly is a "black box" then we can just use the good-old-fashioned [finite difference](https://en.wikipedia.org/wiki/Finite_difference) to find the gradients - this can be slow, especially if there are a large number of variables, or the model takes a long time to evaluate. Below, a function to find gradients has been defined that uses the finite difference (the central difference) - it uses an iterative method with successively smaller interval sizes to check that the gradient converges. But, you could do something far simpler and just use, for example, the SciPy {func}`~scipy.optimize.approx_fprime` function.
 
 ```{code-cell} ipython3
 def normal_gradients(theta, x, data, sigma):

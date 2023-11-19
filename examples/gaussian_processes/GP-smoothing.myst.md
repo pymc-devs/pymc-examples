@@ -21,21 +21,31 @@ If we assume the functional dependency between $x$ and $y$ is **linear** then, b
 However, the **functional form** of $y=f(x)$ is **not always known in advance**, and it might be hard to choose which one to fit, given the data. For example, you wouldn't necessarily know which function to use, given the following observed data. Assume you haven't seen the formula that generated it:
 
 ```{code-cell} ipython3
-%pylab inline
-figsize(12, 6);
+import arviz as az
+import matplotlib.pyplot as plt
+import numpy as np
+import pymc as pm
+import scipy.stats as stats
+
+from pytensor import shared
+
+%config InlineBackend.figure_format = "retina"
 ```
 
 ```{code-cell} ipython3
-import numpy as np
-import scipy.stats as stats
+RANDOM_SEED = 8927
+rng = np.random.default_rng(RANDOM_SEED)
+az.style.use("arviz-darkgrid")
+plt.rcParams["figure.figsize"] = (10, 4)
+```
 
+```{code-cell} ipython3
 x = np.linspace(0, 50, 100)
-y = np.exp(1.0 + np.power(x, 0.5) - np.exp(x / 15.0)) + np.random.normal(scale=1.0, size=x.shape)
+y = np.exp(1.0 + np.power(x, 0.5) - np.exp(x / 15.0)) + rng.normal(scale=1.0, size=x.shape)
 
-plot(x, y)
-xlabel("x")
-ylabel("y")
-title("Observed Data");
+fig, ax = plt.subplots()
+ax.plot(x, y)
+ax.set(title="Observed Data", xlabel="x", ylabel="y");
 ```
 
 ### Let's try a linear regression first
@@ -43,13 +53,13 @@ title("Observed Data");
 As humans, we see that there is a non-linear dependency with some noise, and we would like to capture that dependency. If we perform a linear regression, we see that the "smoothed" data is less than satisfactory:
 
 ```{code-cell} ipython3
-plot(x, y)
-xlabel("x")
-ylabel("y")
-
 lin = stats.linregress(x, y)
-plot(x, lin.intercept + lin.slope * x)
-title("Linear Smoothing");
+
+fig, ax = plt.subplots()
+ax.plot(x, y)
+lin = stats.linregress(x, y)
+ax.plot(x, lin.intercept + lin.slope * x)
+ax.set(title="Linear Smoothing", xlabel="x", ylabel="y");
 ```
 
 ### Linear regression model recap
@@ -90,15 +100,9 @@ When we estimate the maximum likelihood values of the hidden process $z_i$ at ea
 
 +++
 
-### Let's describe the above GP-smoothing model in PyMC3
+### Let's describe the above GP-smoothing model in PyMC
 
-```{code-cell} ipython3
-import pymc3 as pm
-
-from pymc3.distributions.timeseries import GaussianRandomWalk
-from scipy import optimize
-from theano import shared
-```
++++
 
 Let's create a model with a shared parameter for specifying different levels of smoothing. We use very wide priors for the "mu" and "tau" parameters of the hidden Brownian motion, which you can adjust according to your application.
 
@@ -110,7 +114,9 @@ with model:
     smoothing_param = shared(0.9)
     mu = pm.Normal("mu", sigma=LARGE_NUMBER)
     tau = pm.Exponential("tau", 1.0 / LARGE_NUMBER)
-    z = GaussianRandomWalk("z", mu=mu, tau=tau / (1.0 - smoothing_param), shape=y.shape)
+    z = pm.GaussianRandomWalk(
+        "z", mu=mu, sigma=pm.math.sqrt((1.0 - smoothing_param) / tau), shape=y.shape
+    )
     obs = pm.Normal("obs", mu=z, tau=tau / smoothing_param, observed=y)
 ```
 
@@ -134,9 +140,10 @@ Let's try to allocate 50% variance to the noise, and see if the result matches o
 smoothing = 0.5
 z_val = infer_z(smoothing)
 
-plot(x, y)
-plot(x, z_val)
-title(f"Smoothing={smoothing}");
+fig, ax = plt.subplots()
+ax.plot(x, y)
+ax.plot(x, z_val)
+ax.set(title=f"Smoothing={smoothing}");
 ```
 
 It appears that the variance is split evenly between the noise and the hidden process, as expected. 
@@ -147,9 +154,10 @@ Let's try gradually increasing the smoothness parameter to see if we can obtain 
 smoothing = 0.9
 z_val = infer_z(smoothing)
 
-plot(x, y)
-plot(x, z_val)
-title(f"Smoothing={smoothing}");
+fig, ax = plt.subplots()
+ax.plot(x, y)
+ax.plot(x, z_val)
+ax.set(title=f"Smoothing={smoothing}");
 ```
 
 ### Smoothing "to the limits"
@@ -157,7 +165,7 @@ title(f"Smoothing={smoothing}");
 By increasing the smoothing parameter, we can gradually make the inferred values of the hidden Brownian motion approach the average value of the data. This is because as we increase the smoothing parameter, we allow less and less of the variance to be allocated to the Brownian motion, so eventually it approaches the process which almost doesn't change over the domain of $x$:
 
 ```{code-cell} ipython3
-fig, axes = subplots(2, 2)
+fig, axes = plt.subplots(nrows=2, ncols=2)
 
 for ax, smoothing in zip(axes.ravel(), [0.95, 0.99, 0.999, 0.9999]):
     z_val = infer_z(smoothing)
@@ -167,9 +175,19 @@ for ax, smoothing in zip(axes.ravel(), [0.95, 0.99, 0.999, 0.9999]):
     ax.set_title(f"Smoothing={smoothing:05.4f}")
 ```
 
+## References
+
+:::{bibliography}
+:filter: docname in docnames
+:::
+
++++
+
+## Authors
+* Authored by [Andrey Kuzmenko](http://github.com/akuz)
+* Updated to v5 by [Juan Orduz](https://juanitorduz.github.io/) in Nov 2023 ([pymc-examples#603](https://github.com/pymc-devs/pymc-examples/pull/603))
+
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w
 ```
-
-This example originally contributed by: Andrey Kuzmenko, http://github.com/akuz

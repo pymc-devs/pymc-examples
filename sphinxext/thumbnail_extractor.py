@@ -104,20 +104,20 @@ external_nbs = {
 folder_title_map = {
     "introductory": "Introductory",
     "fundamentals": "Library Fundamentals",
-    "generalized_linear_models": "(Generalized) Linear and Hierarchical Linear Models",
+    "howto": "How to",
+    "generalized_linear_models": "Generalized Linear Models",
     "case_studies": "Case Studies",
     "causal_inference": "Causal Inference",
-    "diagnostics_and_criticism": "Diagnostics and Model Criticism",
     "gaussian_processes": "Gaussian Processes",
-    "bart": "Bayesian Additive Regressive Trees",
-    "ode_models": "Inference in ODE models",
-    "samplers": "MCMC",
-    "mixture_models": "Mixture Models",
-    "survival_analysis": "Survival Analysis",
     "time_series": "Time Series",
     "spatial": "Spatial Analysis",
+    "diagnostics_and_criticism": "Diagnostics and Model Criticism",
+    "bart": "Bayesian Additive Regression Trees",
+    "mixture_models": "Mixture Models",
+    "survival_analysis": "Survival Analysis",
+    "ode_models": "ODE models",
+    "samplers": "MCMC",
     "variational_inference": "Variational Inference",
-    "howto": "How to",
 }
 
 
