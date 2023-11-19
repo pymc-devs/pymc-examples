@@ -16,7 +16,7 @@ myst:
 (frailty_models)=
 # Frailty and Survival Regression Models
 
-:::{post} October, 2023
+:::{post} November, 2023
 :tags: frailty models, survival analysis, competing risks
 :category: intermediate, reference
 :author: Nathaniel Forde
@@ -52,7 +52,7 @@ The full generality and range of application for survival analysis is masked by 
 
 It requires an extra step in abstraction to move from the medical context towards seeing that time-to-event data is everywhere! Every task which has an implicit clock, every goal with a finish line, every reaper owed a toll - these are sources of time-to-event data. 
 
-We will demonstrate how the concepts of survival based regression analysis, traditionally deployed in the medical setting, can be fruitfully applied to HR data and business process analysis. In particular, we'll look at the question of time-to-attrition in an employee life-cylce data. We will model this phenomena as a function of employee survey responses earlier in the year. 
+We will demonstrate how the concepts of survival based regression analysis, traditionally deployed in the medical setting, can be fruitfully applied to HR data and business process analysis. In particular, we'll look at the question of time-to-attrition in an employee life-cylce data and model this phenomena as a function of employee survey responses recorded earlier in the year. 
 
 ### Survival Regression Models
 
@@ -60,7 +60,7 @@ The emphasis here is on the generality of the framework. We are describing the t
 
 We will see two varieties of regression modelling with respect to time-to-event data: (1) Cox's Proportional Hazard approach and (2) the Accelerated Failure time models. Both models enable the analyst to combine and assess the impacts of different covariates on the survival time outcomes, but each does so in a slightly different manner. 
 
-We will also show a hierarchical variant of survival modelling called frailty modelling, where we estimate the survival function using regression but allow for the inclusion of individual or groups specific "frailty" terms. These are a multiplicative factor applied to the estimation routine of an individual's survival curve allowing us to capture some of the unexplained heterogeneity in the population. Throughout we will draw on the discussion in {cite:t}`collett2014survival`.
+We will also show a hierarchical variant of survival modelling called frailty modelling, where we estimate the survival function using regression but allow for the inclusion of individual or groups specific "frailty" terms. These are a multiplicative factor applied to the estimation routine of an individual's survival curve allowing us to capture some of the unexplained heterogeneity in the population. Additionally we will show how to express stratified approaches to estimating the baseline hazards. Throughout we will draw on the discussion in {cite:t}`collett2014survival`.
 
 +++
 
@@ -168,9 +168,7 @@ $$ \lambda_{0}(t) \cdot exp(\beta_{1}X_{1} + \beta_{2}X_{2}... \beta_{k}X_{k}) $
 
 and represents the baseline hazard at each point in time when the predictor variables are set at their baseline/reference levels. Which is to say any unit increase over 0 to any covariate $X_{i}$ in the regression model changes the baseline hazard. In our case we are looking at data with granularity of monthly entries. So we need to understand how the risk of attrition changes over the next 12 months subsequent to the date of the annual survey and how the covariate profile of each individual changes the baseline hazard.
 
-These models can be estimated using the approach of Bayesian estimation outlined by Austin Rochford in {ref}`survival_analysis`. In what follows we build on his examples.
-
-First we specify the temporal dimension of risk, in our case we have intervals of one month over a year - representing time since the date of the survey response. 
+These models can be estimated using the approach of Bayesian estimation outlined by Austin Rochford in {ref}`survival_analysis`. In what follows we build on his examples. First we specify the temporal dimension of risk, in our case we have intervals of one month over a year - representing time since the date of the survey response. 
 
 
 ```{code-cell} ipython3
@@ -477,7 +475,7 @@ If we submit the same test to a model unable to account for intention most of th
 plot_individuals(test_df, base_idata, [0, 1, 2], intention=False)
 ```
 
-Other combinations of test-data and input specifications can be used to experiment with the conditional implications of the CoxPh model in this way. 
+One major observation to note here is how much work is done by the baseline hazard in each model. In the model which can account for the influence of the `intention` metric the baseline hazard is lower Other combinations of test-data and input specifications can be used to experiment with the conditional implications of the CoxPh model in this way. 
 
 +++
 
@@ -671,6 +669,7 @@ def make_aft(y, weibull=True):
 
 
 weibull_idata, weibull_aft = make_aft(y)
+## Log y to ensure we're estimating a log-logistic random variable
 loglogistic_idata, loglogistic_aft = make_aft(np.log(y), weibull=False)
 ```
 
@@ -845,7 +844,7 @@ opt_params = pm.find_constrained_prior(
     pm.Gamma,
     lower=0.80,
     upper=1.30,
-    mass=0.99,
+    mass=0.90,
     init_guess={"alpha": 1.7, "beta": 1.7},
 )
 
@@ -903,6 +902,7 @@ def make_coxph_frailty(preds, factor):
 
         beta = pm.Normal("beta", 0, sigma=1, dims="preds")
 
+        ## Stratified baseline hazards
         lambda_m = pm.Deterministic(
             "lambda_m",
             pt.outer(pt.exp(pm.math.dot(beta, X_data_m.T)), lambda0[:, 0]),
@@ -922,8 +922,8 @@ def make_coxph_frailty(preds, factor):
         mu = pm.Deterministic("mu", exposure * lambda_, dims=("obs", "intervals"))
 
         obs = pm.Poisson("outcome", mu, observed=quit, dims=("obs", "intervals"))
-        # frailty_idata = pm.sample_prior_predictive()
-        frailty_idata = pm.sample(random_seed=101)
+        frailty_idata = pm.sample_prior_predictive()
+        frailty_idata.extend(pm.sample(random_seed=101))
 
     return frailty_idata, frailty_model
 
@@ -932,7 +932,7 @@ frailty_idata, frailty_model = make_coxph_frailty(preds, range(len(retention_df)
 pm.model_to_graphviz(frailty_model)
 ```
 
-which allows us to pull out the gender specific view on the baseline hazard. This kind of model specification can help account for failures of the proportional hazards assumption. We can also allow for shared frailty terms across groups as here in the case of allowing group effect based on the `field` of work. Often however this is not too distinct from including the field as a fixed effect in your model as we did above in the first CoxPH model, but here we allow that the coefficient estimates are drawn from the same distribution. 
+which allows us to pull out the gender specific view on the baseline hazard. This kind of model specification can help account for failures of the proportional hazards assumption allowing for the expression of time-varying risk induced by different levels of the covariates. We can also allow for shared frailty terms across groups as here in the case of allowing group effect based on the `field` of work. Often however this is not too distinct from including the field as a fixed effect in your model as we did above in the first CoxPH model, but here we allow that the coefficient estimates are drawn from the same distribution. The variance characteristics of this distribution may be of independent interest.
 
 ```{code-cell} ipython3
 shared_frailty_idata, shared_frailty_model = make_coxph_frailty(preds3, retention_df["field"])
@@ -942,23 +942,23 @@ shared_frailty_idata, shared_frailty_model = make_coxph_frailty(preds3, retentio
 pm.model_to_graphviz(shared_frailty_model)
 ```
 
-Additionally this allows us to see how the inclusion of more covariates and individual frailty term absorbs the variance in the baseline hazard and shrinks the magnitude of the risk.
+Additionally this allows us to see how the inclusion of more covariates and individual frailty term absorbs the variance in the baseline hazard and shrinks the magnitude of the latent hazard.
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(20, 6))
 base_m = shared_frailty_idata["posterior"]["lambda0"].sel(gender="Male")
 base_f = shared_frailty_idata["posterior"]["lambda0"].sel(gender="Female")
-az.plot_hdi(range(12), base_m, ax=ax, color="lightblue", fill_kwargs={"alpha": 0.7}, smooth=False)
+az.plot_hdi(range(12), base_m, ax=ax, color="lightblue", fill_kwargs={"alpha": 0.5}, smooth=False)
 az.plot_hdi(range(12), base_f, ax=ax, color="red", fill_kwargs={"alpha": 0.3}, smooth=False)
 get_mean(base_m).plot(ax=ax, color="darkred", label="Male Baseline Hazard Shared Frailty")
 get_mean(base_f).plot(ax=ax, color="blue", label="Female Baseline Hazard Shared Frailty")
 
 base_m_i = frailty_idata["posterior"]["lambda0"].sel(gender="Male")
 base_f_i = frailty_idata["posterior"]["lambda0"].sel(gender="Female")
-az.plot_hdi(range(12), base_m_i, ax=ax, color="darkgreen", fill_kwargs={"alpha": 0.7}, smooth=False)
-az.plot_hdi(range(12), base_f_i, ax=ax, color="orange", fill_kwargs={"alpha": 0.3}, smooth=False)
-get_mean(base_m_i).plot(ax=ax, color="darkgreen", label="Male Baseline Hazard Individual")
-get_mean(base_f_i).plot(ax=ax, color="orange", label="Female Baseline Hazard Individual")
+az.plot_hdi(range(12), base_m_i, ax=ax, color="cyan", fill_kwargs={"alpha": 0.5}, smooth=False)
+az.plot_hdi(range(12), base_f_i, ax=ax, color="magenta", fill_kwargs={"alpha": 0.3}, smooth=False)
+get_mean(base_m_i).plot(ax=ax, color="cyan", label="Male Baseline Hazard Individual Frailty")
+get_mean(base_f_i).plot(ax=ax, color="magenta", label="Female Baseline Hazard Individual Frailty")
 
 
 ax.legend()
@@ -1006,7 +1006,7 @@ temp = retention_df.copy()
 temp["frailty"] = frailty_terms.reset_index()["mean"]
 (
     temp.groupby(["Male", "sentiment", "intention"])[["frailty"]]
-    .median()
+    .mean()
     .reset_index()
     .pivot(index=["Male", "sentiment"], columns="intention", values="frailty")
     .style.background_gradient(cmap="OrRd", axis=None)
@@ -1144,13 +1144,13 @@ axs[0].annotate(
 
 ### Plotting the effects of the Frailty Terms
 
-There are different ways to marginalise across the data, but we can also inspect the individual "frailties". These kinds of plots and investigations are often most fruitful in the context of an ongoing policy shift where you want to determine the differential rates of response for those individuals undergoing/experiencing the policy shift first hand versus those who are not. In this manner is it helps to zero-in on the most impacted employees or participants in the study to figure out what if anything was driving their response If preventative measures need to be adopted to resolve a crisis.
+There are different ways to marginalise across the data, but we can also inspect the individual "frailties". These kinds of plots and investigations are most fruitful in the context of an ongoing policy shift. Where you want to determine the differential rates of response for those individuals undergoing/experiencing the policy shift first-hand versus those who are not. It helps to zero-in on the most impacted employees or participants in the study to figure out what if anything was driving their response, and if preventative measures need to be adopted to resolve a crisis.
 
 ```{code-cell} ipython3
-beta_individual = frailty_idata["posterior"]["frailty"]
-predicted = beta_individual.mean(("chain", "draw"))
-predicted = predicted.sortby(predicted, ascending=False)
-beta_individual = beta_individual.sel(frailty_id=range(320))
+beta_individual_all = frailty_idata["posterior"]["frailty"]
+predicted_all = beta_individual_all.mean(("chain", "draw"))
+predicted_all = predicted_all.sortby(predicted_all, ascending=False)
+beta_individual = beta_individual_all.sel(frailty_id=range(500))
 predicted = beta_individual.mean(("chain", "draw"))
 predicted = predicted.sortby(predicted, ascending=False)
 ci_lb = beta_individual.quantile(0.025, ("chain", "draw")).sortby(predicted)
@@ -1160,10 +1160,10 @@ hdi2 = az.hdi(beta_individual, hdi_prob=0.8).sortby(predicted)
 ```
 
 ```{code-cell} ipython3
-cm_subsection = np.linspace(0, 1, 320)
+cm_subsection = np.linspace(0, 1, 500)
 colors = [cm.cool(x) for x in cm_subsection]
 
-fig = plt.figure(figsize=(20, 15))
+fig = plt.figure(figsize=(20, 10))
 gs = fig.add_gridspec(
     2,
     2,
@@ -1180,7 +1180,7 @@ ax = fig.add_subplot(gs[1, 0])
 ax.set_yticklabels([])
 ax_histx = fig.add_subplot(gs[0, 0], sharex=ax)
 ax_histx.set_title("Expected Frailty Terms per Individual Risk Profile", fontsize=20)
-ax_histx.hist(predicted, bins=30, color="slateblue")
+ax_histx.hist(predicted_all, bins=30, color="slateblue")
 ax_histx.set_yticklabels([])
 ax_histx.tick_params(labelsize=8)
 ax.set_ylabel("Individual Frailty Terms", fontsize=18)
@@ -1191,6 +1191,7 @@ ax.hlines(
     hdi.sel(hdi="higher").to_array(),
     color=colors,
     label="50% HDI",
+    linewidth=0.8,
 )
 ax.hlines(
     range(len(predicted)),
@@ -1199,6 +1200,7 @@ ax.hlines(
     color="green",
     alpha=0.2,
     label="80% HDI",
+    linewidth=0.8,
 )
 ax.set_xlabel("Multiplicative Effect of Individual Frailty", fontsize=18)
 ax.legend()
@@ -1210,14 +1212,14 @@ surv_frailty_df[list(predicted["frailty_id"].values)].plot(
 )
 ax1_hist = fig.add_subplot(gs[0, 1])
 ax1_hist.hist(
-    (1 - surv_frailty_df[list(predicted["frailty_id"].values)].iloc[6]),
+    (1 - surv_frailty_df[list(predicted_all["frailty_id"].values)].iloc[6]),
     bins=30,
     color="slateblue",
     ec="black",
 )
 ax1.set_xlabel("Time", fontsize=18)
 ax1_hist.set_title(
-    "Predicted Distribution of Attrition \n by 6 Months across sampled risk profiles", fontsize=20
+    "Predicted Distribution of Attrition \n by 6 Months across all risk profiles", fontsize=20
 )
 ax1.set_ylabel("Survival Function", fontsize=18)
 ax.scatter(predicted, range(len(predicted)), color="black", ec="black", s=30);
@@ -1238,7 +1240,7 @@ We've seen above a number of distinct regression modelling strategies for time-t
 +++
 
 ## Authors
-- Authored by [Nathaniel Forde](https://nathanielf.github.io/) in October 2023 
+- Authored by [Nathaniel Forde](https://nathanielf.github.io/) in November 2023 
 
 +++
 
