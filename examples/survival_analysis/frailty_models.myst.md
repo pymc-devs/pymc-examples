@@ -52,7 +52,7 @@ The full generality and range of application for survival analysis is masked by 
 
 It requires an extra step in abstraction to move from the medical context towards seeing that time-to-event data is everywhere! Every task which has an implicit clock, every goal with a finish line, every reaper owed a toll - these are sources of time-to-event data. 
 
-We will demonstrate how the concepts of survival based regression analysis, traditionally deployed in the medical setting, can be fruitfully applied to HR data and business process analysis. In particular, we'll look at the question of time-to-attrition in an employee life-cylce data and model this phenomena as a function of employee survey responses recorded earlier in the year. 
+We will demonstrate how the concepts of survival based regression analysis, traditionally deployed in the medical setting, can be fruitfully applied to HR data and business process analysis. In particular, we'll look at the question of time-to-attrition in employee life-cycle data and model this phenomena as a function of employee survey responses recorded earlier in the year. 
 
 ### Survival Regression Models
 
@@ -94,7 +94,7 @@ retention_df.head()
 
 We've added dummy-encoding of some of the categorical variables for use in regression models below. We drop the first encoded class because this avoids identification issues in the estimation procedure. Additionally this means that the coefficients estimated for each of these indicator variables have an interpretation relative to the dropped "reference" class.
 
-First we'll look at a simple Kaplan Meier representation of the survival function estimated on our data. A survival function quantifies the probability that an event has not occurred before a given time i.e. the probability of employee attrition before a particular month. Naturally, different types of risk profile lead to different survival functions. Regression models, as is typical, help to parse the nature of that risk where the risk profile is complicated to articulate. 
+First we'll look at a simple Kaplan Meier representation of the survival function estimated on our data. A survival function quantifies the probability that an event has not occurred before a given time i.e. the probability of employee attrition before a particular month. Naturally, different types of risk profile lead to different survival functions. Regression models, as is typical, help to parse the nature of that risk where the risk profile is too complicated to easily articulate. 
 
 ```{code-cell} ipython3
 kmf = KaplanMeierFitter()
@@ -317,7 +317,7 @@ Each individual model coefficient records an estimate of the impact on the log h
 - If $exp(\beta)$ < 1: An increase in X is associated with a decreased hazard (lower risk) of the event occurring.
 - If $exp(\beta)$ = 1: X has no effect on the hazard rate.
 
-So our case we can see that having an occupation in  the fields of Finance or Health would seem to induce a roughly 25% increase in the hazard risk of the event occuring over the baseline hazard. Interestingly we can see that the inclusion of the `intention` predictor seems to be important as a unit increase intention moves the dial similarly - and intention is a 0-10 scale. 
+So our case we can see that having an occupation in  the fields of Finance or Health would seem to induce a roughly 25% increase in the hazard risk of the event occuring over the baseline hazard. Interestingly we can see that the inclusion of the `intention` predictor seems to be important as a unit increase of the `intention` metric moves the dial similarly - and intention is a 0-10 scale. 
 
 These are not time-varying - they enter __once__ into the weighted sum that modifies the baseline hazard. This is the proportional hazard assumption - that while the baseline hazard can change over time the difference in hazard induced by different levels in the covariates remains constant over time. The Cox model is popular because it allows us to estimate a changing hazard at each time-point and incorporates the impact of the demographic predictors multiplicatively across the period. The proportional hazards assumption does not always hold, and we'll see some adjustments below that can help deal with violations of the proportional hazards assumption. 
 
@@ -457,7 +457,7 @@ test_df
 
 ### The Intention Model
 
-If we plot the marginal effects increases in the `intention` variable in the model equipped to evaluate it, we see a sharp seperation in the individual predicted survival curves as implied by the significant and substantial parameter estimate seen in the coefficient table above. 
+If we plot the marginal effects due to increases in the `intention` variable - in the model equipped to evaluate it, we see a sharp division in the individual predicted survival curves as implied by the significant and substantial parameter estimate seen in the coefficient table above for the `intention` variable.
 
 ```{code-cell} ipython3
 plot_individuals(test_df, base_intention_idata, [0, 1, 2], intention=True)
@@ -475,7 +475,7 @@ If we submit the same test to a model unable to account for intention most of th
 plot_individuals(test_df, base_idata, [0, 1, 2], intention=False)
 ```
 
-One major observation to note here is how much work is done by the baseline hazard in each model. In the model which can account for the influence of the `intention` metric the baseline hazard is lower Other combinations of test-data and input specifications can be used to experiment with the conditional implications of the CoxPh model in this way. 
+One major observation to note here is how much work is done by the baseline hazard in each model. In the model which can account for the influence of the `intention` metric the baseline hazard is lower. Suggesting the baseline hazard has to do more work. Other combinations of test-data and input specifications can be used to experiment with the conditional implications of the CoxPh model in this way. 
 
 +++
 
@@ -831,7 +831,7 @@ Above we've plotted a sample of individual predicted survival functions from eac
 
 ## Fit Model with Shared Frailty terms by Individual
 
-One of the most compelling patterns in bayesian regression modelling more generally is the ability to incorporate hierarchical structure. The analogue of the hierarchical survival model is the individual frailty survival model. But "frailities" do not need to be specified only at an individual level - so called "shared" frailities can be deployed at a group level e.g. across the `field`. 
+One of the most compelling patterns in Bayesian regression modelling more generally is the ability to incorporate hierarchical structure. The analogue of the hierarchical survival model is the individual frailty survival model. But "frailities" do not need to be specified only at an individual level - so called "shared" frailities can be deployed at a group level e.g. across the `field`. 
 
 In the above CoxPH models we fit the data to a standard regression formulation using indicator variables for different levels of the `field` variable which gets included in the weighted sum of the linear combination. With frailty models we instead allow the individual or group frailty term to enter into our model as a multiplicative factor over and above the combination of the baseline hazard with the weighted demographic characteristics of risk. This allows us to capture an estimate of the heterogenous effects accruing to being that particular individual or within that particular group. Additionally we can stratify baseline hazards e.g. for gender. So our equation now becomes:
 
@@ -1225,7 +1225,7 @@ ax1.set_ylabel("Survival Function", fontsize=18)
 ax.scatter(predicted, range(len(predicted)), color="black", ec="black", s=30);
 ```
 
-Here we see a plot of the individual frailty terms and the differential multiplicative they add to each individual's predicted hazard. This is a powerful lens on the question of how much the observed covariates capture for each individual and how much of a corrective adjustment is implied by the frailty terms. 
+Here we see a plot of the individual frailty terms and the differential multiplicative effect they contribute to each individual's predicted hazard. This is a powerful lens on the question of how much the observed covariates capture for each individual and how much of a corrective adjustment is implied by the frailty terms?
 
 +++
 
