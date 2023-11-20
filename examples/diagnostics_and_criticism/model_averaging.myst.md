@@ -53,30 +53,30 @@ az.style.use("arviz-darkgrid")
 
 +++ {"papermill": {"duration": 0.068882, "end_time": "2020-11-29T12:13:08.020372", "exception": false, "start_time": "2020-11-29T12:13:07.951490", "status": "completed"}}
 
-When confronted with more than one model we have several options. One of them is to perform model selection, using for example a given Information Criterion as exemplified the PyMC examples {ref}`pymc:model_comparison` and the {ref}`GLM-model-selection`. Model selection is appealing for its simplicity, but we are discarding information about the uncertainty in our models. This is somehow similar to computing the full posterior and then just keep a point-estimate like the posterior mean; we may become overconfident of what we really know. You can also browse the {doc}`blog/tag/model-comparison` tag to find related posts. 
+When confronted with more than one model we have several options. One of them is to perform model selection, using for example a given Information Criterion as exemplified by the PyMC examples {ref}`pymc:model_comparison` and the {ref}`GLM-model-selection`. Model selection is appealing for its simplicity, but we are discarding information about the uncertainty in our models. This is somewhat similar to computing the full posterior and then just keeping a point-estimate like the posterior mean; we may become overconfident of what we really know. You can also browse the {doc}`blog/tag/model-comparison` tag to find related posts. 
 
-One alternative is to perform model selection but discuss all the different models together with the computed values of a given Information Criterion. It is important to put all these numbers and tests in the context of our problem so that we and our audience can have a better feeling of the possible limitations and shortcomings of our methods. If you are in the academic world you can use this approach to add elements to the discussion section of a paper, presentation, thesis, and so on.
+One alternative is to perform model selection but to consider all the different models together with the computed values of a given Information Criterion. It is important to put all these numbers and tests in the context of our problem so that we and our audience can have a better feeling of the possible limitations and shortcomings of our methods. If you are in the academic world you can use this approach to add elements to the discussion section of a paper, presentation, thesis, and so on.
 
-Yet another approach is to perform model averaging. The idea now is to generate a meta-model (and meta-predictions) using a weighted average of the models. There are several ways to do this and PyMC includes 3 of them that we are going to briefly discuss, you will find a more thorough explanation in the work by {cite:t}`Yao_2018`. PyMC integrates with ArviZ for model comparison. 
+Yet another approach is to perform model averaging. The idea now is to generate a meta-model (and meta-predictions) using a weighted average of the models. There are several ways to do this. PyMC includes three methods that will be briefly discussed in this notebook. You will find a more thorough explanation in the work by {cite:t}`Yao_2018`. PyMC integrates with ArviZ for model comparison. 
 
 
 ## Pseudo Bayesian model averaging
 
-Bayesian models can be weighted by their marginal likelihood, this is known as Bayesian Model Averaging. While this is theoretically appealing, it is problematic in practice: on the one hand the marginal likelihood is highly sensible to the specification of the prior, in a way that parameter estimation is not, and on the other, computing the marginal likelihood is usually a challenging task. An alternative route is to use the values of WAIC (Widely Applicable Information Criterion) or LOO (pareto-smoothed importance sampling Leave-One-Out cross-validation), which we will call generically IC, to estimate weights. We can do this by using the following formula:
+Bayesian models can be weighted by their marginal likelihood, which is known as Bayesian Model Averaging. While this is theoretically appealing, it is problematic in practice: on the one hand the marginal likelihood is highly sensitive to the specification of the prior, in a way that parameter estimation is not, and on the other, computing the marginal likelihood is usually a challenging task. An alternative route is to use the values of WAIC (Widely Applicable Information Criterion) or LOO (pareto-smoothed importance sampling Leave-One-Out cross-validation), which we will call generically IC, to estimate weights. We can do this by using the following formula:
 
 $$w_i = \frac {e^{ - \frac{1}{2} dIC_i }} {\sum_j^M e^{ - \frac{1}{2} dIC_j }}$$
 
-Where $dIC_i$ is the difference between the i-esim information criterion value and the lowest one. Remember that the lowest the value of the IC, the better. We can use any information criterion we want to compute a set of weights, but, of course, we cannot mix them. 
+Where $dIC_i$ is the difference between the i-th information criterion value and the lowest one. Remember that the lower the value of the IC, the better. We can use any information criterion we want to compute a set of weights, but, of course, we cannot mix them. 
 
-This approach is called pseudo Bayesian model averaging, or Akaike-like weighting and is an heuristic way to compute the relative probability of each model (given a fixed set of models) from the information criteria values. Look how the denominator is just a normalization term to ensure that the weights sum up to one.
+This approach is called pseudo Bayesian model averaging, or Akaike-like weighting and is an heuristic way to compute the relative probability of each model (given a fixed set of models) from the information criteria values. Note that the denominator is just a normalization term to ensure that the weights sum up to one.
 
 ## Pseudo Bayesian model averaging with Bayesian Bootstrapping
 
-The above formula for computing weights is a very nice and simple approach, but with one major caveat it does not take into account the uncertainty in the computation of the IC. We could compute the standard error of the IC (assuming a Gaussian approximation) and modify the above formula accordingly. Or we can do something more robust, like using a [Bayesian Bootstrapping](http://www.sumsar.net/blog/2015/04/the-non-parametric-bootstrap-as-a-bayesian-model/) to estimate, and incorporate this uncertainty.
+The above formula for computing weights is a nice and simple approach, but with one major caveat: it does not take into account the uncertainty in the computation of the IC. We could compute the standard error of the IC (assuming a Gaussian approximation) and modify the above formula accordingly. Or we can do something more robust, like using a [Bayesian Bootstrapping](http://www.sumsar.net/blog/2015/04/the-non-parametric-bootstrap-as-a-bayesian-model/) to estimate, and incorporate this uncertainty.
 
 ## Stacking
 
-The third approach implemented in PyMC is known as _stacking of predictive distributions_ by {cite:t}`Yao_2018`. We want to combine several models in a metamodel in order to minimize the divergence between the meta-model and the _true_ generating model, when using a logarithmic scoring rule this is equivalent to:
+The third approach implemented in PyMC is known as _stacking of predictive distributions_ by {cite:t}`Yao_2018`. We want to combine several models in a metamodel in order to minimize the divergence between the meta-model and the _true_ generating model. When using a logarithmic scoring rule this is equivalent to:
 
 $$\max_{w} \frac{1}{n} \sum_{i=1}^{n}log\sum_{k=1}^{K} w_k p(y_i|y_{-i}, M_k)$$
 
@@ -86,11 +86,15 @@ The quantity $p(y_i|y_{-i}, M_k)$ is the leave-one-out predictive distribution f
 
 ## Weighted posterior predictive samples
 
-Once we have computed the weights, using any of the above 3 methods,  we can use them to get a weighted posterior predictive samples. PyMC offers functions to perform these steps in a simple way, so let see them in action using an example.
+Once we have computed the weights, using any of the above 3 methods,  we can use them to get weighted posterior predictive samples. PyMC offers functions to perform these steps in a simple way, so let's see them in action using an example.
 
-The following example is taken from the superb book {cite:t}`mcelreath2018statistical` by Richard McElreath. You will find more PyMC examples from this book in the repository [Statistical-Rethinking-with-Python-and-PyMC](https://github.com/pymc-devs/pymc-resources/tree/main/Rethinking_2). We are going to explore a simplified version of it. Check the book for the whole example and a more thorough discussion of both, the biological motivation for this problem and a theoretical/practical discussion of using Information Criteria to compare, select and average models.
+The following example is taken from the superb book {cite:t}`mcelreath2018statistical` by Richard McElreath. You will find more PyMC examples from this book in the repository [Statistical-Rethinking-with-Python-and-PyMC](https://github.com/pymc-devs/pymc-resources/tree/main/Rethinking_2). We are going to explore a simplified version of it. Check the book for the whole example and a more thorough discussion of both the biological motivation for this problem and a theoretical/practical discussion of using Information Criteria to compare, select and average models.
 
-Briefly, our problem is as follows: We want to explore the composition of milk across several primate species, it is hypothesized that females from species of primates with larger brains produce more _nutritious_ milk (loosely speaking this is done _in order to_ support the development of such big brains). This is an important question for evolutionary biologists and try to give an answer we will use 3 variables, two predictor variables: the proportion of neocortex compare to the total mass of the brain and the logarithm of the body mass of the mothers. And for predicted variable, the kilocalories per gram of milk. With these variables we are going to build 3 different linear models:
+Briefly, our problem is as follows: We want to explore the composition of milk across several primate species. It is hypothesized that females from species of primates with larger brains produce more _nutritious_ milk (loosely speaking this is done _in order to_ support the development of such big brains). This is an important question for evolutionary biologists. To try to give an answer we will use 3 variables:
+* two predictor variables - the proportion of neocortex mass compared to the total mass of the brain, and the logarithm of the body mass of the mothers. 
+* one predicted variable - the kilocalories per gram of milk. 
+
+With these variables we are going to build 3 different linear models:
  
 1. A model using only the neocortex variable
 2. A model using only the logarithm of the mass variable
@@ -214,7 +218,7 @@ az.plot_forest(traces, figsize=(10, 5));
 
 +++ {"papermill": {"duration": 0.052958, "end_time": "2020-11-29T12:14:55.196722", "exception": false, "start_time": "2020-11-29T12:14:55.143764", "status": "completed"}}
 
-Another option is to plot several traces in a same plot is to use `plot_density`. This plot is somehow similar to a forestplot, but we get truncated KDE (kernel density estimation) plots (by default 95% credible intervals) grouped by variable names together with a point estimate (by default the mean).
+Another option is to plot several traces in a same plot is to use `plot_density`. This plot is somewhat similar to a forestplot, but we get truncated KDE (kernel density estimation) plots (by default 95% credible intervals) grouped by variable names together with a point estimate (by default the mean).
 
 ```{code-cell} ipython3
 ---
@@ -261,11 +265,11 @@ comp
 
 +++ {"papermill": {"duration": 0.056609, "end_time": "2020-11-29T12:14:58.387481", "exception": false, "start_time": "2020-11-29T12:14:58.330872", "status": "completed"}}
 
-We can see that the best model is `model_2`, the one with both predictor variables. Notice the DataFrame is ordered from lowest to highest WAIC (_i.e_ from _better_ to _worst_ model). Check the {ref}`pymc:model_comparison` for a more detailed discussion on model comparison.
+We can see that the best model is `model_2`, the one with both predictor variables. Note that the DataFrame is ordered from lowest to highest WAIC (_i.e_ from _best_ to _worst_ model). Check the {ref}`pymc:model_comparison` for a more detailed discussion on model comparison.
 
-We can also see that we get a column with the relative `weight` for each model (according to the first equation at the beginning of this notebook). This weights can be _vaguely_ interpreted as the probability that each model will make the correct predictions on future data. Of course this interpretation is conditional on the models used to compute the weights, if we add or remove models the weights will change. And also is dependent on the assumptions behind WAIC (or any other Information Criterion used). So try to not overinterpret these `weights`. 
+We can also see that we get a column with the relative `weight` for each model (according to the first equation at the beginning of this notebook). This weights can be _vaguely_ interpreted as the probability that each model will make the correct predictions on future data. Of course this interpretation is conditional on the models used to compute the weights, if we add or remove models the weights will change. It also is dependent on the assumptions behind WAIC (or any other Information Criterion used), so try to not overinterpret these `weights`. 
 
-Now we are going to use computed `weights` to generate predictions based not on a single model, but on the weighted set of models. This is one way to perform model averaging. Using PyMC we can call the `sample_posterior_predictive_w` function as follows:
+Now we are going to use computed `weights` to generate predictions based not on a single model, but on the weighted set of models. This is one way to perform model averaging. Using ArviZ we can call the `az.stats.weight_predictions` function as follows:
 
 ```{code-cell} ipython3
 ---
@@ -278,14 +282,12 @@ papermill:
 ---
 ppc_w = az.stats.weight_predictions(
     [model_dict[name] for name in comp.index],
-    # models=[model_0, model_1, model_2],
     weights=comp.weight,
 ).posterior_predictive
+ppc_w
 ```
 
 +++ {"papermill": {"duration": 0.058454, "end_time": "2020-11-29T12:15:30.024455", "exception": false, "start_time": "2020-11-29T12:15:29.966001", "status": "completed"}}
-
-Notice that we are passing the weights ordered by their index. We are doing this because we pass `traces` and `models` ordered from model 0 to 2, but the computed weights are ordered from lowest to highest WAIC (or equivalently from larger to lowest weight). In summary, we must be sure that we are correctly pairing the weights and models.
 
 We are also going to name the PPC for the lowest-WAIC model.
 
@@ -306,10 +308,6 @@ ppc_2 = trace_2.posterior_predictive
 A simple way to compare both kind of predictions is to plot their mean and hpd interval.
 
 ```{code-cell} ipython3
-ppc_w
-```
-
-```{code-cell} ipython3
 ---
 papermill:
   duration: 0.301319
@@ -319,15 +317,15 @@ papermill:
   status: completed
 ---
 mean_w = ppc_w["kcal"].mean()
-hpd_w = az.hdi(ppc_w["kcal"], input_core_dims=[["sample"]])
+hpd_w = az.hdi(ppc_w, var_names="kcal", input_core_dims=[["sample", "kcal_dim_2"]])
 
 mean = ppc_2["kcal"].mean()
-hpd = az.hdi(ppc_2["kcal"])
+hpd = az.hdi(ppc_2, var_names="kcal", input_core_dims=[["chain", "draw", "kcal_dim_2"]])
 
 plt.plot(mean_w, 1, "C0o", label="weighted models")
-plt.hlines(1, *hpd_w, "C0")
+plt.hlines(1, *hpd_w["kcal"], colors="C0")
 plt.plot(mean, 0, "C1o", label="model 2")
-plt.hlines(0, *hpd, "C1")
+plt.hlines(0, *hpd["kcal"], "C1")
 
 plt.yticks([])
 plt.ylim(-1, 2)
@@ -343,7 +341,7 @@ As we can see the mean value is almost the same for both predictions but the unc
 
 There are other ways to average models such as, for example, explicitly building a meta-model that includes all the models we have. We then perform parameter inference while jumping between the models. One problem with this approach is that jumping between models could hamper the proper sampling of the posterior.
 
-Besides averaging discrete models we can sometimes think of continuous versions of them. A toy example is to imagine that we have a coin and we want to estimated its degree of bias, a number between 0 and 1 having a 0.5 equal chance of head and tails (fair coin). We could think of two separate models one with a prior biased towards heads and one towards tails. We could fit both separate models and then average them using, for example, IC-derived weights. An alternative, is to build a hierarchical model to estimate the prior distribution, instead of contemplating two discrete models we will be computing a continuous model that includes these the discrete ones as particular cases. Which approach is better? That depends on our concrete problem. Do we have good reasons to think about two discrete models, or is our problem better represented with a continuous bigger model?
+Besides averaging discrete models, we can sometimes think of continuous versions of them. A toy example is to imagine that we have a coin and we want to estimated its degree of bias, a number between 0 and 1 having a 0.5 equal chance of head and tails (fair coin). We could think of two separate models: one with a prior biased towards heads and one with a prior biased towards towards tails. We could fit both separate models and then average them using, for example, IC-derived weights. An alternative is to build a hierarchical model to estimate the prior distribution. Instead of contemplating two discrete models, we would be computing a continuous model that considers the discrete ones as particular cases. Which approach is better? That depends on our concrete problem. Do we have good reasons to think about two discrete models, or is our problem better represented with a continuous bigger model?
 
 +++
 
