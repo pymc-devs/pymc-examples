@@ -39,6 +39,7 @@ import pytensor.tensor as pt
 
 from lifelines import KaplanMeierFitter
 from matplotlib import cm
+from matplotlib.lines import Line2D
 from scipy.stats import fisk, weibull_min
 ```
 
@@ -88,7 +89,7 @@ dummies = pd.concat(
     axis=1,
 ).rename({"M": "Male"}, axis=1)
 
-retention_df = pd.concat([retention_df, dummies], axis=1).sort_values("Male")
+retention_df = pd.concat([retention_df, dummies], axis=1).sort_values("Male").reset_index(drop=True)
 retention_df.head()
 ```
 
@@ -750,7 +751,7 @@ temp = retention_df
 t = np.log(np.arange(1, 13, 1))
 ## Transforming to the Log-Logistic scale
 alpha = np.round((1 / s), 3)
-beta = np.round(np.exp(reg / alpha), 3)
+beta = np.round(np.exp(reg) ** s, 3)
 
 fig, axs = plt.subplots(1, 2, figsize=(20, 7))
 axs = axs.flatten()
@@ -771,8 +772,8 @@ axs[1].legend();
 ```
 
 ```{code-cell} ipython3
-diff = reg.iloc[1000] - reg.iloc[0]
-pchange = np.round(100 * (diff / reg.iloc[1000]), 2)
+diff = beta.iloc[1000] - beta.iloc[0]
+pchange = np.round(100 * (diff / beta.iloc[1000]), 2)
 print(
     f"In this case we could think of the relative change in acceleration \n factor between the individuals as representing a {pchange}% increase"
 )
@@ -922,8 +923,7 @@ def make_coxph_frailty(preds, factor):
         mu = pm.Deterministic("mu", exposure * lambda_, dims=("obs", "intervals"))
 
         obs = pm.Poisson("outcome", mu, observed=quit, dims=("obs", "intervals"))
-        frailty_idata = pm.sample_prior_predictive()
-        frailty_idata.extend(pm.sample(random_seed=101))
+        frailty_idata = pm.sample(random_seed=101)
 
     return frailty_idata, frailty_model
 
@@ -994,6 +994,7 @@ ax = az.plot_forest(
     var_names=["beta"],
     combined=True,
     figsize=(20, 15),
+    r_hat=True,
 )
 
 ax[0].set_title("Parameter Estimates: Various Models", fontsize=20);
@@ -1010,7 +1011,7 @@ temp["frailty"] = frailty_terms.reset_index()["mean"]
     .reset_index()
     .pivot(index=["Male", "sentiment"], columns="intention", values="frailty")
     .style.background_gradient(cmap="OrRd", axis=None)
-    .set_precision(2)
+    .set_precision(3)
 )
 ```
 
@@ -1142,6 +1143,10 @@ axs[0].annotate(
 );
 ```
 
+Note the increased range of the survival curves induced by our additional frailty terms when compared to the above Cox model. 
+
++++
+
 ### Plotting the effects of the Frailty Terms
 
 There are different ways to marginalise across the data, but we can also inspect the individual "frailties". These kinds of plots and investigations are most fruitful in the context of an ongoing policy shift. Where you want to determine the differential rates of response for those individuals undergoing/experiencing the policy shift first-hand versus those who are not. It helps to zero-in on the most impacted employees or participants in the study to figure out what if anything was driving their response, and if preventative measures need to be adopted to resolve a crisis.
@@ -1207,22 +1212,37 @@ ax.legend()
 ax.fill_betweenx(range(len(predicted)), 0.95, 1.0, alpha=0.4, color="grey")
 
 ax1 = fig.add_subplot(gs[1, 1])
-surv_frailty_df[list(predicted["frailty_id"].values)].plot(
-    ax=ax1, legend=False, color=colors, alpha=0.2
+f_index = retention_df[retention_df["gender"] == "F"].index
+index = retention_df.index
+surv_frailty_df[list(range(len(f_index)))].plot(ax=ax1, legend=False, color="red", alpha=0.8)
+surv_frailty_df[list(range(len(f_index), len(index), 1))].plot(
+    ax=ax1, legend=False, color="royalblue", alpha=0.1
 )
 ax1_hist = fig.add_subplot(gs[0, 1])
+f_index = retention_df[retention_df["gender"] == "F"].index
 ax1_hist.hist(
-    (1 - surv_frailty_df[list(predicted_all["frailty_id"].values)].iloc[6]),
+    (1 - surv_frailty_df[list(range(len(f_index), len(index), 1))].iloc[6]),
     bins=30,
-    color="slateblue",
+    color="royalblue",
     ec="black",
+    alpha=0.8,
+)
+ax1_hist.hist(
+    (1 - surv_frailty_df[list(range(len(f_index)))].iloc[6]),
+    bins=30,
+    color="red",
+    ec="black",
+    alpha=0.8,
 )
 ax1.set_xlabel("Time", fontsize=18)
 ax1_hist.set_title(
     "Predicted Distribution of Attrition \n by 6 Months across all risk profiles", fontsize=20
 )
 ax1.set_ylabel("Survival Function", fontsize=18)
-ax.scatter(predicted, range(len(predicted)), color="black", ec="black", s=30);
+ax.scatter(predicted, range(len(predicted)), color="black", ec="black", s=30)
+
+custom_lines = [Line2D([0], [0], color="red", lw=4), Line2D([0], [0], color="royalblue", lw=4)]
+ax1.legend(custom_lines, ["Female", "Male"]);
 ```
 
 Here we see a plot of the individual frailty terms and the differential multiplicative effect they contribute to each individual's predicted hazard. This is a powerful lens on the question of how much the observed covariates capture for each individual and how much of a corrective adjustment is implied by the frailty terms?
