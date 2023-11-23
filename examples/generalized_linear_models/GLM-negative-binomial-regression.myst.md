@@ -5,18 +5,24 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3.9.12 ('pymc-dev-py39')
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
+myst:
+  substitutions:
+    extra_dependencies: seaborn
 ---
 
 (GLM-negative-binomial-regression)=
 # GLM: Negative Binomial Regression
 
-:::{post} June, 2022
+:::{post} September, 2023
 :tags: negative binomial regression, generalized linear model, 
 :category: beginner
 :author: Ian Ozsvald, Abhipsha Das, Benjamin Vincent
+:::
+
+:::{include} ../extra_installs.md
 :::
 
 ```{code-cell} ipython3
@@ -33,7 +39,7 @@ from scipy import stats
 RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
 
-%config InlineBackend.figure_format = 'retina'
+%config InlineBackend.figure_format = "retina"
 az.style.use("arviz-darkgrid")
 ```
 
@@ -221,7 +227,7 @@ Finally, the mean of `nsneeze_alpha` is also quite close to its actual value of 
 
 +++
 
-See also, [`bambi's` negative binomial example](https://bambinos.github.io/bambi/master/notebooks/negative_binomial.html) for further reference.
+See also, [`bambi's` negative binomial example](https://bambinos.github.io/bambi/notebooks/negative_binomial.html) for further reference.
 
 +++
 
@@ -229,11 +235,16 @@ See also, [`bambi's` negative binomial example](https://bambinos.github.io/bambi
 - Created by [Ian Ozsvald](https://github.com/ianozsvald)
 - Updated by [Abhipsha Das](https://github.com/chiral-carbon) in August 2021
 - Updated by [Benjamin Vincent](https://github.com/drbenvincent) to PyMC v4 in June 2022
+- Updated by [Wesley Boelrijk](https://github.com/wesleyboelrijk) to PyMC v5 in September 2023
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p pytensor,aeppl,xarray
+%watermark -n -u -v -iv -w -p pytensor,xarray
 ```
 
 :::{include} ../page_footer.md
 :::
+
+```{code-cell} ipython3
+
+```
