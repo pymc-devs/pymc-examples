@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-marketing
+  display_name: Python 3
   language: python
-  name: pymc-marketing
+  name: python3
 ---
 
 # Using ModelBuilder class for deploying PyMC models 
@@ -103,15 +103,25 @@ class LinearModel(ModelBuilder):
     # And a version
     version = "0.1"
 
-    def build_model(self, X: pd.DataFrame, y: Union[pd.Series, np.ndarray], **kwargs):
+    def build_model(self, X: pd.DataFrame, y: pd.Series, **kwargs):
         """
         build_model creates the PyMC model
 
         Parameters:
         model_config: dictionary
             it is a dictionary with all the parameters that we need in our model example:  a_loc, a_scale, b_loc
-        data: Dict[str, Union[np.ndarray, pd.DataFrame, pd.Series]]
-            Data we want our model fit on.
+        X : pd.DataFrame
+            The input data that is going to be used in the model. This should be a DataFrame
+            containing the features (predictors) for the model. For efficiency reasons, it should
+            only contain the necessary data columns, not the entire available dataset, as this
+            will be encoded into the data used to recreate the model.
+
+        y : pd.Series
+            The target data for the model. This should be a Series representing the output
+            or dependent variable for the model.
+
+        kwargs : dict
+            Additional keyword arguments that may be used for model configuration.
         """
         # Check the type of X and y and adjust access accordingly
         X_values = X["input"].values
@@ -119,7 +129,6 @@ class LinearModel(ModelBuilder):
         self._generate_and_preprocess_model_data(X_values, y_values)
 
         with pm.Model(coords=self.model_coords) as self.model:
-
             # Create mutable data containers
             x_data = pm.MutableData("x_data", X_values)
             y_data = pm.MutableData("y_data", y_values)
@@ -152,10 +161,11 @@ class LinearModel(ModelBuilder):
             if y is not None:
                 pm.set_data({"y_data": y.values if isinstance(y, pd.Series) else y})
 
-    @property
-    def default_model_config(self) -> Dict:
+    @staticmethod
+    def get_default_model_config() -> Dict:
         """
-        default_model_config is a property that returns a dictionary with all the prior values we want to build the model with.
+        Returns a class default config dict for model builder if no model_config is provided on class initialization.
+        The model config dict is generally used to specify the prior values we want to build the model with.
         It supports more complex data structures like lists, dictionaries, etc.
         It will be passed to the class instance on initialization, in case the user doesn't provide any model_config of their own.
         """
@@ -168,11 +178,12 @@ class LinearModel(ModelBuilder):
         }
         return model_config
 
-    @property
-    def default_sampler_config(self) -> Dict:
+    @staticmethod
+    def get_default_sampler_config() -> Dict:
         """
-        default_sampler_config is a property that returns a dictionary with all most important sampler parameters.
-        It will be used in case the user doesn't provide any sampler_config of their own.
+        Returns a class default sampler dict for model builder if no sampler_config is provided on class initialization.
+        The sampler config dict is used to send parameters to the sampler .
+        It will be used during fitting in case the user doesn't provide any sampler_config of their own.
         """
         sampler_config: Dict = {
             "draws": 1_000,
@@ -219,7 +230,7 @@ class LinearModel(ModelBuilder):
         all required preprocessing and conditional assignments should be defined here.
         """
         self.model_coords = None  # in our case we're not using coords, but if we were, we would define them here, or later on in the function, if extracting them from the data.
-        # as we don't do any data preprocessing, we just assign the data givenin by the user. Note that it's very basic model,
+        # as we don't do any data preprocessing, we just assign the data given by the user. Note that it's a very basic model,
         # and usually we would need to do some preprocessing, or generate the coords from the data.
         self.X = X
         self.y = y

@@ -20,10 +20,6 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-%matplotlib inline
-```
-
-```{code-cell} ipython3
 ---
 papermill:
   duration: 5.306978
@@ -33,13 +29,12 @@ papermill:
   status: completed
 ---
 import arviz as az
-import matplotlib.cm as cmap
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
-import pytensor
 import pytensor.tensor as pt
-import scipy.stats as stats
+
+%config InlineBackend.figure_format = "retina"
 ```
 
 ```{code-cell} ipython3
@@ -52,7 +47,6 @@ papermill:
   status: completed
 ---
 RANDOM_SEED = 8927
-
 rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 plt.rcParams["figure.figsize"] = (10, 4)
@@ -343,8 +337,6 @@ papermill:
 ---
 c = 2.0
 cov = pm.gp.cov.Constant(c)
-# Add white noise to stabilise
-cov += pm.gp.cov.WhiteNoise(1e-6)
 
 X = np.linspace(0, 2, 200)[:, None]
 K = cov(X).eval()
@@ -1208,6 +1200,7 @@ If we have forgotten an important covariance or mean function, please feel free 
 ## Authors
 * Authored by Bill Engels
 * Updated to v4 by Oriol Abril Pla in Nov 2022 ([pymc-examples#301](https://github.com/pymc-devs/pymc-examples/pull/301))
+* Updated to v5 by Juan Orduz in Nov 2023 ([pymc-examples#593](https://github.com/pymc-devs/pymc-examples/pull/593))
 
 +++
 
@@ -1223,7 +1216,7 @@ papermill:
   status: completed
 ---
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aeppl,xarray
+%watermark -n -u -v -iv -w -p xarray
 ```
 
 :::{include} ../page_footer.md

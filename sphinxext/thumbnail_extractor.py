@@ -32,48 +32,6 @@ PyMC Example Gallery
 
    object_index/index
 
-Core notebooks
---------------
-
-.. grid:: 1 2 3 3
-   :gutter: 4
-
-   .. grid-item-card:: Introductory Overview of PyMC
-      :img-top: https://raw.githubusercontent.com/pymc-devs/brand/main/pymc/pymc_logos/PyMC_square.svg
-      :link: pymc:pymc_overview
-      :link-type: ref
-      :shadow: none
-
-   .. grid-item-card:: GLM: Linear regression
-      :img-top: ../_thumbnails/core_notebooks/glm_linear.png
-      :link: pymc:glm_linear
-      :link-type: ref
-      :shadow: none
-
-   .. grid-item-card:: Model Comparison
-      :img-top: ../_thumbnails/core_notebooks/model_comparison.png
-      :link: pymc:model_comparison
-      :link-type: ref
-      :shadow: none
-
-   .. grid-item-card:: Prior and Posterior Predictive Checks
-      :img-top: ../_thumbnails/core_notebooks/posterior_predictive.png
-      :link: pymc:posterior_predictive
-      :link-type: ref
-      :shadow: none
-
-   .. grid-item-card:: Distribution Dimensionality
-      :img-top: ../_thumbnails/core_notebooks/dimensionality.png
-      :link: pymc:dimensionality
-      :link-type: ref
-      :shadow: none
-
-   .. grid-item-card:: PyMC and PyTensor
-      :img-top: ../_thumbnails/core_notebooks/pytensor_pymc.png
-      :link: pymc:pymc_pytensor
-      :link-type: ref
-      :shadow: none
-
 """
 
 SECTION_TEMPLATE = """
@@ -88,26 +46,78 @@ SECTION_TEMPLATE = """
 """
 
 ITEM_TEMPLATE = """
-   .. grid-item-card:: :doc:`{doc_reference}`
+   .. grid-item-card:: :doc:`{doc_name}`
       :img-top: {image}
       :link: {doc_reference}
-      :link-type: doc
+      :link-type: {link_type}
       :shadow: none
 """
 
+intro_nb = {
+    "doc_name": "General Overview",
+    "image": "https://raw.githubusercontent.com/pymc-devs/brand/main/pymc/pymc_logos/PyMC_square.svg",
+    "doc_reference": "pymc:pymc_overview",
+    "link_type": "ref",
+}
+
+glm_nb = {
+    "doc_name": "Simple Linear Regression",
+    "image": "../_thumbnails/core_notebooks/glm_linear.png",
+    "doc_reference": "pymc:glm_linear",
+    "link_type": "ref",
+}
+
+model_comparison_nb = {
+    "doc_name": "Model Comparison",
+    "image": "../_thumbnails/core_notebooks/posterior_predictive.png",
+    "doc_reference": "pymc:model_comparison",
+    "link_type": "ref",
+}
+
+prior_pred_nb = {
+    "doc_name": "Prior and Posterior Predictive Checks",
+    "image": "../_thumbnails/core_notebooks/model_comparison.png",
+    "doc_reference": "pymc:posterior_predictive",
+    "link_type": "ref",
+}
+
+dimensionality_nb = {
+    "doc_name": "Distribution Dimensionality",
+    "image": "../_thumbnails/core_notebooks/dimensionality.png",
+    "doc_reference": "pymc:dimensionality",
+    "link_type": "ref",
+}
+
+pytensor_nb = {
+    "doc_name": "PyMC and PyTensor",
+    "image": "../_thumbnails/core_notebooks/pytensor_pymc.png",
+    "doc_reference": "pymc:pymc_pytensor",
+    "link_type": "ref",
+}
+
+external_nbs = {
+    "introductory": [intro_nb, glm_nb],
+    "fundamentals": [dimensionality_nb, pytensor_nb],
+    "howto": [prior_pred_nb, model_comparison_nb],
+}
+
 folder_title_map = {
-    "generalized_linear_models": "(Generalized) Linear and Hierarchical Linear Models",
+    "introductory": "Introductory",
+    "fundamentals": "Library Fundamentals",
+    "howto": "How to",
+    "generalized_linear_models": "Generalized Linear Models",
     "case_studies": "Case Studies",
     "causal_inference": "Causal Inference",
-    "diagnostics_and_criticism": "Diagnostics and Model Criticism",
     "gaussian_processes": "Gaussian Processes",
-    "ode_models": "Inference in ODE models",
-    "samplers": "MCMC",
+    "time_series": "Time Series",
+    "spatial": "Spatial Analysis",
+    "diagnostics_and_criticism": "Diagnostics and Model Criticism",
+    "bart": "Bayesian Additive Regression Trees",
     "mixture_models": "Mixture Models",
     "survival_analysis": "Survival Analysis",
-    "time_series": "Time Series",
+    "ode_models": "ODE models",
+    "samplers": "MCMC",
     "variational_inference": "Variational Inference",
-    "howto": "How to",
 }
 
 
@@ -184,7 +194,6 @@ def main(app):
     file = [HEAD]
 
     for folder, title in folder_title_map.items():
-        nb_paths = glob(f"{folder}/*.ipynb")
         file.append(
             SECTION_TEMPLATE.format(
                 section_title=title, section_id=folder, underlines="-" * len(title)
@@ -194,12 +203,27 @@ def main(app):
         if not os.path.isdir(target_dir):
             os.mkdir(target_dir)
 
+        if folder in external_nbs.keys():
+            for descr in external_nbs[folder]:
+                file.append(
+                    ITEM_TEMPLATE.format(
+                        doc_name=descr["doc_name"],
+                        image=descr["image"],
+                        doc_reference=descr["doc_reference"],
+                        link_type=descr["link_type"],
+                    )
+                )
+
+        nb_paths = glob(f"{folder}/*.ipynb")
         for nb_path in nb_paths:
             nbg = NotebookGenerator(nb_path, "..", folder)
             nbg.gen_previews()
             file.append(
                 ITEM_TEMPLATE.format(
-                    doc_reference=os.path.join(folder, nbg.stripped_name), image=nbg.png_path
+                    doc_name=os.path.join(folder, nbg.stripped_name),
+                    image=nbg.png_path,
+                    doc_reference=os.path.join(folder, nbg.stripped_name),
+                    link_type="doc",
                 )
             )
 
