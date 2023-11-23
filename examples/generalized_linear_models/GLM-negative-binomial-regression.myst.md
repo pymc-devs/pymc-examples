@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-dev
+  display_name: Python 3 (ipykernel)
   language: python
-  name: pymc-dev
+  name: python3
 myst:
   substitutions:
     extra_dependencies: seaborn
@@ -20,6 +20,9 @@ myst:
 :tags: negative binomial regression, generalized linear model, 
 :category: beginner
 :author: Ian Ozsvald, Abhipsha Das, Benjamin Vincent
+:::
+
+:::{include} ../extra_installs.md
 :::
 
 ```{code-cell} ipython3
@@ -224,7 +227,7 @@ Finally, the mean of `nsneeze_alpha` is also quite close to its actual value of 
 
 +++
 
-See also, [`bambi's` negative binomial example](https://bambinos.github.io/bambi/master/notebooks/negative_binomial.html) for further reference.
+See also, [`bambi's` negative binomial example](https://bambinos.github.io/bambi/notebooks/negative_binomial.html) for further reference.
 
 +++
 
@@ -240,7 +243,6 @@ See also, [`bambi's` negative binomial example](https://bambinos.github.io/bambi
 ```
 
 :::{include} ../page_footer.md
-:::{include} ../extra_installs.md
 :::
 
 ```{code-cell} ipython3
