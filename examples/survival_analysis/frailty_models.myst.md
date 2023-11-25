@@ -159,7 +159,7 @@ Here we've used the Kaplan Meier non-parametric estimate of the survival curve w
 
 ## Data Preperation for Survival Regression
 
-The idea behind Cox Proportional Hazard regression models is, put crudely, to treat the temporal component of risk seriously. We imagine a latent baseline hazard of occurrence over the time-interval. Michael Betancourt [asks](https://betanalpha.github.io/assets/case_studies/survival_modeling.html) that we think of the hazard as "the accumulation of some stimulating resource" that precedes the occurrence of an event. In the context of a failure modelling it can be imagined as sporadic increasing wear and tear. In the context of HR dyanamics it could be imagined as increasing frustration is the work-environment. This term is often denoted:
+The idea behind Cox Proportional Hazard regression models is, put crudely, to treat the temporal component of risk seriously. We imagine a latent baseline hazard of occurrence over the time-interval. Michael Betancourt [asks](https://betanalpha.github.io/assets/case_studies/survival_modeling.html) that we think of the hazard as "the accumulation of some stimulating resource" that precedes the occurrence of an event. In the context of a failure modelling it can be imagined as sporadic increasing wear and tear. In the context of HR dyanamics it could be imagined as increasing frustration is the work-environment. In philosophy it could viewed as an articulation of the sorites paradox; how do chances change over time, as sand is piled higher, for us to identify a collection of individual grains as a heap?. This term is often denoted:
 
 $$ \lambda_{0}(t)$$
 
@@ -834,7 +834,7 @@ Above we've plotted a sample of individual predicted survival functions from eac
 
 One of the most compelling patterns in Bayesian regression modelling more generally is the ability to incorporate hierarchical structure. The analogue of the hierarchical survival model is the individual frailty survival model. But "frailities" do not need to be specified only at an individual level - so called "shared" frailities can be deployed at a group level e.g. across the `field`. 
 
-In the above CoxPH models we fit the data to a standard regression formulation using indicator variables for different levels of the `field` variable which gets included in the weighted sum of the linear combination. With frailty models we instead allow the individual or group frailty term to enter into our model as a multiplicative factor over and above the combination of the baseline hazard with the weighted demographic characteristics of risk. This allows us to capture an estimate of the heterogenous effects accruing to being that particular individual or within that particular group. Additionally we can stratify baseline hazards e.g. for gender. So our equation now becomes:
+In the above CoxPH models we fit the data to a standard regression formulation using indicator variables for different levels of the `field` variable which gets included in the weighted sum of the linear combination. With frailty models we instead allow the individual or group frailty term to enter into our model as a multiplicative factor over and above the combination of the baseline hazard with the weighted demographic characteristics of risk. This allows us to capture an estimate of the heterogenous effects accruing to being that particular individual or within that particular group. In our context these terms seeks to explain the "overly" long-term loyalty of some employees to a company despite other offers on the market. Additionally we can stratify baseline hazards e.g. for gender to capture varying degrees of risk over time as a function of their covariate profile. So our equation now becomes:
 
 $$ \lambda_{i}(t) = z_{i}exp(\beta X)\lambda_{0}^{g}(t) $$
 
@@ -932,7 +932,11 @@ frailty_idata, frailty_model = make_coxph_frailty(preds, range(len(retention_df)
 pm.model_to_graphviz(frailty_model)
 ```
 
-which allows us to pull out the gender specific view on the baseline hazard. This kind of model specification can help account for failures of the proportional hazards assumption allowing for the expression of time-varying risk induced by different levels of the covariates. We can also allow for shared frailty terms across groups as here in the case of allowing group effect based on the `field` of work. Often however this is not too distinct from including the field as a fixed effect in your model as we did above in the first CoxPH model, but here we allow that the coefficient estimates are drawn from the same distribution. The variance characteristics of this distribution may be of independent interest.
+which allows us to pull out the gender specific view on the baseline hazard. This kind of model specification can help account for failures of the proportional hazards assumption allowing for the expression of time-varying risk induced by different levels of the covariates. We can also allow for shared frailty terms across groups as here in the case of allowing group effect based on the `field` of work. Often however this is not too distinct from including the field as a fixed effect in your model as we did above in the first CoxPH model, but here we allow that the coefficient estimates are drawn from the same distribution. The variance characteristics of this distribution may be of independent interest. 
+
+The greater the variance here - the worse the base model is at capturing the observed state-transitions. In thinking about the evolving hazard in the context of the sorites paradox, you might argue that the greater the heterogeniety in the individual frailty terms the less well-specified model, the poorer our understanding of the state-transition in question - leading to the semantic ambiguity of when sand becomes a heap and greater uncertainty around when an employee is likely to leave. 
+
+Next we'll fit a mode with frailties across the `field` grouping. These are called shared frailties.
 
 ```{code-cell} ipython3
 shared_frailty_idata, shared_frailty_model = make_coxph_frailty(preds3, retention_df["field"])
@@ -942,7 +946,7 @@ shared_frailty_idata, shared_frailty_model = make_coxph_frailty(preds3, retentio
 pm.model_to_graphviz(shared_frailty_model)
 ```
 
-Additionally this allows us to see how the inclusion of more covariates and individual frailty term absorbs the variance in the baseline hazard and shrinks the magnitude of the latent hazard.
+The comparison between shared and individual frailty terms allows us to see how the inclusion of more covariates and individual frailty term absorbs the variance in the baseline hazard and shrinks the magnitude of the latent hazard.
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(20, 6))
