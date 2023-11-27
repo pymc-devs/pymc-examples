@@ -11,12 +11,10 @@
   {% endif %}
 {%- endmacro -%}
 
-
-{%- macro category_item(name, icon, active) -%}
+{%- macro category_item(name, number, active) -%}
 <a href="{{ pathtocategory(name) }}" class="{{ setcolorclass(active) }}" title="{{ name }}">
-    <span class="fas {{ icon }}"></span>
-    <label class="sr-only">{{ name }}</label>
-  </a>
+  <b>{{ number }}</b>
+</a>
 {%- endmacro -%}
 
 <!-- {% set post = "" %} -->
@@ -33,15 +31,16 @@
   {% set b_bool = "beginner" in post.category|map('string') %}
   {% set a_bool = "advanced" in post.category|map('string') %}
   <div class="container">
-    <div class="row">
+    <div class="row sd-fs-6">
+      <div class="col">Level:</div>
       <div class="col">
-        {{ category_item("beginner", "fa-crow", b_bool) }}
+        {{ category_item("beginner", 1, b_bool) }}
       </div>
       <div class="col">
-        {{ category_item("intermediate", "fa-dove", i_bool) }}
+        {{ category_item("intermediate", 2, i_bool) }}
       </div>
       <div class="col">
-        {{ category_item("advanced", "fa-dragon", a_bool) }}
+        {{ category_item("advanced", 3, a_bool) }}
       </div>
     </div>
   </div>
