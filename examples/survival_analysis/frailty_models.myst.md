@@ -17,7 +17,7 @@ myst:
 # Frailty and Survival Regression Models
 
 :::{post} November, 2023
-:tags: frailty models, survival analysis, competing risks
+:tags: frailty models, survival analysis, competing risks, model comparison
 :category: intermediate, reference
 :author: Nathaniel Forde
 :::
@@ -159,7 +159,7 @@ Here we've used the Kaplan Meier non-parametric estimate of the survival curve w
 
 ## Data Preperation for Survival Regression
 
-The idea behind Cox Proportional Hazard regression models is, put crudely, to treat the temporal component of risk seriously. We imagine a latent baseline hazard of occurrence over the time-interval. Michael Betancourt [asks](https://betanalpha.github.io/assets/case_studies/survival_modeling.html) that we think of the hazard as "the accumulation of some stimulating resource" that precedes the occurrence of an event. In the context of a failure modelling it can be imagined as sporadic increasing wear and tear. In the context of HR dyanamics it could be imagined as increasing frustration is the work-environment. In philosophy it could viewed as an articulation of the sorites paradox; how do chances change over time, as sand is piled higher, for us to identify a collection of individual grains as a heap?. This term is often denoted:
+The idea behind Cox Proportional Hazard regression models is, put crudely, to treat the temporal component of risk seriously. We imagine a latent baseline hazard of occurrence over the time-interval. Michael Betancourt [asks](https://betanalpha.github.io/assets/case_studies/survival_modeling.html) that we think of the hazard as "the accumulation of some stimulating resource" that precedes the occurrence of an event. In failure modelling it can be imagined as sporadic increasing wear and tear. In the context of HR dyanamics it could be imagined as increasing frustration is the work-environment. In philosophy it could viewed as an articulation of the sorites paradox; how do chances change over time, as sand is piled higher, for us to identify a collection of individual grains as a heap?. This term is often denoted:
 
 $$ \lambda_{0}(t)$$
 
@@ -198,11 +198,11 @@ exposure[employees, last_period] = retention_df.month - intervals[last_period]
 pd.DataFrame(exposure)
 ```
 
-A 0 in this data strucuture means the employee has already quit and no longer exists in the "at-risk" pool at that point in time. Whereas a 1 in this structure means the pool is in the risk pool and should be used to calculate the instantenous hazard at that interval. 
+A 0 in this data structure means the employee has already quit and no longer exists in the "at-risk" pool at that point in time. Whereas a 1 in this structure means the pool is in the risk pool and should be used to calculate the instantenous hazard at that interval. 
 
 With these structures we are now in a position to estimate our model. Following Austin Rochford's example we again use the Poisson trick to estimate the Proportional hazard model. This might be somewhat surprising because the Cox Proportional Hazard model is normally advertised as a semi-parametric model which needs to be estimated using a partial likelihood due to the piecewise nature of the baseline hazard component. 
 
-The trick is to see that Poisson regression for event counts and CoxPH regression are linked through the parameters which determine the event-rate. In the case of predicting counts we need a latent risk of a event indexed to time by an offset for each time-interval. This ensures that the likelihood term for a kind of Poisson regression is similar enough to the likelihood under consideration in the Cox Proportional Hazard regression that we can substitute one for the other. In other words the Cox Proportional hazard model can be estimated as GLM using a Poisson likelihood where we specify an "off-set" or intercept modification for each point on the time-interval: 
+The trick is to see that Poisson regression for event counts and CoxPH regression are linked through the parameters which determine the event-rate. In the case of predicting counts we need a latent risk of a event indexed to time by an offset for each time-interval. This ensures that the likelihood term for a kind of Poisson regression is similar enough to the likelihood under consideration in the Cox Proportional Hazard regression that we can substitute one for the other. In other words the Cox Proportional hazard model can be estimated as GLM using a Poisson likelihood where we specify an "off-set" or intercept modification for each point on the time-interval. Using Wilkinson notation we can write: 
 
 $$ CoxPH(left, month) \sim gender + level $$
 
@@ -337,10 +337,10 @@ az.plot_hdi(
 az.plot_hdi(
     range(12),
     base_idata["posterior"]["lambda0"],
-    color="red",
+    color="lightblue",
     ax=ax,
     hdi_prob=0.50,
-    fill_kwargs={"label": "Baseline Hazard 50%"},
+    fill_kwargs={"label": "Baseline Hazard 50%", "alpha": 0.8},
     smooth=False,
 )
 ax.legend()
@@ -358,14 +358,20 @@ We can make these interpretations a little more concrete by deriving the margina
 
 ```{code-cell} ipython3
 def cum_hazard(hazard):
+    """Takes arviz.InferenceData object applies
+    cumulative sum along baseline hazard"""
     return hazard.cumsum(dim="intervals")
 
 
 def survival(hazard):
+    """Takes arviz.InferenceData object transforms
+    cumulative hazard into survival function"""
     return np.exp(-cum_hazard(hazard))
 
 
 def get_mean(trace):
+    """Takes arviz.InferenceData object marginalises
+    over the chain and draw"""
     return trace.mean(("draw", "chain"))
 ```
 
@@ -932,7 +938,7 @@ frailty_idata, frailty_model = make_coxph_frailty(preds, range(len(retention_df)
 pm.model_to_graphviz(frailty_model)
 ```
 
-which allows us to pull out the gender specific view on the baseline hazard. This kind of model specification can help account for failures of the proportional hazards assumption allowing for the expression of time-varying risk induced by different levels of the covariates. We can also allow for shared frailty terms across groups as here in the case of allowing group effect based on the `field` of work. Often however this is not too distinct from including the field as a fixed effect in your model as we did above in the first CoxPH model, but here we allow that the coefficient estimates are drawn from the same distribution. The variance characteristics of this distribution may be of independent interest. 
+Fitting the above model allows us to pull out the gender specific view on the baseline hazard. This kind of model specification can help account for failures of the proportional hazards assumption allowing for the expression of time-varying risk induced by different levels of the covariates. We can also allow for shared frailty terms across groups as here in the case of allowing group effect based on the `field` of work. Often however this is not too distinct from including the field as a fixed effect in your model as we did above in the first CoxPH model, but here we allow that the coefficient estimates are drawn from the same distribution. The variance characteristics of this distribution may be of independent interest. 
 
 The greater the variance here - the worse the base model is at capturing the observed state-transitions. In thinking about the evolving hazard in the context of the sorites paradox, you might argue that the greater the heterogeniety in the individual frailty terms the less well-specified model, the poorer our understanding of the state-transition in question - leading to the semantic ambiguity of when sand becomes a heap and greater uncertainty around when an employee is likely to leave. 
 
@@ -1019,7 +1025,7 @@ temp["frailty"] = frailty_terms.reset_index()["mean"]
 )
 ```
 
-which suggests that the model over weights the impact of low sentiment and low intention score particularly and the frailty term compensates by adding a reduction in the rate of multiplicative increase in the hazard term. There is a general pattern that the model overweights the risk which is "corrected" downwards by the frailty terms. This makes a kind of sense as it's a little strange to see such low sentiment coupled with no intent to quit. Indicating that the respondent's answers might not reflect their considered opinion. The effect is similarly pronounced where intention to quit is higher, which also makes sense in this context too. 
+The above heatmap suggests that the model over weights the impact of low sentiment and low intention score particularly. The frailty term(s) compensate by adding a reduction in the rate of the multiplicative increase in the hazard term. There is a general pattern that the model overweights the risk which is "corrected" downwards by the frailty terms. This makes a kind of sense as it's a little strange to see such low sentiment coupled with no intent to quit. Indicating that the respondent's answers might not reflect their considered opinion. The effect is similarly pronounced where intention to quit is higher, which also makes sense in this context too. 
 
 +++
 
@@ -1097,7 +1103,7 @@ def plot_individual_frailty(retention_df, individuals=[1, 300, 700], intention=F
 plot_individual_frailty(retention_df, [0, 1, 2], intention=True)
 ```
 
-where we see a stark difference in the predicted survival functions for each individual explainted by the measure of their stated intention to leave:
+In these plots we see a stark difference in the predicted survival functions for each individual explainted by the measure of their stated `intention` to leave. We can see this by examining the covariate profile of the three individuals.
 
 ```{code-cell} ipython3
 retention_df.iloc[0:3, :]
