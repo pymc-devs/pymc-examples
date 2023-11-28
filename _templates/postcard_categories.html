@@ -11,9 +11,9 @@
   {% endif %}
 {%- endmacro -%}
 
-{%- macro category_item(name, number, active) -%}
+{%- macro category_item(name, active) -%}
 <a href="{{ pathtocategory(name) }}" class="{{ setcolorclass(active) }}" title="{{ name }}">
-  <b>{{ number }}</b>
+  <b>{{ name }}</b>
 </a>
 {%- endmacro -%}
 
@@ -32,32 +32,15 @@
   {% set a_bool = "advanced" in post.category|map('string') %}
   <div class="container">
     <div class="row sd-fs-6">
-      <div class="col">Level:</div>
       <div class="col">
-        {{ category_item("beginner", 1, b_bool) }}
+        {{ category_item("beginner", b_bool) }}
       </div>
       <div class="col">
-        {{ category_item("intermediate", 2, i_bool) }}
+        {{ category_item("intermediate", i_bool) }}
       </div>
       <div class="col">
-        {{ category_item("advanced", 3, a_bool) }}
+        {{ category_item("advanced", a_bool) }}
       </div>
     </div>
   </div>
-
-  <!-- diataxis type categories -->
-  <div class="container sd-fs-6 sd-font-weight-bold">
-    <div class="row border-top border-bottom">
-      {% set t_bool = "tutorial" in post.category|map('string') %}
-      <div class="col"><a class="{{ setcolorclass(t_bool) }}" href="{{ pathtocategory('tutorial') }}">Tutorial</a></div>
-      {% set h_bool = "how-to" in post.category|map('string') %}
-      <div class="col"><a class="{{ setcolorclass(h_bool) }}" href="{{ pathtocategory('how-to') }}">How-to</a></div>
-      <div class="w-100"></div>
-      {% set e_bool = "explanation" in post.category|map('string') %}
-      <div class="col"><a class="{{ setcolorclass(e_bool) }}" href="{{ pathtocategory('explanation') }}">Explanation</a></div>
-      {% set r_bool = "reference" in post.category|map('string') %}
-      <div class="col"><a class="{{ setcolorclass(r_bool) }}" href="{{ pathtocategory('reference') }}">Reference</a></div>
-    </div>
-  </div>
-
 </div>
