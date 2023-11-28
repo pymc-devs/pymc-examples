@@ -13,7 +13,7 @@ kernelspec:
 # Using ModelBuilder class for deploying PyMC models 
 :::{post} Feb 22, 2023
 :tags: deployment
-:category: Advanced
+:category: advanced
 :author: Shashank Kirtania, Thomas Wiecki, Michał Raczycki
 :::
 

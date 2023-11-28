@@ -18,7 +18,7 @@ For most models we use sampling MCMC algorithms like Metropolis or NUTS. In PyMC
 
 :::{post} Jan 13, 2023 
 :tags: variational inference, approximation
-:category: advaned, how-to
+:category: advanced, how-to
 :author: Maxim Kochurov, Raul Maldonado, Chris Fonnesbeck
 :::
 
