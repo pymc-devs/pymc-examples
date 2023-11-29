@@ -171,6 +171,10 @@ az.plot_posterior(
 
 In the copula model below you can see that we set up a prior over the covariance parameter. The posterior distribution over this parameter is constrained by the data in multivariate normal space. But in order to do that we need to transform the observations `[a, b]` in observation space, to multivariate normal space, which we store in `data`.
 
+On using point estimates: as you'll see in the code below we have opted to use point estimates from Step 1 rather than the full posterior from Step 1. This is a simplification that we opted for due to complexities in tensor shape handling when passing in posterior distributions as parameters to a distribution.
+
+During notebook review, however, [@OriolAbril](https://github.com/OriolAbril) (one of the maintainers of the PyMC Examples repository) correctly pointed out that exponentiating the logcdf of a data point evaluated under a distribution using point estimates _will not necessarily_ return an value equal to the expectation of exponentiating the logcdf of a data point evaluated under many possible distributions (constructed from a full posterior). To ensure timely progress on the notebook, we have opted to show the code as-is, but also leave this note for both our future selves to update the notebook later while also providing an opportunity for future readers to contribute through modifying the example to address this point.
+
 ```{code-cell} ipython3
 def transform_data(marginal_idata):
     # point estimates
