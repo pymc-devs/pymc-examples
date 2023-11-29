@@ -27,7 +27,7 @@ Very often this data can be in a form that we, as data scientists, would not con
 
 So we are faced with a problem: we have datasets with counts of our measure of interest (whether that be age, income, BMI, or whatever), but they are binned, and they have been binned _differently_. This notebook presents a solution to this problem that [PyMC Labs](https://www.pymc-labs.io) worked on, supported by the [Gates Foundation](https://www.gatesfoundation.org/). We _can_ make inferences about the parameters of a population level distribution.
 
-![](gates.png)
+![](gates_labs_logos.png)
 
 +++
 
