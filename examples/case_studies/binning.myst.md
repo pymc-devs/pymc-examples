@@ -10,7 +10,7 @@ kernelspec:
   name: conda-env-pymc_env-py
 ---
 
-(awkward_binning)=
+(binning)=
 # Estimating parameters of a distribution from awkwardly binned data
 :::{post} Oct 23, 2021
 :tags: binned data, case study, parameter estimation
