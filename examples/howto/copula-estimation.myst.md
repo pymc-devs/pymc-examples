@@ -43,7 +43,7 @@ Schematic of a 2D Gaussian copula. Our complex distribution P(a, b) in observati
 
 This notebook will describe how to make inferences about copulas based on bivariate data with rich correlational structure. We at [PyMC Labs](https://www.pymc-labs.com) completed this work as part of a larger project with the [Gates Foundation](https://www.gatesfoundation.org), some of which has also been outlined {ref}`here <binning>`.
 
-<img src="gates_labs_logos.png" width="100%">
+![](gates_labs_logos.png)
 
 ```{code-cell} ipython3
 import arviz as az
