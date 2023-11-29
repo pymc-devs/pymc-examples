@@ -213,7 +213,7 @@ $X|WF \sim \mathcal{N}(WF, \sigma^2 I).$
 
 We can therefore write $X$ as
 
-$X = WF + \sigma^2 I \epsilon,$
+$X = WF + \sigma I \epsilon,$
 
 where $\epsilon \sim \mathcal{N}(0, I)$.
 Fixing $W$ but treating $F$ and $\epsilon$ as random variables, both $\sim\mathcal{N}(0, I)$, we see that $X$ is the sum of two multivariate normal variables, with means $0$ and covariances $WW^T$ and $\sigma^2 I$, respectively. It follows that
