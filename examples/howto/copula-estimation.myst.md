@@ -14,7 +14,7 @@ kernelspec:
 # Bayesian copula estimation: Describing correlated joint distributions
 
 :::{post} December 2023
-:tags: case study, copula, parameter estimation
+:tags: copula, parameter estimation
 :category: intermediate 
 :author: Eric Ma, Benjamin T. Vincent
 :::
