@@ -13,8 +13,8 @@ kernelspec:
 (copula-estimation)=
 # Bayesian copula estimation: Describing correlated joint distributions
 
-:::{post} Jan 01, 2022
-:tags: case study, copula, parameter estimation, pymc3.Deterministic, pymc3.Exponential, pymc3.LKJCholeskyCov, pymc3.Model, pymc3.MvNormal, pymc3.Normal
+:::{post} December 2023
+:tags: case study, copula, parameter estimation
 :category: intermediate 
 :author: Eric Ma, Benjamin T. Vincent
 :::
@@ -41,7 +41,7 @@ Schematic of a 2D Gaussian copula. Our complex distribution P(a, b) in observati
 
 +++
 
-This notebook will describe how to make inferences about copulas based on bivariate data with rich correlational structure. We at [PyMC Labs](https://www.pymc-labs.io) completed this work as part of a larger project with the [Gates Foundation](https://www.gatesfoundation.org), some of which has also been outlined {ref}`here <binning>`.
+This notebook will describe how to make inferences about copulas based on bivariate data with rich correlational structure. We at [PyMC Labs](https://www.pymc-labs.com) completed this work as part of a larger project with the [Gates Foundation](https://www.gatesfoundation.org), some of which has also been outlined {ref}`here <binning>`.
 
 <img src="gates_labs_logos.png" width="100%">
 
@@ -49,20 +49,19 @@ This notebook will describe how to make inferences about copulas based on bivari
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
+import pymc as pm
+import pytensor.tensor as pt
 import seaborn as sns
-import theano.tensor as tt
-import xarray as xr
 
 from scipy.stats import expon, multivariate_normal, norm
 ```
 
 ```{code-cell} ipython3
-%matplotlib inline
 %config InlineBackend.figure_format = 'retina'
 az.style.use("arviz-darkgrid")
 plt.rcParams.update({"font.size": 14, "figure.constrained_layout.use": False})
-rng = np.random.default_rng(42)
+SEED = 43
+rng = np.random.default_rng(SEED)
 ```
 
 ## Data generating process
@@ -86,7 +85,7 @@ First, we define the true multivariate normal and draw some samples from it.
 ```{code-cell} ipython3
 n_samples = 5000
 
-# Draw random samples in multivariate normal space
+# draw random samples in multivariate normal space
 mu = [0, 0]
 cov = [[1, θ["rho"]], [θ["rho"], 1]]
 x = multivariate_normal(mu, cov).rvs(n_samples, random_state=rng)
@@ -163,7 +162,7 @@ pm.model_graph.model_to_graphviz(marginal_model)
 
 ```{code-cell} ipython3
 with marginal_model:
-    marginal_idata = pm.sample(return_inferencedata=True, random_seed=1234)
+    marginal_idata = pm.sample(random_seed=SEED)
 
 az.plot_posterior(
     marginal_idata, var_names=["a_mu", "a_sigma", "b_scale"], ref_val=[0, 1.0, 1 / 2.0]
@@ -173,24 +172,23 @@ az.plot_posterior(
 In the copula model below you can see that we set up a prior over the covariance parameter. The posterior distribution over this parameter is constrained by the data in multivariate normal space. But in order to do that we need to transform the observations `[a, b]` in observation space, to multivariate normal space, which we store in `data`.
 
 ```{code-cell} ipython3
-def transform_data(marginal_idata, a_mu, a_sigma, b_scale):
+def transform_data(marginal_idata):
     # point estimates
-    a_mu = marginal_idata.posterior["a_mu"].mean()
-    a_sigma = marginal_idata.posterior["a_sigma"].mean()
-    b_scale = marginal_idata.posterior["b_scale"].mean()
-    # Transformations from
-    # observation space -> uniform space
-    __a = tt.exp(pm.Normal.dist(mu=a_mu, sigma=a_sigma).logcdf(a))
-    __b = tt.exp(pm.Exponential.dist(lam=1 / b_scale).logcdf(b))
+    a_mu = marginal_idata.posterior["a_mu"].mean().item()
+    a_sigma = marginal_idata.posterior["a_sigma"].mean().item()
+    b_scale = marginal_idata.posterior["b_scale"].mean().item()
+    # transformations from observation space -> uniform space
+    __a = pt.exp(pm.logcdf(pm.Normal.dist(mu=a_mu, sigma=a_sigma), a))
+    __b = pt.exp(pm.logcdf(pm.Exponential.dist(lam=1 / b_scale), b))
     # uniform space -> multivariate normal space
     _a = pm.math.probit(__a)
     _b = pm.math.probit(__b)
     # join into an Nx2 matrix
-    data = tt.stack([_a, _b], axis=1).eval()
+    data = pt.stack([_a, _b], axis=1).eval()
     return data, a_mu, a_sigma, b_scale
 
 
-data, a_mu, a_sigma, b_scale = transform_data(marginal_idata, a_mu, a_sigma, b_scale)
+data, a_mu, a_sigma, b_scale = transform_data(marginal_idata)
 ```
 
 ```{code-cell} ipython3
@@ -214,7 +212,7 @@ pm.model_graph.model_to_graphviz(copula_model)
 
 ```{code-cell} ipython3
 with copula_model:
-    copula_idata = pm.sample(return_inferencedata=True, random_seed=1234, tune=2000)
+    copula_idata = pm.sample(random_seed=SEED, tune=2000, cores=1)
 
 az.plot_posterior(copula_idata, var_names=["cov"], ref_val=[1.0, θ["rho"], θ["rho"], 1.0]);
 ```
@@ -273,12 +271,12 @@ axs = az.plot_pair(
 ```
 
 ## Acknowledgements
-We would like to acknowledge [Jonathan Sedar](https://github.com/jonsedar), [Junpeng Lao](https://github.com/junpenglao), and [Oriol Abril](https://github.com/OriolAbril) for useful advice during the development of this code.
+We would like to acknowledge [Jonathan Sedar](https://github.com/jonsedar), [Junpeng Lao](https://github.com/junpenglao), and [Oriol Abril](https://github.com/OriolAbril) for useful advice during the development of this notebook.
 
 +++
 
 ## Authors
-* Authored by [Eric Ma](https://www.pymc-labs.io/team) & [Benjamin T. Vincent](https://github.com/drbenvincent) on January, 2022.
+* Authored by [Eric Ma](https://www.pymc-labs.com/team) & [Benjamin T. Vincent](https://github.com/drbenvincent) in November, 2023 ([pymc-examples#257](https://github.com/pymc-devs/pymc-examples/pull/257)).
 
 +++
 
@@ -286,7 +284,8 @@ We would like to acknowledge [Jonathan Sedar](https://github.com/jonsedar), [Jun
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p pytensor,xarray
 ```
 
-:::{include} ../page_footer.md :::
+:::{include} ../page_footer.md
+:::
