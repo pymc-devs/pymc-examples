@@ -79,7 +79,7 @@ M = rng.binomial(1, 0.25, size=(k_true, n))
 Q = np.hstack([rng.exponential(2 * k_true - k, size=(d, 1)) for k in range(k_true)]) * rng.binomial(
     1, 0.75, size=(d, k_true)
 )
-Y = np.round(1000 * np.dot(Q, M) + rng.standard_normal(size=(d, n)) * err_sd) / 1000
+Y = np.round(1000 * Q @ M + rng.standard_normal(size=(d, n)) * err_sd) / 1000
 ```
 
 Because of the way we have generated the data, the covariance matrix expressing correlations between columns of $Y$ will be equal to $QQ^T$. The fundamental assumption of PCA and factor analysis is that $QQ^T$ is not full rank. We can see hints of this if we plot the covariance matrix:
@@ -107,9 +107,9 @@ Probabilistic PCA (PPCA) and factor analysis (FA) are a common source of topics 
 
 The model for factor analysis is the probabilistic matrix factorization
 
-$X_{(d,n)}|W_{(d,k)}, F_{(k,n)} \sim N(WF, \Psi)$
+$X_{(d,n)}|W_{(d,k)}, F_{(k,n)} \sim \mathcal{N}(WF, \Psi)$
 
-with $\Psi$ a diagonal matrix. Subscripts denote the dimensionality of the matrices. Probabilistic PCA is a variant that sets $\Psi = \sigma^2I$. A basic implementation (taken from [this gist](https://gist.github.com/twiecki/c95578a6539d2098be2d83575e3d15fe)) is shown in the next cell. Unfortunately, it has undesirable properties for model fitting.
+with $\Psi$ a diagonal matrix. Subscripts denote the dimensionality of the matrices. Probabilistic PCA is a variant that sets $\Psi = \sigma^2 I$. A basic implementation (taken from [this gist](https://gist.github.com/twiecki/c95578a6539d2098be2d83575e3d15fe)) is shown in the next cell. Unfortunately, it has undesirable properties for model fitting.
 
 ```{code-cell} ipython3
 k = 2
@@ -119,8 +119,8 @@ coords = {"latent_columns": np.arange(k), "rows": np.arange(n), "observed_column
 with pm.Model(coords=coords) as PPCA:
     W = pm.Normal("W", dims=("observed_columns", "latent_columns"))
     F = pm.Normal("F", dims=("latent_columns", "rows"))
-    psi = pm.HalfNormal("psi", 1.0)
-    X = pm.Normal("X", mu=pt.dot(W, F), sigma=psi, observed=Y, dims=("observed_columns", "rows"))
+    sigma = pm.HalfNormal("sigma", 1.0)
+    X = pm.Normal("X", mu=W @ F, sigma=sigma, observed=Y, dims=("observed_columns", "rows"))
 
     trace = pm.sample(tune=2000, random_seed=rng)  # target_accept=0.9
 ```
@@ -182,7 +182,7 @@ def makeW(d, k, dim_names):
     z = pm.HalfNormal("W_z", 1.0, dims="latent_columns")
     b = pm.HalfNormal("W_b", 1.0, shape=(n_od,), dims="packed_dim")
     L = expand_packed_block_triangular(d, k, b, pt.ones(k))
-    W = pm.Deterministic("W", pt.dot(L, pt.diag(pt.extra_ops.cumsum(z))), dims=dim_names)
+    W = pm.Deterministic("W", L @ pt.diag(pt.extra_ops.cumsum(z)), dims=dim_names)
     return W
 ```
 
@@ -192,8 +192,8 @@ With these modifications, we remake the model and run the MCMC sampler again.
 with pm.Model(coords=coords) as PPCA_identified:
     W = makeW(d, k, ("observed_columns", "latent_columns"))
     F = pm.Normal("F", dims=("latent_columns", "rows"))
-    psi = pm.HalfNormal("psi", 1.0)
-    X = pm.Normal("X", mu=pt.dot(W, F), sigma=psi, observed=Y, dims=("observed_columns", "rows"))
+    sigma = pm.HalfNormal("sigma", 1.0)
+    X = pm.Normal("X", mu=W @ F, sigma=sigma, observed=Y, dims=("observed_columns", "rows"))
     trace = pm.sample(tune=2000, random_seed=rng)  # target_accept=0.9
 
 for i in range(4):
@@ -209,9 +209,9 @@ Because the $k \times n$ parameters in F all need to be sampled, sampling can be
 
 This scalability problem can be addressed analytically by integrating $F$ out of the model. By doing so, we postpone any calculation for individual values of $F_i$ until later. Hence, this approach is often described as *amortized inference*. However, this fixes the prior on $F$, allowing for less modeling flexibility. In keeping with $F_{ij} \sim \mathcal{N(0, 1)}$ we have:
 
-$X|WF \sim \mathcal{N}(WF, \Psi^2), \;\; F_{ij} \sim N(0, 1)$
+$X|WF \sim \mathcal{N}(WF, \Psi), \;\; F \sim \mathcal{N}(0, 1)$
 
-$X|W \sim \mathcal{N}(0, \Psi^2 + WW^T)$
+$X|W \sim \mathcal{N}(0, \Psi + WW^T)$
 
 If you are unfamiliar with the matrix normal distribution, you can consider it to be an extension of the multivariate Gaussian to matrix-valued random variates. Then, the between-row correlations and the between-column correlations are handled by two separate covariance matrices specified as parameters to the matrix normal. Here, it simplifies our notation for a model formulation that has marginalized out $F_i$. The explicit integration of $F_i$ also enables batching the observations for faster computation of `ADVI` and `FullRankADVI` approximations.
 
@@ -222,10 +222,10 @@ with pm.Model(coords=coords) as PPCA_scaling:
     Y_mb = pm.Minibatch(
         Y.T, batch_size=50
     )  # MvNormal parametrizes covariance of columns, so transpose Y
-    psi = pm.HalfNormal("psi", 1.0)
+    sigma = pm.HalfNormal("sigma", 1.0)
     E = pm.Deterministic(
         "cov",
-        pt.dot(W, pt.transpose(W)) + psi**2 * pt.diag(pt.ones(d)),
+        W @ W.T + sigma**2 * pt.eye(d),
         dims=("observed_columns", "observed_columns2"),
     )
     X = pm.MvNormal("X", 0.0, cov=E, observed=Y_mb)
@@ -260,9 +260,9 @@ ax.legend(loc="upper right");
 The matrix $F$ is typically of interest for factor analysis, and is often used as a feature matrix for dimensionality reduction. However, $F$ has been
 marginalized away in order to make fitting the model easier; and now we need it back. This is, in effect, an exercise in least-squares as:
 
-$X|WF \sim \mathcal{N}(WF, \Psi^2)$
+$X|WF \sim \mathcal{N}(WF, \Psi)$
 
-$(W^TW)^{-1}W^T X|W,F \sim \mathcal{N}(F, \Psi^2(W^TW)^{-1})$
+$(W^TW)^{-1}W^T X|W,F \sim \mathcal{N}(F, \Psi(W^TW)^{-1})$
 
 +++
 
@@ -279,8 +279,6 @@ def get_default_dims(dims, dims2):
 
 linalg.get_default_dims = get_default_dims
 ```
-
-
 
 ```{code-cell} ipython3
 post = trace_vi.posterior
@@ -300,7 +298,7 @@ F_mu = xr.dot(WW_W, obs["X"], dims="observed_columns")
 WW_chol = linalg.cholesky(WW_inv)
 norm_dist = XrContinuousRV(sp.stats.norm, xr.zeros_like(F_mu))  # the zeros_like defines the shape
 F_sampled = F_mu + linalg.matmul(
-    post["psi"] * WW_chol,
+    post["sigma"] * WW_chol,
     norm_dist.rvs(),
     dims=(("latent_columns", "latent_columns2"), ("latent_columns", "rows")),
 )
