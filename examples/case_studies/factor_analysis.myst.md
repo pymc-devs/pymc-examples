@@ -207,13 +207,20 @@ $W$ (and $F$!) now have entries with identical posterior distributions as compar
 
 Because the $k \times n$ parameters in F all need to be sampled, sampling can become quite expensive for very large `n`. In addition, the link between an observed data point $X_i$ and an associated latent value $F_i$ means that streaming inference with mini-batching cannot be performed.
 
-This scalability problem can be addressed analytically by integrating $F$ out of the model. By doing so, we postpone any calculation for individual values of $F_i$ until later. Hence, this approach is often described as *amortized inference*. However, this fixes the prior on $F$, allowing for less modeling flexibility. In keeping with $F_{ij} \sim \mathcal{N(0, 1)}$ we have:
+This scalability problem can be addressed analytically by integrating $F$ out of the model. By doing so, we postpone any calculation for individual values of $F_i$ until later. Hence, this approach is often described as *amortized inference*. However, this fixes the prior on $F$, allowing for less modeling flexibility. In keeping with $F_{ij} \sim \mathcal{N}(0, I)$ we have:
 
-$X|WF \sim \mathcal{N}(WF, \Psi), \;\; F \sim \mathcal{N}(0, 1)$
+$X|WF \sim \mathcal{N}(WF, \sigma^2 I).$
 
-$X|W \sim \mathcal{N}(0, \Psi + WW^T)$
+We can therefore write $X$ as
 
-If you are unfamiliar with the matrix normal distribution, you can consider it to be an extension of the multivariate Gaussian to matrix-valued random variates. Then, the between-row correlations and the between-column correlations are handled by two separate covariance matrices specified as parameters to the matrix normal. Here, it simplifies our notation for a model formulation that has marginalized out $F_i$. The explicit integration of $F_i$ also enables batching the observations for faster computation of `ADVI` and `FullRankADVI` approximations.
+$X = WF + \sigma^2 I \epsilon,$
+
+where $\epsilon \sim \mathcal{N}(0, I)$.
+Fixing $W$ but treating $F$ and $\epsilon$ as random variables, both $\sim\mathcal{N}(0, I)$, we see that $X$ is the sum of two multivariate normal variables, with means $0$ and covariances $WW^T$ and $\sigma^2 I$, respectively. It follows that
+
+$X|W \sim \mathcal{N}(0, WW^T + \sigma^2 I )$
+
+The explicit integration of $F$ also enables batching the observations for faster computation of `ADVI` and `FullRankADVI` approximations.
 
 ```{code-cell} ipython3
 coords["observed_columns2"] = coords["observed_columns"]
