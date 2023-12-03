@@ -42,6 +42,8 @@ print(f"Running on PyMC v{pm.__version__}")
 az.style.use("arviz-darkgrid")
 ```
 
++++ {"jp-MarkdownHeadingCollapsed": true}
+
 ## Introduction
 PyMC is a great tool for doing Bayesian inference and parameter estimation. It has a load of {doc}`in-built probability distributions <pymc:api/distributions>` that you can use to set up priors and likelihood functions for your particular model. You can even create your own {ref}`custom distributions <custom_distribution>`.
 
@@ -108,9 +110,9 @@ ValueError: setting an array element with a sequence.
 
 This is because `m` and `c` are PyTensor tensor-type objects.
 
-So, what we actually need to do is create a [PyTensor Op](http://deeplearning.net/software/pytensor/extending/extending_pytensor.html). This will be a new class that wraps our log-likelihood function (or just our model function, if that is all that is required) into something that can take in PyTensor tensor objects, but internally can cast them as floating point values that can be passed to our log-likelihood function. We will do this below, initially without defining a [grad() method](http://deeplearning.net/software/pytensor/extending/op.html#grad) for the Op.
+So, what we actually need to do is create a {ref}`PyTensor Op <pytensor:creating_an_op>`. This will be a new class that wraps our log-likelihood function (or just our model function, if that is all that is required) into something that can take in PyTensor tensor objects, but internally can cast them as floating point values that can be passed to our log-likelihood function. We will do this below, initially without defining a {func}`grad` for the Op.
 
-+++
++++ {"jp-MarkdownHeadingCollapsed": true}
 
 ## PyTensor Op without grad
 
@@ -201,9 +203,11 @@ with pm.Model():
 az.plot_trace(idata_mh, lines=[("m", {}, mtrue), ("c", {}, ctrue)]);
 ```
 
++++ {"jp-MarkdownHeadingCollapsed": true}
+
 ## PyTensor Op with grad
 
-What if we wanted to use NUTS or HMC? If we knew the analytical derivatives of the model/likelihood function then we could add a {ref}`grad() method <pytensor:creating_an_op>` to the Op using that analytical form.
+What if we wanted to use NUTS or HMC? If we knew the analytical derivatives of the model/likelihood function then we could add a {func}`grad() method <pytensor:creating_an_op>` to the Op using that analytical form.
 
 But, what if we don't know the analytical form. If our model/likelihood is purely Python and made up of standard maths operators and Numpy functions, then the [autograd](https://github.com/HIPS/autograd) module could potentially be used to find gradients (also, see [here](https://github.com/ActiveState/code/blob/master/recipes/Python/580610_Auto_differentiation/recipe-580610.py) for a nice Python example of automatic differentiation). But, if our model/likelihood truly is a "black box" then we can just use the good-old-fashioned [finite difference](https://en.wikipedia.org/wiki/Finite_difference) to find the gradients - this can be slow, especially if there are a large number of variables, or the model takes a long time to evaluate. Below, a function to find gradients has been defined that uses the finite difference (the central difference) - it uses an iterative method with successively smaller interval sizes to check that the gradient converges. But, you could do something far simpler and just use, for example, the SciPy {func}`~scipy.optimize.approx_fprime` function.
 
@@ -352,6 +356,8 @@ with pm.Model() as opmodel:
 _ = az.plot_trace(idata_grad, lines=[("m", {}, mtrue), ("c", {}, ctrue)])
 ```
 
++++ {"jp-MarkdownHeadingCollapsed": true}
+
 ## Comparison to equivalent PyMC distributions
 Now, finally, just to check things actually worked as we might expect, let's do the same thing purely using PyMC distributions (because in this simple example we can!)
 
@@ -406,7 +412,7 @@ pair_kwargs["marginal_kwargs"]["color"] = "C2"
 az.plot_pair(idata, **pair_kwargs, ax=ax);
 ```
 
-We can now check that the gradient Op works as expected. First, just create and call the `LogLikeGrad` class, which should return the gradient directly (note that we have to create a [PyTensor function](http://deeplearning.net/software/pytensor/library/compile/function.html) to convert the output of the Op to an array). Secondly, we call the gradient from `LogLikeWithGrad` by using the [PyTensor tensor gradient](http://deeplearning.net/software/pytensor/library/gradient.html#pytensor.gradient.grad) function. Finally, we will check the gradient returned by the PyMC model for a Normal distribution, which should be the same as the log-likelihood function we defined. In all cases we evaluate the gradients at the true values of the model function (the straight line) that was created.
+We can now check that the gradient Op works as expected. First, just create and call the `LogLikeGrad` class, which should return the gradient directly (note that we have to create a {ref}`PyTensor function <pytensor:creating_an_op>` to convert the output of the Op to an array). Secondly, we call the gradient from `LogLikeWithGrad` by using the {func}`grad` function. Finally, we will check the gradient returned by the PyMC model for a Normal distribution, which should be the same as the log-likelihood function we defined. In all cases we evaluate the gradients at the true values of the model function (the straight line) that was created.
 
 ```{code-cell} ipython3
 ip = pymodel.initial_point()
@@ -421,7 +427,7 @@ print(f'Gradient of model using a PyMC "Normal" distribution:\n    {grad_vals_py
 
 We could also do some profiling to compare performance between implementations. The {ref}`profiling` notebook shows how to do it.
 
-+++
++++ {"jp-MarkdownHeadingCollapsed": true}
 
 ## Authors
 
@@ -429,7 +435,7 @@ We could also do some profiling to compare performance between implementations. 
 * Updated by [Oriol Abril](https://github.com/OriolAbril) on December 2021 to drop the Cython dependency from the original notebook and use numpy instead ([pymc-examples#28](https://github.com/pymc-devs/pymc-examples/pull/28))
 * Re-executed by Oriol Abril with pymc 5.0.0 ([pymc-examples#496](https://github.com/pymc-devs/pymc-examples/pull/496))
 
-+++
++++ {"jp-MarkdownHeadingCollapsed": true}
 
 ## Watermark
 

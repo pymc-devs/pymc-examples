@@ -1,0 +1,9 @@
+LICENSE
+README.rst
+pyproject.toml
+setup.cfg
+sphinxext/thumbnail_extractor.py
+sphinxext.egg-info/PKG-INFO
+sphinxext.egg-info/SOURCES.txt
+sphinxext.egg-info/dependency_links.txt
+sphinxext.egg-info/top_level.txt
