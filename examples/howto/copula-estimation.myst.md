@@ -162,7 +162,7 @@ pm.model_graph.model_to_graphviz(marginal_model)
 
 ```{code-cell} ipython3
 with marginal_model:
-    marginal_idata = pm.sample(random_seed=SEED)
+    marginal_idata = pm.sample(random_seed=rng)
 
 az.plot_posterior(
     marginal_idata, var_names=["a_mu", "a_sigma", "b_scale"], ref_val=[0, 1.0, 1 / 2.0]
@@ -188,7 +188,7 @@ def transform_data(marginal_idata):
     _a = pm.math.probit(__a)
     _b = pm.math.probit(__b)
     # join into an Nx2 matrix
-    data = pt.stack([_a, _b], axis=1).eval()
+    data = pt.math.stack([_a, _b], axis=1).eval()
     return data, a_mu, a_sigma, b_scale
 
 
@@ -216,7 +216,7 @@ pm.model_graph.model_to_graphviz(copula_model)
 
 ```{code-cell} ipython3
 with copula_model:
-    copula_idata = pm.sample(random_seed=SEED, tune=2000, cores=1)
+    copula_idata = pm.sample(random_seed=rng, tune=2000, cores=1)
 
 az.plot_posterior(copula_idata, var_names=["cov"], ref_val=[1.0, θ["rho"], θ["rho"], 1.0]);
 ```
