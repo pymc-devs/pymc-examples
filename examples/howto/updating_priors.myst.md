@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python (PyMC3 Dev)
+  display_name: Python 3 (ipykernel)
   language: python
-  name: pymc3-dev
+  name: python3
 ---
 
 # Updating priors
