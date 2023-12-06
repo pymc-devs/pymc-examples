@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-examples
+  display_name: Python 3 (ipykernel)
   language: python
-  name: pymc-examples
+  name: python3
 myst:
   substitutions:
     extra_dependencies: jax numpyro
