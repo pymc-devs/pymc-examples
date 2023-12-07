@@ -299,6 +299,7 @@ Note that we have computed the model decision boundary by using the mean of the 
 - Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) to PyMC v4 in June 2022
 - Re-executed by [Benjamin T. Vincent](https://github.com/drbenvincent) with PyMC v5 in December 2022
 - Updated by [Christian Luhmann](https://github.com/cluhmann) with PyMC v5 in December 2023
+- Updated by [Christian Luhmann](https://github.com/cluhmann)  in December 2023 ([pymc-examples#616](https://github.com/pymc-devs/pymc-examples/pull/616))
 
 +++
 
