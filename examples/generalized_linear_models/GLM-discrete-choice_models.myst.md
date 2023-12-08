@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_examples_new
+  display_name: Python 3 (ipykernel)
   language: python
-  name: pymc_examples_new
+  name: python3
 myst:
   substitutions:
     extra_dependencies: jax, jaxlib, numpyro
@@ -98,14 +98,14 @@ This assumption proves to be mathematically convenient because the difference be
 
 $$ \text{softmax}(u)_{j} = \frac{\exp(u_{j})}{\sum_{q=1}^{J}\exp(u_{q})} $$
 
-The model then assumes that decision maker chooses the option that maximises their subjective utility. The individual utility functions can be richly parameterised. The model is identified just when the utility measures of the alternatives are benchmarked against the fixed utility of the "outside good." The last quantity is fixed at 0. 
+The model then assumes that decision maker chooses the option that maximises their subjective utility. The individual utility functions can be richly parameterised. When contants are included, one alternative's constant must be fixed at 0 in order to normalise the overall level of the constants. 
 
 $$\begin{pmatrix}
 u_{gc}   \\
 u_{gr}   \\
 u_{ec}   \\
 u_{er}   \\
-0   \\
+u_{hp}   \\
 \end{pmatrix}
 $$
 
@@ -150,7 +150,9 @@ with pm.Model(coords=coords) as model_1:
     u1 = beta_ic * wide_heating_df["ic.er"] + beta_oc * wide_heating_df["oc.er"]
     u2 = beta_ic * wide_heating_df["ic.gc"] + beta_oc * wide_heating_df["oc.gc"]
     u3 = beta_ic * wide_heating_df["ic.gr"] + beta_oc * wide_heating_df["oc.gr"]
-    u4 = np.zeros(N)  # Outside Good
+    u4 = (
+        beta_ic * wide_heating_df["ic.hp"] + beta_oc * wide_heating_df["oc.hp"]
+    )  # np.zeros(N)  # Outside Good
     s = pm.math.stack([u0, u1, u2, u3, u4]).T
 
     ## Apply Softmax Transform
@@ -215,7 +217,7 @@ which suggests that there is almost twice the value accorded to the a unit reduc
 To assess overall model adequacy we can rely on the posterior predictive checks to see if the model can recover an approximation to the data generating process.
 
 ```{code-cell} ipython3
-idata_m1["posterior"]["p"].mean(dim=["chain", "draw", "obs"])
+idata_m1["posterior"]["p"].mean(dim=["chain", "draw", "obs"]).to_dataframe()["p"]
 ```
 
 ```{code-cell} ipython3
@@ -272,7 +274,9 @@ with pm.Model(coords=coords) as model_2:
     u1 = alphas[1] + beta_ic * wide_heating_df["ic.er"] + beta_oc * wide_heating_df["oc.er"]
     u2 = alphas[2] + beta_ic * wide_heating_df["ic.gc"] + beta_oc * wide_heating_df["oc.gc"]
     u3 = alphas[3] + beta_ic * wide_heating_df["ic.gr"] + beta_oc * wide_heating_df["oc.gr"]
-    u4 = np.zeros(N)  # Outside Good
+    u4 = (
+        0 + beta_ic * wide_heating_df["ic.hp"] + beta_oc * wide_heating_df["oc.hp"]
+    )  # Make one constant zero
     s = pm.math.stack([u0, u1, u2, u3, u4]).T
 
     ## Apply Softmax Transform
