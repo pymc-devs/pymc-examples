@@ -265,15 +265,27 @@ ax.legend(loc="upper right");
 ### Post-hoc identification of F
 
 The matrix $F$ is typically of interest for factor analysis, and is often used as a feature matrix for dimensionality reduction. However, $F$ has been
-marginalized away in order to make fitting the model easier; and now we need it back. This is, in effect, an exercise in least-squares as:
+marginalized away in order to make fitting the model easier; and now we need it back. Transforming
 
-$X|WF \sim \mathcal{N}(WF, \Psi)$
+$X|WF \sim \mathcal{N}(WF, \sigma^2)$
 
-$(W^TW)^{-1}W^T X|W,F \sim \mathcal{N}(F, \Psi(W^TW)^{-1})$
+into
+
+$(W^TW)^{-1}W^T X|W,F \sim \mathcal{N}(F, \sigma^2(W^TW)^{-1})$
+
+we have represented $F$ as the mean of a multivariate normal distribution with a known covariance matrix. Using the prior $ F \sim \mathcal{N}(0, I) $ and updating according to the expression for the [conjugate prior](https://en.wikipedia.org/wiki/Conjugate_prior), we find
+
+$ F | X, W \sim \mathcal{N}(\mu_F, \Sigma_F) $,
+
+where
+
+$\mu_F = \left(I + \sigma^{-2} W^T W\right)^{-1} \sigma^{-2} W^T X$
+
+$\Sigma_F = \left(I + \sigma^{-2} W^T W\right)^{-1}$
 
 +++
 
-Here, we draw many random variates from a standard normal distribution, transforming them appropriate to represent the posterior of $F$ which is multivariate normal under our model.
+For each value of $W$ and $X$ found in the trace, we now draw a sample from this distribution.
 
 ```{code-cell} ipython3
 # configure xarray-einstats
@@ -291,21 +303,27 @@ linalg.get_default_dims = get_default_dims
 post = trace_vi.posterior
 obs = trace.observed_data
 
-WW_inv = linalg.inv(
-    linalg.matmul(
-        post["W"], post["W"], dims=("latent_columns", "observed_columns", "latent_columns")
-    )
+WW = linalg.matmul(
+    post["W"], post["W"], dims=("latent_columns", "observed_columns", "latent_columns")
 )
-WW_W = linalg.matmul(
-    WW_inv,
-    post["W"],
-    dims=(("latent_columns", "latent_columns2"), ("latent_columns", "observed_columns")),
+
+# Constructing an identity matrix following https://einstats.python.arviz.org/en/latest/tutorials/np_linalg_tutorial_port.html
+I = xr.zeros_like(WW)
+idx = xr.DataArray(WW.coords["latent_columns"])
+I.loc[{"latent_columns": idx, "latent_columns2": idx}] = 1
+Sigma_F = linalg.inv(I + post["sigma"] ** (-2) * WW)
+X_transform = linalg.matmul(
+    Sigma_F,
+    post["sigma"] ** (-2) * post["W"],
+    dims=("latent_columns2", "latent_columns", "observed_columns"),
 )
-F_mu = xr.dot(WW_W, obs["X"], dims="observed_columns")
-WW_chol = linalg.cholesky(WW_inv)
-norm_dist = XrContinuousRV(sp.stats.norm, xr.zeros_like(F_mu))  # the zeros_like defines the shape
-F_sampled = F_mu + linalg.matmul(
-    post["sigma"] * WW_chol,
+mu_F = xr.dot(X_transform, obs["X"], dims="observed_columns").rename(
+    latent_columns2="latent_columns"
+)
+Sigma_chol = linalg.cholesky(Sigma_F)
+norm_dist = XrContinuousRV(sp.stats.norm, xr.zeros_like(mu_F))  # the zeros_like defines the shape
+F_sampled = mu_F + linalg.matmul(
+    post["sigma"] * Sigma_F,
     norm_dist.rvs(),
     dims=(("latent_columns", "latent_columns2"), ("latent_columns", "rows")),
 )
