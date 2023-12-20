@@ -218,13 +218,24 @@ $X = WF + \sigma I \epsilon,$
 where $\epsilon \sim \mathcal{N}(0, I)$.
 Fixing $W$ but treating $F$ and $\epsilon$ as random variables, both $\sim\mathcal{N}(0, I)$, we see that $X$ is the sum of two multivariate normal variables, with means $0$ and covariances $WW^T$ and $\sigma^2 I$, respectively. It follows that
 
-$X|W \sim \mathcal{N}(0, WW^T + \sigma^2 I )$
-
-The explicit integration of $F$ also enables batching the observations for faster computation of `ADVI` and `FullRankADVI` approximations.
+$X|W \sim \mathcal{N}(0, WW^T + \sigma^2 I )$.
 
 ```{code-cell} ipython3
 coords["observed_columns2"] = coords["observed_columns"]
-with pm.Model(coords=coords) as PPCA_scaling:
+with pm.Model(coords=coords) as PPCA_amortized:
+    W = makeW(d, k, ("observed_columns", "latent_columns"))
+    sigma = pm.HalfNormal("sigma", 1.0)
+    cov = W @ W.T + sigma**2 * pt.eye(d)
+    # MvNormal parametrizes covariance of columns, so transpose Y
+    X = pm.MvNormal("X", 0.0, cov=cov, observed=Y.T, dims=("rows", "observed_columns"))
+    trace_amortized = pm.sample(tune=30, draws=100, random_seed=rng)
+```
+
+Unfortunately sampling of this model is very slow, presumably because calculating the logprob of the `MvNormal` requires inverting the covariance matrix. However, the explicit integration of $F$ also enables batching the observations for faster computation of `ADVI` and `FullRankADVI` approximations.
+
+```{code-cell} ipython3
+coords["observed_columns2"] = coords["observed_columns"]
+with pm.Model(coords=coords) as PPCA_amortized_batched:
     W = makeW(d, k, ("observed_columns", "latent_columns"))
     Y_mb = pm.Minibatch(
         Y.T, batch_size=50
@@ -240,26 +251,34 @@ with pm.Model(coords=coords) as PPCA_scaling:
 ```
 
 ## Results
-When we compare the posteriors calculated using MCMC and VI, we find that (for at least this specific parameter we are looking at) the two distributions are close, but they do differ in their mean. The MCMC chains all agree with each other and the ADVI estimate is not far off.
+When we compare the posteriors calculated using MCMC and VI, we find that (for at least this specific parameter we are looking at) the two distributions are close, but they do differ in their mean. The two MCMC posteriors agree with each other quite well with each other and the ADVI estimate is not far off.
 
 ```{code-cell} ipython3
 col_selection = dict(observed_columns=3, latent_columns=1)
+
 ax = az.plot_kde(
+    trace.posterior["W"].sel(**col_selection).values,
+    label="MCMC posterior for the explicit model".format(0),
+    plot_kwargs={"color": f"C{1}"},
+)
+
+az.plot_kde(
+    trace_amortized.posterior["W"].sel(**col_selection).values,
+    label="MCMC posterior for amortized inference",
+    plot_kwargs={"color": f"C{2}", "linestyle": "--"},
+)
+
+
+az.plot_kde(
     trace_vi.posterior["W"].sel(**col_selection).squeeze().values,
     label="FR-ADVI posterior",
     plot_kwargs={"alpha": 0},
-    fill_kwargs={"alpha": 0.5, "color": "red"},
+    fill_kwargs={"alpha": 0.5, "color": f"C{0}"},
 )
-for i in trace.posterior.chain.values:
-    mcmc_samples = trace.posterior["W"].sel(chain=i, **col_selection).values
-    az.plot_kde(
-        mcmc_samples,
-        label="MCMC posterior for chain {}".format(i + 1),
-        plot_kwargs={"color": f"C{i}"},
-    )
+
 
 ax.set_title(rf"PDFs of $W$ estimate at {col_selection}")
-ax.legend(loc="upper right");
+ax.legend(loc="upper right", fontsize=10);
 ```
 
 ### Post-hoc identification of F
@@ -352,6 +371,47 @@ ax.legend(
 );
 ```
 
+### Comparison to original data
+
+To check how well our model has captured the original data, we will test how well we can reconstruct it from the sampled $W$ and $F$ matrices. For each element of $Y$ we plot the mean and standard deviation of $X = W F$, which is the reconstructed value based on our model.
+
+```{code-cell} ipython3
+X_sampled_amortized = linalg.matmul(
+    post["W"],
+    F_sampled,
+    dims=("observed_columns", "latent_columns", "rows"),
+)
+reconstruction_mean = X_sampled_amortized.mean(dim=("chain", "draw")).values
+reconstruction_sd = X_sampled_amortized.std(dim=("chain", "draw")).values
+plt.errorbar(
+    Y.ravel(),
+    reconstruction_mean.ravel(),
+    yerr=reconstruction_sd.ravel(),
+    marker=".",
+    ls="none",
+    alpha=0.3,
+)
+
+slope, intercept, r_value, p_value, std_err = sp.stats.linregress(
+    Y.ravel(), reconstruction_mean.ravel()
+)
+plt.plot(
+    [Y.min(), Y.max()],
+    np.array([Y.min(), Y.max()]) * slope + intercept,
+    "k--",
+    label=f"Linear regression for the mean, R^2={r_value**2:.2f}",
+)
+plt.plot([Y.min(), Y.max()], [Y.min(), Y.max()], "k:", label="Perfect reconstruction")
+
+plt.xlabel("Elements of Y")
+plt.ylabel("Model reconstruction")
+plt.legend(loc="upper left");
+```
+
+We find that our model does a decent job of capturing the variation in the original data, despite only using two latent factors instead of the actual number of four.
+
++++
+
 ## Authors
 * Authored by [chartl](https://github.com/chartl) on May 6, 2019
 * Updated by [Christopher Krapu](https://github.com/ckrapu) on April 4, 2021
@@ -368,7 +428,3 @@ ax.legend(
 
 :::{include} ../page_footer.md
 :::
-
-```{code-cell} ipython3
-
-```
