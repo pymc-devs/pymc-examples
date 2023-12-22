@@ -180,7 +180,7 @@ def makeW(d, k, dim_names):
 
     # trick: the cumulative sum of z will be positive increasing
     z = pm.HalfNormal("W_z", 1.0, dims="latent_columns")
-    b = pm.HalfNormal("W_b", 1.0, shape=(n_od,), dims="packed_dim")
+    b = pm.Normal("W_b", 0.0, 1.0, shape=(n_od,), dims="packed_dim")
     L = expand_packed_block_triangular(d, k, b, pt.ones(k))
     W = pm.Deterministic("W", L @ pt.diag(pt.extra_ops.cumsum(z)), dims=dim_names)
     return W
