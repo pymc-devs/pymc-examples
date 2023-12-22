@@ -348,29 +348,6 @@ F_sampled = mu_F + linalg.matmul(
 )
 ```
 
-```{code-cell} ipython3
-fig, ax = plt.subplots()
-ls = ["-", "--"]
-for i in range(2):
-    for j in range(5):
-        az.plot_kde(
-            F_sampled.sel(latent_columns=i, rows=j).squeeze().values,
-            plot_kwargs={"color": f"C{j}", "ls": ls[i]},
-            ax=ax,
-        )
-legend = ax.legend(
-    handles=[Line2D([], [], color="k", ls=ls[i], label=f"{i}") for i in range(2)],
-    title="latent column",
-    loc="upper left",
-)
-ax.add_artist(legend)
-ax.legend(
-    handles=[Line2D([], [], color=f"C{i}", label=f"{i}") for i in range(5)],
-    title="row",
-    loc="upper right",
-);
-```
-
 ### Comparison to original data
 
 To check how well our model has captured the original data, we will test how well we can reconstruct it from the sampled $W$ and $F$ matrices. For each element of $Y$ we plot the mean and standard deviation of $X = W F$, which is the reconstructed value based on our model.
