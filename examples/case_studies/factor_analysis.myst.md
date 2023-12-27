@@ -20,7 +20,7 @@ myst:
 :::{post} 19 Mar, 2022
 :tags: factor analysis, matrix factorization, PCA 
 :category: advanced, how-to
-:author: Chris Hartl,  Christopher Krapu, Oriol Abril-Pla
+:author: Chris Hartl,  Christopher Krapu, Oriol Abril-Pla, Erik Werner
 :::
 
 +++
@@ -388,6 +388,7 @@ We find that our model does a decent job of capturing the variation in the origi
 * Authored by [chartl](https://github.com/chartl) on May 6, 2019
 * Updated by [Christopher Krapu](https://github.com/ckrapu) on April 4, 2021
 * Updated by Oriol Abril-Pla to use PyMC v4 and xarray-einstats on March, 2022
+* Updated by Erik Werner on Dec, 2023 ([pymc-examples#612](https://github.com/pymc-devs/pymc-examples/pull/612))
 
 +++
 
