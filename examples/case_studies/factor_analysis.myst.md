@@ -125,7 +125,7 @@ with pm.Model(coords=coords) as PPCA:
     trace = pm.sample(tune=2000, random_seed=rng)  # target_accept=0.9
 ```
 
-At this point, there are already several warnings regarding diverging samples and failure of convergence checks. We can see further problems in the trace plot below. This plot shows the path taken by each sampler chain for a single entry in the matrix $W$ as well as the average evaluated over samples for each chain.
+At this point, there are already several warnings regarding failed convergence checks. We can see further problems in the trace plot below. This plot shows the path taken by each sampler chain for a single entry in the matrix $W$ as well as the average evaluated over samples for each chain.
 
 ```{code-cell} ipython3
 for i in trace.posterior.chain.values:
@@ -135,7 +135,7 @@ for i in trace.posterior.chain.values:
 plt.legend(ncol=4, loc="upper center", fontsize=12, frameon=True), plt.xlabel("Sample");
 ```
 
-Each chain appears to have a different sample mean and we can also see that there is a great deal of autocorrelation across chains, manifest as long-range trends over sampling iterations. Some of the chains may have divergences as well, lending further evidence to the claim that using MCMC for this model as shown is suboptimal.
+Each chain appears to have a different sample mean and we can also see that there is a great deal of autocorrelation across chains, manifest as long-range trends over sampling iterations.
 
 One of the primary drawbacks for this model formulation is its lack of identifiability. With this model representation, only the product $WF$ matters for the likelihood of $X$, so $P(X|W, F) = P(X|W\Omega, \Omega^{-1}F)$ for any invertible matrix $\Omega$. While the priors on $W$ and $F$ constrain $|\Omega|$ to be neither too large or too small, factors and loadings can still be rotated, reflected, and/or permuted *without changing the model likelihood*. Expect it to happen between runs of the sampler, or even for the parametrization to "drift" within run, and to produce the highly autocorrelated $W$ traceplot above.
 
@@ -143,7 +143,7 @@ One of the primary drawbacks for this model formulation is its lack of identifia
 
 This can be fixed by constraining the form of W to be:
   + Lower triangular
-  + Positive with an increasing diagonal
+  + Positive and increasing values along the diagonal
 
 We can adapt `expand_block_triangular` to fill out a non-square matrix. This function mimics `pm.expand_packed_triangular`, but while the latter only works on packed versions of square matrices (i.e. $d=k$ in our model, the former can also be used with nonsquare matrices.
 
@@ -171,7 +171,7 @@ def expand_packed_block_triangular(d, k, packed, diag=None, mtype="pytensor"):
     return out
 ```
 
-We'll also define another function which helps create a diagonal positive matrix with increasing entries along the main diagonal.
+We'll also define another function which helps create a diagonal matrix with increasing entries along the main diagonal.
 
 ```{code-cell} ipython3
 def makeW(d, k, dim_names):
@@ -203,7 +203,7 @@ for i in range(4):
 plt.legend(ncol=4, loc="lower center", fontsize=8), plt.xlabel("Sample");
 ```
 
-$W$ (and $F$!) now have entries with identical posterior distributions as compared between sampler chains.
+$W$ (and $F$!) now have entries with identical posterior distributions as compared between sampler chains, although it's apparent that some autocorrelation remains.
 
 Because the $k \times n$ parameters in F all need to be sampled, sampling can become quite expensive for very large `n`. In addition, the link between an observed data point $X_i$ and an associated latent value $F_i$ means that streaming inference with mini-batching cannot be performed.
 
@@ -221,7 +221,6 @@ Fixing $W$ but treating $F$ and $\epsilon$ as random variables, both $\sim\mathc
 $X|W \sim \mathcal{N}(0, WW^T + \sigma^2 I )$.
 
 ```{code-cell} ipython3
-coords["observed_columns2"] = coords["observed_columns"]
 with pm.Model(coords=coords) as PPCA_amortized:
     W = makeW(d, k, ("observed_columns", "latent_columns"))
     sigma = pm.HalfNormal("sigma", 1.0)
@@ -241,12 +240,8 @@ with pm.Model(coords=coords) as PPCA_amortized_batched:
         Y.T, batch_size=50
     )  # MvNormal parametrizes covariance of columns, so transpose Y
     sigma = pm.HalfNormal("sigma", 1.0)
-    E = pm.Deterministic(
-        "cov",
-        W @ W.T + sigma**2 * pt.eye(d),
-        dims=("observed_columns", "observed_columns2"),
-    )
-    X = pm.MvNormal("X", 0.0, cov=E, observed=Y_mb)
+    cov = W @ W.T + sigma**2 * pt.eye(d)
+    X = pm.MvNormal("X", 0.0, cov=cov, observed=Y_mb)
     trace_vi = pm.fit(n=50000, method="fullrank_advi", obj_n_mc=1).sample()
 ```
 
@@ -271,14 +266,14 @@ az.plot_kde(
 
 az.plot_kde(
     trace_vi.posterior["W"].sel(**col_selection).squeeze().values,
-    label="FR-ADVI posterior",
+    label="FR-ADVI posterior for amortized inference",
     plot_kwargs={"alpha": 0},
     fill_kwargs={"alpha": 0.5, "color": f"C{0}"},
 )
 
 
 ax.set_title(rf"PDFs of $W$ estimate at {col_selection}")
-ax.legend(loc="upper right", fontsize=10);
+ax.legend(loc="upper left", fontsize=10);
 ```
 
 ### Post-hoc identification of F
@@ -376,7 +371,7 @@ plt.plot(
     [Y.min(), Y.max()],
     np.array([Y.min(), Y.max()]) * slope + intercept,
     "k--",
-    label=f"Linear regression for the mean, R^2={r_value**2:.2f}",
+    label=f"Linear regression for the mean, R²={r_value**2:.2f}",
 )
 plt.plot([Y.min(), Y.max()], [Y.min(), Y.max()], "k:", label="Perfect reconstruction")
 
@@ -385,7 +380,7 @@ plt.ylabel("Model reconstruction")
 plt.legend(loc="upper left");
 ```
 
-We find that our model does a decent job of capturing the variation in the original data, despite only using two latent factors instead of the actual number of four.
+We find that our model does a decent job of capturing the variation in the original data, despite only using two latent factors instead of the actual four.
 
 +++
 
