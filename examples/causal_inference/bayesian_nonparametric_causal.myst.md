@@ -21,6 +21,7 @@ kernelspec:
 
 ```{code-cell} ipython3
 import arviz as az
+import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -35,12 +36,84 @@ az.style.use("arviz-darkgrid")
 rng = np.random.default_rng(42)
 ```
 
+## Causal Inference and Propensity Scores
+
+You always run the risk of being wrong. 
+
+Your appetite for that risk is likely proportional to the strength of the claim you are making - less concerned with _casual_ assertions than __causal__ claims! There are few claims stronger than the assertion of a causal relationship. Each such statement is an inferential gamble underwritten by our faith in (occasionally arcance) methodology. 
+
+In this notebook we will explain and motivate the usage of propensity scores in analysis of causal inference questions. We will avoid the impression of magic - our focus will be on the manner in which we (a) estimate propensity scores and (b) use them in the analysis of causal questions. We will see how they help avoid risks of selection bias in causal inference.
+
+We will illustrate these patterns using two data sets: (i) the NHEFS data used througout Miguel Hernan's _Causal Inference: What If_ book and a second patient focused data set used throughout _Bayesian Nonparametrics for Causal Inference and Missing Data_ by Daniels, Linero and Roy. Throughout we will contrast the use of non-parametric BART models with simpler regression models for the estimation of propensity scores and causal effects.
+
++++
+
 ### NHEFS Data
+
+This data set from the National Health and Nutrition Examination survey records details of weight, activity and smoking habits of around 1500 individuals over two periods. The first period established a baseline and a follow-up period 10 years later. We will analyse whether the individual (`trt` == 1) quit smoking before the follow up visit. Each individuals' `outcome` represents a relative weight gain/loss comparing the two periods. 
 
 ```{code-cell} ipython3
 nhefs_df = pd.read_csv("../data/nhefs.csv")
 nhefs_df.head()
 ```
+
+We might wonder who is represented in the survey responses and to what degree the measured differences in this survey corresspond the patterns in the wider population? If we look at the overall differences in outcomes:
+
+```{code-cell} ipython3
+raw_diff = nhefs_df.groupby("trt")[["outcome"]].mean()
+print("Treatment Diff:", raw_diff["outcome"].iloc[0] - raw_diff["outcome"].iloc[1])
+raw_diff
+```
+
+We see that there is some overall differences between the two groups, but splitting this out further we might worry that the differences are due to how the groups are imbalanced across the different covariate profiles in the treatment and control groups
+
+```{code-cell} ipython3
+strata_df = (
+    nhefs_df.groupby(
+        [
+            "trt",
+            "sex",
+            "race",
+            "active_1",
+            "active_2",
+            "education_2",
+        ]
+    )[["outcome"]]
+    .agg(["count", "mean"])
+    .rename({"age": "count"}, axis=1)
+)
+
+global_avg = nhefs_df["outcome"].mean()
+strata_df["global_avg"] = global_avg
+strata_df["diff"] = strata_df[("outcome", "mean")] - strata_df["global_avg"]
+strata_df.reset_index(inplace=True)
+strata_df.columns = [" ".join(col).strip() for col in strata_df.columns.values]
+strata_df.style.background_gradient(axis=0)
+```
+
+We then take the average of the stratum specific averages to see a sharper distinction emerge. 
+
+```{code-cell} ipython3
+strata_expected_df = strata_df.groupby("trt")[["outcome count", "outcome mean", "diff"]].agg(
+    {"outcome count": ["sum"], "outcome mean": "mean", "diff": "mean"}
+)
+print(
+    "Treatment Diff:",
+    strata_expected_df[("outcome mean", "mean")].iloc[0]
+    - strata_expected_df[("outcome mean", "mean")].iloc[1],
+)
+strata_expected_df
+```
+
+This kind of exercise suggests that the manner in which our sample was constructed i.e. some aspect of the data generating process pulls some strata of the population away from adopting the treatment group. Their propensity for being treated is negatively keyed, so contaminates any causal inference claims. We should be legitimately concerned that failure to account for this kind of bias risks incorrect conclusions about (a) the direction and (b) the degree of effect that quitting has on weight.
+
++++
+
+### Prepare Modelling Data
+
++++
+
+We now simply prepare the data for modelling in a specific format, removing the `outcome` and `trt` from the covariate data X.
 
 ```{code-cell} ipython3
 X = nhefs_df.copy()
@@ -51,6 +124,10 @@ X.head()
 ```
 
 ### Propensity Score Model
+
++++
+
+In this first step we define a model building function to capture the probability of treatment i.e. our propensity score for each observation. We specify two types of model which are to  be assessed. One which relies entirely on the Logistic regression and another which uses BART to model the relationships between and the covariates, the outcome and each other.
 
 ```{code-cell} ipython3
 def make_propensity_model(X, t, bart=True, probit=True, samples=1000):
@@ -86,20 +163,14 @@ pm.model_to_graphviz(m_ps_logit)
 m_ps_probit, idata_probit = make_propensity_model(X, t, bart=True, probit=False, samples=4000)
 ```
 
-```{code-cell} ipython3
-pm.model_to_graphviz(m_ps_probit)
-```
-
-```{code-cell} ipython3
-idata_logit
-```
+Once we have fitted these models we can compare how they attribute the propensity to treatment (in our case the propensity of quitting) to each and every such measured individual. One thing to note is how this sample seems to suggest a greater uncertainty of attributed score for the BART model.
 
 ```{code-cell} ipython3
 az.plot_forest(
     [idata_logit, idata_probit],
     var_names=["p"],
-    coords={"p_dim_0": range(30)},
-    figsize=(10, 20),
+    coords={"p_dim_0": range(20)},
+    figsize=(10, 13),
     combined=True,
     kind="ridgeplot",
     model_names=["Logistic Regression", "BART"],
@@ -118,13 +189,35 @@ ps_probit = idata_probit["posterior"]["p"].mean(dim=("chain", "draw")).round(2)
 ps_probit
 ```
 
+### Using Propensity Scores: Weights and Pseudo Populations
+
 ```{code-cell} ipython3
-fig, axs = plt.subplots(1, 2, figsize=(20, 6))
+fig, axs = plt.subplots(2, 2, figsize=(20, 10))
 axs = axs.flatten()
-axs[0].hist(ps_logit, ec="black", color="slateblue")
-axs[1].hist(ps_probit, ec="black", color="skyblue")
+
+colors = {1: "blue", 0: "red"}
+axs[0].hist(ps_logit, ec="black", color="slateblue", bins=20)
+axs[1].hist(ps_probit, ec="black", color="skyblue", bins=20)
+axs[0].set_xlim(0, 1)
+axs[1].set_xlim(0, 1)
 axs[0].set_title("Propensity Scores under Logistic Regression")
-axs[1].set_title("Propensity Scores under Non-Parametric BART model \n with probit transform");
+axs[1].set_title("Propensity Scores under Non-Parametric BART model \n with probit transform")
+axs[2].scatter(
+    X["age"], X["wt71"], color=t.map(colors), s=(1 / ps_logit.values) * 10, ec="black", alpha=0.4
+)
+axs[2].set_xlabel("Age")
+axs[3].set_xlabel("Age")
+axs[3].set_ylabel("wt71")
+axs[2].set_ylabel("wt71")
+axs[2].set_title("Wt71~Age \n Size by IP Weights")
+axs[3].set_title("Wt71~Age \n Size by IP Weights")
+axs[3].scatter(
+    X["age"], X["wt71"], color=t.map(colors), s=(1 / ps_probit.values) * 10, ec="black", alpha=0.4
+)
+red_patch = mpatches.Patch(color="red", label="Control")
+blue_patch = mpatches.Patch(color="blue", label="Treated")
+axs[2].legend(handles=[red_patch, blue_patch])
+axs[3].legend(handles=[red_patch, blue_patch]);
 ```
 
 ### Estimated Expected Causal Effect (ATE)
@@ -166,6 +259,7 @@ def make_plot(
     X = X.copy()
     if ps is None:
         n_list = list(range(1000))
+        ## Choose random ps score from posterior
         choice = np.random.choice(n_list, 1)[0]
         X["ps"] = idata["posterior"]["p"].stack(z=("chain", "draw"))[:, choice].values
     else:
@@ -276,19 +370,21 @@ ate_dist_df_logit.head()
 ```
 
 ```{code-cell} ipython3
-def plot_ate(ate_dist_df):
+def plot_ate(ate_dist_df, xy=(-4.5, 250)):
     fig, axs = plt.subplots(1, 2, figsize=(20, 7))
     axs = axs.flatten()
     axs[0].hist(
-        ate_dist_df["E(Y(1))"], bins=30, ec="black", color="slateblue", label="E(Y(1))", alpha=0.2
+        ate_dist_df["E(Y(1))"], bins=30, ec="black", color="blue", label="E(Y(1))", alpha=0.5
     )
     axs[0].hist(
-        ate_dist_df["E(Y(0))"], bins=30, ec="black", color="skyblue", label="E(Y(0))", alpha=0.5
+        ate_dist_df["E(Y(0))"], bins=30, ec="black", color="red", label="E(Y(0))", alpha=0.7
     )
-    axs[1].hist(ate_dist_df["ATE"], bins=30, ec="black", color="darkgreen", label="ATE", alpha=0.6)
-    axs[1].axvline(ate_dist_df["ATE"].mean(), label="E(ATE)", linestyle="--", color="red")
-    axs[0].set_title("E(Y) Distributions for Treated and Control", fontsize=15)
-    axs[1].set_title("Treatment Effect Distribution", fontsize=15)
+    axs[1].hist(ate_dist_df["ATE"], bins=30, ec="black", color="slateblue", label="ATE", alpha=0.6)
+    ate = np.round(ate_dist_df["ATE"].mean(), 2)
+    axs[1].axvline(ate, label="E(ATE)", linestyle="--", color="black")
+    axs[1].annotate(f"E(ATE): {ate}", xy, fontsize=20, fontweight="bold")
+    axs[1].set_title(f"Average Treatment Effect \n E(ATE): {ate}", fontsize=20)
+    axs[0].set_title("E(Y) Distributions for Treated and Control", fontsize=20)
     axs[1].legend()
     axs[0].legend()
 
@@ -342,9 +438,13 @@ plt.suptitle("Posterior Predictive Checks - Heterogenous Effects", fontsize=20);
 
 
 ```{code-cell} ipython3
-def make_prop_reg_model(t, y, idata_ps, samples=1000):
+def make_prop_reg_model(X, t, y, idata_ps, covariates=None, samples=1000):
     ps = idata_ps["posterior"]["p"].mean(dim=("chain", "draw")).values
-    X = pd.DataFrame({"ps": ps, "trt": t, "trt*ps": t * ps})
+    X_temp = pd.DataFrame({"ps": ps, "trt": t, "trt*ps": t * ps})
+    if covariates is None:
+        X = X_temp
+    else:
+        X = pd.concat([X_temp, X[covariates]], axis=1)
     coords = {"coeffs": list(X.columns), "obs": range(len(X))}
     with pm.Model(coords=coords) as model_ps_reg:
         sigma = pm.HalfNormal("sigma", 1)
@@ -487,14 +587,14 @@ X
 ```
 
 ```{code-cell} ipython3
-m_ps_expend, idata_expend = make_propensity_model(X, t, bart=True, probit=False, samples=1000)
+m_ps_expend, idata_expend = make_propensity_model(X, t, bart=True, probit=True, samples=1000)
 ```
 
 ```{code-cell} ipython3
 make_plot(
     X,
     idata_expend,
-    ylims=[(-100, 220), (-40, 270), (-130, 400)],
+    ylims=[(-100, 260), (-40, 270), (-130, 400)],
     lower_bins=np.arange(6, 45, 1),
     text_pos=(11, 200),
     robust=False,
@@ -513,11 +613,25 @@ plot_ate(ate_dist_df)
 ```
 
 ```{code-cell} ipython3
-model_ps_reg_expend, idata_ps_reg_expend = make_prop_reg_model(t, y, idata_expend)
+model_ps_reg_expend, idata_ps_reg_expend = make_prop_reg_model(X, t, y, idata_expend)
 ```
 
 ```{code-cell} ipython3
 az.summary(idata_ps_reg_expend, var_names=["b"])
+```
+
+```{code-cell} ipython3
+model_ps_reg_expend_h, idata_ps_reg_expend_h = make_prop_reg_model(
+    X,
+    t,
+    y,
+    idata_expend,
+    covariates=["phealth_Fair", "phealth_Good", "phealth_Poor", "phealth_Very Good"],
+)
+```
+
+```{code-cell} ipython3
+az.summary(idata_ps_reg_expend_h, var_names=["b"])
 ```
 
 ### Quantile Models
@@ -587,9 +701,9 @@ idata_smoke
 
 ```{code-cell} ipython3
 X["smoke"] = 1
-X["phealth_Fair"] = 0
+X["phealth_Fair"] = 1
 X["phealth_Good"] = 0
-X["phealth_Poor"] = 1
+X["phealth_Poor"] = 0
 X["phealth_Very Good"] = 0
 with model_q:
     # update values of predictors:
@@ -597,6 +711,20 @@ with model_q:
     idata_smoke_health = pm.sample_posterior_predictive(idata)
 
 idata_smoke_health
+```
+
+```{code-cell} ipython3
+X["smoke"] = 0
+X["phealth_Fair"] = 1
+X["phealth_Good"] = 0
+X["phealth_Poor"] = 0
+X["phealth_Very Good"] = 0
+with model_q:
+    # update values of predictors:
+    pm.set_data({"X": X})
+    idata_health = pm.sample_posterior_predictive(idata)
+
+idata_health
 ```
 
 ```{code-cell} ipython3
@@ -622,14 +750,18 @@ nonsmoke_quantiles = idata_non_smoke["posterior_predictive"].mean(
 smoke_health_quantiles = idata_smoke_health["posterior_predictive"].mean(
     dim=("chain", "draw", "obs_dim_3")
 )
-pd.DataFrame(
+health_quantiles = idata_health["posterior_predictive"].mean(dim=("chain", "draw", "obs_dim_3"))
+quantiles_df = pd.DataFrame(
     {
         "nonsmoke_quantiles": nonsmoke_quantiles["obs"].values,
         "smoke_quantiles": smoke_quantiles["obs"].values,
         "smoke_health_quantiles": smoke_health_quantiles["obs"].values,
+        "health_quantiles": health_quantiles["obs"].values,
     },
     index=[0.975, 0.95, 0.90],
 )
+
+np.exp(quantiles_df)
 ```
 
 ### Propensity Score Modelling
