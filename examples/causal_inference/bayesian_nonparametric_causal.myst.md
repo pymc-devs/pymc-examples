@@ -48,7 +48,7 @@ We will illustrate these patterns using two data sets: (i) the NHEFS data used t
 
 +++
 
-### NHEFS Data
+## NHEFS Data
 
 This data set from the National Health and Nutrition Examination survey records details of weight, activity and smoking habits of around 1500 individuals over two periods. The first period established a baseline and a follow-up period 10 years later. We will analyse whether the individual (`trt` == 1) quit smoking before the follow up visit. Each individuals' `outcome` represents a relative weight gain/loss comparing the two periods. 
 
@@ -123,11 +123,21 @@ X = X.drop(["trt", "outcome"], axis=1)
 X.head()
 ```
 
-### Propensity Score Model
+## Propensity Score Model
 
 +++
 
-In this first step we define a model building function to capture the probability of treatment i.e. our propensity score for each observation. We specify two types of model which are to  be assessed. One which relies entirely on the Logistic regression and another which uses BART to model the relationships between and the covariates, the outcome and each other.
+In this first step we define a model building function to capture the probability of treatment i.e. our propensity score for each individual. 
+
+We specify two types of model which are to  be assessed. One which relies entirely on the Logistic regression and another which uses BART to model the relationships between and the covariates and the outcome. The BART model has the benefit of using a tree-based algorithm to explore the interaction effects among the various strata in our sample data. 
+
+Having a flexible model like BART is key to understanding what we are doing when we undertake inverse propensity weighting (IVPw) adjustments. The thought is that any given strata in our dataset will be described by a set of covariates. Types of individual will be represented by these covariate profiles. The share of observations within our data which are picked out by any given covariate profile represents a bias towards that type of individual. If our treatment status is such that individuals will more or less actively select themselves into the status, then a naive comparisons of differences between treatment groups and control groups will be misleading to the degree that we have over-represented types of individual (covariate profiles) in the population.
+
+Randomisation solves this. But we can't always randomise.
+
+What happens when we randomise? Randomisation of treatment status aims to ensure that we have a balance of covariate profiles across both groups. This helps avoid the selection-bias just discussed. Propensity scores are useful because they can help emulate _as-if_ random assignment of treatment status in the sample data through a specific transformation of the observed data. 
+
+First we model the individual propensity scores as a function of the indivifua covariate profiles:
 
 ```{code-cell} ipython3
 def make_propensity_model(X, t, bart=True, probit=True, samples=1000):
@@ -156,14 +166,12 @@ m_ps_logit, idata_logit = make_propensity_model(X, t, bart=False, samples=1000)
 ```
 
 ```{code-cell} ipython3
-pm.model_to_graphviz(m_ps_logit)
-```
-
-```{code-cell} ipython3
 m_ps_probit, idata_probit = make_propensity_model(X, t, bart=True, probit=False, samples=4000)
 ```
 
-Once we have fitted these models we can compare how they attribute the propensity to treatment (in our case the propensity of quitting) to each and every such measured individual. One thing to note is how this sample seems to suggest a greater uncertainty of attributed score for the BART model.
+### Using Propensity Scores: Weights and Pseudo Populations
+
+Once we have fitted these models we can compare how they attribute the propensity to treatment (in our case the propensity of quitting) to each and every such measured individual. One thing to note is how this sample seems to suggest a greater uncertainty of attributed score for the BART model. We have used the inverse probit link function when fitting our data. 
 
 ```{code-cell} ipython3
 az.plot_forest(
@@ -179,6 +187,15 @@ az.plot_forest(
 );
 ```
 
+These propensity scores can be pulled out and examined alongside the other covariates. But it's probably worth pausing here to explain how and why propensity scores are useful for accounting for selection bias. 
+
+Firstly, and somewhat superficially, the propensity score is a dimension reduction technique. We take a complex covariate profile $X_{i}$ and reduce it to a scaler $p^{i}_{T}(X)$. It is tool for thinking about the potential outcomes of an individual under different treatment regimes. In a policy evaluation context it can help partial out the degree of incentives for policy adoption strata of the population. 
+
+The pivotal idea is that we cannot license causal claims unless (i) the treatment assignment is independent of the individual's covariate profile $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ and similarly conditionally independent of the treatement $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ under $X$. It is a theorem that if $T$ is strongly ignorable under $X$, then (ii) holds under $p_{T}(X)$. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. There is a great discussion of the details in Aronow and Miller's _Foundations of Agnostic Statistics_.
+
+We are, as with all causal inference methods, making the assumption of __strong ignorability__. But given this assumption that we are measuring the right covariate profile to induce strong ignorability, then propensity scores can be used thoughtfully to underwrite causal claims. With observational data we cannot re-run the assignment mechanism but we can estimate it, and transform our data to proportionally weight the data summaries within each group so that the analysis is less effected by the over-representation of different strata in each group. This is what we hope to use the propensity scores to achieve. 
+
+
 ```{code-cell} ipython3
 ps_logit = idata_logit["posterior"]["p"].mean(dim=("chain", "draw")).round(2)
 ps_logit
@@ -189,7 +206,7 @@ ps_probit = idata_probit["posterior"]["p"].mean(dim=("chain", "draw")).round(2)
 ps_probit
 ```
 
-### Using Propensity Scores: Weights and Pseudo Populations
+Here we plot the distribution of propensity scores under each model and show how the inverse of the propensity score weights would apply to the observed data points.
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(2, 2, figsize=(20, 10))
@@ -203,16 +220,16 @@ axs[1].set_xlim(0, 1)
 axs[0].set_title("Propensity Scores under Logistic Regression")
 axs[1].set_title("Propensity Scores under Non-Parametric BART model \n with probit transform")
 axs[2].scatter(
-    X["age"], X["wt71"], color=t.map(colors), s=(1 / ps_logit.values) * 10, ec="black", alpha=0.4
+    X["age"], y, color=t.map(colors), s=(1 / ps_logit.values) * 10, ec="black", alpha=0.4
 )
 axs[2].set_xlabel("Age")
 axs[3].set_xlabel("Age")
-axs[3].set_ylabel("wt71")
-axs[2].set_ylabel("wt71")
-axs[2].set_title("Wt71~Age \n Size by IP Weights")
-axs[3].set_title("Wt71~Age \n Size by IP Weights")
+axs[3].set_ylabel("y")
+axs[2].set_ylabel("y")
+axs[2].set_title("y~Age \n Size by IP Weights")
+axs[3].set_title("y~Age \n Size by IP Weights")
 axs[3].scatter(
-    X["age"], X["wt71"], color=t.map(colors), s=(1 / ps_probit.values) * 10, ec="black", alpha=0.4
+    X["age"], y, color=t.map(colors), s=(1 / ps_probit.values) * 10, ec="black", alpha=0.4
 )
 red_patch = mpatches.Patch(color="red", label="Control")
 blue_patch = mpatches.Patch(color="blue", label="Treated")
@@ -220,7 +237,15 @@ axs[2].legend(handles=[red_patch, blue_patch])
 axs[3].legend(handles=[red_patch, blue_patch]);
 ```
 
-### Estimated Expected Causal Effect (ATE)
+These weighting schemes can now be incorporated into various models of statistical summaries so as to "correct" the reprensentation of covariate profiles across both groups. If an individual's propensity score is such that they are are highly likely to receive the treatment status e.g .95 then we want to downweight their importance if they occur in the treatment and upweight their importance if they appear in the control group. This makes sense because their high propensity score implies that similar individuals are already heavily present in the treatment group, but less likely to occur in the control group. Hence our corrective strategy re-weights their contribution to the summary statistics across each group. 
+
++++
+
+## Estimated Expected Causal Effect (ATE)
+
+The next code block builds a set of functions to pull out an extract a sample from our posterior distribution of propensity scores and use this propensity score to reweight the observed outcome variable across our treatment and control groups to re-calculate the average treatment effect (ATE). It reweights our data using the inverse probability weighting scheme and then plots three views (1) the raw propensity scores across groups (2) the raw outcome distribution and (3) the re-weighted outcome distribution. 
+
+### The Logit Propensity Model
 
 ```{code-cell} ipython3
 def plot_weights(bins, top0, top1, ylim, ax):
@@ -334,6 +359,8 @@ def make_plot(
 make_plot(X, idata_logit)
 ```
 
+Next, and because we are Bayesians - we pull out and evaluate the posterior distribution of the ATE basd on the sampled propensity scores. 
+
 ```{code-cell} ipython3
 def get_ate(X, t, y, i, idata, robust=False):
     X = X.copy()
@@ -392,6 +419,14 @@ def plot_ate(ate_dist_df, xy=(-4.5, 250)):
 plot_ate(ate_dist_df_logit)
 ```
 
+Note how this estimate of the treatment effect quite different than what we got taking the simple difference of averages across groups. 
+
++++
+
+### The BART Propensity Model
+
+We apply exactly the same procedures as above, but now we use the propensity distribution achieved using the BART non-parametric model.
+
 ```{code-cell} ipython3
 make_plot(X, idata_probit)
 ```
@@ -405,6 +440,10 @@ ate_dist_df_probit.head()
 ```{code-cell} ipython3
 plot_ate(ate_dist_df_probit)
 ```
+
+### Considerations Choosing between models
+
+It is one thing to evalute change in average over the population, but we might want to allow for the idea of effect heterogenity across the population and as such the BART model is generally better at ensuring accurate predictions and therefore better more calibrated propensity scores acros the deepter strata of our data. 
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(4, 2, figsize=(20, 25))
@@ -434,6 +473,10 @@ axs[7].set_title("Race/Gender/Active Specific PPC - BART")
 plt.suptitle("Posterior Predictive Checks - Heterogenous Effects", fontsize=20);
 ```
 
+Observations like this go along way to motivating the work in the Double ML causal inference paradigm. The model used to capture the outcome distribution or the propensity score distribution ought to be sensetive to variation across extremities of the data. We can see above that the predictive power of the simpler logistic regression model deterioriates as we progress down the partitions of the data. We will see an example below where it is key to partial out the causal effects across the quantiles of the response distribution. 
+
++++
+
 ### Regression with Propensity Scores
 
 
@@ -449,6 +492,7 @@ def make_prop_reg_model(X, t, y, idata_ps, covariates=None, samples=1000):
     with pm.Model(coords=coords) as model_ps_reg:
         sigma = pm.HalfNormal("sigma", 1)
         b = pm.Normal("b", mu=0, sigma=1, dims="coeffs")
+        X = pm.MutableData("X", X)
         mu = pm.math.dot(X, b)
         t_pred = pm.Normal("pred", mu, sigma, observed=y, dims="obs")
 
@@ -458,7 +502,7 @@ def make_prop_reg_model(X, t, y, idata_ps, covariates=None, samples=1000):
     return model_ps_reg, idata
 
 
-model_ps_reg, idata_ps_reg = make_prop_reg_model(t, y, idata_logit)
+model_ps_reg, idata_ps_reg = make_prop_reg_model(X, t, y, idata_logit)
 ```
 
 ```{code-cell} ipython3
@@ -466,11 +510,51 @@ az.summary(idata_ps_reg)
 ```
 
 ```{code-cell} ipython3
-model_ps_reg_bart, idata_ps_reg_bart = make_prop_reg_model(t, y, idata_probit)
+model_ps_reg_bart, idata_ps_reg_bart = make_prop_reg_model(X, t, y, idata_probit)
 ```
 
 ```{code-cell} ipython3
 az.summary(idata_ps_reg_bart)
+```
+
+### Causal Inference as Regression Imputation
+
+```{code-cell} ipython3
+X_mod = X.copy()
+X_mod["ps"] = ps = idata_probit["posterior"]["p"].mean(dim=("chain", "draw")).values
+X_mod["trt"] = 1
+X_mod["trt*ps"] = X_mod["ps"] * X_mod["trt"]
+with model_ps_reg_bart:
+    # update values of predictors:
+    pm.set_data({"X": X_mod[["ps", "trt", "trt*ps"]]})
+    idata_trt = pm.sample_posterior_predictive(idata_ps_reg_bart)
+
+idata_trt
+```
+
+```{code-cell} ipython3
+X_mod = X.copy()
+X_mod["ps"] = ps = idata_probit["posterior"]["p"].mean(dim=("chain", "draw")).values
+X_mod["trt"] = 0
+X_mod["trt*ps"] = X_mod["ps"] * X_mod["trt"]
+with model_ps_reg_bart:
+    # update values of predictors:
+    pm.set_data({"X": X_mod[["ps", "trt", "trt*ps"]]})
+    idata_ntrt = pm.sample_posterior_predictive(idata_ps_reg_bart)
+
+idata_ntrt
+```
+
+```{code-cell} ipython3
+idata_trt["posterior_predictive"]["pred"].mean()
+```
+
+```{code-cell} ipython3
+idata_ntrt["posterior_predictive"]["pred"].mean()
+```
+
+```{code-cell} ipython3
+idata_trt["posterior_predictive"]["pred"].mean() - idata_ntrt["posterior_predictive"]["pred"].mean()
 ```
 
 ## Health Expenditure Data
@@ -482,6 +566,37 @@ df["log_y"] = np.log(df["totexp"] + 1000)
 df["loginc"] = np.log(df["income"])
 df["smoke"] = np.where(df["smoke"] == "No", 0, 1)
 df
+```
+
+```{code-cell} ipython3
+raw_diff = df.groupby("smoke")[["log_y"]].mean()
+print("Treatment Diff:", raw_diff["log_y"].iloc[0] - raw_diff["log_y"].iloc[1])
+raw_diff
+```
+
+```{code-cell} ipython3
+pd.set_option("display.max_rows", 500)
+strata_df = df.groupby(["smoke", "sex", "race", "phealth"])[["log_y"]].agg(["count", "mean"])
+
+global_avg = df["log_y"].mean()
+strata_df["global_avg"] = global_avg
+# strata_df["diff"] = strata_df[("log_y", "mean")] - strata_df["global_avg"]
+strata_df.reset_index(inplace=True)
+strata_df.columns = [" ".join(col).strip() for col in strata_df.columns.values]
+strata_df["diff"] = strata_df["log_y mean"] - strata_df["global_avg"]
+strata_df.style.background_gradient(axis=0)
+```
+
+```{code-cell} ipython3
+strata_expected_df = strata_df.groupby("smoke")[["log_y count", "log_y mean", "diff"]].agg(
+    {"log_y count": ["sum"], "log_y mean": "mean", "diff": "mean"}
+)
+print(
+    "Treatment Diff:",
+    strata_expected_df[("log_y mean", "mean")].iloc[0]
+    - strata_expected_df[("log_y mean", "mean")].iloc[1],
+)
+strata_expected_df
 ```
 
 ```{code-cell} ipython3
