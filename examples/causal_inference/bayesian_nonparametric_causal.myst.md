@@ -28,6 +28,7 @@ import pandas as pd
 import pymc as pm
 import pymc_bart as pmb
 import pytensor.tensor as pt
+import statsmodels.api as sm
 ```
 
 ```{code-cell} ipython3
@@ -40,9 +41,9 @@ rng = np.random.default_rng(42)
 
 You always run the risk of being wrong. 
 
-Your appetite for that risk is likely proportional to the strength of the claim you are making - less concerned with _casual_ assertions than __causal__ claims! There are few claims stronger than the assertion of a causal relationship. Each such statement is an inferential gamble underwritten by our faith in (occasionally arcance) methodology. 
+Your appetite for that risk is likely proportional to the strength of the claim you are making - less concerned with _casual_ assertions than __causal__ claims!  Each causal statement is an inferential gamble underwritten by our faith in (occasionally arcane) methodology. The conversational stakes are high - you risk your brittle credibility with false claims. There are few claims stronger than the assertion of a causal relationship, few claims more contestable. A naive world model, rich with tenuous connections and non-sequiter implications will expose you as an idiotic charlatan overly impressed by conspiracy theory. We don't that for you. 
 
-In this notebook we will explain and motivate the usage of propensity scores in analysis of causal inference questions. We will avoid the impression of magic - our focus will be on the manner in which we (a) estimate propensity scores and (b) use them in the analysis of causal questions. We will see how they help avoid risks of selection bias in causal inference.
+In this notebook we will explain and motivate the usage of propensity scores in analysis of causal inference questions. We will avoid the impression of magic - our focus will be on the manner in which we (a) estimate propensity scores and (b) use them in the analysis of causal questions. We will see how they help avoid risks of selection bias in causal inference. This method should be comfortable for the Bayeisan analyst who is familiar with weighting and re-weighting their claims with with information in the form priors. Propensity score weighting is just another opportunity to enrich your model with knowledge about the world.
 
 We will illustrate these patterns using two data sets: (i) the NHEFS data used througout Miguel Hernan's _Causal Inference: What If_ book and a second patient focused data set used throughout _Bayesian Nonparametrics for Causal Inference and Missing Data_ by Daniels, Linero and Roy. Throughout we will contrast the use of non-parametric BART models with simpler regression models for the estimation of propensity scores and causal effects.
 
@@ -131,7 +132,7 @@ In this first step we define a model building function to capture the probabilit
 
 We specify two types of model which are to  be assessed. One which relies entirely on the Logistic regression and another which uses BART to model the relationships between and the covariates and the outcome. The BART model has the benefit of using a tree-based algorithm to explore the interaction effects among the various strata in our sample data. 
 
-Having a flexible model like BART is key to understanding what we are doing when we undertake inverse propensity weighting (IVPw) adjustments. The thought is that any given strata in our dataset will be described by a set of covariates. Types of individual will be represented by these covariate profiles. The share of observations within our data which are picked out by any given covariate profile represents a bias towards that type of individual. If our treatment status is such that individuals will more or less actively select themselves into the status, then a naive comparisons of differences between treatment groups and control groups will be misleading to the degree that we have over-represented types of individual (covariate profiles) in the population.
+Having a flexible model like BART is key to understanding what we are doing when we undertake inverse propensity weighting (IVPw) adjustments. The thought is that any given strata in our dataset will be described by a set of covariates. Types of individual will be represented by these covariate profiles - the attribute vector $X$. The share of observations within our data which are picked out by any given covariate profile represents a bias towards that type of individual. If our treatment status is such that individuals will more or less actively select themselves into the status, then a naive comparisons of differences between treatment groups and control groups will be misleading to the degree that we have over-represented types of individual (covariate profiles) in the population.
 
 Randomisation solves this. But we can't always randomise.
 
@@ -191,7 +192,7 @@ These propensity scores can be pulled out and examined alongside the other covar
 
 Firstly, and somewhat superficially, the propensity score is a dimension reduction technique. We take a complex covariate profile $X_{i}$ and reduce it to a scaler $p^{i}_{T}(X)$. It is tool for thinking about the potential outcomes of an individual under different treatment regimes. In a policy evaluation context it can help partial out the degree of incentives for policy adoption strata of the population. 
 
-The pivotal idea is that we cannot license causal claims unless (i) the treatment assignment is independent of the individual's covariate profile $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ and similarly conditionally independent of the treatement $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ under $X$. It is a theorem that if $T$ is strongly ignorable under $X$, then (ii) holds under $p_{T}(X)$. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. There is a great discussion of the details in Aronow and Miller's _Foundations of Agnostic Statistics_.
+The pivotal idea is that we cannot license causal claims unless (i) the treatment assignment is independent of the covariate profiles i.e $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ and similarly conditionally independent of the treatement $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ given $X$. It is a theorem that if $T$ is strongly ignorable given $X$, then (ii) holds given $p_{T}(X)$. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. There is a great discussion of the details in Aronow and Miller's _Foundations of Agnostic Statistics_.
 
 We are, as with all causal inference methods, making the assumption of __strong ignorability__. But given this assumption that we are measuring the right covariate profile to induce strong ignorability, then propensity scores can be used thoughtfully to underwrite causal claims. With observational data we cannot re-run the assignment mechanism but we can estimate it, and transform our data to proportionally weight the data summaries within each group so that the analysis is less effected by the over-representation of different strata in each group. This is what we hope to use the propensity scores to achieve. 
 
@@ -241,11 +242,20 @@ These weighting schemes can now be incorporated into various models of statistic
 
 +++
 
+### Robust and Doubly Robust Propensity Scores
+
+We've been keen to stress that IVPw are a corrective. An opportunity for the causal analyst to put their finger on the scale and adjust the representative shares accorded to individuals in the treatment and control groups. As such there are no universal correctives, and naturally a variety of alternatives have arisen to fill gaps where simple propensity score weighting fails. We will see below a number of alternative weighting schemes. 
+
+The main distinction to call out is between the raw propensity score weights and the doubly-robust theory of propensity score weights. 
+
+Doubly robust methods are so named as they represent a compromise estimtator for causal effect that combines (i) a treatment assignment model (like propensity scores) and (ii) a more direct response outcome model. The method combines these two estimators in a way to generate a statistically unbiased estimate of the treatment effect. They work well because the way they are combined requires that only one of the models needs to be well-specified. 
+
++++
+
 ## Estimated Expected Causal Effect (ATE)
 
 The next code block builds a set of functions to pull out an extract a sample from our posterior distribution of propensity scores and use this propensity score to reweight the observed outcome variable across our treatment and control groups to re-calculate the average treatment effect (ATE). It reweights our data using the inverse probability weighting scheme and then plots three views (1) the raw propensity scores across groups (2) the raw outcome distribution and (3) the re-weighted outcome distribution. 
 
-### The Logit Propensity Model
 
 ```{code-cell} ipython3
 def plot_weights(bins, top0, top1, ylim, ax):
@@ -279,7 +289,7 @@ def make_plot(
     ],
     text_pos=(20, 80),
     ps=None,
-    robust=True,
+    method="robust",
 ):
     X = X.copy()
     if ps is None:
@@ -290,20 +300,32 @@ def make_plot(
     else:
         X["ps"] = ps
     X["trt"] = t
-    if robust:
+    propensity0 = X[X["trt"] == 0]["ps"]
+    propensity1 = X[X["trt"] == 1]["ps"]
+    if method == "robust":
         p_of_t = X["trt"].mean()
         X["i_ps"] = np.where(t, (p_of_t / X["ps"]), (1 - p_of_t) / (1 - X["ps"]))
         n_ntrt = X[X["trt"] == 0].shape[0]
         n_trt = X[X["trt"] == 1].shape[0]
-    else:
+    elif method == "raw":
         X["ps"] = np.where(X["trt"], X["ps"], 1 - X["ps"])
         X["i_ps"] = 1 / X["ps"]
         n_ntrt = n_trt = len(X)
-    X["log_y"] = y
+    else:
+        m0 = sm.OLS(y[t == 0], X[t == 0]).fit()
+        m1 = sm.OLS(y[t == 1], X[t == 1]).fit()
+        m0_pred = m0.predict(X)
+        m1_pred = m0.predict(X)
+        X["trt"] = t
+        X["y"] = y
+        p_of_t = X["trt"].mean()
+        X["i_ps"] = np.where(t, (p_of_t / X["ps"]), (1 - p_of_t) / (1 - X["ps"]))
+
+        weighted_outcome0 = (1 - X["trt"]) * (X["y"] - m0_pred) / (1 - X["ps"]) + m0_pred
+        weighted_outcome1 = X["trt"] * (X["y"] - m1_pred) / X["ps"] + m1_pred
+    X["outcome"] = y
 
     bins = np.arange(0.025, 0.85, 0.05)
-    propensity0 = X[X["trt"] == 0]["ps"]
-    propensity1 = X[X["trt"] == 1]["ps"]
     top0, _ = np.histogram(propensity0, bins=bins)
     top1, _ = np.histogram(propensity1, bins=bins)
 
@@ -322,25 +344,43 @@ def make_plot(
     )
 
     bins = lower_bins
+
+    outcome_trt = X[X["trt"] == 1]["outcome"]
+    outcome_ntrt = X[X["trt"] == 0]["outcome"]
     i_propensity0 = X[X["trt"] == 0]["i_ps"]
     i_propensity1 = X[X["trt"] == 1]["i_ps"]
-    outcome_trt = X[X["trt"] == 1]["log_y"]
-    outcome_ntrt = X[X["trt"] == 0]["log_y"]
-    propensity0 = i_propensity0 * outcome_ntrt
-    propensity1 = i_propensity1 * outcome_trt
 
-    top0, _ = np.histogram(propensity0, bins=bins)
-    top1, _ = np.histogram(propensity1, bins=bins)
-    plot_weights(bins, top0, top1, ylims[1], axs[2])
     axs[2].set_ylabel("No. Patients", fontsize=14)
-    axs[2].set_xlabel("Estimated IP Weighted Outcome \n Shifted", fontsize=14)
-    axs[2].text(text_pos[0], text_pos[1], f"Control: E(Y) = {propensity0.sum() / n_ntrt}")
-    axs[2].text(text_pos[0], text_pos[1] - 20, f"Treatment: E(Y) = {propensity1.sum() / n_trt}")
-    axs[2].text(
-        text_pos[0],
-        text_pos[1] - 40,
-        f"tau: E(Y(1) - Y(0)) = {propensity0.sum() / n_ntrt - propensity1.sum() / n_trt}",
-    )
+    if method in ["raw", "robust"]:
+        weighted_outcome1 = outcome_trt * i_propensity1
+        weighted_outcome0 = outcome_ntrt * i_propensity0
+        top0, _ = np.histogram(weighted_outcome0, bins=bins)
+        top1, _ = np.histogram(weighted_outcome1, bins=bins)
+        plot_weights(bins, top0, top1, ylims[1], axs[2])
+        axs[2].set_xlabel("Estimated IP Weighted Outcome \n Shifted", fontsize=14)
+        axs[2].text(text_pos[0], text_pos[1], f"Control: E(Y) = {weighted_outcome0.sum() / n_ntrt}")
+        axs[2].text(
+            text_pos[0], text_pos[1] - 20, f"Treatment: E(Y) = {weighted_outcome1.sum() / n_trt}"
+        )
+        axs[2].text(
+            text_pos[0],
+            text_pos[1] - 40,
+            f"tau: E(Y(1) - Y(0)) = {weighted_outcome0.sum() / n_ntrt - weighted_outcome1.sum() / n_trt}",
+        )
+    else:
+        top0, _ = np.histogram(weighted_outcome0, bins=bins)
+        top1, _ = np.histogram(weighted_outcome1, bins=bins)
+        plot_weights(bins, top0, top1, ylims[1], axs[2])
+        trt = np.mean(X["trt"] * (X["y"] - m1_pred) / X["ps"] + m1_pred)
+        ntrt = np.mean((1 - X["trt"]) * (X["y"] - m0_pred) / (1 - X["ps"]) + m0_pred)
+        axs[2].set_xlabel("Estimated IP Weighted Outcome \n Shifted", fontsize=14)
+        axs[2].text(text_pos[0], text_pos[1], f"Control: E(Y) = {ntrt}")
+        axs[2].text(text_pos[0], text_pos[1] - 20, f"Treatment: E(Y) = {trt}")
+        axs[2].text(
+            text_pos[0],
+            text_pos[1] - 40,
+            f"tau: E(Y(1) - Y(0)) = {ntrt - trt}",
+        )
 
     top0, _ = np.histogram(outcome_ntrt, bins=bins)
     top1, _ = np.histogram(outcome_trt, bins=bins)
@@ -354,47 +394,69 @@ def make_plot(
         text_pos[1] - 40,
         f"tau: E(Y(1) - Y(0)) = {outcome_trt.mean() - outcome_ntrt.mean()}",
     )
+```
 
+## The Logit Propensity Model
 
-make_plot(X, idata_logit)
+We plot the outcome and re-weighted outcome distribution using the robust propensity score estimation method.
+
+```{code-cell} ipython3
+make_plot(X, idata_logit, method="robust")
 ```
 
 Next, and because we are Bayesians - we pull out and evaluate the posterior distribution of the ATE basd on the sampled propensity scores. 
 
 ```{code-cell} ipython3
-def get_ate(X, t, y, i, idata, robust=False):
+def get_ate(X, t, y, i, idata, method="doubly_robust"):
     X = X.copy()
     X["ps"] = idata["posterior"]["p"].stack(z=("chain", "draw"))[:, i].values
-    X["trt"] = t
-    if robust:
+    if method == "robust":
+        X["trt"] = t
         p_of_t = X["trt"].mean()
         X["i_ps"] = np.where(t, (p_of_t / X["ps"]), (1 - p_of_t) / (1 - X["ps"]))
-    else:
+        i_propensity0 = X[X["trt"] == 0]["i_ps"]
+        i_propensity1 = X[X["trt"] == 1]["i_ps"]
+    elif method == "raw":
+        X["trt"] = t
         X["ps"] = np.where(X["trt"], X["ps"], 1 - X["ps"])
         X["i_ps"] = 1 / X["ps"]
+        i_propensity0 = X[X["trt"] == 0]["i_ps"]
+        i_propensity1 = X[X["trt"] == 1]["i_ps"]
+    else:
+        m0 = sm.OLS(y[t == 0], X[t == 0]).fit()
+        m1 = sm.OLS(y[t == 1], X[t == 1]).fit()
+        m0_pred = m0.predict(X)
+        m1_pred = m0.predict(X)
+        X["trt"] = t
+        X["y"] = y
     X["outcome"] = y
-    i_propensity0 = X[X["trt"] == 0]["i_ps"]
-    i_propensity1 = X[X["trt"] == 1]["i_ps"]
     outcome_trt = X[X["trt"] == 1]["outcome"]
     outcome_ntrt = X[X["trt"] == 0]["outcome"]
-    weighted_outcome_ntrt = i_propensity0 * outcome_ntrt
-    weighted_outcome_trt = i_propensity1 * outcome_trt
-    if robust:
+    if method == "robust":
+        weighted_outcome_ntrt = i_propensity0 * outcome_ntrt
+        weighted_outcome_trt = i_propensity1 * outcome_trt
         ntrt = weighted_outcome_ntrt.sum() / len(X[X["trt"] == 0])
         trt = weighted_outcome_trt.sum() / len(X[X["trt"] == 1])
-    else:
+    elif method == "raw":
+        weighted_outcome_ntrt = i_propensity0 * outcome_ntrt
+        weighted_outcome_trt = i_propensity1 * outcome_trt
         ntrt = weighted_outcome_ntrt.sum() / len(X)
         trt = weighted_outcome_trt.sum() / len(X)
+    else:
+        trt = np.mean(X["trt"] * (X["y"] - m1_pred) / X["ps"] + m1_pred)
+        ntrt = np.mean((1 - X["trt"]) * (X["y"] - m0_pred) / (1 - X["ps"]) + m0_pred)
     ate = ntrt - trt
     return [ate, trt, ntrt]
 
 
 qs = range(4000)
-ate_dist = [get_ate(X, t, y, q, idata_logit, robust=True) for q in qs]
+ate_dist = [get_ate(X, t, y, q, idata_logit, method="robust") for q in qs]
 
 ate_dist_df_logit = pd.DataFrame(ate_dist, columns=["ATE", "E(Y(1))", "E(Y(0))"])
 ate_dist_df_logit.head()
 ```
+
+Next we plot the posterior distribution of the ATE. 
 
 ```{code-cell} ipython3
 def plot_ate(ate_dist_df, xy=(-4.5, 250)):
@@ -423,16 +485,16 @@ Note how this estimate of the treatment effect quite different than what we got 
 
 +++
 
-### The BART Propensity Model
+## The BART Propensity Model
 
-We apply exactly the same procedures as above, but now we use the propensity distribution achieved using the BART non-parametric model.
+Next we'll apply the doubly robust estimator to the propensity distribution achieved using the BART non-parametric model.
 
 ```{code-cell} ipython3
-make_plot(X, idata_probit)
+make_plot(X, idata_probit, method="doubly_robust", ylims=[(-150, 370), (-220, 150), (-50, 120)])
 ```
 
 ```{code-cell} ipython3
-ate_dist_probit = [get_ate(X, t, y, q, idata_probit, robust=True) for q in qs]
+ate_dist_probit = [get_ate(X, t, y, q, idata_probit, method="doubly_robust") for q in qs]
 ate_dist_df_probit = pd.DataFrame(ate_dist_probit, columns=["ATE", "E(Y(1))", "E(Y(0))"])
 ate_dist_df_probit.head()
 ```
@@ -443,7 +505,9 @@ plot_ate(ate_dist_df_probit)
 
 ### Considerations Choosing between models
 
-It is one thing to evalute change in average over the population, but we might want to allow for the idea of effect heterogenity across the population and as such the BART model is generally better at ensuring accurate predictions and therefore better more calibrated propensity scores acros the deepter strata of our data. 
+It is one thing to evalute change in average over the population, but we might want to allow for the idea of effect heterogenity across the population and as such the BART model is generally better at ensuring accurate predictions and therefore better more calibrated propensity scores acros the deepter strata of our data. But the flexibility of machine learning models for prediction tasks do not guarantee that the propensity scores attributed across the sample are well calibrated to recover the true-treatment effects when used in causal effect estimation. We have to careful in how we use the flexibility of non-parametric models in the causal context. 
+
+First observe the hetereogenous accuracy induced by the BART model across increasingly narrow strata of our sample. 
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(4, 2, figsize=(20, 25))
@@ -473,12 +537,13 @@ axs[7].set_title("Race/Gender/Active Specific PPC - BART")
 plt.suptitle("Posterior Predictive Checks - Heterogenous Effects", fontsize=20);
 ```
 
-Observations like this go along way to motivating the work in the Double ML causal inference paradigm. The model used to capture the outcome distribution or the propensity score distribution ought to be sensetive to variation across extremities of the data. We can see above that the predictive power of the simpler logistic regression model deterioriates as we progress down the partitions of the data. We will see an example below where it is key to partial out the causal effects across the quantiles of the response distribution. 
+Observations like this go along way to motivating the work in the Double ML causal inference paradigm. The model used to capture the outcome distribution or the propensity score distribution ought to be sensetive to variation across extremities of the data. We can see above that the predictive power of the simpler logistic regression model deterioriates as we progress down the partitions of the data. We will see an example below where this flexibility becomes a problem. 
 
 +++
 
 ### Regression with Propensity Scores
 
+Another perhaps more direct method of causal inference is to just use regression directly. Angrist and Pischke suggest that the familiar properties of regression make it more desirable, but acknowledge that there is a role for propensity and that the methods can be combined by the cautious analyst.
 
 ```{code-cell} ipython3
 def make_prop_reg_model(X, t, y, idata_ps, covariates=None, samples=1000):
@@ -505,6 +570,8 @@ def make_prop_reg_model(X, t, y, idata_ps, covariates=None, samples=1000):
 model_ps_reg, idata_ps_reg = make_prop_reg_model(X, t, y, idata_logit)
 ```
 
+Fitting the regression model using the propensity as a dimensional reduction technique seems to work well here. We recover substantially the same treatment effect estimate as above. 
+
 ```{code-cell} ipython3
 az.summary(idata_ps_reg)
 ```
@@ -518,6 +585,8 @@ az.summary(idata_ps_reg_bart)
 ```
 
 ### Causal Inference as Regression Imputation
+
+Above we read-off the causal effect estimate as the coefficient on the treatment variable in our regression model. An arguably more direct approach uses the fitted regression models to impute the distribution of potential outcomes under different treatment regimes. In this way we have yet another perspective on causal inference 
 
 ```{code-cell} ipython3
 X_mod = X.copy()
@@ -557,7 +626,13 @@ idata_ntrt["posterior_predictive"]["pred"].mean()
 idata_trt["posterior_predictive"]["pred"].mean() - idata_ntrt["posterior_predictive"]["pred"].mean()
 ```
 
+All perspectives on the question of causal inference here seem broadly convergent. Next we'll see an example where the choices an analyst makes can go quite wrong. 
+
++++
+
 ## Health Expenditure Data
+
+We will begin with looking a health-expenditure data set analysed in _Bayesian Nonparametrics for Causal Inference and Missing Data_ . The telling feature about this data set is absence of obvious causal impact on expenditure due to the presence of smoking. We follow the authors and try and model the effect of `smoke` on the logged out `log_y`.
 
 ```{code-cell} ipython3
 df = pd.read_csv("../data/meps_bayes_np_health.csv", index_col=["Unnamed: 0"])
@@ -567,6 +642,8 @@ df["loginc"] = np.log(df["income"])
 df["smoke"] = np.where(df["smoke"] == "No", 0, 1)
 df
 ```
+
+### Some basic Summaries
 
 ```{code-cell} ipython3
 raw_diff = df.groupby("smoke")[["log_y"]].mean()
@@ -598,6 +675,8 @@ print(
 )
 strata_expected_df
 ```
+
+It certaintly seems that there is little to no impact due to our treatment effect in the data. Can we recover this insight using the method of inverse propensity score weighting. But first, let's do some basic exploratory data analysis to confirm our intuition. 
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(2, 2, figsize=(20, 8))
@@ -651,6 +730,8 @@ axs[1].legend()
 axs[1].set_title("Empirical Cumulative \n Densities");
 ```
 
+The plots would seem to confirm undifferentiated nature of the outcome across the two groups. With some hint of difference at the outer quantiles  of the distribution. 
+
 ```{code-cell} ipython3
 qs = np.linspace(0.05, 0.99, 100)
 quantile_diff = (
@@ -671,6 +752,8 @@ axs[0].set_title("Q-Q plot comparing \n Smoker and Non-Smokers")
 axs[1].plot(quantile_diff["quantile"], quantile_diff["diff"])
 axs[1].set_title("Differences across the Quantiles");
 ```
+
+### What could go Wrong?
 
 ```{code-cell} ipython3
 dummies = pd.concat(
@@ -702,30 +785,59 @@ X
 ```
 
 ```{code-cell} ipython3
-m_ps_expend, idata_expend = make_propensity_model(X, t, bart=True, probit=True, samples=1000)
+m_ps_expend_bart, idata_expend_bart = make_propensity_model(
+    X, t, bart=True, probit=True, samples=4000
+)
+m_ps_expend_logit, idata_expend_logit = make_propensity_model(X, t, bart=False, samples=1000)
 ```
 
+### Non-Parametric BART Model Propensity Model is mis-specified
+
+The flexibility of the BART model fit is poorly calibrated to recover the average treatment effect. Let's evaluate the weighted outcome distributions under the robust IVPw estimate. 
+
 ```{code-cell} ipython3
+ps = idata_expend_bart["posterior"]["p"].mean(dim=("chain", "draw")).values
 make_plot(
     X,
-    idata_expend,
-    ylims=[(-100, 260), (-40, 270), (-130, 400)],
-    lower_bins=np.arange(6, 45, 1),
+    idata_expend_bart,
+    ylims=[(-100, 340), (-70, 380), (-130, 420)],
+    lower_bins=np.arange(6, 15, 1),
     text_pos=(11, 200),
-    robust=False,
+    method="robust",
+    ps=ps,
 )
 ```
 
+This is a __disastrous__ result. Evaluated at the expected values of the posterior propensity score distribution the robust IPW estimator of ATE suggests a substantial difference in the treatment and control groups. What is going on?
+
+What happens if we look at the posterior ATE distributions under different estimators?
+
 ```{code-cell} ipython3
 qs = range(4000)
-ate_dist = [get_ate(X, t, y, q, idata_expend, robust=True) for q in qs]
-ate_dist_df = pd.DataFrame(ate_dist, columns=["ATE", "E(Y(1))", "E(Y(0))"])
-ate_dist_df.head()
+ate_dist = [get_ate(X, t, y, q, idata_expend_bart, method="doubly_robust") for q in qs]
+ate_dist_df_dr = pd.DataFrame(ate_dist, columns=["ATE", "E(Y(1))", "E(Y(0))"])
+
+ate_dist = [get_ate(X, t, y, q, idata_expend_bart, method="robust") for q in qs]
+ate_dist_df_r = pd.DataFrame(ate_dist, columns=["ATE", "E(Y(1))", "E(Y(0))"])
+
+ate_dist_df_dr.head()
 ```
 
 ```{code-cell} ipython3
-plot_ate(ate_dist_df)
+plot_ate(ate_dist_df_r)
 ```
+
+Deriving ATE estimates across draws from the posterior distribution and averaging these seems to give a more sensible figure, but still inflated. If instead we use the doubly robust estimator we recover a much more sensible figure. 
+
+```{code-cell} ipython3
+plot_ate(ate_dist_df_dr)
+```
+
+It's worth here expanding on the theory of doubly robust estimation. We showed above the code for implementing the compromise between the treatment assingment estimator and the response or outcome estimator. But why is this useful?
+
++++
+
+### How does Regression Help?
 
 ```{code-cell} ipython3
 model_ps_reg_expend, idata_ps_reg_expend = make_prop_reg_model(X, t, y, idata_expend)
