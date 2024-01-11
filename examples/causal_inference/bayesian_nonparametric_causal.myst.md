@@ -41,9 +41,9 @@ rng = np.random.default_rng(42)
 
 You always run the risk of being wrong. 
 
-Your appetite for that risk is likely proportional to the strength of the claim you are making - less concerned with _casual_ assertions than __causal__ claims!  Each causal statement is an inferential gamble underwritten by our faith in (occasionally arcane) methodology. The conversational stakes are high - you risk your brittle credibility with false claims. There are few claims stronger than the assertion of a causal relationship, few claims more contestable. A naive world model, rich with tenuous connections and non-sequiter implications will expose you as an idiotic charlatan overly impressed by conspiracy theory. We don't want that for you. 
+Your appetite for that risk is likely proportional to the strength of the claim you are making - likley less concerned with _casual_ assertions than __causal__ claims!  Each causal statement is an inferential gamble underwritten by our faith in (occasionally arcane) methodology. The conversational stakes are high - you risk your brittle credibility with false claims. There are few claims stronger than the assertion of a causal relationship and few claims more contestable. A naive world model, rich with tenuous connections and non-sequiter implications will expose you as an idiotic charlatan overly impressed by conspiracy theory. We don't want that for you. 
 
-In this notebook we will explain and motivate the usage of propensity scores in analysis of causal inference questions. We will avoid the impression of magic - our focus will be on the manner in which we (a) estimate propensity scores and (b) use them in the analysis of causal questions. We will see how they help avoid risks of selection bias in causal inference and where they can go wrong. This method should be comfortable for the Bayeisan analyst who is familiar with weighting and re-weighting their claims with with information in the form priors. Propensity score weighting is just another opportunity to enrich your model with knowledge about the world.
+In this notebook we will explain and motivate the usage of propensity scores in the analysis of causal inference questions. We will avoid the impression of magic or arcana - our focus will be on the manner in which we (a) estimate propensity scores and (b) use them in the analysis of causal questions. We will see how they help avoid risks of selection bias in causal inference and where they can go wrong. This method should be comfortable for the Bayeisan analyst who is familiar with weighting and re-weighting their claims with with information in the form priors. Propensity score weighting is just another opportunity to enrich your model with knowledge about the world.
 
 We will illustrate these patterns using two data sets: (i) the NHEFS data used througout Miguel Hernan's _Causal Inference: What If_ book and a second patient focused data set used throughout _Bayesian Nonparametrics for Causal Inference and Missing Data_ by Daniels, Linero and Roy. Throughout we will contrast the use of non-parametric BART models with simpler regression models for the estimation of propensity scores and causal effects.
 
@@ -138,9 +138,9 @@ X.head()
 
 In this first step we define a model building function to capture the probability of treatment i.e. our propensity score for each individual. 
 
-We specify two types of model which are to  be assessed. One which relies entirely on the Logistic regression and another which uses BART to model the relationships between and the covariates and the outcome. The BART model has the benefit of using a tree-based algorithm to explore the interaction effects among the various strata in our sample data. 
+We specify two types of model which are to  be assessed. One which relies entirely on Logistic regression and another which uses BART to model the relationships between and the covariates and the treatment assignment. The BART model has the benefit of using a tree-based algorithm to explore the interaction effects among the various strata in our sample data. 
 
-Having a flexible model like BART is key to understanding what we are doing when we undertake inverse propensity weighting (IVPw) adjustments. The thought is that any given strata in our dataset will be described by a set of covariates. Types of individual will be represented by these covariate profiles - the attribute vector $X$. The share of observations within our data which are picked out by any given covariate profile represents a bias towards that type of individual. If our treatment status is such that individuals will more or less actively select themselves into the status, then a naive comparisons of differences between treatment groups and control groups will be misleading to the degree that we have over-represented types of individual (covariate profiles) in the population.
+Having a flexible model like BART is key to understanding what we are doing when we undertake inverse propensity weighting (IPw) adjustments. The thought is that any given strata in our dataset will be described by a set of covariates. Types of individual will be represented by these covariate profiles - the attribute vector $X$. The share of observations within our data which are picked out by any given covariate profile represents a bias towards that type of individual. If our treatment status is such that individuals will more or less actively select themselves into the status, then a naive comparisons of differences between treatment groups and control groups will be misleading to the degree that we have over-represented types of individual (covariate profiles) in the population.
 
 Randomisation solves this. But we can't always randomise.
 
@@ -200,9 +200,9 @@ These propensity scores can be pulled out and examined alongside the other covar
 
 Firstly, and somewhat superficially, the propensity score is a dimension reduction technique. We take a complex covariate profile $X_{i}$ and reduce it to a scaler $p^{i}_{T}(X)$. It is tool for thinking about the potential outcomes of an individual under different treatment regimes. In a policy evaluation context it can help partial out the degree of incentives for policy adoption strata of the population. 
 
-The pivotal idea is that we cannot license causal claims unless (i) the treatment assignment is independent of the covariate profiles i.e $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ and similarly conditionally independent of the treatement $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ given $X$. This also occasionally noted as the __unconfoundedness__ assumption. It is a theorem that if $T$ is strongly ignorable given $X$, then (ii) holds given $p_{T}(X)$. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. There is a great discussion of the details in Aronow and Miller's _Foundations of Agnostic Statistics_.
+The pivotal idea is that we cannot license causal claims unless (i) the treatment assignment is independent of the covariate profiles i.e $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ and similarly conditionally independent of the treatement $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ given $X$. This also occasionally noted as the __unconfoundedness__ assumption. It is a theorem that if $T$ is strongly ignorable given $X$, then (i) and (ii) hold given $p_{T}(X)$. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. There is a great discussion of the details in Aronow and Miller's _Foundations of Agnostic Statistics_. But the insight this suggests is that when you want to estimate a causal effect you are only required to control for the covariates which impact the probability of treatement assignment. 
 
-We are, as with all causal inference methods, making the assumption of __strong ignorability__. But given this assumption that we are measuring the right covariate profile to induce strong ignorability, then propensity scores can be used thoughtfully to underwrite causal claims. With observational data we cannot re-run the assignment mechanism but we can estimate it, and transform our data to proportionally weight the data summaries within each group so that the analysis is less effected by the over-representation of different strata in each group. This is what we hope to use the propensity scores to achieve. 
+Given the assumption that we are measuring the right covariate profiles to induce __strong ignorability__, then propensity scores can be used thoughtfully to underwrite causal claims. With observational data we cannot re-run the assignment mechanism but we can estimate it, and transform our data to proportionally weight the data summaries within each group so that the analysis is less effected by the over-representation of different strata in each group. This is what we hope to use the propensity scores to achieve. 
 
 
 ```{code-cell} ipython3
@@ -252,7 +252,7 @@ These weighting schemes can now be incorporated into various models of statistic
 
 ### Robust and Doubly Robust Propensity Scores
 
-We've been keen to stress that IVPw are a corrective. An opportunity for the causal analyst to put their finger on the scale and adjust the representative shares accorded to individuals in the treatment and control groups. As such there are no universal correctives, and naturally a variety of alternatives have arisen to fill gaps where simple propensity score weighting fails. We will see below a number of alternative weighting schemes. 
+We've been keen to stress that IPw are a corrective. An opportunity for the causal analyst to put their finger on the scale and adjust the representative shares accorded to individuals in the treatment and control groups. As such there are no universal correctives, and naturally a variety of alternatives have arisen to fill gaps where simple propensity score weighting fails. We will see below a number of alternative weighting schemes. 
 
 The main distinction to call out is between the raw propensity score weights and the doubly-robust theory of propensity score weights. 
 
@@ -889,11 +889,19 @@ model_ps_reg_expend_h, idata_ps_reg_expend_h = make_prop_reg_model(
 az.summary(idata_ps_reg_expend_h, var_names=["b"])
 ```
 
-This is much healthier and we can see that the propensity score feature in conjunction with the health factors to arrive at a sensible treatement effect estimate.
+This is much better and we can see that the propensity score feature in conjunction with the health factors to arrive at a sensible treatement effect estimate. This kind of finding echoes the lesson reported in Angrist and Pischke that:
+
+> "Regression control for the right covariates does a reasonable job of eliminating selection effects..." pg 91 _Mostly Harmless Econometrics_
+
+So we're back to the question of the right controls. There is a no real way to avoid this burden. Neither machine learning nor double machine learning can serve as a pancea absent domain knowledge and careful attention to the problem at hand. This is never the inspiring message people want to hear, but it is unfortunately true. Regression helps with this because the unforgiving clarity of a coefficiencts table is a reminder that there is no substitute to measuring the right things well. 
 
 +++
 
 ### Quantile Models
+
+To recap - we've seen two examples of causal inference with inverse probability weighted adjustments. We've seen when it works when the propensity score model is well-calibrated. We've seen when it fails and how the failure can be fixed. These are tools in our tool belt - apt for different problems. 
+
+In the case where the simple propensity modelling approach failed, we saw a data set in which our treatment assignment did not distinguish an average treatment effect. It remains an open question if we can tease out any differences in the quantiles of the distribution. 
 
 ```{code-cell} ipython3
 dummies = pd.concat(
@@ -915,12 +923,12 @@ X
 ```
 
 ```{code-cell} ipython3
-y_stack = np.stack([y] * 3)
-quantiles = np.array([[0.9, 0.95, 0.975]]).T
+y_stack = np.stack([y] * 6)
+quantiles = np.array([[0.5, 0.75, 0.9, 0.95, 0.975, 0.99]]).T
 
 with pm.Model() as model_q:
     X_data = pm.MutableData("X", X)
-    mu = pmb.BART("mu", X_data, y, shape=(3, X_data.shape[0]))
+    mu = pmb.BART("mu", X_data, y, shape=(6, X_data.shape[0]))
     sigma = pm.HalfNormal("sigma", 1)
     obs = pm.AsymmetricLaplace("obs", mu=mu, b=sigma, q=quantiles, observed=y_stack)
     idata = pm.sample_prior_predictive()
@@ -960,10 +968,10 @@ idata_smoke
 
 ```{code-cell} ipython3
 X["smoke"] = 1
-X["phealth_Fair"] = 1
+X["phealth_Fair"] = 0
 X["phealth_Good"] = 0
 X["phealth_Poor"] = 0
-X["phealth_Very Good"] = 0
+X["phealth_Very Good"] = 1
 with model_q:
     # update values of predictors:
     pm.set_data({"X": X})
@@ -974,10 +982,10 @@ idata_smoke_health
 
 ```{code-cell} ipython3
 X["smoke"] = 0
-X["phealth_Fair"] = 1
+X["phealth_Fair"] = 0
 X["phealth_Good"] = 0
 X["phealth_Poor"] = 0
-X["phealth_Very Good"] = 0
+X["phealth_Very Good"] = 1
 with model_q:
     # update values of predictors:
     pm.set_data({"X": X})
@@ -1003,6 +1011,7 @@ idata_non_smoke
 
 ```{code-cell} ipython3
 smoke_quantiles = idata_smoke["posterior_predictive"].mean(dim=("chain", "draw", "obs_dim_3"))
+
 nonsmoke_quantiles = idata_non_smoke["posterior_predictive"].mean(
     dim=("chain", "draw", "obs_dim_3")
 )
@@ -1017,144 +1026,10 @@ quantiles_df = pd.DataFrame(
         "smoke_health_quantiles": smoke_health_quantiles["obs"].values,
         "health_quantiles": health_quantiles["obs"].values,
     },
-    index=[0.975, 0.95, 0.90],
+    index=[0.99, 0.975, 0.95, 0.90, 0.5],
 )
 
 np.exp(quantiles_df)
-```
-
-### Propensity Score Modelling
-
-
-```{code-cell} ipython3
-dummies = pd.concat(
-    [
-        pd.get_dummies(df["seatbelt"], drop_first=True, prefix="seatbelt"),
-        pd.get_dummies(df["marital"], drop_first=True, prefix="marital"),
-        pd.get_dummies(df["race"], drop_first=True, prefix="race"),
-        pd.get_dummies(df["sex"], drop_first=True, prefix="sex"),
-        pd.get_dummies(df["phealth"], drop_first=True, prefix="phealth"),
-    ],
-    axis=1,
-)
-idx = df.sample(1000, random_state=100).index
-X = pd.concat(
-    [
-        df[
-            [
-                "age",
-            ]
-        ],
-        dummies,
-    ],
-    axis=1,
-)
-X = X.iloc[idx]
-t = df.iloc[idx]["smoke"]
-y = df.iloc[idx]["log_y"]
-X
-```
-
-```{code-cell} ipython3
-import pytensor.tensor as pt
-
-p = idata_expend["posterior"]["p"].mean(dim=("chain", "draw")).values
-p = np.where(t, p, 1 - p)
-t = df.iloc[idx]["smoke"].reset_index(drop=True).values
-# p = pd.DataFrame([p, t]).T.values
-K = 30
-
-coords = {"N": np.arange(X.shape[0]), "K": np.arange(K) + 1, "one": [1]}
-
-
-def norm_cdf(z):
-    return 0.5 * (1 + pt.erf(z / np.sqrt(2)))
-
-
-def stick_breaking(v):
-    return v * pt.concatenate(
-        [pt.ones_like(v[:, :1]), pt.extra_ops.cumprod(1 - v, axis=1)[:, :-1]], axis=1
-    )
-
-
-with pm.Model(coords=coords) as model_dpr:
-    ps = pm.MutableData("ps", p[:, np.newaxis])
-    trt = pm.MutableData("trt", t[:, np.newaxis])
-    alpha = pm.Normal("alpha", 0.0, 1.0, dims="K")
-    beta = pm.Normal("beta", 0.0, 1.0, dims="K")
-    beta1 = pm.Normal("beta1", 0.0, 1.0, dims="K")
-    beta2 = pm.Normal("beta2", 0.0, 1.0, dims="K")
-    v = pm.Deterministic("v", norm_cdf(alpha + ps * beta + trt * beta1 + (ps * trt) * beta2))
-    w = pm.Deterministic("w", stick_breaking(v))
-    gamma = pm.Normal("gamma", 0.0, 1.0, dims="K")
-    delta = pm.Normal("delta", 0.0, 1.0, dims="K")
-    delta1 = pm.Normal("delta1", 0.0, 1.0, dims="K")
-    delta2 = pm.Normal("delta2", 0.0, 1.0, dims="K")
-    mu1 = pm.Deterministic("mu1", gamma + ps * delta + trt * delta1 + (ps * trt) * delta2)
-    tau = pm.Gamma("tau", 1.0, 1.0, dims="K")
-    y_obs = pm.MutableData("y", y)
-    obs = pm.NormalMixture("obs", w, mu1, tau=tau, observed=y_obs)
-
-    idata_dpr = pm.sample_prior_predictive()
-    idata_dpr.extend(pm.sample(2000, nuts_sampler="numpyro", target_accept=0.99, chains=2))
-
-
-pm.model_to_graphviz(model_dpr)
-```
-
-```{code-cell} ipython3
-idata_dpr["posterior"]["w"].mean(dim=("chain", "draw", "w_dim_0")).round(2)
-```
-
-```{code-cell} ipython3
-az.summary(idata_dpr, var_names=["delta1"])
-```
-
-```{code-cell} ipython3
-with model_dpr:
-    idata_dpr.extend(pm.sample_posterior_predictive(idata_dpr))
-
-idata_dpr
-```
-
-```{code-cell} ipython3
-az.plot_trace(idata_dpr, var_names=["alpha", "gamma", "beta", "beta1", "delta", "delta1", "tau"]);
-```
-
-```{code-cell} ipython3
-X["smoke"] = 1
-X["phealth_Fair"] = 0
-X["phealth_Good"] = 0
-X["phealth_Poor"] = 0
-X["phealth_Very Good"] = 0
-with model_dpr:
-    # update values of predictors:
-    pm.set_data({"trt": np.ones_like(t)[:, np.newaxis]})
-    idata_smoke = pm.sample_posterior_predictive(idata_dpr)
-
-idata_smoke
-```
-
-```{code-cell} ipython3
-with model_dpr:
-    # update values of predictors:
-    pm.set_data({"trt": np.zeros_like(t)[:, np.newaxis]})
-    idata_non_smoke = pm.sample_posterior_predictive(idata_dpr)
-```
-
-```{code-cell} ipython3
-idata_smoke
-```
-
-```{code-cell} ipython3
-smoke_quantiles = idata_smoke["posterior_predictive"].quantile(
-    [0.5, 0.9, 0.95, 0.975], dim=("chain", "draw", "obs_dim_2")
-)
-nonsmoke_quantiles = idata_non_smoke["posterior_predictive"].quantile(
-    [0.5, 0.9, 0.95, 0.975], dim=("chain", "draw", "obs_dim_2")
-)
-
-nonsmoke_quantiles - smoke_quantiles
 ```
 
 ## Authors
