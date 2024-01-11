@@ -41,11 +41,19 @@ rng = np.random.default_rng(42)
 
 You always run the risk of being wrong. 
 
-Your appetite for that risk is likely proportional to the strength of the claim you are making - less concerned with _casual_ assertions than __causal__ claims!  Each causal statement is an inferential gamble underwritten by our faith in (occasionally arcane) methodology. The conversational stakes are high - you risk your brittle credibility with false claims. There are few claims stronger than the assertion of a causal relationship, few claims more contestable. A naive world model, rich with tenuous connections and non-sequiter implications will expose you as an idiotic charlatan overly impressed by conspiracy theory. We don't that for you. 
+Your appetite for that risk is likely proportional to the strength of the claim you are making - less concerned with _casual_ assertions than __causal__ claims!  Each causal statement is an inferential gamble underwritten by our faith in (occasionally arcane) methodology. The conversational stakes are high - you risk your brittle credibility with false claims. There are few claims stronger than the assertion of a causal relationship, few claims more contestable. A naive world model, rich with tenuous connections and non-sequiter implications will expose you as an idiotic charlatan overly impressed by conspiracy theory. We don't want that for you. 
 
-In this notebook we will explain and motivate the usage of propensity scores in analysis of causal inference questions. We will avoid the impression of magic - our focus will be on the manner in which we (a) estimate propensity scores and (b) use them in the analysis of causal questions. We will see how they help avoid risks of selection bias in causal inference. This method should be comfortable for the Bayeisan analyst who is familiar with weighting and re-weighting their claims with with information in the form priors. Propensity score weighting is just another opportunity to enrich your model with knowledge about the world.
+In this notebook we will explain and motivate the usage of propensity scores in analysis of causal inference questions. We will avoid the impression of magic - our focus will be on the manner in which we (a) estimate propensity scores and (b) use them in the analysis of causal questions. We will see how they help avoid risks of selection bias in causal inference and where they can go wrong. This method should be comfortable for the Bayeisan analyst who is familiar with weighting and re-weighting their claims with with information in the form priors. Propensity score weighting is just another opportunity to enrich your model with knowledge about the world.
 
 We will illustrate these patterns using two data sets: (i) the NHEFS data used througout Miguel Hernan's _Causal Inference: What If_ book and a second patient focused data set used throughout _Bayesian Nonparametrics for Causal Inference and Missing Data_ by Daniels, Linero and Roy. Throughout we will contrast the use of non-parametric BART models with simpler regression models for the estimation of propensity scores and causal effects.
+
++++
+
+:::{admonition} Note on Propensity Score Matching
+:class: tip
+
+Propensity scores are often synonymous with the technique of propensity score matching. We will not be covering this topic. It is a natural extension of propensity score modelling but to our mind introduces complexity through the requirements around matching algorithms and information loss with reduced sample size. 
+:::
 
 +++
 
@@ -136,7 +144,7 @@ Having a flexible model like BART is key to understanding what we are doing when
 
 Randomisation solves this. But we can't always randomise.
 
-What happens when we randomise? Randomisation of treatment status aims to ensure that we have a balance of covariate profiles across both groups. This helps avoid the selection-bias just discussed. Propensity scores are useful because they can help emulate _as-if_ random assignment of treatment status in the sample data through a specific transformation of the observed data. 
+What happens when we randomise? Randomisation of treatment status aims to ensure that we have a balance of covariate profiles across both groups. Additionally randomisation guarantees independence of the potential outcomes with respect to the treatment assignment mechanism. This helps avoid the selection-bias just discussed. Propensity scores are useful because they can help emulate _as-if_ random assignment of treatment status in the sample data through a specific transformation of the observed data. 
 
 First we model the individual propensity scores as a function of the indivifua covariate profiles:
 
@@ -192,7 +200,7 @@ These propensity scores can be pulled out and examined alongside the other covar
 
 Firstly, and somewhat superficially, the propensity score is a dimension reduction technique. We take a complex covariate profile $X_{i}$ and reduce it to a scaler $p^{i}_{T}(X)$. It is tool for thinking about the potential outcomes of an individual under different treatment regimes. In a policy evaluation context it can help partial out the degree of incentives for policy adoption strata of the population. 
 
-The pivotal idea is that we cannot license causal claims unless (i) the treatment assignment is independent of the covariate profiles i.e $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ and similarly conditionally independent of the treatement $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ given $X$. It is a theorem that if $T$ is strongly ignorable given $X$, then (ii) holds given $p_{T}(X)$. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. There is a great discussion of the details in Aronow and Miller's _Foundations of Agnostic Statistics_.
+The pivotal idea is that we cannot license causal claims unless (i) the treatment assignment is independent of the covariate profiles i.e $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ and similarly conditionally independent of the treatement $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ given $X$. This also occasionally noted as the __unconfoundedness__ assumption. It is a theorem that if $T$ is strongly ignorable given $X$, then (ii) holds given $p_{T}(X)$. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. There is a great discussion of the details in Aronow and Miller's _Foundations of Agnostic Statistics_.
 
 We are, as with all causal inference methods, making the assumption of __strong ignorability__. But given this assumption that we are measuring the right covariate profile to induce strong ignorability, then propensity scores can be used thoughtfully to underwrite causal claims. With observational data we cannot re-run the assignment mechanism but we can estimate it, and transform our data to proportionally weight the data summaries within each group so that the analysis is less effected by the over-representation of different strata in each group. This is what we hope to use the propensity scores to achieve. 
 
@@ -238,7 +246,7 @@ axs[2].legend(handles=[red_patch, blue_patch])
 axs[3].legend(handles=[red_patch, blue_patch]);
 ```
 
-These weighting schemes can now be incorporated into various models of statistical summaries so as to "correct" the reprensentation of covariate profiles across both groups. If an individual's propensity score is such that they are are highly likely to receive the treatment status e.g .95 then we want to downweight their importance if they occur in the treatment and upweight their importance if they appear in the control group. This makes sense because their high propensity score implies that similar individuals are already heavily present in the treatment group, but less likely to occur in the control group. Hence our corrective strategy re-weights their contribution to the summary statistics across each group. 
+These weighting schemes can now be incorporated into various models of statistical summaries so as to "correct" the representation of covariate profiles across both groups. If an individual's propensity score is such that they are are highly likely to receive the treatment status e.g .95 then we want to downweight their importance if they occur in the treatment and upweight their importance if they appear in the control group. This makes sense because their high propensity score implies that similar individuals are already heavily present in the treatment group, but less likely to occur in the control group. Hence our corrective strategy re-weights their contribution to the summary statistics across each group. 
 
 +++
 
@@ -404,7 +412,7 @@ We plot the outcome and re-weighted outcome distribution using the robust propen
 make_plot(X, idata_logit, method="robust")
 ```
 
-Next, and because we are Bayesians - we pull out and evaluate the posterior distribution of the ATE basd on the sampled propensity scores. 
+Next, and because we are Bayesians - we pull out and evaluate the posterior distribution of the ATE basd on the sampled propensity scores. We've seen a point estimate for the ATE above, but it's often more important in the causal inference context to understand the uncertainty in the estimate. 
 
 ```{code-cell} ipython3
 def get_ate(X, t, y, i, idata, method="doubly_robust"):
@@ -423,6 +431,7 @@ def get_ate(X, t, y, i, idata, method="doubly_robust"):
         i_propensity0 = X[X["trt"] == 0]["i_ps"]
         i_propensity1 = X[X["trt"] == 1]["i_ps"]
     else:
+        ## model estimates of Doubly robust method
         m0 = sm.OLS(y[t == 0], X[t == 0]).fit()
         m1 = sm.OLS(y[t == 1], X[t == 1]).fit()
         m0_pred = m0.predict(X)
@@ -443,6 +452,9 @@ def get_ate(X, t, y, i, idata, method="doubly_robust"):
         ntrt = weighted_outcome_ntrt.sum() / len(X)
         trt = weighted_outcome_trt.sum() / len(X)
     else:
+        ## Compromise step between assignment model and outcome model
+        ## Model mispecification forces the terms towards zero cancelling
+        ## out misspecification.
         trt = np.mean(X["trt"] * (X["y"] - m1_pred) / X["ps"] + m1_pred)
         ntrt = np.mean((1 - X["trt"]) * (X["y"] - m0_pred) / (1 - X["ps"]) + m0_pred)
     ate = ntrt - trt
@@ -503,9 +515,13 @@ ate_dist_df_probit.head()
 plot_ate(ate_dist_df_probit)
 ```
 
+Note the tighter variance of the measures using the doubly robust method. 
+
++++
+
 ### Considerations Choosing between models
 
-It is one thing to evalute change in average over the population, but we might want to allow for the idea of effect heterogenity across the population and as such the BART model is generally better at ensuring accurate predictions and therefore better more calibrated propensity scores acros the deepter strata of our data. But the flexibility of machine learning models for prediction tasks do not guarantee that the propensity scores attributed across the sample are well calibrated to recover the true-treatment effects when used in causal effect estimation. We have to careful in how we use the flexibility of non-parametric models in the causal context. 
+It is one thing to evalute change in average over the population, but we might want to allow for the idea of effect heterogenity across the population and as such the BART model is generally better at ensuring accurate predictions acros the deepter strata of our data. But the flexibility of machine learning models for prediction tasks do not guarantee that the propensity scores attributed across the sample are well calibrated to recover the true-treatment effects when used in causal effect estimation. We have to be careful in how we use the flexibility of non-parametric models in the causal context. 
 
 First observe the hetereogenous accuracy induced by the BART model across increasingly narrow strata of our sample. 
 
@@ -543,7 +559,7 @@ Observations like this go along way to motivating the work in the Double ML caus
 
 ### Regression with Propensity Scores
 
-Another perhaps more direct method of causal inference is to just use regression directly. Angrist and Pischke suggest that the familiar properties of regression make it more desirable, but acknowledge that there is a role for propensity and that the methods can be combined by the cautious analyst.
+Another perhaps more direct method of causal inference is to just use regression directly. Angrist and Pischke suggest that the familiar properties of regression make it more desirable, but concede that there is a role for propensity and that the methods can be combined by the cautious analyst. Here we'll show how we can combine the propensity score in a regression context to derive estimates of treatment effects. 
 
 ```{code-cell} ipython3
 def make_prop_reg_model(X, t, y, idata_ps, covariates=None, samples=1000):
@@ -632,7 +648,7 @@ All perspectives on the question of causal inference here seem broadly convergen
 
 ## Health Expenditure Data
 
-We will begin with looking a health-expenditure data set analysed in _Bayesian Nonparametrics for Causal Inference and Missing Data_ . The telling feature about this data set is absence of obvious causal impact on expenditure due to the presence of smoking. We follow the authors and try and model the effect of `smoke` on the logged out `log_y`.
+We will begin with looking a health-expenditure data set analysed in _Bayesian Nonparametrics for Causal Inference and Missing Data_ . The telling feature about this data set is the absence of obvious causal impact on expenditure due to the presence of smoking. We follow the authors and try and model the effect of `smoke` on the logged out `log_y`.
 
 ```{code-cell} ipython3
 df = pd.read_csv("../data/meps_bayes_np_health.csv", index_col=["Unnamed: 0"])
@@ -643,7 +659,9 @@ df["smoke"] = np.where(df["smoke"] == "No", 0, 1)
 df
 ```
 
-### Some basic Summaries
+### Some basic Summary Statistics
+
+Lets review the basic summary statistics and see how they change across various strata of the population
 
 ```{code-cell} ipython3
 raw_diff = df.groupby("smoke")[["log_y"]].mean()
@@ -676,7 +694,7 @@ print(
 strata_expected_df
 ```
 
-It certaintly seems that there is little to no impact due to our treatment effect in the data. Can we recover this insight using the method of inverse propensity score weighting. But first, let's do some basic exploratory data analysis to confirm our intuition. 
+It certaintly seems that there is little to no impact due to our treatment effect in the data. Can we recover this insight using the method of inverse propensity score weighting? But first, let's do some basic exploratory data analysis to confirm our intuition. 
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(2, 2, figsize=(20, 8))
@@ -753,7 +771,7 @@ axs[1].plot(quantile_diff["quantile"], quantile_diff["diff"])
 axs[1].set_title("Differences across the Quantiles");
 ```
 
-### What could go Wrong?
+### What could possibly go Wrong?
 
 ```{code-cell} ipython3
 dummies = pd.concat(
@@ -833,26 +851,36 @@ Deriving ATE estimates across draws from the posterior distribution and averagin
 plot_ate(ate_dist_df_dr)
 ```
 
-It's worth here expanding on the theory of doubly robust estimation. We showed above the code for implementing the compromise between the treatment assingment estimator and the response or outcome estimator. But why is this useful?
+It's worth here expanding on the theory of doubly robust estimation. We showed above the code for implementing the compromise between the treatment assignment estimator and the response or outcome estimator. But why is this useful? Consider again the functional form of the doubly robust estimator.
+
+$$ \hat{Y(1)} = \frac{1}{n} \sum_{0}^{N} \Bigg[ \frac{T(Y - m_{1}(X))}{p_{T}(X)} + m_{1}(X) \Bigg] $$
+
+$$ \hat{Y(0)} = \frac{1}{n} \sum_{0}^{N} \Bigg[ \frac{(1-T)(Y - m_{0}(X))}{(1-p_{T}(X))} + m_{0}(X) \Bigg] $$
+
+It is not immediately intuitive as to how these formulas effect a compromise between the outcome model and the treatment assignment model. But consider the extreme cases first imagine our model $m_{1}$ is a perfect fit to our outcome $Y$, then the numerator of the fraction is 0 and we end up with an average of the model predictions. Instead imagine model $m_{1}$ is mis-specified and we have some error $\epsilon > 0$ in the numerator. If the propensity score model is accurate then in the treated class our denominator should be high... say $\sim N(.9, .1)$, and as such the estimator adds a number close to $\epsilon$ back to the $m_{1}$ prediction. Similar reasoning goes through for the $Y(0)$ case. So as long as one of the two models is well-specified this estimator can recover accurate unbiased treatment effects.
 
 +++
 
 ### How does Regression Help?
 
+We've just seen an example of how a mis-specfied machine learning model can wildly bias the causal estimates in a study. We've seen one means of fixing it, but how would things work out if we just tried simpler exploratory regression modelling?
+
 ```{code-cell} ipython3
-model_ps_reg_expend, idata_ps_reg_expend = make_prop_reg_model(X, t, y, idata_expend)
+model_ps_reg_expend, idata_ps_reg_expend = make_prop_reg_model(X, t, y, idata_expend_bart)
 ```
 
 ```{code-cell} ipython3
 az.summary(idata_ps_reg_expend, var_names=["b"])
 ```
 
+This model is clearly too simple. It recovers only the biased estimate due to the mis-specified BART propensity model, but what if we just used the propensity as another feature in our covariate profile. Let it add precision, but fit the model we think actually reflects the causal story.
+
 ```{code-cell} ipython3
 model_ps_reg_expend_h, idata_ps_reg_expend_h = make_prop_reg_model(
     X,
     t,
     y,
-    idata_expend,
+    idata_expend_bart,
     covariates=["phealth_Fair", "phealth_Good", "phealth_Poor", "phealth_Very Good"],
 )
 ```
@@ -860,6 +888,10 @@ model_ps_reg_expend_h, idata_ps_reg_expend_h = make_prop_reg_model(
 ```{code-cell} ipython3
 az.summary(idata_ps_reg_expend_h, var_names=["b"])
 ```
+
+This is much healthier and we can see that the propensity score feature in conjunction with the health factors to arrive at a sensible treatement effect estimate.
+
++++
 
 ### Quantile Models
 
