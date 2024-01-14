@@ -679,7 +679,7 @@ strata_df["global_avg"] = global_avg
 strata_df.reset_index(inplace=True)
 strata_df.columns = [" ".join(col).strip() for col in strata_df.columns.values]
 strata_df["diff"] = strata_df["log_y mean"] - strata_df["global_avg"]
-strata_df.style.background_gradient(axis=0)
+strata_df.head(30).style.background_gradient(axis=0)
 ```
 
 ```{code-cell} ipython3
@@ -787,11 +787,7 @@ dummies = pd.concat(
 idx = df.sample(1000, random_state=100).index
 X = pd.concat(
     [
-        df[
-            [
-                "age",
-            ]
-        ],
+        df[["age", "bmi"]],
         dummies,
     ],
     axis=1,
@@ -809,7 +805,7 @@ m_ps_expend_bart, idata_expend_bart = make_propensity_model(
 m_ps_expend_logit, idata_expend_logit = make_propensity_model(X, t, bart=False, samples=1000)
 ```
 
-### Non-Parametric BART Model Propensity Model is mis-specified
+## Non-Parametric BART Model Propensity Model is mis-specified
 
 The flexibility of the BART model fit is poorly calibrated to recover the average treatment effect. Let's evaluate the weighted outcome distributions under the robust IVPw estimate. 
 
@@ -861,7 +857,7 @@ It is not immediately intuitive as to how these formulas effect a compromise bet
 
 +++
 
-### How does Regression Help?
+## How does Regression Help?
 
 We've just seen an example of how a mis-specfied machine learning model can wildly bias the causal estimates in a study. We've seen one means of fixing it, but how would things work out if we just tried simpler exploratory regression modelling?
 
@@ -897,11 +893,15 @@ So we're back to the question of the right controls. There is a no real way to a
 
 +++
 
-### Quantile Models
+## Double Machine Learning and Frisch-Waugh-Lovell
 
-To recap - we've seen two examples of causal inference with inverse probability weighted adjustments. We've seen when it works when the propensity score model is well-calibrated. We've seen when it fails and how the failure can be fixed. These are tools in our tool belt - apt for different problems. 
+To recap - we've seen two examples of causal inference with inverse probability weighted adjustments. We've seen when it works when the propensity score model is well-calibrated. We've seen when it fails and how the failure can be fixed. These are tools in our tool belt - apt for different problems, but come with the requirement
 
-In the case where the simple propensity modelling approach failed, we saw a data set in which our treatment assignment did not distinguish an average treatment effect. It remains an open question if we can tease out any differences in the quantiles of the distribution. 
+In the case where the simple propensity modelling approach failed, we saw a data set in which our treatment assignment did not distinguish an average treatment effect. We also saw how if we augment our propensity based estimator we can improve the identification properties of the technique. Here we'll show another example of how propensity models can be combined with an insight from regression based modelling to take advantage of the flexible modelling possibilities offered by machine learning approaches to causal inference. 
+
+### Train and Testing Data Splits
+
+One of the concerns with the automatic regularisation effects of BART like tree based models is their tendency to over-fit to the seen data. Here we'll use K-fold cross validation to generate predictions on out of sample cuts of the data. 
 
 ```{code-cell} ipython3
 dummies = pd.concat(
@@ -914,122 +914,123 @@ dummies = pd.concat(
     ],
     axis=1,
 )
-idx = df.sample(1000, random_state=100).index
-X = pd.concat([df[["age", "bmi", "smoke"]], dummies], axis=1)
-X = X.iloc[idx]
-t = df.iloc[idx]["smoke"]
-y = df.iloc[idx]["log_y"]
-X
+train_dfs = []
+temp = pd.concat([df[["age", "bmi", "smoke"]], dummies], axis=1)
+
+for i in range(5):
+    idx = temp.sample(1000).index
+    X = temp.iloc[idx].copy()
+    t = df.iloc[idx]["smoke"]
+    y = df.iloc[idx]["log_y"]
+    train_dfs.append([X, t, y])
+    remaining = [True if not i in idx else False for i in temp.index]
+    temp = temp[remaining]
+    temp.reset_index(inplace=True, drop=True)
+```
+
+### Applying Double ML Methods
+
+```{code-cell} ipython3
+def train_outcome_model(X, y):
+    coords = {"coeffs": list(X.columns), "obs": range(len(X))}
+    with pm.Model(coords=coords) as model:
+        X_data = pm.MutableData("X", X)
+        y_data = pm.MutableData("y_data", y)
+        mu = pmb.BART("mu", X_data, y)
+        sigma = pm.HalfNormal("sigma", 1)
+        obs = pm.LogNormal("obs", mu, sigma, observed=y_data)
+        idata = pm.sample_prior_predictive()
+        idata.extend(pm.sample(4000))
+        # idata.extend(pm.sample_posterior_predictive(idata))
+    return model, idata
+
+
+def train_propensity_model(X, t):
+    coords = {"coeffs": list(X.columns), "obs_id": range(len(X))}
+    with pm.Model(coords=coords) as model_ps:
+        X_data = pm.MutableData("X", X)
+        t_data = pm.MutableData("t_data", t)
+        mu = pmb.BART("mu", X_data, t)
+        p = pm.Deterministic("p", pm.math.invlogit(mu))
+        t_pred = pm.Bernoulli("obs", p=p, observed=t_data)
+        idata = pm.sample_prior_predictive()
+        idata.extend(pm.sample(4000))
+        # idata.extend(pm.sample_posterior_predictive(idata))
+    return model_ps, idata
+
+
+def cross_validate(train_dfs, test_idx):
+    test = train_dfs[test_idx]
+    test_X = test[0]
+    test_t = test[1]
+    test_y = test[2]
+    train_X = pd.concat([train_dfs[i][0] for i in range(5) if i != test_idx])
+    train_t = pd.concat([train_dfs[i][1] for i in range(5) if i != test_idx])
+    train_y = pd.concat([train_dfs[i][2] for i in range(5) if i != test_idx])
+
+    model, idata = train_outcome_model(train_X, train_y)
+    with model:
+        pm.set_data({"X": test_X, "y_data": test_y})
+        idata_pred = pm.sample_posterior_predictive(idata)
+    y_resid = idata_pred["posterior_predictive"]["obs"].stack(z=("chain", "draw")).T - test_y.values
+
+    model_t, idata_t = train_propensity_model(train_X, train_t)
+    with model_t:
+        pm.set_data({"X": test_X, "t_data": test_t})
+        idata_pred_t = pm.sample_posterior_predictive(idata_t)
+    t_resid = (
+        idata_pred_t["posterior_predictive"]["obs"].stack(z=("chain", "draw")).T - test_t.values
+    )
+
+    return y_resid, t_resid, idata_pred, idata_pred_t
+
+
+y_resids = []
+t_resids = []
+model_fits = {}
+for i in range(5):
+    y_resid, t_resid, idata_pred, idata_pred_t = cross_validate(train_dfs, i)
+    y_resids.append(y_resid)
+    t_resids.append(t_resid)
+    t_effects = []
+    for j in range(1000):
+        intercept = np.ones_like(1000)
+        covariates = pd.DataFrame({"intercept": intercept, "t_resid": t_resid[:, j].values})
+        m0 = sm.OLS(y_resid[:, j].values, covariates).fit()
+        t_effects.append(m0.params["t_resid"])
+    model_fits[i] = [m0, t_effects]
+    print(f"Estimated Treament Effect in K-fold {i}: {np.mean(t_effects)}")
 ```
 
 ```{code-cell} ipython3
-y_stack = np.stack([y] * 6)
-quantiles = np.array([[0.5, 0.75, 0.9, 0.95, 0.975, 0.99]]).T
+import xarray as xr
 
-with pm.Model() as model_q:
-    X_data = pm.MutableData("X", X)
-    mu = pmb.BART("mu", X_data, y, shape=(6, X_data.shape[0]))
-    sigma = pm.HalfNormal("sigma", 1)
-    obs = pm.AsymmetricLaplace("obs", mu=mu, b=sigma, q=quantiles, observed=y_stack)
-    idata = pm.sample_prior_predictive()
-    idata.extend(pm.sample())
+y_resids_stacked = xr.concat(y_resids, dim=("obs_dim_2"))
+t_resids_stacked = xr.concat(t_resids, dim=("obs_dim_2"))
 
-pm.model_to_graphviz(model_q)
+t_resids_stacked
 ```
 
 ```{code-cell} ipython3
-idata
+t_effects = []
+for i in range(5000):
+    intercept = np.ones_like(5000)
+    covariates = pd.DataFrame({"intercept": intercept, "t_resid": t_resids_stacked[:, i].values})
+    m0 = sm.OLS(y_resids_stacked[:, i].values, covariates).fit()
+    t_effects.append(m0.params["t_resid"])
+
+m0.summary()
 ```
 
 ```{code-cell} ipython3
-order, ax = pmb.plot_variable_importance(idata, bartrv=mu, X=X, figsize=(20, 6))
-ax.set_xticklabels(ax.get_xticklabels(), rotation=45);
-```
-
-```{code-cell} ipython3
-az.plot_trace(idata, var_names=["mu", "sigma"])
-```
-
-### Inferred Quantile Causal Effects
-
-```{code-cell} ipython3
-X["smoke"] = 1
-X["phealth_Fair"] = 0
-X["phealth_Good"] = 0
-X["phealth_Poor"] = 0
-X["phealth_Very Good"] = 0
-with model_q:
-    # update values of predictors:
-    pm.set_data({"X": X})
-    idata_smoke = pm.sample_posterior_predictive(idata)
-
-idata_smoke
-```
-
-```{code-cell} ipython3
-X["smoke"] = 1
-X["phealth_Fair"] = 0
-X["phealth_Good"] = 0
-X["phealth_Poor"] = 0
-X["phealth_Very Good"] = 1
-with model_q:
-    # update values of predictors:
-    pm.set_data({"X": X})
-    idata_smoke_health = pm.sample_posterior_predictive(idata)
-
-idata_smoke_health
-```
-
-```{code-cell} ipython3
-X["smoke"] = 0
-X["phealth_Fair"] = 0
-X["phealth_Good"] = 0
-X["phealth_Poor"] = 0
-X["phealth_Very Good"] = 1
-with model_q:
-    # update values of predictors:
-    pm.set_data({"X": X})
-    idata_health = pm.sample_posterior_predictive(idata)
-
-idata_health
-```
-
-```{code-cell} ipython3
-X["smoke"] = 0
-X["phealth_Fair"] = 0
-X["phealth_Good"] = 0
-X["phealth_Poor"] = 0
-X["phealth_Very Good"] = 0
-
-with model_q:
-    # update values of predictors:
-    pm.set_data({"X": X})
-    idata_non_smoke = pm.sample_posterior_predictive(idata)
-
-idata_non_smoke
-```
-
-```{code-cell} ipython3
-smoke_quantiles = idata_smoke["posterior_predictive"].mean(dim=("chain", "draw", "obs_dim_3"))
-
-nonsmoke_quantiles = idata_non_smoke["posterior_predictive"].mean(
-    dim=("chain", "draw", "obs_dim_3")
-)
-smoke_health_quantiles = idata_smoke_health["posterior_predictive"].mean(
-    dim=("chain", "draw", "obs_dim_3")
-)
-health_quantiles = idata_health["posterior_predictive"].mean(dim=("chain", "draw", "obs_dim_3"))
-quantiles_df = pd.DataFrame(
-    {
-        "nonsmoke_quantiles": nonsmoke_quantiles["obs"].values,
-        "smoke_quantiles": smoke_quantiles["obs"].values,
-        "smoke_health_quantiles": smoke_health_quantiles["obs"].values,
-        "health_quantiles": health_quantiles["obs"].values,
-    },
-    index=[0.99, 0.975, 0.95, 0.90, 0.5],
-)
-
-np.exp(quantiles_df)
+fig, axs = plt.subplots(1, 2, figsize=(20, 6))
+axs = axs.flatten()
+axs[0].hist(t_effects, bins=30, ec="black", color="slateblue", label="ATE")
+axs[1].hist(t_effects, bins=30, ec="black", color="slateblue", cumulative=True, histtype="step")
+axs[0].set_title("Double ML - ATE estimate \n Distribution")
+axs[1].set_title("Double ML - ATE estimate \n Cumulative Distribution")
+axs[0].axvline(np.mean(t_effects), label="E(ATE)")
+axs[0].legend()
 ```
 
 ## Authors
