@@ -894,15 +894,30 @@ So we're back to the question of the right controls. There is a no real way to a
 
 +++
 
-## Double Machine Learning and Frisch-Waugh-Lovell
+## Double/Debiased Machine Learning and Frisch-Waugh-Lovell
 
 To recap - we've seen two examples of causal inference with inverse probability weighted adjustments. We've seen when it works when the propensity score model is well-calibrated. We've seen when it fails and how the failure can be fixed. These are tools in our tool belt - apt for different problems, but come with the requirement that we think carefully about the data generating process and the type of appropriate covariates. 
 
 In the case where the simple propensity modelling approach failed, we saw a data set in which our treatment assignment did not distinguish an average treatment effect. We also saw how if we augment our propensity based estimator we can improve the identification properties of the technique. Here we'll show another example of how propensity models can be combined with an insight from regression based modelling to take advantage of the flexible modelling possibilities offered by machine learning approaches to causal inference. In this secrion we draw heavily on the work of Matheus Facure, especially his book _Causal Inference in Python_ {cite:t}`facure2023causal`. 
 
-### Train and Testing Data Splits
+### The Frisch-Waugh-Lovell Theorem
 
-One of the concerns with the automatic regularisation effects of BART like tree based models is their tendency to over-fit to the seen data. Here we'll use K-fold cross validation to generate predictions on out of sample cuts of the data. 
+The idea of the theorem is that for any OLS fitted linear model with a focal parameter $\beta_{1}$ and the nuisance parameters $\gamma_{i}$ 
+
+$$\hat{Y} = \beta_{0} + \beta_{1}X_{1} + \gamma_{1}N_{1} + ... + \gamma_{n}N_{n}  $$
+
+We can retrieve the same values $\beta_{i}, \gamma_{i}$ in a two step procedure: 
+
+- Regress $Y$ on the nuisance covariates i.e. $\hat{Y} = \gamma_{1}N_{1} + ... + \gamma_{n}N_{n} $
+- Regress $X_{1}$ on the same nuisance terms i.e. $\hat{X_{1}} =  \gamma_{1}N_{1} + ... + \gamma_{n}N_{n}$
+- Take the residuals $r(X) = X_{1} - \hat{X_{1}}$ and $r(Y) = Y - \hat{Y}$
+- Fit the regression $r(Y) = \beta_{0} + \beta_{1}r(X)$ to find $\beta_{1}$
+
+The idea of debiased machine learning is to replicate this exercise, but avail of the flexibility for machine learning models to estimate the two residual terms in the case where the focal variable of interest is our treatment variable. 
+
+### Avoiding Overfitting with K-fold Cross Prediction
+
+As we've seen above one of the concerns with the automatic regularisation effects of BART like tree based models is their tendency to over-fit to the seen data. Here we'll use K-fold cross validation to generate predictions on out of sample cuts of the data. This step is crucial to avoid the over-fitting of the model to the sample data and thereby avoiding the miscalibration effects we've seen above. 
 
 ```{code-cell} ipython3
 dummies = pd.concat(
@@ -929,7 +944,9 @@ for i in range(5):
     temp.reset_index(inplace=True, drop=True)
 ```
 
-### Applying Double ML Methods
+### Applying Debiased ML Methods
+
+Next we define the functions to fit and predict with the propensity score and outcome models. Because we're Bayesian we will record the posterior distribution of the residuals for both the outcome model and the propensity model. In both cases we'll use the baseline BART specification to avail of the flexibility of machine learning for accuracy. We then use the K-fold process to fit the model and predict the residuals on the out of sample fold. This allows us to extract the posterior distribution for ATE. 
 
 ```{code-cell} ipython3
 def train_outcome_model(X, y):
@@ -941,7 +958,7 @@ def train_outcome_model(X, y):
         sigma = pm.HalfNormal("sigma", 1)
         obs = pm.LogNormal("obs", mu, sigma, observed=y_data)
         idata = pm.sample_prior_predictive()
-        idata.extend(pm.sample(4000))
+        idata.extend(pm.sample(4000, progressbar=False))
         # idata.extend(pm.sample_posterior_predictive(idata))
     return model, idata
 
@@ -955,7 +972,7 @@ def train_propensity_model(X, t):
         p = pm.Deterministic("p", pm.math.invlogit(mu))
         t_pred = pm.Bernoulli("obs", p=p, observed=t_data)
         idata = pm.sample_prior_predictive()
-        idata.extend(pm.sample(4000))
+        idata.extend(pm.sample(4000, progressbar=False))
         # idata.extend(pm.sample_posterior_predictive(idata))
     return model_ps, idata
 
@@ -1007,7 +1024,7 @@ for i in range(5):
 y_resids_stacked = xr.concat(y_resids, dim=("obs_dim_2"))
 t_resids_stacked = xr.concat(t_resids, dim=("obs_dim_2"))
 
-t_resids_stacked
+y_resids_stacked
 ```
 
 ```{code-cell} ipython3
@@ -1017,8 +1034,6 @@ for i in range(16000):
     covariates = pd.DataFrame({"intercept": intercept, "t_resid": t_resids_stacked[i, :].values})
     m0 = sm.OLS(y_resids_stacked[i, :].values, covariates).fit()
     t_effects.append(m0.params["t_resid"])
-
-m0.summary()
 ```
 
 ```{code-cell} ipython3
@@ -1036,9 +1051,15 @@ axs[1].hist(
 )
 axs[0].set_title("Double ML - ATE estimate \n Distribution")
 axs[1].set_title("Double ML - ATE estimate \n Cumulative Distribution")
-axs[0].axvline(np.mean(t_effects), label="E(ATE)")
+ate = np.mean(t_effects)
+axs[0].axvline(ate, label=f"E(ATE) = {np.round(ate, 2)}")
+
 axs[0].legend();
 ```
+
+We can see here how the technique of debiased machine learning has helped to alleviate some of the miscalibrated effects of naively fitting the BART model to the propensity score estimation task. 
+
++++
 
 ## Authors
 - Authored by [Nathaniel Forde](https://nathanielf.github.io/) in January 2024 
