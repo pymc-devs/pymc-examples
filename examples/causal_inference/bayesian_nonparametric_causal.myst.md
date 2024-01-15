@@ -14,7 +14,7 @@ kernelspec:
 # Bayesian Non-parametric Causal Inference
 
 :::{post} January, 2024
-:tags: bart, propensity scores, dirichlet process regression  
+:tags: bart, propensity scores, debiased machine learning
 :category: advanced, reference
 :author: Nathaniel Forde
 :::
@@ -42,7 +42,7 @@ rng = np.random.default_rng(42)
 
 There are few claims stronger than the assertion of a causal relationship and few claims more contestable. Your naive world model - rich with tenuous connections and non-sequiter implications, will expose you as an idiotic charlatan overly impressed by conspiracy theory. On the other hand, your refined and detailed knowledge of cause and effect - characterised by clear expectations and plausible connections, will lend you credibility and confidence when navigating the buzzing, blooming confusion of the world.
 
-In this notebook we will explain and motivate the usage of propensity scores in the analysis of causal inference questions. We will avoid the impression of magic or methodological arcana - our focus will be on the manner in which we (a) estimate propensity scores and (b) use them in the analysis of causal questions. We will see how they help avoid risks of selection bias in causal inference and where they can go wrong. This method should be comfortable for the Bayeisan analyst who is familiar with weighting and re-weighting their claims with with information in the form priors. Propensity score weighting is just another opportunity to enrich your model with knowledge about the world. We will show how they can be applied directly, and then indirectly in the context of "Double ML" approaches to causal inference. 
+In this notebook we will explain and motivate the usage of propensity scores in the analysis of causal inference questions. We will avoid the impression of magic or methodological arcana - our focus will be on the manner in which we (a) estimate propensity scores and (b) use them in the analysis of causal questions. We will see how they help avoid risks of selection bias in causal inference and where they can go wrong. This method should be comfortable for the Bayeisan analyst who is familiar with weighting and re-weighting their claims with with information in the form priors. Propensity score weighting is just another opportunity to enrich your model with knowledge about the world. We will show how they can be applied directly, and then indirectly in the context of debiasing machine learning approaches to causal inference. 
 
 We will illustrate these patterns using two data sets: (i) the NHEFS data used througout Miguel Hernan's _Causal Inference: What If_ book and a second patient focused data set used throughout _Bayesian Nonparametrics for Causal Inference and Missing Data_ by Daniels, Linero and Roy {cite:t}`daniels2024bnp`. Throughout we will contrast the use of non-parametric BART models with simpler regression models for the estimation of propensity scores and causal effects.
 
