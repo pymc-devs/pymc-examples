@@ -267,6 +267,8 @@ The next code block builds a set of functions to pull out an extract a sample fr
 
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 def plot_weights(bins, top0, top1, ylim, ax):
     ax.axhline(0, c="gray", linewidth=1)
     ax.set_ylim(ylim)
@@ -949,6 +951,8 @@ for i in range(5):
 Next we define the functions to fit and predict with the propensity score and outcome models. Because we're Bayesian we will record the posterior distribution of the residuals for both the outcome model and the propensity model. In both cases we'll use the baseline BART specification to avail of the flexibility of machine learning for accuracy. We then use the K-fold process to fit the model and predict the residuals on the out of sample fold. This allows us to extract the posterior distribution for ATE. 
 
 ```{code-cell} ipython3
+:tags: [hide-output]
+
 def train_outcome_model(X, y):
     coords = {"coeffs": list(X.columns), "obs": range(len(X))}
     with pm.Model(coords=coords) as model:
