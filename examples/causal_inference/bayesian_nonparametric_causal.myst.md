@@ -54,6 +54,19 @@ We will illustrate these patterns using two data sets: (i) the NHEFS data used t
 Propensity scores are often synonymous with the technique of propensity score matching. We will not be covering this topic. It is a natural extension of propensity score modelling but to our mind introduces complexity through the requirements around matching algorithms and information loss with reduced sample size. 
 :::
 
+### The Structure of the Presentation
+
+Below we'll see a number of examples of non-parametric approaches to the estimation of causal effects. Some of these methods will work well, and others will mislead us. Throughout we will demonstrate how these methods serve as tools for imposing stricter and stricter assumptions on our inferential framework.
+
+- Appplicaion of Propensity Scores to Selection Effect Bias
+    - NHEFS data
+- Application of Propensity Scores to Selection Effect Bias
+    - Health Expenditure Data
+- Application of Debiased/Double ML to estimate ATE
+- Application of Mediation Analysis to estimate Direct and Indirect Effects
+
+These escalating set of assumptions required to warrant causal inference under different threats of confounding shed light on the process of inference as a whole. 
+
 +++
 
 ## NHEFS Data
@@ -272,8 +285,8 @@ The next code block builds a set of functions to pull out an extract a sample fr
 def plot_weights(bins, top0, top1, ylim, ax):
     ax.axhline(0, c="gray", linewidth=1)
     ax.set_ylim(ylim)
-    bars0 = ax.bar(bins[:-1] + 0.025, top0, width=0.04, facecolor="red", alpha=0.4)
-    bars1 = ax.bar(bins[:-1] + 0.025, -top1, width=0.04, facecolor="blue", alpha=0.4)
+    bars0 = ax.bar(bins[:-1] + 0.025, top0, width=0.04, facecolor="red", alpha=0.6)
+    bars1 = ax.bar(bins[:-1] + 0.025, -top1, width=0.04, facecolor="blue", alpha=0.6)
 
     for bars in (bars0, bars1):
         for bar in bars:
@@ -651,7 +664,7 @@ All perspectives on the question of causal inference here seem broadly convergen
 
 ## Health Expenditure Data
 
-We will begin with looking a health-expenditure data set analysed in _Bayesian Nonparametrics for Causal Inference and Missing Data_ . The telling feature about this data set is the absence of obvious causal impact on expenditure due to the presence of smoking. We follow the authors and try and model the effect of `smoke` on the logged out `log_y`.
+We will begin with looking a health-expenditure data set analysed in _Bayesian Nonparametrics for Causal Inference and Missing Data_ . The telling feature about this data set is the absence of obvious causal impact on expenditure due to the presence of smoking. We follow the authors and try and model the effect of `smoke` on the logged out `log_y`. But while they want to show how the effect of smoking on total expenditure has a mediated relationship with measures of ill-health, we'll focus on estimating the ATE. There is little signal to dicern regarding the direct effects of smoking in the death and we want to demonstrate how even if we choose the right methods and try to control for bias with the right tools - we can miss the story under our nose if we're too focused on the mechanics and not the data generating process.
 
 ```{code-cell} ipython3
 df = pd.read_csv("../data/meps_bayes_np_health.csv", index_col=["Unnamed: 0"])
@@ -915,14 +928,14 @@ In the case where the simple propensity modelling approach failed, we saw a data
 
 ### The Frisch-Waugh-Lovell Theorem
 
-The idea of the theorem is that for any OLS fitted linear model with a focal parameter $\beta_{1}$ and the nuisance parameters $\gamma_{i}$ 
+The idea of the theorem is that for any OLS fitted linear model with a focal parameter $\beta_{1}$ and the auxilary parameters $\gamma_{i}$ 
 
-$$\hat{Y} = \beta_{0} + \beta_{1}X_{1} + \gamma_{1}N_{1} + ... + \gamma_{n}N_{n}  $$
+$$\hat{Y} = \beta_{0} + \beta_{1}X_{1} + \gamma_{1}Z_{1} + ... + \gamma_{n}Z_{n}  $$
 
 We can retrieve the same values $\beta_{i}, \gamma_{i}$ in a two step procedure: 
 
-- Regress $Y$ on the nuisance covariates i.e. $\hat{Y} = \gamma_{1}N_{1} + ... + \gamma_{n}N_{n} $
-- Regress $X_{1}$ on the same nuisance terms i.e. $\hat{X_{1}} =  \gamma_{1}N_{1} + ... + \gamma_{n}N_{n}$
+- Regress $Y$ on the auxilary covariates i.e. $\hat{Y} = \gamma_{1}Z_{1} + ... + \gamma_{n}Z_{n} $
+- Regress $X_{1}$ on the same auxilary terms i.e. $\hat{X_{1}} =  \gamma_{1}Z_{1} + ... + \gamma_{n}Z_{n}$
 - Take the residuals $r(X) = X_{1} - \hat{X_{1}}$ and $r(Y) = Y - \hat{Y}$
 - Fit the regression $r(Y) = \beta_{0} + \beta_{1}r(X)$ to find $\beta_{1}$
 
@@ -1044,40 +1057,182 @@ y_resids_stacked
 
 ```{code-cell} ipython3
 t_effects = []
+intercepts = []
 for i in range(4000):
     intercept = np.ones_like(4000)
     covariates = pd.DataFrame({"intercept": intercept, "t_resid": t_resids_stacked[i, :].values})
     m0 = sm.OLS(y_resids_stacked[i, :].values, covariates).fit()
     t_effects.append(m0.params["t_resid"])
+    intercepts.append(m0.params["intercept"])
 ```
 
 ```{code-cell} ipython3
-fig, axs = plt.subplots(1, 2, figsize=(20, 6))
+fig, axs = plt.subplots(1, 2, figsize=(15, 6))
 axs = axs.flatten()
 axs[0].hist(t_effects, bins=30, ec="black", color="slateblue", label="ATE", density=True)
-axs[1].hist(
-    t_effects,
-    bins=30,
-    ec="black",
-    color="slateblue",
-    cumulative=True,
-    histtype="step",
-    density=True,
-)
+x = np.linspace(-1, 1, 10)
+for i in range(1000):
+    axs[1].plot(x, intercepts[i] + t_effects[i] * x)
+
 axs[0].set_title("Double ML - ATE estimate \n Distribution")
-axs[1].set_title("Double ML - ATE estimate \n Cumulative Distribution")
+axs[1].set_title(r" Posterior Regression Line of Residuals: r(Y) ~ $\beta$r(T)")
 ate = np.mean(t_effects)
 axs[0].axvline(ate, label=f"E(ATE) = {np.round(ate, 2)}")
 axs[0].legend();
 ```
 
-We can see here how the technique of debiased machine learning has helped to alleviate some of the miscalibrated effects of naively fitting the BART model to the propensity score estimation task. Additionally we now have quantified some of the uncertainty in the ATE.
+We can see here how the technique of debiased machine learning has helped to alleviate some of the miscalibrated effects of naively fitting the BART model to the propensity score estimation task. Additionally we now have quantified some of the uncertainty in the ATE which determines a relatively flat regression line on the residuals.
+
++++
+
+## Mediation Effects and The Causal Story
+
+Above we've seen how a number of different approaches designed to avoid bias lead us to the conclusion that smoking has limited or no effect on your likely healthcare costs. It's worth emphasising that this should strike you as strange! The solution to the puzzle lies not in the method of estimation precisely, but in the structure of the question. It's not that smoking isn't related to healthcare costs, but that the impact is mediated through smoking's influence on our health. 
+
+The structural imposition of mediation mandates valid causal inferences go through just when __sequential ignorability__ holds. That is to say - the potential outcomes are independent of the treatement assignment history conditional on covariate profiles. More detail can be found in {cite:t}`daniels2024bnp`. We can see how this works if we write that structure into our model as described in {ref}`mediation_analysis`
+
+```{code-cell} ipython3
+dummies = pd.concat(
+    [
+        pd.get_dummies(df["seatbelt"], drop_first=True, prefix="seatbelt"),
+        pd.get_dummies(df["marital"], drop_first=True, prefix="marital"),
+        pd.get_dummies(df["race"], drop_first=True, prefix="race"),
+        pd.get_dummies(df["sex"], drop_first=True, prefix="sex"),
+        pd.get_dummies(df["phealth"], drop_first=True, prefix="phealth"),
+    ],
+    axis=1,
+)
+idx = df.sample(5000, random_state=100).index
+X = pd.concat(
+    [
+        df[["age", "bmi"]],
+        dummies,
+    ],
+    axis=1,
+)
+X = X.iloc[idx]
+t = df.iloc[idx]["smoke"]
+y = df.iloc[idx]["log_y"]
+X
+
+
+lkup = {
+    "phealth_Poor": 0,
+    "phealth_Fair": 1,
+    "phealth_Good": 2,
+    "phealth_Very Good": 3,
+    "phealth_Excellent": 4,
+}
+
+m = pd.DataFrame(
+    (
+        pd.from_dummies(
+            X[["phealth_Poor", "phealth_Fair", "phealth_Good", "phealth_Very Good"]],
+            default_category="phealth_Excellent",
+        ).values.flatten()
+    ),
+    columns=["health"],
+)["health"].map(lkup)
+```
+
+```{code-cell} ipython3
+def mediation_model(t, m, y):
+    with pm.Model() as model:
+        t_data = pm.MutableData("t", t, dims="obs_id")
+        y = pm.MutableData("y", y, dims="obs_id")
+        m = pm.MutableData("m", m, dims="obs_id")
+
+        # intercept priors
+        im = pm.Normal("im", mu=0, sigma=10)
+        iy = pm.Normal("iy", mu=0, sigma=10)
+        # slope priors
+        a = pm.Normal("a", mu=0, sigma=10)
+        b = pm.Normal("b", mu=0, sigma=10)
+        cprime = pm.Normal("cprime", mu=0, sigma=10)
+        # noise priors
+        sigma1 = pm.HalfCauchy("sigma1", 1)
+        sigma2 = pm.HalfCauchy("sigma2", 1)
+
+        # likelihood
+        pm.Normal("m_likelihood", mu=im + a * t_data, sigma=sigma1, observed=m, dims="obs_id")
+        pm.Normal(
+            "y_likelihood", mu=iy + b * m + cprime * t_data, sigma=sigma2, observed=y, dims="obs_id"
+        )
+
+        # calculate quantities of interest
+        indirect_effect = pm.Deterministic("indirect effect", a * b)
+        total_effect = pm.Deterministic("total effect", a * b + cprime)
+
+    return model
+
+
+model = mediation_model(t, m, y)
+pm.model_to_graphviz(model)
+```
+
+```{code-cell} ipython3
+with model:
+    result = pm.sample(tune=4000, target_accept=0.9, random_seed=42)
+```
+
+```{code-cell} ipython3
+ax = az.plot_posterior(
+    result,
+    var_names=["cprime", "indirect effect", "total effect"],
+    ref_val=0,
+    hdi_prob=0.95,
+    figsize=(14, 4),
+)
+ax[0].set(title="direct effect");
+```
+
+Here we begin to see what's going on the influence of smoking is directly negative, but the indirect effect through the mediator of health status is positive and the commbined effect cancels out/reduces the treatment effect on the outcome. Using this new structure we can of course use the regression imputation approach to causal inference and derive a kind of ceteris paribus law about the impact of smoking as mediated through the observed health features,
+
+```{code-cell} ipython3
+t_mod = np.ones(len(X), dtype="int32")
+
+with model:
+    # update values of predictors:
+    pm.set_data({"t": t_mod})
+    idata_trt = pm.sample_posterior_predictive(
+        result, var_names=["cprime", "indirect effect", "total effect", "sigma2", "y_likelihood"]
+    )
+
+idata_trt
+```
+
+```{code-cell} ipython3
+az.summary(idata_trt, var_names=["sigma2", "y_likelihood"])
+```
+
+```{code-cell} ipython3
+t_mod = np.zeros(len(X), dtype="int32")
+
+with model:
+    # update values of predictors:
+    pm.set_data({"t": t_mod})
+    idata_ntrt = pm.sample_posterior_predictive(
+        result, var_names=["cprime", "indirect effect", "total effect", "sigma2", "y_likelihood"]
+    )
+
+idata_ntrt
+```
+
+```{code-cell} ipython3
+az.summary(idata_ntrt, var_names=["sigma2", "y_likelihood"])
+```
+
+The main observation to see in the posterior predictive distribution is how the expectation terms do not vary wildly, but the variance on the individual predicted outcomes are far wider in the smokers group than in the non-smokers group. This is quickly seen by inspecting the differences in `sd` column for the `sigma2` term. 
+
++++
 
 ## Conclusion
 
 Propensity scores are a useful tool for thinking about the structure of causal inference problems. They directly relate to considerations of selection effects and can be used proactively to re-weight evidence garnered from observational data sets. They can be applied with flexible machine learning models and cross validation techniques to correct over-fitting of machine learning models like BART. They are not as direct a tool for regularisation of model fits as the application of bayesian priors, but they are a tool in the same vein. They ask of the analyst their theory of treatment assignment mechanism - under __strong ignorability__ this is enough to evaluate policy changes in the outcomes of interest.
 
-The role of propensity scores in the doubly-robust estimation methods of double-ML approaches to causal inference emphasise this balancing between the theory of the outcome variable and the theory of the treatment-assignment mechanism. We've seen how blindly throwing machine learning models at causal problems can result in mis-specified treatment assignment models and wildly skewed estimates based on naive point estimates. Angrist and Pischke argue that this should push us back towards the safety of thoughtful and careful regression modelling. Even in the case of debiasing machine learning models there is an implicit appeal to the regression estimator which underwrites the frisch-waugh-lowell results. In sum, this bevy of results draws out the need for careful attention to structure of the data generating models. Your assumption of __strong_ignorability__ requires nothing less. 
+The role of propensity scores in the doubly-robust estimation methods of double-ML approaches to causal inference emphasise this balancing between the theory of the outcome variable and the theory of the treatment-assignment mechanism. We've seen how blindly throwing machine learning models at causal problems can result in mis-specified treatment assignment models and wildly skewed estimates based on naive point estimates. Angrist and Pischke argue that this should push us back towards the safety of thoughtful and careful regression modelling. Even in the case of debiasing machine learning models there is an implicit appeal to the regression estimator which underwrites the frisch-waugh-lowell results. But even here rushed approaches lead to counter-intuitive claims. 
+
+In sum, this bevy of results draws out the need for careful attention to structure of the data generating models. The final example brings home the idea that causal inference is intimately tied to the inference over causal structural graphs. The propagation of uncertainty down through the causal structure really matters! It's nothing more than wishful thinking to hope that these structures will be automatically discerned through the magic of machine learning. We've seen how propensity score methods seek to re-weight inferences as a corrrective step, we've seen doubly robust methodologies which seek to correct inferences through predictive power of machine learning strategies and finally we've seen how structural modelling corrects estimates by imposing constraints on the influence paths between covariates. This is just how inference is done, you encode your knowledge of the world and update your views as evidence accrues. There are few better tools for thinking through these issues than Bayesian causal models.
 
 +++
 
