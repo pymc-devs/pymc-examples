@@ -803,14 +803,25 @@ X
 
 ```{code-cell} ipython3
 m_ps_expend_bart, idata_expend_bart = make_propensity_model(
-    X, t, bart=True, probit=True, samples=4000
+    X, t, bart=True, probit=False, samples=1000
 )
 m_ps_expend_logit, idata_expend_logit = make_propensity_model(X, t, bart=False, samples=1000)
 ```
 
+```{code-cell} ipython3
+az.plot_trace(idata_expend_bart, var_names=["mu", "p"]);
+```
+
+```{code-cell} ipython3
+fig, ax = plt.subplots(figsize=(15, 6))
+
+az.plot_ppc(idata_expend_bart, ax=ax)
+ax.set_title("Posterior Predictive Checks: Treatment Distribution");
+```
+
 ## Non-Parametric BART Model Propensity Model is mis-specified
 
-The flexibility of the BART model fit is poorly calibrated to recover the average treatment effect. Let's evaluate the weighted outcome distributions under the robust IVPw estimate. 
+The flexibility of the BART model fit is poorly calibrated to recover the average treatment effect. Let's evaluate the weighted outcome distributions under the robust inverse propensity weights estimate. 
 
 ```{code-cell} ipython3
 ps = idata_expend_bart["posterior"]["p"].mean(dim=("chain", "draw")).values
@@ -880,7 +891,7 @@ model_ps_reg_expend_h, idata_ps_reg_expend_h = make_prop_reg_model(
     t,
     y,
     idata_expend_bart,
-    covariates=["phealth_Fair", "phealth_Good", "phealth_Poor", "phealth_Very Good"],
+    covariates=["age", "bmi", "phealth_Fair", "phealth_Good", "phealth_Poor", "phealth_Very Good"],
 )
 ```
 
@@ -933,10 +944,10 @@ dummies = pd.concat(
     axis=1,
 )
 train_dfs = []
-temp = pd.concat([df[["age", "bmi", "smoke"]], dummies], axis=1)
+temp = pd.concat([df[["age", "bmi"]], dummies], axis=1)
 
-for i in range(5):
-    idx = temp.sample(1000).index
+for i in range(4):
+    idx = temp.sample(1000, random_state=100).index
     X = temp.iloc[idx].copy()
     t = df.iloc[idx]["smoke"]
     y = df.iloc[idx]["log_y"]
@@ -953,30 +964,30 @@ Next we define the functions to fit and predict with the propensity score and ou
 ```{code-cell} ipython3
 :tags: [hide-output]
 
-def train_outcome_model(X, y):
+def train_outcome_model(X, y, m=50):
     coords = {"coeffs": list(X.columns), "obs": range(len(X))}
     with pm.Model(coords=coords) as model:
         X_data = pm.MutableData("X", X)
         y_data = pm.MutableData("y_data", y)
-        mu = pmb.BART("mu", X_data, y)
+        mu = pmb.BART("mu", X_data, y, m=m)
         sigma = pm.HalfNormal("sigma", 1)
         obs = pm.LogNormal("obs", mu, sigma, observed=y_data)
         idata = pm.sample_prior_predictive()
-        idata.extend(pm.sample(4000, progressbar=False))
+        idata.extend(pm.sample(1000, progressbar=False))
         # idata.extend(pm.sample_posterior_predictive(idata))
     return model, idata
 
 
-def train_propensity_model(X, t):
+def train_propensity_model(X, t, m=50):
     coords = {"coeffs": list(X.columns), "obs_id": range(len(X))}
     with pm.Model(coords=coords) as model_ps:
         X_data = pm.MutableData("X", X)
         t_data = pm.MutableData("t_data", t)
-        mu = pmb.BART("mu", X_data, t)
+        mu = pmb.BART("mu", X_data, t, m=m)
         p = pm.Deterministic("p", pm.math.invlogit(mu))
         t_pred = pm.Bernoulli("obs", p=p, observed=t_data)
         idata = pm.sample_prior_predictive()
-        idata.extend(pm.sample(4000, progressbar=False))
+        idata.extend(pm.sample(1000, progressbar=False))
         # idata.extend(pm.sample_posterior_predictive(idata))
     return model_ps, idata
 
@@ -986,9 +997,9 @@ def cross_validate(train_dfs, test_idx):
     test_X = test[0]
     test_t = test[1]
     test_y = test[2]
-    train_X = pd.concat([train_dfs[i][0] for i in range(5) if i != test_idx])
-    train_t = pd.concat([train_dfs[i][1] for i in range(5) if i != test_idx])
-    train_y = pd.concat([train_dfs[i][2] for i in range(5) if i != test_idx])
+    train_X = pd.concat([train_dfs[i][0] for i in range(4) if i != test_idx])
+    train_t = pd.concat([train_dfs[i][1] for i in range(4) if i != test_idx])
+    train_y = pd.concat([train_dfs[i][2] for i in range(4) if i != test_idx])
 
     model, idata = train_outcome_model(train_X, train_y)
     with model:
@@ -1010,7 +1021,7 @@ def cross_validate(train_dfs, test_idx):
 y_resids = []
 t_resids = []
 model_fits = {}
-for i in range(5):
+for i in range(4):
     y_resid, t_resid, idata_pred, idata_pred_t = cross_validate(train_dfs, i)
     y_resids.append(y_resid)
     t_resids.append(t_resid)
@@ -1033,8 +1044,8 @@ y_resids_stacked
 
 ```{code-cell} ipython3
 t_effects = []
-for i in range(16000):
-    intercept = np.ones_like(5000)
+for i in range(4000):
+    intercept = np.ones_like(4000)
     covariates = pd.DataFrame({"intercept": intercept, "t_resid": t_resids_stacked[i, :].values})
     m0 = sm.OLS(y_resids_stacked[i, :].values, covariates).fit()
     t_effects.append(m0.params["t_resid"])
@@ -1057,11 +1068,16 @@ axs[0].set_title("Double ML - ATE estimate \n Distribution")
 axs[1].set_title("Double ML - ATE estimate \n Cumulative Distribution")
 ate = np.mean(t_effects)
 axs[0].axvline(ate, label=f"E(ATE) = {np.round(ate, 2)}")
-
 axs[0].legend();
 ```
 
-We can see here how the technique of debiased machine learning has helped to alleviate some of the miscalibrated effects of naively fitting the BART model to the propensity score estimation task. 
+We can see here how the technique of debiased machine learning has helped to alleviate some of the miscalibrated effects of naively fitting the BART model to the propensity score estimation task. Additionally we now have quantified some of the uncertainty in the ATE.
+
+## Conclusion
+
+Propensity scores are a useful tool for thinking about the structure of causal inference problems. They directly relate to considerations of selection effects and can be used proactively to re-weight evidence garnered from observational data sets. They can be applied with flexible machine learning models and cross validation techniques to correct over-fitting of machine learning models like BART. They are not as direct a tool for regularisation of model fits as the application of bayesian priors, but they are a tool in the same vein. They ask of the analyst their theory of treatment assignment mechanism - under __strong ignorability__ this is enough to evaluate policy changes in the outcomes of interest.
+
+The role of propensity scores in the doubly-robust estimation methods of double-ML approaches to causal inference emphasise this balancing between the theory of the outcome variable and the theory of the treatment-assignment mechanism. We've seen how blindly throwing machine learning models at causal problems can result in mis-specified treatment assignment models and wildly skewed estimates based on naive point estimates. Angrist and Pischke argue that this should push us back towards the safety of thoughtful and careful regression modelling. Even in the case of debiasing machine learning models there is an implicit appeal to the regression estimator which underwrites the frisch-waugh-lowell results. In sum, this bevy of results draws out the need for careful attention to structure of the data generating models. Your assumption of __strong_ignorability__ requires nothing less. 
 
 +++
 
