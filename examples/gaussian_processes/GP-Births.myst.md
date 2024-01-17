@@ -5,10 +5,12 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_env
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
+
++++ {"myst": {"substitutions": {"extra_dependencies": "numpyro preliz seaborn tensorflow-probability"}}}
 
 (gp-birthdays)=
 # Baby Births Modelling with HSGP
@@ -39,6 +41,11 @@ This notebook is based on the blog post {cite:p}`orduz2024Birthdays` where I pre
 +++
 
 ## Prepare Notebook
+
++++
+
+:::{include} ../extra_installs.md
+:::
 
 ```{code-cell} ipython3
 import arviz as az
