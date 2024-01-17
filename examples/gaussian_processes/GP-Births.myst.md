@@ -10,8 +10,6 @@ kernelspec:
   name: python3
 ---
 
-+++ {"myst": {"substitutions": {"extra_dependencies": "numpyro preliz seaborn tensorflow-probability"}}}
-
 (gp-birthdays)=
 # Baby Births Modelling with HSGP
 
