@@ -32,7 +32,7 @@ We do not go into the mathematical details here as the original article is very 
 
 ```{tip}
 For a complete treatment of this example please refer to the **amazing guide**: {cite:p}`vehtari2022Birthdays` by [Aki Vehtari](https://users.aalto.fi/~ave/). This is a step-by-step to develop this model in Stan. All the code can be found on [this repository](https://github.com/avehtari/casestudies/tree/master/Birthdays).
-``````
+```
 
 ```{note}
 This notebook is based on the blog post {cite:p}`orduz2024Birthdays` where I present a more complete model, similar to the one described in the references above.
