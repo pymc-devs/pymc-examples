@@ -8,6 +8,9 @@ kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
+myst:
+  substitutions:
+    extra_dependencies: numpyro preliz seaborn tensorflow-probability
 ---
 
 (gp-birthdays)=
