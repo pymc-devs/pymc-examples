@@ -11,7 +11,7 @@ kernelspec:
   name: python3
 myst:
   substitutions:
-    extra_dependencies: numpyro preliz seaborn tensorflow-probability
+    extra_dependencies: numpyro preliz scikit-learn seaborn tensorflow-probability
 ---
 
 (gp-birthdays)=
