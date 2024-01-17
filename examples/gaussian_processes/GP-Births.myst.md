@@ -21,16 +21,20 @@ kernelspec:
 
 +++
 
-In this notebook we want to reproduce a simpler version of the classical example of using Gaussian processes to model time series data: The birthdays data set (I first encountered this example in the seminal book [Chapter 21, Bayesian Data Analysis (Third edition)](http://www.stat.columbia.edu/~gelman/book/BDA3.pdf) when learning about the subject). The objective of this example is to illustrate how to use the Hilbert Space Gaussian Process (HSGP) approximation method introduced in [Hilbert space methods for reduced-rank Gaussian process regression](https://link.springer.com/article/10.1007/s11222-019-09886-w) to speed up models with Gaussian processes components.
+In this notebook we want to reproduce a simpler version of the classical example of using Gaussian processes to model time series data: The birthdays data set (I first encountered this example in the seminal book {cite:p}`gelman2013bayesian`  [Chapter 21] when learning about the subject). The objective of this example is to illustrate how to use the Hilbert Space Gaussian Process (HSGP) approximation method introduced in {cite:p}`solin2020Hilbert` to speed up models with Gaussian processes components.
 The main idea of this method relies on the Laplacian's spectral decomposition to approximate kernels' spectral measures as a function of basis functions. The key observation is that the basis functions in the reduced-rank approximation do not depend on the hyperparameters of the covariance function for the Gaussian process. This allows us to speed up the computations tremendously.
-We do not go into the mathematical details here as the original article is very well written and easy to follow (see also the great paper [Practical Hilbert space approximate Bayesian Gaussian processes for probabilistic programming](https://link.springer.com/article/10.1007/s11222-022-10167-2)). Instead, we reproduce a simplified version presented in various sources:
+We do not go into the mathematical details here as the original article is very well written and easy to follow (see also the great paper {cite:p}`riutort2022PracticalHilbertSpaceApproximate`). Instead, we reproduce a simplified version presented in various sources:
 
-- [Bayesian workflow book - Birthdays](https://avehtari.github.io/casestudies/Birthdays/birthdays.html) by [Aki Vehtari](https://users.aalto.fi/~ave/)
-- [`NumPyro` Docs -  Example: Hilbert space approximation for Gaussian processes](https://num.pyro.ai/en/stable/examples/hsgp.html), which is a great resource to learn about the method internals (so it is also strongly recommended!).
+- {cite:p}`vehtari2022Birthdays` by [Aki Vehtari](https://users.aalto.fi/~ave/)
+- {cite:p}`numpyroBirthdays`, which is a great resource to learn about the method internals (so it is also strongly recommended!).
 
-**Remark:** For a complete treatment of this example please refer to the **amazing guide**: [Bayesian workflow book - Birthdays](https://avehtari.github.io/casestudies/Birthdays/birthdays.html) by [Aki Vehtari](https://users.aalto.fi/~ave/). This is a step-by-step to develop this model in Stan. All the code can be found on [this repository](https://github.com/avehtari/casestudies/tree/master/Birthdays).
+```{tip}
+For a complete treatment of this example please refer to the **amazing guide**: {cite:p}`vehtari2022Birthdays` by [Aki Vehtari](https://users.aalto.fi/~ave/). This is a step-by-step to develop this model in Stan. All the code can be found on [this repository](https://github.com/avehtari/casestudies/tree/master/Birthdays).
+``````
 
-**Remark:** This notebook is based on the blog post [Time Series Modeling with HSGP: Baby Births Example](https://juanitorduz.github.io/birthdays/) where I present a more complete model, similar to the one described in the references above.
+```{note}
+This notebook is based on the blog post {cite:p}`orduz2024Birthdays` where I present a more complete model, similar to the one described in the references above.
+```
 
 +++
 
@@ -43,7 +47,6 @@ import numpy as np
 import pandas as pd
 import preliz as pz
 import pymc as pm
-import pytensor.tensor as pt
 import seaborn as sns
 import xarray as xr
 
