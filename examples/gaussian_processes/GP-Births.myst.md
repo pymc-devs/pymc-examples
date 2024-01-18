@@ -30,7 +30,7 @@ The main idea of this method relies on the Laplacian's spectral decomposition to
 We do not go into the mathematical details here as the original article is very well written and easy to follow (see also the great paper {cite:p}`riutort2022PracticalHilbertSpaceApproximate`). Instead, we reproduce a simplified version presented in various sources:
 
 - {cite:p}`vehtari2022Birthdays` by [Aki Vehtari](https://users.aalto.fi/~ave/)
-- {cite:p}`numpyroBirthdays`, which is a great resource to learn about the method internals (so it is also strongly recommended!).
+- {cite:p}`numpyroBirthdays`, from [NumPyro](https://num.pyro.ai/en/stable/) documentation, which is a great resource to learn about the method internals (so it is also strongly recommended!).
 
 ```{tip}
 For a complete treatment of this example please refer to the **amazing guide**: {cite:p}`vehtari2022Birthdays` by [Aki Vehtari](https://users.aalto.fi/~ave/). This is a step-by-step to develop this model in Stan. All the code can be found on [this repository](https://github.com/avehtari/casestudies/tree/master/Birthdays).
