@@ -23,6 +23,7 @@ kernelspec:
 import arviz as az
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
 import pandas as pd
 import pymc as pm
@@ -83,23 +84,21 @@ Given the assumption that we are measuring the right covariate profiles to induc
 
 ### A Propensity Score DAG
 
-Note how the influence of X on the outcome doesn't change it's just bundled into the propensity score metric. Our assumption of __strong ignorability__ is doing all the work to gives us license to causal claims. The propensity score methods enable these moves through the corrective use of the structure bundled into the propensity score.
+Note how the influence of X on the outcome doesn't change, but it's influence of the treatment is bundled into the propensity score metric. Our assumption of __strong ignorability__ is doing all the work to gives us license to causal claims. The propensity score methods enable these moves through the corrective use of the structure bundled into the propensity score.
 
 ```{code-cell} ipython3
-import networkx as nx
-
 fig, axs = plt.subplots(1, 2, figsize=(20, 6))
 axs = axs.flatten()
 graph = nx.DiGraph()
-graph.add_node("X", size=40)
-graph.add_node("p(X)", size=40)
-graph.add_node("T", size=40)
-graph.add_node("Y", size=40)
+graph.add_node("X")
+graph.add_node("p(X)")
+graph.add_node("T")
+graph.add_node("Y")
 graph.add_edges_from([("X", "p(X)"), ("p(X)", "T"), ("T", "Y"), ("X", "Y")])
 graph1 = nx.DiGraph()
-graph1.add_node("X", size=40)
-graph1.add_node("T", size=40)
-graph1.add_node("Y", size=40)
+graph1.add_node("X")
+graph1.add_node("T")
+graph1.add_node("Y")
 graph1.add_edges_from([("X", "T"), ("T", "Y"), ("X", "Y")])
 nx.draw(
     graph,
@@ -107,9 +106,15 @@ nx.draw(
     with_labels=True,
     pos={"X": (1, 2), "p(X)": (1, 3), "T": (1, 4), "Y": (2, 1)},
     ax=axs[1],
+    node_size=4000,
 )
 nx.draw(
-    graph1, arrows=True, with_labels=True, pos={"X": (1, 2), "T": (1, 4), "Y": (2, 1)}, ax=axs[0]
+    graph1,
+    arrows=True,
+    with_labels=True,
+    pos={"X": (1, 2), "T": (1, 4), "Y": (2, 1)},
+    ax=axs[0],
+    node_size=4000,
 )
 ```
 
@@ -194,7 +199,7 @@ X.head()
 
 In this first step we define a model building function to capture the probability of treatment i.e. our propensity score for each individual. 
 
-We specify two types of model which are to  be assessed. One which relies entirely on Logistic regression and another which uses BART (Bayesian Additive Regression Trees) to model the relationships between and the covariates and the treatment assignment. The BART model has the benefit of using a tree-based algorithm to explore the interaction effects among the various strata in our sample data. See [here](https://www.pymc.io/projects/bart/en/latest/) for more detail about BART.
+We specify two types of model which are to  be assessed. One which relies entirely on Logistic regression and another which uses BART (Bayesian Additive Regression Trees) to model the relationships between and the covariates and the treatment assignment. The BART model has the benefit of using a tree-based algorithm to explore the interaction effects among the various strata in our sample data. See [here](https://bayesiancomputationbook.com/markdown/chp_07.html#priors-for-bart-in-pymc3) for more detail about BART and the PyMC implementation.
 
 Having a flexible model like BART is key to understanding what we are doing when we undertake inverse propensity weighting adjustments. The thought is that any given strata in our dataset will be described by a set of covariates. Types of individual will be represented by these covariate profiles - the attribute vector $X$. The share of observations within our data which are picked out by any given covariate profile represents a bias towards that type of individual. If our treatment status is such that individuals will more or less actively select themselves into the status, then a naive comparisons of differences between treatment groups and control groups will be misleading to the degree that we have over-represented types of individual (covariate profiles) in the population.
 
@@ -205,11 +210,11 @@ What happens when we randomise? Randomisation of treatment status aims to ensure
 First we model the individual propensity scores as a function of the indivifua covariate profiles:
 
 ```{code-cell} ipython3
-def make_propensity_model(X, t, bart=True, probit=True, samples=1000):
+def make_propensity_model(X, t, bart=True, probit=True, samples=1000, m=50):
     coords = {"coeffs": list(X.columns), "obs": range(len(X))}
     with pm.Model(coords=coords) as model_ps:
         if bart:
-            mu = pmb.BART("mu", X, t)
+            mu = pmb.BART("mu", X, t, m=m)
             if probit:
                 p = pm.Deterministic("p", pm.math.invprobit(mu))
             else:
@@ -236,7 +241,7 @@ m_ps_probit, idata_probit = make_propensity_model(X, t, bart=True, probit=False,
 
 ## Using Propensity Scores: Weights and Pseudo Populations
 
-Once we have fitted these models we can compare how they attribute the propensity to treatment (in our case the propensity of quitting) to each and every such measured individual. One thing to note is how this sample seems to suggest a greater uncertainty of attributed score for the BART model. We have used the inverse probit link function when fitting our data. Another thing to note in considering the distribution of propensity scores is the requirement for positivity i.e. the requirement that the conditional probability of receiving a given treatment cannot be 0 or 1 in any patient subgroup as defined by combinations of covariate values. We do not want to __overfit__ our propensity model and have perfect treatment/control group allocation. The important feature of propensity scores are that they are a measure of similarity across groups - extreme predictions of 0 or 1 would imply reduced overlap 
+Once we have fitted these models we can compare how they attribute the propensity to treatment (in our case the propensity of quitting) to each and every such measured individual. One thing to note is how this sample seems to suggest a greater uncertainty of attributed score for the BART model. We have used the inverse probit link function when fitting our data. Another thing to note in considering the distribution of propensity scores is the requirement for positivity i.e. the requirement that the conditional probability of receiving a given treatment cannot be 0 or 1 in any patient subgroup as defined by combinations of covariate values. We do not want to __overfit__ our propensity model and have perfect treatment/control group allocation. The important feature of propensity scores are that they are a measure of similarity across groups - extreme predictions of 0 or 1 would imply reduced overlap. Some authors recommend drawing a boundary at (.1, .9) to filter out extreme cases.
 
 ```{code-cell} ipython3
 az.plot_forest(
@@ -272,17 +277,13 @@ fig, axs = plt.subplots(2, 2, figsize=(20, 13))
 axs = axs.flatten()
 
 colors = {1: "blue", 0: "red"}
-axs[0].hist(
-    1 - ps_logit.values[t == 0], ec="black", color="red", bins=30, label="Control", alpha=0.6
-)
+axs[0].hist(ps_logit.values[t == 0], ec="black", color="red", bins=30, label="Control", alpha=0.6)
 axs[0].hist(
     ps_logit.values[t == 1], ec="black", color="blue", bins=30, label="Treatment", alpha=0.6
 )
 axs[0].axvline(0.9, color="black", linestyle="--")
 axs[0].axvline(0.1, color="black", linestyle="--")
-axs[1].hist(
-    1 - ps_probit.values[t == 0], ec="black", color="red", bins=30, label="Control", alpha=0.6
-)
+axs[1].hist(ps_probit.values[t == 0], ec="black", color="red", bins=30, label="Control", alpha=0.6)
 axs[1].hist(
     ps_probit.values[t == 1], ec="black", color="blue", bins=30, label="Treatment", alpha=0.6
 )
@@ -330,10 +331,9 @@ Doubly robust methods, so named because they represent a compromise estimator fo
 
 The next code block builds a set of functions to pull out an extract a sample from our posterior distribution of propensity scores and use this propensity score to reweight the observed outcome variable across our treatment and control groups to re-calculate the average treatment effect (ATE). It reweights our data using the inverse probability weighting scheme and then plots three views (1) the raw propensity scores across groups (2) the raw outcome distribution and (3) the re-weighted outcome distribution. 
 
+First we define a bunch of helper functions for each weighting adjustment method we will explore:
 
 ```{code-cell} ipython3
-:tags: [hide-input]
-
 def make_robust_adjustments(X, t):
     X["trt"] = t
     p_of_t = X["trt"].mean()
@@ -372,12 +372,17 @@ def make_doubly_robust_adjustment(X, t, y):
     X["y"] = y
     p_of_t = X["trt"].mean()
     X["i_ps"] = np.where(t, (p_of_t / X["ps"]), (1 - p_of_t) / (1 - X["ps"]))
-
+    ## Compromise between outcome and treatement assignment model
     weighted_outcome0 = (1 - X["trt"]) * (X["y"] - m0_pred) / (1 - X["ps"]) + m0_pred
     weighted_outcome1 = X["trt"] * (X["y"] - m1_pred) / X["ps"] + m1_pred
 
     return weighted_outcome0, weighted_outcome1, None, None
+```
 
+Then we plot the data.
+
+```{code-cell} ipython3
+:tags: [hide-input]
 
 def plot_weights(bins, top0, top1, ylim, ax):
     ax.axhline(0, c="gray", linewidth=1)
@@ -873,7 +878,7 @@ X
 
 ```{code-cell} ipython3
 m_ps_expend_bart, idata_expend_bart = make_propensity_model(
-    X, t, bart=True, probit=False, samples=1000
+    X, t, bart=True, probit=False, samples=1000, m=80
 )
 m_ps_expend_logit, idata_expend_logit = make_propensity_model(X, t, bart=False, samples=1000)
 ```
@@ -893,7 +898,7 @@ ax.set_title("Posterior Predictive Checks: Treatment Distribution");
 ps = idata_expend_bart["posterior"]["p"].mean(dim=("chain", "draw")).values
 fig, ax = plt.subplots(figsize=(20, 6))
 ax.hist(
-    1 - ps[t == 0],
+    ps[t == 0],
     bins=30,
     ec="black",
     alpha=0.4,
@@ -914,7 +919,7 @@ ax2.set_xlabel("Age")
 ax2.set_xlabel("Age")
 ax2.set_ylabel("y")
 ax2.set_ylabel("y")
-ax2.set_title("y~Age \n Size by IP Weights")
+ax2.set_title("y~Age \n Size by IP Weights", fontsize=20)
 red_patch = mpatches.Patch(color="red", label="Control")
 blue_patch = mpatches.Patch(color="blue", label="Treated")
 ax2.legend(handles=[red_patch, blue_patch]);
@@ -959,7 +964,7 @@ plot_ate(ate_dist_df_r, xy=(-1.5, 300))
 Deriving ATE estimates across draws from the posterior distribution and averaging these seems to give a more sensible figure, but still inflated. If instead we use the doubly robust estimator we recover a much more sensible figure. 
 
 ```{code-cell} ipython3
-plot_ate(ate_dist_df_dr, xy=(-0.10, 200))
+plot_ate(ate_dist_df_dr, xy=(-0.20, 200))
 ```
 
 It's worth here expanding on the theory of doubly robust estimation. We showed above the code for implementing the compromise between the treatment assignment estimator and the response or outcome estimator. But why is this useful? Consider again the functional form of the doubly robust estimator.
@@ -1313,7 +1318,7 @@ ntrted_df
 The main observation to see in the posterior predictive distribution is how the expectation terms do not vary wildly, but the variance on the individual predicted outcomes are far wider in the smokers group than in the non-smokers group. This is quickly seen by inspecting the differences in `sd` column for the `sigma2` term. 
 
 ```{code-cell} ipython3
-fig, axs = plt.subplots(1, 2, figsize=(20, 6))
+fig, axs = plt.subplots(1, 2, figsize=(20, 9))
 axs = axs.flatten()
 axs[0].hist(
     trted_df.iloc[1:-1]["mean"],
@@ -1363,6 +1368,10 @@ axs[1].set_title(
 axs[0].legend()
 axs[1].legend();
 ```
+
+We see here the dramatic effects of smoking on the costs accruing to individuals at the outer quantiles of the predicted distribution. 
+
++++
 
 ## Conclusion
 
