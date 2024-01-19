@@ -56,6 +56,7 @@ import numpy as np
 import pandas as pd
 import preliz as pz
 import pymc as pm
+import pytensor.tensor as pt
 import seaborn as sns
 import xarray as xr
 
@@ -259,8 +260,13 @@ obs = data_df["obs"].to_numpy()
 date = data_df["date"].to_numpy()
 year = data_df["year"].to_numpy()
 day_of_week_idx, day_of_week = data_df["day_of_week"].factorize(sort=True)
+day_of_week_no_monday = day_of_week[day_of_week != 1]
 day_of_year2_idx, day_of_year2 = data_df["day_of_year2"].factorize(sort=True)
 births_relative100 = data_df["births_relative100"].to_numpy()
+```
+
+```{code-cell} ipython3
+data_df.head(10)
 ```
 
 We want to work on the normalized log scale of the relative births data
@@ -306,10 +312,16 @@ Let's describe the model components. All of these building blocks should not com
 
 1. **Global trend.** We use a Gaussian process with an exponential quadratic kernel.
 2. **Periodicity over years**: We use a Gaussian process with a periodic kernel. Observe that, since we are working on the normalized scale, the period should be `period=365.25 / obs_std` (and not `period=365.25` !).
-3. **Weekly seasonality**: We use a zero-sum-normal distribution to capture the relative difference across weekdays.
+3. **Weekly seasonality**: We use a normal distribution on the day of the week one-hot-encoded values. As the data is standardized, in particular centered around zero, we do not need to add an intercept term. In addition, we set the coefficient of Monday to zero to avoid identifiability issues.
 4. **Likelihood**: We use a Gaussian distribution.
 
 For all of the Gaussian processes components we use the Hilbert Space Gaussian Process (HSGP) approximation.
+
++++
+
+```{note}
+This model corresponds to `Model 3: Slow trend + yearly seasonal trend + day of week` in {cite:p}`vehtari2022Birthdays`.
+```
 
 +++
 
@@ -337,7 +349,12 @@ The motivation is that we have around $7.3$K data points and whe want to conside
 We now specify the model in PyMC.
 
 ```{code-cell} ipython3
-coords = {"obs": obs, "day_of_week": day_of_week, "day_of_year2": day_of_year2}
+coords = {
+    "obs": obs,
+    "day_of_week_no_monday": day_of_week_no_monday,
+    "day_of_week": day_of_week,
+    "day_of_year2": day_of_year2,
+}
 
 with pm.Model(coords=coords) as model:
     # --- Data Containers ---
@@ -378,7 +395,15 @@ with pm.Model(coords=coords) as model:
     )
 
     ## day of week
-    b_day_of_week = pm.ZeroSumNormal(name="b_day_of_week", sigma=1, dims="day_of_week")
+    b_day_of_week_no_monday = pm.Normal(
+        name="b_day_of_week_no_monday", sigma=1, dims="day_of_week_no_monday"
+    )
+
+    b_day_of_week = pm.Deterministic(
+        name="b_day_of_week",
+        var=pt.concatenate(([0], b_day_of_week_no_monday)),
+        dims="day_of_week",
+    )
 
     # global noise
     sigma = pm.HalfNormal(name="sigma", sigma=0.5)
@@ -386,7 +411,9 @@ with pm.Model(coords=coords) as model:
     # --- Parametrization ---
     mu = pm.Deterministic(
         name="mu",
-        var=f_trend + f_year_periodic + b_day_of_week[day_of_week_idx_data],
+        var=f_trend
+        + f_year_periodic
+        + b_day_of_week[day_of_week_idx_data] * (day_of_week_idx_data > 0),
         dims="obs",
     )
 
@@ -451,7 +478,7 @@ var_names = [
     "ls_trend",
     "amplitude_year_periodic",
     "ls_year_periodic",
-    "b_day_of_week",
+    "b_day_of_week_no_monday",
     "sigma",
 ]
 
