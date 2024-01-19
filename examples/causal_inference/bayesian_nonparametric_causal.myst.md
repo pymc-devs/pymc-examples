@@ -51,7 +51,7 @@ We will illustrate these patterns using two data sets: (i) the NHEFS data used t
 :::{admonition} Note on Propensity Score Matching
 :class: tip
 
-Propensity scores are often synonymous with the technique of propensity score matching. We will not be covering this topic. It is a natural extension of propensity score modelling but to our mind introduces complexity through the requirements around matching algorithms and information loss with reduced sample size. 
+Propensity scores are often synonymous with the technique of propensity score matching. We will not be covering this topic. It is a natural extension of propensity score modelling but to our mind introduces complexity through the requirements around (a) choosing a matching algorithm and (b) the information loss with reduced sample size. 
 :::
 
 ### The Structure of the Presentation
@@ -68,6 +68,50 @@ Below we'll see a number of examples of non-parametric approaches to the estimat
 These escalating set of assumptions required to warrant causal inference under different threats of confounding shed light on the process of inference as a whole. 
 
 +++
+
+## Why do we Care about Propensity Scores
+
+Firstly, and somewhat superficially, the propensity score is a dimension reduction technique. We take a complex covariate profile $X_{i}$ representing an individual's measured attributes and reduce it to a scaler $p^{i}_{T}(X)$. It is also a tool for thinking about the potential outcomes of an individual under different treatment regimes. In a policy evaluation context it can help partial out the degree of incentives for policy adoption across strata of the population. What drives adoption or assignment in the cases of observed data partitioning? How can different demographic strata be induced towards or away from adoption of the policy? Understanding these dynamics are crucial to gauge why selection bias might emerge in any sample data. 
+
+The pivotal idea is that we cannot license causal claims unless (i) the treatment assignment is independent of the covariate profiles i.e $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ and similarly conditionally independent of the treatement $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ given $X$. This also occasionally noted as the __unconfoundedness__ assumption.
+
+It is a theorem that if $T$ is strongly ignorable given $X$, then (i) and (ii) hold given $p_{T}(X)$ too. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data.  Causal inference is unconfounded when we have controlled for enough of drivers for policy adoption, that we could predict selection effects based on covariate profiles $X$. There is a great discussion of the details in Aronow and Miller's _Foundations of Agnostic Statistics_ {cite:t}`aronow2019agnostic`. But the insight this suggests is that when you want to estimate a causal effect you are only required to control for the covariates which impact the probability of treatement assignment. More concretely, if it's easier to model the assignment mechanism than the outcome mechanism this can be substituted in the case of causal inference with observed data.
+
+Given the assumption that we are measuring the right covariate profiles to induce __strong ignorability__, then propensity scores can be used thoughtfully to underwrite causal claims. With observational data we cannot re-run the assignment mechanism but we can estimate it, and transform our data to proportionally weight the data summaries within each group so that the analysis is less effected by the over-representation of different strata in each group. This is what we hope to use the propensity scores to achieve. 
+
++++
+
+### A Propensity Score DAG
+
+Note how the influence of X on the outcome doesn't change it's just bundled into the propensity score metric. Our assumption of __strong ignorability__ is doing all the work to gives us license to causal claims. The propensity score methods enable these moves through the corrective use of the structure bundled into the propensity score.
+
+```{code-cell} ipython3
+import networkx as nx
+
+fig, axs = plt.subplots(1, 2, figsize=(20, 6))
+axs = axs.flatten()
+graph = nx.DiGraph()
+graph.add_node("X", size=40)
+graph.add_node("p(X)", size=40)
+graph.add_node("T", size=40)
+graph.add_node("Y", size=40)
+graph.add_edges_from([("X", "p(X)"), ("p(X)", "T"), ("T", "Y"), ("X", "Y")])
+graph1 = nx.DiGraph()
+graph1.add_node("X", size=40)
+graph1.add_node("T", size=40)
+graph1.add_node("Y", size=40)
+graph1.add_edges_from([("X", "T"), ("T", "Y"), ("X", "Y")])
+nx.draw(
+    graph,
+    arrows=True,
+    with_labels=True,
+    pos={"X": (1, 2), "p(X)": (1, 3), "T": (1, 4), "Y": (2, 1)},
+    ax=axs[1],
+)
+nx.draw(
+    graph1, arrows=True, with_labels=True, pos={"X": (1, 2), "T": (1, 4), "Y": (2, 1)}, ax=axs[0]
+)
+```
 
 ## NHEFS Data
 
@@ -144,15 +188,15 @@ X = X.drop(["trt", "outcome"], axis=1)
 X.head()
 ```
 
-## Propensity Score Model
+## Propensity Score Modelling
 
 +++
 
 In this first step we define a model building function to capture the probability of treatment i.e. our propensity score for each individual. 
 
-We specify two types of model which are to  be assessed. One which relies entirely on Logistic regression and another which uses BART to model the relationships between and the covariates and the treatment assignment. The BART model has the benefit of using a tree-based algorithm to explore the interaction effects among the various strata in our sample data. 
+We specify two types of model which are to  be assessed. One which relies entirely on Logistic regression and another which uses BART (Bayesian Additive Regression Trees) to model the relationships between and the covariates and the treatment assignment. The BART model has the benefit of using a tree-based algorithm to explore the interaction effects among the various strata in our sample data. See [here](https://www.pymc.io/projects/bart/en/latest/) for more detail about BART.
 
-Having a flexible model like BART is key to understanding what we are doing when we undertake inverse propensity weighting (IPw) adjustments. The thought is that any given strata in our dataset will be described by a set of covariates. Types of individual will be represented by these covariate profiles - the attribute vector $X$. The share of observations within our data which are picked out by any given covariate profile represents a bias towards that type of individual. If our treatment status is such that individuals will more or less actively select themselves into the status, then a naive comparisons of differences between treatment groups and control groups will be misleading to the degree that we have over-represented types of individual (covariate profiles) in the population.
+Having a flexible model like BART is key to understanding what we are doing when we undertake inverse propensity weighting adjustments. The thought is that any given strata in our dataset will be described by a set of covariates. Types of individual will be represented by these covariate profiles - the attribute vector $X$. The share of observations within our data which are picked out by any given covariate profile represents a bias towards that type of individual. If our treatment status is such that individuals will more or less actively select themselves into the status, then a naive comparisons of differences between treatment groups and control groups will be misleading to the degree that we have over-represented types of individual (covariate profiles) in the population.
 
 Randomisation solves this by balancing the covariate profiles across treatment and control groups and ensuring the outcomes are independent of the treatment assignment. But we can't always randomise.
 
@@ -192,7 +236,7 @@ m_ps_probit, idata_probit = make_propensity_model(X, t, bart=True, probit=False,
 
 ## Using Propensity Scores: Weights and Pseudo Populations
 
-Once we have fitted these models we can compare how they attribute the propensity to treatment (in our case the propensity of quitting) to each and every such measured individual. One thing to note is how this sample seems to suggest a greater uncertainty of attributed score for the BART model. We have used the inverse probit link function when fitting our data. 
+Once we have fitted these models we can compare how they attribute the propensity to treatment (in our case the propensity of quitting) to each and every such measured individual. One thing to note is how this sample seems to suggest a greater uncertainty of attributed score for the BART model. We have used the inverse probit link function when fitting our data. Another thing to note in considering the distribution of propensity scores is the requirement for positivity i.e. the requirement that the conditional probability of receiving a given treatment cannot be 0 or 1 in any patient subgroup as defined by combinations of covariate values. We do not want to __overfit__ our propensity model and have perfect treatment/control group allocation. The important feature of propensity scores are that they are a measure of similarity across groups - extreme predictions of 0 or 1 would imply reduced overlap 
 
 ```{code-cell} ipython3
 az.plot_forest(
@@ -210,14 +254,6 @@ az.plot_forest(
 
 These propensity scores can be pulled out and examined alongside the other covariates. But it's probably worth pausing here to explain how and why propensity scores are useful for accounting for selection bias. 
 
-Firstly, and somewhat superficially, the propensity score is a dimension reduction technique. We take a complex covariate profile $X_{i}$ and reduce it to a scaler $p^{i}_{T}(X)$. It is also a tool for thinking about the potential outcomes of an individual under different treatment regimes. In a policy evaluation context it can help partial out the degree of incentives for policy adoption strata of the population. What drives adoption or assignment in the cases of observed data partitioning?
-
-The pivotal idea is that we cannot license causal claims unless (i) the treatment assignment is independent of the covariate profiles i.e $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ and similarly conditionally independent of the treatement $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ given $X$. This also occasionally noted as the __unconfoundedness__ assumption. 
-
-It is a theorem that if $T$ is strongly ignorable given $X$, then (i) and (ii) hold given $p_{T}(X)$ too. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. There is a great discussion of the details in Aronow and Miller's _Foundations of Agnostic Statistics_ {cite:t}`aronow2019agnostic`. But the insight this suggests is that when you want to estimate a causal effect you are only required to control for the covariates which impact the probability of treatement assignment. More concretely, if it's easier to model the assignment mechanism than the outcome mechanism this can be substituted in the case of causal inference with observed data.
-
-Given the assumption that we are measuring the right covariate profiles to induce __strong ignorability__, then propensity scores can be used thoughtfully to underwrite causal claims. With observational data we cannot re-run the assignment mechanism but we can estimate it, and transform our data to proportionally weight the data summaries within each group so that the analysis is less effected by the over-representation of different strata in each group. This is what we hope to use the propensity scores to achieve. 
-
 
 ```{code-cell} ipython3
 ps_logit = idata_logit["posterior"]["p"].mean(dim=("chain", "draw")).round(2)
@@ -232,18 +268,34 @@ ps_probit
 Here we plot the distribution of propensity scores under each model and show how the inverse of the propensity score weights would apply to the observed data points.
 
 ```{code-cell} ipython3
-fig, axs = plt.subplots(2, 2, figsize=(20, 10))
+fig, axs = plt.subplots(2, 2, figsize=(20, 13))
 axs = axs.flatten()
 
 colors = {1: "blue", 0: "red"}
-axs[0].hist(ps_logit, ec="black", color="slateblue", bins=20)
-axs[1].hist(ps_probit, ec="black", color="skyblue", bins=20)
+axs[0].hist(
+    1 - ps_logit.values[t == 0], ec="black", color="red", bins=30, label="Control", alpha=0.6
+)
+axs[0].hist(
+    ps_logit.values[t == 1], ec="black", color="blue", bins=30, label="Treatment", alpha=0.6
+)
+axs[0].axvline(0.9, color="black", linestyle="--")
+axs[0].axvline(0.1, color="black", linestyle="--")
+axs[1].hist(
+    1 - ps_probit.values[t == 0], ec="black", color="red", bins=30, label="Control", alpha=0.6
+)
+axs[1].hist(
+    ps_probit.values[t == 1], ec="black", color="blue", bins=30, label="Treatment", alpha=0.6
+)
+axs[1].axvline(0.9, color="black", linestyle="--")
+axs[1].axvline(0.1, color="black", linestyle="--")
 axs[0].set_xlim(0, 1)
 axs[1].set_xlim(0, 1)
-axs[0].set_title("Propensity Scores under Logistic Regression")
-axs[1].set_title("Propensity Scores under Non-Parametric BART model \n with probit transform")
+axs[0].set_title("Propensity Scores under Logistic Regression", fontsize=20)
+axs[1].set_title(
+    "Propensity Scores under Non-Parametric BART model \n with probit transform", fontsize=20
+)
 axs[2].scatter(
-    X["age"], y, color=t.map(colors), s=(1 / ps_logit.values) * 10, ec="black", alpha=0.4
+    X["age"], y, color=t.map(colors), s=(1 / ps_logit.values) * 20, ec="black", alpha=0.4
 )
 axs[2].set_xlabel("Age")
 axs[3].set_xlabel("Age")
@@ -252,7 +304,7 @@ axs[2].set_ylabel("y")
 axs[2].set_title("y~Age \n Size by IP Weights")
 axs[3].set_title("y~Age \n Size by IP Weights")
 axs[3].scatter(
-    X["age"], y, color=t.map(colors), s=(1 / ps_probit.values) * 10, ec="black", alpha=0.4
+    X["age"], y, color=t.map(colors), s=(1 / ps_probit.values) * 20, ec="black", alpha=0.4
 )
 red_patch = mpatches.Patch(color="red", label="Control")
 blue_patch = mpatches.Patch(color="blue", label="Treated")
@@ -260,7 +312,7 @@ axs[2].legend(handles=[red_patch, blue_patch])
 axs[3].legend(handles=[red_patch, blue_patch]);
 ```
 
-These weighting schemes can now be incorporated into various models of statistical summaries so as to "correct" the representation of covariate profiles across both groups. If an individual's propensity score is such that they are are highly likely to receive the treatment status e.g .95 then we want to downweight their importance if they occur in the treatment and upweight their importance if they appear in the control group. This makes sense because their high propensity score implies that similar individuals are already heavily present in the treatment group, but less likely to occur in the control group. Hence our corrective strategy re-weights their contribution to the summary statistics across each group. 
+These weighting schemes can now be incorporated into various models of statistical summaries so as to "correct" the representation of covariate profiles across both groups. If an individual's propensity score is such that they are are highly likely to receive the treatment status e.g .95 then we want to downweight their importance if they occur in the treatment and upweight their importance if they appear in the control group. This makes sense because their high propensity score implies that similar individuals are already heavily present in the treatment group, but less likely to occur in the control group. Hence our corrective strategy re-weights their contribution to the summary statistics across each group. Even more refinement is possible if the analyst removes or clips the observations based on the extremity of their propensity scores. This move would reduce the noise in the ultimate re-estimate. In our case i think it's not needed. 
 
 +++
 
@@ -281,6 +333,51 @@ The next code block builds a set of functions to pull out an extract a sample fr
 
 ```{code-cell} ipython3
 :tags: [hide-input]
+
+def make_robust_adjustments(X, t):
+    X["trt"] = t
+    p_of_t = X["trt"].mean()
+    X["i_ps"] = np.where(t, (p_of_t / X["ps"]), (1 - p_of_t) / (1 - X["ps"]))
+    n_ntrt = X[X["trt"] == 0].shape[0]
+    n_trt = X[X["trt"] == 1].shape[0]
+    outcome_trt = X[X["trt"] == 1]["outcome"]
+    outcome_ntrt = X[X["trt"] == 0]["outcome"]
+    i_propensity0 = X[X["trt"] == 0]["i_ps"]
+    i_propensity1 = X[X["trt"] == 1]["i_ps"]
+    weighted_outcome1 = outcome_trt * i_propensity1
+    weighted_outcome0 = outcome_ntrt * i_propensity0
+    return weighted_outcome0, weighted_outcome1, n_ntrt, n_trt
+
+
+def make_raw_adjustments(X, t):
+    X["trt"] = t
+    X["ps"] = np.where(X["trt"], X["ps"], 1 - X["ps"])
+    X["i_ps"] = 1 / X["ps"]
+    n_ntrt = n_trt = len(X)
+    outcome_trt = X[X["trt"] == 1]["outcome"]
+    outcome_ntrt = X[X["trt"] == 0]["outcome"]
+    i_propensity0 = X[X["trt"] == 0]["i_ps"]
+    i_propensity1 = X[X["trt"] == 1]["i_ps"]
+    weighted_outcome1 = outcome_trt * i_propensity1
+    weighted_outcome0 = outcome_ntrt * i_propensity0
+    return weighted_outcome0, weighted_outcome1, n_ntrt, n_trt
+
+
+def make_doubly_robust_adjustment(X, t, y):
+    m0 = sm.OLS(y[t == 0], X[t == 0]).fit()
+    m1 = sm.OLS(y[t == 1], X[t == 1]).fit()
+    m0_pred = m0.predict(X)
+    m1_pred = m0.predict(X)
+    X["trt"] = t
+    X["y"] = y
+    p_of_t = X["trt"].mean()
+    X["i_ps"] = np.where(t, (p_of_t / X["ps"]), (1 - p_of_t) / (1 - X["ps"]))
+
+    weighted_outcome0 = (1 - X["trt"]) * (X["y"] - m0_pred) / (1 - X["ps"]) + m0_pred
+    weighted_outcome1 = X["trt"] * (X["y"] - m1_pred) / X["ps"] + m1_pred
+
+    return weighted_outcome0, weighted_outcome1, None, None
+
 
 def plot_weights(bins, top0, top1, ylim, ax):
     ax.axhline(0, c="gray", linewidth=1)
@@ -326,34 +423,22 @@ def make_plot(
     X["trt"] = t
     propensity0 = X[X["trt"] == 0]["ps"]
     propensity1 = X[X["trt"] == 1]["ps"]
+    ## Get Weighted Outcomes
     if method == "robust":
-        p_of_t = X["trt"].mean()
-        X["i_ps"] = np.where(t, (p_of_t / X["ps"]), (1 - p_of_t) / (1 - X["ps"]))
-        n_ntrt = X[X["trt"] == 0].shape[0]
-        n_trt = X[X["trt"] == 1].shape[0]
+        X["outcome"] = y
+        weighted_outcome0, weighted_outcome1, n_ntrt, n_trt = make_robust_adjustments(X, t)
     elif method == "raw":
-        X["ps"] = np.where(X["trt"], X["ps"], 1 - X["ps"])
-        X["i_ps"] = 1 / X["ps"]
-        n_ntrt = n_trt = len(X)
+        X["outcome"] = y
+        weighted_outcome0, weighted_outcome1, n_ntrt, n_trt = make_raw_adjustments(X, t)
     else:
-        m0 = sm.OLS(y[t == 0], X[t == 0]).fit()
-        m1 = sm.OLS(y[t == 1], X[t == 1]).fit()
-        m0_pred = m0.predict(X)
-        m1_pred = m0.predict(X)
-        X["trt"] = t
-        X["y"] = y
-        p_of_t = X["trt"].mean()
-        X["i_ps"] = np.where(t, (p_of_t / X["ps"]), (1 - p_of_t) / (1 - X["ps"]))
+        weighted_outcome0, weighted_outcome1, _, _ = make_doubly_robust_adjustment(X, t, y)
 
-        weighted_outcome0 = (1 - X["trt"]) * (X["y"] - m0_pred) / (1 - X["ps"]) + m0_pred
-        weighted_outcome1 = X["trt"] * (X["y"] - m1_pred) / X["ps"] + m1_pred
-    X["outcome"] = y
-
+    ### Top Plot of Propensity Scores
     bins = np.arange(0.025, 0.85, 0.05)
     top0, _ = np.histogram(propensity0, bins=bins)
     top1, _ = np.histogram(propensity1, bins=bins)
 
-    fig, axs = plt.subplots(3, 1, figsize=(15, 15))
+    fig, axs = plt.subplots(3, 1, figsize=(20, 20))
     axs = axs.flatten()
 
     plot_weights(bins, top0, top1, ylims[0], axs[0])
@@ -367,20 +452,28 @@ def make_plot(
         fontsize=20,
     )
 
-    bins = lower_bins
+    ### Middle Plot of Outcome
+    outcome_trt = y[t == 1]
+    outcome_ntrt = y[t == 0]
+    top0, _ = np.histogram(outcome_ntrt, bins=lower_bins)
+    top1, _ = np.histogram(outcome_trt, bins=lower_bins)
+    plot_weights(lower_bins, top0, top1, ylims[2], axs[1])
+    axs[1].set_ylabel("No. Patients", fontsize=14)
+    axs[1].set_xlabel("Raw Outcome Measure", fontsize=14)
+    axs[1].text(text_pos[0], text_pos[1], f"Control: E(Y) = {outcome_ntrt.mean()}")
+    axs[1].text(text_pos[0], text_pos[1] - 20, f"Treatment: E(Y) = {outcome_trt.mean()}")
+    axs[1].text(
+        text_pos[0],
+        text_pos[1] - 40,
+        f"tau: E(Y(1) - Y(0)) = {outcome_trt.mean() - outcome_ntrt.mean()}",
+    )
 
-    outcome_trt = X[X["trt"] == 1]["outcome"]
-    outcome_ntrt = X[X["trt"] == 0]["outcome"]
-    i_propensity0 = X[X["trt"] == 0]["i_ps"]
-    i_propensity1 = X[X["trt"] == 1]["i_ps"]
-
+    ## Bottom Plot of Adjusted Outcome using Inverse Propensity Score weights
     axs[2].set_ylabel("No. Patients", fontsize=14)
     if method in ["raw", "robust"]:
-        weighted_outcome1 = outcome_trt * i_propensity1
-        weighted_outcome0 = outcome_ntrt * i_propensity0
-        top0, _ = np.histogram(weighted_outcome0, bins=bins)
-        top1, _ = np.histogram(weighted_outcome1, bins=bins)
-        plot_weights(bins, top0, top1, ylims[1], axs[2])
+        top0, _ = np.histogram(weighted_outcome0, bins=lower_bins)
+        top1, _ = np.histogram(weighted_outcome1, bins=lower_bins)
+        plot_weights(lower_bins, top0, top1, ylims[1], axs[2])
         axs[2].set_xlabel("Estimated IP Weighted Outcome \n Shifted", fontsize=14)
         axs[2].text(text_pos[0], text_pos[1], f"Control: E(Y) = {weighted_outcome0.sum() / n_ntrt}")
         axs[2].text(
@@ -392,11 +485,11 @@ def make_plot(
             f"tau: E(Y(1) - Y(0)) = {weighted_outcome0.sum() / n_ntrt - weighted_outcome1.sum() / n_trt}",
         )
     else:
-        top0, _ = np.histogram(weighted_outcome0, bins=bins)
-        top1, _ = np.histogram(weighted_outcome1, bins=bins)
-        plot_weights(bins, top0, top1, ylims[1], axs[2])
-        trt = np.mean(X["trt"] * (X["y"] - m1_pred) / X["ps"] + m1_pred)
-        ntrt = np.mean((1 - X["trt"]) * (X["y"] - m0_pred) / (1 - X["ps"]) + m0_pred)
+        top0, _ = np.histogram(weighted_outcome0, bins=lower_bins)
+        top1, _ = np.histogram(weighted_outcome1, bins=lower_bins)
+        plot_weights(lower_bins, top0, top1, ylims[1], axs[2])
+        trt = np.round(np.mean(weighted_outcome1), 5)
+        ntrt = np.round(np.mean(weighted_outcome0), 5)
         axs[2].set_xlabel("Estimated IP Weighted Outcome \n Shifted", fontsize=14)
         axs[2].text(text_pos[0], text_pos[1], f"Control: E(Y) = {ntrt}")
         axs[2].text(text_pos[0], text_pos[1] - 20, f"Treatment: E(Y) = {trt}")
@@ -405,19 +498,6 @@ def make_plot(
             text_pos[1] - 40,
             f"tau: E(Y(1) - Y(0)) = {ntrt - trt}",
         )
-
-    top0, _ = np.histogram(outcome_ntrt, bins=bins)
-    top1, _ = np.histogram(outcome_trt, bins=bins)
-    plot_weights(bins, top0, top1, ylims[2], axs[1])
-    axs[1].set_ylabel("No. Patients", fontsize=14)
-    axs[1].set_xlabel("Raw Outcome Measure", fontsize=14)
-    axs[1].text(text_pos[0], text_pos[1], f"Control: E(Y) = {outcome_ntrt.mean()}")
-    axs[1].text(text_pos[0], text_pos[1] - 20, f"Treatment: E(Y) = {outcome_trt.mean()}")
-    axs[1].text(
-        text_pos[0],
-        text_pos[1] - 40,
-        f"tau: E(Y(1) - Y(0)) = {outcome_trt.mean() - outcome_ntrt.mean()}",
-    )
 ```
 
 ## The Logit Propensity Model
@@ -433,46 +513,23 @@ Next, and because we are Bayesians - we pull out and evaluate the posterior dist
 ```{code-cell} ipython3
 def get_ate(X, t, y, i, idata, method="doubly_robust"):
     X = X.copy()
+    X["outcome"] = y
     X["ps"] = idata["posterior"]["p"].stack(z=("chain", "draw"))[:, i].values
     if method == "robust":
-        X["trt"] = t
-        p_of_t = X["trt"].mean()
-        X["i_ps"] = np.where(t, (p_of_t / X["ps"]), (1 - p_of_t) / (1 - X["ps"]))
-        i_propensity0 = X[X["trt"] == 0]["i_ps"]
-        i_propensity1 = X[X["trt"] == 1]["i_ps"]
+        weighted_outcome_ntrt, weighted_outcome_trt, n_ntrt, n_trt = make_robust_adjustments(X, t)
+        ntrt = weighted_outcome_ntrt.sum() / n_ntrt
+        trt = weighted_outcome_trt.sum() / n_trt
     elif method == "raw":
-        X["trt"] = t
-        X["ps"] = np.where(X["trt"], X["ps"], 1 - X["ps"])
-        X["i_ps"] = 1 / X["ps"]
-        i_propensity0 = X[X["trt"] == 0]["i_ps"]
-        i_propensity1 = X[X["trt"] == 1]["i_ps"]
+        weighted_outcome_ntrt, weighted_outcome_trt, n_ntrt, n_trt = make_raw_adjustments(X, t)
+        ntrt = weighted_outcome_ntrt.sum() / n_ntrt
+        trt = weighted_outcome_trt.sum() / n_trt
     else:
-        ## model estimates of Doubly robust method
-        m0 = sm.OLS(y[t == 0], X[t == 0]).fit()
-        m1 = sm.OLS(y[t == 1], X[t == 1]).fit()
-        m0_pred = m0.predict(X)
-        m1_pred = m0.predict(X)
-        X["trt"] = t
-        X["y"] = y
-    X["outcome"] = y
-    outcome_trt = X[X["trt"] == 1]["outcome"]
-    outcome_ntrt = X[X["trt"] == 0]["outcome"]
-    if method == "robust":
-        weighted_outcome_ntrt = i_propensity0 * outcome_ntrt
-        weighted_outcome_trt = i_propensity1 * outcome_trt
-        ntrt = weighted_outcome_ntrt.sum() / len(X[X["trt"] == 0])
-        trt = weighted_outcome_trt.sum() / len(X[X["trt"] == 1])
-    elif method == "raw":
-        weighted_outcome_ntrt = i_propensity0 * outcome_ntrt
-        weighted_outcome_trt = i_propensity1 * outcome_trt
-        ntrt = weighted_outcome_ntrt.sum() / len(X)
-        trt = weighted_outcome_trt.sum() / len(X)
-    else:
-        ## Compromise step between assignment model and outcome model
-        ## Model mispecification forces the terms towards zero cancelling
-        ## out misspecification.
-        trt = np.mean(X["trt"] * (X["y"] - m1_pred) / X["ps"] + m1_pred)
-        ntrt = np.mean((1 - X["trt"]) * (X["y"] - m0_pred) / (1 - X["ps"]) + m0_pred)
+        X.drop("outcome", axis=1, inplace=True)
+        weighted_outcome_ntrt, weighted_outcome_trt, n_ntrt, n_trt = make_doubly_robust_adjustment(
+            X, t, y
+        )
+        trt = np.mean(weighted_outcome_trt)
+        ntrt = np.mean(weighted_outcome_ntrt)
     ate = ntrt - trt
     return [ate, trt, ntrt]
 
@@ -487,7 +544,7 @@ ate_dist_df_logit.head()
 Next we plot the posterior distribution of the ATE. 
 
 ```{code-cell} ipython3
-def plot_ate(ate_dist_df, xy=(-4.5, 250)):
+def plot_ate(ate_dist_df, xy=(-5.0, 250)):
     fig, axs = plt.subplots(1, 2, figsize=(20, 7))
     axs = axs.flatten()
     axs[0].hist(
@@ -528,7 +585,7 @@ ate_dist_df_probit.head()
 ```
 
 ```{code-cell} ipython3
-plot_ate(ate_dist_df_probit)
+plot_ate(ate_dist_df_probit, xy=(-4.4, 250))
 ```
 
 Note the tighter variance of the measures using the doubly robust method. 
@@ -832,6 +889,37 @@ az.plot_ppc(idata_expend_bart, ax=ax)
 ax.set_title("Posterior Predictive Checks: Treatment Distribution");
 ```
 
+```{code-cell} ipython3
+ps = idata_expend_bart["posterior"]["p"].mean(dim=("chain", "draw")).values
+fig, ax = plt.subplots(figsize=(20, 6))
+ax.hist(
+    1 - ps[t == 0],
+    bins=30,
+    ec="black",
+    alpha=0.4,
+    color="blue",
+    label="Propensity Scores in Treated",
+)
+ax.hist(
+    ps[t == 1], bins=30, ec="black", alpha=0.6, color="red", label="Propensity Scores in Control"
+)
+ax.set_title("Propensity Scores per Group", fontsize=20)
+ax.axvline(0.9, color="black", linestyle="--")
+ax.axvline(0.1, color="black", linestyle="--")
+ax.legend()
+
+fig, ax2 = plt.subplots(figsize=(20, 6))
+ax2.scatter(X["age"], y, color=t.map(colors), s=(1 / ps) * 20, ec="black", alpha=0.4)
+ax2.set_xlabel("Age")
+ax2.set_xlabel("Age")
+ax2.set_ylabel("y")
+ax2.set_ylabel("y")
+ax2.set_title("y~Age \n Size by IP Weights")
+red_patch = mpatches.Patch(color="red", label="Control")
+blue_patch = mpatches.Patch(color="blue", label="Treated")
+ax2.legend(handles=[red_patch, blue_patch]);
+```
+
 ## Non-Parametric BART Model Propensity Model is mis-specified
 
 The flexibility of the BART model fit is poorly calibrated to recover the average treatment effect. Let's evaluate the weighted outcome distributions under the robust inverse propensity weights estimate. 
@@ -865,13 +953,13 @@ ate_dist_df_dr.head()
 ```
 
 ```{code-cell} ipython3
-plot_ate(ate_dist_df_r)
+plot_ate(ate_dist_df_r, xy=(-1.5, 300))
 ```
 
 Deriving ATE estimates across draws from the posterior distribution and averaging these seems to give a more sensible figure, but still inflated. If instead we use the doubly robust estimator we recover a much more sensible figure. 
 
 ```{code-cell} ipython3
-plot_ate(ate_dist_df_dr)
+plot_ate(ate_dist_df_dr, xy=(-0.10, 200))
 ```
 
 It's worth here expanding on the theory of doubly robust estimation. We showed above the code for implementing the compromise between the treatment assignment estimator and the response or outcome estimator. But why is this useful? Consider again the functional form of the doubly robust estimator.
@@ -987,7 +1075,6 @@ def train_outcome_model(X, y, m=50):
         obs = pm.LogNormal("obs", mu, sigma, observed=y_data)
         idata = pm.sample_prior_predictive()
         idata.extend(pm.sample(1000, progressbar=False))
-        # idata.extend(pm.sample_posterior_predictive(idata))
     return model, idata
 
 
@@ -1001,7 +1088,6 @@ def train_propensity_model(X, t, m=50):
         t_pred = pm.Bernoulli("obs", p=p, observed=t_data)
         idata = pm.sample_prior_predictive()
         idata.extend(pm.sample(1000, progressbar=False))
-        # idata.extend(pm.sample_posterior_predictive(idata))
     return model_ps, idata
 
 
@@ -1202,7 +1288,8 @@ idata_trt
 ```
 
 ```{code-cell} ipython3
-az.summary(idata_trt, var_names=["sigma2", "y_likelihood"])
+trted_df = az.summary(idata_trt, var_names=["sigma2", "y_likelihood"])
+trted_df
 ```
 
 ```{code-cell} ipython3
@@ -1219,12 +1306,63 @@ idata_ntrt
 ```
 
 ```{code-cell} ipython3
-az.summary(idata_ntrt, var_names=["sigma2", "y_likelihood"])
+ntrted_df = az.summary(idata_ntrt, var_names=["sigma2", "y_likelihood"])
+ntrted_df
 ```
 
 The main observation to see in the posterior predictive distribution is how the expectation terms do not vary wildly, but the variance on the individual predicted outcomes are far wider in the smokers group than in the non-smokers group. This is quickly seen by inspecting the differences in `sd` column for the `sigma2` term. 
 
-+++
+```{code-cell} ipython3
+fig, axs = plt.subplots(1, 2, figsize=(20, 6))
+axs = axs.flatten()
+axs[0].hist(
+    trted_df.iloc[1:-1]["mean"],
+    ec="black",
+    bins=30,
+    alpha=0.6,
+    color="red",
+    label="E(Y(1))",
+    density=True,
+)
+axs[0].hist(
+    ntrted_df.iloc[1:-1]["mean"],
+    ec="black",
+    bins=30,
+    alpha=0.6,
+    color="blue",
+    label="E(Y(0))",
+    density=True,
+)
+axs[1].hist(
+    trted_df.iloc[1:-1]["mean"],
+    bins=30,
+    alpha=0.6,
+    color="red",
+    label="E(Y(1))",
+    cumulative=True,
+    density=True,
+    histtype="step",
+)
+axs[1].hist(
+    ntrted_df.iloc[1:-1]["mean"],
+    bins=30,
+    alpha=0.6,
+    color="blue",
+    label="E(Y(0))",
+    cumulative=True,
+    density=True,
+    histtype="step",
+)
+axs[0].set_title(
+    "Distribution of Expected Outcomes \n Under Counterfactual Treatment Regimes", fontsize=20
+)
+axs[1].set_title(
+    "Cumulative Distribution of Expected Outcomes \n Under Counterfactual Treatment Regimes",
+    fontsize=20,
+)
+axs[0].legend()
+axs[1].legend();
+```
 
 ## Conclusion
 
