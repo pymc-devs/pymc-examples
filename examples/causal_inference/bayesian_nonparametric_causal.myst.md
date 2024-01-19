@@ -43,9 +43,9 @@ rng = np.random.default_rng(42)
 
 There are few claims stronger than the assertion of a causal relationship and few claims more contestable. Your naive world model - rich with tenuous connections and non-sequiter implications, will expose you as an idiotic charlatan overly impressed by conspiracy theory. On the other hand, your refined and detailed knowledge of cause and effect - characterised by clear expectations and plausible connections, will lend you credibility and confidence when navigating the buzzing, blooming confusion of the world.
 
-In this notebook we will explain and motivate the usage of propensity scores in the analysis of causal inference questions. We will avoid the impression of magic or methodological arcana - our focus will be on the manner in which we (a) estimate propensity scores and (b) use them in the analysis of causal questions. We will see how they help avoid risks of selection bias in causal inference and where they can go wrong. This method should be comfortable for the Bayeisan analyst who is familiar with weighting and re-weighting their claims with with information in the form priors. Propensity score weighting is just another opportunity to enrich your model with knowledge about the world. We will show how they can be applied directly, and then indirectly in the context of debiasing machine learning approaches to causal inference. 
+In this notebook we will explain and motivate the usage of propensity scores in the analysis of causal inference questions. We will avoid the impression of magic or methodological arcana - our focus will be on the manner in which we (a) estimate propensity scores and (b) use them in the analysis of causal questions. We will see how they help avoid risks of selection bias in causal inference and where they can go wrong. This method should be comfortable for the Bayeisan analyst who is familiar with weighting and re-weighting their claims with information in the form of priors. Propensity score weighting is just another opportunity to enrich your model with knowledge about the world. We will show how they can be applied directly, and then indirectly in the context of debiasing machine learning approaches to causal inference. 
 
-We will illustrate these patterns using two data sets: (i) the NHEFS data used througout Miguel Hernan's _Causal Inference: What If_ book and a second patient focused data set used throughout _Bayesian Nonparametrics for Causal Inference and Missing Data_ by Daniels, Linero and Roy {cite:t}`daniels2024bnp`. Throughout we will contrast the use of non-parametric BART models with simpler regression models for the estimation of propensity scores and causal effects.
+We will illustrate these patterns using two data sets: (i) the NHEFS data used througout Miguel Hernan's _Causal Inference: What If_ {cite:t}`hernan2020whatif` book and a second patient focused data set used throughout _Bayesian Nonparametrics for Causal Inference and Missing Data_ by Daniels, Linero and Roy {cite:t}`daniels2024bnp`. Throughout we will contrast the use of non-parametric BART models with simpler regression models for the estimation of propensity scores and causal effects.
 
 +++
 
@@ -70,7 +70,7 @@ These escalating set of assumptions required to warrant causal inference under d
 
 +++
 
-## Why do we Care about Propensity Scores
+## Why do we Care about Propensity Scores?
 
 Firstly, and somewhat superficially, the propensity score is a dimension reduction technique. We take a complex covariate profile $X_{i}$ representing an individual's measured attributes and reduce it to a scaler $p^{i}_{T}(X)$. It is also a tool for thinking about the potential outcomes of an individual under different treatment regimes. In a policy evaluation context it can help partial out the degree of incentives for policy adoption across strata of the population. What drives adoption or assignment in the cases of observed data partitioning? How can different demographic strata be induced towards or away from adoption of the policy? Understanding these dynamics are crucial to gauge why selection bias might emerge in any sample data. 
 
@@ -87,7 +87,7 @@ Given the assumption that we are measuring the right covariate profiles to induc
 Note how the influence of X on the outcome doesn't change, but it's influence of the treatment is bundled into the propensity score metric. Our assumption of __strong ignorability__ is doing all the work to gives us license to causal claims. The propensity score methods enable these moves through the corrective use of the structure bundled into the propensity score.
 
 ```{code-cell} ipython3
-fig, axs = plt.subplots(1, 2, figsize=(20, 6))
+fig, axs = plt.subplots(1, 2, figsize=(20, 10))
 axs = axs.flatten()
 graph = nx.DiGraph()
 graph.add_node("X")
@@ -123,7 +123,11 @@ nx.draw(
 This data set from the National Health and Nutrition Examination survey records details of weight, activity and smoking habits of around 1500 individuals over two periods. The first period established a baseline and a follow-up period 10 years later. We will analyse whether the individual (`trt` == 1) quit smoking before the follow up visit. Each individuals' `outcome` represents a relative weight gain/loss comparing the two periods. 
 
 ```{code-cell} ipython3
-nhefs_df = pd.read_csv("../data/nhefs.csv")
+try:
+    nhefs_df = pd.read_csv("../data/nhefs.csv")
+except:
+    nhefs_df = pd.read_csv(pm.get_data("nhefs.csv"))
+
 nhefs_df.head()
 ```
 
@@ -327,7 +331,7 @@ Doubly robust methods, so named because they represent a compromise estimator fo
 
 +++
 
-## Estimated Expected Causal Effect (ATE)
+## Estimating Treatment Effects
 
 The next code block builds a set of functions to pull out an extract a sample from our posterior distribution of propensity scores and use this propensity score to reweight the observed outcome variable across our treatment and control groups to re-calculate the average treatment effect (ATE). It reweights our data using the inverse probability weighting scheme and then plots three views (1) the raw propensity scores across groups (2) the raw outcome distribution and (3) the re-weighted outcome distribution. 
 
@@ -510,7 +514,7 @@ def make_plot(
 We plot the outcome and re-weighted outcome distribution using the robust propensity score estimation method.
 
 ```{code-cell} ipython3
-make_plot(X, idata_logit, method="robust")
+make_plot(X, idata_logit, method="robust", lower_bins=np.arange(1, 30, 0.5))
 ```
 
 Next, and because we are Bayesians - we pull out and evaluate the posterior distribution of the ATE basd on the sampled propensity scores. We've seen a point estimate for the ATE above, but it's often more important in the causal inference context to understand the uncertainty in the estimate. 
@@ -580,7 +584,13 @@ Note how this estimate of the treatment effect quite different than what we got 
 Next we'll apply the doubly robust estimator to the propensity distribution achieved using the BART non-parametric model.
 
 ```{code-cell} ipython3
-make_plot(X, idata_probit, method="doubly_robust", ylims=[(-150, 370), (-220, 150), (-50, 120)])
+make_plot(
+    X,
+    idata_probit,
+    method="doubly_robust",
+    ylims=[(-150, 370), (-220, 150), (-50, 120)],
+    lower_bins=np.arange(1, 30, 0.5),
+)
 ```
 
 ```{code-cell} ipython3
@@ -729,7 +739,11 @@ All perspectives on the question of causal inference here seem broadly convergen
 We will begin with looking a health-expenditure data set analysed in _Bayesian Nonparametrics for Causal Inference and Missing Data_ . The telling feature about this data set is the absence of obvious causal impact on expenditure due to the presence of smoking. We follow the authors and try and model the effect of `smoke` on the logged out `log_y`. But while they want to show how the effect of smoking on total expenditure has a mediated relationship with measures of ill-health, we'll focus on estimating the ATE. There is little signal to dicern regarding the direct effects of smoking in the death and we want to demonstrate how even if we choose the right methods and try to control for bias with the right tools - we can miss the story under our nose if we're too focused on the mechanics and not the data generating process.
 
 ```{code-cell} ipython3
-df = pd.read_csv("../data/meps_bayes_np_health.csv", index_col=["Unnamed: 0"])
+try:
+    df = pd.read_csv("../data/meps_bayes_np_health.csv", index_col=["Unnamed: 0"])
+except:
+    df = pd.read_csv(pm.get_data("meps_bayes_np_health.csv"), index_col=["Unnamed: 0"])
+
 df = df[df["totexp"] > 0].reset_index(drop=True)
 df["log_y"] = np.log(df["totexp"] + 1000)
 df["loginc"] = np.log(df["income"])
@@ -888,13 +902,6 @@ az.plot_trace(idata_expend_bart, var_names=["mu", "p"]);
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(15, 6))
-
-az.plot_ppc(idata_expend_bart, ax=ax)
-ax.set_title("Posterior Predictive Checks: Treatment Distribution");
-```
-
-```{code-cell} ipython3
 ps = idata_expend_bart["posterior"]["p"].mean(dim=("chain", "draw")).values
 fig, ax = plt.subplots(figsize=(20, 6))
 ax.hist(
@@ -934,8 +941,8 @@ ps = idata_expend_bart["posterior"]["p"].mean(dim=("chain", "draw")).values
 make_plot(
     X,
     idata_expend_bart,
-    ylims=[(-100, 340), (-70, 380), (-130, 420)],
-    lower_bins=np.arange(6, 15, 1),
+    ylims=[(-100, 340), (-70, 300), (-130, 300)],
+    lower_bins=np.arange(6, 15, 0.5),
     text_pos=(11, 200),
     method="robust",
     ps=ps,
@@ -1036,7 +1043,7 @@ The idea of debiased machine learning is to replicate this exercise, but avail o
 
 ### Avoiding Overfitting with K-fold Cross Prediction
 
-As we've seen above one of the concerns with the automatic regularisation effects of BART like tree based models is their tendency to over-fit to the seen data. Here we'll use K-fold cross validation to generate predictions on out of sample cuts of the data. This step is crucial to avoid the over-fitting of the model to the sample data and thereby avoiding the miscalibration effects we've seen above. 
+As we've seen above one of the concerns with the automatic regularisation effects of BART like tree based models is their tendency to over-fit to the seen data. Here we'll use K-fold cross validation to generate predictions on out of sample cuts of the data. This step is crucial to avoid the over-fitting of the model to the sample data and thereby avoiding the miscalibration effects we've seen above. This too, (it's easily forgotten), is a corrective step to avoid known biases due to over-indexing on the observed sample data. 
 
 ```{code-cell} ipython3
 dummies = pd.concat(
@@ -1168,19 +1175,19 @@ for i in range(1000):
 axs[0].set_title("Double ML - ATE estimate \n Distribution")
 axs[1].set_title(r" Posterior Regression Line of Residuals: r(Y) ~ $\beta$r(T)")
 ate = np.mean(t_effects)
-axs[0].axvline(ate, label=f"E(ATE) = {np.round(ate, 2)}")
+axs[0].axvline(ate, color="black", linestyle="--", label=f"E(ATE) = {np.round(ate, 2)}")
 axs[0].legend();
 ```
 
-We can see here how the technique of debiased machine learning has helped to alleviate some of the miscalibrated effects of naively fitting the BART model to the propensity score estimation task. Additionally we now have quantified some of the uncertainty in the ATE which determines a relatively flat regression line on the residuals.
+We can see here how the technique of debiased machine learning has helped to alleviate some of the miscalibrated effects of naively fitting the BART model to the propensity score estimation task. Additionally we now have quantified some of the uncertainty in the ATE which determines a relatively flat regression line on the residuals. 
 
 +++
 
-## Mediation Effects and The Causal Story
+## Mediation Effects and Causal Structure
 
 Above we've seen how a number of different approaches designed to avoid bias lead us to the conclusion that smoking has limited or no effect on your likely healthcare costs. It's worth emphasising that this should strike you as strange! The solution to the puzzle lies not in the method of estimation precisely, but in the structure of the question. It's not that smoking isn't related to healthcare costs, but that the impact is mediated through smoking's influence on our health. 
 
-The structural imposition of mediation mandates valid causal inferences go through just when __sequential ignorability__ holds. That is to say - the potential outcomes are independent of the treatement assignment history conditional on covariate profiles. More detail can be found in {cite:t}`daniels2024bnp`. We can see how this works if we write that structure into our model as described in {ref}`mediation_analysis`
+The structural imposition of mediation mandates valid causal inferences go through just when __sequential ignorability__ holds. That is to say - the potential outcomes are independent of the _treatment assignment history_ conditional on covariate profiles. More detail can be found in {cite:t}`daniels2024bnp`. But we can see how this works if we write the mediation structure into our model as described in {ref}`mediation_analysis`.
 
 ```{code-cell} ipython3
 dummies = pd.concat(
@@ -1215,6 +1222,8 @@ lkup = {
     "phealth_Excellent": 4,
 }
 
+### Construct the health status variables as an ordinal rank
+### to use the health rank as a mediator for smoking.
 m = pd.DataFrame(
     (
         pd.from_dummies(
@@ -1285,9 +1294,7 @@ t_mod = np.ones(len(X), dtype="int32")
 with model:
     # update values of predictors:
     pm.set_data({"t": t_mod})
-    idata_trt = pm.sample_posterior_predictive(
-        result, var_names=["cprime", "indirect effect", "total effect", "sigma2", "y_likelihood"]
-    )
+    idata_trt = pm.sample_posterior_predictive(result, var_names=["sigma2", "y_likelihood"])
 
 idata_trt
 ```
@@ -1303,9 +1310,7 @@ t_mod = np.zeros(len(X), dtype="int32")
 with model:
     # update values of predictors:
     pm.set_data({"t": t_mod})
-    idata_ntrt = pm.sample_posterior_predictive(
-        result, var_names=["cprime", "indirect effect", "total effect", "sigma2", "y_likelihood"]
-    )
+    idata_ntrt = pm.sample_posterior_predictive(result, var_names=["sigma2", "y_likelihood"])
 
 idata_ntrt
 ```
@@ -1318,7 +1323,7 @@ ntrted_df
 The main observation to see in the posterior predictive distribution is how the expectation terms do not vary wildly, but the variance on the individual predicted outcomes are far wider in the smokers group than in the non-smokers group. This is quickly seen by inspecting the differences in `sd` column for the `sigma2` term. 
 
 ```{code-cell} ipython3
-fig, axs = plt.subplots(1, 2, figsize=(20, 9))
+fig, axs = plt.subplots(1, 2, figsize=(20, 7))
 axs = axs.flatten()
 axs[0].hist(
     trted_df.iloc[1:-1]["mean"],
@@ -1365,11 +1370,19 @@ axs[1].set_title(
     "Cumulative Distribution of Expected Outcomes \n Under Counterfactual Treatment Regimes",
     fontsize=20,
 )
+q9_nt = np.round(np.exp(np.quantile(ntrted_df.iloc[1:-1]["mean"], 0.9)), 2)
+q9_t = np.round(np.exp(np.quantile(trted_df.iloc[1:-1]["mean"], 0.9)), 2)
+axs[1].annotate(
+    f"""90th Quantile Counterfactual Treated: ${q9_t} \n90th Quantile Counterfactual Control: ${q9_nt}""",
+    xy=(-25, 0.6),
+    fontweight="bold",
+    fontsize=12,
+)
 axs[0].legend()
 axs[1].legend();
 ```
 
-We see here the dramatic effects of smoking on the costs accruing to individuals at the outer quantiles of the predicted distribution. 
+Converting back to the raw dollar scale we see here the dramatic effects of smoking on the costs accruing to individuals at the outer quantiles of the predicted distribution. 
 
 +++
 
