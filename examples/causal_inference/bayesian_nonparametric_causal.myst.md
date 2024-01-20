@@ -1255,12 +1255,12 @@ def mediation_model(t, m, y):
         im = pm.Normal("im", mu=0, sigma=10)
         iy = pm.Normal("iy", mu=0, sigma=10)
         # slope priors
-        a = pm.Normal("a", mu=0, sigma=10)
-        b = pm.Normal("b", mu=0, sigma=10)
+        a = pm.Normal("a", mu=0, sigma=1)
+        b = pm.Normal("b", mu=0, sigma=1)
         b_age = pm.Normal("b_age", 0, 1)
         b_bmi = pm.Normal("b_bmi", 0, 1)
         b_sex = pm.Normal("b_sex", 0, 1)
-        cprime = pm.Normal("cprime", mu=0, sigma=10)
+        cprime = pm.Normal("cprime", mu=0, sigma=1)
         # noise priors
         sigma1 = pm.HalfCauchy("sigma1", 1)
         sigma2 = pm.HalfCauchy("sigma2", 1)
@@ -1312,8 +1312,7 @@ with model:
     pm.set_data({"t": t_mod})
     idata_trt = pm.sample_posterior_predictive(
         result,
-        var_names=["y_likelihood", "cprime", "indirect effect", "total effect"],
-        random_seed=100,
+        var_names=["y_likelihood", "cprime"],
     )
 
 idata_trt
@@ -1322,7 +1321,7 @@ idata_trt
 ```{code-cell} ipython3
 trted_df = az.summary(
     idata_trt,
-    var_names=["y_likelihood", "cprime", "indirect effect", "total effect"],
+    var_names=["y_likelihood", "cprime"],
     group="posterior_predictive",
 )
 trted_df
@@ -1336,8 +1335,7 @@ with model:
     pm.set_data({"t": t_mod})
     idata_ntrt = pm.sample_posterior_predictive(
         result,
-        var_names=["y_likelihood", "cprime", "indirect effect", "total effect"],
-        random_seed=110,
+        var_names=["y_likelihood", "cprime"],
     )
 
 idata_ntrt
@@ -1346,75 +1344,72 @@ idata_ntrt
 ```{code-cell} ipython3
 ntrted_df = az.summary(
     idata_ntrt,
-    var_names=["y_likelihood", "cprime", "indirect effect", "total effect"],
+    var_names=["y_likelihood", "cprime"],
     group="posterior_predictive",
 )
 ntrted_df
 ```
 
-The main observation to see in the posterior predictive distribution is how the expectation terms do not vary wildly, but the variance on the individual predicted outcomes are far wider in the smokers group than in the non-smokers group. This is quickly seen by inspecting the differences in `sd` column for the `sigma2` term. 
+The main observation to see in the posterior predictive distribution is how the expectation terms do not vary wildly, but the variance on the individual predicted outcomes are far wider in the smokers group than in the non-smokers group.
 
 ```{code-cell} ipython3
-fig, axs = plt.subplots(2, 1, figsize=(20, 10))
+axs = az.plot_posterior(
+    idata_trt,
+    var_names=["y_likelihood"],
+    coords={"obs_id": range(10)},
+    figsize=(20, 6),
+    group="posterior_predictive",
+    grid=(2, 5),
+)
 axs = axs.flatten()
-axs[0].hist(
-    trted_df.iloc[0:-4]["mean"],
-    ec="black",
-    bins=30,
-    alpha=0.6,
-    color="red",
-    label="E(Y(1))",
-    density=True,
+for ax in axs:
+    ax.set_xlim(2, 12)
+plt.suptitle("Expected Uncertainty under Treated Regime", fontsize=20, fontweight="bold")
+
+axs = az.plot_posterior(
+    idata_ntrt,
+    var_names=["y_likelihood"],
+    coords={"obs_id": range(10)},
+    figsize=(20, 6),
+    group="posterior_predictive",
+    grid=(2, 5),
 )
-axs[0].hist(
-    ntrted_df.iloc[0:-4]["mean"],
-    ec="black",
-    bins=30,
-    alpha=0.6,
-    color="blue",
-    label="E(Y(0))",
-    density=True,
-)
-axs[1].hist(
-    trted_df.iloc[0:-4]["mean"],
-    bins=30,
-    alpha=0.6,
-    color="red",
-    label="E(Y(1))",
-    cumulative=True,
-    density=True,
-    histtype="step",
-)
-axs[1].hist(
-    ntrted_df.iloc[0:-4]["mean"],
-    bins=30,
-    alpha=0.6,
-    color="blue",
-    label="E(Y(0))",
-    cumulative=True,
-    density=True,
-    histtype="step",
-)
-axs[0].set_title(
-    "Distribution of Expected Outcomes \n Under Counterfactual Treatment Regimes", fontsize=20
-)
-axs[1].set_title(
-    "Cumulative Distribution of Expected Outcomes \n Under Counterfactual Treatment Regimes",
-    fontsize=20,
-)
-q9_nt = np.round(np.exp(np.quantile(ntrted_df.iloc[0:-4]["mean"], 0.9)), 2)
-q9_t = np.round(np.exp(np.quantile(trted_df.iloc[0:-4]["mean"], 0.9)), 2)
-axs[1].annotate(
-    f"""90th Quantile Counterfactual Treated: ${q9_t} \n90th Quantile Counterfactual Control: ${q9_nt}""",
-    xy=(8.2, 0.6),
-    fontweight="bold",
-    fontsize=12,
-)
-axs[0].legend()
-axs[1].legend();
+axs = axs.flatten()
+for ax in axs:
+    ax.set_xlim(2, 12)
+plt.suptitle("Expected Uncertainty under Control Regime", fontsize=20, fontweight="bold");
 ```
 
-Converting back to the raw dollar scale we see here the dramatic effects of smoking on the costs accruing to individuals at the outer quantiles of the predicted distribution. 
+### Plotting the Quantile Differences
+
+On an individual by individual basis the expected payouts required under the different regimes are on average quite similar, but the tail events across the portfolio can add up to significant differences. Here we look at the 95th quantile of losses aggregated over all the individuals in each counterfactual regime. 
+
+```{code-cell} ipython3
+mosaic = """AABB
+            CCCC"""
+
+fig, axs = plt.subplot_mosaic(mosaic, layout="constrained", figsize=(20, 10))
+q9_ntrt = idata_ntrt["posterior_predictive"]["y_likelihood"].quantile(0.95, dim=("chain", "obs_id"))
+q9_trt = idata_trt["posterior_predictive"]["y_likelihood"].quantile(0.95, dim=("chain", "obs_id"))
+axs["A"].hist(q9_ntrt, bins=30, ec="black", color="red", label="Control: p95")
+axs["A"].axvline(q9_ntrt.mean().item(), linestyle="--", color="black", linewidth=5)
+axs["A"].set_title("Distribution of P95 under the Control Regime", fontsize=20)
+axs["B"].hist(q9_trt, bins=30, ec="black", color="blue", label="Treatment: p95")
+axs["B"].axvline(q9_trt.mean().item(), linestyle="--", color="black", linewidth=5)
+axs["B"].set_title("Distribution of P95 under the Treated Regime", fontsize=20)
+axs["C"].hist(q9_ntrt - q9_trt, bins=30, color="slateblue", ec="black")
+q_diff = (q9_ntrt - q9_trt).mean().item()
+axs["C"].axvline(
+    q_diff, linestyle="--", color="black", linewidth=5, label=f"E(diff): {np.round(q_diff, 3)}"
+)
+axs["C"].set_title("Distribution of P95 differences between Regimes", fontsize=20)
+axs["C"].set_xlabel("Differences in Percentiles")
+axs["A"].legend()
+axs["B"].legend()
+axs["C"].legend();
+```
+
+This increased uncertainty in costs due to smoking drives meaningful decisions about the profile of cumulative losses. any insurer could expect to see as their portfolio of risks matures. 
 
 +++
 
@@ -1422,12 +1417,10 @@ Converting back to the raw dollar scale we see here the dramatic effects of smok
 
 Propensity scores are a useful tool for thinking about the structure of causal inference problems. They directly relate to considerations of selection effects and can be used proactively to re-weight evidence garnered from observational data sets. They can be applied with flexible machine learning models and cross validation techniques to correct over-fitting of machine learning models like BART. They are not as direct a tool for regularisation of model fits as the application of bayesian priors, but they are a tool in the same vein. They ask of the analyst their theory of treatment assignment mechanism - under __strong ignorability__ this is enough to evaluate policy changes in the outcomes of interest.
 
-The role of propensity scores in the doubly-robust estimation methods of double-ML approaches to causal inference emphasise this balancing between the theory of the outcome variable and the theory of the treatment-assignment mechanism. We've seen how blindly throwing machine learning models at causal problems can result in mis-specified treatment assignment models and wildly skewed estimates based on naive point estimates. Angrist and Pischke argue that this should push us back towards the safety of thoughtful and careful regression modelling. Even in the case of debiasing machine learning models there is an implicit appeal to the regression estimator which underwrites the frisch-waugh-lowell results. But even here rushed approaches lead to counter-intuitive claims. 
+The role of propensity scores in the doubly-robust estimation methods of double-ML approaches to causal inference emphasise this balancing between the theory of the outcome variable and the theory of the treatment-assignment mechanism. We've seen how blindly throwing machine learning models at causal problems can result in mis-specified treatment assignment models and wildly skewed estimates based on naive point estimates. Angrist and Pischke argue that this should push us back towards the safety of thoughtful and careful regression modelling. Even in the case of debiasing machine learning models there is an implicit appeal to the regression estimator which underwrites the frisch-waugh-lowell results. But here too rushed approaches lead to counter-intuitive claims. Each of these tools for thought has a scope for application - understanding the limits is crucial to underwriting credible causal claims.
 
-In sum, this bevy of results draws out the need for careful attention to structure of the data generating models. The final example brings home the idea that causal inference is intimately tied to the inference over causal structural graphs. The propagation of uncertainty down through the causal structure really matters! It's nothing more than wishful thinking to hope that these structures will be automatically discerned through the magic of machine learning. We've seen how propensity score methods seek to re-weight inferences as a corrrective step, we've seen doubly robust methodologies which seek to correct inferences through predictive power of machine learning strategies and finally we've seen how structural modelling corrects estimates by imposing constraints on the influence paths between covariates. This is just how inference is done, you encode your knowledge of the world and update your views as evidence accrues. 
+The bevy of results we've seen draws out the need for careful attention to structure of the data generating models. The final example brings home the idea that causal inference is intimately tied to the inference over causal structural graphs. The propagation of uncertainty down through the causal structure really matters! It's nothing more than wishful thinking to hope that these structures will be automatically discerned through the magic of machine learning. We've seen how propensity score methods seek to re-weight inferences as a corrrective step, we've seen doubly robust methodologies which seek to correct inferences through predictive power of machine learning strategies and finally we've seen how structural modelling corrects estimates by imposing constraints on the influence paths between covariates. This is just how inference is done, you encode your knowledge of the world and update your views as evidence accrues. 
 
-NOTE: PROBABLY REMOVE
-There are few feuds more bitter or inane than those between puritanical methodologists. Pick your flavour; ardent frequentist or bayesian, frothing advocates of design-based or model-based inference, devotees of potential-outcomes or the do-calculus frameworks - they all mistake a tool preference for a lifestyle commitment. Like the rich dillentantes signalling brand allegience by garbing themselves exclusively in logos, puritanical theorists adopt one tool for all jobs. The applied researcher doesn't have the luxury of dwelling in this trap. We cannot and should not fit all our problems to the preferred tool - the retreat to recipes for inference is just a retreat from thinking at all.
 
 +++
 
