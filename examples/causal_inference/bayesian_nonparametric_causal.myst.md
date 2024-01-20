@@ -76,7 +76,7 @@ Firstly, and somewhat superficially, the propensity score is a dimension reducti
 
 The pivotal idea is that we cannot license causal claims unless (i) the treatment assignment is independent of the covariate profiles i.e $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ and similarly conditionally independent of the treatement $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ given $X$. This also occasionally noted as the __unconfoundedness__ assumption.
 
-It is a theorem that if $T$ is strongly ignorable given $X$, then (i) and (ii) hold given $p_{T}(X)$ too. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data.  Causal inference is unconfounded when we have controlled for enough of drivers for policy adoption, that we could predict selection effects based on covariate profiles $X$. There is a great discussion of the details in Aronow and Miller's _Foundations of Agnostic Statistics_ {cite:t}`aronow2019agnostic`. But the insight this suggests is that when you want to estimate a causal effect you are only required to control for the covariates which impact the probability of treatement assignment. More concretely, if it's easier to model the assignment mechanism than the outcome mechanism this can be substituted in the case of causal inference with observed data.
+It is a theorem that if $T$ is strongly ignorable given $X$, then (i) and (ii) hold given $p_{T}(X)$ too. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. This is useful because some of the strata of a complex covariate profile may be sparsely populated so by propensity scores enable us to avoid the risks of dimensionality.  Causal inference is unconfounded when we have controlled for enough of drivers for policy adoption, that we could predict selection effects based on covariate profiles $X$. There is a great discussion of the details in Aronow and Miller's _Foundations of Agnostic Statistics_ {cite:t}`aronow2019agnostic`. But the insight this suggests is that when you want to estimate a causal effect you are only required to control for the covariates which impact the probability of treatement assignment. More concretely, if it's easier to model the assignment mechanism than the outcome mechanism this can be substituted in the case of causal inference with observed data.
 
 Given the assumption that we are measuring the right covariate profiles to induce __strong ignorability__, then propensity scores can be used thoughtfully to underwrite causal claims. With observational data we cannot re-run the assignment mechanism but we can estimate it, and transform our data to proportionally weight the data summaries within each group so that the analysis is less effected by the over-representation of different strata in each group. This is what we hope to use the propensity scores to achieve. 
 
@@ -106,7 +106,8 @@ nx.draw(
     with_labels=True,
     pos={"X": (1, 2), "p(X)": (1, 3), "T": (1, 4), "Y": (2, 1)},
     ax=axs[1],
-    node_size=4000,
+    node_size=6000,
+    font_color="whitesmoke",
 )
 nx.draw(
     graph1,
@@ -114,9 +115,14 @@ nx.draw(
     with_labels=True,
     pos={"X": (1, 2), "T": (1, 4), "Y": (2, 1)},
     ax=axs[0],
-    node_size=4000,
+    node_size=6000,
+    font_color="whitesmoke",
 )
 ```
+
+This is a useful perspective on the assumption of __strong ignorability__ because it implies that $T   \perp\!\!\!\perp  X |p(X)$ which implies that the covariate profiles are balanced across the treatment branches conditional on the propensity score. This is a testable implication of the postulated design! This type of assumption and ensuing tests of balance based on propensity scores is often substituted for elaboration of the structural DAG that systematically determine the treatment assignment. The idea being that if we can achieve balance across covariates conditional on a propensity score we have emulated an as-if random allocation we can avoid the hassle of specifying too much structure and remain agnostic about the strucuture of the mechanism. This can often be a useful strategy but, as we will see, elides the specificity of the causal question and the data generating process. 
+
++++
 
 ## NHEFS Data
 
@@ -1215,11 +1221,11 @@ X
 
 
 lkup = {
-    "phealth_Poor": 0,
-    "phealth_Fair": 1,
-    "phealth_Good": 2,
-    "phealth_Very Good": 3,
-    "phealth_Excellent": 4,
+    "phealth_Poor": 1,
+    "phealth_Fair": 2,
+    "phealth_Good": 3,
+    "phealth_Very Good": 4,
+    "phealth_Excellent": 5,
 }
 
 ### Construct the health status variables as an ordinal rank
@@ -1241,6 +1247,9 @@ def mediation_model(t, m, y):
         t_data = pm.MutableData("t", t, dims="obs_id")
         y = pm.MutableData("y", y, dims="obs_id")
         m = pm.MutableData("m", m, dims="obs_id")
+        age = pm.MutableData("age", X["age"].values)
+        bmi = pm.MutableData("bmi", X["bmi"].values)
+        sex = pm.MutableData("race", X["sex_Male"].values)
 
         # intercept priors
         im = pm.Normal("im", mu=0, sigma=10)
@@ -1248,6 +1257,9 @@ def mediation_model(t, m, y):
         # slope priors
         a = pm.Normal("a", mu=0, sigma=10)
         b = pm.Normal("b", mu=0, sigma=10)
+        b_age = pm.Normal("b_age", 0, 1)
+        b_bmi = pm.Normal("b_bmi", 0, 1)
+        b_sex = pm.Normal("b_sex", 0, 1)
         cprime = pm.Normal("cprime", mu=0, sigma=10)
         # noise priors
         sigma1 = pm.HalfCauchy("sigma1", 1)
@@ -1256,7 +1268,11 @@ def mediation_model(t, m, y):
         # likelihood
         pm.Normal("m_likelihood", mu=im + a * t_data, sigma=sigma1, observed=m, dims="obs_id")
         pm.Normal(
-            "y_likelihood", mu=iy + b * m + cprime * t_data, sigma=sigma2, observed=y, dims="obs_id"
+            "y_likelihood",
+            mu=iy + b * m + cprime * t_data + b_age * age + b_bmi * bmi + b_sex * sex,
+            sigma=sigma2,
+            observed=y,
+            dims="obs_id",
         )
 
         # calculate quantities of interest
@@ -1286,7 +1302,7 @@ ax = az.plot_posterior(
 ax[0].set(title="direct effect");
 ```
 
-Here we begin to see what's going on the influence of smoking is directly negative, but the indirect effect through the mediator of health status is positive and the commbined effect cancels out/reduces the treatment effect on the outcome. Using this new structure we can of course use the regression imputation approach to causal inference and derive a kind of ceteris paribus law about the impact of smoking as mediated through the observed health features,
+Here we begin to see what's going on the influence of smoking is directly negative, but the indirect effect through the mediator of health status is positive and the combined effect cancels out/reduces the treatment effect on the outcome. Using this new structure we can of course use the regression imputation approach to causal inference and derive a kind of ceteris paribus law about the impact of smoking as mediated through the observed health features,
 
 ```{code-cell} ipython3
 t_mod = np.ones(len(X), dtype="int32")
@@ -1294,13 +1310,21 @@ t_mod = np.ones(len(X), dtype="int32")
 with model:
     # update values of predictors:
     pm.set_data({"t": t_mod})
-    idata_trt = pm.sample_posterior_predictive(result, var_names=["sigma2", "y_likelihood"])
+    idata_trt = pm.sample_posterior_predictive(
+        result,
+        var_names=["y_likelihood", "cprime", "indirect effect", "total effect"],
+        random_seed=100,
+    )
 
 idata_trt
 ```
 
 ```{code-cell} ipython3
-trted_df = az.summary(idata_trt, var_names=["sigma2", "y_likelihood"])
+trted_df = az.summary(
+    idata_trt,
+    var_names=["y_likelihood", "cprime", "indirect effect", "total effect"],
+    group="posterior_predictive",
+)
 trted_df
 ```
 
@@ -1310,23 +1334,31 @@ t_mod = np.zeros(len(X), dtype="int32")
 with model:
     # update values of predictors:
     pm.set_data({"t": t_mod})
-    idata_ntrt = pm.sample_posterior_predictive(result, var_names=["sigma2", "y_likelihood"])
+    idata_ntrt = pm.sample_posterior_predictive(
+        result,
+        var_names=["y_likelihood", "cprime", "indirect effect", "total effect"],
+        random_seed=110,
+    )
 
 idata_ntrt
 ```
 
 ```{code-cell} ipython3
-ntrted_df = az.summary(idata_ntrt, var_names=["sigma2", "y_likelihood"])
+ntrted_df = az.summary(
+    idata_ntrt,
+    var_names=["y_likelihood", "cprime", "indirect effect", "total effect"],
+    group="posterior_predictive",
+)
 ntrted_df
 ```
 
 The main observation to see in the posterior predictive distribution is how the expectation terms do not vary wildly, but the variance on the individual predicted outcomes are far wider in the smokers group than in the non-smokers group. This is quickly seen by inspecting the differences in `sd` column for the `sigma2` term. 
 
 ```{code-cell} ipython3
-fig, axs = plt.subplots(1, 2, figsize=(20, 7))
+fig, axs = plt.subplots(2, 1, figsize=(20, 10))
 axs = axs.flatten()
 axs[0].hist(
-    trted_df.iloc[1:-1]["mean"],
+    trted_df.iloc[0:-4]["mean"],
     ec="black",
     bins=30,
     alpha=0.6,
@@ -1335,7 +1367,7 @@ axs[0].hist(
     density=True,
 )
 axs[0].hist(
-    ntrted_df.iloc[1:-1]["mean"],
+    ntrted_df.iloc[0:-4]["mean"],
     ec="black",
     bins=30,
     alpha=0.6,
@@ -1344,7 +1376,7 @@ axs[0].hist(
     density=True,
 )
 axs[1].hist(
-    trted_df.iloc[1:-1]["mean"],
+    trted_df.iloc[0:-4]["mean"],
     bins=30,
     alpha=0.6,
     color="red",
@@ -1354,7 +1386,7 @@ axs[1].hist(
     histtype="step",
 )
 axs[1].hist(
-    ntrted_df.iloc[1:-1]["mean"],
+    ntrted_df.iloc[0:-4]["mean"],
     bins=30,
     alpha=0.6,
     color="blue",
@@ -1370,11 +1402,11 @@ axs[1].set_title(
     "Cumulative Distribution of Expected Outcomes \n Under Counterfactual Treatment Regimes",
     fontsize=20,
 )
-q9_nt = np.round(np.exp(np.quantile(ntrted_df.iloc[1:-1]["mean"], 0.9)), 2)
-q9_t = np.round(np.exp(np.quantile(trted_df.iloc[1:-1]["mean"], 0.9)), 2)
+q9_nt = np.round(np.exp(np.quantile(ntrted_df.iloc[0:-4]["mean"], 0.9)), 2)
+q9_t = np.round(np.exp(np.quantile(trted_df.iloc[0:-4]["mean"], 0.9)), 2)
 axs[1].annotate(
     f"""90th Quantile Counterfactual Treated: ${q9_t} \n90th Quantile Counterfactual Control: ${q9_nt}""",
-    xy=(-25, 0.6),
+    xy=(8.2, 0.6),
     fontweight="bold",
     fontsize=12,
 )
@@ -1392,7 +1424,10 @@ Propensity scores are a useful tool for thinking about the structure of causal i
 
 The role of propensity scores in the doubly-robust estimation methods of double-ML approaches to causal inference emphasise this balancing between the theory of the outcome variable and the theory of the treatment-assignment mechanism. We've seen how blindly throwing machine learning models at causal problems can result in mis-specified treatment assignment models and wildly skewed estimates based on naive point estimates. Angrist and Pischke argue that this should push us back towards the safety of thoughtful and careful regression modelling. Even in the case of debiasing machine learning models there is an implicit appeal to the regression estimator which underwrites the frisch-waugh-lowell results. But even here rushed approaches lead to counter-intuitive claims. 
 
-In sum, this bevy of results draws out the need for careful attention to structure of the data generating models. The final example brings home the idea that causal inference is intimately tied to the inference over causal structural graphs. The propagation of uncertainty down through the causal structure really matters! It's nothing more than wishful thinking to hope that these structures will be automatically discerned through the magic of machine learning. We've seen how propensity score methods seek to re-weight inferences as a corrrective step, we've seen doubly robust methodologies which seek to correct inferences through predictive power of machine learning strategies and finally we've seen how structural modelling corrects estimates by imposing constraints on the influence paths between covariates. This is just how inference is done, you encode your knowledge of the world and update your views as evidence accrues. There are few better tools for thinking through these issues than Bayesian causal models.
+In sum, this bevy of results draws out the need for careful attention to structure of the data generating models. The final example brings home the idea that causal inference is intimately tied to the inference over causal structural graphs. The propagation of uncertainty down through the causal structure really matters! It's nothing more than wishful thinking to hope that these structures will be automatically discerned through the magic of machine learning. We've seen how propensity score methods seek to re-weight inferences as a corrrective step, we've seen doubly robust methodologies which seek to correct inferences through predictive power of machine learning strategies and finally we've seen how structural modelling corrects estimates by imposing constraints on the influence paths between covariates. This is just how inference is done, you encode your knowledge of the world and update your views as evidence accrues. 
+
+NOTE: PROBABLY REMOVE
+There are few feuds more bitter or inane than those between puritanical methodologists. Pick your flavour; ardent frequentist or bayesian, frothing advocates of design-based or model-based inference, devotees of potential-outcomes or the do-calculus frameworks - they all mistake a tool preference for a lifestyle commitment. Like the rich dillentantes signalling brand allegience by garbing themselves exclusively in logos, puritanical theorists adopt one tool for all jobs. The applied researcher doesn't have the luxury of dwelling in this trap. We cannot and should not fit all our problems to the preferred tool - the retreat to recipes for inference is just a retreat from thinking at all.
 
 +++
 
