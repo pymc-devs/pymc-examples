@@ -31,6 +31,8 @@ import pymc_bart as pmb
 import pytensor.tensor as pt
 import statsmodels.api as sm
 import xarray as xr
+
+from sklearn.ensemble import GradientBoostingRegressor
 ```
 
 ```{code-cell} ipython3
@@ -41,7 +43,7 @@ rng = np.random.default_rng(42)
 
 ## Causal Inference and Propensity Scores
 
-There are few claims stronger than the assertion of a causal relationship and few claims more contestable. Your naive world model - rich with tenuous connections and non-sequiter implications, will expose you as an idiotic charlatan overly impressed by conspiracy theory. On the other hand, your refined and detailed knowledge of cause and effect - characterised by clear expectations and plausible connections, will lend you credibility and confidence when navigating the buzzing, blooming confusion of the world.
+There are few claims stronger than the assertion of a causal relationship and few claims more contestable. A naive world model - rich with tenuous connections and non-sequiter implications is characteristic of conspiracy theory and idiocy. On the other hand, a refined and detailed knowledge of cause and effect - characterised by clear expectations, plausible connections and compelling counterfactuals, gifts you credibility and confidence while steering through the buzzing, blooming confusion of the world.
 
 In this notebook we will explain and motivate the usage of propensity scores in the analysis of causal inference questions. We will avoid the impression of magic or methodological arcana - our focus will be on the manner in which we (a) estimate propensity scores and (b) use them in the analysis of causal questions. We will see how they help avoid risks of selection bias in causal inference and where they can go wrong. This method should be comfortable for the Bayeisan analyst who is familiar with weighting and re-weighting their claims with information in the form of priors. Propensity score weighting is just another opportunity to enrich your model with knowledge about the world. We will show how they can be applied directly, and then indirectly in the context of debiasing machine learning approaches to causal inference. 
 
@@ -76,7 +78,7 @@ Firstly, and somewhat superficially, the propensity score is a dimension reducti
 
 The pivotal idea is that we cannot license causal claims unless (i) the treatment assignment is independent of the covariate profiles i.e $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ and similarly conditionally independent of the treatement $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ given $X$. This also occasionally noted as the __unconfoundedness__ assumption.
 
-It is a theorem that if $T$ is strongly ignorable given $X$, then (i) and (ii) hold given $p_{T}(X)$ too. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. This is useful because some of the strata of a complex covariate profile may be sparsely populated so by propensity scores enable us to avoid the risks of dimensionality.  Causal inference is unconfounded when we have controlled for enough of drivers for policy adoption, that we could predict selection effects based on covariate profiles $X$. There is a great discussion of the details in Aronow and Miller's _Foundations of Agnostic Statistics_ {cite:t}`aronow2019agnostic`. But the insight this suggests is that when you want to estimate a causal effect you are only required to control for the covariates which impact the probability of treatement assignment. More concretely, if it's easier to model the assignment mechanism than the outcome mechanism this can be substituted in the case of causal inference with observed data.
+It is a theorem that if $T$ is strongly ignorable given $X$, then (i) and (ii) hold given $p_{T}(X)$ too. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. This is useful because some of the strata of a complex covariate profile may be sparsely populated so by propensity scores enable us to avoid the risks of dimensionality.  Causal inference is unconfounded when we have controlled for enough of drivers for policy adoption, that selection effects within each covariate profiles $X$ seem essentially random. There is a great discussion of the details in Aronow and Miller's _Foundations of Agnostic Statistics_ {cite:t}`aronow2019agnostic`. But the insight this suggests is that when you want to estimate a causal effect you are only required to control for the covariates which impact the probability of treatement assignment. More concretely, if it's easier to model the assignment mechanism than the outcome mechanism this can be substituted in the case of causal inference with observed data.
 
 Given the assumption that we are measuring the right covariate profiles to induce __strong ignorability__, then propensity scores can be used thoughtfully to underwrite causal claims. With observational data we cannot re-run the assignment mechanism but we can estimate it, and transform our data to proportionally weight the data summaries within each group so that the analysis is less effected by the over-representation of different strata in each group. This is what we hope to use the propensity scores to achieve. 
 
@@ -1036,16 +1038,18 @@ In the case where the simple propensity modelling approach failed, we saw a data
 
 The idea of the theorem is that for any OLS fitted linear model with a focal parameter $\beta_{1}$ and the auxilary parameters $\gamma_{i}$ 
 
-$$\hat{Y} = \beta_{0} + \beta_{1}X_{1} + \gamma_{1}Z_{1} + ... + \gamma_{n}Z_{n}  $$
+$$\hat{Y} = \beta_{0} + \beta_{1}D_{1} + \gamma_{1}Z_{1} + ... + \gamma_{n}Z_{n}  $$
 
 We can retrieve the same values $\beta_{i}, \gamma_{i}$ in a two step procedure: 
 
 - Regress $Y$ on the auxilary covariates i.e. $\hat{Y} = \gamma_{1}Z_{1} + ... + \gamma_{n}Z_{n} $
-- Regress $X_{1}$ on the same auxilary terms i.e. $\hat{X_{1}} =  \gamma_{1}Z_{1} + ... + \gamma_{n}Z_{n}$
-- Take the residuals $r(X) = X_{1} - \hat{X_{1}}$ and $r(Y) = Y - \hat{Y}$
-- Fit the regression $r(Y) = \beta_{0} + \beta_{1}r(X)$ to find $\beta_{1}$
+- Regress $D_{1}$ on the same auxilary terms i.e. $\hat{D_{1}} =  \gamma_{1}Z_{1} + ... + \gamma_{n}Z_{n}$
+- Take the residuals $r(D) = D_{1} - \hat{D_{1}}$ and $r(Y) = Y - \hat{Y}$
+- Fit the regression $r(Y) = \beta_{0} + \beta_{1}r(D)$ to find $\beta_{1}$
 
 The idea of debiased machine learning is to replicate this exercise, but avail of the flexibility for machine learning models to estimate the two residual terms in the case where the focal variable of interest is our treatment variable. 
+
+This is tied to the requirement for __strong ignorability__ because by using this process with the focal variable $T$ we create the treatment variable  $r(T)$ which by definition cannot be predicted from the covariate profile $X$ ensuring $T   \perp\!\!\!\perp  X$
 
 ### Avoiding Overfitting with K-fold Cross Prediction
 
@@ -1186,6 +1190,73 @@ axs[0].legend();
 ```
 
 We can see here how the technique of debiased machine learning has helped to alleviate some of the miscalibrated effects of naively fitting the BART model to the propensity score estimation task. Additionally we now have quantified some of the uncertainty in the ATE which determines a relatively flat regression line on the residuals. 
+
++++
+
+### Conditional Average Treatment Effects
+
+We'll note here that there Double ML approaches offer another lens on the problem in that they allow you to move away from the focus on Average Treatment Effects and retrieve estimates more tailored to the individual covariate profiles. Much of the detail is elaborated in {cite:t}`facure2023causal`. But we'll show here briefly how to build on the derived residuals to retrieve the CATE estimates
+
+```{code-cell} ipython3
+def make_cate(y_resids_stacked, t_resids_stacked, train_dfs, i):
+    train_X = pd.concat([train_dfs[i][0] for i in range(4)])
+    train_t = pd.concat([train_dfs[i][1] for i in range(4)])
+    train_y = pd.concat([train_dfs[i][2] for i in range(4)])
+
+    df_cate = pd.DataFrame(
+        {"y_r": y_resids_stacked[i, :].values, "t_r": t_resids_stacked[i, :].values}
+    )
+    df_cate["target"] = df_cate["y_r"] / np.where(
+        df_cate["t_r"] == 0, df_cate["t_r"] + 0.00001, df_cate["t_r"]
+    )
+    df_cate["weight"] = df_cate["t_r"] ** 2
+    CATE_model = GradientBoostingRegressor()
+    train_X.reset_index(drop=True, inplace=True)
+    train_t.reset_index(drop=True, inplace=True)
+    CATE_model.fit(train_X, df_cate["target"], sample_weight=df_cate["weight"])
+    df_cate["Non_Parametric_DML_CATE"] = CATE_model.predict(train_X)
+    df_cate["t"] = train_t
+    return df_cate
+
+
+fig, axs = plt.subplots(1, 2, figsize=(20, 7))
+axs = axs.flatten()
+
+q_95 = []
+for i in range(1000):
+    cate_df = make_cate(y_resids_stacked, t_resids_stacked, train_dfs, i)
+    axs[0].hist(
+        cate_df[cate_df["t"] == 0]["Non_Parametric_DML_CATE"],
+        bins=30,
+        alpha=0.1,
+        color="red",
+        density=True,
+    )
+    q_95.append(
+        [
+            cate_df[cate_df["t"] == 0]["Non_Parametric_DML_CATE"].quantile(0.99),
+            cate_df[cate_df["t"] == 1]["Non_Parametric_DML_CATE"].quantile(0.99),
+            cate_df[cate_df["t"] == 0]["Non_Parametric_DML_CATE"].quantile(0.01),
+            cate_df[cate_df["t"] == 1]["Non_Parametric_DML_CATE"].quantile(0.01),
+        ]
+    )
+    axs[0].hist(
+        cate_df[cate_df["t"] == 1]["Non_Parametric_DML_CATE"],
+        bins=30,
+        alpha=0.1,
+        color="blue",
+        density=True,
+    )
+axs[0].set_title("CATE Predictions across Posterior of Residuals")
+
+q_df = pd.DataFrame(q_95, columns=["Control_p99", "Treated_p99", "Control_p01", "Treated_p01"])
+axs[1].hist(q_df["Treated_p99"], ec="black", color="blue", alpha=0.4, label="Treated p99")
+axs[1].hist(q_df["Control_p99"], ec="black", color="red", alpha=0.4, label="Control p99")
+axs[1].legend()
+axs[1].set_title("Distribution of p99 CATE predictions");
+```
+
+This perspective starts to show the importance of heterogeniety in causal impacts and offers a means of assessing differential impact of treatments.
 
 +++
 
@@ -1357,7 +1428,7 @@ axs = az.plot_posterior(
     idata_trt,
     var_names=["y_likelihood"],
     coords={"obs_id": range(10)},
-    figsize=(20, 6),
+    figsize=(20, 10),
     group="posterior_predictive",
     grid=(2, 5),
 )
@@ -1370,7 +1441,7 @@ axs = az.plot_posterior(
     idata_ntrt,
     var_names=["y_likelihood"],
     coords={"obs_id": range(10)},
-    figsize=(20, 6),
+    figsize=(20, 10),
     group="posterior_predictive",
     grid=(2, 5),
 )
