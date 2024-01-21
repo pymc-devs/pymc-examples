@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -25,7 +25,7 @@ kernelspec:
 
 Many users face difficulty in deploying their PyMC models to production because deploying/saving/loading a user-created model is not well standardized. One of the reasons behind this is there is no direct way to save or load a model in PyMC like scikit-learn or TensorFlow. The new `ModelBuilder` class is aimed to improve this workflow by providing a scikit-learn inspired API to wrap your PyMC models.
 
-The new `ModelBuilder` class allows users to use methods to `fit()`, `predict()`, `save()`, `load()`. Users can create any model they want, inherit the `ModelBuilder` class, and use predefined methods.
+The new {class}`ModelBuilder <pymc_experimental.model_builder.ModelBuilder>` class allows users to use methods to `fit()`, `predict()`, `save()`, `load()`. Users can create any model they want, inherit the {class}`ModelBuilder <pymc_experimental.model_builder.ModelBuilder>` class, and use predefined methods.
 
 +++
 
@@ -79,7 +79,7 @@ with pm.Model() as model:
 
 How would we deploy this model? Save the fitted model, load it on an instance, and predict? Not so simple.
 
-`ModelBuilder` is built for this purpose. It is currently part of the  `pymc-experimental` package which we can pip install with `pip install pymc-experimental`. As the name implies, this feature is still experimental and subject to change.
+`ModelBuilder` is built for this purpose. It is currently part of the {ref}`pymc-experimental` package which we can pip install with `pip install pymc-experimental`. As the name implies, this feature is still experimental and subject to change.
 
 +++
 

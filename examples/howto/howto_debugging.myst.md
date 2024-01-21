@@ -24,7 +24,7 @@ kernelspec:
 ## Introduction
 There are various levels on which to debug a model. One of the simplest is to just print out the values that different variables are taking on.
 
-Because `PyMC` uses `PyTensor` expressions to build the model, and not functions, there is no way to place a `print` statement into a likelihood function. Instead, you can use the `pytensor.printing.Print` class to print intermediate values.
+Because `PyMC` uses `PyTensor` expressions to build the model, and not functions, there is no way to place a `print` statement into a likelihood function. Instead, you can use the {class}`pytensor.printing.Print` class to print intermediate values.
 
 ```{code-cell} ipython3
 import arviz as az
@@ -150,7 +150,7 @@ sys.stdout = old_stdout  # setting sys.stdout back
 output
 ```
 
-Raw output is a bit messy and requires some cleanup and formatting to convert to `numpy.ndarray`. In the example below regex is used to clean up the output, and then it is evaluated with `eval` to give a list of floats. Code below also works with higher-dimensional outputs (in case you want to experiment with different models).
+Raw output is a bit messy and requires some cleanup and formatting to convert to {ref}`numpy.ndarray`. In the example below regex is used to clean up the output, and then it is evaluated with `eval` to give a list of floats. Code below also works with higher-dimensional outputs (in case you want to experiment with different models).
 
 ```{code-cell} ipython3
 import re
