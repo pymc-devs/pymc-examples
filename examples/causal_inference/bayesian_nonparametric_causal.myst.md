@@ -32,7 +32,7 @@ import pytensor.tensor as pt
 import statsmodels.api as sm
 import xarray as xr
 
-from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 ```
 
 ```{code-cell} ipython3
@@ -47,7 +47,7 @@ There are few claims stronger than the assertion of a causal relationship and fe
 
 In this notebook we will explain and motivate the usage of propensity scores in the analysis of causal inference questions. Our focus will be on the manner in which we (a) estimate propensity scores and (b) use them in the analysis of causal questions. We will see how they help avoid risks of selection bias in causal inference __and__ where they can go wrong. This method should be comfortable for the Bayesian analyst who is familiar with weighting and re-weighting their claims with information in the form of priors. Propensity score weighting is just another opportunity to enrich your model with knowledge about the world. We will show how they can be applied directly, and then indirectly in the context of debiasing machine learning approaches to causal inference. 
 
-We will illustrate these patterns using two data sets: (i) the NHEFS data used througout Miguel Hernan's _Causal Inference: What If_ {cite:t}`hernan2020whatif` book and a second patient focused data set used throughout _Bayesian Nonparametrics for Causal Inference and Missing Data_ by Daniels, Linero and Roy {cite:t}`daniels2024bnp`. Throughout we will contrast the use of non-parametric BART models with simpler regression models for the estimation of propensity scores and causal effects.
+We will illustrate these patterns using two data sets: (i) the NHEFS data used in _Causal Inference: What If_ {cite:t}`hernan2020whatif`, and a second patient focused data set analysed in _Bayesian Nonparametrics for Causal Inference and Missing Data_ {cite:t}`daniels2024bnp`. The contrast between non-parametric BART models with simpler regression models for the estimation of propensity scores and causal effects will be emphasised.
 
 +++
 
@@ -74,19 +74,19 @@ These escalating set of assumptions required to warrant causal inference under d
 
 ## Why do we Care about Propensity Scores?
 
-Firstly, and somewhat superficially, the propensity score is a dimension reduction technique. We take a complex covariate profile $X_{i}$ representing an individual's measured attributes and reduce it to a scaler $p^{i}_{T}(X)$. It is also a tool for thinking about the potential outcomes of an individual under different treatment regimes. In a policy evaluation context it can help partial out the degree of incentives for policy adoption across strata of the population. What drives adoption or assignment in each niche of the population? How can different demographic strata be induced towards or away from adoption of the policy? Understanding these dynamics are crucial to gauge why selection bias might emerge in any sample data. 
+Firstly, and somewhat superficially, the propensity score is a dimension reduction technique. We take a complex covariate profile $X_{i}$ representing an individual's measured attributes and reduce it to a scaler $p^{i}_{T}(X)$. It is also a tool for thinking about the potential outcomes of an individual under different treatment regimes. In a policy evaluation context it can help partial out the degree of incentives for policy adoption across strata of the population. What drives adoption or assignment in each niche of the population? How can different demographic strata be induced towards or away from adoption of the policy? Understanding these dynamics are crucial to gauge why selection bias might emerge in any sample data. Paul Goldsmith-Pinkham's [lectures](https://www.youtube.com/watch?v=8gWctYvRzk4&list=PLWWcL1M3lLlojLTSVf2gGYQ_9TlPyPbiJ&index=3) are particularly clear on this last point, and why this perspective is appealing to structural econometricians.
 
 The pivotal idea is that we cannot license causal claims unless (i) the treatment assignment is independent of the covariate profiles i.e $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ and similarly conditionally independent of the treatement $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ given $X$. This also occasionally noted as the __unconfoundedness__ assumption.
 
-It is a theorem that if $T$ is strongly ignorable given $X$, then (i) and (ii) hold given $p_{T}(X)$ too. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. This is useful because some of the strata of a complex covariate profile may be sparsely populated so by propensity scores enable us to avoid the risks of dimensionality.  Causal inference is unconfounded when we have controlled for enough of drivers for policy adoption, that selection effects within each covariate profiles $X$ seem essentially random. There is a great discussion of the details in Aronow and Miller's _Foundations of Agnostic Statistics_ {cite:t}`aronow2019agnostic`. But the insight this suggests is that when you want to estimate a causal effect you are only required to control for the covariates which impact the probability of treatement assignment. More concretely, if it's easier to model the assignment mechanism than the outcome mechanism this can be substituted in the case of causal inference with observed data.
+It is a theorem that if $T$ is strongly ignorable given $X$, then (i) and (ii) hold given $p_{T}(X)$ too. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. This is useful because some of the strata of a complex covariate profile may be sparsely populated so substituting a propensity scores enables us to avoid the risks of high dimensional missing data.  Causal inference is unconfounded when we have controlled for enough of drivers for policy adoption, that selection effects within each covariate profiles $X$ seem essentially random. There is a great discussion of the details in _Foundations of Agnostic Statistics_ {cite:t}`aronow2019agnostic`. But the insight this suggests is that when you want to estimate a causal effect you are only required to control for the covariates which impact the probability of treatement assignment. More concretely, if it's easier to model the assignment mechanism than the outcome mechanism this can be substituted in the case of causal inference with observed data.
 
 Given the assumption that we are measuring the right covariate profiles to induce __strong ignorability__, then propensity scores can be used thoughtfully to underwrite causal claims. With observational data we cannot re-run the assignment mechanism but we can estimate it, and transform our data to proportionally weight the data summaries within each group so that the analysis is less effected by the over-representation of different strata in each group. This is what we hope to use the propensity scores to achieve. 
 
 +++
 
-### A Propensity Score DAG
+### Propensity Scores in a Picture
 
-Note how the influence of X on the outcome doesn't change, but it's influence of the treatment is bundled into the propensity score metric. Our assumption of __strong ignorability__ is doing all the work to gives us license to causal claims. The propensity score methods enable these moves through the corrective use of the structure bundled into the propensity score.
+Some methodologists advocate for the analysis of causal claims through the postulation and assessment of directed acyclic graphs which are purported to represent the relationships of causal influence. In the case of propensity score analysis, we have the following picture. Note how the influence of X on the outcome doesn't change, but it's influence of the treatment is bundled into the propensity score metric. Our assumption of __strong ignorability__ is doing all the work to gives us license to causal claims. The propensity score methods enable these moves through the corrective use of the structure bundled into the propensity score.
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(1, 2, figsize=(20, 15))
@@ -412,7 +412,7 @@ def plot_weights(bins, top0, top1, ylim, ax):
 def make_plot(
     X,
     idata,
-    lower_bins=np.arange(1, 30, 1),
+    lower_bins=[np.arange(1, 30, 1), np.arange(1, 30, 1)],
     ylims=[
         (-100, 370),
         (
@@ -468,9 +468,9 @@ def make_plot(
     ### Middle Plot of Outcome
     outcome_trt = y[t == 1]
     outcome_ntrt = y[t == 0]
-    top0, _ = np.histogram(outcome_ntrt, bins=lower_bins)
-    top1, _ = np.histogram(outcome_trt, bins=lower_bins)
-    plot_weights(lower_bins, top0, top1, ylims[2], axs[1])
+    top0, _ = np.histogram(outcome_ntrt, bins=lower_bins[0])
+    top1, _ = np.histogram(outcome_trt, bins=lower_bins[0])
+    plot_weights(lower_bins[0], top0, top1, ylims[2], axs[1])
     axs[1].set_ylabel("No. Patients", fontsize=14)
     axs[1].set_xlabel("Raw Outcome Measure", fontsize=14)
     axs[1].text(text_pos[0], text_pos[1], f"Control: E(Y) = {outcome_ntrt.mean()}")
@@ -484,9 +484,9 @@ def make_plot(
     ## Bottom Plot of Adjusted Outcome using Inverse Propensity Score weights
     axs[2].set_ylabel("No. Patients", fontsize=14)
     if method in ["raw", "robust"]:
-        top0, _ = np.histogram(weighted_outcome0, bins=lower_bins)
-        top1, _ = np.histogram(weighted_outcome1, bins=lower_bins)
-        plot_weights(lower_bins, top0, top1, ylims[1], axs[2])
+        top0, _ = np.histogram(weighted_outcome0, bins=lower_bins[1])
+        top1, _ = np.histogram(weighted_outcome1, bins=lower_bins[1])
+        plot_weights(lower_bins[1], top0, top1, ylims[1], axs[2])
         axs[2].set_xlabel("Estimated IP Weighted Outcome \n Shifted", fontsize=14)
         axs[2].text(text_pos[0], text_pos[1], f"Control: E(Y) = {weighted_outcome0.sum() / n_ntrt}")
         axs[2].text(
@@ -498,9 +498,9 @@ def make_plot(
             f"tau: E(Y(1) - Y(0)) = {weighted_outcome0.sum() / n_ntrt - weighted_outcome1.sum() / n_trt}",
         )
     else:
-        top0, _ = np.histogram(weighted_outcome0, bins=lower_bins)
-        top1, _ = np.histogram(weighted_outcome1, bins=lower_bins)
-        plot_weights(lower_bins, top0, top1, ylims[1], axs[2])
+        top0, _ = np.histogram(weighted_outcome0, bins=lower_bins[1])
+        top1, _ = np.histogram(weighted_outcome1, bins=lower_bins[1])
+        plot_weights(lower_bins[1], top0, top1, ylims[1], axs[2])
         trt = np.round(np.mean(weighted_outcome1), 5)
         ntrt = np.round(np.mean(weighted_outcome0), 5)
         axs[2].set_xlabel("Estimated IP Weighted Outcome \n Shifted", fontsize=14)
@@ -518,7 +518,9 @@ def make_plot(
 We plot the outcome and re-weighted outcome distribution using the robust propensity score estimation method.
 
 ```{code-cell} ipython3
-make_plot(X, idata_logit, method="robust", lower_bins=np.arange(1, 30, 0.5))
+make_plot(
+    X, idata_logit, method="robust", lower_bins=[np.arange(1, 30, 0.5), np.arange(1, 60, 0.5)]
+)
 ```
 
 Next, and because we are Bayesians - we pull out and evaluate the posterior distribution of the ATE based on the sampled propensity scores. We've seen a point estimate for the ATE above, but it's often more important in the causal inference context to understand the uncertainty in the estimate. 
@@ -595,7 +597,7 @@ make_plot(
     idata_probit,
     method="doubly_robust",
     ylims=[(-150, 370), (-220, 150), (-50, 120)],
-    lower_bins=np.arange(1, 30, 0.5),
+    lower_bins=[np.arange(1, 30, 0.5), np.arange(1, 60, 0.5)],
 )
 ```
 
@@ -947,9 +949,9 @@ ps = idata_expend_bart["posterior"]["p"].mean(dim=("chain", "draw")).values
 make_plot(
     X,
     idata_expend_bart,
-    ylims=[(-100, 340), (-70, 300), (-130, 300)],
-    lower_bins=np.arange(6, 15, 0.5),
-    text_pos=(11, 200),
+    ylims=[(-100, 340), (-60, 260), (-60, 260)],
+    lower_bins=[np.arange(6, 15, 0.5), np.arange(2, 14, 0.5)],
+    text_pos=(11, 80),
     method="robust",
     ps=ps,
 )
@@ -1193,10 +1195,10 @@ We can see here how the technique of debiased machine learning has helped to all
 
 ### Conditional Average Treatment Effects
 
-We'll note here that there Double ML approaches offer another lens on the problem in that they allow you to move away from the focus on Average Treatment Effects and retrieve estimates more tailored to the individual covariate profiles. Much of the detail is elaborated in {cite:t}`facure2023causal`. But we'll show here briefly how to build on the derived residuals to retrieve the CATE estimates
+We'll note here that there Double ML approaches offer another lens on the problem in that they allow you to move away from the focus on Average Treatment Effects and retrieve estimates more tailored to the individual covariate profiles. Much of the theoretical detail is elaborated in {cite:t}`facure2023causal` and we won't cover it here apart from suggesting that it makes allot of sense to use the residual prediction in estimating specific treatment effects. We'll show here briefly how to build on the derived residuals to retrieve the CATE estimates using the flexibility of machine learning to better capture the range of heterogenous treatment effects.
 
 ```{code-cell} ipython3
-def make_cate(y_resids_stacked, t_resids_stacked, train_dfs, i):
+def make_cate(y_resids_stacked, t_resids_stacked, train_dfs, i, method="forest"):
     train_X = pd.concat([train_dfs[i][0] for i in range(4)])
     train_t = pd.concat([train_dfs[i][1] for i in range(4)])
     train_y = pd.concat([train_dfs[i][2] for i in range(4)])
@@ -1208,10 +1210,17 @@ def make_cate(y_resids_stacked, t_resids_stacked, train_dfs, i):
         df_cate["t_r"] == 0, df_cate["t_r"] + 0.00001, df_cate["t_r"]
     )
     df_cate["weight"] = df_cate["t_r"] ** 2
-    CATE_model = GradientBoostingRegressor()
     train_X.reset_index(drop=True, inplace=True)
     train_t.reset_index(drop=True, inplace=True)
-    CATE_model.fit(train_X, df_cate["target"], sample_weight=df_cate["weight"])
+    if method == "forest":
+        CATE_model = RandomForestRegressor()
+        CATE_model.fit(train_X, df_cate["target"], sample_weight=df_cate["weight"])
+    elif method == "gradient":
+        CATE_model = GradientBoostingRegressor()
+        CATE_model.fit(train_X, df_cate["target"], sample_weight=df_cate["weight"])
+    else:
+        CATE_model = sm.WLS(df_cate["target"], train_X, weights=df_cate["weight"])
+        CATE_model = CATE_model.fit()
     df_cate["CATE"] = CATE_model.predict(train_X)
     df_cate["t"] = train_t
     return df_cate
@@ -1221,7 +1230,7 @@ fig, axs = plt.subplots(1, 3, figsize=(20, 7))
 axs = axs.flatten()
 
 q_95 = []
-for i in range(1000):
+for i in range(100):
     cate_df = make_cate(y_resids_stacked, t_resids_stacked, train_dfs, i)
     axs[1].hist(
         cate_df[cate_df["t"] == 0]["CATE"],
@@ -1239,7 +1248,9 @@ for i in range(1000):
         ]
     )
     axs[1].hist(cate_df[cate_df["t"] == 1]["CATE"], bins=30, alpha=0.1, color="blue", density=True)
-axs[1].set_title("CATE Predictions across Posterior of Residuals")
+axs[1].set_title(
+    "CATE Predictions \n Estimated across Posterior of Residuals", fontsize=20, fontweight="bold"
+)
 
 q_df = pd.DataFrame(q_95, columns=["Control_p99", "Treated_p99", "Control_p01", "Treated_p01"])
 axs[2].hist(q_df["Treated_p99"], ec="black", color="blue", alpha=0.4, label="Treated p99")
