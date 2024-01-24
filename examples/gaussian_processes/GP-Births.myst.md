@@ -429,6 +429,12 @@ with pm.Model(coords=coords) as model:
 pm.model_to_graphviz(model=model)
 ```
 
+```{attention}
+The first two basis vectors for the (periodic) {class}`~pymc.gp.HSGP` sometimes come out to be either all ones or all zeros. This is a problem because it brings an extra intercept in the model and this can hurt sampling. To avoid this, you can use the `drop_first` argument in the {class}`~pymc.gp.HSGP` class.
+```
+
++++
+
 ## Prior Predictive Checks
 
 We run the model with the prior predictive checks to see if the model is able to generate data in a similar scale as the data.
