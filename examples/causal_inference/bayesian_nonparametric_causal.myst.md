@@ -47,7 +47,7 @@ There are few claims stronger than the assertion of a causal relationship and fe
 
 In this notebook we will explain and motivate the usage of propensity scores in the analysis of causal inference questions. Our focus will be on the manner in which we (a) estimate propensity scores and (b) use them in the analysis of causal questions. We will see how they help avoid risks of selection bias in causal inference __and__ where they can go wrong. This method should be comfortable for the Bayesian analyst who is familiar with weighting and re-weighting their claims with information in the form of priors. Propensity score weighting is just another opportunity to enrich your model with knowledge about the world. We will show how they can be applied directly, and then indirectly in the context of debiasing machine learning approaches to causal inference. 
 
-We will illustrate these patterns using two data sets: (i) the NHEFS data used in _Causal Inference: What If_ {cite:t}`hernan2020whatif`, and a second patient focused data set analysed in _Bayesian Nonparametrics for Causal Inference and Missing Data_ {cite:t}`daniels2024bnp`. The contrast between non-parametric BART models with simpler regression models for the estimation of propensity scores and causal effects will be emphasised.
+We will illustrate these patterns using two data sets: the NHEFS data used in _Causal Inference: What If_ {cite:t}`hernan2020whatif`, and a second patient focused data set analysed in _Bayesian Nonparametrics for Causal Inference and Missing Data_ {cite:t}`daniels2024bnp`. The contrast between non-parametric BART models with simpler regression models for the estimation of propensity scores and causal effects will be emphasised.
 
 +++
 
@@ -61,7 +61,7 @@ Propensity scores are often synonymous with the technique of propensity score ma
 
 Below we'll see a number of examples of non-parametric approaches to the estimation of causal effects. Some of these methods will work well, and others will mislead us. Throughout we will demonstrate how these methods serve as tools for imposing stricter and stricter assumptions on our inferential framework.
 
-- Appplicaion of Propensity Scores to Selection Effect Bias
+- Appplication of Propensity Scores to Selection Effect Bias
     - NHEFS data
 - Application of Propensity Scores to Selection Effect Bias
     - Health Expenditure Data
@@ -74,11 +74,11 @@ These escalating set of assumptions required to warrant causal inference under d
 
 ## Why do we Care about Propensity Scores?
 
-Firstly, and somewhat superficially, the propensity score is a dimension reduction technique. We take a complex covariate profile $X_{i}$ representing an individual's measured attributes and reduce it to a scaler $p^{i}_{T}(X)$. It is also a tool for thinking about the potential outcomes of an individual under different treatment regimes. In a policy evaluation context it can help partial out the degree of incentives for policy adoption across strata of the population. What drives adoption or assignment in each niche of the population? How can different demographic strata be induced towards or away from adoption of the policy? Understanding these dynamics are crucial to gauge why selection bias might emerge in any sample data. Paul Goldsmith-Pinkham's [lectures](https://www.youtube.com/watch?v=8gWctYvRzk4&list=PLWWcL1M3lLlojLTSVf2gGYQ_9TlPyPbiJ&index=3) are particularly clear on this last point, and why this perspective is appealing to structural econometricians.
+Firstly, and somewhat superficially, the propensity score is a dimension reduction technique. We take a complex covariate profile $X_{i}$ representing an individual's measured attributes and reduce it to a scalar $p^{i}_{T}(X)$. It is also a tool for thinking about the potential outcomes of an individual under different treatment regimes. In a policy evaluation context it can help partial out the degree of incentives for policy adoption across strata of the population. What drives adoption or assignment in each niche of the population? How can different demographic strata be induced towards or away from adoption of the policy? Understanding these dynamics is crucial to gauge why selection bias might emerge in any sample data. Paul Goldsmith-Pinkham's [lectures](https://www.youtube.com/watch?v=8gWctYvRzk4&list=PLWWcL1M3lLlojLTSVf2gGYQ_9TlPyPbiJ&index=3) are particularly clear on this last point, and why this perspective is appealing to structural econometricians.
 
-The pivotal idea is that we cannot license causal claims unless (i) the treatment assignment is independent of the covariate profiles i.e $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ and similarly conditionally independent of the treatement $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ given $X$. This also occasionally noted as the __unconfoundedness__ assumption.
+The pivotal idea is that we cannot license causal claims unless (i) the treatment assignment is independent of the covariate profiles i.e $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ and similarly conditionally independent of the treatement $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ given $X$. This is also occasionally noted as the __unconfoundedness__ assumption.
 
-It is a theorem that if $T$ is strongly ignorable given $X$, then (i) and (ii) hold given $p_{T}(X)$ too. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. This is useful because some of the strata of a complex covariate profile may be sparsely populated so substituting a propensity scores enables us to avoid the risks of high dimensional missing data.  Causal inference is unconfounded when we have controlled for enough of drivers for policy adoption, that selection effects within each covariate profiles $X$ seem essentially random. There is a great discussion of the details in _Foundations of Agnostic Statistics_ {cite:t}`aronow2019agnostic`. But the insight this suggests is that when you want to estimate a causal effect you are only required to control for the covariates which impact the probability of treatement assignment. More concretely, if it's easier to model the assignment mechanism than the outcome mechanism this can be substituted in the case of causal inference with observed data.
+It is a theorem that if $T$ is strongly ignorable given $X$, then (i) and (ii) hold given $p_{T}(X)$ too. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. This is useful because some of the strata of a complex covariate profile may be sparsely populated so substituting a propensity score enables us to avoid the risks of high dimensional missing data.  Causal inference is unconfounded when we have controlled for enough of drivers for policy adoption, that selection effects within each covariate profiles $X$ seem essentially random. There is a great discussion of the details in _Foundations of Agnostic Statistics_ {cite:t}`aronow2019agnostic`. But the insight this suggests is that when you want to estimate a causal effect you are only required to control for the covariates which impact the probability of treatement assignment. More concretely, if it's easier to model the assignment mechanism than the outcome mechanism this can be substituted in the case of causal inference with observed data.
 
 Given the assumption that we are measuring the right covariate profiles to induce __strong ignorability__, then propensity scores can be used thoughtfully to underwrite causal claims. With observational data we cannot re-run the assignment mechanism but we can estimate it, and transform our data to proportionally weight the data summaries within each group so that the analysis is less effected by the over-representation of different strata in each group. This is what we hope to use the propensity scores to achieve. 
 
@@ -86,7 +86,7 @@ Given the assumption that we are measuring the right covariate profiles to induc
 
 ### Propensity Scores in a Picture
 
-Some methodologists advocate for the analysis of causal claims through the postulation and assessment of directed acyclic graphs which are purported to represent the relationships of causal influence. In the case of propensity score analysis, we have the following picture. Note how the influence of X on the outcome doesn't change, but it's influence of the treatment is bundled into the propensity score metric. Our assumption of __strong ignorability__ is doing all the work to gives us license to causal claims. The propensity score methods enable these moves through the corrective use of the structure bundled into the propensity score.
+Some methodologists advocate for the analysis of causal claims through the postulation and assessment of directed acyclic graphs which are purported to represent the relationships of causal influence. In the case of propensity score analysis, we have the following picture. Note how the influence of X on the outcome doesn't change, but its influence on the treatment is bundled into the propensity score metric. Our assumption of __strong ignorability__ is doing all the work to gives us license to causal claims. The propensity score methods enable these moves through the corrective use of the structure bundled into the propensity score.
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(1, 2, figsize=(20, 15))
@@ -139,15 +139,15 @@ except:
 nhefs_df.head()
 ```
 
-We might wonder who is represented in the survey responses and to what degree the measured differences in this survey corresspond the patterns in the wider population? If we look at the overall differences in outcomes:
+We might wonder who is represented in the survey responses and to what degree the measured differences in this survey corresspond to the patterns in the wider population? If we look at the overall differences in outcomes:
 
 ```{code-cell} ipython3
 raw_diff = nhefs_df.groupby("trt")[["outcome"]].mean()
-print("Treatment Diff:", raw_diff["outcome"].iloc[0] - raw_diff["outcome"].iloc[1])
+print("Treatment Diff:", raw_diff["outcome"].iloc[1] - raw_diff["outcome"].iloc[0])
 raw_diff
 ```
 
-We see that there is some overall differences between the two groups, but splitting this out further we might worry that the differences are due to how the groups are imbalanced across the different covariate profiles in the treatment and control groups
+We see that there is some overall differences between the two groups, but splitting this out further we might worry that the differences are due to how the groups are imbalanced across the different covariate profiles in the treatment and control groups. That is to say, we can inspect the implied differences across different strata of our data to see that we might have imbalance across different niches of the population. This imbalance indicative of some selection effects into the treatment status is what we hope to address with propensity score modelling. 
 
 ```{code-cell} ipython3
 strata_df = (
@@ -181,8 +181,8 @@ strata_expected_df = strata_df.groupby("trt")[["outcome count", "outcome mean", 
 )
 print(
     "Treatment Diff:",
-    strata_expected_df[("outcome mean", "mean")].iloc[0]
-    - strata_expected_df[("outcome mean", "mean")].iloc[1],
+    strata_expected_df[("outcome mean", "mean")].iloc[1]
+    - strata_expected_df[("outcome mean", "mean")].iloc[0],
 )
 strata_expected_df
 ```
@@ -211,18 +211,20 @@ X.head()
 
 In this first step we define a model building function to capture the probability of treatment i.e. our propensity score for each individual. 
 
-We specify two types of model which are to  be assessed. One which relies entirely on Logistic regression and another which uses BART (Bayesian Additive Regression Trees) to model the relationships between and the covariates and the treatment assignment. The BART model has the benefit of using a tree-based algorithm to explore the interaction effects among the various strata in our sample data. See [here](https://bayesiancomputationbook.com/markdown/chp_07.html#priors-for-bart-in-pymc3) for more detail about BART and the PyMC implementation.
+We specify two types of model which are to  be assessed. One which relies entirely on Logistic regression and another which uses BART (Bayesian Additive Regression Trees) to model the relationships between the covariates and the treatment assignment. The BART model has the benefit of using a tree-based algorithm to explore the interaction effects among the various strata in our sample data. See [here](https://bayesiancomputationbook.com/markdown/chp_07.html#priors-for-bart-in-pymc3) for more detail about BART and the PyMC implementation.
 
 Having a flexible model like BART is key to understanding what we are doing when we undertake inverse propensity weighting adjustments. The thought is that any given strata in our dataset will be described by a set of covariates. Types of individual will be represented by these covariate profiles - the attribute vector $X$. The share of observations within our data which are picked out by any given covariate profile represents a bias towards that type of individual. If our treatment status is such that individuals will more or less actively select themselves into the status, then a naive comparisons of differences between treatment groups and control groups will be misleading to the degree that we have over-represented types of individual (covariate profiles) in the population.
 
 Randomisation solves this by balancing the covariate profiles across treatment and control groups and ensuring the outcomes are independent of the treatment assignment. But we can't always randomise. What happens when we randomise? Randomisation of treatment status aims to ensure that we have a balance of covariate profiles across both groups. Additionally randomisation guarantees independence of the potential outcomes with respect to the treatment assignment mechanism. This helps avoid the selection-bias just discussed. Propensity scores are useful because they can help emulate _as-if_ random assignment of treatment status in the sample data through a specific transformation of the observed data. 
 
-First we model the individual propensity scores as a function of the indivifua covariate profiles:
+First we model the individual propensity scores as a function of the individual covariate profiles:
 
 ```{code-cell} ipython3
 def make_propensity_model(X, t, bart=True, probit=True, samples=1000, m=50):
     coords = {"coeffs": list(X.columns), "obs": range(len(X))}
     with pm.Model(coords=coords) as model_ps:
+        X_data = pm.MutableData("X", X)
+        t_data = pm.MutableData("t", t)
         if bart:
             mu = pmb.BART("mu", X, t, m=m)
             if probit:
@@ -231,13 +233,13 @@ def make_propensity_model(X, t, bart=True, probit=True, samples=1000, m=50):
                 p = pm.Deterministic("p", pm.math.invlogit(mu))
         else:
             b = pm.Normal("b", mu=0, sigma=1, dims="coeffs")
-            mu = pm.math.dot(X, b)
+            mu = pm.math.dot(X_data, b)
             p = pm.Deterministic("p", pm.math.invlogit(mu))
 
-        t_pred = pm.Bernoulli("t_pred", p=p, observed=t, dims="obs")
+        t_pred = pm.Bernoulli("t_pred", p=p, observed=t_data, dims="obs")
 
         idata = pm.sample_prior_predictive()
-        idata.extend(pm.sample(samples, idata_kwargs={"log_likelihood": True}))
+        idata.extend(pm.sample(samples, random_seed=105, idata_kwargs={"log_likelihood": True}))
         idata.extend(pm.sample_posterior_predictive(idata))
     return model_ps, idata
 
@@ -246,12 +248,14 @@ m_ps_logit, idata_logit = make_propensity_model(X, t, bart=False, samples=1000)
 ```
 
 ```{code-cell} ipython3
-m_ps_probit, idata_probit = make_propensity_model(X, t, bart=True, probit=False, samples=4000)
+m_ps_probit, idata_probit = make_propensity_model(X, t, bart=True, probit=True, samples=4000)
 ```
 
 ## Using Propensity Scores: Weights and Pseudo Populations
 
 Once we have fitted these models we can compare how they attribute the propensity to treatment (in our case the propensity of quitting) to each and every such measured individual. One thing to note is how this sample seems to suggest a greater uncertainty of attributed score for the BART model. We have used the inverse probit link function when fitting our data. Another thing to note in considering the distribution of propensity scores is the requirement for positivity i.e. the requirement that the conditional probability of receiving a given treatment cannot be 0 or 1 in any patient subgroup as defined by combinations of covariate values. We do not want to __overfit__ our propensity model and have perfect treatment/control group allocation. The important feature of propensity scores are that they are a measure of similarity across groups - extreme predictions of 0 or 1 would imply reduced overlap. Some authors recommend drawing a boundary at (.1, .9) to filter out extreme cases.
+
+Let's plot the distribution of propensity scores for the first 20 or so individuals in the study to see the differences between the two models.
 
 ```{code-cell} ipython3
 az.plot_forest(
@@ -267,8 +271,7 @@ az.plot_forest(
 );
 ```
 
-These propensity scores can be pulled out and examined alongside the other covariates. But it's probably worth pausing here to explain how and why propensity scores are useful for accounting for selection bias. 
-
+These propensity scores can be pulled out and examined alongside the other covariates.
 
 ```{code-cell} ipython3
 ps_logit = idata_logit["posterior"]["p"].mean(dim=("chain", "draw")).round(2)
@@ -291,6 +294,10 @@ axs[0].hist(ps_logit.values[t == 0], ec="black", color="red", bins=30, label="Co
 axs[0].hist(
     ps_logit.values[t == 1], ec="black", color="blue", bins=30, label="Treatment", alpha=0.6
 )
+axs[0].set_xlabel("Propensity Scores")
+axs[1].set_xlabel("Propensity Scores")
+axs[1].set_ylabel("Count of Observations")
+axs[0].set_ylabel("Count of Observations")
 axs[0].axvline(0.9, color="black", linestyle="--")
 axs[0].axvline(0.1, color="black", linestyle="--")
 axs[1].hist(ps_probit.values[t == 0], ec="black", color="red", bins=30, label="Control", alpha=0.6)
@@ -312,8 +319,8 @@ axs[2].set_xlabel("Age")
 axs[3].set_xlabel("Age")
 axs[3].set_ylabel("y")
 axs[2].set_ylabel("y")
-axs[2].set_title("y~Age \n Size by IP Weights")
-axs[3].set_title("y~Age \n Size by IP Weights")
+axs[2].set_title("Sized by IP Weights")
+axs[3].set_title("Sized by IP Weights")
 axs[3].scatter(
     X["age"], y, color=t.map(colors), s=(1 / ps_probit.values) * 20, ec="black", alpha=0.4
 )
@@ -323,7 +330,7 @@ axs[2].legend(handles=[red_patch, blue_patch])
 axs[3].legend(handles=[red_patch, blue_patch]);
 ```
 
-These weighting schemes can now be incorporated into various models of statistical summaries so as to "correct" the representation of covariate profiles across both groups. If an individual's propensity score is such that they are are highly likely to receive the treatment status e.g .95 then we want to downweight their importance if they occur in the treatment and upweight their importance if they appear in the control group. This makes sense because their high propensity score implies that similar individuals are already heavily present in the treatment group, but less likely to occur in the control group. Hence our corrective strategy re-weights their contribution to the summary statistics across each group. Even more refinement is possible if the analyst removes or clips the observations based on the extremity of their propensity scores. This move would reduce the noise in the ultimate re-estimate. In our case i think it's not needed. 
+These weighting schemes can now be incorporated into various models of statistical summaries so as to "correct" the representation of covariate profiles across both groups. If an individual's propensity score is such that they are highly likely to receive the treatment status e.g .95 then we want to downweight their importance if they occur in the treatment and upweight their importance if they appear in the control group. This makes sense because their high propensity score implies that similar individuals are already heavily present in the treatment group, but less likely to occur in the control group. Hence our corrective strategy to re-weight their contribution to the summary statistics across each group. Even more refinement is possible if the analyst removes or clips the observations based on the extremity of their propensity scores i.e. limit the propensity score to be no greater than some pre-specified boundary. This move would reduce the noise in the ultimate re-estimate. In our case i think it's not needed. 
 
 +++
 
@@ -374,8 +381,8 @@ def make_raw_adjustments(X, t):
 
 
 def make_doubly_robust_adjustment(X, t, y):
-    m0 = sm.OLS(y[t == 0], X[t == 0]).fit()
-    m1 = sm.OLS(y[t == 1], X[t == 1]).fit()
+    m0 = sm.OLS(y[t == 0], X[t == 0].astype(float)).fit()
+    m1 = sm.OLS(y[t == 1], X[t == 1].astype(float)).fit()
     m0_pred = m0.predict(X)
     m1_pred = m0.predict(X)
     X["trt"] = t
@@ -856,7 +863,7 @@ quantile_diff = (
     df.groupby("smoke")[["totexp"]]
     .quantile(qs)
     .reset_index()
-    .pivot("level_1", "smoke", "totexp")
+    .pivot(index="level_1", columns="smoke", values="totexp")
     .rename({0: "Non-Smoker", 1: "Smoker"}, axis=1)
     .assign(diff=lambda x: x["Non-Smoker"] - x["Smoker"])
     .reset_index()
@@ -920,6 +927,8 @@ ax.hist(
     color="blue",
     label="Propensity Scores in Treated",
 )
+ax.set_xlabel("Propensity Scores")
+ax.set_ylabel("Count of Observed")
 ax.hist(
     ps[t == 1], bins=30, ec="black", alpha=0.6, color="red", label="Propensity Scores in Control"
 )
@@ -934,7 +943,7 @@ ax2.set_xlabel("Age")
 ax2.set_xlabel("Age")
 ax2.set_ylabel("y")
 ax2.set_ylabel("y")
-ax2.set_title("y~Age \n Size by IP Weights", fontsize=20)
+ax2.set_title("Sized by IP Weights", fontsize=20)
 red_patch = mpatches.Patch(color="red", label="Control")
 blue_patch = mpatches.Patch(color="blue", label="Treated")
 ax2.legend(handles=[red_patch, blue_patch]);
@@ -1344,9 +1353,9 @@ def mediation_model(t, m, y):
         sigma2 = pm.HalfCauchy("sigma2", 1)
 
         # likelihood
-        pm.Normal("m_likelihood", mu=im + a * t_data, sigma=sigma1, observed=m, dims="obs_id")
+        pm.Normal("mlikelihood", mu=im + a * t_data, sigma=sigma1, observed=m, dims="obs_id")
         pm.Normal(
-            "y_likelihood",
+            "ylikelihood",
             mu=iy + b * m + cprime * t_data + b_age * age + b_bmi * bmi + b_sex * sex,
             sigma=sigma2,
             observed=y,
@@ -1390,7 +1399,7 @@ with model:
     pm.set_data({"t": t_mod})
     idata_trt = pm.sample_posterior_predictive(
         result,
-        var_names=["y_likelihood", "cprime"],
+        var_names=["ylikelihood", "cprime"],
     )
 
 idata_trt
@@ -1399,7 +1408,7 @@ idata_trt
 ```{code-cell} ipython3
 trted_df = az.summary(
     idata_trt,
-    var_names=["y_likelihood", "cprime"],
+    var_names=["ylikelihood", "cprime"],
     group="posterior_predictive",
 )
 trted_df
@@ -1413,7 +1422,7 @@ with model:
     pm.set_data({"t": t_mod})
     idata_ntrt = pm.sample_posterior_predictive(
         result,
-        var_names=["y_likelihood", "cprime"],
+        var_names=["ylikelihood", "cprime"],
     )
 
 idata_ntrt
@@ -1422,7 +1431,7 @@ idata_ntrt
 ```{code-cell} ipython3
 ntrted_df = az.summary(
     idata_ntrt,
-    var_names=["y_likelihood", "cprime"],
+    var_names=["ylikelihood", "cprime"],
     group="posterior_predictive",
 )
 ntrted_df
@@ -1433,7 +1442,7 @@ The main observation to see in the posterior predictive distribution is how the 
 ```{code-cell} ipython3
 axs = az.plot_posterior(
     idata_trt,
-    var_names=["y_likelihood"],
+    var_names=["ylikelihood"],
     coords={"obs_id": range(10)},
     figsize=(20, 10),
     group="posterior_predictive",
@@ -1446,7 +1455,7 @@ plt.suptitle("Expected Uncertainty under Treated Regime", fontsize=20, fontweigh
 
 axs = az.plot_posterior(
     idata_ntrt,
-    var_names=["y_likelihood"],
+    var_names=["ylikelihood"],
     coords={"obs_id": range(10)},
     figsize=(20, 10),
     group="posterior_predictive",
@@ -1467,8 +1476,8 @@ mosaic = """AABB
             CCCC"""
 
 fig, axs = plt.subplot_mosaic(mosaic, layout="constrained", figsize=(20, 10))
-q9_ntrt = idata_ntrt["posterior_predictive"]["y_likelihood"].quantile(0.95, dim=("chain", "obs_id"))
-q9_trt = idata_trt["posterior_predictive"]["y_likelihood"].quantile(0.95, dim=("chain", "obs_id"))
+q9_ntrt = idata_ntrt["posterior_predictive"]["ylikelihood"].quantile(0.95, dim=("chain", "obs_id"))
+q9_trt = idata_trt["posterior_predictive"]["ylikelihood"].quantile(0.95, dim=("chain", "obs_id"))
 axs["A"].hist(q9_ntrt, bins=30, ec="black", color="red", label="Control: p95")
 axs["A"].axvline(q9_ntrt.mean().item(), linestyle="--", color="black", linewidth=5)
 axs["A"].set_title("Distribution of P95 under the Control Regime", fontsize=20)
