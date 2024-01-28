@@ -20,7 +20,7 @@ myst:
 :::{post} January, 2024
 :tags: gaussian processes, hilbert space approximation,
 :category: intermediate, how-to
-:author: [Juan Orduz](https://juanitorduz.github.io/)
+:author: [Bill Engels](https://github.com/bwengals) and [Juan Orduz](https://juanitorduz.github.io/)
 :::
 
 +++
@@ -37,7 +37,7 @@ For a complete treatment of this example please refer to the **amazing guide**: 
 ```
 
 ```{note}
-This notebook is based on the blog post {cite:p}`orduz2024Birthdays` where I present a more complete model, similar to the one described in the references above.
+This notebook is based on the blog post {cite:p}`orduz2024Birthdays` where Juan presents a more complete model, similar to the one described in the references above.
 ```
 
 +++
@@ -715,7 +715,7 @@ ax.set_title(
 ```
 
 ## Authors
-- Authored by [Juan Orduz](https://juanitorduz.github.io/) in January 2024 
+- Authored by [Bill Engels](https://github.com/bwengals) and [Juan Orduz](https://juanitorduz.github.io/) in January 2024 
 
 +++
 
