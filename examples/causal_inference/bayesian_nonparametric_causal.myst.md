@@ -346,7 +346,7 @@ Doubly robust methods are so named because they represent a compromise estimator
 
 ## Estimating Treatment Effects
 
-The next code block builds a set of functions to pull out an extract a sample from our posterior distribution of propensity scores and use this propensity score to reweight the observed outcome variable across our treatment and control groups to re-calculate the average treatment effect (ATE). It reweights our data using the inverse probability weighting scheme and then plots three views (1) the raw propensity scores across groups (2) the raw outcome distribution and (3) the re-weighted outcome distribution. 
+The next code block builds a set of functions to pull out and extract a sample from our posterior distribution of propensity scores and use this propensity score to reweight the observed outcome variable across our treatment and control groups to re-calculate the average treatment effect (ATE). It reweights our data using the inverse probability weighting scheme and then plots three views (1) the raw propensity scores across groups (2) the raw outcome distribution and (3) the re-weighted outcome distribution. 
 
 First we define a bunch of helper functions for each weighting adjustment method we will explore:
 
@@ -530,12 +530,18 @@ make_plot(
 )
 ```
 
+There is allot going on in this plot so it's worth walking through it a bit more slowly. In the first panel we have the distribution of the propensity scores across both the treatment and control groups. In the second panel we have the raw outcome data plotted again as a distribution split between the groups. Additionally we have presented the expected values of the outcome and the ATE if it were naively estimated on the raw outcome data. Finally on the third panel we have the re-weighted outcome variable - reweighted using the inverse propensity scores, and we derive the ATE based on the adjusted outcome variable. The distinction between the ATE under the raw and adjusted outcome is what we are highlighting in this plot. 
+
++++
+
 Next, and because we are Bayesians - we pull out and evaluate the posterior distribution of the ATE based on the sampled propensity scores. We've seen a point estimate for the ATE above, but it's often more important in the causal inference context to understand the uncertainty in the estimate. 
 
 ```{code-cell} ipython3
 def get_ate(X, t, y, i, idata, method="doubly_robust"):
     X = X.copy()
     X["outcome"] = y
+    ### Post processing the sample posterior distribution for propensity scores
+    ### One sample at a time.
     X["ps"] = idata["posterior"]["p"].stack(z=("chain", "draw"))[:, i].values
     if method == "robust":
         weighted_outcome_ntrt, weighted_outcome_trt, n_ntrt, n_trt = make_robust_adjustments(X, t)
@@ -590,7 +596,7 @@ def plot_ate(ate_dist_df, xy=(-5.0, 250)):
 plot_ate(ate_dist_df_logit)
 ```
 
-Note how this estimate of the treatment effect quite different than what we got taking the simple difference of averages across groups. 
+Note how this estimate of the treatment effect is quite different than what we got taking the simple difference of averages across groups. 
 
 +++
 
@@ -608,6 +614,8 @@ make_plot(
 )
 ```
 
+We see here how the re-weighting scheme for the BART based propensity scores induces a different shape on the outcome distribution than above, but still achieves a similar estimate for the ATE.
+
 ```{code-cell} ipython3
 ate_dist_probit = [get_ate(X, t, y, q, idata_probit, method="doubly_robust") for q in qs]
 ate_dist_df_probit = pd.DataFrame(ate_dist_probit, columns=["ATE", "E(Y(1))", "E(Y(0))"])
@@ -618,13 +626,13 @@ ate_dist_df_probit.head()
 plot_ate(ate_dist_df_probit, xy=(-4.4, 250))
 ```
 
-Note the tighter variance of the measures using the doubly robust method. 
+Note the tighter variance of the measures using the doubly robust method. This is not surprising the doubly robust method was designed with this intended effect.
 
 +++
 
 ### Considerations Choosing between models
 
-It is one thing to evalute change in average over the population, but we might want to allow for the idea of effect heterogenity across the population and as such the BART model is generally better at ensuring accurate predictions acros the deepter strata of our data. But the flexibility of machine learning models for prediction tasks do not guarantee that the propensity scores attributed across the sample are well calibrated to recover the true-treatment effects when used in causal effect estimation. We have to be careful in how we use the flexibility of non-parametric models in the causal context. 
+It is one thing to evalute change in average over the population, but we might want to allow for the idea of effect heterogenity across the population and as such the BART model is generally better at ensuring accurate predictions across the deepter strata of our data. But the flexibility of machine learning models for prediction tasks do not guarantee that the propensity scores attributed across the sample are well calibrated to recover the true-treatment effects when used in causal effect estimation. We have to be careful in how we use the flexibility of non-parametric models in the causal context. 
 
 First observe the hetereogenous accuracy induced by the BART model across increasingly narrow strata of our sample. 
 
@@ -656,7 +664,7 @@ axs[7].set_title("Race/Gender/Active Specific PPC - BART")
 plt.suptitle("Posterior Predictive Checks - Heterogenous Effects", fontsize=20);
 ```
 
-Observations like this go along way to motivating the use of flexible machine learning methods in causal inference. The model used to capture the outcome distribution or the propensity score distribution ought to be sensitive to variation across extremities of the data. We can see above that the predictive power of the simpler logistic regression model deterioriates as we progress down the partitions of the data. We will see an example below where this flexibility becomes a problem and how it can be fixed. 
+Observations like this go a long way to motivating the use of flexible machine learning methods in causal inference. The model used to capture the outcome distribution or the propensity score distribution ought to be sensitive to variation across extremities of the data. We can see above that the predictive power of the simpler logistic regression model deterioriates as we progress down the partitions of the data. We will see an example below where the flexibility of machine learning models such as BART becomes a problem. We'll also see and how it can be fixed. 
 
 +++
 
@@ -666,6 +674,8 @@ Another perhaps more direct method of causal inference is to just use regression
 
 ```{code-cell} ipython3
 def make_prop_reg_model(X, t, y, idata_ps, covariates=None, samples=1000):
+    ### Note the simplication for specifying the mean estimate in the regression
+    ### rather than post-processing the whole posterior
     ps = idata_ps["posterior"]["p"].mean(dim=("chain", "draw")).values
     X_temp = pd.DataFrame({"ps": ps, "trt": t, "trt*ps": t * ps})
     if covariates is None:
@@ -678,7 +688,7 @@ def make_prop_reg_model(X, t, y, idata_ps, covariates=None, samples=1000):
         b = pm.Normal("b", mu=0, sigma=1, dims="coeffs")
         X = pm.MutableData("X", X)
         mu = pm.math.dot(X, b)
-        t_pred = pm.Normal("pred", mu, sigma, observed=y, dims="obs")
+        y_pred = pm.Normal("pred", mu, sigma, observed=y, dims="obs")
 
         idata = pm.sample_prior_predictive()
         idata.extend(pm.sample(samples, idata_kwargs={"log_likelihood": True}))
@@ -705,7 +715,7 @@ az.summary(idata_ps_reg_bart)
 
 ### Causal Inference as Regression Imputation
 
-Above we read-off the causal effect estimate as the coefficient on the treatment variable in our regression model. An arguably more direct approach uses the fitted regression models to impute the distribution of potential outcomes under different treatment regimes. In this way we have yet another perspective on causal inference 
+Above we read-off the causal effect estimate as the coefficient on the treatment variable in our regression model. An arguably more direct approach uses the fitted regression models to impute the distribution of potential outcomes Y(1), Y(0) under different treatment regimes. In this way we have yet another perspective on causal inference 
 
 ```{code-cell} ipython3
 X_mod = X.copy()
@@ -1326,17 +1336,19 @@ m = pd.DataFrame(
     ),
     columns=["health"],
 )["health"].map(lkup)
+
+X_m = X.copy().drop(["phealth_Poor", "phealth_Fair", "phealth_Good", "phealth_Very Good"], axis=1)
+X_m
 ```
 
+We define a flexible model which estimates the outcome using a BART model and estimates the mediating variable using a simpler linear regression. However we embed both in a linear equation to capture the coefficients required to "read-off" the total, indirect and direct effects of smoking on health expenditure as mediated by health. 
+
 ```{code-cell} ipython3
-def mediation_model(t, m, y):
-    with pm.Model() as model:
+def mediation_model(X_m, t, m, y):
+    with pm.Model(coords={"coeffs": list(X_m.columns), "obs_id": range(len(X_m))}) as model:
         t_data = pm.MutableData("t", t, dims="obs_id")
-        y = pm.MutableData("y", y, dims="obs_id")
         m = pm.MutableData("m", m, dims="obs_id")
-        age = pm.MutableData("age", X["age"].values)
-        bmi = pm.MutableData("bmi", X["bmi"].values)
-        sex = pm.MutableData("race", X["sex_Male"].values)
+        X_data = pm.MutableData("X", X_m)
 
         # intercept priors
         im = pm.Normal("im", mu=0, sigma=10)
@@ -1344,19 +1356,21 @@ def mediation_model(t, m, y):
         # slope priors
         a = pm.Normal("a", mu=0, sigma=1)
         b = pm.Normal("b", mu=0, sigma=1)
-        b_age = pm.Normal("b_age", 0, 1)
-        b_bmi = pm.Normal("b_bmi", 0, 1)
-        b_sex = pm.Normal("b_sex", 0, 1)
         cprime = pm.Normal("cprime", mu=0, sigma=1)
         # noise priors
         sigma1 = pm.HalfCauchy("sigma1", 1)
         sigma2 = pm.HalfCauchy("sigma2", 1)
+        bart_mu = pmb.BART("mu", X_data, y)
+        beta = pm.Normal("beta", mu=0, sigma=1, dims="coeffs")
+        mu_m = pm.Deterministic("mu_m", pm.math.dot(X_data, beta), dims="obs_id")
 
         # likelihood
-        pm.Normal("mlikelihood", mu=im + a * t_data, sigma=sigma1, observed=m, dims="obs_id")
+        pm.Normal(
+            "mlikelihood", mu=(im + a * t_data) + mu_m, sigma=sigma1, observed=m, dims="obs_id"
+        )
         pm.Normal(
             "ylikelihood",
-            mu=iy + b * m + cprime * t_data + b_age * age + b_bmi * bmi + b_sex * sex,
+            mu=iy + b * m + cprime * t_data + bart_mu,
             sigma=sigma2,
             observed=y,
             dims="obs_id",
@@ -1369,13 +1383,13 @@ def mediation_model(t, m, y):
     return model
 
 
-model = mediation_model(t, m, y)
+model = mediation_model(X_m, t, m, y)
 pm.model_to_graphviz(model)
 ```
 
 ```{code-cell} ipython3
 with model:
-    result = pm.sample(tune=4000, target_accept=0.9, random_seed=42)
+    result = pm.sample(tune=1000, random_seed=42)
 ```
 
 ```{code-cell} ipython3
@@ -1389,116 +1403,175 @@ ax = az.plot_posterior(
 ax[0].set(title="direct effect");
 ```
 
-Here we begin to see what's going on the influence of smoking is directly negative, but the indirect effect through the mediator of health status is positive and the combined effect cancels out/reduces the treatment effect on the outcome. Using this new structure we can of course use the regression imputation approach to causal inference and derive a kind of ceteris paribus law about the impact of smoking as mediated through the observed health features,
+Here we begin to see what's going on the influence of smoking is directly negative, but the indirect effect through the mediator of health status is positive and the combined effect cancels out/reduces the treatment effect on the outcome. Using this new structure we can of course use the regression imputation approach to causal inference and derive a kind of ceteris paribus law about the impact of smoking as mediated through the observed health features. More neatly we can derive the causal mediation estimands using the potential outcomes framework in a way that does not rely on the functional form of the outcome and mediation models. 
+
+### Mediation Estimands
+
+In mediation analysis we are committed to the view that the correct causal structure of the problem is represented by an interrupted path of influence between the treatment variable and the outcome of interest. This implies that there are expected effects of treatment but that we need to do some more work to disentangle direct and indirect effects of treatment on outcome. 
+
+These quantities are represented using the potential outcomes notation as follows: 
+
+- Let M(t) be the value of mediator under the treatment specification t. 
+- Then Y(t, M(t)) is a "nested" potential outcome for our outcome variable Y dependent on realisation of M based on t. 
+- Distinguish t as a specific setting for the treatment variable in $\{ 0, 1\}$ from t* as an alternative setting.
+
+Now we define 
+
+- __NDE:__ E[Y(t, M(t*)) - Y(t*, M(t*))]
+    - Which is to say we're interested in the differences in the outcomes under different treatments, mediated by values for M under a specific treatment regime. 
+- __NIE:__ E[(Y(t, M(t))) - Y(t, M(t*))]
+    - Which amounts to the differences in the outcome Y due to differences in the treatment regimes which generated the mediation values M. 
+- __TE__: NDE + NIE
+
+The dependency can be seen in a graph
 
 ```{code-cell} ipython3
-t_mod = np.ones(len(X), dtype="int32")
+fig, ax = plt.subplots(figsize=(20, 6))
+graph = nx.DiGraph()
+graph.add_node("T")
+graph.add_node("M")
+graph.add_node("Y")
+graph.add_edges_from([("T", "M"), ("M", "Y"), ("T", "Y")])
 
-with model:
-    # update values of predictors:
-    pm.set_data({"t": t_mod})
-    idata_trt = pm.sample_posterior_predictive(
-        result,
-        var_names=["ylikelihood", "cprime"],
+nx.draw(
+    graph,
+    arrows=True,
+    with_labels=True,
+    pos={"T": (1, 2), "M": (2, 3), "Y": (3, 1)},
+    ax=ax,
+    node_size=6000,
+    font_color="whitesmoke",
+)
+```
+
+We are going to demonstrate how to recover the causal mediation estimands using the counterfactual imputation approach for the mediation values and substituting these imputed mediation values as appropriate into the formulas for the NDE and NIE.
+
+```{code-cell} ipython3
+def counterfactual_mediation(model, X, treatment_status=1):
+    if treatment_status == 1:
+        t_mod = np.ones(len(X), dtype="int32")
+    else:
+        t_mod = np.zeros(len(X), dtype="int32")
+    with model:
+        # update values of predictors:
+        pm.set_data({"t": t_mod})
+        idata = pm.sample_posterior_predictive(result, var_names=["mlikelihood"], progressbar=False)
+    return idata
+
+
+idata_1m = counterfactual_mediation(model, X_m)
+idata_0m = counterfactual_mediation(model, X_m, 0)
+
+
+def counterfactual_outcome(model, idata, sample_index=0, treatment_status=1, modified_m=True):
+    """Ensure we can change sample_index so we can post-process the mediator posterior predictive
+    distributions"""
+    if treatment_status == 1:
+        t_mod = np.ones(len(X), dtype="int32")
+        m_mod = az.extract(idata["posterior_predictive"]["mlikelihood"])["mlikelihood"][
+            :, sample_index
+        ].values.astype(int)
+    else:
+        t_mod = np.zeros(len(X), dtype="int32")
+        m_mod = az.extract(idata["posterior_predictive"]["mlikelihood"])["mlikelihood"][
+            :, sample_index
+        ].values.astype(int)
+    if not modified_m:
+        m_mod = result["constant_data"]["m"].values
+    with model:
+        # update values of predictors:
+        pm.set_data({"t": t_mod, "m": m_mod})
+        idata = pm.sample_posterior_predictive(result, var_names=["ylikelihood"], progressbar=False)
+    return idata
+
+
+### Using one draw from the posterior of the mediation inference objects.
+### We vary the treatment of the outcome but keep the Mediator values static
+idata_nde1 = counterfactual_outcome(model, idata_0m, treatment_status=1)
+idata_nde0 = counterfactual_outcome(model, idata_0m, treatment_status=0)
+
+### We fix the treatment regime for the outcome but vary the mediator status
+### between off and the observed mediator values
+idata_nie0 = counterfactual_outcome(model, idata_0m, treatment_status=0)
+idata_nie1 = counterfactual_outcome(model, idata_1m, treatment_status=0, modified_m=False)
+```
+
+```{code-cell} ipython3
+### Natural Direct Effect
+nde = (
+    idata_nde1["posterior_predictive"]["ylikelihood"].mean()
+    - idata_nde0["posterior_predictive"]["ylikelihood"].mean()
+)
+nde
+```
+
+```{code-cell} ipython3
+### Natural InDirect Effect
+nie = (
+    idata_nie0["posterior_predictive"]["ylikelihood"].mean()
+    - idata_nie1["posterior_predictive"]["ylikelihood"].mean()
+)
+nie
+```
+
+```{code-cell} ipython3
+### Total Effect
+nde + nie
+```
+
+Note how we recover estimates in this fashion that mirror the canonical formulas derived from the mediation model above. However, what is important is that this imputation approach is feasible regardless of the parametric construction of our mediation and outcome models.
+
+Next, we loop through draws from the counterfactual posteriors over the mediation values to derive posterior predictive distributions for the causal estimands. 
+
+```{code-cell} ipython3
+:tags: [hide-output]
+
+estimands = []
+for i in range(400):
+    idata_nde1 = counterfactual_outcome(model, idata_0m, treatment_status=1, sample_index=i)
+    idata_nde0 = counterfactual_outcome(model, idata_0m, treatment_status=0, sample_index=i)
+
+    idata_nie0 = counterfactual_outcome(model, idata_0m, treatment_status=0, sample_index=i)
+    idata_nie1 = counterfactual_outcome(
+        model, idata_1m, treatment_status=0, modified_m=False, sample_index=i
     )
 
-idata_trt
-```
-
-```{code-cell} ipython3
-trted_df = az.summary(
-    idata_trt,
-    var_names=["ylikelihood", "cprime"],
-    group="posterior_predictive",
-)
-trted_df
-```
-
-```{code-cell} ipython3
-t_mod = np.zeros(len(X), dtype="int32")
-
-with model:
-    # update values of predictors:
-    pm.set_data({"t": t_mod})
-    idata_ntrt = pm.sample_posterior_predictive(
-        result,
-        var_names=["ylikelihood", "cprime"],
+    nde = (
+        idata_nde1["posterior_predictive"]["ylikelihood"].mean()
+        - idata_nde0["posterior_predictive"]["ylikelihood"].mean()
     )
+    nie = (
+        idata_nie0["posterior_predictive"]["ylikelihood"].mean()
+        - idata_nie1["posterior_predictive"]["ylikelihood"].mean()
+    )
+    te = nde + nie
+    estimands.append([nde.item(), nie.item(), te.item()])
 
-idata_ntrt
+estimands_df = pd.DataFrame(
+    estimands, columns=["Natural Direct Effect", "Natural Indirect Effect", "Total Effect"]
+)
 ```
 
 ```{code-cell} ipython3
-ntrted_df = az.summary(
-    idata_ntrt,
-    var_names=["ylikelihood", "cprime"],
-    group="posterior_predictive",
-)
-ntrted_df
+estimands_df.head()
 ```
 
-The main observation to see in the posterior predictive distribution is how the expectation terms do not vary wildly, but the variance on the individual predicted outcomes are far wider in the smokers group than in the non-smokers group.
-
 ```{code-cell} ipython3
-axs = az.plot_posterior(
-    idata_trt,
-    var_names=["ylikelihood"],
-    coords={"obs_id": range(10)},
-    figsize=(20, 10),
-    group="posterior_predictive",
-    grid=(2, 5),
-)
+fig, axs = plt.subplots(1, 3, figsize=(20, 8))
 axs = axs.flatten()
-for ax in axs:
-    ax.set_xlim(2, 12)
-plt.suptitle("Expected Uncertainty under Treated Regime", fontsize=20, fontweight="bold")
-
-axs = az.plot_posterior(
-    idata_ntrt,
-    var_names=["ylikelihood"],
-    coords={"obs_id": range(10)},
-    figsize=(20, 10),
-    group="posterior_predictive",
-    grid=(2, 5),
-)
-axs = axs.flatten()
-for ax in axs:
-    ax.set_xlim(2, 12)
-plt.suptitle("Expected Uncertainty under Control Regime", fontsize=20, fontweight="bold");
+axs[0].hist(estimands_df["Natural Direct Effect"], bins=20, ec="black", color="red", alpha=0.3)
+axs[1].hist(estimands_df["Natural Indirect Effect"], bins=20, ec="black", alpha=0.3)
+axs[2].hist(estimands_df["Total Effect"], bins=20, ec="black", color="slateblue")
+axs[0].set_title("Posterior Predictive Distribution \n Natural Direct Effect")
+axs[0].set_xlabel("Change in Log(Expenditure)")
+axs[1].set_xlabel("Change in Log(Expenditure)")
+axs[2].set_xlabel("Change in Log(Expenditure)")
+axs[1].set_title("Posterior Predictive Distribution \n Natural Indirect Effect")
+axs[2].set_title("Posterior Predictive Distribution \n Total Effect")
+plt.suptitle(
+    "Causal Mediation Estimands \n Using Potential Outcomes", fontsize=20, fontweight="bold"
+);
 ```
-
-### Plotting the Quantile Differences
-
-On an individual by individual basis the expected payouts required under the different regimes are on average quite similar, but the tail events across the portfolio can add up to significant differences. Here we look at the 95th quantile of losses aggregated over all the individuals in each counterfactual regime. 
-
-```{code-cell} ipython3
-mosaic = """AABB
-            CCCC"""
-
-fig, axs = plt.subplot_mosaic(mosaic, layout="constrained", figsize=(20, 10))
-q9_ntrt = idata_ntrt["posterior_predictive"]["ylikelihood"].quantile(0.95, dim=("chain", "obs_id"))
-q9_trt = idata_trt["posterior_predictive"]["ylikelihood"].quantile(0.95, dim=("chain", "obs_id"))
-axs["A"].hist(q9_ntrt, bins=30, ec="black", color="red", label="Control: p95")
-axs["A"].axvline(q9_ntrt.mean().item(), linestyle="--", color="black", linewidth=5)
-axs["A"].set_title("Distribution of P95 under the Control Regime", fontsize=20)
-axs["B"].hist(q9_trt, bins=30, ec="black", color="blue", label="Treatment: p95")
-axs["B"].axvline(q9_trt.mean().item(), linestyle="--", color="black", linewidth=5)
-axs["B"].set_title("Distribution of P95 under the Treated Regime", fontsize=20)
-axs["C"].hist(q9_ntrt - q9_trt, bins=30, color="slateblue", ec="black")
-q_diff = (q9_ntrt - q9_trt).mean().item()
-axs["C"].axvline(
-    q_diff, linestyle="--", color="black", linewidth=5, label=f"E(diff): {np.round(q_diff, 3)}"
-)
-axs["C"].set_title("Distribution of P95 differences between Regimes", fontsize=20)
-axs["C"].set_xlabel("Differences in Percentiles")
-axs["A"].legend()
-axs["B"].legend()
-axs["C"].legend();
-```
-
-This increased uncertainty in costs due to smoking drives meaningful decisions about the profile of cumulative losses any insurer could expect to see as their portfolio of risks matures. 
-
-+++
 
 ## Conclusion
 
