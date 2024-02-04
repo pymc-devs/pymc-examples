@@ -1013,7 +1013,7 @@ plot_ate(ate_dist_df_dr, xy=(0.10, 200))
 ```
 
 
-Recall that the doubly robust estimator is set up to effect a compromise between the propensity score weighting and (in our case) a simply OLS prediction where as long as one of the two models is well-specified this estimator can recover accurate unbiased treatment effects. In this case we see that the doubly robust estimator pulls away from the implications of our propensity scores and privileges the regression model.
+Recall that the doubly robust estimator is set up to effect a compromise between the propensity score weighting and (in our case) a simple OLS prediction. Where as long as one of the two models is well-specified this estimator can recover accurate unbiased treatment effects. In this case we see that the doubly robust estimator pulls away from the implications of our propensity scores and privileges the regression model.
 
 +++
 
@@ -1045,11 +1045,11 @@ model_ps_reg_expend_h, idata_ps_reg_expend_h = make_prop_reg_model(
 az.summary(idata_ps_reg_expend_h, var_names=["b"])
 ```
 
-This is much better and we can see that the propensity score feature in conjunction with the health factors to arrive at a sensible treatement effect estimate. This kind of finding echoes the lesson reported in Angrist and Pischke that:
+This is much better and we can see that modelling the propensity score feature in conjunction with the health factors leads to a more sensible treatement effect estimate. This kind of finding echoes the lesson reported in Angrist and Pischke that:
 
 > "Regression control for the right covariates does a reasonable job of eliminating selection effects..." pg 91 _Mostly Harmless Econometrics_ {cite:t}`angrist2008harmless`
 
-So we're back to the question of the right controls. There is a no real way to avoid this burden. Neither machine learning nor double machine learning can serve as a pancea absent domain knowledge and careful attention to the problem at hand. This is never the inspiring message people want to hear, but it is unfortunately true. Regression helps with this because the unforgiving clarity of a coefficiencts table is a reminder that there is no substitute to measuring the right things well. 
+So we're back to the question of the right controls. There is a no real way to avoid this burden. Neither machine learning nor double machine learning can serve as a panacea absent domain knowledge and careful attention to the problem at hand. This is never the inspiring message people want to hear, but it is unfortunately true. Regression helps with this because the unforgiving clarity of a coefficiencts table is a reminder that there is no substitute to measuring the right things well. 
 
 +++
 
@@ -1107,7 +1107,7 @@ for i in range(4):
 
 ### Applying Debiased ML Methods
 
-Next we define the functions to fit and predict with the propensity score and outcome models. Because we're Bayesian we will record the posterior distribution of the residuals for both the outcome model and the propensity model. In both cases we'll use the baseline BART specification to avail of the flexibility of machine learning for accuracy. We then use the K-fold process to fit the model and predict the residuals on the out of sample fold. This allows us to extract the posterior distribution for ATE. 
+Next we define the functions to fit and predict with the propensity score and outcome models. Because we're Bayesian we will record the posterior distribution of the residuals for both the outcome model and the propensity model. In both cases we'll use the baseline BART specification to avail of the flexibility of machine learning for accuracy. We then use the K-fold process to fit the model and predict the residuals on the out of sample fold. This allows us to extract the posterior distribution for ATE by post-processing the posterior predictive distribution of the residuals. 
 
 ```{code-cell} ipython3
 :tags: [hide-output]
@@ -1188,6 +1188,8 @@ t_resids_stacked = xr.concat(t_resids, dim=("obs_dim_2"))
 y_resids_stacked
 ```
 
+Post process the posterior predictive distribution of residuals
+
 ```{code-cell} ipython3
 t_effects = []
 intercepts = []
@@ -1220,13 +1222,12 @@ We can see here how the technique of debiased machine learning has helped to all
 
 ### Conditional Average Treatment Effects
 
-We'll note here that there Double ML approaches offer another lens on the problem in that they allow you to move away from the focus on Average Treatment Effects and retrieve estimates more tailored to the individual covariate profiles. Much of the theoretical detail is elaborated in {cite:t}`facure2023causal` and we won't cover it here apart from suggesting that it makes allot of sense to use the residual prediction in estimating specific treatment effects. We'll show here briefly how to build on the derived residuals to retrieve the CATE estimates using the flexibility of machine learning to better capture the range of heterogenous treatment effects.
+We'll note here that Double ML approaches also offer another lens on the problem. They allow you to move away from the focus on Average Treatment Effects and retrieve estimates more tailored to the individual covariate profiles. Much of the theoretical detail is elaborated in {cite:t}`facure2023causal` and we won't cover it here apart from suggesting that it makes good sense to use the residual prediction in estimating specific treatment effects. We'll show here briefly how to build on the derived residuals to retrieve the CATE estimates using the flexibility of machine learning to better capture the range of heterogenous treatment effects.
 
 ```{code-cell} ipython3
 def make_cate(y_resids_stacked, t_resids_stacked, train_dfs, i, method="forest"):
     train_X = pd.concat([train_dfs[i][0] for i in range(4)])
     train_t = pd.concat([train_dfs[i][1] for i in range(4)])
-    train_y = pd.concat([train_dfs[i][2] for i in range(4)])
 
     df_cate = pd.DataFrame(
         {"y_r": y_resids_stacked[i, :].values, "t_r": t_resids_stacked[i, :].values}
@@ -1288,7 +1289,7 @@ axs[0].legend()
 axs[0].set_title("Distribution of p01 CATE predictions");
 ```
 
-This perspective starts to show the importance of heterogeniety in causal impacts and offers a means of assessing differential impact of treatments.
+This perspective starts to show the importance of heterogeneity in causal impacts and offers a means of assessing differential impact of treatments.
 
 +++
 
@@ -1296,7 +1297,26 @@ This perspective starts to show the importance of heterogeniety in causal impact
 
 Above we've seen how a number of different approaches designed to avoid bias lead us to the conclusion that smoking has limited or no effect on your likely healthcare costs. It's worth emphasising that this should strike you as strange! The solution to the puzzle lies not in the method of estimation precisely, but in the structure of the question. It's not that smoking isn't related to healthcare costs, but that the impact is mediated through smoking's influence on our health. 
 
-The structural imposition of mediation mandates valid causal inferences go through just when __sequential ignorability__ holds. That is to say - the potential outcomes are independent of the _treatment assignment history_ conditional on covariate profiles. More detail can be found in {cite:t}`daniels2024bnp`. But we can see how this works if we write the mediation structure into our model as described in {ref}`mediation_analysis`.
+The structural imposition of mediation mandates valid causal inferences go through just when __sequential ignorability__ holds. That is to say - the potential outcomes are independent of the _treatment assignment history_ conditional on covariate profiles. More detail can be found in {cite:t}`daniels2024bnp`. But we can see how this works if we write the mediation structure into our model as described in {ref}`mediation_analysis`. The fundamental point is that we need to augment our modelling to account for the structure of the causal flow. 
+
+```{code-cell} ipython3
+fig, ax = plt.subplots(figsize=(20, 6))
+graph = nx.DiGraph()
+graph.add_node("T")
+graph.add_node("M")
+graph.add_node("Y")
+graph.add_edges_from([("T", "M"), ("M", "Y"), ("T", "Y")])
+
+nx.draw(
+    graph,
+    arrows=True,
+    with_labels=True,
+    pos={"T": (1, 2), "M": (2, 3), "Y": (3, 1)},
+    ax=ax,
+    node_size=6000,
+    font_color="whitesmoke",
+)
+```
 
 ```{code-cell} ipython3
 dummies = pd.concat(
@@ -1364,8 +1384,8 @@ def mediation_model(X_m, t, m, y):
         b = pm.Normal("b", mu=0, sigma=1)
         cprime = pm.Normal("cprime", mu=0, sigma=1)
         # noise priors
-        sigma1 = pm.HalfCauchy("sigma1", 1)
-        sigma2 = pm.HalfCauchy("sigma2", 1)
+        sigma1 = pm.Exponential("sigma1", 1)
+        sigma2 = pm.Exponential("sigma2", 1)
         bart_mu = pmb.BART("mu", X_data, y)
         beta = pm.Normal("beta", mu=0, sigma=1, dims="coeffs")
         mu_m = pm.Deterministic("mu_m", pm.math.dot(X_data, beta), dims="obs_id")
@@ -1429,31 +1449,14 @@ Now we define
     - Which amounts to the differences in the outcome Y due to differences in the treatment regimes which generated the mediation values M. 
 - __TE__: NDE + NIE
 
-The dependency can be seen in a graph
+These equations are subtle, and the potential outcomes notation is perhaps a little obscure, but it's the notation we inherit. The key point is just that in NDE the treatment regime for the mediation effects are fixed and the values for the outcome varied. In the NIE the values for the mediation effects are varied and the treatment regime for the outcome variable is fixed. 
+
++++
+
+We are going to demonstrate how to recover the causal mediation estimands using the counterfactual imputation approach for the mediation values and substituting these imputed mediation values as appropriate into the formulas for the NDE and NIE. We base these calculations on the inference data object `result` derived above when we fitted the initial mediation model.
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(20, 6))
-graph = nx.DiGraph()
-graph.add_node("T")
-graph.add_node("M")
-graph.add_node("Y")
-graph.add_edges_from([("T", "M"), ("M", "Y"), ("T", "Y")])
-
-nx.draw(
-    graph,
-    arrows=True,
-    with_labels=True,
-    pos={"T": (1, 2), "M": (2, 3), "Y": (3, 1)},
-    ax=ax,
-    node_size=6000,
-    font_color="whitesmoke",
-)
-```
-
-We are going to demonstrate how to recover the causal mediation estimands using the counterfactual imputation approach for the mediation values and substituting these imputed mediation values as appropriate into the formulas for the NDE and NIE.
-
-```{code-cell} ipython3
-def counterfactual_mediation(model, X, treatment_status=1):
+def counterfactual_mediation(model, result, X, treatment_status=1):
     if treatment_status == 1:
         t_mod = np.ones(len(X), dtype="int32")
     else:
@@ -1465,21 +1468,27 @@ def counterfactual_mediation(model, X, treatment_status=1):
     return idata
 
 
-idata_1m = counterfactual_mediation(model, X_m, treatment_status=1)
-idata_0m = counterfactual_mediation(model, X_m, treatment_status=0)
+### Impute Mediation values under different treatment regimes
+### To be used to vary the imputation efforts of the outcome variable in the
+### NDE and NIE calculations below.
+idata_1m = counterfactual_mediation(model, result, X_m, treatment_status=1)
+idata_0m = counterfactual_mediation(model, result, X_m, treatment_status=0)
 
 
-def counterfactual_outcome(model, idata, sample_index=0, treatment_status=1, modified_m=True):
+def counterfactual_outcome(
+    model, result, m_idata, sample_index=0, treatment_status=1, modified_m=True
+):
     """Ensure we can change sample_index so we can post-process the mediator posterior predictive
-    distributions and derive posterior predictive views of the variation in the outcome."""
+    distributions and derive posterior predictive views of the conditional variation in the outcome.
+    """
     if treatment_status == 1:
         t_mod = np.ones(len(X), dtype="int32")
-        m_mod = az.extract(idata["posterior_predictive"]["mlikelihood"])["mlikelihood"][
+        m_mod = az.extract(m_idata["posterior_predictive"]["mlikelihood"])["mlikelihood"][
             :, sample_index
         ].values.astype(int)
     else:
         t_mod = np.zeros(len(X), dtype="int32")
-        m_mod = az.extract(idata["posterior_predictive"]["mlikelihood"])["mlikelihood"][
+        m_mod = az.extract(m_idata["posterior_predictive"]["mlikelihood"])["mlikelihood"][
             :, sample_index
         ].values.astype(int)
     if not modified_m:
@@ -1493,13 +1502,15 @@ def counterfactual_outcome(model, idata, sample_index=0, treatment_status=1, mod
 
 ### Using one draw from the posterior of the mediation inference objects.
 ### We vary the treatment of the outcome but keep the Mediator values static
-idata_nde1 = counterfactual_outcome(model, idata_0m, treatment_status=1)
-idata_nde0 = counterfactual_outcome(model, idata_0m, treatment_status=0)
+idata_nde1 = counterfactual_outcome(model, result, m_idata=idata_0m, treatment_status=1)
+idata_nde0 = counterfactual_outcome(model, result, m_idata=idata_0m, treatment_status=0)
 
 ### We fix the treatment regime for the outcome but vary the mediator status
-### between off and the observed mediator values
-idata_nie0 = counterfactual_outcome(model, idata_0m, treatment_status=0)
-idata_nie1 = counterfactual_outcome(model, idata_1m, treatment_status=0, modified_m=False)
+### between those counterfactual predictions and the observed mediator values
+idata_nie0 = counterfactual_outcome(model, result, m_idata=idata_0m, treatment_status=0)
+idata_nie1 = counterfactual_outcome(
+    model, result, m_idata=idata_0m, treatment_status=0, modified_m=False
+)
 ```
 
 ```{code-cell} ipython3
@@ -1527,19 +1538,25 @@ nde + nie
 
 Note how we recover estimates in this fashion that mirror the canonical formulas derived from the mediation model above. However, what is important is that this imputation approach is feasible regardless of the parametric construction of our mediation and outcome models.
 
-Next, we loop through draws from the counterfactual posteriors over the mediation values to derive posterior predictive distributions for the causal estimands. 
+Next we loop through draws from the counterfactual posteriors over the mediation values to derive posterior predictive distributions for the causal estimands. 
 
 ```{code-cell} ipython3
 :tags: [hide-output]
 
 estimands = []
 for i in range(400):
-    idata_nde1 = counterfactual_outcome(model, idata_0m, treatment_status=1, sample_index=i)
-    idata_nde0 = counterfactual_outcome(model, idata_0m, treatment_status=0, sample_index=i)
+    idata_nde1 = counterfactual_outcome(
+        model, result, m_idata=idata_0m, treatment_status=1, sample_index=i
+    )
+    idata_nde0 = counterfactual_outcome(
+        model, result, m_idata=idata_0m, treatment_status=0, sample_index=i
+    )
 
-    idata_nie0 = counterfactual_outcome(model, idata_0m, treatment_status=0, sample_index=i)
+    idata_nie0 = counterfactual_outcome(
+        model, result, m_idata=idata_0m, treatment_status=0, sample_index=i
+    )
     idata_nie1 = counterfactual_outcome(
-        model, idata_1m, treatment_status=0, modified_m=False, sample_index=i
+        model, result, m_idata=idata_0m, treatment_status=0, modified_m=False, sample_index=i
     )
 
     nde = (
@@ -1568,12 +1585,33 @@ axs = axs.flatten()
 axs[0].hist(estimands_df["Natural Direct Effect"], bins=20, ec="black", color="red", alpha=0.3)
 axs[1].hist(estimands_df["Natural Indirect Effect"], bins=20, ec="black", alpha=0.3)
 axs[2].hist(estimands_df["Total Effect"], bins=20, ec="black", color="slateblue")
+axs[2].axvline(
+    estimands_df["Total Effect"].mean(),
+    color="black",
+    linestyle="--",
+    label="Expected Total Effect",
+)
+axs[1].axvline(
+    estimands_df["Natural Indirect Effect"].mean(),
+    color="black",
+    linestyle="--",
+    label="Expected NIE",
+)
+axs[0].axvline(
+    estimands_df["Natural Direct Effect"].mean(),
+    color="black",
+    linestyle="--",
+    label="Expected NDE",
+)
 axs[0].set_title("Posterior Predictive Distribution \n Natural Direct Effect")
 axs[0].set_xlabel("Change in Log(Expenditure)")
 axs[1].set_xlabel("Change in Log(Expenditure)")
 axs[2].set_xlabel("Change in Log(Expenditure)")
 axs[1].set_title("Posterior Predictive Distribution \n Natural Indirect Effect")
 axs[2].set_title("Posterior Predictive Distribution \n Total Effect")
+axs[2].legend()
+axs[1].legend()
+axs[0].legend()
 plt.suptitle(
     "Causal Mediation Estimands \n Using Potential Outcomes", fontsize=20, fontweight="bold"
 );
@@ -1585,13 +1623,15 @@ Propensity scores are a useful tool for thinking about the structure of causal i
 
 The role of propensity scores in both doubly-robust estimation methods and the debiased machine learning approaches to causal inference emphasise the balancing between theory of the outcome variable and the theory of the treatment-assignment mechanism. We've seen how blindly throwing machine learning models at causal problems can result in mis-specified treatment assignment models and wildly skewed estimates based on naive point estimates. Angrist and Pischke argue that this should push us back towards the safety of thoughtful and careful regression modelling. Even in the case of debiasing machine learning models there is an implicit appeal to the regression estimator which underwrites the frisch-waugh-lowell results. But here too rushed approaches lead to counter-intuitive claims. Each of these tools for thought has a scope for application - understanding the limits is crucial to underwriting credible causal claims.
 
-The bevy of results we've seen draws out the need for careful attention to structure of the data generating models. The final example brings home the idea that causal inference is intimately tied to the inference over causal structural graphs. The propagation of uncertainty down through the causal structure really matters! It's nothing more than wishful thinking to hope that these structures will be automatically discerned through the magic of machine learning. We've seen how propensity score methods seek to re-weight inferences as a corrrective step, we've seen doubly robust methodologies which seek to correct inferences through predictive power of machine learning strategies and finally we've seen how structural modelling corrects estimates by imposing constraints on the influence paths between covariates. This is just how inference is done, you encode your knowledge of the world and update your views as evidence accrues.
+The bevy of results we've seen draws out the need for careful attention to structure of the data generating models. The final example brings home the idea that causal inference is intimately tied to the inference over causal structural graphs. The propagation of uncertainty down through the causal structure really matters! It's nothing more than wishful thinking to hope that these structures will be automatically discerned through the magic of machine learning. We've seen how propensity score methods seek to re-weight inferences as a corrrective step, we've seen doubly robust methodologies which seek to correct inferences through predictive power of machine learning strategies and finally we've seen how structural modelling corrects estimates by imposing constraints on the influence of paths between covariates. 
+
+This is just how inference is done. You encode your knowledge of the world and update your views as evidence accrues. Causal inference requires commitment to a structural view of the world and we cannot pretend to ignorance when it makes inference indefensible. 
 
 
 +++
 
 ## Authors
-- Authored by [Nathaniel Forde](https://nathanielf.github.io/) in January 2024 
+- Authored by [Nathaniel Forde](https://nathanielf.github.io/) in Feb 2024 
 
 +++
 
