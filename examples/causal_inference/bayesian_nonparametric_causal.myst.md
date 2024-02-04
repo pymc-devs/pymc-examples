@@ -394,7 +394,15 @@ def make_doubly_robust_adjustment(X, t, y):
     return weighted_outcome0, weighted_outcome1, None, None
 ```
 
-Then we plot the data.
+It's worth here expanding on the theory of doubly robust estimation. We showed above the code for implementing the compromise between the treatment assignment estimator and the response or outcome estimator. But why is this useful? Consider the functional form of the doubly robust estimator.
+
+$$ \hat{Y(1)} = \frac{1}{n} \sum_{0}^{N} \Bigg[ \frac{T(Y - m_{1}(X))}{p_{T}(X)} + m_{1}(X) \Bigg] $$
+
+$$ \hat{Y(0)} = \frac{1}{n} \sum_{0}^{N} \Bigg[ \frac{(1-T)(Y - m_{0}(X))}{(1-p_{T}(X))} + m_{0}(X) \Bigg] $$
+
+It is not immediately intuitive as to how these formulas effect a compromise between the outcome model and the treatment assignment model. But consider the extreme cases. First imagine our model $m_{1}$ is a perfect fit to our outcome $Y$, then the numerator of the fraction is 0 and we end up with an average of the model predictions. Instead imagine model $m_{1}$ is mis-specified and we have some error $\epsilon > 0$ in the numerator. If the propensity score model is accurate then in the treated class our denominator should be high... say $\sim N(.9, .05)$, and as such the estimator adds a number close to $\epsilon$ back to the $m_{1}$ prediction. Similar reasoning goes through for the $Y(0)$ case. 
+
+The other estimators are simpler - representing a scaling of the outcome variable by transformations of the estimated propensity scores. Each is an attempt to re-balance the datapoints by what we've learned about the propensity for treatment. But the differences in the estimators are (as we'll see) important in their application.  
 
 ```{code-cell} ipython3
 :tags: [hide-input]
@@ -485,7 +493,8 @@ def make_plot(
     axs[1].text(
         text_pos[0],
         text_pos[1] - 40,
-        f"tau: E(Y(1) - Y(0)) = {outcome_trt.mean() - outcome_ntrt.mean()}",
+        f"tau: E(Y(1) - Y(0)) = {outcome_trt.mean()- outcome_ntrt.mean()}",
+        fontweight="bold",
     )
 
     ## Bottom Plot of Adjusted Outcome using Inverse Propensity Score weights
@@ -502,7 +511,8 @@ def make_plot(
         axs[2].text(
             text_pos[0],
             text_pos[1] - 40,
-            f"tau: E(Y(1) - Y(0)) = {weighted_outcome0.sum() / n_ntrt - weighted_outcome1.sum() / n_trt}",
+            f"tau: E(Y(1) - Y(0)) = {weighted_outcome1.sum() / n_trt - weighted_outcome0.sum() / n_ntrt}",
+            fontweight="bold",
         )
     else:
         top0, _ = np.histogram(weighted_outcome0, bins=lower_bins[1])
@@ -514,9 +524,7 @@ def make_plot(
         axs[2].text(text_pos[0], text_pos[1], f"Control: E(Y) = {ntrt}")
         axs[2].text(text_pos[0], text_pos[1] - 20, f"Treatment: E(Y) = {trt}")
         axs[2].text(
-            text_pos[0],
-            text_pos[1] - 40,
-            f"tau: E(Y(1) - Y(0)) = {ntrt - trt}",
+            text_pos[0], text_pos[1] - 40, f"tau: E(Y(1) - Y(0)) = {trt - ntrt}", fontweight="bold"
         )
 ```
 
@@ -530,7 +538,7 @@ make_plot(
 )
 ```
 
-There is allot going on in this plot so it's worth walking through it a bit more slowly. In the first panel we have the distribution of the propensity scores across both the treatment and control groups. In the second panel we have the raw outcome data plotted again as a distribution split between the groups. Additionally we have presented the expected values of the outcome and the ATE if it were naively estimated on the raw outcome data. Finally on the third panel we have the re-weighted outcome variable - reweighted using the inverse propensity scores, and we derive the ATE based on the adjusted outcome variable. The distinction between the ATE under the raw and adjusted outcome is what we are highlighting in this plot. 
+There is a lot going on in this plot so it's worth walking through it a bit more slowly. In the first panel we have the distribution of the propensity scores across both the treatment and control groups. In the second panel we have the raw outcome data plotted again as a distribution split between the groups. Additionally we have presented the expected values of the outcome and the ATE if it were naively estimated on the raw outcome data. Finally on the third panel we have the re-weighted outcome variable - reweighted using the inverse propensity scores, and we derive the ATE based on the adjusted outcome variable. The distinction between the ATE under the raw and adjusted outcome is what we are highlighting in this plot. 
 
 +++
 
@@ -558,7 +566,7 @@ def get_ate(X, t, y, i, idata, method="doubly_robust"):
         )
         trt = np.mean(weighted_outcome_trt)
         ntrt = np.mean(weighted_outcome_ntrt)
-    ate = ntrt - trt
+    ate = trt - ntrt
     return [ate, trt, ntrt]
 
 
@@ -572,7 +580,7 @@ ate_dist_df_logit.head()
 Next we plot the posterior distribution of the ATE. 
 
 ```{code-cell} ipython3
-def plot_ate(ate_dist_df, xy=(-5.0, 250)):
+def plot_ate(ate_dist_df, xy=(4.0, 250)):
     fig, axs = plt.subplots(1, 2, figsize=(20, 7))
     axs = axs.flatten()
     axs[0].hist(
@@ -623,7 +631,7 @@ ate_dist_df_probit.head()
 ```
 
 ```{code-cell} ipython3
-plot_ate(ate_dist_df_probit, xy=(-4.4, 250))
+plot_ate(ate_dist_df_probit, xy=(4, 250))
 ```
 
 Note the tighter variance of the measures using the doubly robust method. This is not surprising the doubly robust method was designed with this intended effect.
@@ -632,7 +640,7 @@ Note the tighter variance of the measures using the doubly robust method. This i
 
 ### Considerations Choosing between models
 
-It is one thing to evalute change in average over the population, but we might want to allow for the idea of effect heterogenity across the population and as such the BART model is generally better at ensuring accurate predictions across the deepter strata of our data. But the flexibility of machine learning models for prediction tasks do not guarantee that the propensity scores attributed across the sample are well calibrated to recover the true-treatment effects when used in causal effect estimation. We have to be careful in how we use the flexibility of non-parametric models in the causal context. 
+It is one thing to evalute change in average over the population, but we might want to allow for the idea of effect heterogenity across the population and as such the BART model is generally better at ensuring accurate predictions across the deeper strata of our data. But the flexibility of machine learning models for prediction tasks do not guarantee that the propensity scores attributed across the sample are well calibrated to recover the true-treatment effects when used in causal effect estimation. We have to be careful in how we use the flexibility of non-parametric models in the causal context. 
 
 First observe the hetereogenous accuracy induced by the BART model across increasingly narrow strata of our sample. 
 
@@ -715,7 +723,7 @@ az.summary(idata_ps_reg_bart)
 
 ### Causal Inference as Regression Imputation
 
-Above we read-off the causal effect estimate as the coefficient on the treatment variable in our regression model. An arguably more direct approach uses the fitted regression models to impute the distribution of potential outcomes Y(1), Y(0) under different treatment regimes. In this way we have yet another perspective on causal inference 
+Above we read-off the causal effect estimate as the coefficient on the treatment variable in our regression model. An arguably more direct approach uses the fitted regression models to impute the distribution of potential outcomes Y(1), Y(0) under different treatment regimes. In this way we have yet another perspective on causal inference. Crucially this perspective is non-parametric in that it does not make any assumptions about the required functional form of the imputation models.
 
 ```{code-cell} ipython3
 X_mod = X.copy()
@@ -796,7 +804,7 @@ strata_df["global_avg"] = global_avg
 strata_df.reset_index(inplace=True)
 strata_df.columns = [" ".join(col).strip() for col in strata_df.columns.values]
 strata_df["diff"] = strata_df["log_y mean"] - strata_df["global_avg"]
-strata_df.head(30).style.background_gradient(axis=0)
+strata_df.sort_values("log_y count", ascending=False).head(30).style.background_gradient(axis=0)
 ```
 
 ```{code-cell} ipython3
@@ -865,7 +873,7 @@ axs[1].legend()
 axs[1].set_title("Empirical Cumulative \n Densities");
 ```
 
-The plots would seem to confirm undifferentiated nature of the outcome across the two groups. With some hint of difference at the outer quantiles  of the distribution. 
+The plots would seem to confirm undifferentiated nature of the outcome across the two groups. With some hint of difference at the outer quantiles  of the distribution. This is important because it suggests a minimal treatment effect on average. The outcome is recorded on the log-dollar scale, so any kind of unit movement here is quite substantial.
 
 ```{code-cell} ipython3
 qs = np.linspace(0.05, 0.99, 100)
@@ -889,6 +897,7 @@ axs[1].set_title("Differences across the Quantiles");
 ```
 
 ### What could possibly go Wrong?
+Now we prepare the data using simple dummy encoding for the categorical variables and sample from the data set a thousand observations for our initial modelling. 
 
 ```{code-cell} ipython3
 dummies = pd.concat(
@@ -942,7 +951,7 @@ ax.set_ylabel("Count of Observed")
 ax.hist(
     ps[t == 1], bins=30, ec="black", alpha=0.6, color="red", label="Propensity Scores in Control"
 )
-ax.set_title("Propensity Scores per Group", fontsize=20)
+ax.set_title("BART Model - Health Expenditure Data \n Propensity Scores per Group", fontsize=20)
 ax.axvline(0.9, color="black", linestyle="--")
 ax.axvline(0.1, color="black", linestyle="--")
 ax.legend()
@@ -976,7 +985,7 @@ make_plot(
 )
 ```
 
-This is a __disastrous__ result. Evaluated at the expected values of the posterior propensity score distribution the robust IPW estimator of ATE suggests a substantial difference in the treatment and control groups. What is going on?
+This is a __suspicious__ result. Evaluated at the expected values of the posterior propensity score distribution the robust IPW estimator of ATE suggests a substantial difference in the treatment and control groups. When a simple difference in the averages of the raw outcome show close to 0 differences but the re-weighted difference shows a movement of more than 1 on the log-scale. What is going on? In what follows we'll interrogate this question from a couple of different perspectives but you should be pretty dubious of this result as it stands.
 
 What happens if we look at the posterior ATE distributions under different estimators?
 
@@ -991,23 +1000,20 @@ ate_dist_df_r = pd.DataFrame(ate_dist, columns=["ATE", "E(Y(1))", "E(Y(0))"])
 ate_dist_df_dr.head()
 ```
 
-```{code-cell} ipython3
-plot_ate(ate_dist_df_r, xy=(-1.5, 300))
-```
-
-Deriving ATE estimates across draws from the posterior distribution and averaging these seems to give a more sensible figure, but still inflated. If instead we use the doubly robust estimator we recover a much more sensible figure. 
+Each row in this table shows ab estimate of the average treatment effect and the re-weighted means of the outcome variable derived using the doubly robust esimtator with a draw from the posterior of the propensity score distribution implied by our BART model fit. 
 
 ```{code-cell} ipython3
-plot_ate(ate_dist_df_dr, xy=(-0.20, 200))
+plot_ate(ate_dist_df_r, xy=(1, 300))
 ```
 
-It's worth here expanding on the theory of doubly robust estimation. We showed above the code for implementing the compromise between the treatment assignment estimator and the response or outcome estimator. But why is this useful? Consider again the functional form of the doubly robust estimator.
+Deriving ATE estimates across draws from the posterior distribution and averaging these seems to give a more sensible figure, but still inflated beyond the minimalist differences our EDA suggested. If instead we use the doubly robust estimator we recover a much more sensible figure. 
 
-$$ \hat{Y(1)} = \frac{1}{n} \sum_{0}^{N} \Bigg[ \frac{T(Y - m_{1}(X))}{p_{T}(X)} + m_{1}(X) \Bigg] $$
+```{code-cell} ipython3
+plot_ate(ate_dist_df_dr, xy=(0.10, 200))
+```
 
-$$ \hat{Y(0)} = \frac{1}{n} \sum_{0}^{N} \Bigg[ \frac{(1-T)(Y - m_{0}(X))}{(1-p_{T}(X))} + m_{0}(X) \Bigg] $$
 
-It is not immediately intuitive as to how these formulas effect a compromise between the outcome model and the treatment assignment model. But consider the extreme cases first imagine our model $m_{1}$ is a perfect fit to our outcome $Y$, then the numerator of the fraction is 0 and we end up with an average of the model predictions. Instead imagine model $m_{1}$ is mis-specified and we have some error $\epsilon > 0$ in the numerator. If the propensity score model is accurate then in the treated class our denominator should be high... say $\sim N(.9, .1)$, and as such the estimator adds a number close to $\epsilon$ back to the $m_{1}$ prediction. Similar reasoning goes through for the $Y(0)$ case. So as long as one of the two models is well-specified this estimator can recover accurate unbiased treatment effects.
+Recall that the doubly robust estimator is set up to effect a compromise between the propensity score weighting and (in our case) a simply OLS prediction where as long as one of the two models is well-specified this estimator can recover accurate unbiased treatment effects. In this case we see that the doubly robust estimator pulls away from the implications of our propensity scores and privileges the regression model.
 
 +++
 
@@ -1389,7 +1395,7 @@ pm.model_to_graphviz(model)
 
 ```{code-cell} ipython3
 with model:
-    result = pm.sample(tune=1000, random_seed=42)
+    result = pm.sample(tune=1000, random_seed=42, target_accept=0.95)
 ```
 
 ```{code-cell} ipython3
@@ -1403,23 +1409,23 @@ ax = az.plot_posterior(
 ax[0].set(title="direct effect");
 ```
 
-Here we begin to see what's going on the influence of smoking is directly negative, but the indirect effect through the mediator of health status is positive and the combined effect cancels out/reduces the treatment effect on the outcome. Using this new structure we can of course use the regression imputation approach to causal inference and derive a kind of ceteris paribus law about the impact of smoking as mediated through the observed health features. More neatly we can derive the causal mediation estimands using the potential outcomes framework in a way that does not rely on the functional form of the outcome and mediation models. 
+Here we begin to see what's going on. The influence of smoking is directly negative, but the indirect effect through the mediator of health status is positive and the combined effect cancels out/reduces the treatment effect on the outcome. Using this new structure we can of course use the regression imputation approach to causal inference and derive a kind of ceteris paribus law about the impact of smoking as mediated through the observed health features. More neatly we can derive the causal mediation estimands using the potential outcomes framework in a way that does not rely on the functional form of the outcome and mediation models. 
 
 ### Mediation Estimands
 
-In mediation analysis we are committed to the view that the correct causal structure of the problem is represented by an interrupted path of influence between the treatment variable and the outcome of interest. This implies that there are expected effects of treatment but that we need to do some more work to disentangle direct and indirect effects of treatment on outcome. 
+In [mediation](https://en.wikipedia.org/wiki/Mediation_(statistics)) analysis we are committed to the view that the correct causal structure of the problem is represented by an interrupted path of influence between the treatment variable and the outcome of interest. This implies that there are expected effects of treatment but that we need to do some more work to disentangle the natural direct effect (NDE) and natural indirect effects (NIE) of treatment on outcome. 
 
 These quantities are represented using the potential outcomes notation as follows: 
 
-- Let M(t) be the value of mediator under the treatment specification t. 
-- Then Y(t, M(t)) is a "nested" potential outcome for our outcome variable Y dependent on realisation of M based on t. 
-- Distinguish t as a specific setting for the treatment variable in $\{ 0, 1\}$ from t* as an alternative setting.
+- Let $M(t)$ be the value of mediator under the treatment specification $t$. 
+- Then $Y(t, M(t))$ is a "nested" potential outcome for our outcome variable Y dependent on realisation of $M$ based on $t$. 
+- Distinguish $t$ as a specific setting for the treatment variable in $\{ 0, 1\}$ from $t^{*}$ as an alternative setting.
 
 Now we define 
 
-- __NDE:__ E[Y(t, M(t*)) - Y(t*, M(t*))]
+- __NDE:__ $E[Y(t, M(t^{*})) - Y(t^{*}, M(t^{*}))]$
     - Which is to say we're interested in the differences in the outcomes under different treatments, mediated by values for M under a specific treatment regime. 
-- __NIE:__ E[(Y(t, M(t))) - Y(t, M(t*))]
+- __NIE:__ $E[(Y(t, M(t))) - Y(t, M(t^{*}))]$
     - Which amounts to the differences in the outcome Y due to differences in the treatment regimes which generated the mediation values M. 
 - __TE__: NDE + NIE
 
@@ -1459,13 +1465,13 @@ def counterfactual_mediation(model, X, treatment_status=1):
     return idata
 
 
-idata_1m = counterfactual_mediation(model, X_m)
-idata_0m = counterfactual_mediation(model, X_m, 0)
+idata_1m = counterfactual_mediation(model, X_m, treatment_status=1)
+idata_0m = counterfactual_mediation(model, X_m, treatment_status=0)
 
 
 def counterfactual_outcome(model, idata, sample_index=0, treatment_status=1, modified_m=True):
     """Ensure we can change sample_index so we can post-process the mediator posterior predictive
-    distributions"""
+    distributions and derive posterior predictive views of the variation in the outcome."""
     if treatment_status == 1:
         t_mod = np.ones(len(X), dtype="int32")
         m_mod = az.extract(idata["posterior_predictive"]["mlikelihood"])["mlikelihood"][
@@ -1557,7 +1563,7 @@ estimands_df.head()
 ```
 
 ```{code-cell} ipython3
-fig, axs = plt.subplots(1, 3, figsize=(20, 8))
+fig, axs = plt.subplots(1, 3, figsize=(25, 8))
 axs = axs.flatten()
 axs[0].hist(estimands_df["Natural Direct Effect"], bins=20, ec="black", color="red", alpha=0.3)
 axs[1].hist(estimands_df["Natural Indirect Effect"], bins=20, ec="black", alpha=0.3)
@@ -1577,7 +1583,7 @@ plt.suptitle(
 
 Propensity scores are a useful tool for thinking about the structure of causal inference problems. They directly relate to considerations of selection effects and can be used proactively to re-weight evidence garnered from observational data sets. They can be applied with flexible machine learning models and cross validation techniques to correct over-fitting of machine learning models like BART. They are not as direct a tool for regularisation of model fits as the application of bayesian priors, but they are a tool in the same vein. They ask of the analyst their theory of treatment assignment mechanism - under __strong ignorability__ this is enough to evaluate policy changes in the outcomes of interest.
 
-The role of propensity scores in the doubly-robust estimation methods of double-ML approaches to causal inference emphasise this balancing between the theory of the outcome variable and the theory of the treatment-assignment mechanism. We've seen how blindly throwing machine learning models at causal problems can result in mis-specified treatment assignment models and wildly skewed estimates based on naive point estimates. Angrist and Pischke argue that this should push us back towards the safety of thoughtful and careful regression modelling. Even in the case of debiasing machine learning models there is an implicit appeal to the regression estimator which underwrites the frisch-waugh-lowell results. But here too rushed approaches lead to counter-intuitive claims. Each of these tools for thought has a scope for application - understanding the limits is crucial to underwriting credible causal claims.
+The role of propensity scores in both doubly-robust estimation methods and the debiased machine learning approaches to causal inference emphasise the balancing between theory of the outcome variable and the theory of the treatment-assignment mechanism. We've seen how blindly throwing machine learning models at causal problems can result in mis-specified treatment assignment models and wildly skewed estimates based on naive point estimates. Angrist and Pischke argue that this should push us back towards the safety of thoughtful and careful regression modelling. Even in the case of debiasing machine learning models there is an implicit appeal to the regression estimator which underwrites the frisch-waugh-lowell results. But here too rushed approaches lead to counter-intuitive claims. Each of these tools for thought has a scope for application - understanding the limits is crucial to underwriting credible causal claims.
 
 The bevy of results we've seen draws out the need for careful attention to structure of the data generating models. The final example brings home the idea that causal inference is intimately tied to the inference over causal structural graphs. The propagation of uncertainty down through the causal structure really matters! It's nothing more than wishful thinking to hope that these structures will be automatically discerned through the magic of machine learning. We've seen how propensity score methods seek to re-weight inferences as a corrrective step, we've seen doubly robust methodologies which seek to correct inferences through predictive power of machine learning strategies and finally we've seen how structural modelling corrects estimates by imposing constraints on the influence paths between covariates. This is just how inference is done, you encode your knowledge of the world and update your views as evidence accrues.
 
