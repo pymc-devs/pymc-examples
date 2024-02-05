@@ -45,7 +45,7 @@ rng = np.random.default_rng(42)
 
 There are few claims stronger than the assertion of a causal relationship and few claims more contestable. A naive world model - rich with tenuous connections and non-sequiter implications is characteristic of conspiracy theory and idiocy. On the other hand, a refined and detailed knowledge of cause and effect - characterised by clear expectations, plausible connections and compelling counterfactuals, will steer you well through the buzzing, blooming confusion of the world.
 
-Propensity scores are the probability of receiving a treatment status (smoker/non-smoker, divorced/married) for each individual in the population under study. The propensity for treatment helps analyse the impact of each such treatment status over and above the other available statuses. In this notebook we will explain and motivate the usage of propensity scores in the analysis of causal inference questions. Our focus will be on the manner in which we (a) estimate propensity scores and (b) use them in the analysis of causal questions. We will see how they help avoid risks of selection bias in causal inference __and__ where they can go wrong. This method should be comfortable for the Bayesian analyst who is familiar with weighting and re-weighting their claims with information in the form of priors. Propensity score weighting is just another opportunity to enrich your model with knowledge about the world. We will show how they can be applied directly, and then indirectly in the context of debiasing machine learning approaches to causal inference. 
+A propensity scores is the probability of receiving a treatment status (e.g. smoker/non-smoker, divorced/married) for each individual in the population under study. An individual's propensity-for-treatment helps analyse the impact of each such treatment status over and above the other available treatment options. In this notebook we will explain and motivate the usage of propensity scores in the analysis of causal inference questions. Our focus will be on the manner in which we (a) estimate propensity scores and (b) use them in the analysis of causal questions. We will see how they help avoid risks of selection bias in causal inference __and__ where they can go wrong. This method should be comfortable for the Bayesian analyst who is familiar with weighting and re-weighting their claims with information in the form of priors. Propensity score weighting is just another opportunity to enrich your model with knowledge about the world. We will show how they can be applied directly, and then indirectly in the context of debiasing machine learning approaches to causal inference. 
 
 We will illustrate these patterns using two data sets: the NHEFS data used in _Causal Inference: What If_ {cite:t}`hernan2020whatif`, and a second patient focused data set analysed in _Bayesian Nonparametrics for Causal Inference and Missing Data_ {cite:t}`daniels2024bnp`. The contrast between non-parametric BART models with simpler regression models for the estimation of propensity scores and causal effects will be emphasised.
 
@@ -54,7 +54,7 @@ We will illustrate these patterns using two data sets: the NHEFS data used in _C
 :::{admonition} Note on Propensity Score Matching
 :class: tip
 
-Propensity scores are often synonymous with the technique of propensity score matching. We will not be covering this topic. It is a natural extension of propensity score modelling but to our mind introduces complexity through the requirements around (a) choosing a matching algorithm and (b) the information loss with reduced sample size. 
+Propensity scores are often synonymous with the technique of [propensity score matching](https://en.wikipedia.org/wiki/Propensity_score_matching). We will not be covering this topic. It is a natural extension of propensity score modelling but to our mind introduces complexity through the requirements around (a) choosing a matching algorithm and (b) the information loss with reduced sample size. 
 :::
 
 ### The Structure of the Presentation
@@ -351,7 +351,7 @@ We can also look at the balance of the covariates across partitions of the prope
 fig, axs = plt.subplots(2, 5, figsize=(20, 10))
 axs = axs.flatten()
 temp = X.copy()
-temp["ps"] = ps_logit.values
+temp["ps"] = ps_probit.values
 temp["ps_cut"] = pd.qcut(temp["ps"], 10)
 for c, ax in zip(np.sort(temp["ps_cut"].unique()), axs):
     mean_diff = (
@@ -831,7 +831,7 @@ All these perspectives on the question of causal inference here seem broadly con
 
 ## Health Expenditure Data
 
-We will begin with looking a health-expenditure data set analysed in _Bayesian Nonparametrics for Causal Inference and Missing Data_ . The telling feature about this data set is the absence of obvious causal impact on expenditure due to the presence of smoking. We follow the authors and try and model the effect of `smoke` on the logged out `log_y`. But while they want to show how the effect of smoking on total expenditure has a mediated relationship with measures of ill-health, we'll focus on estimating the ATE. There is little signal to dicern regarding the direct effects of smoking in the death and we want to demonstrate how even if we choose the right methods and try to control for bias with the right tools - we can miss the story under our nose if we're too focused on the mechanics and not the data generating process.
+We will now begin with looking at a health-expenditure data set analysed in _Bayesian Nonparametrics for Causal Inference and Missing Data_ . The telling feature about this data set is the absence of obvious causal impact on expenditure due to the presence of smoking. We follow the authors and try and model the effect of `smoke` on the logged out `log_y`. But while they want to show how the effect of smoking on total expenditure has a mediated relationship with measures of ill-health, we'll focus on estimating the ATE. There is little signal to dicern regarding the direct effects of smoking in the death and we want to demonstrate how even if we choose the right methods and try to control for bias with the right tools - we can miss the story under our nose if we're too focused on the mechanics and not the data generating process.
 
 ```{code-cell} ipython3
 try:
@@ -1304,7 +1304,7 @@ def make_cate(y_resids_stacked, t_resids_stacked, train_dfs, i, method="forest")
         {"y_r": y_resids_stacked[i, :].values, "t_r": t_resids_stacked[i, :].values}
     )
     df_cate["target"] = df_cate["y_r"] / np.where(
-        df_cate["t_r"] == 0, df_cate["t_r"] + 0.00001, df_cate["t_r"]
+        df_cate["t_r"] == 0, df_cate["t_r"] + 1e-25, df_cate["t_r"]
     )
     df_cate["weight"] = df_cate["t_r"] ** 2
     train_X.reset_index(drop=True, inplace=True)
