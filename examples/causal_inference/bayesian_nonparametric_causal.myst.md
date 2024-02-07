@@ -1365,7 +1365,7 @@ axs[0].legend()
 axs[0].set_title("Distribution of p01 CATE predictions");
 ```
 
-This perspective starts to show the importance of heterogeneity in causal impacts and offers a means of assessing differential impact of treatments.
+This perspective starts to show the importance of heterogeneity in causal impacts and offers a means of assessing differential impact of treatments. However, while the treated population (i.e. the smokers's) are implied to have longer tails and more extreme outcomes - you might wonder why the effect is symmetrical? Why would they also exhibit less extreme expenditures too?
 
 +++
 
@@ -1394,6 +1394,8 @@ nx.draw(
     font_size=20,
 )
 ```
+
+Here the treatment T flows through the mediator M to impact the outcome Y while simultaneously directly impacting the outcome.
 
 ```{code-cell} ipython3
 dummies = pd.concat(
@@ -1702,7 +1704,7 @@ Propensity scores are a useful tool for thinking about the structure of causal i
 
 The role of propensity scores in both doubly-robust estimation methods and the debiased machine learning approaches to causal inference emphasise the balancing between theory of the outcome variable and the theory of the treatment-assignment mechanism. We've seen how blindly throwing machine learning models at causal problems can result in mis-specified treatment assignment models and wildly skewed estimates based on naive point estimates. Angrist and Pischke argue that this should push us back towards the safety of thoughtful and careful regression modelling. Even in the case of debiasing machine learning models there is an implicit appeal to the regression estimator which underwrites the frisch-waugh-lowell results. But here too rushed approaches lead to counter-intuitive claims. Each of these tools for thought has a scope for application - understanding the limits is crucial to underwriting credible causal claims.
 
-The bevy of results we've seen draws out the need for careful attention to structure of the data generating models. The final example brings home the idea that causal inference is intimately tied to the inference over causal structural graphs. The propagation of uncertainty down through the causal structure really matters! It's nothing more than wishful thinking to hope that these structures will be automatically discerned through the magic of machine learning. We've seen how propensity score methods seek to re-weight inferences as a corrrective step, we've seen doubly robust methodologies which seek to correct inferences through predictive power of machine learning strategies and finally we've seen how structural modelling corrects estimates by imposing constraints on the influence of paths between covariates. 
+The bevy of results we've seen draws out the need for careful attention to structure of the data generating models. The final example brings home the idea that causal inference is intimately tied to the inference over causal structural graphs. The propagation of uncertainty down through the causal structure really matters! It's nothing more than wishful thinking to hope that these structures will be automatically discerned through the magic of machine learning. We've seen how propensity score methods seek to re-weight inferences as a corrective step, we've seen doubly robust methodologies which seek to correct inferences through predictive power of machine learning strategies and finally we've seen how structural modelling corrects estimates by imposing constraints on the influence of paths between covariates. 
 
 This is just how inference is done. You encode your knowledge of the world and update your views as evidence accrues. Causal inference requires commitment to a structural view of the world and we cannot pretend to ignorance when it makes inference indefensible. 
 
