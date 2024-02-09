@@ -24,7 +24,7 @@ kernelspec:
 ## Introduction
 There are various levels on which to debug a model. One of the simplest is to just print out the values that different variables are taking on.
 
-Because `PyMC` uses `PyTensor` expressions to build the model, and not functions, there is no way to place a `print` statement into a likelihood function. Instead, you can use the {class}`pytensor.printing.Print` class to print intermediate values.
+Because `PyMC` uses `PyTensor` expressions to build the model, and not functions, there is no way to place a `print` statement into a likelihood function. Instead, you can use the {class}`pytensor.printing.Print` class to print intermediate values. In PyMC we have `print_values` helper function to print intermediate values. 
 
 ```{code-cell} ipython3
 import arviz as az
@@ -42,13 +42,13 @@ RANDOM_SEED = 8927
 ```
 
 ### How to print intermediate values of `PyTensor` functions
-Since `PyTensor` functions are compiled to C, you have to use `pytensor.printing.Print` class to print intermediate values (imported  below as `Print`). Python `print` function will not work. Below is a simple example of using `Print`. For more information, see {ref}`Debugging PyTensor <pytensor:debug_faq>`.
+Since `PyTensor` functions are compiled to C, you have to use `pymc.model.core.print_value` function to print intermediate values. Python `print` function will not work. Below is a simple example of using `print_value`. For more information, see {ref}`Debugging PyTensor <pytensor:debug_faq>`.
 
 ```{code-cell} ipython3
 import pytensor.tensor as pt
 
+from pymc.model.core import print_value
 from pytensor import function
-from pytensor.printing import Print
 ```
 
 ```{code-cell} ipython3
@@ -58,21 +58,21 @@ func = function([x, y], 1 / (x - y))
 func([1, 2, 3], [1, 0, -1])
 ```
 
-To see what causes the `inf` value in the output, we can print intermediate values of $(x-y)$ using `Print`. `Print` class simply passes along its caller but prints out its value along a user-define message:
+To see what causes the `inf` value in the output, we can print intermediate values of $(x-y)$ using `print_value`. `print_value` is based on the `Print` class that simply passes along its caller but prints out its value along a user-define message:
 
 ```{code-cell} ipython3
-z_with_print = Print("x - y = ")(x - y)
+z_with_print = print_value(x - y, "x - y = ")
 func_with_print = function([x, y], 1 / z_with_print)
 func_with_print([1, 2, 3], [1, 0, -1])
 ```
 
-`Print` reveals the root cause: $(x-y)$ takes a zero value when $x=1, y=1$, causing the `inf` output.
+`print_value` reveals the root cause: $(x-y)$ takes a zero value when $x=1, y=1$, causing the `inf` output.
 
 +++
 
-### How to capture `Print` output for further analysis
+### How to capture `print_values` output for further analysis
 
-When we expect many rows of output from `Print`, it can be desirable to redirect the output to a string buffer and access the values later on (thanks to **Lindley Lentati** for inspiring this example). Here is a toy example using Python `print` function:
+When we expect many rows of output from `print_values`, it can be desirable to redirect the output to a string buffer and access the values later on (thanks to **Lindley Lentati** for inspiring this example). Here is a toy example using Python `print` function:
 
 ```{code-cell} ipython3
 import sys
@@ -102,8 +102,8 @@ with pm.Model() as model:
     sd = pm.Normal("sd", mu=0, sigma=1)
 
     # setting out printing for mu and sd
-    mu_print = Print("mu")(mu)
-    sd_print = Print("sd")(sd)
+    mu_print = print_value(mu)
+    sd_print = print_value(sd)
 
     # likelihood
     obs = pm.Normal("obs", mu=mu_print, sigma=sd_print, observed=x)
@@ -136,7 +136,7 @@ with pm.Model() as model:
     mu = pm.Normal("mu", mu=0, sigma=10)
     a = pm.Normal("a", mu=0, sigma=10, initval=0.1)
     b = pm.Normal("b", mu=0, sigma=10, initval=0.1)
-    sd_print = Print("Delta")(a / b)
+    sd_print = print_value(a / b, name="Delta")
     obs = pm.Normal("obs", mu=mu, sigma=sd_print, observed=y)
 
     # limiting number of samples and chains to simplify output
