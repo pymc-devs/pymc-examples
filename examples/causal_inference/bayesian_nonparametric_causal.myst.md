@@ -21,6 +21,7 @@ kernelspec:
 
 ```{code-cell} ipython3
 import arviz as az
+import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -855,7 +856,7 @@ All these perspectives on the question of causal inference here seem broadly con
 
 ## Health Expenditure Data
 
-We will now begin with looking at a health-expenditure data set analysed in _Bayesian Nonparametrics for Causal Inference and Missing Data_ . The telling feature about this data set is the absence of obvious causal impact on expenditure due to the presence of smoking. We follow the authors and try and model the effect of `smoke` on the logged out `log_y`. But while they want to show how the effect of smoking on total expenditure has a mediated relationship with measures of ill-health, we'll focus on estimating the ATE. There is little signal to dicern regarding the direct effects of smoking in the death and we want to demonstrate how even if we choose the right methods and try to control for bias with the right tools - we can miss the story under our nose if we're too focused on the mechanics and not the data generating process.
+We will now begin with looking at a health-expenditure data set analysed in _Bayesian Nonparametrics for Causal Inference and Missing Data_ . The telling feature about this data set is the absence of obvious causal impact on expenditure due to the presence of smoking. We follow the authors and try and model the effect of `smoke` on the logged out `log_y`. But while they want to show how the effect of smoking on total expenditure has a mediated relationship with measures of ill-health, we'll focus on estimating the ATE. There is little signal to discern regarding the direct effects of smoking in the death and we want to demonstrate how even if we choose the right methods and try to control for bias with the right tools - we can miss the story under our nose if we're too focused on the mechanics and not the data generating process.
 
 ```{code-cell} ipython3
 try:
@@ -882,16 +883,67 @@ raw_diff
 
 ```{code-cell} ipython3
 pd.set_option("display.max_rows", 500)
-strata_df = df.groupby(["smoke", "sex", "race", "phealth"])[["log_y"]].agg(["count", "mean"])
+strata_df = df.groupby(["smoke", "sex", "race", "phealth"])[["log_y"]].agg(["count", "mean", "std"])
 
 global_avg = df["log_y"].mean()
 strata_df["global_avg"] = global_avg
-# strata_df["diff"] = strata_df[("log_y", "mean")] - strata_df["global_avg"]
 strata_df.reset_index(inplace=True)
 strata_df.columns = [" ".join(col).strip() for col in strata_df.columns.values]
 strata_df["diff"] = strata_df["log_y mean"] - strata_df["global_avg"]
 strata_df.sort_values("log_y count", ascending=False).head(30).style.background_gradient(axis=0)
 ```
+
+```{code-cell} ipython3
+def make_strata_plot(strata_df):
+    joined_df = strata_df[strata_df["smoke"] == 0].merge(
+        strata_df[strata_df["smoke"] == 1], on=["sex", "race", "phealth"]
+    )
+    joined_df.sort_values("diff_y", inplace=True)
+
+    # Func to draw line segment
+    def newline(p1, p2, color="black"):
+        ax = plt.gca()
+        l = mlines.Line2D([p1[0], p2[0]], [p1[1], p2[1]], color="black", linestyle="--")
+        ax.add_line(l)
+        return l
+
+    fig, ax = plt.subplots(figsize=(20, 9))
+
+    ax.scatter(
+        joined_df["diff_x"],
+        joined_df.index,
+        color="red",
+        alpha=0.7,
+        label="Control Sample Size",
+        s=joined_df["log_y count_x"] / 2,
+    )
+    ax.scatter(
+        joined_df["diff_y"],
+        joined_df.index,
+        color="blue",
+        alpha=0.7,
+        label="Treatment Sample Size",
+        s=joined_df["log_y count_y"] / 2,
+    )
+
+    for i, p1, p2 in zip(joined_df.index, joined_df["diff_x"], joined_df["diff_y"]):
+        newline([p1, i], [p2, i])
+
+    ax.set_xlabel("Difference from the Global Mean")
+    ax.set_title(
+        "Differences from Global Mean \n by Treatment Status and Strata",
+        fontsize=20,
+        fontweight="bold",
+    )
+    ax.axvline(0, color="k")
+    ax.set_ylabel("Strata Index")
+    ax.legend()
+
+
+make_strata_plot(strata_df)
+```
+
+It's difficult to see a clear pattern in this visual as both treatment groups - when there is any signifcant sample size, show a mean difference close to zero for both groups.
 
 ```{code-cell} ipython3
 strata_expected_df = strata_df.groupby("smoke")[["log_y count", "log_y mean", "diff"]].agg(
@@ -1102,7 +1154,7 @@ plot_ate(ate_dist_df_r, xy=(1, 300))
 Deriving ATE estimates across draws from the posterior distribution and averaging these seems to give a more sensible figure, but still inflated beyond the minimalist differences our EDA suggested. If instead we use the doubly robust estimator we recover a much more sensible figure. 
 
 ```{code-cell} ipython3
-plot_ate(ate_dist_df_dr, xy=(0.10, 200))
+plot_ate(ate_dist_df_dr, xy=(0.05, 200))
 ```
 
 
