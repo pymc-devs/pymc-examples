@@ -186,7 +186,59 @@ strata_df.columns = [" ".join(col).strip() for col in strata_df.columns.values]
 strata_df.style.background_gradient(axis=0)
 ```
 
-We then take the average of the stratum specific averages to see a sharper distinction emerge. 
+```{code-cell} ipython3
+:tags: [hide-input]
+
+def make_strata_plot(strata_df):
+    joined_df = strata_df[strata_df["trt"] == 0].merge(
+        strata_df[strata_df["trt"] == 1], on=["sex", "race", "active_1", "active_2", "education_2"]
+    )
+    joined_df.sort_values("diff_y", inplace=True)
+
+    # Func to draw line segment
+    def newline(p1, p2, color="black"):
+        ax = plt.gca()
+        l = mlines.Line2D([p1[0], p2[0]], [p1[1], p2[1]], color="black", linestyle="--")
+        ax.add_line(l)
+        return l
+
+    fig, ax = plt.subplots(figsize=(20, 9))
+
+    ax.scatter(
+        joined_df["diff_x"],
+        joined_df.index,
+        color="red",
+        alpha=0.7,
+        label="Control Sample Size",
+        s=joined_df["outcome count_x"] * 3,
+    )
+    ax.scatter(
+        joined_df["diff_y"],
+        joined_df.index,
+        color="blue",
+        alpha=0.7,
+        label="Treatment Sample Size",
+        s=joined_df["outcome count_y"] * 3,
+    )
+
+    for i, p1, p2 in zip(joined_df.index, joined_df["diff_x"], joined_df["diff_y"]):
+        newline([p1, i], [p2, i])
+
+    ax.set_xlabel("Difference from the Global Mean")
+    ax.set_title(
+        "Differences from Global Mean \n by Treatment Status and Strata",
+        fontsize=20,
+        fontweight="bold",
+    )
+    ax.axvline(0, color="k")
+    ax.set_ylabel("Strata Index")
+    ax.legend()
+
+
+make_strata_plot(strata_df)
+```
+
+Showing a fairly consistent pattern across the strata. We then take the average of the stratum specific averages to see a sharper distinction emerge. 
 
 ```{code-cell} ipython3
 strata_expected_df = strata_df.groupby("trt")[["outcome count", "outcome mean", "diff"]].agg(
@@ -894,6 +946,8 @@ strata_df.sort_values("log_y count", ascending=False).head(30).style.background_
 ```
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 def make_strata_plot(strata_df):
     joined_df = strata_df[strata_df["smoke"] == 0].merge(
         strata_df[strata_df["smoke"] == 1], on=["sex", "race", "phealth"]
@@ -1806,7 +1860,3 @@ This is just how inference is done. You encode your knowledge of the world and u
 
 :::{include} ../page_footer.md
 :::
-
-+++
-
-Nathaniel&Joanne1
