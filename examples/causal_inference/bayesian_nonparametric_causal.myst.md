@@ -45,8 +45,7 @@ rng = np.random.default_rng(42)
 
 There are few claims stronger than the assertion of a causal relationship and few claims more contestable. A naive world model - rich with tenuous connections and non-sequiter implications is characteristic of conspiracy theory and idiocy. On the other hand, a refined and detailed knowledge of cause and effect - characterised by clear expectations, plausible connections and compelling counterfactuals, will steer you well through the buzzing, blooming confusion of the world.
 
-Causal inference in an experimental setting differs from causal inference in an observational setting. With observational data we do not know _a priori_ the mechanism that assigned each subject of the analysis to the treatment we are evaluating for causal impact - this risks a source of bias. A propensity score is the estimated probability of receiving a treatment status (e.g. smoker/non-smoker, divorced/married) for each individual in the population under study. Understanding an individual's propensity-for-treatment can help mitigate that bias. Non-parametric methods for estimating propensity scores are an attempt to remain agnostic about the precise functional form of the treatment selection routine and avoid model mispecification. We will ultimately argue that such agnostic "desert landscape" aesthetics shatter on questions with real import, where substantive assumptions need to be made even if we can avail of nonparametric approaches.
-[^myref]: See {cite:t}`aronow2019agnostic` for arguments for the contrary position that excessive assumptions 
+Causal inference in an experimental setting differs from causal inference in an observational setting. With observational data we do not know _a priori_ the mechanism that assigned each subject of the analysis to the treatment we are evaluating for causal impact - this risks a source of bias. A propensity score is the estimated probability of receiving a treatment status (e.g. smoker/non-smoker, divorced/married) for each individual in the population under study. Understanding an individual's propensity-for-treatment can help mitigate that bias. Non-parametric methods for estimating propensity scores are an attempt to remain agnostic about the precise functional form of the treatment selection routine and avoid model mispecification. We will ultimately argue that such agnostic "desert landscape" aesthetics shatter on questions with real import, where substantive assumptions need to be made even if we can avail of nonparametric approaches.[^myref]: See {cite:t}`aronow2019agnostic` for arguments for the contrary position that excessive assumptions 
     cultivate an unlovely breeding ground for counfounding errors.
 
 In this notebook we will explain and motivate the usage of propensity scores in the analysis of causal inference questions. Our focus will be on the manner in which we (a) estimate propensity scores and (b) use them in the analysis of causal questions. We will see how they help avoid risks of selection bias in causal inference __and__ where they can go wrong. This method should be comfortable for the Bayesian analyst who is familiar with weighting and re-weighting their claims with information in the form of priors. Propensity score weighting is just another opportunity to enrich your model with knowledge about the world. We will show how they can be applied directly, and then indirectly in the context of debiasing machine learning approaches to causal inference. 
@@ -228,7 +227,7 @@ We specify two types of model which are to  be assessed. One which relies entire
 
 Having a flexible model like BART is key to understanding what we are doing when we undertake inverse propensity weighting adjustments. The thought is that any given strata in our dataset will be described by a set of covariates. Types of individual will be represented by these covariate profiles - the attribute vector $X$. The share of observations within our data which are picked out by any given covariate profile represents a bias towards that type of individual. If our treatment status is such that individuals will more or less actively select themselves into the status, then a naive comparisons of differences between treatment groups and control groups will be misleading to the degree that we have over-represented types of individual (covariate profiles) in the population.
 
-Randomisation solves this by balancing the covariate profiles across treatment and control groups and ensuring the outcomes are independent of the treatment assignment. But we can't always randomise. What happens when we randomise? Randomisation of treatment status aims to ensure that we have a balance of covariate profiles across both groups. Additionally randomisation guarantees independence of the potential outcomes with respect to the treatment assignment mechanism. This helps avoid the selection-bias just discussed. Propensity scores are useful because they can help emulate _as-if_ random assignment of treatment status in the sample data through a specific transformation of the observed data. 
+Randomisation solves this by balancing the covariate profiles across treatment and control groups and ensuring the outcomes are independent of the treatment assignment. But we can't always randomise. Propensity scores are useful because they can help emulate _as-if_ random assignment of treatment status in the sample data through a specific transformation of the observed data. 
 
 First we model the individual propensity scores as a function of the individual covariate profiles:
 
@@ -352,47 +351,68 @@ We can also look at the balance of the covariates across partitions of the prope
 ```{code-cell} ipython3
 :tags: [hide-input]
 
-fig, axs = plt.subplots(2, 5, figsize=(20, 10))
-axs = axs.flatten()
 temp = X.copy()
-temp["ps"] = ps_probit.values
-temp["ps_cut"] = pd.qcut(temp["ps"], 10)
-for c, ax in zip(np.sort(temp["ps_cut"].unique()), axs):
-    mean_diff = (
-        temp[(t == 0) & (temp["ps_cut"] == c)]["age"].mean()
-        - temp[(t == 1) & (temp["ps_cut"] == c)]["age"].mean()
-    )
-    ax.hist(
-        temp[(t == 0) & (temp["ps_cut"] == c)]["age"],
-        alpha=0.8,
-        color="red",
-        density=True,
-        ec="black",
-        bins=20,
-        cumulative=True,
-    )
-    ax.hist(
-        temp[(t == 1) & (temp["ps_cut"] == c)]["age"],
-        alpha=0.6,
-        color="blue",
-        density=True,
-        ec="black",
-        bins=20,
-        cumulative=True,
-    )
-    ax.set_title(f"Propensity Score: {c} \n Mean Diff {np.round(mean_diff, 4)} ")
-    ax.set_xlabel("Age")
-red_patch = mpatches.Patch(color="red", label="Control")
-blue_patch = mpatches.Patch(color="blue", label="Treated")
-axs[0].legend(handles=[red_patch, blue_patch])
-plt.suptitle(
-    "Cumulative Density Functions of Age \n by Partitions of Propensity Score",
-    fontsize=20,
-    fontweight="bold",
-);
+temp["ps"] = ps_logit.values
+temp["ps_cut"] = pd.qcut(temp["ps"], 5)
+
+
+def plot_balance(temp, col, t):
+    fig, axs = plt.subplots(1, 5, figsize=(20, 6))
+    axs = axs.flatten()
+    for c, ax in zip(np.sort(temp["ps_cut"].unique()), axs):
+        std0 = temp[(t == 0) & (temp["ps_cut"] == c)][col].std()
+        std1 = temp[(t == 1) & (temp["ps_cut"] == c)][col].std()
+        pooled_std = (std0 + std1) / 2
+        mean_diff = (
+            temp[(t == 0) & (temp["ps_cut"] == c)][col].mean()
+            - temp[(t == 1) & (temp["ps_cut"] == c)][col].mean()
+        ) / pooled_std
+        ax.hist(
+            temp[(t == 0) & (temp["ps_cut"] == c)][col],
+            alpha=0.6,
+            color="red",
+            density=True,
+            ec="black",
+            bins=10,
+            cumulative=False,
+        )
+        ax.hist(
+            temp[(t == 1) & (temp["ps_cut"] == c)][col],
+            alpha=0.4,
+            color="blue",
+            density=True,
+            ec="black",
+            bins=10,
+            cumulative=False,
+        )
+        ax.set_title(f"Propensity Score: {c} \n Standardised Mean Diff {np.round(mean_diff, 4)} ")
+        ax.set_xlabel(col)
+        red_patch = mpatches.Patch(color="red", label="Control")
+        blue_patch = mpatches.Patch(color="blue", label="Treated")
+        axs[0].legend(handles=[red_patch, blue_patch])
+        plt.suptitle(
+            f"Density Functions of {col} \n by Partitions of Propensity Score",
+            fontsize=20,
+            fontweight="bold",
+        )
+
+
+plot_balance(temp, "age", t)
 ```
 
-In an ideal world we would have perfect balance across the treatment groups for each of the covariates. But we can use propensity scores in weighting schemes with models of statistical summaries so as to "correct" the representation of covariate profiles across both groups. If an individual's propensity score is such that they are highly likely to receive the treatment status e.g .95 then we want to downweight their importance if they occur in the treatment and upweight their importance if they appear in the control group. This makes sense because their high propensity score implies that similar individuals are already heavily present in the treatment group, but less likely to occur in the control group. Hence our corrective strategy to re-weight their contribution to the summary statistics across each group. Even more refinement is possible if the analyst removes or clips the observations based on the extremity of their propensity scores i.e. limit the propensity score to be no greater than some pre-specified boundary. This move would reduce the noise in the ultimate re-estimate. In our case i think it's not needed. 
+```{code-cell} ipython3
+plot_balance(temp, "wt71", t)
+```
+
+```{code-cell} ipython3
+plot_balance(temp, "smokeyrs", t)
+```
+
+```{code-cell} ipython3
+plot_balance(temp, "smokeintensity", t)
+```
+
+In an ideal world we would have perfect balance across the treatment groups for each of the covariates. But if we have good balance we can use propensity scores in weighting schemes with models of statistical summaries so as to "correct" the representation of covariate profiles across both groups. If an individual's propensity score is such that they are highly likely to receive the treatment status e.g .95 then we want to downweight their importance if they occur in the treatment and upweight their importance if they appear in the control group. This makes sense because their high propensity score implies that similar individuals are already heavily present in the treatment group, but less likely to occur in the control group. Hence our corrective strategy to re-weight their contribution to the summary statistics across each group. Even more refinement is possible if the analyst removes or clips the observations based on the extremity of their propensity scores i.e. limit the propensity score to be no greater than some pre-specified boundary. Note that this is an _ad-hoc maneouver_ to compensate for lack of suitably regularising priors in the propensity model. This kind of move would reduce the noise in the ultimate re-estimate, but it buries a commitment which should be made explicit in the model.
 
 +++
 
@@ -850,7 +870,7 @@ df["smoke"] = np.where(df["smoke"] == "No", 0, 1)
 df
 ```
 
-### Some basic Summary Statistics
+### Summary Statistics
 
 Lets review the basic summary statistics and see how they change across various strata of the population
 
@@ -1734,3 +1754,7 @@ This is just how inference is done. You encode your knowledge of the world and u
 
 :::{include} ../page_footer.md
 :::
+
++++
+
+Nathaniel&Joanne1
