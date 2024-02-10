@@ -76,7 +76,7 @@ These escalating set of assumptions required to warrant causal inference under d
 
 +++
 
-## Why do we Care about Propensity Scores?
+### Why do we Care about Propensity Scores?
 
 Firstly, and somewhat superficially, the propensity score is a dimension reduction technique. We take a complex covariate profile $X_{i}$ representing an individual's measured attributes and reduce it to a scalar $p^{i}_{T}(X)$. It is also a tool for thinking about the potential outcomes of an individual under different treatment regimes. In a policy evaluation context it can help partial out the degree of incentives for policy adoption across strata of the population. What drives adoption or assignment in each niche of the population? How can different demographic strata be induced towards or away from adoption of the policy? Understanding these dynamics is crucial to gauge why selection bias might emerge in any sample data. Paul Goldsmith-Pinkham's [lectures](https://www.youtube.com/watch?v=8gWctYvRzk4&list=PLWWcL1M3lLlojLTSVf2gGYQ_9TlPyPbiJ&index=3) are particularly clear on this last point, and why this perspective is appealing to structural econometricians.
 
@@ -139,7 +139,7 @@ This type of assumption and ensuing tests of balance based on propensity scores 
 
 +++
 
-## NHEFS Data
+## Non-Confounded Inference: NHEFS Data
 
 This data set from the National Health and Nutrition Examination survey records details of weight, activity and smoking habits of around 1500 individuals over two periods. The first period established a baseline and a follow-up period 10 years later. We will analyse whether the individual (`trt == 1`) quit smoking before the follow up visit. Each individuals' `outcome` represents a relative weight gain/loss comparing the two periods. 
 
@@ -272,7 +272,7 @@ X = X.drop(["trt", "outcome"], axis=1)
 X.head()
 ```
 
-## Propensity Score Modelling
+### Propensity Score Modelling
 
 +++
 
@@ -318,7 +318,7 @@ m_ps_logit, idata_logit = make_propensity_model(X, t, bart=False, samples=1000)
 m_ps_probit, idata_probit = make_propensity_model(X, t, bart=True, probit=True, samples=4000)
 ```
 
-## Using Propensity Scores: Weights and Pseudo Populations
+### Using Propensity Scores: Weights and Pseudo Populations
 
 Once we have fitted these models we can compare how they attribute the propensity to treatment (in our case the propensity of quitting) to each and every such measured individual. One thing to note is how this sample seems to suggest a greater uncertainty of attributed score for the BART model. We have used the inverse probit link function when fitting our data. Another thing to note in considering the distribution of propensity scores is the requirement for positivity i.e. the requirement that the conditional probability of receiving a given treatment cannot be 0 or 1 in any patient subgroup as defined by combinations of covariate values. We do not want to __overfit__ our propensity model and have perfect treatment/control group allocation. The important feature of propensity scores are that they are a measure of similarity across groups - extreme predictions of 0 or 1 would imply reduced overlap. Some authors recommend drawing a boundary at (.1, .9) to filter out extreme cases.
 
@@ -481,7 +481,7 @@ Doubly robust methods are so named because they represent a compromise estimator
 
 +++
 
-## Estimating Treatment Effects
+### Estimating Treatment Effects
 
 The next code block builds a set of functions to pull out and extract a sample from our posterior distribution of propensity scores and use this propensity score to reweight the observed outcome variable across our treatment and control groups to re-calculate the average treatment effect (ATE). It reweights our data using the inverse probability weighting scheme and then plots three views (1) the raw propensity scores across groups (2) the raw outcome distribution and (3) the re-weighted outcome distribution. 
 
@@ -665,7 +665,7 @@ def make_plot(
         )
 ```
 
-## The Logit Propensity Model
+### The Logit Propensity Model
 
 We plot the outcome and re-weighted outcome distribution using the robust propensity score estimation method.
 
@@ -747,7 +747,7 @@ Note how this estimate of the treatment effect is quite different than what we g
 
 +++
 
-## The BART Propensity Model
+### The BART Propensity Model
 
 Next we'll apply the doubly robust estimator to the propensity distribution achieved using the BART non-parametric model.
 
@@ -908,7 +908,7 @@ All these perspectives on the question of causal inference here seem broadly con
 
 +++
 
-## Health Expenditure Data
+## Confounded Inference: Health Expenditure Data
 
 We will now begin with looking at a health-expenditure data set analysed in _Bayesian Nonparametrics for Causal Inference and Missing Data_ . The telling feature about this data set is the absence of obvious causal impact on expenditure due to the presence of smoking. We follow the authors and try and model the effect of `smoke` on the logged out `log_y`. We'll focus initially on estimating the ATE. There is little signal to discern regarding the effects of smoking. We want to demonstrate how even if we choose the right methods and try to control for bias with the right tools - we can miss the story under our nose if we're too focused on the mechanics and not the data generating process.
 
@@ -1169,7 +1169,7 @@ Note how the tails of each group in the histogram plots do not overlap well. Thi
 
 +++
 
-## Non-Parametric BART Propensity Model is mis-specified
+### Non-Parametric BART Propensity Model is mis-specified
 
 The flexibility of the BART model fit is poorly calibrated to recover the average treatment effect. Let's evaluate the weighted outcome distributions under the robust inverse propensity weights estimate. 
 
@@ -1218,7 +1218,7 @@ Recall that the doubly robust estimator is set up to effect a compromise between
 
 +++
 
-## How does Regression Help?
+### How does Regression Help?
 
 We've just seen an example of how a mis-specfied machine learning model can wildly bias the causal estimates in a study. We've seen one means of fixing it, but how would things work out if we just tried simpler exploratory regression modelling?
 
