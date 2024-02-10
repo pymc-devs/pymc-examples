@@ -84,7 +84,7 @@ with pmx.MarginalModel() as explicit_mixture:
 plt.hist(pm.draw(y, draws=2000, random_seed=rng), bins=30, rwidth=0.9);
 ```
 
-The other way is where we use the built-in {class}`NormalMixture <pymc.NormalMixture>` distribution to where that choice is not our model. There is nothing unique about the first model other than we initialize it with {class}`pmx.MarginalModel <pymc-experimental.MarginalModel>` instead of {class}`pm.Model <pymc.Model>`. This different class is what will allow us to marginalize out variables later.
+The other way is where we use the built-in {class}`NormalMixture <pymc.NormalMixture>` distribution to where that choice is not our model. There is nothing unique about the first model other than we initialize it with {class}`pmx.MarginalModel <pymc_experimental.MarginalModel>` instead of {class}`pm.Model <pymc.model.core.Model>`. This different class is what will allow us to marginalize out variables later.
 
 ```{code-cell} ipython3
 with pm.Model() as prebuilt_mixture:
@@ -121,7 +121,7 @@ az.summary(idata)
 
 As we can see, the `idx` variable is gone now. We also were able to use the NUTS sampler, and the ESS has improved.
 
-But {class}`MarginalModel <pymc-experimental.MarginalModel>` has a distinct advantage. It still knows about the discrete variables that were marginalized out, and we can obtain estimates for the posterior of `idx` given the other variables. We do this using the {func}`recover_marginals <pymc-experimental.MarginalModel.recover_marginals` method.
+But {class}`MarginalModel <pymc_experimental.MarginalModel>` has a distinct advantage. It still knows about the discrete variables that were marginalized out, and we can obtain estimates for the posterior of `idx` given the other variables. We do this using the {func}`recover_marginals <pymc_experimental.MarginalModel.recover_marginals` method.
 
 ```{code-cell} ipython3
 explicit_mixture.recover_marginals(idata, random_seed=rng);
