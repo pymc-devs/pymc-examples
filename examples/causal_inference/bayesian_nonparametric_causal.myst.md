@@ -186,6 +186,8 @@ strata_df.columns = [" ".join(col).strip() for col in strata_df.columns.values]
 strata_df.style.background_gradient(axis=0)
 ```
 
+Next we'll plot the deviations from the global mean across both groups. Here each row is a strata and the colour represents which treatment group the strata falls into. We differentiate the size of the strata by the size of the point. 
+
 ```{code-cell} ipython3
 :tags: [hide-input]
 
@@ -202,7 +204,7 @@ def make_strata_plot(strata_df):
         ax.add_line(l)
         return l
 
-    fig, ax = plt.subplots(figsize=(20, 9))
+    fig, ax = plt.subplots(figsize=(20, 15))
 
     ax.scatter(
         joined_df["diff_x"],
@@ -252,7 +254,7 @@ print(
 strata_expected_df
 ```
 
-This kind of exercise suggests that the manner in which our sample was constructed i.e. some aspect of the data generating process pulls some strata of the population away from adopting the treatment group. Their propensity for being treated is negatively keyed, so contaminates any causal inference claims. We should be legitimately concerned that failure to account for this kind of bias risks incorrect conclusions about (a) the direction and (b) the degree of effect that quitting has on weight.
+This kind of exercise suggests that the manner in which our sample was constructed i.e. some aspect of the data generating process pulls some strata of the population away from adopting the treatment group and that presence in the treatment group pulls the outcome variable to the right. The propensity for being treated is negatively keyed, so contaminates any causal inference claims. We should be legitimately concerned that failure to account for this kind of bias risks incorrect conclusions about (a) the direction and (b) the degree of effect that quitting has on weight.
 
 +++
 
@@ -410,7 +412,7 @@ temp["ps_cut"] = pd.qcut(temp["ps"], 5)
 
 
 def plot_balance(temp, col, t):
-    fig, axs = plt.subplots(1, 5, figsize=(20, 6))
+    fig, axs = plt.subplots(1, 5, figsize=(20, 9))
     axs = axs.flatten()
     for c, ax in zip(np.sort(temp["ps_cut"].unique()), axs):
         std0 = temp[(t == 0) & (temp["ps_cut"] == c)][col].std()
@@ -908,7 +910,7 @@ All these perspectives on the question of causal inference here seem broadly con
 
 ## Health Expenditure Data
 
-We will now begin with looking at a health-expenditure data set analysed in _Bayesian Nonparametrics for Causal Inference and Missing Data_ . The telling feature about this data set is the absence of obvious causal impact on expenditure due to the presence of smoking. We follow the authors and try and model the effect of `smoke` on the logged out `log_y`. But while they want to show how the effect of smoking on total expenditure has a mediated relationship with measures of ill-health, we'll focus on estimating the ATE. There is little signal to discern regarding the direct effects of smoking in the death and we want to demonstrate how even if we choose the right methods and try to control for bias with the right tools - we can miss the story under our nose if we're too focused on the mechanics and not the data generating process.
+We will now begin with looking at a health-expenditure data set analysed in _Bayesian Nonparametrics for Causal Inference and Missing Data_ . The telling feature about this data set is the absence of obvious causal impact on expenditure due to the presence of smoking. We follow the authors and try and model the effect of `smoke` on the logged out `log_y`. We'll focus initially on estimating the ATE. There is little signal to discern regarding the effects of smoking. We want to demonstrate how even if we choose the right methods and try to control for bias with the right tools - we can miss the story under our nose if we're too focused on the mechanics and not the data generating process.
 
 ```{code-cell} ipython3
 try:
@@ -961,7 +963,7 @@ def make_strata_plot(strata_df):
         ax.add_line(l)
         return l
 
-    fig, ax = plt.subplots(figsize=(20, 9))
+    fig, ax = plt.subplots(figsize=(20, 15))
 
     ax.scatter(
         joined_df["diff_x"],
@@ -1499,9 +1501,11 @@ This perspective starts to show the importance of heterogeneity in causal impact
 
 ## Mediation Effects and Causal Structure
 
-Above we've seen how a number of different approaches designed to avoid bias lead us to the conclusion that smoking has limited or no effect on your likely healthcare costs. It's worth emphasising that this should strike you as strange! The solution to the puzzle lies not in the method of estimation precisely, but in the structure of the question. It's not that smoking isn't related to healthcare costs, but that the impact is mediated through smoking's influence on our health. 
+Above we've seen how a number of different approaches designed to avoid bias lead us to the conclusion that smoking has limited or no effect on your likely healthcare costs. It's worth emphasising that this should strike you as strange! 
 
-The structural imposition of mediation mandates valid causal inferences go through just when __sequential ignorability__ holds. That is to say - the potential outcomes are independent of the _treatment assignment history_ conditional on covariate profiles. More detail can be found in {cite:t}`daniels2024bnp`. But we can see how this works if we write the mediation structure into our model as described in {ref}`mediation_analysis`. The fundamental point is that we need to augment our modelling to account for the structure of the causal flow. 
+The solution to the puzzle lies not in the method of estimation precisely, but in the structure of the question. It's not that smoking isn't related to healthcare costs, but that the impact is mediated through smoking's influence on our health. 
+
+The structural imposition of mediation mandates valid causal inferences go through just when __sequential ignorability__ holds. That is to say - the potential outcomes are independent of the _treatment assignment history_ conditional on covariate profiles. More detail can be found in {cite:t}`daniels2024bnp`. But we can see how this works if we write the mediation structure into our model as described in {ref}`mediation_analysis`. The fundamental point is that we need to augment our modelling to account for the structure of the causal flow. This is a substantive structural belief about the data generating process which we impose in the model of the joint distribution for mediator and outcome.
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(20, 6))
