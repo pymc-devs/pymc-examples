@@ -84,7 +84,7 @@ with pmx.MarginalModel() as explicit_mixture:
 plt.hist(pm.draw(y, draws=2000, random_seed=rng), bins=30, rwidth=0.9);
 ```
 
-The other way is where we use the built-in `NormalMixture` distribution to where that choice is not our model. There is nothing unique about the first model other than we initialize it with `pmx.MarginalModel` instead of `pm.Model`. This different class is what will allow us to marginalize out variables later.
+The other way is where we use the built-in {class}`NormalMixture <pymc.NormalMixture>` distribution to where that choice is not our model. There is nothing unique about the first model other than we initialize it with {class}`pmx.MarginalModel <pymc-experimental.MarginalModel>` instead of {class}`pm.Model <pymc.Model>`. This different class is what will allow us to marginalize out variables later.
 
 ```{code-cell} ipython3
 with pm.Model() as prebuilt_mixture:
@@ -121,7 +121,7 @@ az.summary(idata)
 
 As we can see, the `idx` variable is gone now. We also were able to use the NUTS sampler, and the ESS has improved.
 
-But `MarginalModel` has a distinct advantage. It still knows about the discrete variables that were marginalized out, and we can obtain estimates for the posterior of `idx` given the other variables. We do this using the `recover_marginals` method.
+But {class}`MarginalModel <pymc-experimental.MarginalModel>` has a distinct advantage. It still knows about the discrete variables that were marginalized out, and we can obtain estimates for the posterior of `idx` given the other variables. We do this using the {func}`recover_marginals <pymc-experimental.MarginalModel.recover_marginals` method.
 
 ```{code-cell} ipython3
 explicit_mixture.recover_marginals(idata, random_seed=rng);
@@ -221,7 +221,13 @@ disaster_model.recover_marginals(after_marg);
 az.summary(after_marg, var_names=["~disasters", "~lp"], filter_vars="like")
 ```
 
-While `recover_marginals` is able to sample the discrete variables that were marginalized out. The probabilities associated with each draw often offer a cleaner estimate of the discrete variable. Particularly for lower probability values. This is best illustrated by comparing the plot of the log-probabilities with the histogram of the sampled values.
+While `recover_marginals` is able to sample the discrete variables that were marginalized out. The probabilities associated with each draw often offer a cleaner estimate of the discrete variable. Particularly for lower probability values. This is best illustrated by comparing the histogram of the sampled values with the plot of the log-probabilities.
+
+```{code-cell} ipython3
+post = after_marg.posterior.switchpoint.values.reshape(-1)
+bins = np.arange(post.min(), post.max())
+plt.hist(post, bins, rwidth=0.9);
+```
 
 ```{code-cell} ipython3
 lp_switchpoint = after_marg.posterior.lp_switchpoint.mean(dim=["chain", "draw"])
@@ -231,12 +237,6 @@ plt.scatter(years, lp_switchpoint)
 plt.axvline(x=x_max, c="orange")
 plt.xlabel(r"$\mathrm{year}$")
 plt.ylabel(r"$\log p(\mathrm{switchpoint}=\mathrm{year})$");
-```
-
-```{code-cell} ipython3
-post = after_marg.posterior.switchpoint.values.reshape(-1)
-bins = np.arange(post.min(), post.max())
-plt.hist(post, bins, rwidth=0.9);
 ```
 
 By plotting a histogram of sampled values instead of working with the log-probabilities directly, we are left with noisier and more incomplete exploration of the underlying discrete distribution.
