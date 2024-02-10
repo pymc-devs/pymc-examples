@@ -521,7 +521,7 @@ def make_doubly_robust_adjustment(X, t, y):
     m0 = sm.OLS(y[t == 0], X[t == 0].astype(float)).fit()
     m1 = sm.OLS(y[t == 1], X[t == 1].astype(float)).fit()
     m0_pred = m0.predict(X)
-    m1_pred = m0.predict(X)
+    m1_pred = m1.predict(X)
     X["trt"] = t
     X["y"] = y
     ## Compromise between outcome and treatement assignment model
@@ -1204,10 +1204,10 @@ ate_dist_df_dr.head()
 Each row in this table shows ab estimate of the average treatment effect and the re-weighted means of the outcome variable derived using the doubly robust esimtator with a draw from the posterior of the propensity score distribution implied by our BART model fit. 
 
 ```{code-cell} ipython3
-plot_ate(ate_dist_df_r, xy=(1, 300))
+plot_ate(ate_dist_df_r, xy=(0.5, 300))
 ```
 
-Deriving ATE estimates across draws from the posterior distribution and averaging these seems to give a more sensible figure, but still inflated beyond the minimalist differences our EDA suggested. If instead we use the doubly robust estimator we recover a much more sensible figure. 
+Deriving ATE estimates across draws from the posterior distribution and averaging these seems to give a more sensible figure, but still inflated beyond the minimalist differences our EDA suggested. If instead we use the doubly robust estimator we recover a more sensible figure again. 
 
 ```{code-cell} ipython3
 plot_ate(ate_dist_df_dr, xy=(0.05, 200))
