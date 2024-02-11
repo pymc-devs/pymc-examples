@@ -483,7 +483,7 @@ Doubly robust methods are so named because they represent a compromise estimator
 
 ### Estimating Treatment Effects
 
-The next code block builds a set of functions to pull out and extract a sample from our posterior distribution of propensity scores and use this propensity score to reweight the observed outcome variable across our treatment and control groups to re-calculate the average treatment effect (ATE). It reweights our data using the inverse probability weighting scheme and then plots three views (1) the raw propensity scores across groups (2) the raw outcome distribution and (3) the re-weighted outcome distribution. 
+In this section we build a set of functions to pull out and extract a sample from our posterior distribution of propensity scores; use this propensity score to reweight the observed outcome variable across our treatment and control groups to re-calculate the average treatment effect (ATE). It reweights our data using one of three inverse probability weighting schemes and then plots three views (1) the raw propensity scores across groups (2) the raw outcome distribution and (3) the re-weighted outcome distribution. 
 
 First we define a bunch of helper functions for each weighting adjustment method we will explore:
 
@@ -540,6 +540,8 @@ $$ \hat{Y(0)} = \frac{1}{n} \sum_{0}^{N} \Bigg[ \frac{(1-T)(Y - m_{0}(X))}{(1-p_
 It is not immediately intuitive as to how these formulas effect a compromise between the outcome model and the treatment assignment model. But consider the extreme cases. First imagine our model $m_{1}$ is a perfect fit to our outcome $Y$, then the numerator of the fraction is 0 and we end up with an average of the model predictions. Instead imagine model $m_{1}$ is mis-specified and we have some error $\epsilon > 0$ in the numerator. If the propensity score model is accurate then in the treated class our denominator should be high... say $\sim N(.9, .05)$, and as such the estimator adds a number close to $\epsilon$ back to the $m_{1}$ prediction. Similar reasoning goes through for the $Y(0)$ case. 
 
 The other estimators are simpler - representing a scaling of the outcome variable by transformations of the estimated propensity scores. Each is an attempt to re-balance the datapoints by what we've learned about the propensity for treatment. But the differences in the estimators are (as we'll see) important in their application.  
+
+Now we define the plotting functions for our raw and re-weighted outcomes.
 
 ```{code-cell} ipython3
 :tags: [hide-input]
@@ -813,7 +815,7 @@ axs[7].set_title("Race/Gender/Active Specific PPC - BART")
 plt.suptitle("Posterior Predictive Checks - Heterogenous Effects", fontsize=20);
 ```
 
-Observations like this go a long way to motivating the use of flexible machine learning methods in causal inference. The model used to capture the outcome distribution or the propensity score distribution ought to be sensitive to variation across extremities of the data. We can see above that the predictive power of the simpler logistic regression model deterioriates as we progress down the partitions of the data. We will see an example below where the flexibility of machine learning models such as BART becomes a problem. We'll also see and how it can be fixed. 
+Observations like this go a long way to motivating the use of flexible machine learning methods in causal inference. The model used to capture the outcome distribution or the propensity score distribution ought to be sensitive to variation across extremities of the data. We can see above that the predictive power of the simpler logistic regression model deterioriates as we progress down the partitions of the data. We will see an example below where the flexibility of machine learning models such as BART becomes a problem. We'll also see and how it can be fixed. Paradoxical as it sounds a more perfect model of the propensity scores will cleanly seperate the treatment classes making re-balancing harder to achieve. In this way, flexible models like BART (which are prone to overfit) need to be used with care in the case of inverse propensity weighting schemes. 
 
 +++
 
@@ -1174,6 +1176,7 @@ Note how the tails of each group in the histogram plots do not overlap well. Thi
 The flexibility of the BART model fit is poorly calibrated to recover the average treatment effect. Let's evaluate the weighted outcome distributions under the robust inverse propensity weights estimate. 
 
 ```{code-cell} ipython3
+## Evaluate at the expected realisation of the propensity scores for each individual
 ps = idata_expend_bart["posterior"]["p"].mean(dim=("chain", "draw")).values
 make_plot(
     X,
@@ -1201,7 +1204,7 @@ ate_dist_df_r = pd.DataFrame(ate_dist, columns=["ATE", "E(Y(1))", "E(Y(0))"])
 ate_dist_df_dr.head()
 ```
 
-Each row in this table shows ab estimate of the average treatment effect and the re-weighted means of the outcome variable derived using the doubly robust esimtator with a draw from the posterior of the propensity score distribution implied by our BART model fit. 
+Each row in this table shows an estimate of the average treatment effect and the re-weighted means of the outcome variable derived using the doubly robust esimtator with a draw from the posterior of the propensity score distribution implied by our BART model fit. 
 
 ```{code-cell} ipython3
 plot_ate(ate_dist_df_r, xy=(0.5, 300))
@@ -1210,13 +1213,20 @@ plot_ate(ate_dist_df_r, xy=(0.5, 300))
 Deriving ATE estimates across draws from the posterior distribution and averaging these seems to give a more sensible figure, but still inflated beyond the minimalist differences our EDA suggested. If instead we use the doubly robust estimator we recover a more sensible figure again. 
 
 ```{code-cell} ipython3
-plot_ate(ate_dist_df_dr, xy=(0.05, 200))
+plot_ate(ate_dist_df_dr, xy=(-0.35, 200))
 ```
-
 
 Recall that the doubly robust estimator is set up to effect a compromise between the propensity score weighting and (in our case) a simple OLS prediction. Where as long as one of the two models is well-specified this estimator can recover accurate unbiased treatment effects. In this case we see that the doubly robust estimator pulls away from the implications of our propensity scores and privileges the regression model.
 
-+++
+We can also check if and how the balance breaks down with the BART based propensity scores threatening the validity of the inverse propensity score weighting. 
+
+```{code-cell} ipython3
+temp = X.copy()
+temp["ps"] = ps = idata_expend_bart["posterior"]["p"].mean(dim=("chain", "draw")).values
+temp["ps_cut"] = pd.qcut(temp["ps"], 5)
+
+plot_balance(temp, "bmi", t)
+```
 
 ### How does Regression Help?
 
@@ -1712,7 +1722,8 @@ def counterfactual_outcome(
 
 
 ### Using one draw from the posterior of the mediation inference objects.
-### We vary the treatment of the outcome but keep the Mediator values static
+### We vary the treatment of the outcome but keep the Mediator values static under
+### the counterfactual regime of no treatment
 idata_nde1 = counterfactual_outcome(model, result, m_idata=idata_0m, treatment_status=1)
 idata_nde0 = counterfactual_outcome(model, result, m_idata=idata_0m, treatment_status=0)
 
