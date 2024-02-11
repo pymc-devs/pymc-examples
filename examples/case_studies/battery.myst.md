@@ -56,7 +56,7 @@ Clearly, buying a house battery will carry upfront costs, but by estimating the 
 +++
 
 ### House energy consumption and generation
-We use electricity for heating, cooking, lighting, and appliances. We currently have a gas combi boiler for heating and hot water, and so we don't use electricity for heating or hot water, via a heat pump, for example. Currently we are on a flat rate tariff, where we pay the same amount for electricity (0.2816 p/kWr) at all times of day.
+We use electricity for heating, cooking, lighting, and appliances. We currently have a gas combi boiler for heating and hot water, and so we don't use electricity for heating or hot water, via a heat pump for example. Currently we are on a flat rate tariff, where we pay the same amount for electricity (0.2816 p/kWr) at all times of day.
 
 The house has 3 solar panels on the roof, which generate electricity during the day. Without a house battery, any energy created by the solar panels is either used by the house or exported to the grid. We are paid for any electricity exported to the grid, but this is at a relatively low rate. We currently get paid 0.15 p/kWhr for electricity exported to the grid. In the rest of this notebook we will refer to energy generated or exported as "PV" for photovoltaic.
 
@@ -100,9 +100,11 @@ try:
 except FileNotFoundError:
     df = pd.read_csv(pm.get_data("energy_use.csv"), parse_dates=["date"])
 
-# df["date"] = pd.to_datetime(df["date"])
+# calculate time sinse last reading
+df["tdelta"] = df["date"].diff()
+# calculate week of year
+df["week"] = df["date"].dt.isocalendar().week
 df.set_index("date", inplace=True)
-
 df.head()
 ```
 
@@ -138,7 +140,7 @@ df.head()
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots()
-df.plot(ax=ax)
+df[["grid_import", "grid_export", "pv_gen", "pv_used", "total_demand"]].plot(ax=ax)
 ax.set_ylabel("Energy (kWh)")
 ```
 
@@ -157,13 +159,17 @@ df["cost"].plot(ax=ax)
 ax.set_ylabel("Cost (£)");
 ```
 
-So far we've imported our raw data, calculated a number important quantities from that, and calcalated the financial costs of the current strategy. Importantly, this data is from the past and we have less than a year's worth of data.
+So far we've imported our raw data, calculated a number important quantities from that, and calculated the financial costs of the current strategy. Importantly, this data is from the past and we have less than a year's worth of data.
 
 +++
 
 ## Forecasting cost of the status quo into the future
 
-Let's use our historical data to forecaset both the energy demand and the PV generation into the future. We can then use these forecasts to calculate the costs of the status quo into the future.
+Let's use our historical data to forecast both the energy demand and the PV generation into the future. We can then use these forecasts to calculate the costs of the status quo into the future.
+
++++
+
+**TODO: normalise the data to get in units of kWhr/day.**
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots()
@@ -204,6 +210,33 @@ Let's put that together to generate a forecast of the costs of the status quo sc
 ```
 
 ## Forecasting cost of the house battery scenario into the future
+
++++
+
+### The house battery scenario
+As we've said, there are many different plausible scenarios here depending on the capacity of the battery in kWh, the way in which it is used, and the choice of tariff. In this section we will outline a simple but realistic scenario.
+
+#### Initial costs
+
+#### Battery capacity
+
+10 kWh usable capacity
+
+#### Round trip efficiency
+
+
+#### Tariff
+
+
+#### Battery use strategy
+
+We will focus on load shifting where we charge the battery at the cheaper overnight rate with the aim of using that energy during the day. In an ideal day, we would be able to completely avoid importing from the grid during the regular day rate. Though this is likely to be unrealistic for two reasons. 
+
+Firstly, the battery may not always be able to match the peak instantaneous demand of the house. For example, if we use our electric cooker, hob, have the TV and lighting as well as computer, we may exceed the power output of the battery. Although without historical data on the instantaneous power usage of the house on a miniute by minuite basis, it will be very hard to estimate how much grid import may happen at peak times.
+
+Secondly, the battery may not always have sufficient charge to meet the daily demand of the house. This could happen if:
+* the battery were not fully charged overnight for example
+* if the total demand of the house was uncharachteristically high
 
 ```{code-cell} ipython3
 
