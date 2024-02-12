@@ -42,12 +42,12 @@ RANDOM_SEED = 8927
 ```
 
 ### How to print intermediate values of `PyTensor` functions
-Since `PyTensor` functions are compiled to C, you have to use `pymc.model.core.print_value` function to print intermediate values. Python `print` function will not work. Below is a simple example of using `print_value`. For more information, see {ref}`Debugging PyTensor <pytensor:debug_faq>`.
+Since `PyTensor` functions are compiled to C, you have to use `pymc.pytensorf.print_value` function to print intermediate values. Python `print` function will not work. Below is a simple example of using `print_value`. For more information, see {ref}`Debugging PyTensor <pytensor:debug_faq>`.
 
 ```{code-cell} ipython3
 import pytensor.tensor as pt
 
-from pymc.model.core import print_value
+from pymc.pytensorf import print_value
 from pytensor import function
 ```
 
@@ -58,7 +58,7 @@ func = function([x, y], 1 / (x - y))
 func([1, 2, 3], [1, 0, -1])
 ```
 
-To see what causes the `inf` value in the output, we can print intermediate values of $(x-y)$ using `print_value`. `print_value` is based on the `Print` class that simply passes along its caller but prints out its value along a user-define message:
+To see what causes the `inf` value in the output, we can print intermediate values of $(x-y)$ using `print_value`. `print_value` is based on the {class}`pytensor.prinitng.Print` class that simply passes along its caller but prints out its value along a user-define message:
 
 ```{code-cell} ipython3
 z_with_print = print_value(x - y, "x - y = ")
