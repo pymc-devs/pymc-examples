@@ -141,7 +141,7 @@ ax.set(xlabel="date", ylabel="relative number of births")
 ax.set_title(label="Relative Births in the USA in 1969 - 1988", fontsize=18, fontweight="bold")
 ```
 
-We see a clear long term trend component and a clear yearly seasonality. The plot above has many many data points and we want to make sure we understand seasonal patters at different levels (which might be hidden in the plot above). Hence, we systematically check seasonality at various levels.
+We see a clear long term trend component and a clear yearly seasonality. The plot above has many many data points and we want to make sure we understand seasonal patterns at different levels (which might be hidden in the plot above). Hence, we systematically check seasonality at various levels.
 
 Let's continue looking by averaging over the day of the year:
 
