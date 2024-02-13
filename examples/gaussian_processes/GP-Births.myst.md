@@ -50,6 +50,8 @@ This notebook is based on the blog post {cite:p}`orduz2024Birthdays` where Juan 
 :::
 
 ```{code-cell} ipython3
+import warnings
+
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
@@ -63,6 +65,8 @@ import xarray as xr
 from matplotlib.ticker import MaxNLocator
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer, StandardScaler
+
+warnings.filterwarnings("ignore")
 
 az.style.use("arviz-darkgrid")
 plt.rcParams["figure.figsize"] = [12, 7]
@@ -137,7 +141,9 @@ ax.set(xlabel="date", ylabel="relative number of births")
 ax.set_title(label="Relative Births in the USA in 1969 - 1988", fontsize=18, fontweight="bold")
 ```
 
-We see a clear long term trend component and a clear yearly seasonality. Let's deep dive into the yearly seasonality.
+We see a clear long term trend component and a clear yearly seasonality. The plot above has many many data points and we want to make sure we understand seasonal patters at different levels (which might be hidden in the plot above). Hence, we systematically check seasonality at various levels.
+
+Let's continue looking by averaging over the day of the year:
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots()
@@ -156,7 +162,11 @@ ax.set_title(
 )
 ```
 
-Next, we split by month and year.
+Overall, we see a relatively smooth behavior with the exception of certain holidays (memorial day, thanks giving and labor day) and the new year's day.
+
++++
+
+Next, we split by month and year to see if there if we spot any changes in the pattern over time.
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots()
@@ -191,12 +201,10 @@ We continue looking into the weekly seasonality.
 ```{code-cell} ipython3
 fig, ax = plt.subplots()
 (
-    data_df.groupby(["day_of_week"], as_index=False)
-    .agg(meanbirths=("births_relative100", "mean"))
-    .pipe(
-        (sns.lineplot, "data"),
+    sns.lineplot(
+        data=data_df,
         x="day_of_week",
-        y="meanbirths",
+        y="births_relative100",
         marker="o",
         c="C0",
         markersize=10,
@@ -220,16 +228,16 @@ We can also plot the time development over the years.
 ```{code-cell} ipython3
 fig, ax = plt.subplots()
 (
-    data_df.groupby(["year", "day_of_week"], as_index=False)
+    data_df.assign(day_name=lambda x: x["date"].dt.day_name())
+    .groupby(["year", "day_name"], as_index=False)
     .agg(meanbirths=("births_relative100", "mean"))
-    .assign(day_of_week=lambda x: pd.Categorical(x["day_of_week"]))
     .pipe(
         (sns.lineplot, "data"),
         x="year",
         y="meanbirths",
         marker="o",
         markersize=7,
-        hue="day_of_week",
+        hue="day_name",
     )
 )
 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
@@ -243,6 +251,16 @@ ax.set_title(
 ```
 
 We see that the trends behave differently over the years for weekdays and weekends.
+
++++
+
+```{tip}
+Let's summarize the main findings of the EDA:
+-  There is a clear non-linear long term trend.
+-  There is a clear smooth yearly seasonality up to some special holidays and the end of the year drop.
+-  There is a clear weekly seasonality.
+-  There are differences in the trends over the years for weekdays and weekends.
+```
 
 +++
 
@@ -269,7 +287,7 @@ births_relative100 = data_df["births_relative100"].to_numpy()
 data_df.head(10)
 ```
 
-We want to work on the normalized log scale of the relative births data
+We want to work on the normalized log scale of the relative births. The reason for this is to work on a scale where is easier to set up priors (scaled space) and so that the heteroscedasticity is reduced (log transform).
 
 ```{code-cell} ipython3
 # we want to use the scale of the data size to set up the priors.
@@ -327,7 +345,7 @@ This model corresponds to `Model 3: Slow trend + yearly seasonal trend + day of 
 
 ### Prior Specifications
 
-Most of the priors are not very informative. The only tricky part here is to think that we are working on the normalized log scale of the relative births data. For example, for the global trend we use a Gaussian process with an exponential quadratic kernel. We use a the following priors for the length scale:
+Most of the priors are not very informative. The only tricky part here is to think that we are working on the normalized log scale of the relative births data. For example, for the global trend we use a Gaussian process with an exponential quadratic kernel. We use the following priors for the length scale:
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots()
@@ -450,7 +468,7 @@ az.plot_ppc(data=prior_predictive, group="prior", kind="kde", ax=ax)
 ax.set_title(label="Prior Predictive", fontsize=18, fontweight="bold")
 ```
 
-It looks very reasonable.
+It looks very reasonable as the prior samples are withing a reasonable range of the observed data.
 
 +++
 
@@ -503,9 +521,15 @@ axes = az.plot_trace(
 plt.gcf().suptitle("Trace", fontsize=16)
 ```
 
+```{note}
+Observe we get the same results as in `Model 3: Slow trend + yearly seasonal trend + day of week` in blog post {cite:p}`vehtari2022Birthdays`.
+```
+
++++
+
 ## Posterior Distribution Analysis
 
-Now we want to deep dive into the posterior distribution of the model and its components. We want to do this in the original scale. Therefore the first step is to transform the posterior samples back to the original scale.
+Now we want to do a deep dive into the posterior distribution of the model and its components. We want to do this in the original scale. Therefore the first step is to transform the posterior samples back to the original scale.
 
 +++
 
@@ -585,7 +609,7 @@ az.plot_ppc(
 ax.set_title(label="Posterior Predictive", fontsize=18, fontweight="bold")
 ```
 
-Overall, it looks very good. Still, this baseline model can definitively be improved.
+This does not seem very good as there is a pretty big discrepancy between black line and shaded blue in the bulk of posterior, tails look good. This suggests we might be missing some covariates. We explore this in a latter more complex model.
 
 +++
 
@@ -668,7 +692,7 @@ ax.set_title(
 
 +++
 
-If we want to combine the global trend and the yearly periodicity, we can not simply sum the to components in the original scale as we would be adding the mean term twice. Instead we need to first sum the posterior samples and then take the inverse transform (these operation do not commute!).
+If we want to combine the global trend and the yearly periodicity, we can't simply sum the components in the original scale as we would be adding the mean term twice. Instead we need to first sum the posterior samples and then take the inverse transform (these operation do not commute!).
 
 ```{code-cell} ipython3
 pp_vars_original_scale["f_trend_periodic"] = xr.apply_ufunc(
@@ -715,7 +739,7 @@ ax.set_title(
 ```
 
 ## Authors
-- Authored by [Bill Engels](https://github.com/bwengals) and [Juan Orduz](https://juanitorduz.github.io/) in January 2024 
+- Authored by [Juan Orduz](https://juanitorduz.github.io/) in January 2024 
 
 +++
 
