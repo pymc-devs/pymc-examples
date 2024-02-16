@@ -84,7 +84,7 @@ with pmx.MarginalModel() as explicit_mixture:
 plt.hist(pm.draw(y, draws=2000, random_seed=rng), bins=30, rwidth=0.9);
 ```
 
-The other way is where we use the built-in {class}`NormalMixture <pymc.NormalMixture>` distribution to where that choice is not our model. There is nothing unique about the first model other than we initialize it with {class}`pmx.MarginalModel <pymc_experimental.MarginalModel>` instead of {class}`pm.Model <pymc.model.core.Model>`. This different class is what will allow us to marginalize out variables later.
+The other way is where we use the built-in {class}`NormalMixture <pymc.NormalMixture>` distribution. Here the mixture assignment is not an explicit variable in our model. There is nothing unique about the first model other than we initialize it with {class}`pmx.MarginalModel <pymc_experimental.MarginalModel>` instead of {class}`pm.Model <pymc.model.core.Model>`. This different class is what will allow us to marginalize out variables later.
 
 ```{code-cell} ipython3
 with pm.Model() as prebuilt_mixture:
