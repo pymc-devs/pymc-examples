@@ -63,7 +63,7 @@ Propensity scores are often synonymous with the technique of [propensity score m
 
 ### The Structure of the Presentation
 
-Below we'll see a number of examples of non-parametric approaches to the estimation of causal effects. Some of these methods will work well, and others will mislead us. Throughout we will demonstrate how these methods serve as tools for imposing stricter and stricter assumptions on our inferential framework.
+Below we'll see a number of examples of non-parametric approaches to the estimation of causal effects. Some of these methods will work well, and others will mislead us. We will demonstrate how these methods serve as tools for imposing stricter and stricter assumptions on our inferential framework.
 
 - Application of Propensity Scores to Selection Effect Bias
     - NHEFS data
@@ -72,21 +72,21 @@ Below we'll see a number of examples of non-parametric approaches to the estimat
 - Application of Debiased/Double ML to estimate ATE
 - Application of Mediation Analysis to estimate Direct and Indirect Effects
 
-These escalating set of assumptions required to warrant causal inference under different threats of confounding shed light on the process of inference as a whole. 
+These escalating set of assumptions required to warrant causal inference under different threats of confounding shed light on the process of inference as a whole. Throughout we will use the _potential outcomes_ notation to discuss causal inference - we draw extensively on work in {cite:t}`aronow2019agnostic`, which can be consulted for more details. But very briefly, when we want to discuss the causal impact of a treatment status on an outcome $Y$ we will denote the outcome $Y(t)$ as the outcome measure $Y$ under the treatment regime $T = t$.  
 
 +++
 
 ### Why do we Care about Propensity Scores?
 
+With observational data we cannot re-run the assignment mechanism but we can estimate it, and transform our data to proportionally weight the data summaries within each group so that the analysis is less effected by the over-representation of different strata in each group. This is what we hope to use the propensity scores to achieve. 
+
 Firstly, and somewhat superficially, the propensity score is a dimension reduction technique. We take a complex covariate profile $X_{i}$ representing an individual's measured attributes and reduce it to a scalar $p^{i}_{T}(X)$. It is also a tool for thinking about the potential outcomes of an individual under different treatment regimes. In a policy evaluation context it can help partial out the degree of incentives for policy adoption across strata of the population. What drives adoption or assignment in each niche of the population? How can different demographic strata be induced towards or away from adoption of the policy? Understanding these dynamics is crucial to gauge why selection bias might emerge in any sample data. Paul Goldsmith-Pinkham's [lectures](https://www.youtube.com/watch?v=8gWctYvRzk4&list=PLWWcL1M3lLlojLTSVf2gGYQ_9TlPyPbiJ&index=3) are particularly clear on this last point, and why this perspective is appealing to structural econometricians.
 
-We will use the _potential outcomes_ notation to discuss causal inference - we draw extensively on work in {cite:t}`aronow2019agnostic`, which can be consulted for more details. But very briefly, when we want to discuss the causal impact of a treatment status on an outcome $Y$ we will denote the outcome $Y(t)$ as the outcome measure $Y$ under the treatment regime $T = t$. 
+The pivotal idea when thinking about propensity scores is that we cannot license causal claims unless (i) the treatment assignment is independent of the covariate profiles i.e $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ are similarly conditionally independent of the treatement $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ given $X$. This is also occasionally noted as the __unconfoundedness__ or __exchangeability__ assumption. For each strata of the population defined by the covariate profile $X$, we require that it's as good as random which treatment status an individual adopts after controlling for $X$. This means that after controlling for $X$, any differences in outcomes between the treated and untreated groups can be attributed to the treatment itself rather than confounding variables.
 
-The pivotal idea when thinking about propensity scores is that we cannot license causal claims unless (i) the treatment assignment is independent of the covariate profiles i.e $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ and similarly conditionally independent of the treatement $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ given $X$. This is also occasionally noted as the __unconfoundedness__ or __exchangeability__ assumption. This basically means that we require for each strata of the population defined by the covariate profile $X$ that it's as good as random which treatment status an individual adopts after controlling for $X$.
+It is a theorem that if $T$ is strongly ignorable given $X$, then (i) and (ii) hold given $p_{T}(X)$ too. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. This is useful because some of the strata of a complex covariate profile may be sparsely populated so substituting a propensity score enables us to avoid the risks of high dimensional missing data.  Causal inference is unconfounded when we have controlled for enough of drivers for policy adoption, that selection effects within each covariate profiles $X$ seem essentially random. The insight this suggests is that when you want to estimate a causal effect you are only required to control for the covariates which impact the probability of treatement assignment. More concretely, if it's easier to model the assignment mechanism than the outcome mechanism this can be substituted in the case of causal inference with observed data.
 
-It is a theorem that if $T$ is strongly ignorable given $X$, then (i) and (ii) hold given $p_{T}(X)$ too. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. This is useful because some of the strata of a complex covariate profile may be sparsely populated so substituting a propensity score enables us to avoid the risks of high dimensional missing data.  Causal inference is unconfounded when we have controlled for enough of drivers for policy adoption, that selection effects within each covariate profiles $X$ seem essentially random. There is a great discussion of the details in _Foundations of Agnostic Statistics_ {cite:t}`aronow2019agnostic`. But the insight this suggests is that when you want to estimate a causal effect you are only required to control for the covariates which impact the probability of treatement assignment. More concretely, if it's easier to model the assignment mechanism than the outcome mechanism this can be substituted in the case of causal inference with observed data.
-
-Given the assumption that we are measuring the right covariate profiles to induce __strong ignorability__, then propensity scores can be used thoughtfully to underwrite causal claims. With observational data we cannot re-run the assignment mechanism but we can estimate it, and transform our data to proportionally weight the data summaries within each group so that the analysis is less effected by the over-representation of different strata in each group. This is what we hope to use the propensity scores to achieve. 
+Given the assumption that we are measuring the right covariate profiles to induce __strong ignorability__, then propensity scores can be used thoughtfully to underwrite causal claims.
 
 +++
 
@@ -134,6 +134,8 @@ nx.draw(
 
 In the above picture we see how the inclusion of a propensity score variable blocks the path between the covariate profile X and the treatment variable T. 
 This is a useful perspective on the assumption of __strong ignorability__ because it implies that $T   \perp\!\!\!\perp  X |p(X)$ which implies that the covariate profiles are balanced across the treatment branches conditional on the propensity score. This is a testable implication of the postulated design! 
+
+If our treatment status is such that individuals will more or less actively select themselves into the status, then a naive comparisons of differences between treatment groups and control groups will be misleading to the degree that we have over-represented types of individual (covariate profiles) in the population.Randomisation solves this by balancing the covariate profiles across treatment and control groups and ensuring the outcomes are independent of the treatment assignment. But we can't always randomise. Propensity scores are useful because they can help emulate _as-if_ random assignment of treatment status in the sample data through a specific transformation of the observed data. 
 
 This type of assumption and ensuing tests of balance based on propensity scores is often substituted for elaboration of the structural DAG that systematically determine the treatment assignment. The idea being that if we can achieve balance across covariates conditional on a propensity score we have emulated an as-if random allocation we can avoid the hassle of specifying too much structure and remain agnostic about the strucuture of the mechanism. This can often be a useful strategy but, as we will see, elides the specificity of the causal question and the data generating process. 
 
@@ -240,7 +242,7 @@ def make_strata_plot(strata_df):
 make_strata_plot(strata_df)
 ```
 
-Showing a fairly consistent pattern across the strata. We then take the average of the stratum specific averages to see a sharper distinction emerge. 
+Showing a fairly consistent pattern across the strata - the treatment group achieve outcomes in excess of the global mean almost uniformly across the strata. With smaller sample sizea in each tratment group for each. We then take the average of the stratum specific averages to see a sharper distinction emerge. 
 
 ```{code-cell} ipython3
 strata_expected_df = strata_df.groupby("trt")[["outcome count", "outcome mean", "diff"]].agg(
@@ -254,7 +256,7 @@ print(
 strata_expected_df
 ```
 
-This kind of exercise suggests that the manner in which our sample was constructed i.e. some aspect of the data generating process pulls some strata of the population away from adopting the treatment group and that presence in the treatment group pulls the outcome variable to the right. The propensity for being treated is negatively keyed, so contaminates any causal inference claims. We should be legitimately concerned that failure to account for this kind of bias risks incorrect conclusions about (a) the direction and (b) the degree of effect that quitting has on weight.
+This kind of exercise suggests that the manner in which our sample was constructed i.e. some aspect of the data generating process pulls some strata of the population away from adopting the treatment group and that presence in the treatment group pulls the outcome variable to the right. The propensity for being treated is negatively keyed, so contaminates any causal inference claims. We should be legitimately concerned that failure to account for this kind of bias risks incorrect conclusions about (a) the direction and (b) the degree of effect that quitting has on weight. This is natural in the case of observational studies, we __never__ have random assignment to the treatment condition but modelling the propensity for treatment can help us emulate conditions of random assignment.
 
 +++
 
@@ -278,11 +280,9 @@ X.head()
 
 In this first step we define a model building function to capture the probability of treatment i.e. our propensity score for each individual. 
 
-We specify two types of model which are to  be assessed. One which relies entirely on Logistic regression and another which uses BART (Bayesian Additive Regression Trees) to model the relationships between the covariates and the treatment assignment. The BART model has the benefit of using a tree-based algorithm to explore the interaction effects among the various strata in our sample data. See [here](https://bayesiancomputationbook.com/markdown/chp_07.html#priors-for-bart-in-pymc3) for more detail about BART and the PyMC implementation.
+We specify two types of model which are to  be assessed. One which relies entirely on Logistic regression and another which uses BART (Bayesian Additive Regression Trees) to model the relationships between the covariates and the treatment assignment. The BART model has the benefit of using a tree-based algorithm to explore the interaction effects among the various strata in our sample data. See [here](https://arxiv.org/abs/2206.03619) for more detail about BART and the PyMC implementation.
 
-Having a flexible model like BART is key to understanding what we are doing when we undertake inverse propensity weighting adjustments. The thought is that any given strata in our dataset will be described by a set of covariates. Types of individual will be represented by these covariate profiles - the attribute vector $X$. The share of observations within our data which are picked out by any given covariate profile represents a bias towards that type of individual. If our treatment status is such that individuals will more or less actively select themselves into the status, then a naive comparisons of differences between treatment groups and control groups will be misleading to the degree that we have over-represented types of individual (covariate profiles) in the population.
-
-Randomisation solves this by balancing the covariate profiles across treatment and control groups and ensuring the outcomes are independent of the treatment assignment. But we can't always randomise. Propensity scores are useful because they can help emulate _as-if_ random assignment of treatment status in the sample data through a specific transformation of the observed data. 
+Having a flexible model like BART is key to understanding what we are doing when we undertake inverse propensity weighting adjustments. The thought is that any given strata in our dataset will be described by a set of covariates. Types of individual will be represented by these covariate profiles - the attribute vector $X$. The share of observations within our data which are picked out by any given covariate profile represents a bias towards that type of individual.The modelling of the assignment mechanism with a flexible model like BART allows us to estimate the outcome across a range of strata in our population. 
 
 First we model the individual propensity scores as a function of the individual covariate profiles:
 
@@ -320,7 +320,7 @@ m_ps_probit, idata_probit = make_propensity_model(X, t, bart=True, probit=True, 
 
 ### Using Propensity Scores: Weights and Pseudo Populations
 
-Once we have fitted these models we can compare how they attribute the propensity to treatment (in our case the propensity of quitting) to each and every such measured individual. One thing to note is how this sample seems to suggest a greater uncertainty of attributed score for the BART model. We have used the inverse probit link function when fitting our data. Another thing to note in considering the distribution of propensity scores is the requirement for positivity i.e. the requirement that the conditional probability of receiving a given treatment cannot be 0 or 1 in any patient subgroup as defined by combinations of covariate values. We do not want to __overfit__ our propensity model and have perfect treatment/control group allocation. The important feature of propensity scores are that they are a measure of similarity across groups - extreme predictions of 0 or 1 would imply reduced overlap. Some authors recommend drawing a boundary at (.1, .9) to filter out extreme cases.
+Once we have fitted these models we can compare how they attribute the propensity to treatment (in our case the propensity of quitting) to each and every such measured individual. One thing to note in considering the distribution of propensity scores is the requirement for positivity i.e. the requirement that the conditional probability of receiving a given treatment cannot be 0 or 1 in any patient subgroup as defined by combinations of covariate values. We do not want to __overfit__ our propensity model and have perfect treatment/control group allocation. The important feature of propensity scores are that they are a measure of similarity across groups - extreme predictions of 0 or 1 would imply reduced overlap. Some authors recommend drawing a boundary at (.1, .9) to filter out or cap extreme cases.
 
 Let's plot the distribution of propensity scores for the first 20 or so individuals in the study to see the differences between the two models.
 
@@ -401,7 +401,7 @@ axs[1].legend()
 axs[3].legend(handles=[red_patch, blue_patch]);
 ```
 
-We can also look at the balance of the covariates across partitions of the propensity score
+We can also look at the balance of the covariates across partitions of the propensity score. These kind of plots help us assess the degree to which conditional on the propensity scores our sample appears have a balanced profile between the treatment and control groups. 
 
 ```{code-cell} ipython3
 :tags: [hide-input]
@@ -772,7 +772,7 @@ ate_dist_df_probit.head()
 ```
 
 ```{code-cell} ipython3
-plot_ate(ate_dist_df_probit, xy=(4, 250))
+plot_ate(ate_dist_df_probit, xy=(3.1, 250))
 ```
 
 Note the tighter variance of the measures using the doubly robust method. This is not surprising the doubly robust method was designed with this intended effect.
@@ -815,7 +815,7 @@ axs[7].set_title("Race/Gender/Active Specific PPC - BART")
 plt.suptitle("Posterior Predictive Checks - Heterogenous Effects", fontsize=20);
 ```
 
-Observations like this go a long way to motivating the use of flexible machine learning methods in causal inference. The model used to capture the outcome distribution or the propensity score distribution ought to be sensitive to variation across extremities of the data. We can see above that the predictive power of the simpler logistic regression model deterioriates as we progress down the partitions of the data. We will see an example below where the flexibility of machine learning models such as BART becomes a problem. We'll also see and how it can be fixed. Paradoxical as it sounds a more perfect model of the propensity scores will cleanly seperate the treatment classes making re-balancing harder to achieve. In this way, flexible models like BART (which are prone to overfit) need to be used with care in the case of inverse propensity weighting schemes. 
+Observations like this go a long way to motivating the use of flexible machine learning methods in causal inference. The model used to capture the outcome distribution or the propensity score distribution ought to be sensitive to variation across extremities of the data. We can see above that the predictive power of the simpler logistic regression model deterioriates as we progress down the partitions of the data. We will see an example below where the flexibility of machine learning models such as BART becomes a problem. We'll also see and how it can be fixed. Paradoxical as it sounds, a more perfect model of the propensity scores will cleanly seperate the treatment classes making re-balancing harder to achieve. In this way, flexible models like BART (which are prone to overfit) need to be used with care in the case of inverse propensity weighting schemes. 
 
 +++
 
@@ -1167,7 +1167,7 @@ blue_patch = mpatches.Patch(color="blue", label="Treated")
 ax2.legend(handles=[red_patch, blue_patch]);
 ```
 
-Note how the tails of each group in the histogram plots do not overlap well. This suggests that the propensity scores might not be well fitted to achieve good balancing properties. 
+Note how the tails of each group in the histogram plots do not overlap well and we have some extreme propensity scores. This suggests that the propensity scores might not be well fitted to achieve good balancing properties. 
 
 +++
 
@@ -1230,7 +1230,7 @@ plot_balance(temp, "bmi", t)
 
 ### How does Regression Help?
 
-We've just seen an example of how a mis-specfied machine learning model can wildly bias the causal estimates in a study. We've seen one means of fixing it, but how would things work out if we just tried simpler exploratory regression modelling?
+We've just seen an example of how a mis-specfied machine learning model can wildly bias the causal estimates in a study. We've seen one means of fixing it, but how would things work out if we just tried simpler exploratory regression modelling? Regression automatically weights the data points by their extremity of their covariate profile and their prevalence in the sample. So in this sense adjusts for the outlier propensity scores in a way that the inverse weighting approach cannot.
 
 ```{code-cell} ipython3
 model_ps_reg_expend, idata_ps_reg_expend = make_prop_reg_model(X, t, y, idata_expend_bart)
@@ -1289,7 +1289,7 @@ This is tied to the requirement for __strong ignorability__ because by using thi
 
 ### Avoiding Overfitting with K-fold Cross Validation
 
-As we've seen above one of the concerns with the automatic regularisation effects of BART like tree based models is their tendency to over-fit to the seen data. Here we'll use K-fold cross validation to generate predictions on out of sample cuts of the data. This step is crucial to avoid the over-fitting of the model to the sample data and thereby avoiding the miscalibration effects we've seen above. This too, (it's easily forgotten), is a corrective step to avoid known biases due to over-indexing on the observed sample data. 
+As we've seen above one of the concerns with the automatic regularisation effects of BART like tree based models is their tendency to over-fit to the seen data. Here we'll use K-fold cross validation to generate predictions on out of sample cuts of the data. This step is crucial to avoid the over-fitting of the model to the sample data and thereby avoiding the miscalibration effects we've seen above. This too, (it's easily forgotten), is a corrective step to avoid known biases due to over-indexing on the observed sample data. Using the propensity scores to achieve balance across the population when we estimate the propensity scores on a particular sample breaks down in cases of overfit. In that case our propensity model is too aligned with the specifics of the sample and cannot serve the role of being a measure of similarity in the population. 
 
 ```{code-cell} ipython3
 dummies = pd.concat(
