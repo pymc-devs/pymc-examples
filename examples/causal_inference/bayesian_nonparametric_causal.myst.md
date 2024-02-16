@@ -242,7 +242,7 @@ def make_strata_plot(strata_df):
 make_strata_plot(strata_df)
 ```
 
-Showing a fairly consistent pattern across the strata - the treatment group achieve outcomes in excess of the global mean almost uniformly across the strata. With smaller sample sizea in each tratment group for each. We then take the average of the stratum specific averages to see a sharper distinction emerge. 
+Showing a fairly consistent pattern across the strata - the treatment group achieve outcomes in excess of the global mean almost uniformly across the strata. With smaller sample sizes in each treatment group for each. We then take the average of the stratum specific averages to see a sharper distinction emerge. 
 
 ```{code-cell} ipython3
 strata_expected_df = strata_df.groupby("trt")[["outcome count", "outcome mean", "diff"]].agg(
@@ -282,7 +282,7 @@ In this first step we define a model building function to capture the probabilit
 
 We specify two types of model which are to  be assessed. One which relies entirely on Logistic regression and another which uses BART (Bayesian Additive Regression Trees) to model the relationships between the covariates and the treatment assignment. The BART model has the benefit of using a tree-based algorithm to explore the interaction effects among the various strata in our sample data. See [here](https://arxiv.org/abs/2206.03619) for more detail about BART and the PyMC implementation.
 
-Having a flexible model like BART is key to understanding what we are doing when we undertake inverse propensity weighting adjustments. The thought is that any given strata in our dataset will be described by a set of covariates. Types of individual will be represented by these covariate profiles - the attribute vector $X$. The share of observations within our data which are picked out by any given covariate profile represents a bias towards that type of individual.The modelling of the assignment mechanism with a flexible model like BART allows us to estimate the outcome across a range of strata in our population. 
+Having a flexible model like BART is key to understanding what we are doing when we undertake inverse propensity weighting adjustments. The thought is that any given strata in our dataset will be described by a set of covariates. Types of individual will be represented by these covariate profiles - the attribute vector $X$. The share of observations within our data which are picked out by any given covariate profile represents a bias towards that type of individual. The modelling of the assignment mechanism with a flexible model like BART allows us to estimate the outcome across a range of strata in our population. 
 
 First we model the individual propensity scores as a function of the individual covariate profiles:
 
@@ -673,7 +673,11 @@ We plot the outcome and re-weighted outcome distribution using the robust propen
 
 ```{code-cell} ipython3
 make_plot(
-    X, idata_logit, method="robust", lower_bins=[np.arange(1, 30, 0.5), np.arange(1, 60, 0.5)]
+    X,
+    idata_logit,
+    method="robust",
+    ps=ps_logit,
+    lower_bins=[np.arange(1, 30, 0.5), np.arange(1, 60, 0.5)],
 )
 ```
 
@@ -751,13 +755,13 @@ Note how this estimate of the treatment effect is quite different than what we g
 
 ### The BART Propensity Model
 
-Next we'll apply the doubly robust estimator to the propensity distribution achieved using the BART non-parametric model.
+Next we'll apply the raw and then doubly robust estimator to the propensity distribution achieved using the BART non-parametric model.
 
 ```{code-cell} ipython3
 make_plot(
     X,
     idata_probit,
-    method="doubly_robust",
+    method="raw",
     ylims=[(-150, 370), (-220, 150), (-50, 120)],
     lower_bins=[np.arange(1, 30, 0.5), np.arange(1, 60, 0.5)],
 )
