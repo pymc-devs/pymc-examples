@@ -44,7 +44,7 @@ rng = np.random.default_rng(42)
 
 ## Causal Inference and Propensity Scores
 
-There are few claims stronger than the assertion of a causal relationship and few claims more contestable. A naive world model - rich with tenuous connections and non-sequiter implications is characteristic of conspiracy theory and idiocy. On the other hand, a refined and detailed knowledge of cause and effect - characterised by clear expectations, plausible connections and compelling counterfactuals, will steer you well through the buzzing, blooming confusion of the world.
+There are few claims stronger than the assertion of a causal relationship and few claims more contestable. A naive world model - rich with tenuous connections and non-sequiter implications is characteristic of conspiracy theory and idiocy. On the other hand, a refined and detailed knowledge of cause and effect characterised by clear expectations, plausible connections and compelling counterfactuals, will steer you well through the buzzing, blooming confusion of the world.
 
 Causal inference in an experimental setting awkwardly differs from causal inference in an observational setting. In an experimental setting treatments are assigned randomly. With observational data we never know the mechanism that assigned each subject of the analysis to their treatment. This risks a source of bias due to selection effects confounding the analysis of treatments.  A propensity score is the estimated probability of receiving a treatment status (e.g. smoker/non-smoker, divorced/married) for each individual in the population under study. We will recount below how understanding an individual's propensity-for-treatment can help mitigate that bias. 
 
