@@ -37,7 +37,7 @@ rng = np.random.default_rng(42)
 
 ## Introduction
 
-This case study will focus on the decision of whether to buy a house battery. This will be based on my own personal circumstances, partly because I am currently considering this decision, and partly because I have weekly data on my electricity usage and generation. 
+This case study will focus on the decision of whether to buy a house battery. This will be based on my own personal circumstances, partly because I am currently considering this decision, and partly because I have weekly data on my electricity usage and generation through photovoltaic (PV) panels. 
 
 We will use Bayesian Decision Theory to make the decision of whether to buy a house battery. A decision like this is complex and will involve many factors, but here we will only consider the financial aspects of the decision.
 
@@ -55,34 +55,6 @@ Clearly, buying a house battery will carry upfront costs, but by estimating the 
 
 +++
 
-### House energy consumption and generation
-We use electricity for heating, cooking, lighting, and appliances. We currently have a gas combi boiler for heating and hot water, and so we don't use electricity for heating or hot water, via a heat pump for example. Currently we are on a flat rate tariff, where we pay the same amount for electricity (0.2816 p/kWr) at all times of day.
-
-The house has 3 solar panels on the roof, which generate electricity during the day. Without a house battery, any energy created by the solar panels is either used by the house or exported to the grid. We are paid for any electricity exported to the grid, but this is at a relatively low rate. We currently get paid 0.15 p/kWhr for electricity exported to the grid. In the rest of this notebook we will refer to energy generated or exported as "PV" for photovoltaic.
-
-+++
-
-### Calculating costs
-
-In order to calculate the costs of each scenario, we need to know the following:
-
-$$
-\text{cost} = (\text{import rate} \cdot \text{total import}) - (\text{export rate} \cdot \text{total export})
-$$
-
-where:
-
-* $\text{import rate}$ = 0.2816 p/kWr.
-* $\text{total import}$ will be given by the total energy demand minus the PV generation used by the house.
-* $\text{export rate}$ = 0.15 p/kWr.
-* $\text{total export}$ will be given by the PV generation minus the energy demand of the house.
-
-In the UK we also have a daily standing charge. This is a fixed cost that will remain constant regardless of the strategy we take, so we ignore it in our calculations.
-
-The costs calculation may get a little more complex later on in the notebook where we move away from a flat rate tarrif and consider a time of use tarrif with a cheaper night rate.
-
-+++
-
 ### Why buy a house battery?
 1. Higher utilisation of solar energy: Rather than exporting any excess electricity to the grid, we could store it in a house battery and use it later. While this would result in less money being made from exporting excess solar energy, it would also mean that we would use less electricity from the grid, which is more expensive.
 2. Load shifting: We could use the house battery to store electricity from the grid overnight when it is cheap, and use it when it is more expensive. This would involve moving to a time-of-use tariff, where electricity is more expensive at certain times of day.
@@ -92,7 +64,34 @@ We have recently moved into a house which has solar panels on the roof. This mea
 
 +++
 
-## Load and process the data
+### Household energy consumption and generation
+We use electricity for heating, cooking, lighting, and appliances. We currently have a gas combi boiler for heating and hot water, and so we don't use electricity for heating or hot water, via a heat pump for example. Currently we are on a flat rate tariff, where we pay the same amount for electricity (0.2816 p/kWr) at all times of day. In the UK we also have a daily standing charge. This is a fixed cost that will remain constant regardless of the strategy we take, so we ignore it in our calculations.
+
+The house has 3 solar panels on the roof, which generate electricity during the day. Without a house battery, any energy created by the solar panels is either used by the house or exported to the grid. We are paid for any electricity exported to the grid, but this is at a relatively low rate. We currently get paid 0.15 p/kWhr for electricity exported to the grid.
+
++++
+
+### Calculating costs
+
+In order to calculate the costs of each scenario, we need to know the following quantities:
+
+$$
+\text{cost} = (\text{import rate} \cdot \text{grid import}) - (\text{export rate} \cdot \text{grid export})
+$$
+
+$$$$
+where:
+
+* $\text{import rate}$ = 0.2816 £/kWr,
+* $\text{export rate}$ = 0.15 £/kWr.
+
+The costs calculation may get a little more complex later on in the notebook where we move away from a flat rate tarrif and consider a time of use tarrif with a cheaper night rate.
+
++++
+
+### Load and process the data
+
+So let's make a start by loading in the data.
 
 ```{code-cell} ipython3
 try:
@@ -100,11 +99,17 @@ try:
 except FileNotFoundError:
     df = pd.read_csv(pm.get_data("energy_use.csv"), parse_dates=["date"])
 
-# calculate time sinse last reading
-df["tdelta"] = df["date"].diff()
-# calculate week of year
-df["week"] = df["date"].dt.isocalendar().week
-df.set_index("date", inplace=True)
+df.head()
+```
+
+Because these are raw meter readings, let's reset these to be zero at the start of the data. This will make the calculations easier.
+
+```{code-cell} ipython3
+for col in ["grid_import", "grid_export", "pv_gen"]:
+    df[col] = df[col] - df[col].iloc[0]
+```
+
+```{code-cell} ipython3
 df.head()
 ```
 
@@ -115,48 +120,48 @@ The raw data (columns) we have available are:
 * `grid_export`: the total energy exported to the grid.
 * `pv_gen`: the total energy generated by the PV system.
 
-We will need to calculate some quantities from these raw measurements to proceed. First, we'll calculate the amount of solar energy used by the house.
+```{code-cell} ipython3
+IMPORT_RATE = 0.2816
+EXPORT_RATE = 0.15
+```
+
+We'll also benefit from calculating the time between the measurements and creating a column representing the week of the year.
+
+```{code-cell} ipython3
+# calculate time sinse last reading
+df["tdelta"] = df["date"].diff()
+# calculate week of year
+df["week"] = df["date"].dt.isocalendar().week
+
+df.set_index("date", inplace=True)
+```
+
+We can also derive a few other useful quantities:
+* We can calculate the energy used by the house from the PV (i.e. not exported to the grid) as: $\text{PV used} = \text{PV gen} - \text{grid export}$.
+* We can calculate the total household energy use as: $\text{total use} = \text{grid import} + \text{PV used}$.
 
 ```{code-cell} ipython3
 df["pv_used"] = df["pv_gen"] - df["grid_export"]
-```
-
-Because these are raw meter readings, let's reset these to be zero at the start of the data. This will make the calculations easier.
-
-```{code-cell} ipython3
-for col in ["grid_import", "grid_export", "pv_gen"]:
-    df[col] = df[col] - df[col].iloc[0]
-```
-
-And we'll calculate the total energy demand of the house as the sum of the energy imported from the grid and the energy generated by the PV system that was used by the house.
-
-```{code-cell} ipython3
 df["total_demand"] = df["grid_import"] + df["pv_used"]
-```
-
-```{code-cell} ipython3
-df.head()
-```
-
-```{code-cell} ipython3
-fig, ax = plt.subplots()
-df[["grid_import", "grid_export", "pv_gen", "pv_used", "total_demand"]].plot(ax=ax)
-ax.set_ylabel("Energy (kWh)")
-```
-
-```{code-cell} ipython3
-IMPORT_RATE = 0.2816  # £/kWh
-EXPORT_RATE = 0.15  # £/kWh
 ```
 
 ```{code-cell} ipython3
 df["cost"] = IMPORT_RATE * df["total_demand"] - EXPORT_RATE * df["grid_export"]
 ```
 
+So now our dataset looks like this:
+
 ```{code-cell} ipython3
-fig, ax = plt.subplots()
-df["cost"].plot(ax=ax)
-ax.set_ylabel("Cost (£)");
+df.head()
+```
+
+```{code-cell} ipython3
+fig, ax = plt.subplots(1, 2)
+df[["grid_import", "grid_export", "pv_gen", "pv_used", "total_demand"]].plot(ax=ax[0])
+ax[0].set_ylabel("Energy (kWh)")
+
+df["cost"].plot(ax=ax[1])
+ax[1].set_ylabel("Cost (£)");
 ```
 
 So far we've imported our raw data, calculated a number important quantities from that, and calculated the financial costs of the current strategy. Importantly, this data is from the past and we have less than a year's worth of data.
@@ -169,7 +174,7 @@ Let's use our historical data to forecast both the energy demand and the PV gene
 
 +++
 
-**TODO: normalise the data to get in units of kWhr/day.**
+**TODO: normalise the data to get in units of kWhr/day. This is currently kWh/week.**
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots()
