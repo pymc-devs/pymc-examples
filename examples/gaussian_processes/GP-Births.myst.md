@@ -52,6 +52,8 @@ This notebook is based on the blog post {cite:p}`orduz2024Birthdays` where Juan 
 ```{code-cell} ipython3
 import warnings
 
+from collections.abc import Callable
+
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
@@ -529,21 +531,35 @@ Observe we get the same results as in `Model 3: Slow trend + yearly seasonal tre
 
 ## Posterior Distribution Analysis
 
-Now we want to do a deep dive into the posterior distribution of the model and its components. We want to do this in the original scale. Therefore the first step is to transform the posterior samples back to the original scale.
+Now we want to do a deep dive into the posterior distribution of the model and its components. We want to do this in the original scale. Therefore the first step is to transform the posterior samples back to the original scale. For that purpose we use the following utility function:
 
-+++
+```{code-cell} ipython3
+def apply_fn_along_dims(fn: Callable, a: xr.DataArray, dim: str) -> xr.DataArray:
+    """Apply a function along a specific dimension.
+
+    We need to expand the dimensions of the input array to make it compatible with the
+    function which we assume acts on a matrix.
+    """
+    return xr.apply_ufunc(
+        fn,
+        a.expand_dims(
+            dim={"_": 1}, axis=-1
+        ),  # The auxiliary dimension `_` is used to broadcast the function.
+        input_core_dims=[[dim, "_"]],
+        output_core_dims=[[dim, "_"]],
+        vectorize=True,
+    ).squeeze(dim="_")
+```
 
 - Model Components
 
 ```{code-cell} ipython3
 pp_vars_original_scale = {
-    var_name: xr.apply_ufunc(
-        births_relative100_pipeline.inverse_transform,
-        idata["posterior"][var_name].expand_dims(dim={"_": 1}, axis=-1),
-        input_core_dims=[["obs", "_"]],
-        output_core_dims=[["obs", "_"]],
-        vectorize=True,
-    ).squeeze(dim="_")
+    var_name: apply_fn_along_dims(
+        fn=births_relative100_pipeline.inverse_transform,
+        a=idata["posterior"][var_name],
+        dim="obs",
+    )
     for var_name in ["f_trend", "f_year_periodic"]
 }
 ```
@@ -551,13 +567,11 @@ pp_vars_original_scale = {
 - Likelihood
 
 ```{code-cell} ipython3
-pp_likelihood_original_scale = xr.apply_ufunc(
-    births_relative100_pipeline.inverse_transform,
-    posterior_predictive["posterior_predictive"]["likelihood"].expand_dims(dim={"_": 1}, axis=-1),
-    input_core_dims=[["obs", "_"]],
-    output_core_dims=[["obs", "_"]],
-    vectorize=True,
-).squeeze(dim="_")
+pp_likelihood_original_scale = apply_fn_along_dims(
+    fn=births_relative100_pipeline.inverse_transform,
+    a=posterior_predictive["posterior_predictive"]["likelihood"],
+    dim="obs",
+)
 ```
 
 We start by plotting the likelihood.
@@ -619,72 +633,59 @@ To get a better understanding of the model fit, we need to look into the individ
 
 ## Model Components
 
-+++
+Next, we visualize each of the main components of the model. We write a utility function to do this.
+
+```{code-cell} ipython3
+def plot_component(
+    component_name: str, color: str, component_label: str
+) -> tuple[plt.Figure, plt.Axes]:
+    fig, ax = plt.subplots(figsize=(15, 9))
+    sns.scatterplot(
+        data=data_df, x="date", y="births_relative100", c="C0", s=8, label="data", ax=ax
+    )
+    ax.axhline(100, color="black", linestyle="--", label="mean level")
+    az.plot_hdi(
+        x=date,
+        y=pp_vars_original_scale[component_name],
+        hdi_prob=0.94,
+        color=color,
+        fill_kwargs={"alpha": 0.2, "label": rf"{component_label} $94\%$ HDI"},
+        smooth=False,
+        ax=ax,
+    )
+    az.plot_hdi(
+        x=date,
+        y=pp_vars_original_scale[component_name],
+        hdi_prob=0.5,
+        color=color,
+        fill_kwargs={"alpha": 0.6, "label": rf"{component_label} $50\%$ HDI"},
+        smooth=False,
+        ax=ax,
+    )
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.07), ncol=4)
+    ax.set(xlabel="date", ylabel="relative number of births")
+    ax.set_title(
+        label="""Relative Births in the USA in 1969-1988
+        Posterior Predictive (Global Trend)""",
+        fontsize=18,
+        fontweight="bold",
+    )
+    return fig, ax
+```
 
 - Global Trend
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(15, 9))
-sns.scatterplot(data=data_df, x="date", y="births_relative100", c="C0", s=8, label="data", ax=ax)
-ax.axhline(100, color="black", linestyle="--", label="mean level")
-az.plot_hdi(
-    x=date,
-    y=pp_vars_original_scale["f_trend"],
-    hdi_prob=0.94,
-    color="C3",
-    fill_kwargs={"alpha": 0.2, "label": r"$f_\text{trend}$ $94\%$ HDI"},
-    smooth=False,
-    ax=ax,
-)
-az.plot_hdi(
-    x=date,
-    y=pp_vars_original_scale["f_trend"],
-    hdi_prob=0.5,
-    color="C3",
-    fill_kwargs={"alpha": 0.6, "label": r"$f_\text{trend}$ $50\%$ HDI"},
-    smooth=False,
-    ax=ax,
-)
-ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.07), ncol=4)
-ax.set(xlabel="date", ylabel="relative number of births")
-ax.set_title(
-    label="""Relative Births in the USA in 1969-1988
-    Posterior Predictive (Global Trend)""",
-    fontsize=18,
-    fontweight="bold",
-)
+fig, ax = plot_component(component_name="f_trend", color="C3", component_label="$f_{trend}$")
 ```
 
 - Yearly Periodicity
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(15, 9))
-sns.scatterplot(data=data_df, x="date", y="births_relative100", c="C0", s=8, label="data", ax=ax)
-ax.axhline(100, color="black", linestyle="--", label="mean level")
-az.plot_hdi(
-    x=date,
-    y=pp_vars_original_scale["f_year_periodic"],
-    hdi_prob=0.94,
+fig, ax = plot_component(
+    component_name="f_year_periodic",
     color="C4",
-    fill_kwargs={"alpha": 0.2, "label": r"$f_\text{yearly periodic}$ $94\%$ HDI"},
-    smooth=False,
-    ax=ax,
-)
-az.plot_hdi(
-    x=date,
-    y=pp_vars_original_scale["f_year_periodic"],
-    hdi_prob=0.5,
-    color="C4",
-    fill_kwargs={"alpha": 0.6, "label": r"$f_\text{yearly periodic}$ $50\%$ HDI"},
-    smooth=False,
-    ax=ax,
-)
-ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.07), ncol=4)
-ax.set(xlabel="date", ylabel="relative number of births")
-ax.set_title(
-    label="Relative Births in the USA in 1969\nPosterior Predictive (Periodic Yearly)",
-    fontsize=18,
-    fontweight="bold",
+    component_label=r"$f_{year \: periodic}$",
 )
 ```
 
@@ -695,46 +696,16 @@ ax.set_title(
 If we want to combine the global trend and the yearly periodicity, we can't simply sum the components in the original scale as we would be adding the mean term twice. Instead we need to first sum the posterior samples and then take the inverse transform (these operation do not commute!).
 
 ```{code-cell} ipython3
-pp_vars_original_scale["f_trend_periodic"] = xr.apply_ufunc(
-    births_relative100_pipeline.inverse_transform,
-    (idata["posterior"]["f_trend"] + idata["posterior"]["f_year_periodic"]).expand_dims(
-        dim={"_": 1}, axis=-1
-    ),
-    input_core_dims=[["obs", "_"]],
-    output_core_dims=[["obs", "_"]],
-    vectorize=True,
-).squeeze(dim="_")
-```
+pp_vars_original_scale["f_trend_periodic"] = apply_fn_along_dims(
+    fn=births_relative100_pipeline.inverse_transform,
+    a=idata["posterior"]["f_trend"] + idata["posterior"]["f_year_periodic"],
+    dim="obs",
+)
 
-```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(15, 9))
-sns.scatterplot(data=data_df, x="date", y="births_relative100", c="C0", s=8, label="data", ax=ax)
-ax.axhline(100, color="black", linestyle="--", label="mean level")
-az.plot_hdi(
-    x=date,
-    y=pp_vars_original_scale["f_trend_periodic"],
-    hdi_prob=0.94,
+fig, ax = plot_component(
+    component_name="f_trend_periodic",
     color="C3",
-    fill_kwargs={"alpha": 0.2, "label": r"$f_\text{trend + periodic}$ $94\%$ HDI"},
-    smooth=False,
-    ax=ax,
-)
-az.plot_hdi(
-    x=date,
-    y=pp_vars_original_scale["f_trend_periodic"],
-    hdi_prob=0.5,
-    color="C3",
-    fill_kwargs={"alpha": 0.6, "label": r"$f_\text{trend  + periodic}$ $50\%$ HDI"},
-    smooth=False,
-    ax=ax,
-)
-ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.07), ncol=4)
-ax.set(xlabel="date", ylabel="relative number of births")
-ax.set_title(
-    label="""Relative Births in the USA in 1969-1988
-    Posterior Predictive (Global Trend + Periodic Yearly)""",
-    fontsize=18,
-    fontweight="bold",
+    component_label=r"$f_{trend \: + \: periodic}$",
 )
 ```
 
