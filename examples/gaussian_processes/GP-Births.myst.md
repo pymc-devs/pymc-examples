@@ -52,6 +52,8 @@ This notebook is based on the blog post {cite:p}`orduz2024Birthdays` where Juan 
 ```{code-cell} ipython3
 import warnings
 
+from collections.abc import Callable
+
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
