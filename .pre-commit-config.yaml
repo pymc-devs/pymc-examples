@@ -1,10 +1,10 @@
 repos:
 - repo: https://github.com/psf/black
-  rev: 23.7.0
+  rev: 24.2.0
   hooks:
     - id: black-jupyter
 - repo: https://github.com/nbQA-dev/nbQA
-  rev: 1.7.0
+  rev: 1.7.1
   hooks:
     - id: nbqa-isort
       additional_dependencies: [isort==5.6.4]
@@ -96,7 +96,7 @@ repos:
       language: pygrep
       types_or: [markdown, rst, jupyter]
 - repo: https://github.com/mwouts/jupytext
-  rev: v1.15.1
+  rev: v1.16.1
   hooks:
   - id: jupytext
     files: ^examples/.+\.ipynb$
