@@ -14,7 +14,7 @@ kernelspec:
 # Bayesian Non-parametric Causal Inference
 
 :::{post} January, 2024
-:tags: bart, propensity scores, debiased machine learning
+:tags: bart, propensity scores, debiased machine learning, mediation
 :category: advanced, reference
 :author: Nathaniel Forde
 :::
@@ -46,7 +46,7 @@ rng = np.random.default_rng(42)
 
 There are few claims stronger than the assertion of a causal relationship and few claims more contestable. A naive world model - rich with tenuous connections and non-sequiter implications is characteristic of conspiracy theory and idiocy. On the other hand, a refined and detailed knowledge of cause and effect characterised by clear expectations, plausible connections and compelling counterfactuals, will steer you well through the buzzing, blooming confusion of the world.
 
-Causal inference in an experimental setting awkwardly differs from causal inference in an observational setting. In an experimental setting treatments are assigned randomly. With observational data we never know the mechanism that assigned each subject of the analysis to their treatment. This risks a source of bias due to selection effects confounding the analysis of treatments.  A propensity score is the estimated probability of receiving a treatment status (e.g. smoker/non-smoker, divorced/married) for each individual in the population under study. We will recount below how understanding an individual's propensity-for-treatment can help mitigate that bias. 
+Causal inference in an experimental setting awkwardly differs from causal inference in an observational setting. In an experimental setting treatments are assigned randomly. With observational data we never know the mechanism that assigned each subject of the analysis to their treatment. This risks a source of bias due to selection effects confounding the analysis of treatments.  A propensity score is the estimated probability of receiving a treatment status (e.g. smoker/non-smoker, divorced/married) for each individual in the population under study. We will recount below how understanding an individual's propensity-for-treatment can help mitigate that selection bias. 
 
 Non-parametric methods for estimating propensity scores and treatment effects are an attempt to remain agnostic about the precise functional relationships and avoid model mispecification. This push stems from the idea that excessive modelling assumptions cultivate an unlovely breeding ground for counfounding errors and should be avoided. See _Foundations of Agnostic Statistics_ {cite:t}`aronow2019agnostic`. We will ultimately argue that such minimalist "desert landscape" aesthetics shatter against causal questions with real import, where substantive assumptions are needed, even when we can avail of nonparametric approaches.
 
@@ -83,7 +83,7 @@ With observational data we cannot re-run the assignment mechanism but we can est
 
 Firstly, and somewhat superficially, the propensity score is a dimension reduction technique. We take a complex covariate profile $X_{i}$ representing an individual's measured attributes and reduce it to a scalar $p^{i}_{T}(X)$. It is also a tool for thinking about the potential outcomes of an individual under different treatment regimes. In a policy evaluation context it can help partial out the degree of incentives for policy adoption across strata of the population. What drives adoption or assignment in each niche of the population? How can different demographic strata be induced towards or away from adoption of the policy? Understanding these dynamics is crucial to gauge why selection bias might emerge in any sample data. Paul Goldsmith-Pinkham's [lectures](https://www.youtube.com/watch?v=8gWctYvRzk4&list=PLWWcL1M3lLlojLTSVf2gGYQ_9TlPyPbiJ&index=3) are particularly clear on this last point, and why this perspective is appealing to structural econometricians.
 
-The pivotal idea when thinking about propensity scores is that we cannot license causal claims unless (i) the treatment assignment is independent of the covariate profiles i.e $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ are similarly conditionally independent of the treatement $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ given $X$. This is also occasionally noted as the __unconfoundedness__ or __exchangeability__ assumption. For each strata of the population defined by the covariate profile $X$, we require that it's as good as random which treatment status an individual adopts after controlling for $X$. This means that after controlling for $X$, any differences in outcomes between the treated and untreated groups can be attributed to the treatment itself rather than confounding variables.
+The pivotal idea when thinking about propensity scores is that we cannot license causal claims unless (i) the treatment assignment is independent of the covariate profiles i.e $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ are similarly conditionally independent of the treatement $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ given $X$. This is also occasionally noted as the __unconfoundedness__ or __exchangeability__ assumption. For each strata of the population defined by the covariate profile $X$, we require that, after controlling for $X$, it's as good as random which treatment status an individual adopts. This means that after controlling for $X$, any differences in outcomes between the treated and untreated groups can be attributed to the treatment itself rather than confounding variables.
 
 It is a theorem that if $T$ is strongly ignorable given $X$, then (i) and (ii) hold given $p_{T}(X)$ too. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. This is useful because some of the strata of a complex covariate profile may be sparsely populated so substituting a propensity score enables us to avoid the risks of high dimensional missing data.  Causal inference is unconfounded when we have controlled for enough of drivers for policy adoption, that selection effects within each covariate profiles $X$ seem essentially random. The insight this suggests is that when you want to estimate a causal effect you are only required to control for the covariates which impact the probability of treatement assignment. More concretely, if it's easier to model the assignment mechanism than the outcome mechanism this can be substituted in the case of causal inference with observed data.
 
@@ -163,7 +163,7 @@ print("Treatment Diff:", raw_diff["outcome"].iloc[1] - raw_diff["outcome"].iloc[
 raw_diff
 ```
 
-We see that there is some overall differences between the two groups, but splitting this out further we might worry that the differences are due to how the groups are imbalanced across the different covariate profiles in the treatment and control groups. That is to say, we can inspect the implied differences across different strata of our data to see that we might have imbalance across different niches of the population. This imbalance indicative of some selection effects into the treatment status is what we hope to address with propensity score modelling. 
+We see that there is some overall differences between the two groups, but splitting this out further we might worry that the differences are due to how the groups are imbalanced across the different covariate profiles in the treatment and control groups. That is to say, we can inspect the implied differences across different strata of our data to see that we might have imbalance across different niches of the population. This imbalance, indicative of some selection effects into the treatment status, is what we hope to address with propensity score modelling. 
 
 ```{code-cell} ipython3
 strata_df = (
@@ -777,7 +777,7 @@ ate_dist_df_probit.head()
 ```
 
 ```{code-cell} ipython3
-plot_ate(ate_dist_df_probit, xy=(3.1, 250))
+plot_ate(ate_dist_df_probit, xy=(3.6, 250))
 ```
 
 Note the tighter variance of the measures using the doubly robust method. This is not surprising the doubly robust method was designed with this intended effect.
@@ -826,7 +826,7 @@ Observations like this go a long way to motivating the use of flexible machine l
 
 ### Regression with Propensity Scores
 
-Another perhaps more direct method of causal inference is to just use regression directly. Angrist and Pischke {cite:t}`angrist2008harmless` suggest that the familiar properties of regression make it more desirable, but concede that there is a role for propensity and that the methods can be combined by the cautious analyst. Here we'll show how we can combine the propensity score in a regression context to derive estimates of treatment effects. 
+Another perhaps more direct method of causal inference is to just use regression analysis. Angrist and Pischke {cite:t}`angrist2008harmless` suggest that the familiar properties of regression make it more desirable, but concede that there is a role for propensity and that the methods can be combined by the cautious analyst. Here we'll show how we can combine the propensity score in a regression context to derive estimates of treatment effects. 
 
 ```{code-cell} ipython3
 def make_prop_reg_model(X, t, y, idata_ps, covariates=None, samples=1000):
@@ -871,7 +871,7 @@ az.summary(idata_ps_reg_bart)
 
 ### Causal Inference as Regression Imputation
 
-Above we read-off the causal effect estimate as the coefficient on the treatment variable in our regression model. An arguably more direct approach uses the fitted regression models to impute the distribution of potential outcomes Y(1), Y(0) under different treatment regimes. In this way we have yet another perspective on causal inference. Crucially this perspective is non-parametric in that it does not make any assumptions about the required functional form of the imputation models.
+Above we read-off the causal effect estimate as the coefficient on the treatment variable in our regression model. An arguably cleaner approach uses the fitted regression models to impute the distribution of potential outcomes Y(1), Y(0) under different treatment regimes. In this way we have yet another perspective on causal inference. Crucially this perspective is non-parametric in that it does not make any assumptions about the required functional form of the imputation models.
 
 ```{code-cell} ipython3
 X_mod = X.copy()
@@ -1194,7 +1194,7 @@ make_plot(
 )
 ```
 
-This is a __suspicious__ result. Evaluated at the expected values of the posterior propensity score distribution the robust IPW estimator of ATE suggests a substantial difference in the treatment and control groups. When a simple difference in the averages of the raw outcome show close to 0 differences but the re-weighted difference shows a movement of more than 1 on the log-scale. What is going on? In what follows we'll interrogate this question from a couple of different perspectives but you should be pretty dubious of this result as it stands.
+This is a __suspicious__ result. Evaluated at the expected values of the posterior propensity score distribution the robust IPW estimator of ATE suggests a substantial difference in the treatment and control groups. The re-weighted outcome in the third panel diverges across the control and treatment groups indicating a stark failure of balance. When a simple difference in the averages of the raw outcome show close to 0 differences but the re-weighted difference shows a movement of more than 1 on the log-scale. What is going on? In what follows we'll interrogate this question from a couple of different perspectives but you should be pretty dubious of this result as it stands.
 
 What happens if we look at the posterior ATE distributions under different estimators?
 
