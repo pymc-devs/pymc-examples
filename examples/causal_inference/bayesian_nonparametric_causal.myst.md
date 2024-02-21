@@ -64,20 +64,20 @@ Propensity scores are often synonymous with the technique of [propensity score m
 
 ### The Structure of the Presentation
 
-Below we'll see a number of examples of non-parametric approaches to the estimation of causal effects. Some of these methods will work well, and others will mislead us. We will demonstrate how these methods serve as tools for imposing stricter and stricter assumptions on our inferential framework.
+Below we'll see a number of examples of non-parametric approaches to the estimation of causal effects. Some of these methods will work well, and others will mislead us. We will demonstrate how these methods serve as tools for imposing stricter and stricter assumptions on our inferential framework. Throughout we will use the _potential outcomes_ notation to discuss causal inference - we draw extensively on work in {cite:t}`aronow2019agnostic`, which can be consulted for more details. But very briefly, when we want to discuss the causal impact of a treatment status on an outcome $Y$ we will denote the outcome $Y(t)$ as the outcome measure $Y$ under the treatment regime $T = t$. 
 
 - Application of Propensity Scores to Selection Effect Bias
-    - NHEFS data
+    - NHEFS data on weight loss and the relationship to smoking
 - Application of Propensity Scores to Selection Effect Bias
-    - Health Expenditure Data
+    - Health Expenditure Data and the relationship to smoking
 - Application of Debiased/Double ML to estimate ATE
 - Application of Mediation Analysis to estimate Direct and Indirect Effects
 
-These escalating set of assumptions required to warrant causal inference under different threats of confounding shed light on the process of inference as a whole. Throughout we will use the _potential outcomes_ notation to discuss causal inference - we draw extensively on work in {cite:t}`aronow2019agnostic`, which can be consulted for more details. But very briefly, when we want to discuss the causal impact of a treatment status on an outcome $Y$ we will denote the outcome $Y(t)$ as the outcome measure $Y$ under the treatment regime $T = t$.  
+These escalating set of assumptions required to warrant causal inference under different threats of confounding shed light on the process of inference as a whole.  
 
 +++
 
-### Why do we Care about Propensity Scores?
+### Why do we care about Propensity Scores?
 
 With observational data we cannot re-run the assignment mechanism but we can estimate it, and transform our data to proportionally weight the data summaries within each group so that the analysis is less effected by the over-representation of different strata in each group. This is what we hope to use the propensity scores to achieve. 
 
@@ -321,9 +321,7 @@ m_ps_probit, idata_probit = make_propensity_model(X, t, bart=True, probit=True, 
 
 ### Using Propensity Scores: Weights and Pseudo Populations
 
-Once we have fitted these models we can compare how they attribute the propensity to treatment (in our case the propensity of quitting) to each and every such measured individual. One thing to note in considering the distribution of propensity scores is the requirement for positivity i.e. the requirement that the conditional probability of receiving a given treatment cannot be 0 or 1 in any patient subgroup as defined by combinations of covariate values. We do not want to __overfit__ our propensity model and have perfect treatment/control group allocation. The important feature of propensity scores are that they are a measure of similarity across groups - extreme predictions of 0 or 1 would imply reduced overlap. Some authors recommend drawing a boundary at (.1, .9) to filter out or cap extreme cases.
-
-Let's plot the distribution of propensity scores for the first 20 or so individuals in the study to see the differences between the two models.
+Once we have fitted these models we can compare how each model attributes the propensity to treatment (in our case the propensity of quitting) to each and every such measured individual. Let's plot the distribution of propensity scores for the first 20 or so individuals in the study to see the differences between the two models.
 
 ```{code-cell} ipython3
 az.plot_forest(
@@ -356,13 +354,17 @@ Here we plot the distribution of propensity scores under each model and show how
 ```{code-cell} ipython3
 :tags: [hide-input]
 
-fig, axs = plt.subplots(2, 2, figsize=(20, 13))
+fig, axs = plt.subplots(3, 2, figsize=(20, 15))
 axs = axs.flatten()
 
 colors = {1: "blue", 0: "red"}
 axs[0].hist(ps_logit.values[t == 0], ec="black", color="red", bins=30, label="Control", alpha=0.6)
 axs[0].hist(
     ps_logit.values[t == 1], ec="black", color="blue", bins=30, label="Treatment", alpha=0.6
+)
+axs[2].hist(ps_logit.values[t == 0], ec="black", color="red", bins=30, label="Control", alpha=0.6)
+axs[2].hist(
+    1 - ps_logit.values[t == 1], ec="black", color="blue", bins=30, label="Treatment", alpha=0.6
 )
 axs[0].set_xlabel("Propensity Scores")
 axs[1].set_xlabel("Propensity Scores")
@@ -374,24 +376,34 @@ axs[1].hist(ps_probit.values[t == 0], ec="black", color="red", bins=30, label="C
 axs[1].hist(
     ps_probit.values[t == 1], ec="black", color="blue", bins=30, label="Treatment", alpha=0.6
 )
+axs[3].hist(ps_probit.values[t == 0], ec="black", color="red", bins=30, label="Control", alpha=0.6)
+axs[3].hist(
+    1 - ps_probit.values[t == 1], ec="black", color="blue", bins=30, label="Treatment", alpha=0.6
+)
+axs[3].set_title("Overlap of inverted Propensity Scores")
+axs[2].set_title("Overlap of inverted Propensity Scores")
 axs[1].axvline(0.9, color="black", linestyle="--", label="Extreme Propensity Score")
 axs[1].axvline(0.1, color="black", linestyle="--")
+axs[2].axvline(0.9, color="black", linestyle="--", label="Extreme Propensity Score")
+axs[2].axvline(0.1, color="black", linestyle="--")
+axs[3].axvline(0.9, color="black", linestyle="--", label="Extreme Propensity Score")
+axs[3].axvline(0.1, color="black", linestyle="--")
 axs[0].set_xlim(0, 1)
 axs[1].set_xlim(0, 1)
 axs[0].set_title("Propensity Scores under Logistic Regression", fontsize=20)
 axs[1].set_title(
     "Propensity Scores under Non-Parametric BART model \n with probit transform", fontsize=20
 )
-axs[2].scatter(
+axs[4].scatter(
     X["age"], y, color=t.map(colors), s=(1 / ps_logit.values) * 20, ec="black", alpha=0.4
 )
-axs[2].set_xlabel("Age")
-axs[3].set_xlabel("Age")
-axs[3].set_ylabel("y")
-axs[2].set_ylabel("y")
-axs[2].set_title("Sized by IP Weights")
-axs[3].set_title("Sized by IP Weights")
-axs[3].scatter(
+axs[4].set_xlabel("Age")
+axs[5].set_xlabel("Age")
+axs[5].set_ylabel("y")
+axs[4].set_ylabel("y")
+axs[4].set_title("Sized by IP Weights")
+axs[5].set_title("Sized by IP Weights")
+axs[5].scatter(
     X["age"], y, color=t.map(colors), s=(1 / ps_probit.values) * 20, ec="black", alpha=0.4
 )
 red_patch = mpatches.Patch(color="red", label="Control")
@@ -399,10 +411,12 @@ blue_patch = mpatches.Patch(color="blue", label="Treated")
 axs[2].legend(handles=[red_patch, blue_patch])
 axs[0].legend()
 axs[1].legend()
-axs[3].legend(handles=[red_patch, blue_patch]);
+axs[5].legend(handles=[red_patch, blue_patch]);
 ```
 
-We can also look at the balance of the covariates across partitions of the propensity score. These kind of plots help us assess the degree to which conditional on the propensity scores our sample appears have a balanced profile between the treatment and control groups. 
+When we consider the distribution of propensity scores we are looking for positivity i.e. the requirement that the conditional probability of receiving a given treatment cannot be 0 or 1 in any patient subgroup as defined by combinations of covariate values. We do not want to __overfit__ our propensity model and have perfect treatment/control group allocation because that reduces their usefulness in the weighting schemes. The important feature of propensity scores are that they are a measure of similarity across groups - extreme predictions of 0 or 1 would threaten the identifiability of the causal treatment effects. Extreme propensity scores (within a strata defined by some covariate profile) indicate that the model does not believe a causal contrast could be well defined between treatments for those individuals. Or at least, that the sample size of in one of the contrast groups would be extremely small. Some authors recommend drawing a boundary at (.1, .9) to filter out or cap extreme cases to address this kind of overfit, but this is essentially an admission of a mis-specified model. 
+
+We can also look at the balance of the covariates across partitions of the propensity score. These kind of plots help us assess the degree to which, conditional on the propensity scores, our sample appears have a balanced profile between the treatment and control groups. We are seeking to show balance of covariate profiles conditional on the propensity score.
 
 ```{code-cell} ipython3
 :tags: [hide-input]
@@ -468,11 +482,11 @@ plot_balance(temp, "smokeyrs", t)
 plot_balance(temp, "smokeintensity", t)
 ```
 
-In an ideal world we would have perfect balance across the treatment groups for each of the covariates. But if we have good balance we can use propensity scores in weighting schemes with models of statistical summaries so as to "correct" the representation of covariate profiles across both groups. If an individual's propensity score is such that they are highly likely to receive the treatment status e.g .95 then we want to downweight their importance if they occur in the treatment and upweight their importance if they appear in the control group. This makes sense because their high propensity score implies that similar individuals are already heavily present in the treatment group, but less likely to occur in the control group. Hence our corrective strategy to re-weight their contribution to the summary statistics across each group. Even more refinement is possible if the analyst removes or clips the observations based on the extremity of their propensity scores i.e. limit the propensity score to be no greater than some pre-specified boundary. Note that this is an _ad-hoc maneouver_ to compensate for lack of suitably regularising priors in the propensity model. This kind of move would reduce the noise in the ultimate re-estimate, but it buries a commitment which should be made explicit in the model.
+In an ideal world we would have perfect balance across the treatment groups for each of the covariates. But if we have good balance we can use propensity scores in weighting schemes with models of statistical summaries so as to "correct" the representation of covariate profiles across both groups. If an individual's propensity score is such that they are highly likely to receive the treatment status e.g .95 then we want to downweight their importance if they occur in the treatment and upweight their importance if they appear in the control group. This makes sense because their high propensity score implies that similar individuals are already heavily present in the treatment group, but less likely to occur in the control group. Hence our corrective strategy to re-weight their contribution to the summary statistics across each group.
 
 +++
 
-### Robust and Doubly Robust Propensity Scores
+### Robust and Doubly Robust Weighting Schemes
 
 We've been keen to stress that propensity based weights are a corrective. An opportunity for the causal analyst to put their finger on the scale and adjust the representative shares accorded to individuals in the treatment and control groups. Yet, there are no universal correctives, and naturally a variety of alternatives have arisen to fill gaps where simple propensity score weighting fails. We will see below a number of alternative weighting schemes. 
 
@@ -784,7 +798,7 @@ Note the tighter variance of the measures using the doubly robust method. This i
 
 +++
 
-### Considerations Choosing between models
+### Considerations when choosing between models
 
 It is one thing to evalute change in average over the population, but we might want to allow for the idea of effect heterogenity across the population and as such the BART model is generally better at ensuring accurate predictions across the deeper strata of our data. But the flexibility of machine learning models for prediction tasks do not guarantee that the propensity scores attributed across the sample are well calibrated to recover the true-treatment effects when used in causal effect estimation. We have to be careful in how we use the flexibility of non-parametric models in the causal context. 
 
@@ -1141,8 +1155,20 @@ az.plot_trace(idata_expend_bart, var_names=["mu", "p"]);
 :tags: [hide-input]
 
 ps = idata_expend_bart["posterior"]["p"].mean(dim=("chain", "draw")).values
-fig, ax = plt.subplots(figsize=(20, 6))
+fig, axs = plt.subplots(2, 1, figsize=(20, 10))
+axs = axs.flatten()
+ax = axs[0]
+ax1 = axs[1]
+ax1.set_title("Overlap of Inverted Propensity Scores")
 ax.hist(
+    ps[t == 0],
+    bins=30,
+    ec="black",
+    alpha=0.4,
+    color="blue",
+    label="Propensity Scores in Treated",
+)
+ax1.hist(
     ps[t == 0],
     bins=30,
     ec="black",
@@ -1152,12 +1178,23 @@ ax.hist(
 )
 ax.set_xlabel("Propensity Scores")
 ax.set_ylabel("Count of Observed")
+ax1.set_ylabel("Count of Observed")
 ax.hist(
     ps[t == 1], bins=30, ec="black", alpha=0.6, color="red", label="Propensity Scores in Control"
+)
+ax1.hist(
+    1 - ps[t == 1],
+    bins=30,
+    ec="black",
+    alpha=0.6,
+    color="red",
+    label="Propensity Scores in Control",
 )
 ax.set_title("BART Model - Health Expenditure Data \n Propensity Scores per Group", fontsize=20)
 ax.axvline(0.9, color="black", linestyle="--", label="Extreme Propensity Scores")
 ax.axvline(0.1, color="black", linestyle="--")
+ax1.axvline(0.9, color="black", linestyle="--", label="Extreme Propensity Scores")
+ax1.axvline(0.1, color="black", linestyle="--")
 ax.legend()
 
 fig, ax2 = plt.subplots(figsize=(20, 6))
@@ -1176,7 +1213,7 @@ Note how the tails of each group in the histogram plots do not overlap well and 
 
 +++
 
-### Non-Parametric BART Propensity Model is mis-specified
+### Non-Parametric BART Propensity Model is Mis-specified
 
 The flexibility of the BART model fit is poorly calibrated to recover the average treatment effect. Let's evaluate the weighted outcome distributions under the robust inverse propensity weights estimate. 
 
@@ -1294,7 +1331,7 @@ This is tied to the requirement for __strong ignorability__ because by using thi
 
 ### Avoiding Overfitting with K-fold Cross Validation
 
-As we've seen above one of the concerns with the automatic regularisation effects of BART like tree based models is their tendency to over-fit to the seen data. Here we'll use K-fold cross validation to generate predictions on out of sample cuts of the data. This step is crucial to avoid the over-fitting of the model to the sample data and thereby avoiding the miscalibration effects we've seen above. This too, (it's easily forgotten), is a corrective step to avoid known biases due to over-indexing on the observed sample data. Using the propensity scores to achieve balance across the population when we estimate the propensity scores on a particular sample breaks down in cases of overfit. In that case our propensity model is too aligned with the specifics of the sample and cannot serve the role of being a measure of similarity in the population. 
+As we've seen above one of the concerns with the automatic regularisation effects of BART like tree based models is their tendency to over-fit to the seen data. Here we'll use K-fold cross validation to generate predictions on out of sample cuts of the data. This step is crucial to avoid the over-fitting of the model to the sample data and thereby avoiding the miscalibration effects we've seen above. This too, (it's easily forgotten), is a corrective step to avoid known biases due to over-indexing on the observed sample data. Using the propensity scores to achieve balance when we estimate the propensity scores on a particular sample breaks down in cases of overfit. In that case our propensity model is too aligned with the specifics of the sample and cannot serve the role of being a measure of similarity in the population. 
 
 ```{code-cell} ipython3
 dummies = pd.concat(
