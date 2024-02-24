@@ -1372,7 +1372,7 @@ def train_outcome_model(X, y, m=50):
         y_data = pm.MutableData("y_data", y)
         mu = pmb.BART("mu", X_data, y, m=m)
         sigma = pm.HalfNormal("sigma", 1)
-        obs = pm.LogNormal("obs", mu, sigma, observed=y_data)
+        obs = pm.Normal("obs", mu, sigma, observed=y_data)
         idata = pm.sample_prior_predictive()
         idata.extend(pm.sample(1000, progressbar=False))
     return model, idata
@@ -1547,7 +1547,7 @@ axs[0].legend()
 axs[0].set_title("Distribution of p01 CATE predictions");
 ```
 
-This perspective starts to show the importance of heterogeneity in causal impacts and offers a means of assessing differential impact of treatments. However, while the treated population (i.e. the smokers's) are implied to have longer tails and more extreme outcomes - you might wonder why the effect is symmetrical? Why would they also exhibit less extreme expenditures too?
+This perspective starts to show the importance of heterogeneity in causal impacts and offers a means of assessing differential impact of treatments. However, while the treated population (i.e. the smokers's) are implied to have longer tails and more extreme outcomes - you might wonder why the effect is somewhat symmetrical? Why would they also exhibit less extreme expenditures too?
 
 +++
 
