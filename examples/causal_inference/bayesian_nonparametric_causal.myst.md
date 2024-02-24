@@ -482,7 +482,7 @@ plot_balance(temp, "smokeyrs", t)
 plot_balance(temp, "smokeintensity", t)
 ```
 
-In an ideal world we would have perfect balance across the treatment groups for each of the covariates. But if we have good balance we can use propensity scores in weighting schemes with models of statistical summaries so as to "correct" the representation of covariate profiles across both groups. If an individual's propensity score is such that they are highly likely to receive the treatment status e.g .95 then we want to downweight their importance if they occur in the treatment and upweight their importance if they appear in the control group. This makes sense because their high propensity score implies that similar individuals are already heavily present in the treatment group, but less likely to occur in the control group. Hence our corrective strategy to re-weight their contribution to the summary statistics across each group.
+In an ideal world we would have perfect balance across the treatment groups for each of the covariates, but even approximate balance as we see here is useful. When we have good covariate balance (conditional on the propensity scores) we can then use propensity scores in weighting schemes with models of statistical summaries so as to "correct" the representation of covariate profiles across both groups. If an individual's propensity score is such that they are highly likely to receive the treatment status e.g .95 then we want to downweight their importance if they occur in the treatment and upweight their importance if they appear in the control group. This makes sense because their high propensity score implies that similar individuals are already heavily present in the treatment group, but less likely to occur in the control group. Hence our corrective strategy to re-weight their contribution to the summary statistics across each group.
 
 +++
 
@@ -1020,7 +1020,7 @@ def make_strata_plot(strata_df):
 make_strata_plot(strata_df)
 ```
 
-It's difficult to see a clear pattern in this visual as both treatment groups - when there is any signifcant sample size, show a mean difference close to zero for both groups.
+It's difficult to see a clear pattern in this visual. In both treatment groups, when there is some significant sample size, we see a mean difference close to zero for both groups.
 
 ```{code-cell} ipython3
 strata_expected_df = strata_df.groupby("smoke")[["log_y count", "log_y mean", "diff"]].agg(
