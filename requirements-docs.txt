@@ -1,4 +1,4 @@
-ablog<0.11
+ablog>=0.11
 matplotlib
 myst-nb
 sphinx-codeautolink
@@ -10,3 +10,4 @@ sphinx-notfound-page
 sphinxcontrib-bibtex
 sphinxext-opengraph
 sphinxext-rediraffe
+sphinx-sitemap

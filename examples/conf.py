@@ -28,6 +28,7 @@ extensions = [
     "notfound.extension",
     "thumbnail_extractor",
     "sphinxext.rediraffe",
+    "sphinx_sitemap",
 ]
 
 # List of patterns, relative to source directory, that match files and
@@ -70,6 +71,7 @@ def setup(app: Sphinx):
 
 # theme options
 html_theme = "pymc_sphinx_theme"
+html_baseurl = "https://www.pymc.io/projects/examples/"
 html_theme_options = {
     "secondary_sidebar_items": ["postcard", "page-toc", "edit-this-page", "sourcelink", "donate"],
     "navbar_start": ["navbar-logo"],
@@ -104,13 +106,13 @@ html_title = "PyMC example gallery"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["../_static"]
-html_extra_path = ["../_thumbnails"]
+html_extra_path = ["../_thumbnails", "robots.txt"]
 templates_path = ["../_templates"]
 html_sidebars = {
     "**": [
         "sidebar-nav-bs.html",
         "postcard_categories.html",
-        "tagcloud.html",
+        "ablog/tagcloud.html",
     ],
 }
 
