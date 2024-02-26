@@ -119,7 +119,6 @@ So, what we actually need to do is create a {ref}`PyTensor Op <pytensor:creating
 ```{code-cell} ipython3
 # define a pytensor Op for our likelihood function
 class LogLike(pt.Op):
-
     """
     Specify what type of object will be passed and returned to the Op when it is
     called. In our case we will be passing it a vector of values (the parameters
@@ -294,7 +293,6 @@ class LogLikeWithGrad(pt.Op):
 
 
 class LogLikeGrad(pt.Op):
-
     """
     This Op will be called with a vector of values and also return a vector of
     values - the gradients in each dimension.
