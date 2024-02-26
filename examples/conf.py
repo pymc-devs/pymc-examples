@@ -72,6 +72,8 @@ def setup(app: Sphinx):
 # theme options
 html_theme = "pymc_sphinx_theme"
 html_baseurl = "https://www.pymc.io/projects/examples/"
+rtd_version = os.environ.get("READTHEDOCS_VERSION", "")
+sitemap_url_scheme = f"{{lang}}{rtd_version}/{{link}}"
 html_theme_options = {
     "secondary_sidebar_items": ["postcard", "page-toc", "edit-this-page", "sourcelink", "donate"],
     "navbar_start": ["navbar-logo"],
@@ -82,8 +84,7 @@ html_theme_options = {
     "show_prev_next": True,
     "article_footer_items": ["rendered_citation.html"],
 }
-version = os.environ.get("READTHEDOCS_VERSION", "")
-version = version if "." in version else "main"
+version = version if "." in rtd_version else "main"
 doi_code = os.environ.get("DOI_READTHEDOCS", "10.5281/zenodo.5654871")
 html_context = {
     "github_url": "https://github.com",
