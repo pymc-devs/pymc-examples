@@ -42,10 +42,6 @@ This notebook is based on the blog post {cite:p}`orduz2024Birthdays` where Juan 
 
 +++
 
-## Prepare Notebook
-
-+++
-
 :::{include} ../extra_installs.md
 :::
 
@@ -126,13 +122,13 @@ ax.set_title(
 We create a couple of features:
 -  A `date`stamp.
 -  `births_relative100`: the number of births relative to $100$.
--  `obs`: data index.
+-  `time`: data index.
 
 ```{code-cell} ipython3
 data_df = raw_df.copy().assign(
     date=lambda x: pd.to_datetime(x[["year", "month", "day"]]),
     births_relative100=lambda x: x["births"] / x["births"].mean() * 100,
-    obs=lambda x: x.index,
+    time=lambda x: x.index,
 )
 ```
 
@@ -229,35 +225,6 @@ ax.set_title(
 
 It seems that there are on average less births during the weekend.
 
-We can also plot the time development over the years.
-
-```{code-cell} ipython3
-fig, ax = plt.subplots()
-(
-    data_df.assign(day_name=lambda x: x["date"].dt.day_name())
-    .groupby(["year", "day_name"], as_index=False)
-    .agg(meanbirths=("births_relative100", "mean"))
-    .pipe(
-        (sns.lineplot, "data"),
-        x="year",
-        y="meanbirths",
-        marker="o",
-        markersize=7,
-        hue="day_name",
-    )
-)
-ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-ax.legend(title="day of week", loc="center left", bbox_to_anchor=(1, 0.5))
-ax.set(xlabel="year", ylabel="relative number of births per day of week")
-ax.set_title(
-    label="Relative Births in the USA in 1969 - 1988\nMean over Day of Week and Year",
-    fontsize=18,
-    fontweight="bold",
-)
-```
-
-We see that the trends behave differently over the years for weekdays and weekends.
-
 +++
 
 ```{tip}
@@ -265,7 +232,6 @@ Let's summarize the main findings of the EDA:
 -  There is a clear non-linear long term trend.
 -  There is a clear smooth yearly seasonality up to some special holidays and the end of the year drop.
 -  There is a clear weekly seasonality.
--  There are differences in the trends over the years for weekdays and weekends.
 ```
 
 +++
@@ -280,7 +246,7 @@ After having a better understanding of the data and the patters we want to captu
 
 ```{code-cell} ipython3
 n = data_df.shape[0]
-obs = data_df["obs"].to_numpy()
+time = data_df["time"].to_numpy()
 date = data_df["date"].to_numpy()
 year = data_df["year"].to_numpy()
 day_of_week_idx, day_of_week = data_df["day_of_week"].factorize(sort=True)
@@ -298,10 +264,10 @@ We want to work on the normalized log scale of the relative births. The reason f
 ```{code-cell} ipython3
 # we want to use the scale of the data size to set up the priors.
 # we are mainly interested in the standard deviation.
-obs_pipeline = Pipeline(steps=[("scaler", StandardScaler())])
-obs_pipeline.fit(obs.reshape(-1, 1))
-normalized_obs = obs_pipeline.transform(obs.reshape(-1, 1)).flatten()
-obs_std = obs_pipeline["scaler"].scale_.item()
+time_pipeline = Pipeline(steps=[("scaler", StandardScaler())])
+time_pipeline.fit(time.reshape(-1, 1))
+normalized_time = time_pipeline.transform(time.reshape(-1, 1)).flatten()
+time_std = time_pipeline["scaler"].scale_.item()
 
 # we first take a log transform and then normalize the data.
 births_relative100_pipeline = Pipeline(
@@ -319,8 +285,8 @@ normalized_log_births_relative100_std = births_relative100_pipeline["scaler"].sc
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots()
-ax.plot(normalized_obs, normalized_log_births_relative100, "o", c="C0", markersize=2)
-ax.set(xlabel="normalized obs", ylabel="relative number of births - Transformed")
+ax.plot(normalized_time, normalized_log_births_relative100, "o", c="C0", markersize=2)
+ax.set(xlabel="normalized time", ylabel="relative number of births - Transformed")
 ax.set_title(
     label="Relative Births in the USA in 1969 - 1988\nTransformed Data",
     fontsize=18,
@@ -335,7 +301,7 @@ ax.set_title(
 Let's describe the model components. All of these building blocks should not come as a surprise after looking into the EDA section.
 
 1. **Global trend.** We use a Gaussian process with an exponential quadratic kernel.
-2. **Periodicity over years**: We use a Gaussian process with a periodic kernel. Observe that, since we are working on the normalized scale, the period should be `period=365.25 / obs_std` (and not `period=365.25` !).
+2. **Periodicity over years**: We use a Gaussian process with a periodic kernel. Observe that, since we are working on the normalized scale, the period should be `period=365.25 / time_std` (and not `period=365.25` !).
 3. **Weekly seasonality**: We use a normal distribution on the day of the week one-hot-encoded values. As the data is standardized, in particular centered around zero, we do not need to add an intercept term. In addition, we set the coefficient of Monday to zero to avoid identifiability issues.
 4. **Likelihood**: We use a Gaussian distribution.
 
@@ -355,7 +321,7 @@ Most of the priors are not very informative. The only tricky part here is to thi
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots()
-pz.LogNormal(mu=np.log(700 / obs_std), sigma=1).plot_pdf(ax=ax)
+pz.LogNormal(mu=np.log(700 / time_std), sigma=1).plot_pdf(ax=ax)
 ax.set(xlim=(None, 4))
 ax.set_title(
     label="Prior distribution for the global trend Gaussian process",
@@ -364,7 +330,7 @@ ax.set_title(
 )
 ```
 
-The motivation is that we have around $7.3$K data points and whe want to consider the in between data points distance in the normalized scale. That is why we consider the ratio `7_000 / obs_str`. Note that we want to capture the long term trend, so we want to consider a length scale that is larger than the data points distance. We increase the order of magnitude by dividing by $10$. We then take a log transform as we are using a log-normal prior.
+The motivation is that we have around $7.3$K data points and whe want to consider the in between data points distance in the normalized scale. That is why we consider the ratio `7_000 / time_str`. Note that we want to capture the long term trend, so we want to consider a length scale that is larger than the data points distance. We increase the order of magnitude by dividing by $10$. We then take a log transform as we are using a log-normal prior.
 
 +++
 
@@ -374,7 +340,7 @@ We now specify the model in PyMC.
 
 ```{code-cell} ipython3
 coords = {
-    "obs": obs,
+    "time": time,
     "day_of_week_no_monday": day_of_week_no_monday,
     "day_of_week": day_of_week,
     "day_of_year2": day_of_year2,
@@ -383,39 +349,39 @@ coords = {
 with pm.Model(coords=coords) as model:
     # --- Data Containers ---
 
-    normalized_obs_data = pm.Data(
-        name="normalized_obs_data", value=normalized_obs, mutable=False, dims="obs"
+    normalized_time_data = pm.Data(
+        name="normalized_time_data", value=normalized_time, mutable=False, dims="time"
     )
 
     day_of_week_idx_data = pm.Data(
-        name="day_of_week_idx_data", value=day_of_week_idx, mutable=False, dims="obs"
+        name="day_of_week_idx_data", value=day_of_week_idx, mutable=False, dims="time"
     )
     normalized_log_births_relative100_data = pm.Data(
         name="log_births_relative100",
         value=normalized_log_births_relative100,
         mutable=False,
-        dims="obs",
+        dims="time",
     )
 
     # --- Priors ---
 
     # global trend
     amplitude_trend = pm.HalfNormal(name="amplitude_trend", sigma=1.0)
-    ls_trend = pm.LogNormal(name="ls_trend", mu=np.log(700 / obs_std), sigma=1)
+    ls_trend = pm.LogNormal(name="ls_trend", mu=np.log(700 / time_std), sigma=1)
     cov_trend = amplitude_trend * pm.gp.cov.ExpQuad(input_dim=1, ls=ls_trend)
     gp_trend = pm.gp.HSGP(m=[20], c=1.5, cov_func=cov_trend)
-    f_trend = gp_trend.prior(name="f_trend", X=normalized_obs_data[:, None], dims="obs")
+    f_trend = gp_trend.prior(name="f_trend", X=normalized_time_data[:, None], dims="time")
 
     ## year periodic
     amplitude_year_periodic = pm.HalfNormal(name="amplitude_year_periodic", sigma=1)
-    ls_year_periodic = pm.LogNormal(name="ls_year_periodic", mu=np.log(7_000 / obs_std), sigma=1)
+    ls_year_periodic = pm.LogNormal(name="ls_year_periodic", mu=np.log(7_000 / time_std), sigma=1)
     gp_year_periodic = pm.gp.HSGPPeriodic(
         m=20,
         scale=amplitude_year_periodic,
-        cov_func=pm.gp.cov.Periodic(input_dim=1, period=365.25 / obs_std, ls=ls_year_periodic),
+        cov_func=pm.gp.cov.Periodic(input_dim=1, period=365.25 / time_std, ls=ls_year_periodic),
     )
     f_year_periodic = gp_year_periodic.prior(
-        name="f_year_periodic", X=normalized_obs_data[:, None], dims="obs"
+        name="f_year_periodic", X=normalized_time_data[:, None], dims="time"
     )
 
     ## day of week
@@ -438,7 +404,7 @@ with pm.Model(coords=coords) as model:
         var=f_trend
         + f_year_periodic
         + b_day_of_week[day_of_week_idx_data] * (day_of_week_idx_data > 0),
-        dims="obs",
+        dims="time",
     )
 
     # --- Likelihood ---
@@ -447,7 +413,7 @@ with pm.Model(coords=coords) as model:
         mu=mu,
         sigma=sigma,
         observed=normalized_log_births_relative100_data,
-        dims="obs",
+        dims="time",
     )
 
 pm.model_to_graphviz(model=model)
@@ -474,7 +440,7 @@ az.plot_ppc(data=prior_predictive, group="prior", kind="kde", ax=ax)
 ax.set_title(label="Prior Predictive", fontsize=18, fontweight="bold")
 ```
 
-It looks very reasonable as the prior samples are withing a reasonable range of the observed data.
+It looks very reasonable as the prior samples are within a reasonable range of the observed data.
 
 +++
 
@@ -562,7 +528,7 @@ pp_vars_original_scale = {
     var_name: apply_fn_along_dims(
         fn=births_relative100_pipeline.inverse_transform,
         a=idata["posterior"][var_name],
-        dim="obs",
+        dim="time",
     )
     for var_name in ["f_trend", "f_year_periodic"]
 }
@@ -574,7 +540,7 @@ pp_vars_original_scale = {
 pp_likelihood_original_scale = apply_fn_along_dims(
     fn=births_relative100_pipeline.inverse_transform,
     a=posterior_predictive["posterior_predictive"]["likelihood"],
-    dim="obs",
+    dim="time",
 )
 ```
 
@@ -707,7 +673,7 @@ If we want to combine the global trend and the yearly periodicity, we can't simp
 pp_vars_original_scale["f_trend_periodic"] = apply_fn_along_dims(
     fn=births_relative100_pipeline.inverse_transform,
     a=idata["posterior"]["f_trend"] + idata["posterior"]["f_year_periodic"],
-    dim="obs",
+    dim="time",
 )
 
 fig, ax = plot_component(
