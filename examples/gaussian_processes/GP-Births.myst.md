@@ -50,6 +50,8 @@ This notebook is based on the blog post {cite:p}`orduz2024Birthdays` where Juan 
 :::
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 import warnings
 
 from collections.abc import Callable
@@ -81,6 +83,8 @@ plt.rcParams["figure.facecolor"] = "white"
 ```
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 seed: int = sum(map(ord, "birthdays"))
 rng: np.random.Generator = np.random.default_rng(seed=seed)
 ```
@@ -577,6 +581,8 @@ pp_likelihood_original_scale = apply_fn_along_dims(
 We start by plotting the likelihood.
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 fig, ax = plt.subplots(figsize=(15, 9))
 sns.scatterplot(data=data_df, x="date", y="births_relative100", c="C0", s=8, label="data", ax=ax)
 ax.axhline(100, color="black", linestyle="--", label="mean level")
@@ -636,6 +642,8 @@ To get a better understanding of the model fit, we need to look into the individ
 Next, we visualize each of the main components of the model. We write a utility function to do this.
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 def plot_component(
     component_name: str, color: str, component_label: str
 ) -> tuple[plt.Figure, plt.Axes]:
