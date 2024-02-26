@@ -73,7 +73,7 @@ def setup(app: Sphinx):
 html_theme = "pymc_sphinx_theme"
 html_baseurl = "https://www.pymc.io/projects/examples/"
 rtd_version = os.environ.get("READTHEDOCS_VERSION", "")
-sitemap_url_scheme = f"{{lang}}{rtd_version}{{link}}"
+sitemap_url_scheme = f"{{lang}}{rtd_version}/{{link}}"
 html_theme_options = {
     "secondary_sidebar_items": ["postcard", "page-toc", "edit-this-page", "sourcelink", "donate"],
     "navbar_start": ["navbar-logo"],
