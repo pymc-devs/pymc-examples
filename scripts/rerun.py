@@ -14,6 +14,7 @@ The example below does the following:
 python scripts/rerun.py --fp_notebook=examples/case_studies/BEST.ipynb --commit_to=rerun-best --push_to=mine
 ```
 """
+
 import argparse
 import logging
 import pathlib
