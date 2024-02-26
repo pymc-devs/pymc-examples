@@ -426,8 +426,6 @@ There is an alternative parametrization of the day of week as described in {cite
 b_day_of_week = pm.ZeroSumNormal(name="b_day_of_week", sigma=1, dims="day_of_week")
 ```
 
-```
-
 +++
 
 ```{attention}
