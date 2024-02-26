@@ -420,7 +420,7 @@ pm.model_to_graphviz(model=model)
 ```
 
 ```{tip}
-There is an alternative parametrization of the day of week as described in {cite:p}`orduz2024Birthdays`. We can use a {class}`~pymc.gp.ZeroSumNormal` distribution to parametrize via relative difference across weekdays. We would simply replace the prior `b_day_of_week` as:
+There is an alternative parametrization of the day of week as described in {cite:p}`orduz2024Birthdays`. We can use a {class}`~pymc.ZeroSumNormal` distribution to parametrize via relative difference across weekdays. We would simply replace the prior `b_day_of_week` as:
 
 ```python
 b_day_of_week = pm.ZeroSumNormal(name="b_day_of_week", sigma=1, dims="day_of_week")
