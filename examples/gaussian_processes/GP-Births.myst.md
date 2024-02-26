@@ -419,8 +419,19 @@ with pm.Model(coords=coords) as model:
 pm.model_to_graphviz(model=model)
 ```
 
+```{tip}
+There is an alternative parametrization of the day of week as described in {cite:p}`orduz2024Birthdays`. We can use a {class}`~pymc.gp.ZeroSumNormal` distribution to parametrize via relative difference across weekdays. We would simply replace the prior `b_day_of_week` as:
+
+```python
+b_day_of_week = pm.ZeroSumNormal(name="b_day_of_week", sigma=1, dims="day_of_week")
+```
+
+```
+
++++
+
 ```{attention}
-The first two basis vectors for the (periodic) {class}`~pymc.gp.HSGP` sometimes come out to be either all ones or all zeros. This is a problem because it brings an extra intercept in the model and this can hurt sampling. To avoid this, you can use the `drop_first` argument in the {class}`~pymc.gp.HSGP` class.
+The first two basis vectors for the (periodic) {class}`~pymc.gp.HSGP` sometimes come out to be either all ones or all zeros. In general, when there is an intercept term in the model (in this example is not the case), this is a problem because it brings an extra intercept in the model and this can hurt sampling. To avoid this, you can use the `drop_first` argument in the {class}`~pymc.gp.HSGP` class.
 ```
 
 +++
@@ -457,7 +468,7 @@ with model:
         nuts_sampler="numpyro",
         random_seed=rng,
     )
-    posterior_predictive = pm.sample_posterior_predictive(trace=idata, random_seed=rng)
+    idata.extend(pm.sample_posterior_predictive(trace=idata, random_seed=rng))
 ```
 
 ## Diagnostics
@@ -487,10 +498,11 @@ We can also look into the trace plots.
 axes = az.plot_trace(
     data=idata,
     var_names=var_names,
+    kind="rank_bars",
     compact=True,
     backend_kwargs={"figsize": (15, 12), "layout": "constrained"},
 )
-plt.gcf().suptitle("Trace", fontsize=16)
+plt.gcf().suptitle("Model Trace", fontsize=18, fontweight="bold")
 ```
 
 ```{note}
@@ -539,7 +551,7 @@ pp_vars_original_scale = {
 ```{code-cell} ipython3
 pp_likelihood_original_scale = apply_fn_along_dims(
     fn=births_relative100_pipeline.inverse_transform,
-    a=posterior_predictive["posterior_predictive"]["likelihood"],
+    a=idata["posterior_predictive"]["likelihood"],
     dim="time",
 )
 ```
@@ -586,7 +598,7 @@ It looks that we are capturing the global variation. Let’s look into the poste
 ```{code-cell} ipython3
 fig, ax = plt.subplots()
 az.plot_ppc(
-    data=posterior_predictive,
+    data=idata,
     num_pp_samples=1_000,
     observed_rug=True,
     random_seed=seed,
