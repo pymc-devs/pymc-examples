@@ -521,9 +521,11 @@ Observe we get the same results as in `Model 3: Slow trend + yearly seasonal tre
 
 ## Posterior Distribution Analysis
 
-Now we want to do a deep dive into the posterior distribution of the model and its components. We want to do this in the original scale. Therefore the first step is to transform the posterior samples back to the original scale. For that purpose we use the following utility function:
+Now we want to do a deep dive into the posterior distribution of the model and its components. We want to do this in the original scale. Therefore the first step is to transform the posterior samples back to the original scale. For that purpose we use the following utility function (the code is not important).
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 def apply_fn_along_dims(fn: Callable, a: xr.DataArray, dim: str) -> xr.DataArray:
     """Apply a function along a specific dimension.
 
