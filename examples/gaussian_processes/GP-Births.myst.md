@@ -696,8 +696,19 @@ fig, ax = plot_component(
 )
 ```
 
+---
+We hope you better understand HSGPs and how to use them in practice with the very convenient PyMC API. In a future notebook, we will present a more complete model to compare with Aki's results. Stay tuned!
+
++++
+
 ## Authors
 - Authored by [Juan Orduz](https://juanitorduz.github.io/) in January 2024 
+
++++
+
+## Acknowledgements
+
+I would like to thank [Alex Andorra](https://github.com/AlexAndorra) [Bill Engels](https://github.com/bwengals) for their valuable feedback and suggestions during the writing of this notebook.
 
 +++
 
