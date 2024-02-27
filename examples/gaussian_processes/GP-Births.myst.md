@@ -15,20 +15,25 @@ myst:
 ---
 
 (gp-birthdays)=
-# Baby Births Modelling with HSGP
+# Baby Births Modelling with HSGPs
 
 :::{post} January, 2024
 :tags: gaussian processes, hilbert space approximation,
 :category: intermediate, how-to
-:author: [Bill Engels](https://github.com/bwengals) and [Juan Orduz](https://juanitorduz.github.io/)
+:author: [Juan Orduz](https://juanitorduz.github.io/)
 :::
 
 +++
 
-This notebook provides an example of using the Hilbert  Space Gaussian Process (HSGP) technique, introduced in {cite:p}`solin2020Hilbert`, in the context of time series modeling. This technique has proven successful in speeding up models with Gaussian process components. To illustrate the main concepts, we use the classic *birthdays* example dataset (see {cite:p}`gelman2013bayesian`  [Chapter 21]) and reproduce one of the models presented in the excellent case study {cite:p}`vehtari2022Birthdays` by [Aki Vehtari](https://users.aalto.fi/~ave/)(https://users.aalto.fi/~ave/) (you can find the Stan code on [this repository](https://github.com/avehtari/casestudies/tree/master/Birthdays). In his exposition, the author presents an extensive iterative approach to analyze the relative number of births per day in the USA from 1969-1988 using HSGPs for various components:  the long-term, seasonal, weekly, day the year, and special floating day variation. As this resource is very detailed and gives many relevant explanations, we do not reproduce the whole process but instead focus on reproducing one of the intermediate models. Namely, the model with a slow trend, yearly seasonal trend, and day-of-week components (Model 3 in the original case study). The reason for reproducing a simpler model than the final one is to make this an introductory notebook for users willing to learn about this technique. We will provide a subsequent example where we implement the final model with all components.
+This notebook provides an example of using the Hilbert Space Gaussian Process (HSGP) technique, introduced in {cite:p}`solin2020Hilbert`, in the context of time series modeling. This technique has proven successful in speeding up models with Gaussian process components.
 
-In this notebook, we do not want to deep-dive into the mathematical details but rather focus on the implementation and how to use PyMC's {class}`~pymc.gp.HSGP` API. This class provides a convenient way of using HSGPs in PyMC models. The user needs to input certain parameters to control the number of terms in the approximation and the domain of definition. Of course, understanding what these parameters do is important, so let's briefly touch upon the main idea of the approximation and the most relevant parameters:.
-Recall that a *kernel* (associated with a covariance function) is the main ingredient of a Gaussian process as it encodes a measure of similarity (and smoothness) between points. The Hilbert space approximation idea is to decompose such kernel as a linear combination of an orthonormal basis so that when replacing the kernel by this expansion, we can fit a linear model in terms of these basis functions. Sampling from a truncated expansion will be much faster than the vanilla Gaussian process formulation. The key observation is that the basis functions in the approximation do not depend on the hyperparameters of the covariance function for the Gaussian process, allowing the computations to speed up tremendously. Where does the Hilbert Space come from? It turns out that the orthonormal basis comes from the spectral decomposition of the Laplace operator on a compact set (think about the Fourier decomposition on the circle, for example). In other words, the basis functions are eigenvectors of the Laplace operator on an $L^{2}([-L, L])$ space, which is a Hilbert Space. Returning to the class class}`~pymc.gp.HSGP`, the two most important parameters are:
+To illustrate the main concepts, we use the classic *birthdays* example dataset (see {cite:p}`gelman2013bayesian`  [Chapter 21]) and reproduce one of the models presented in the excellent case study {cite:p}`vehtari2022Birthdays` by [Aki Vehtari](https://users.aalto.fi/~ave/) (you can find the Stan code on [this repository](https://github.com/avehtari/casestudies/tree/master/Birthdays)). In his exposition, the author presents an extensive iterative approach to analyze the relative number of births per day in the USA from 1969-1988 using HSGPs for various components:  the long-term, seasonal, weekly, day the year, and special floating day variation. As this resource is very detailed and gives many relevant explanations, we do not reproduce the whole process but instead focus on reproducing one of the intermediate models. Namely, the model with a slow trend, yearly seasonal trend, and day-of-week components (Model 3 in the original case study). The reason for reproducing a simpler model than the final one is to make this an introductory notebook for users willing to learn about this technique. We will provide a subsequent example where we implement the final model with all components.
+
+In this notebook, we do not want to deep-dive into the mathematical details but rather focus on the implementation and how to use PyMC's {class}`~pymc.gp.HSGP` API. This class provides a convenient way of using HSGPs in PyMC models. The user needs to input certain parameters to control the number of terms in the approximation and the domain of definition. Of course, understanding what these parameters do is important, so let's briefly touch upon the main idea of the approximation and the most relevant parameters:
+
+Recall that a *kernel* (associated with a covariance function) is the main ingredient of a Gaussian process as it encodes a measure of similarity (and smoothness) between points. The Hilbert space approximation idea is to decompose such kernel as a linear combination of an orthonormal basis so that when replacing the kernel by this expansion, we can fit a linear model in terms of these basis functions. Sampling from a truncated expansion will be much faster than the vanilla Gaussian process formulation. The key observation is that the basis functions in the approximation do not depend on the hyperparameters of the covariance function for the Gaussian process, allowing the computations to speed up tremendously.
+
+Where does the Hilbert Space come from? It turns out that the orthonormal basis comes from the spectral decomposition of the Laplace operator on a compact set (think about the Fourier decomposition on the circle, for example). In other words, the basis functions are eigenvectors of the Laplace operator on an $L^{2}([-L, L])$ space, which is a Hilbert Space. Returning to the class {class}`~pymc.gp.HSGP`, the two most important parameters are:
 
 - **$m$:** The number of basis vectors to use in the approximation.
 - **$L$**: The boundary of the space of definition. Choose L such that the domain $[-L, L]$ contains all points in the domain. (Note that the compact set is the closed interval $[-L, L]$ 😉)
@@ -36,12 +41,14 @@ Recall that a *kernel* (associated with a covariance function) is the main ingre
 We recommend the paper {cite:p}`riutort2022PracticalHilbertSpaceApproximate` for a practical discussion of this technique.
 
 ```{note}
-You can find a similar example in [`Numpyro`](https://num.pyro.ai/en/stable/)'s documentation: {cite:p}`numpyroBirthdays`, from [NumPyro](https://num.pyro.ai/en/stable/) As there is no HSGP wrapper in NumPyro and the moment, this example is a great resource to learn about the method internals.
+You can find a similar example in [`Numpyro`](https://num.pyro.ai/en/stable/)'s documentation: {cite:p}`numpyroBirthdays`. As at the moment there is no HSGP wrapper in NumPyro, this example is a great resource to learn about the method internals.
 ```
 
 ```{note}
 This notebook is based on the blog post {cite:p}`orduz2024Birthdays`.
 ```
+
+---
 
 +++
 
