@@ -715,7 +715,7 @@ We hope you better understand HSGPs and how to use them in practice with the ver
 
 ## Acknowledgements
 
-I would like to thank [Alex Andorra](https://github.com/AlexAndorra) [Bill Engels](https://github.com/bwengals) for their valuable feedback and suggestions during the writing of this notebook.
+I would like to thank [Alex Andorra](https://github.com/AlexAndorra) and [Bill Engels](https://github.com/bwengals) for their valuable feedback and suggestions during the writing of this notebook.
 
 +++
 
