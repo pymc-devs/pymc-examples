@@ -10,7 +10,7 @@ kernelspec:
   name: python3
 ---
 
-(arima_garch_1_1)=
+(time_series_generative_graph)=
 # Time Series Models Derived From a Generative Graph
 
 :::{post} March, 2024
@@ -21,7 +21,7 @@ kernelspec:
 
 +++
 
-In This notebook, we show to model and fit a time series model starting from a generative graph. In particular, we explain how to use {class}`~pytensor.scan` to loop efficiently inside a PyMC model.
+In This notebook, we show to model and fit a time series model starting from a generative graph. In particular, we explain how to use {func}`~pytensor.scan` to loop efficiently inside a PyMC model.
 
 For this example, we consider an autoregressive model AR(2). Recall that an AR(2) model is defined as:
 
@@ -57,16 +57,16 @@ rng = np.random.default_rng(42)
 
 ## Define AR(2) Process
 
-We start by encoding the generative graph of the AR(2) model as a function `ar_dist`. The strategy is to pass this function as a custom distribution via {class}`pm.CustomDist` inside a PyMC model. 
+We start by encoding the generative graph of the AR(2) model as a function `ar_dist`. The strategy is to pass this function as a custom distribution via {class}`~pm.CustomDist` inside a PyMC model. 
 
-We need to specify the initial state (`ar_init`), the autoregressive coefficients (`rho`), and the standard deviation of the noise (`sigma`). Given such parameters, we can define the generative graph of the AR(2) model using the  {class}`~pytensor.scan` operation.
+We need to specify the initial state (`ar_init`), the autoregressive coefficients (`rho`), and the standard deviation of the noise (`sigma`). Given such parameters, we can define the generative graph of the AR(2) model using the  {func}`~pytensor.scan` operation.
 
 ```{code-cell} ipython3
 lags = 2  # Number of lags
 trials = 100  # Time series length
 
 
-def ar_dist(ar_init, rho, sigma):
+def ar_dist(ar_init, rho, sigma, size):
     def ar_step(x_tm2, x_tm1, rho, sigma):
         mu = x_tm1 * rho[0] + x_tm2 * rho[1]
         x = mu + pm.Normal.dist(sigma=sigma)
@@ -144,7 +144,7 @@ for i, hdi_prob in enumerate((0.94, 0.64), 1):
     )
 ax.plot(prior.prior["ar"].mean(("chain", "draw")), color="C0", label="Mean")
 ax.legend(loc="upper right")
-ax.set_xlabel("trials")
+ax.set_xlabel("time")
 ax.set_title("AR(2) Prior Samples", fontsize=18, fontweight="bold")
 ```
 
@@ -163,27 +163,36 @@ for i, axi in enumerate(ax, start=chosen_draw):
         color="C0" if i == chosen_draw else "black",
     )
     axi.set_title(f"Sample {i}", fontsize=18, fontweight="bold")
-ax[-1].set_xlabel("trials")
+ax[-1].set_xlabel("time")
 ```
 
 ## Posterior
 
+Next, we want to condition the AR(2) model on some observed data so that we can do a parameter recovery analysis.
+
 ```{code-cell} ipython3
+# Pick a random draw from the prior (i.e. a time series)
 prior_draw = prior.prior.isel(chain=0, draw=chosen_draw)
 
+# Set the observed values
 ar_init_obs.set_value(prior_draw["ar"].values[:lags])
 ar_innov_obs.set_value(prior_draw["ar"].values[lags:])
 ar_obs = prior_draw["ar"].to_numpy()
 rho_true = prior_draw["rho"].to_numpy()
 sigma_true = prior_draw["sigma"].to_numpy()
 
+# Output the true values
 print(f"rho_true={np.round(rho_true, 3)}, {sigma_true=:.3f}")
 ```
+
+We now run the MCMC algorithm to sample from the posterior distribution.
 
 ```{code-cell} ipython3
 with model:
     trace = pm.sample(random_seed=rng)
 ```
+
+Let's plot the trace and the posterior distribution of the parameters.
 
 ```{code-cell} ipython3
 axes = az.plot_trace(
@@ -206,7 +215,13 @@ axes = az.plot_posterior(
 plt.gcf().suptitle("AR(2) Model Parameters Posterior", fontsize=18, fontweight="bold")
 ```
 
+We see we have successfully recovered the true parameters of the model.
+
++++
+
 ## Posterior Predictive
+
+Finally, we can use the posterior samples to generate new data from the AR(2) model. We can then compare the generated data with the observed data to check the goodness of fit of the model.
 
 ```{code-cell} ipython3
 with model:
@@ -232,9 +247,11 @@ for i, hdi_prob in enumerate((0.94, 0.64), 1):
 ax.plot(prior.prior["ar"].mean(("chain", "draw")), color="C0", label="Mean")
 ax.plot(ar_obs, color="black", label="Observed")
 ax.legend(loc="upper right")
-ax.set_xlabel("trials")
+ax.set_xlabel("time")
 ax.set_title("AR(2) Posterior Predictive Samples", fontsize=18, fontweight="bold")
 ```
+
+Overall, we the model is capturing the global dynamics of the time series. In order to have a abetter insight of the model, we can plot a subset of the posterior samples and compare them with the observed data.
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(
@@ -242,22 +259,17 @@ fig, ax = plt.subplots(
 )
 for i, axi in enumerate(ax):
     axi.plot(post_pred.posterior_predictive["ar"].isel(draw=i, chain=0), color="C0")
+    axi.plot(ar_obs, color="black", label="Observed")
+    axi.legend(loc="upper right")
     axi.set_title(f"Sample {i}")
 
-ax[-1].set_xlabel("trials")
+ax[-1].set_xlabel("time")
 
 fig.suptitle("AR(2) Posterior Predictive Samples", fontsize=18, fontweight="bold", y=1.05)
 ```
 
 ## Authors
 - Authored by [Juan Orduz](https://juanitorduz.github.io/) and [Ricardo Vieira](https://github.com/ricardoV94) in March 2024
-
-+++
-
-## References
-:::{bibliography}
-:filter: docname in docnames
-:::
 
 +++
 
