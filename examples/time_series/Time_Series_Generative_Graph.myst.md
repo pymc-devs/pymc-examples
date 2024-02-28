@@ -19,7 +19,23 @@ kernelspec:
 :author: Juan Orduz and Ricardo Vieira
 :::
 
++++
+
+In This notebook, we show to model and fit a time series model starting from a generative graph. In particular, we explain how to use {class}`~pytensor.scan` to loop efficiently inside a PyMC model.
+
+For this example, we consider an autoregressive model AR(2). Recall that an AR(2) model is defined as:
+
+$$
+\begin{align*}
+y_t &= \rho_1 y_{t-1} + \rho_2 y_{t-2} + \varepsilon_t, \quad \varepsilon_t \sim \mathcal{N}(0, \sigma^2)
+\end{align*}
+$$
+
+That is, we have a recursive linear model in term of the first two lags of the time series.
+
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
@@ -39,12 +55,18 @@ plt.rcParams["figure.facecolor"] = "white"
 rng = np.random.default_rng(42)
 ```
 
+## Define AR(2) Process
+
+We start by encoding the generative graph of the AR(2) model as a function `ar_dist`. The strategy is to pass this function as a custom distribution via {class}`pm.CustomDist` inside a PyMC model. 
+
+We need to specify the initial state (`ar_init`), the autoregressive coefficients (`rho`), and the standard deviation of the noise (`sigma`). Given such parameters, we can define the generative graph of the AR(2) model using the  {class}`~pytensor.scan` operation.
+
 ```{code-cell} ipython3
-lags = 2
-trials = 100
+lags = 2  # Number of lags
+trials = 100  # Time series length
 
 
-def ar_dist(ar_init, rho, sigma, size):
+def ar_dist(ar_init, rho, sigma):
     def ar_step(x_tm2, x_tm1, rho, sigma):
         mu = x_tm1 * rho[0] + x_tm2 * rho[1]
         x = mu + pm.Normal.dist(sigma=sigma)
@@ -60,6 +82,10 @@ def ar_dist(ar_init, rho, sigma, size):
 
     return ar_innov
 ```
+
+## Generate AR(2) Graph
+
+Now that we have implemented the AR(2) step, we can assign priors to the parameters `rho` and `sigma`. We also specify the initial state `ar_init` as a zero vector.
 
 ```{code-cell} ipython3
 coords = {
@@ -95,6 +121,8 @@ pm.model_to_graphviz(model)
 
 ## Prior
 
+Let's sample from the prior distribution to see how the AR(2) model behaves.
+
 ```{code-cell} ipython3
 with model:
     prior = pm.sample_prior_predictive(samples=100, random_seed=rng)
@@ -119,6 +147,10 @@ ax.legend(loc="upper right")
 ax.set_xlabel("trials")
 ax.set_title("AR(2) Prior Samples", fontsize=18, fontweight="bold")
 ```
+
+It is not surprising that the prior distribution is a stationary process around zero given that the prior of the  `rho` parameter is far from one.
+
+Let's look into individual samples to get a feeling of the heterogeneity of the generated series:
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(
