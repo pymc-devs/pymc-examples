@@ -21,7 +21,7 @@ kernelspec:
 
 +++
 
-In This notebook, we show to model and fit a time series model starting from a generative graph. In particular, we explain how to use {func}`~pytensor.scan` to loop efficiently inside a PyMC model.
+In This notebook, we show to model and fit a time series model starting from a generative graph. In particular, we explain how to use {func}`~pytensor.scan.basic.scan` to loop efficiently inside a PyMC model.
 
 For this example, we consider an autoregressive model AR(2). Recall that an AR(2) model is defined as:
 
@@ -57,9 +57,9 @@ rng = np.random.default_rng(42)
 
 ## Define AR(2) Process
 
-We start by encoding the generative graph of the AR(2) model as a function `ar_dist`. The strategy is to pass this function as a custom distribution via {class}`~pm.CustomDist` inside a PyMC model. 
+We start by encoding the generative graph of the AR(2) model as a function `ar_dist`. The strategy is to pass this function as a custom distribution via {class}`~pymc.CustomDist` inside a PyMC model. 
 
-We need to specify the initial state (`ar_init`), the autoregressive coefficients (`rho`), and the standard deviation of the noise (`sigma`). Given such parameters, we can define the generative graph of the AR(2) model using the  {func}`~pytensor.scan` operation.
+We need to specify the initial state (`ar_init`), the autoregressive coefficients (`rho`), and the standard deviation of the noise (`sigma`). Given such parameters, we can define the generative graph of the AR(2) model using the  {func}`~pytensor.scan.basic.scan` operation.
 
 ```{code-cell} ipython3
 lags = 2  # Number of lags
