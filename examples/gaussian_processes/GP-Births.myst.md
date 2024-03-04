@@ -38,6 +38,8 @@ Where does the Hilbert Space come from? It turns out that the orthonormal basis 
 - **$m$:** The number of basis vectors to use in the approximation.
 - **$L$**: The boundary of the space of definition. Choose L such that the domain $[-L, L]$ contains all points in the domain. (Note that the compact set is the closed interval $[-L, L]$ 😉)
 
+One can also use a *proportion extension factor* $c > 0$ used to construct $L$ from the domain of definition of the Gaussian process $X$. Concretely, $L$ can be specified as the product $cS$, where $S = max|X|$.
+
 We recommend the paper {cite:p}`riutort2022PracticalHilbertSpaceApproximate` for a practical discussion of this technique.
 
 ```{note}
