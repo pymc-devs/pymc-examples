@@ -153,7 +153,7 @@ plt.legend(title="Spline Index", loc="upper center", fontsize=8, ncol=6);
 
 ### Fit the model
 
-Finally, the model can be built using PyMC. A graphical diagram shows the organization of the model parameters (note that this requires the installation of `python-graphviz`, which I recommend doing in a `conda` virtual environment).
+Finally, the model can be built using PyMC. A graphical diagram shows the organization of the model parameters (note that this requires the installation of {ref}`python-graphviz`, which I recommend doing in a `conda` virtual environment).
 
 ```{code-cell} ipython3
 COORDS = {"splines": np.arange(B.shape[1])}

@@ -28,6 +28,7 @@ extensions = [
     "notfound.extension",
     "thumbnail_extractor",
     "sphinxext.rediraffe",
+    "sphinx_sitemap",
 ]
 
 # List of patterns, relative to source directory, that match files and
@@ -43,6 +44,7 @@ exclude_patterns = [
     "page_footer.md",
     "**/*.myst.md",
 ]
+numfig = True
 
 
 def remove_index(app):
@@ -69,6 +71,9 @@ def setup(app: Sphinx):
 
 # theme options
 html_theme = "pymc_sphinx_theme"
+html_baseurl = "https://www.pymc.io/projects/examples/"
+rtd_version = os.environ.get("READTHEDOCS_VERSION", "")
+sitemap_url_scheme = f"{{lang}}{rtd_version}/{{link}}"
 html_theme_options = {
     "secondary_sidebar_items": ["postcard", "page-toc", "edit-this-page", "sourcelink", "donate"],
     "navbar_start": ["navbar-logo"],
@@ -79,8 +84,7 @@ html_theme_options = {
     "show_prev_next": True,
     "article_footer_items": ["rendered_citation.html"],
 }
-version = os.environ.get("READTHEDOCS_VERSION", "")
-version = version if "." in version else "main"
+version = version if "." in rtd_version else "main"
 doi_code = os.environ.get("DOI_READTHEDOCS", "10.5281/zenodo.5654871")
 html_context = {
     "github_url": "https://github.com",
@@ -103,13 +107,13 @@ html_title = "PyMC example gallery"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["../_static"]
-html_extra_path = ["../_thumbnails"]
+html_extra_path = ["../_thumbnails", "robots.txt"]
 templates_path = ["../_templates"]
 html_sidebars = {
     "**": [
         "sidebar-nav-bs.html",
         "postcard_categories.html",
-        "tagcloud.html",
+        "ablog/tagcloud.html",
     ],
 }
 

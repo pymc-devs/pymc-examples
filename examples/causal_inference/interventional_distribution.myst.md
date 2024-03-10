@@ -6,12 +6,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_env
+  display_name: Python 3 (ipykernel)
   language: python
-  name: pymc_env
-myst:
-  substitutions:
-    extra_dependencies: daft pymc_experimental
+  name: python3
 ---
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}}
@@ -57,29 +54,14 @@ import seaborn as sns
 from packaging import version
 ```
 
-+++ {"editable": true, "slideshow": {"slide_type": ""}}
-
-:::{include} ../extra_installs.md
-:::
-
-This notebook relies on experimental functionality currently in the [pymc-experimental](https://github.com/pymc-devs/pymc-experimental) repository. In the near future this will be moved into the main [pymc](https://github.com/pymc-devs/pymc) repository.
-
 ```{code-cell} ipython3
 ---
 editable: true
 slideshow:
   slide_type: ''
 ---
-# Import additional libraries that are not dependencies of PyMC
-import daft
-import pymc_experimental as pmx
-
-# Check we have the necessary versions to get the new experimental functionality.
-assert version.parse(pm.__version__) >= version.parse("5.5.0")
-assert version.parse(pmx.__version__) >= version.parse("0.0.7")
-
 # import the new functionality
-from pymc_experimental.model_transform.conditioning import do
+from pymc.model.transform.conditioning import do
 ```
 
 ```{code-cell} ipython3

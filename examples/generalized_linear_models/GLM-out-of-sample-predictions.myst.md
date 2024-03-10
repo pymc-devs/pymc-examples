@@ -13,7 +13,7 @@ kernelspec:
 (GLM-out-of-sample-predictions)=
 # Out-Of-Sample Predictions
 
-:::{post} December, 2022
+:::{post} December, 2023
 :tags: generalized linear model, logistic regression, out of sample predictions, patsy
 :category: beginner
 :::
@@ -23,13 +23,11 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import patsy
 import pymc as pm
 import seaborn as sns
 
 from scipy.special import expit as inverse_logit
-from sklearn.metrics import RocCurveDisplay, accuracy_score, auc, roc_curve
-from sklearn.model_selection import train_test_split
+from sklearn.metrics import RocCurveDisplay, auc, roc_curve
 ```
 
 ```{code-cell} ipython3
@@ -55,7 +53,7 @@ beta_x2 = -1
 beta_interaction = 2
 z = intercept + beta_x1 * x1 + beta_x2 * x2 + beta_interaction * x1 * x2
 p = inverse_logit(z)
-# note binimial with n=1 is equal to a bernoulli
+# note binomial with n=1 is equal to a Bernoulli
 y = rng.binomial(n=1, p=p, size=n)
 df = pd.DataFrame(dict(x1=x1, x2=x2, y=y))
 df.head()
@@ -81,16 +79,23 @@ ax.set(title="Sample Data", xlim=(-9, 9), ylim=(-9, 9));
 ## Prepare Data for Modeling
 
 ```{code-cell} ipython3
-y, x = patsy.dmatrices("y ~ x1 * x2", data=df)
-y = np.asarray(y).flatten()
-labels = x.design_info.column_names
-x = np.asarray(x)
+labels = ["Intercept", "x1", "x2", "x1:x2"]
+df["Intercept"] = np.ones(len(df))
+df["x1:x2"] = df["x1"] * df["x2"]
+# reorder columns to be in the same order as labels
+df = df[labels]
+x = df.to_numpy()
 ```
 
 Now we do a train-test split.
 
 ```{code-cell} ipython3
-x_train, x_test, y_train, y_test = train_test_split(x, y, train_size=0.7)
+indices = rng.permutation(x.shape[0])
+train_prop = 0.7
+train_size = int(train_prop * x.shape[0])
+training_idx, test_idx = indices[:train_size], indices[train_size:]
+x_train, x_test = x[training_idx, :], x[test_idx, :]
+y_train, y_test = y[training_idx], y[test_idx]
 ```
 
 ## Define and Fit the Model
@@ -98,9 +103,9 @@ x_train, x_test, y_train, y_test = train_test_split(x, y, train_size=0.7)
 We now specify the model in PyMC.
 
 ```{code-cell} ipython3
-COORDS = {"coeffs": labels}
+coords = {"coeffs": labels}
 
-with pm.Model(coords=COORDS) as model:
+with pm.Model(coords=coords) as model:
     # data containers
     X = pm.MutableData("X", x_train)
     y = pm.MutableData("y", y_train)
@@ -152,7 +157,7 @@ with model:
 ```{code-cell} ipython3
 # Compute the point prediction by taking the mean and defining the category via a threshold.
 p_test_pred = idata.posterior_predictive["obs"].mean(dim=["chain", "draw"])
-y_test_pred = (p_test_pred >= 0.5).astype("int")
+y_test_pred = (p_test_pred >= 0.5).astype("int").to_numpy()
 ```
 
 ## Evaluate Model
@@ -160,7 +165,7 @@ y_test_pred = (p_test_pred >= 0.5).astype("int")
 First let us compute the accuracy on the test set.
 
 ```{code-cell} ipython3
-print(f"accuracy = {accuracy_score(y_true=y_test, y_pred=y_test_pred): 0.3f}")
+print(f"accuracy = {np.mean(y_test==y_test_pred): 0.3f}")
 ```
 
 Next, we plot the [roc curve](https://en.wikipedia.org/wiki/Receiver_operating_characteristic) and compute the [auc](https://en.wikipedia.org/wiki/Receiver_operating_characteristic#Area_under_the_curve).
@@ -218,8 +223,13 @@ x1_grid, x2_grid, x_grid = make_grid()
 
 with model:
     # Create features on the grid.
-    x_grid_ext = patsy.dmatrix(formula_like="x1 * x2", data=dict(x1=x_grid[:, 0], x2=x_grid[:, 1]))
-    x_grid_ext = np.asarray(x_grid_ext)
+    x_grid_ext = np.hstack(
+        (
+            np.ones((x_grid.shape[0], 1)),
+            x_grid,
+            (x_grid[:, 0] * x_grid[:, 1]).reshape(-1, 1),
+        )
+    )
     # set the observed variables
     pm.set_data({"X": x_grid_ext})
     # calculate pushforward values of `p`
@@ -280,10 +290,15 @@ Note that we have computed the model decision boundary by using the mean of the 
 
 +++
 
+
+
++++
+
 ## Authors
 - Created by [Juan Orduz](https://github.com/juanitorduz).
 - Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) to PyMC v4 in June 2022
 - Re-executed by [Benjamin T. Vincent](https://github.com/drbenvincent) with PyMC v5 in December 2022
+- Updated by [Christian Luhmann](https://github.com/cluhmann)  in December 2023 ([pymc-examples#616](https://github.com/pymc-devs/pymc-examples/pull/616))
 
 +++
 

@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-examples
+  display_name: Python 3 (ipykernel)
   language: python
-  name: pymc-examples
+  name: python3
 myst:
   substitutions:
     extra_dependencies: jax numpyro
@@ -480,7 +480,7 @@ x_grad_wrt_emission_signal.eval()
 We are now ready to make inferences about our HMM model with PyMC. We will define priors for each model parameter and use {class}`~pymc.Potential` to add the joint log-likelihood term to our model.
 
 ```{code-cell} ipython3
-with pm.Model(rng_seeder=int(rng.integers(2**30))) as model:
+with pm.Model() as model:
     emission_signal = pm.Normal("emission_signal", 0, 1)
     emission_noise = pm.HalfNormal("emission_noise", 1)
 
@@ -515,7 +515,7 @@ pm.model_to_graphviz(model)
 Before we start sampling, we check the logp of each variable at the model initial point. Bugs tend to manifest themselves in the form of `nan` or `-inf` for the initial probabilities.
 
 ```{code-cell} ipython3
-initial_point = model.compute_initial_point()
+initial_point = model.initial_point()
 initial_point
 ```
 
@@ -604,7 +604,7 @@ jax_fn()
 We can also compile a JAX function that computes the log probability of each variable in our PyMC model, similar to {meth}`~pymc.Model.point_logps`. We will use the helper method {meth}`~pymc.Model.compile_fn`.
 
 ```{code-cell} ipython3
-model_logp_jax_fn = model.compile_fn(model.logpt(sum=False), mode="JAX")
+model_logp_jax_fn = model.compile_fn(model.logp(sum=False), mode="JAX")
 model_logp_jax_fn(initial_point)
 ```
 
@@ -622,7 +622,7 @@ Now that we know our model logp can be entirely compiled to JAX, we can use the 
 
 ```{code-cell} ipython3
 with model:
-    idata_numpyro = pm.sampling_jax.sample_numpyro_nuts(chains=2, progress_bar=False)
+    idata_numpyro = pm.sampling_jax.sample_numpyro_nuts(chains=2, progressbar=False)
 ```
 
 ```{code-cell} ipython3
