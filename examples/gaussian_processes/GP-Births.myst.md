@@ -27,11 +27,13 @@ myst:
 
 This notebook provides an example of using the Hilbert Space Gaussian Process (HSGP) technique, introduced in {cite:p}`solin2020Hilbert`, in the context of time series modeling. This technique has proven successful in speeding up models with Gaussian process components.
 
-To illustrate the main concepts, we use the classic *birthdays* example dataset (see {cite:p}`gelman2013bayesian`  [Chapter 21]) and reproduce one of the models presented in the excellent case study {cite:p}`vehtari2022Birthdays` by [Aki Vehtari](https://users.aalto.fi/~ave/) (you can find the Stan code on [this repository](https://github.com/avehtari/casestudies/tree/master/Birthdays)). In his exposition, the author presents an extensive iterative approach to analyze the relative number of births per day in the USA from 1969-1988 using HSGPs for various components:  the long-term, seasonal, weekly, day the year, and special floating day variation. As this resource is very detailed and gives many relevant explanations, we do not reproduce the whole process but instead focus on reproducing one of the intermediate models. Namely, the model with a slow trend, yearly seasonal trend, and day-of-week components (Model 3 in the original case study). The reason for reproducing a simpler model than the final one is to make this an introductory notebook for users willing to learn about this technique. We will provide a subsequent example where we implement the final model with all components.
+To illustrate the main concepts, we use the classic *birthdays* example dataset (see {cite:p}`gelman2013bayesian`  [Chapter 21]) and reproduce one of the models presented in the excellent case study {cite:p}`vehtari2022Birthdays` by [Aki Vehtari](https://users.aalto.fi/~ave/) (you can find the Stan code on [this repository](https://github.com/avehtari/casestudies/tree/master/Birthdays)). In his exposition, the author presents an extensive iterative approach to analyze the relative number of births per day in the USA from 1969-1988 using HSGPs for various components:  the long-term trend, seasonal, weekly, day the year, and special floating day variation. As this resource is very detailed and gives many relevant explanations, we do not reproduce the whole process but instead focus on reproducing one of the intermediate models. Namely, the model with a slow trend, yearly seasonal trend, and day-of-week components (Model 3 in the original case study). The reason for reproducing a simpler model than the final one is to make this an introductory notebook for users willing to learn about this technique. We will provide a subsequent example where we implement the final model with all components.
 
 In this notebook, we do not want to deep-dive into the mathematical details but rather focus on the implementation and how to use PyMC's {class}`~pymc.gp.HSGP` API. This class provides a convenient way of using HSGPs in PyMC models. The user needs to input certain parameters to control the number of terms in the approximation and the domain of definition. Of course, understanding what these parameters do is important, so let's briefly touch upon the main idea of the approximation and the most relevant parameters:
 
-Recall that a *kernel* (associated with a covariance function) is the main ingredient of a Gaussian process as it encodes a measure of similarity (and smoothness) between points. The Hilbert space approximation idea is to decompose such kernel as a linear combination of an orthonormal basis so that when replacing the kernel by this expansion, we can fit a linear model in terms of these basis functions. Sampling from a truncated expansion will be much faster than the vanilla Gaussian process formulation. The key observation is that the basis functions in the approximation do not depend on the hyperparameters of the covariance function for the Gaussian process, allowing the computations to speed up tremendously.
+## The main idea of the approximation
+
+Recall that a *kernel* (associated with a covariance function) is the main ingredient of a Gaussian process as it encodes a measure of similarity (and smoothness) between points (see {ref}`GP-MeansAndCovs`). The Hilbert space approximation idea is to decompose such kernel as a linear combination of an orthonormal basis so that when replacing the kernel by this expansion, we can fit a linear model in terms of these basis functions. Sampling from a truncated expansion will be much faster than the vanilla Gaussian process formulation. The key observation is that the basis functions in the approximation do not depend on the hyperparameters of the covariance function for the Gaussian process, allowing the computations to speed up tremendously.
 
 Where does the Hilbert Space come from? It turns out that the orthonormal basis comes from the spectral decomposition of the Laplace operator on a compact set (think about the Fourier decomposition on the circle, for example). In other words, the basis functions are eigenvectors of the Laplace operator on an $L^{2}([-L, L])$ space, which is a Hilbert Space. Returning to the class {class}`~pymc.gp.HSGP`, the two most important parameters are:
 
@@ -128,7 +130,7 @@ ax.set_title(
     label="Number of Births in the USA in 1969 - 1988",
     fontsize=18,
     fontweight="bold",
-)
+);
 ```
 
 We create a couple of features:
@@ -144,6 +146,12 @@ data_df = raw_df.copy().assign(
 )
 ```
 
+```{note}
+We scale the data to be as close as possible to Aki's case study. We do not need to scale the data for the HSGP model to work.
+```
+
++++
+
 Now, let's look into the development over time of the relative births, which is the target variable we will model.
 
 ```{code-cell} ipython3
@@ -152,10 +160,12 @@ sns.scatterplot(data=data_df, x="date", y="births_relative100", c="C0", s=8, ax=
 ax.axhline(100, color="black", linestyle="--", label="mean level")
 ax.legend()
 ax.set(xlabel="date", ylabel="relative number of births")
-ax.set_title(label="Relative Births in the USA in 1969 - 1988", fontsize=18, fontweight="bold")
+ax.set_title(label="Relative Births in the USA in 1969 - 1988", fontsize=18, fontweight="bold");
 ```
 
-We see a clear long term trend component and a clear yearly seasonality. The plot above has many many data points and we want to make sure we understand seasonal patterns at different levels (which might be hidden in the plot above). Hence, we systematically check seasonality at various levels.
+We see a clear long term trend component and a clear yearly seasonality. We also see how the variance grows with time, this is known as [heteroscedasticity](https://en.wikipedia.org/wiki/Homoscedasticity_and_heteroscedasticity).
+
+The plot above has many many data points and we want to make sure we understand seasonal patterns at different levels (which might be hidden in the plot above). Hence, we systematically check seasonality at various levels.
 
 Let's continue looking by averaging over the day of the year:
 
@@ -173,14 +183,14 @@ ax.set_title(
     label="Relative Births in the USA in 1969 - 1988\nMean over Day of Year",
     fontsize=18,
     fontweight="bold",
-)
+);
 ```
 
-Overall, we see a relatively smooth behavior with the exception of certain holidays (memorial day, thanks giving and labor day) and the new year's day.
+Overall, we see a relatively smooth behavior with the exception of certain holidays (Memorial Day, Thanksgiving and Labor Day) and the new year's day.
 
 +++
 
-Next, we split by month and year to see if there if we spot any changes in the pattern over time.
+Next, we split by month and year to see if we spot any changes in the pattern over time.
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots()
@@ -205,7 +215,7 @@ ax.set_title(
     label="Relative Births in the USA in 1969 - 1988\nMean over Month and Year",
     fontsize=18,
     fontweight="bold",
-)
+);
 ```
 
 Besides the global trend, we do not see any clear differences between months.
@@ -232,7 +242,7 @@ ax.set_title(
     label="Relative Births in the USA in 1969 - 1988\nMean over Day of Week",
     fontsize=18,
     fontweight="bold",
-)
+);
 ```
 
 It seems that there are on average less births during the weekend.
@@ -250,7 +260,7 @@ Let's summarize the main findings of the EDA:
 
 ## Data Pre-Processing
 
-After having a better understanding of the data and the patters we want to capture with the model, we can proceed to pre-process the data.
+After having a better understanding of the data and the patterns we want to capture with the model, we can proceed to pre-process the data.
 
 +++
 
@@ -271,7 +281,7 @@ births_relative100 = data_df["births_relative100"].to_numpy()
 data_df.head(10)
 ```
 
-We want to work on the normalized log scale of the relative births. The reason for this is to work on a scale where is easier to set up priors (scaled space) and so that the heteroscedasticity is reduced (log transform).
+We want to work on the normalized log scale of the relative births. The reason for this is to work on a scale where it is easier to set up priors (scaled space) and so that the heteroscedasticity is reduced (log transform).
 
 ```{code-cell} ipython3
 # we want to use the scale of the data size to set up the priors.
@@ -303,7 +313,7 @@ ax.set_title(
     label="Relative Births in the USA in 1969 - 1988\nTransformed Data",
     fontsize=18,
     fontweight="bold",
-)
+);
 ```
 
 ## Model Specification
@@ -342,7 +352,7 @@ ax.set_title(
 )
 ```
 
-The motivation is that we have around $7.3$K data points and whe want to consider the in between data points distance in the normalized scale. That is why we consider the ratio `7_000 / time_str`. Note that we want to capture the long term trend, so we want to consider a length scale that is larger than the data points distance. We increase the order of magnitude by dividing by $10$. We then take a log transform as we are using a log-normal prior.
+The motivation is that we have around $7.3$K data points and we want to consider the in between data points distance in the normalized (log) scale. That is why we consider the ratio `7_000 / time_str`. Note that we want to capture the long term trend, so we want to consider a length scale that is larger than the data points distance. We increase the order of magnitude by dividing by $10$. Finally, as we are setting the prior on the normalized log-scale (because that's what the GP is seeing) we take a log-transform.
 
 +++
 
@@ -458,7 +468,7 @@ with model:
 ```{code-cell} ipython3
 fig, ax = plt.subplots()
 az.plot_ppc(data=prior_predictive, group="prior", kind="kde", ax=ax)
-ax.set_title(label="Prior Predictive", fontsize=18, fontweight="bold")
+ax.set_title(label="Prior Predictive", fontsize=18, fontweight="bold");
 ```
 
 It looks very reasonable as the prior samples are within a reasonable range of the observed data.
@@ -508,11 +518,10 @@ We can also look into the trace plots.
 axes = az.plot_trace(
     data=idata,
     var_names=var_names,
-    kind="rank_bars",
     compact=True,
     backend_kwargs={"figsize": (15, 12), "layout": "constrained"},
 )
-plt.gcf().suptitle("Model Trace", fontsize=18, fontweight="bold")
+plt.gcf().suptitle("Model Trace", fontsize=18, fontweight="bold");
 ```
 
 ```{note}
@@ -602,7 +611,7 @@ ax.set_title(
     Posterior Predictive (Likelihood)""",
     fontsize=18,
     fontweight="bold",
-)
+);
 ```
 
 It looks that we are capturing the global variation. Let’s look into the posterior distribution plot to get a better understanding of the model.
@@ -616,7 +625,7 @@ az.plot_ppc(
     random_seed=seed,
     ax=ax,
 )
-ax.set_title(label="Posterior Predictive", fontsize=18, fontweight="bold")
+ax.set_title(label="Posterior Predictive", fontsize=18, fontweight="bold");
 ```
 
 This does not seem very good as there is a pretty big discrepancy between black line and shaded blue in the bulk of posterior, tails look good. This suggests we might be missing some covariates. We explore this in a latter more complex model.
