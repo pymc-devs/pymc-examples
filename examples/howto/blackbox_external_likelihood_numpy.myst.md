@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc-examples
   language: python
-  name: python3
+  name: pymc-examples
 ---
 
 (blackbox_external_likelihood_numpy)=
@@ -25,8 +25,6 @@ There is a {ref}`related example <wrapping_jax_function>` that discusses how to 
 
 ```{code-cell} ipython3
 import arviz as az
-import IPython
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
@@ -45,9 +43,9 @@ az.style.use("arviz-darkgrid")
 ```
 
 ## Introduction
-PyMC is a great tool for doing Bayesian inference and parameter estimation. It has a load of {doc}`in-built probability distributions <pymc:api/distributions>` that you can use to set up priors and likelihood functions for your particular model. You can even create your own {class}`Custom Distribution <pymc.CustomDist>`.
+PyMC is a great tool for doing Bayesian inference and parameter estimation. It has many {doc}`in-built probability distributions <pymc:api/distributions>` that you can use to set up priors and likelihood functions for your particular model. You can even create your own {class}`Custom Distribution <pymc.CustomDist>` with a custom logp defined by PyTensor operations or automatically inferred from the generative graph.
 
-However, this is not necessarily that simple if you have a model function, or probability distribution, that, for example, relies on an external code that you have little/no control over (and may even be, for example, wrapped `C` code rather than Python). This can be problematic when you need to pass parameters as PyMC distributions to these external functions; your external function probably wants you to pass it floating point numbers rather than PyMC distributions!
+Despite all these "batteries included", you may still find yourself dealing with a model function or probability distribution that relies on complex external code that you cannot avoid but to use. This code is unlikely to work with the kind of abstract PyTensor variables that PyMC uses: {ref}`pymc:pymc_pytensor`.
 
 ```python
 import pymc as pm
@@ -66,7 +64,7 @@ Another issue is that if you want to be able to use the gradient-based step samp
 
 Defining a model/likelihood that PyMC can use and that calls your "black box" function is possible, but it relies on creating a custom PyTensor Op. This is, hopefully, a clear description of how to do this, including one way of writing a gradient function that could be generally applicable.
 
-In the examples below, we create a very simple model and log-likelihood function in numpy.
+In the examples below, we create a very simple lineral model and log-likelihood function in numpy.
 
 ```{code-cell} ipython3
 def my_model(m, c, x):
@@ -105,19 +103,17 @@ with pm.Model():
     trace = pm.sample(1000)
 ```
 
-But, this will give an error like:
+But, this will likely give an error when the black-box function does not accept PyTensor tensor objects as inputs.
 
-```
-ValueError: setting an array element with a sequence.
-```
+So, what we actually need to do is create a {ref}`PyTensor Op <pytensor:creating_an_op>`. This will be a new class that wraps our log-likelihood function while obeying the PyTensor API contract. We will do this below, initially without defining a {func}`grad` for the Op.
 
-This is because `m` and `c` are PyTensor tensor-type objects.
-
-So, what we actually need to do is create a {ref}`PyTensor Op <pytensor:creating_an_op>`. This will be a new class that wraps our log-likelihood function (or just our model function, if that is all that is required) into something that can take in PyTensor tensor objects, but internally can cast them as floating point values that can be passed to our log-likelihood function. We will do this below, initially without defining a {func}`grad` for the Op.
+:::{tip}
+Depending on your application you may only need to wrap a custom log-likelihood or a subset of the whole model (such as a function that computes an infinite series summation using an advanced library like mpmath), which can then be chained with other PyMC distributions and PyTensor operations to define your whole model. There is a trade-off here, usually the more you leave out of a black-box the more you may benefit from PyTensor rewrites and optimizations. We suggest you always try to define the whole model in PyMC and PyTensor, and only use black-boxes where strictly necessary.
+:::
 
 +++
 
-## PyTensor Op without grad
+## PyTensor Op without gradients
 
 +++
 
@@ -128,7 +124,7 @@ So, what we actually need to do is create a {ref}`PyTensor Op <pytensor:creating
 
 
 class LogLike(Op):
-    def make_node(self, m, c, sigma, x, data):
+    def make_node(self, m, c, sigma, x, data) -> Apply:
         # Convert inputs to tensor variables
         m = pt.as_tensor(m)
         c = pt.as_tensor(c)
@@ -143,10 +139,10 @@ class LogLike(Op):
         # outputs = [pt.vector()]
         outputs = [data.type()]
 
-        # Apply is an object that combins inputs, outputs and an Op (self)
+        # Apply is an object that combines inputs, outputs and an Op (self)
         return Apply(self, inputs, outputs)
 
-    def perform(self, node, inputs, outputs):
+    def perform(self, node: Apply, inputs: list[np.ndarray], outputs: list[list[None]]) -> None:
         # This is the method that compute numerical output
         # given numerical inputs. Everything here is numpy arrays
         m, c, sigma, x, data = inputs  # this will contain my variables
@@ -155,6 +151,8 @@ class LogLike(Op):
         loglike_eval = my_loglike(m, c, sigma, x, data)
 
         # Save the result in the outputs list provided by PyTensor
+        # There is one list per output, each containing another list
+        # pre-populated with a `None` where the result should be saved.
         outputs[0][0] = np.asarray(loglike_eval)
 ```
 
@@ -221,7 +219,7 @@ with pm.Model() as no_grad_model:
     m = pm.Uniform("m", lower=-10.0, upper=10.0, initval=mtrue)
     c = pm.Uniform("c", lower=-10.0, upper=10.0, initval=ctrue)
 
-    # use a Potential to "call" the Op and include it in the logp computation
+    # use a CustomDist with a custom logp function
     likelihood = pm.CustomDist(
         "likelihood", m, c, sigma, x, observed=data, logp=custom_dist_loglike
     )
@@ -243,7 +241,7 @@ We sholud get exactly the same values as when we tested manually!
 no_grad_model.compile_logp(vars=[likelihood], sum=False)(ip)
 ```
 
-We can also double check that PyTensor will error out if we try to extract the model `dlogp`
+We can also double-check that PyMC will error out if we try to extract the model gradients with respect to the logp (which we call `dlogp`)
 
 ```{code-cell} ipython3
 try:
@@ -263,13 +261,17 @@ with no_grad_model:
 az.plot_trace(idata_no_grad, lines=[("m", {}, mtrue), ("c", {}, ctrue)]);
 ```
 
-## PyTensor Op with grad
+## PyTensor Op with gradients
 
 What if we wanted to use NUTS or HMC? If we knew the analytical derivatives of the model/likelihood function then we could add a {func}`grad` to the Op using existing PyTensor operations.
 
-But, what if we don't know the analytical form. If our model/likelihood, is implemented in a framework that provides automatic differentiation (just like PyTensor does), it's possible to reuse their functionality. This {ref}`related example <wrapping_jax_function> shows how to do this when working with JAX functions.
+But, what if we don't know the analytical form. If our model/likelihood, is implemented in a framework that provides automatic differentiation (just like PyTensor does), it's possible to reuse their functionality. This {ref}`related example <wrapping_jax_function>` shows how to do this when working with JAX functions.
 
-But, if our model/likelihood truly is a "black box" then we can just use the good-old-fashioned [finite difference](https://en.wikipedia.org/wiki/Finite_difference) to find the gradients - this can be slow, especially if there are a large number of variables, or the model takes a long time to evaluate. We use the handy SciPy {func}`~scipy.optimize.approx_fprime` function to achieve this.
+If our model/likelihood truly is a "black box" then we can try to use approximation methods like [finite difference](https://en.wikipedia.org/wiki/Finite_difference) to find the gradients. We illustrate this approach with the handy SciPy {func}`~scipy.optimize.approx_fprime` function to achieve this.
+
+:::{caution}
+Finite differences are rarely recommended as a way to compute gradients. They can be too slow or unstable for practical uses. We suggest you use them only as a last resort. 
+:::
 
 +++
 
@@ -311,14 +313,14 @@ finite_differences_loglike(mtrue, ctrue, sigma, x, data)
 
 So, now we can just redefine our Op with a `grad()` method, right?
 
-It's not quite so simple! The `grad()` method itself requires that its inputs are PyTensor tensor variables, whereas our `gradients` function above, like our `my_loglike` function, wants a list of floating point values. So, we need to define another Op that calculates the gradients. Below, I define a new version of the `LogLike` Op, called `LogLikeWithGrad` this time, that has a `grad()` method. This is followed by anothor Op called `LogLikeGrad` that, when called with a vector of PyTensor tensor variables, returns another vector of values that are the gradients (i.e., the [Jacobian](https://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant)) of our log-likelihood function at those values. Note that the `grad()` method itself does not return the gradients directly, but instead returns the [Jacobian](https://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant)-vector product (you can hopefully just copy what I've done and not worry about what this means too much!).
+It's not quite so simple! The `grad()` method itself requires that its inputs are PyTensor tensor variables, whereas our `gradients` function above, like our `my_loglike` function, wants a list of floating point values. So, we need to define another Op that calculates the gradients. Below, I define a new version of the `LogLike` Op, called `LogLikeWithGrad` this time, that has a `grad()` method. This is followed by anothor Op called `LogLikeGrad` that, when called with a vector of PyTensor tensor variables, returns another vector of values that are the gradients (i.e., the [Jacobian](https://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant)) of our log-likelihood function at those values. Note that the `grad()` method itself does not return the gradients directly, but instead returns the [Jacobian-vector product](https://en.wikipedia.org/wiki/Pushforward_(differential)).
 
 ```{code-cell} ipython3
 # define a pytensor Op for our likelihood function
 
 
 class LogLikeWithGrad(Op):
-    def make_node(self, m, c, sigma, x, data):
+    def make_node(self, m, c, sigma, x, data) -> Apply:
         # Same as before
         m = pt.as_tensor(m)
         c = pt.as_tensor(c)
@@ -330,13 +332,15 @@ class LogLikeWithGrad(Op):
         outputs = [data.type()]
         return Apply(self, inputs, outputs)
 
-    def perform(self, node, inputs, outputs):
+    def perform(self, node: Apply, inputs: list[np.ndarray], outputs: list[list[None]]) -> None:
         # Same as before
         m, c, sigma, x, data = inputs  # this will contain my variables
         loglike_eval = my_loglike(m, c, sigma, x, data)
         outputs[0][0] = np.asarray(loglike_eval)
 
-    def grad(self, inputs, g):
+    def grad(
+        self, inputs: list[pt.TensorVariable], g: list[pt.TensorVariable]
+    ) -> list[pt.TensorVariable]:
         # NEW!
         # the method that calculates the gradients - it actually returns the vector-Jacobian product
         m, c, sigma, x, data = inputs
@@ -361,7 +365,7 @@ class LogLikeWithGrad(Op):
 
 
 class LogLikeGrad(Op):
-    def make_node(self, m, c, sigma, x, data):
+    def make_node(self, m, c, sigma, x, data) -> Apply:
         m = pt.as_tensor(m)
         c = pt.as_tensor(c)
         sigma = pt.as_tensor(sigma)
@@ -375,7 +379,7 @@ class LogLikeGrad(Op):
 
         return Apply(self, inputs, outputs)
 
-    def perform(self, node, inputs, outputs):
+    def perform(self, node: Apply, inputs: list[np.ndarray], outputs: list[list[None]]) -> None:
         m, c, sigma, x, data = inputs
 
         # calculate gradients
@@ -448,7 +452,7 @@ with pm.Model() as grad_model:
     m = pm.Uniform("m", lower=-10.0, upper=10.0)
     c = pm.Uniform("c", lower=-10.0, upper=10.0)
 
-    # use a Potential to "call" the Op and include it in the logp computation
+    # use a CustomDist with a custom logp function
     likelihood = pm.CustomDist(
         "likelihood", m, c, sigma, x, observed=data, logp=custom_dist_loglike
     )
@@ -543,9 +547,9 @@ az.plot_pair(idata_pure, **pair_kwargs, ax=ax);
 
 +++
 
-In this section we show how a {class}`pymc.Potential` can be used to implement a black-box likelihood a bit more directly than when using a a {class}`pymc.CustomDist`. 
+In this section we show how a {func}`pymc.Potential` can be used to implement a black-box likelihood a bit more directly than when using a {class}`pymc.CustomDist`. 
 
-The simpler interface comes at the cost of making other parts of the Bayesian workflow more cumbersome. For instance, as {class}`pymc.Potential` cannot be used for model comparison, as PyMC does not know whether a Potential term corresponds to a prior, a likelihood or even a mix of both. Potentials also have no forward sampling counterparts, which are needed for prior and posterior predictive sampling, while {class}`pymc.CustomDist` accepts `random` or `dist` functions for such occasions.
+The simpler interface comes at the cost of making other parts of the Bayesian workflow more cumbersome. For instance, as {func}`pymc.Potential` cannot be used for model comparison, as PyMC does not know whether a Potential term corresponds to a prior, a likelihood or even a mix of both. Potentials also have no forward sampling counterparts, which are needed for prior and posterior predictive sampling, while {class}`pymc.CustomDist` accepts `random` or `dist` functions for such occasions.
 
 ```{code-cell} ipython3
 with pm.Model() as potential_model:
@@ -582,7 +586,3 @@ az.plot_trace(idata_potential, lines=[("m", {}, mtrue), ("c", {}, ctrue)]);
 
 :::{include} ../page_footer.md
 :::
-
-```{code-cell} ipython3
-
-```
