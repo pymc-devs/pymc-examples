@@ -404,7 +404,7 @@ axs[1, 3].set_title(f"m = {m}, c = {c}")
 plt.tight_layout();
 ```
 
-The plots above compare the approximate Gram matrices to the unapproximated Gram matrix in the top left panel.  These results are only relevant to the context of the particular domain defined by `X` and the chosen lengthscale, $\ell = 3$.  We can make a few observations:
+The plots above compare the approximate Gram matrices to the unapproximated Gram matrix in the top left panel.  The goal is to compare the approximated Gram matrices to the true one (upper left).  Qualitatively, the more similar they look the better the approximation.  Also, these results are only relevant to the context of the particular domain defined by `X` and the chosen lengthscale, $\ell = 3$ -- just because it looks good for $\ell = 3$ doesn't mean it will look good for, for instance, $\ell = 10$.  We can make a few observations:
 - The approximation visually looks good for the two panels with $m = [20, 20]$ and $m = [10, 10]$, with $c=3.0$.  The rest show clear differences to the unapproximated Gram matrix.  
 - $c=1.5$ is generally too small, regardless of $m$.
 - Perhaps surprisingly, the $m=[4, 4]$, $c=1.5$ approximation looks better than the $m=[4, 4]$, $c=3$ one.  As we showed earlier, when we "stretch" the eigenvector basis to fill a larger domain than our `X` (larger by the multiple $c$), we can lose fidelity at smaller lengthscales.  
@@ -498,7 +498,8 @@ fig.colorbar(im, ax=[ax1, ax2, ax3]);
 ```{code-cell} ipython3
 with pm.Model() as model:
     # Set mutable data
-    X_ = pm.MutableData("X", X_tr)
+    X_gp = pm.MutableData("X_gp", X_tr[:, :2])
+    X_fe = pm.MutableData("X_fe", X_tr[:, 2])
 
     # Priors on regression coefficients
     beta0 = pm.Normal("beta0", mu=0.0, sigma=10.0)
@@ -510,23 +511,23 @@ with pm.Model() as model:
         pm.Lognormal, lower=0.5, upper=5.0, mass=0.9, init_guess={"mu": 1.0, "sigma": 1.0}
     )
     ell = pm.Lognormal("ell", **ell_params)
-    cov_func = eta**2 * pm.gp.cov.Matern52(input_dim=3, ls=ell, active_dims=[0, 1])
+    cov_func = eta**2 * pm.gp.cov.Matern52(input_dim=2, ls=ell)
 
     # m and c control the fidelity of the approximation
     m0, m1, c = 30, 30, 2.5
     gp = pm.gp.HSGP(m=[m0, m1], c=c, cov_func=cov_func)
 
-    X_mu = np.mean(X_tr, axis=0)
-    Xs = X_ - X_mu
+    X_mu = np.mean(X_tr[:, :2], axis=0)
+    Xs = X_gp - X_mu
     phi, sqrt_psd = gp.prior_linearized(Xs=Xs)
 
     beta = pm.Normal("beta", size=gp._m_star)
     f = pm.Deterministic("f", phi @ (beta * sqrt_psd))
 
-    mu = pm.Deterministic("mu", beta0 + beta1 * X_[:, 2] + f)
+    mu = pm.Deterministic("mu", beta0 + beta1 * X_fe + f)
 
     sigma = pm.Exponential("sigma", scale=3.0)
-    pm.Normal("y_obs", mu=mu, sigma=sigma, observed=y_tr, shape=X_.shape[0])
+    pm.Normal("y_obs", mu=mu, sigma=sigma, observed=y_tr, shape=X_gp.shape[0])
 ```
 
 Before sampling and looking at results, there are a few things to pay attention to in the model above.  
@@ -596,7 +597,8 @@ Then, all we need to do to make predictions at new points is use `pm.set_data`. 
 
 ```{code-cell} ipython3
 with model:
-    pm.set_data({"X": X})
+    pm.set_data({"X_gp": X[:, :2]})
+    pm.set_data({"X_fe": X[:, 2]})
 
     idata_thinned = idata.sel(draw=slice(None, None, 10))
     idata.extend(pm.sample_posterior_predictive(idata_thinned, var_names=["mu", "f"]))
@@ -885,7 +887,7 @@ Mathematically, this model uses the Kronecker product, where the "space" and "ti
 $$
 K = K_{x} \otimes K_{t}
 $$
-If there are $n_t$ time points and $n_x$ GPs, then the resulting $K$ matrix will have dimension $n_x \cdot n_t \times n_x \cdot n_t$.  Using a regular GP, this would be $\mathcal{O}(n_t^3 n_x^3)$.  So, we can achieve a pretty massive speed-up by both taking advantage of Kronecker structure and using the HSGP approximation.  
+If there are $n_t$ time points and $n_x$ GPs, then the resulting $K$ matrix will have dimension $n_x \cdot n_t \times n_x \cdot n_t$.  Using a regular GP, this would be $\mathcal{O}(n_t^3 n_x^3)$.  So, we can achieve a pretty massive speed-up by both taking advantage of Kronecker structure and using the HSGP approximation.  It isn't required that both of the dimensions (in this example, space or time) use the HSGP approximation.  It's possible to use either a vanilla GP or inducing points for the "spatial" covariance, and the HSGP approximation in time.  In the example below, both u   
 
 **Refer to this section if you're interested in:**
 1. Seeing an example of exploiting Kronecker structure and the HSGP approximation.
@@ -1086,7 +1088,7 @@ Discovered issues:
 
 ## Authors
 
-* Created by [Bill Engels](https://github.com/bwengals) in 2017 ([pymc#1674](https://github.com/pymc-devs/pymc/pull/1674))
+* Created by [Bill Engels](https://github.com/bwengals) in 2024 ([pymc-examples#647](https://github.com/pymc-devs/pymc-examples/pull/647))
 
 +++
 
@@ -1099,3 +1101,7 @@ Discovered issues:
 
 :::{include} ../page_footer.md
 :::
+
+```{code-cell} ipython3
+
+```
