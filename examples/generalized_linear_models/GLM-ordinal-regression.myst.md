@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_examples_new
+  display_name: pymc_causal
   language: python
-  name: python3
+  name: pymc_causal
 ---
 
 (ordinal_regression)=
@@ -225,7 +225,10 @@ def make_model(priors, model_spec=1, constrained_uniform=False, logit=True):
             y_ = pm.OrderedLogistic("y", cutpoints=cutpoints, eta=mu, observed=df.explicit_rating)
         else:
             y_ = pm.OrderedProbit("y", cutpoints=cutpoints, eta=mu, observed=df.explicit_rating)
-        idata = pm.sample(nuts_sampler="numpyro", idata_kwargs={"log_likelihood": True})
+        if not logit:
+            idata = pm.sample(idata_kwargs={"log_likelihood": True})
+        else:
+            idata = pm.sample(nuts_sampler="numpyro", idata_kwargs={"log_likelihood": True})
         idata.extend(pm.sample_posterior_predictive(idata))
     return idata, model
 
@@ -235,15 +238,45 @@ idata1, model1 = make_model(priors, model_spec=1)
 idata2, model2 = make_model(priors, model_spec=2)
 idata3, model3 = make_model(priors, model_spec=3)
 idata4, model4 = make_model(priors, model_spec=3, constrained_uniform=True)
-idata5, model5 = make_model(priors, model_spec=3, constrained_uniform=True)
+idata5, model5 = make_model(priors, model_spec=3, constrained_uniform=True, logit=False)
+```
+
+We can see that the first model is mis-specified here and results in divergences
+
+```{code-cell} ipython3
+az.plot_pair(idata1, var_names=["sigma", "cutpoints"], divergences=True, figsize=(20, 6));
+```
+
+These divergences get resolved in the more robust model specification
+
+```{code-cell} ipython3
+az.plot_pair(idata3, var_names=["sigma", "cutpoints"], divergences=True, figsize=(20, 6));
+```
+
+The fourth model with the uniformed constrained prior over the cut points is similarly without divergences, but exhibits more disciplined around the first cutpoint. 
+
+```{code-cell} ipython3
+az.plot_pair(idata4, var_names=["cutpoints"], divergences=True, figsize=(20, 6));
 ```
 
 ```{code-cell} ipython3
-az.summary(idata3, var_names=["sigma", "cutpoints", "beta"])
+az.plot_trace(idata3, var_names=["sigma", "cutpoints", "beta"]);
 ```
+
+The model structure is incorporates draws over the cutpoints with a sigma parameter
 
 ```{code-cell} ipython3
 pm.model_to_graphviz(model3)
+```
+
+Whereas the fourth model does not specify cutpoints in the same fashion. Instead we make use of the constrained uniform specification.
+
+```{code-cell} ipython3
+az.summary(idata4, var_names=["cutpoints", "beta"])
+```
+
+```{code-cell} ipython3
+pm.model_to_graphviz(model4)
 ```
 
 ### Extracting Individual Probabilities 
@@ -328,9 +361,9 @@ ax = az.plot_forest(
 ax[0].set_title("Model Parameter Estimates", fontsize=20);
 ```
 
-```{code-cell} ipython3
-az.summary(idata3, var_names=["cutpoints", "beta", "sigma"])
-```
+Note how the uncertainty in the parameters for cutpoints in the third model is much wider than the parameters estimated using the constrained uniform specification. And there are differences between the logit and probit specifications. 
+
++++
 
 ## Compare Cutpoints: Normal versus Uniform Priors
 
@@ -381,6 +414,10 @@ Again the parameters seem reasonable, and posterior predictive checks are sound.
 ```{code-cell} ipython3
 az.summary(idata4, var_names=["cutpoints"])
 ```
+
+We've now seen a number of ways in which to specify cuts over the latent utility metric which hypothetically governs the rank data. 
+
++++
 
 ## Comparison to Statsmodels
 
@@ -642,6 +679,7 @@ In this notebook we've seen how to build ordinal regression models with PyMC and
 
 ## Authors
 - Authored by [Nathaniel Forde](https://github.com/NathanielF) in June 2023 
+- Adapted by [Nathaniel Forde](https://github.com/NathanielF) in March 2024 
 
 +++
 
