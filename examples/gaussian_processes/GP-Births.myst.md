@@ -27,25 +27,25 @@ myst:
 
 This notebook provides an example of using the Hilbert Space Gaussian Process (HSGP) technique, introduced in {cite:p}`solin2020Hilbert`, in the context of time series modeling. This technique has proven successful in speeding up models with Gaussian process components.
 
-To illustrate the main concepts, we use the classic *birthdays* example dataset (see {cite:p}`gelman2013bayesian`  [Chapter 21]) and reproduce one of the models presented in the excellent case study {cite:p}`vehtari2022Birthdays` by [Aki Vehtari](https://users.aalto.fi/~ave/) (you can find the Stan code on [this repository](https://github.com/avehtari/casestudies/tree/master/Birthdays)). In his exposition, the author presents an extensive iterative approach to analyze the relative number of births per day in the USA from 1969-1988 using HSGPs for various components:  the long-term trend, seasonal, weekly, day the year, and special floating day variation. As this resource is very detailed and gives many relevant explanations, we do not reproduce the whole process but instead focus on reproducing one of the intermediate models. Namely, the model with a slow trend, yearly seasonal trend, and day-of-week components (Model 3 in the original case study). The reason for reproducing a simpler model than the final one is to make this an introductory notebook for users willing to learn about this technique. We will provide a subsequent example where we implement the final model with all components.
+To illustrate the main concepts, we use the classic *birthdays* example dataset (see {cite:p}`gelman2013bayesian`  [Chapter 21] and [here](https://statmodeling.stat.columbia.edu/2020/10/25/birthday-data/) for a comment on the data source) and reproduce one of the models presented in the excellent case study {cite:p}`vehtari2022Birthdays` by [Aki Vehtari](https://users.aalto.fi/~ave/) (you can find the Stan code on [this repository](https://github.com/avehtari/casestudies/tree/master/Birthdays)). In his exposition, the author presents an extensive iterative approach to analyze the relative number of births per day in the USA from 1969-1988 using HSGPs for various components:  the long-term trend, seasonal, weekly, day the year, and special floating day variation. As this resource is very detailed and gives many relevant explanations, we do not reproduce the whole process but instead focus on reproducing one of the intermediate models. Namely, the model with a slow trend, yearly seasonal trend, and day-of-week components (Model 3 in the original case study). The reason for reproducing a simpler model than the final one is to make this an introductory notebook for users willing to learn about this technique. We will provide a subsequent example where we implement the final model with all components.
 
-In this notebook, we do not want to deep-dive into the mathematical details but rather focus on the implementation and how to use PyMC's {class}`~pymc.gp.HSGP` API. This class provides a convenient way of using HSGPs in PyMC models. The user needs to input certain parameters to control the number of terms in the approximation and the domain of definition. Of course, understanding what these parameters do is important, so let's briefly touch upon the main idea of the approximation and the most relevant parameters:
+In this notebook, we do not want to deep-dive into the mathematical details but rather focus on the implementation and how to use PyMC's {class}`~pymc.gp.HSGP` and {class}`~pymc.gp.HSGPPeriodic` API. This class provides a convenient way of using HSGPs in PyMC models. The user needs to input certain parameters to control the number of terms in the approximation and the domain of definition. Of course, understanding what these parameters do is important, so let's briefly touch upon the main idea of the approximation and the most relevant parameters:
 
 ## The main idea of the approximation
 
 Recall that a *kernel* (associated with a covariance function) is the main ingredient of a Gaussian process as it encodes a measure of similarity (and smoothness) between points (see {ref}`GP-MeansAndCovs`). The Hilbert space approximation idea is to decompose such kernel as a linear combination of an orthonormal basis so that when replacing the kernel by this expansion, we can fit a linear model in terms of these basis functions. Sampling from a truncated expansion will be much faster than the vanilla Gaussian process formulation. The key observation is that the basis functions in the approximation do not depend on the hyperparameters of the covariance function for the Gaussian process, allowing the computations to speed up tremendously.
 
-Where does the Hilbert Space come from? It turns out that the orthonormal basis comes from the spectral decomposition of the Laplace operator on a compact set (think about the Fourier decomposition on the circle, for example). In other words, the basis functions are eigenvectors of the Laplace operator on an $L^{2}([-L, L])$ space, which is a Hilbert Space. Returning to the class {class}`~pymc.gp.HSGP`, the two most important parameters are:
+Where does the Hilbert Space come from? It turns out that the orthonormal basis comes from the spectral decomposition of the Laplace operator on a compact set (think about the Fourier decomposition on the circle, for example). In other words, the basis functions are eigenvectors of the Laplace operator on the square-integrable-functions space $L^{2}([-L, L])$, which is a Hilbert Space. Returning to the class {class}`~pymc.gp.HSGP`, the two most important parameters are:
 
 - **$m$:** The number of basis vectors to use in the approximation.
 - **$L$**: The boundary of the space of definition. Choose L such that the domain $[-L, L]$ contains all points in the domain. (Note that the compact set is the closed interval $[-L, L]$ 😉)
 
-One can also use a *proportion extension factor* $c > 0$ used to construct $L$ from the domain of definition of the Gaussian process $X$. Concretely, $L$ can be specified as the product $cS$, where $S = max|X|$.
+One can also use a *proportion extension factor* $c > 0$ used to construct $L$ from the domain of definition of the Gaussian process $X$. Concretely, $L$ can be specified as the product $cS$, where $S = \max|X|$.
 
 We recommend the paper {cite:p}`riutort2022PracticalHilbertSpaceApproximate` for a practical discussion of this technique.
 
 ```{note}
-You can find a similar example in [`Numpyro`](https://num.pyro.ai/en/stable/)'s documentation: {cite:p}`numpyroBirthdays`. As at the moment there is no HSGP wrapper in NumPyro, this example is a great resource to learn about the method internals.
+You can find a similar example in [`Numpyro`](https://num.pyro.ai/en/stable/)'s documentation: {cite:p}`numpyroBirthdays`. This example is a great resource to learn about the method internals.
 ```
 
 ```{note}
@@ -249,12 +249,13 @@ It seems that there are on average less births during the weekend.
 
 +++
 
-```{tip}
+`````{admonition} EDA Summary
+:class: tip
 Let's summarize the main findings of the EDA:
 -  There is a clear non-linear long term trend.
 -  There is a clear smooth yearly seasonality up to some special holidays and the end of the year drop.
 -  There is a clear weekly seasonality.
-```
+``````
 
 +++
 
@@ -320,7 +321,7 @@ ax.set_title(
 
 ### Model Components
 
-Let's describe the model components. All of these building blocks should not come as a surprise after looking into the EDA section.
+In this example notebook, we implement the `Model 3: Slow trend + yearly seasonal trend + day of the week` described in {cite:p}`vehtari2022Birthdays`. The EDA above should help us understand the motivation behind each of the following components of the model:
 
 1. **Global trend.** We use a Gaussian process with an exponential quadratic kernel.
 2. **Periodicity over years**: We use a Gaussian process with a periodic kernel. Observe that, since we are working on the normalized scale, the period should be `period=365.25 / time_std` (and not `period=365.25` !).
@@ -328,12 +329,6 @@ Let's describe the model components. All of these building blocks should not com
 4. **Likelihood**: We use a Gaussian distribution.
 
 For all of the Gaussian processes components we use the Hilbert Space Gaussian Process (HSGP) approximation.
-
-+++
-
-```{note}
-This model corresponds to `Model 3: Slow trend + yearly seasonal trend + day of week` in {cite:p}`vehtari2022Birthdays`.
-```
 
 +++
 
@@ -349,7 +344,7 @@ ax.set_title(
     label="Prior distribution for the global trend Gaussian process",
     fontsize=18,
     fontweight="bold",
-)
+);
 ```
 
 The motivation is that we have around $7.3$K data points and we want to consider the in between data points distance in the normalized (log) scale. That is why we consider the ratio `7_000 / time_str`. Note that we want to capture the long term trend, so we want to consider a length scale that is larger than the data points distance. We increase the order of magnitude by dividing by $10$. Finally, as we are setting the prior on the normalized log-scale (because that's what the GP is seeing) we take a log-transform.
@@ -477,7 +472,7 @@ It looks very reasonable as the prior samples are within a reasonable range of t
 
 ## Model Fitting and Diagnostics
 
-We now proceed to fit the model using the `Numpyro` sampler. It takes around $5$ minutes to run the model locally (Intel MacBook Pro, $4$ cores, $16$ GB RAM).
+We now proceed to fit the model using the `NumPyro` sampler. It takes around $5$ minutes to run the model locally (Intel MacBook Pro, $4$ cores, $16$ GB RAM).
 
 ```{code-cell} ipython3
 with model:
@@ -680,13 +675,13 @@ def plot_component(
     return fig, ax
 ```
 
-- Global Trend
+### Global Trend
 
 ```{code-cell} ipython3
 fig, ax = plot_component(component_name="f_trend", color="C3", component_label="$f_{trend}$")
 ```
 
-- Yearly Periodicity
+### Yearly Periodicity
 
 ```{code-cell} ipython3
 fig, ax = plot_component(
@@ -696,7 +691,7 @@ fig, ax = plot_component(
 )
 ```
 
-- Global Trend plus Yearly Periodicity
+### Global Trend plus Yearly Periodicity
 
 +++
 
@@ -717,7 +712,20 @@ fig, ax = plot_component(
 ```
 
 ---
-We hope you better understand HSGPs and how to use them in practice with the very convenient PyMC API. In a future notebook, we will present a more complete model to compare with Aki's results. Stay tuned!
+
+## Conclusion
+
+We hope you better understand HSGPs and how to use them in practice with the very convenient PyMC's API. It's great to be able to strategically fold GPs into larger models. It's "possible" with GPs, but HSGPs make that actually possible. The reason is that the complexity of each GP component the is reduced by the approximation from $\mathcal{O}(n^3)$ to $\mathcal{O}(nm^2)$, where $m$ is the number of basis functions used in the approximation. This is a huge speedup!
+
+``````{admonition} HSGP Limitations
+Keep in mind that HSGPs are not a silver bullet. 
+- They only apply to stationary covariances (in practice, {class}`~pymc.gp.cov.ExpQuad`, {class}`~pymc.gp.cov.Matern52`, {class}`~pymc.gp.cov.Matern32`).
+- They don't scale well with input dimension. For dimensions $1$ and $2$ they are fine.
+
+In practice this not a huge limitation as most of the time we work with stationary covariances and low input dimensions.
+``````
+
+In a future notebook, we will present a more complete model to compare with Vehtari's results. Stay tuned!
 
 +++
 
@@ -743,7 +751,7 @@ I would like to thank [Alex Andorra](https://github.com/AlexAndorra) and [Bill E
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p pytensor
+%watermark -n -u -v -iv -w -p numpyro,pytensor
 ```
 
 :::{include} ../page_footer.md
