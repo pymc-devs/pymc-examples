@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: bayes-workshop
+  display_name: pymc-examples
   language: python
-  name: bayes-workshop
+  name: pymc-examples
 ---
 
 (hsgp)=
@@ -39,7 +39,7 @@ A secondary goal of this implementation is flexibility via an accessible impleme
 - HSTPs (Student-t process): [Sellier & Dellaportas, 2023](https://proceedings.mlr.press/v202/sellier23a.html).
 - Kronecker HSGPs: [Dan et al., 2022](https://arxiv.org/pdf/2210.11358.pdf)
 
-+++ {"jp-MarkdownHeadingCollapsed": true}
++++
 
 # Example 1: Basic HSGP Usage
 
@@ -64,6 +64,8 @@ plt.rcParams["figure.figsize"] = [12, 5]
 seed = sum(map(ord, "hsgp"))
 rng = np.random.default_rng(seed)
 ```
+
++++ {"jp-MarkdownHeadingCollapsed": true}
 
 ### Simulate data
 
@@ -100,6 +102,8 @@ ax.set_ylabel("y")
 ax.legend(frameon=True)
 ax.grid(False)
 ```
+
++++ {"jp-MarkdownHeadingCollapsed": true}
 
 ### Define and fit the HSGP model
 
@@ -182,6 +186,8 @@ ax.set(title="The HSGP Fit", xlabel="x", ylabel="y")
 ax.legend();
 ```
 
++++ {"jp-MarkdownHeadingCollapsed": true}
+
 The inferred underlying GP (shaded in red) accurately matches the true underlying GP (in light blue).
 
 ### Additive GPs
@@ -196,7 +202,7 @@ cov = cov1 + cov2
 gp = pm.gp.HSGP(m=[m], c=c, cov_func=cov_func)
 ```
 
-+++ {"jp-MarkdownHeadingCollapsed": true}
++++
 
 # Choosing the HSGP approximation parameters, `m`, `L`, and `c`
 
@@ -310,6 +316,8 @@ print(f"Smallest m: {m}")
 print(f"Smallest c: {c:.1f}")
 ```
 
++++ {"jp-MarkdownHeadingCollapsed": true}
+
 ### The HSGP approximate Gram matrix
 
 You may not be able to rely on these heuristics for a few reasons.  You may be using a different covariance function than `ExpQuad`, `Matern52`, or `Matern32`.  Also, they're only defined for one dimensional GPs.  Another way to check HSGP fidelity is to directly compare the unapproximated Gram matrix (the Gram matrix is the matrix obtained after calculating the covariance function over the inputs `X`), $\mathbf{K}$, to the one resulting from the HSGP approximation, 
@@ -416,7 +424,7 @@ For your particular situation, you will need to experiment across your range of 
 
 Be aware that it's also possible to encounter scenarios where a low fidelity HSGP approximation gives a more parsimonious fit than a high fidelity HSGP approximation.  A low fidelity HSGP approximation is still a valid prior for some unknown function, if somewhat contrived.  Whether that matters will depend on your context.
 
-+++
++++ {"jp-MarkdownHeadingCollapsed": true}
 
 # Example 2: Working with HSGPs as a parametric, linear model 
 
@@ -662,63 +670,129 @@ There are two scale parameters $\eta^\mu$ and $\eta^\delta$.  $\eta^\mu$ control
 
 ## Simulate data
 
-```{code-cell} ipython3
-# Simulate a one-dimensional GP observed at n locations
-n = 200
-x = np.linspace(0, 10, n)
+Simulate a one-dimensional GP observed at 300 locations (200 used for training, the remaining 100 for testing)
 
-# One draw from the mean GP
+```{code-cell} ipython3
+# Generate wider range data
+x_full = np.linspace(0, 15, 300)
+
+# Split into training and test sets
+n_train = 200
+x_train = x_full[:n_train]
+x_test = x_full[n_train:]
+
+# Definfe the mean GP
 eta_mu_true = 1.0
 ell_mu_true = 1.5
 cov_mu = eta_mu_true**2 * pm.gp.cov.Matern52(input_dim=1, ls=ell_mu_true)
-f_mu_true = pm.draw(pm.MvNormal.dist(mu=np.zeros(n), cov=cov_mu(x[:, None])))
 
-# Draws from the delta GPs
+# Define the delta GPs
 n_gps = 10
 eta_delta_true = 0.5
 ell_delta_true = pm.draw(pm.Lognormal.dist(mu=np.log(ell_mu_true), sigma=0.5), draws=n_gps)
 
-f_deltas = []
-for ell_i in ell_delta_true:
-    cov_delta = eta_delta_true**2 * pm.gp.cov.Matern52(input_dim=1, ls=ell_i)
-    f_delta = pm.draw(pm.MvNormal.dist(mu=np.zeros(n), cov=cov_delta(x[:, None])))
-    f_deltas.append(f_delta)
-f_delta = np.vstack(f_deltas)
-
-# The hierarchical GP
-f_true = f_mu_true[:, None] + f_delta.T
+cov_deltas = [
+    eta_delta_true**2 * pm.gp.cov.Matern52(input_dim=1, ls=ell_i) for ell_i in ell_delta_true
+]
 
 # Additive gaussian noise
 sigma_noise = 0.5
 noise_dist = pm.Normal.dist(mu=0.0, sigma=sigma_noise)
-y_obs = f_true + pm.draw(noise_dist, draws=n * n_gps, random_seed=rng).reshape(n, n_gps)
 ```
 
 ```{code-cell} ipython3
-s = pm.draw(pm.Lognormal.dist(mu=0.5, sigma=0.5), draws=10_000)
+def generate_gp_samples(x, cov_mu, cov_deltas, noise_dist, rng):
+    """
+    Generate samples from a hierarchical Gaussian Process (GP).
+    """
+    n = len(x)
+    # One draw from the mean GP
+    f_mu_true = pm.draw(pm.MvNormal.dist(mu=np.zeros(n), cov=cov_mu(x[:, None])))
 
-plt.hist(s, np.linspace(0, 5, 100));
+    # Draws from the delta GPs
+    f_deltas = []
+    for cov_delta in cov_deltas:
+        f_deltas.append(pm.draw(pm.MvNormal.dist(mu=np.zeros(n), cov=cov_delta(x[:, None]))))
+    f_delta = np.vstack(f_deltas)
+
+    # The hierarchical GP
+    f_true = f_mu_true[:, None] + f_delta.T
+
+    # Observed values with noise
+    n_gps = len(cov_deltas)
+    y_obs = f_true + pm.draw(noise_dist, draws=n * n_gps, random_seed=rng).reshape(n, n_gps)
+
+    return f_mu_true, f_true, y_obs
 ```
 
 ```{code-cell} ipython3
-fig, axs = plt.subplots(1, 2, figsize=(14, 5))
-colors = plt.cm.Blues(np.linspace(0.1, 0.9, n_gps))
-ylims = [1.1 * np.min(y_obs), 1.1 * np.max(y_obs)]
+# Generate samples for the full data
+f_mu_true_full, f_true_full, y_full = generate_gp_samples(
+    x_full, cov_mu, cov_deltas, noise_dist, rng
+)
 
-axs[0].plot(x, f_mu_true, color="k", lw=3)
+f_mu_true_train = f_mu_true_full[:n_train]
+f_mu_true_test = f_mu_true_full[n_train:]
+
+f_true_train = f_true_full[:n_train]
+f_true_test = f_true_full[n_train:]
+
+y_train = y_full[:n_train]
+y_test = y_full[n_train:]
+```
+
+```{code-cell} ipython3
+---
+editable: true
+slideshow:
+  slide_type: ''
+tags: [hide-input]
+---
+fig, axs = plt.subplots(1, 2, figsize=(14, 5), sharex=True, sharey=True)
+colors_train = plt.cm.Blues(np.linspace(0.1, 0.9, n_gps))
+colors_test = plt.cm.Greens(np.linspace(0.1, 0.9, n_gps))
+ylims = [1.1 * np.min(y_full), 1.1 * np.max(y_full)]
+
+axs[0].plot(x_train, f_mu_true_train, color="C1", lw=3)
+axs[0].plot(x_test, f_mu_true_test, color="C1", lw=3, ls="--")
+axs[0].axvline(x_train[-1], ls=":", lw=3, color="k", alpha=0.6)
+axs[1].axvline(x_train[-1], ls=":", lw=3, color="k", alpha=0.6)
+
+# Positioning text for "Training territory" and "Testing territory"
+train_text_x = (x_train[0] + x_train[-1]) / 2
+test_text_x = (x_train[-1] + x_test[-1]) / 2
+text_y = ylims[0] + (ylims[1] - ylims[0]) * 0.9
+
+# Adding text to the left plot
+axs[0].text(
+    train_text_x,
+    text_y,
+    "Training territory",
+    horizontalalignment="center",
+    verticalalignment="center",
+    fontsize=14,
+    color="blue",
+    alpha=0.7,
+)
+axs[0].text(
+    test_text_x,
+    text_y,
+    "Testing territory",
+    horizontalalignment="center",
+    verticalalignment="center",
+    fontsize=14,
+    color="green",
+    alpha=0.7,
+)
+
 for i in range(n_gps):
-    axs[0].plot(x, f_true[:, i], color=colors[i])
-axs[0].set_ylim(ylims)
+    axs[0].plot(x_train, f_true_train[:, i], color=colors_train[i])
+    axs[0].plot(x_test, f_true_test[:, i], color=colors_test[i])
+    axs[1].scatter(x_train, y_train[:, i], color=colors_train[i], alpha=0.6)
+    axs[1].scatter(x_test, y_test[:, i], color=colors_test[i], alpha=0.6)
 
-for i in range(n_gps):
-    axs[1].scatter(x, y_obs[:, i], color=colors[i])
-axs[1].set_ylim(ylims)
-
-for ax in axs:
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-axs[0].set_title("Underlying hierarchical GP for\nthe 10 time-series\nMean GP in black")
-axs[1].set_title("Observed data\nColor corresponding to GP");
+axs[0].set(xlabel="x", ylim=ylims, title="True GPs\nMean GP in orange")
+axs[1].set(xlabel="x", ylim=ylims, title="Observed data\nColor corresponding to GP");
 ```
 
 ## Build the model
@@ -751,25 +825,30 @@ def hierarchical_HSGP(Xs, m, c, eta_mu, ell_mu, eta_delta, ell_delta):
     eigvals = pm.gp.hsgp_approx.calc_eigenvalues(L, m, tl=pt)
     phi = pm.Deterministic("phi", pm.gp.hsgp_approx.calc_eigenvectors(Xs, L, eigvals, m, tl=pt))
     omega = pt.sqrt(eigvals)
-    m_star = np.prod(m)
 
     # calculate f_mu, the mean of the hierarchical gp
     beta = pm.Normal("f_mu_coeffs", mu=0.0, sigma=1.0, dims="m_ix")
     psd = matern52_psd(omega, ell_mu).flatten()
-    f_mu = phi @ (beta * pt.sqrt(psd) * eta_mu)
+    f_mu = pm.Deterministic("f_mu", phi @ (beta * pt.sqrt(psd) * eta_mu))
 
     # calculate f_delta, the gp offsets
     beta = pm.Normal("f_delta_coeffs", mu=0.0, sigma=1.0, dims=("m_ix", "gp_ix"))
     psd = matern52_psd(omega, ell_delta)
-    f_delta = phi @ (beta * pt.sqrt(psd) * eta_delta)
-    return f_mu, f_delta
+    f_delta = pm.Deterministic("f_delta", phi @ (beta * pt.sqrt(psd) * eta_delta))
+
+    # calculate total gp
+    return pm.Deterministic("f", f_mu[:, None] + f_delta)
 ```
 
 Next, we use the heuristics to choose `m` and `c`, 
 
 ```{code-cell} ipython3
 m, c, _ = approx_params(
-    x_lower=np.min(x), x_upper=np.max(x) * 1.5, ell_lower=0.2, ell_upper=2.0, cov_func="matern52"
+    x_lower=np.min(x_full),
+    x_upper=np.max(x_full) * 2,
+    ell_lower=0.2,
+    ell_upper=2.0,
+    cov_func="matern52",
 )
 
 print(f"m: {m}, c: {c:.2f}")
@@ -783,14 +862,14 @@ coords = {
 
 with pm.Model(coords=coords) as model:
     # handle mean subtraction correctly
-    x_mu = np.mean(x)
-    X_ = pm.MutableData("X", x[:, None])
+    x_mu = np.mean(x_train)
+    X_ = pm.Data("X", x_train[:, None])
     Xs = X_ - x_mu
 
     ## Prior for the mean process
     eta_mu = pm.Exponential("eta_mu", scale=1.0)
     ell_mu_params = pm.find_constrained_prior(
-        pm.Lognormal, lower=0.2, upper=2.0, mass=0.95, init_guess={"mu": 1.0, "sigma": 1.0}
+        pm.Lognormal, lower=0.5, upper=2.5, mass=0.95, init_guess={"mu": 1.0, "sigma": 1.0}
     )
     log_ell_mu = pm.Normal("log_ell_mu", **ell_mu_params)
     ell_mu = pm.Deterministic("ell_mu", pt.exp(log_ell_mu))
@@ -802,14 +881,9 @@ with pm.Model(coords=coords) as model:
     log_ell_delta = log_ell_mu + log_ell_delta_sd * log_ell_delta_z
     ell_delta = pm.Deterministic("ell_delta", pt.exp(log_ell_delta), dims="gp_ix")
 
-    f_mu, f_delta = hierarchical_HSGP(Xs, [m], 3.0, eta_mu, ell_mu, eta_delta, ell_delta)
-
-    f_mu = pm.Deterministic("f_mu", f_mu)
-    f_delta = pm.Deterministic("f_delta", f_delta)
-    f = pm.Deterministic("f", f_mu[:, None] + f_delta)
-
+    f = hierarchical_HSGP(Xs, [m], c, eta_mu, ell_mu, eta_delta, ell_delta)
     sigma = pm.Exponential("sigma", scale=3)
-    pm.Normal("y", mu=f, sigma=sigma, observed=y_obs, shape=(X_.shape[0], n_gps))
+    pm.Normal("y", mu=f, sigma=sigma, observed=y_train, shape=(X_.shape[0], n_gps))
 ```
 
 ## Prior predictive checks
@@ -824,7 +898,13 @@ with model:
 ```
 
 ```{code-cell} ipython3
-def plot_gps(idata, f_mu_true, f_true, group="posterior"):
+---
+editable: true
+slideshow:
+  slide_type: ''
+tags: [hide-input]
+---
+def plot_gps(idata, f_mu_true, f_true, group="posterior", return_f=False):
     """
     Plot the underlying hierarchical GP and inferred GPs with posterior intervals.
 
@@ -834,7 +914,10 @@ def plot_gps(idata, f_mu_true, f_true, group="posterior"):
     - f_true: The true function values for each group.
     - group: Whether to plot the prior or posterior predictive samples. Default posterior.
     """
-    x = idata.constant_data.X.squeeze().to_numpy()
+    if group == "predictions":
+        x = idata.predictions_constant_data.X.squeeze().to_numpy()
+    else:
+        x = idata.constant_data.X.squeeze().to_numpy()
     y_obs = idata.observed_data["y"].to_numpy()
     n_gps = f_true.shape[1]
 
@@ -855,39 +938,41 @@ def plot_gps(idata, f_mu_true, f_true, group="posterior"):
     # Plot true underlying GP
     axs[0].plot(x, f_mu_true, color="k", lw=3)
     for i in range(n_gps):
-        axs[0].plot(x, f_true[:, i], color=colors[i])
-    axs[0].set_ylim(ylims)
+        axs[0].plot(x, f_true[:, i], color=colors[i], alpha=0.7)
 
     # Plot inferred GPs with uncertainty
-    axs[1].fill_between(
-        x,
-        f_mu_mu - f_mu_sd,
-        f_mu_mu + f_mu_sd,
-        color="k",
-        alpha=0.7,
-        edgecolor="none",
-    )
     for i in range(n_gps):
         axs[1].fill_between(
             x,
             f_mu[:, i] - f_sd[:, i],
             f_mu[:, i] + f_sd[:, i],
             color=colors[i],
-            alpha=0.4,
+            alpha=0.3,
             edgecolor="none",
         )
-    axs[1].set_ylim(ylims)
+    # Plot mean GP
+    axs[1].fill_between(
+        x,
+        f_mu_mu - f_mu_sd,
+        f_mu_mu + f_mu_sd,
+        color="k",
+        alpha=0.6,
+        edgecolor="none",
+    )
 
     # Set labels and titles
     for ax in axs:
         ax.set_xlabel("x")
         ax.set_ylabel("y")
-    axs[0].set_title("True GPs for the 10 time-series\nMean GP in black")
-    axs[1].set_title(r"Inferred GPs, $\pm 1 \sigma$ posterior intervals")
+    axs[0].set(ylim=ylims, title="True GPs for the 10 time-series\nMean GP in black")
+    axs[1].set(ylim=ylims, title=r"Inferred GPs, $\pm 1 \sigma$ posterior intervals")
+
+    if return_f:
+        return f_mu_mu, f_mu_sd, f_mu, f_sd
 ```
 
 ```{code-cell} ipython3
-plot_gps(idata, f_mu_true, f_true, group="prior");
+plot_gps(idata, f_mu_true_train, f_true_train, group="prior");
 ```
 
 Once we're satisfied with our priors, which is the case here, we can... sample the model!
@@ -916,7 +1001,23 @@ az.plot_trace(idata, var_names=["eta_mu", "ell_mu", "eta_delta", "ell_delta", "s
 ## Posterior checks
 
 ```{code-cell} ipython3
-plot_gps(idata, f_mu_true, f_true);
+az.plot_posterior(
+    idata,
+    var_names=["eta_mu", "ell_mu", "eta_delta", "ell_delta", "sigma"],
+    ref_val={
+        "eta_mu": [{"ref_val": eta_mu_true}],
+        "ell_mu": [{"ref_val": ell_mu_true}],
+        "eta_delta": [{"ref_val": eta_delta_true}],
+        "ell_delta": [{"gp_ix": i, "ref_val": ell_delta_true[i]} for i in range(n_gps)],
+        "sigma": [{"ref_val": sigma_noise}],
+    },
+    grid=(5, 3),
+    textsize=30,
+);
+```
+
+```{code-cell} ipython3
+plot_gps(idata, f_mu_true_train, f_true_train);
 ```
 
 That looks great! Now we can go ahead and predict out of sample.
@@ -925,115 +1026,106 @@ That looks great! Now we can go ahead and predict out of sample.
 
 ## Prediction
 
-Bug somewhere?
-
-```{code-cell} ipython3
-Xs_new = x_new[:, None] - x_mu
-```
-
-```{code-cell} ipython3
-L = pm.gp.hsgp_approx.set_boundary(Xs_new, c)
-eigvals = pm.gp.hsgp_approx.calc_eigenvalues(L, [m], tl=pt)
-phi = pm.gp.hsgp_approx.calc_eigenvectors(Xs_new, L, eigvals, m, tl=pt)
-omega = pt.sqrt(eigvals)
-m_star = np.prod(m)
-```
-
-```{code-cell} ipython3
-# calculate f_mu, the mean of the hierarchical gp
-beta = pm.Normal("f_mu_coeffs", mu=0.0, sigma=1.0, dims="m_ix")
-psd = matern52_psd(omega, ell_mu).flatten()
-f_mu = phi @ (beta * pt.sqrt(psd) * eta_mu)
-
-# calculate f_delta, the gp offsets
-beta = pm.Normal("f_delta_coeffs", mu=0.0, sigma=1.0, dims=("m_ix", "gp_ix"))
-psd = matern52_psd(omega, ell_delta)
-f_delta = phi @ (beta * pt.sqrt(psd) * eta_delta)
-return f_mu, f_delta
-
-f_mu = pm.Deterministic("f_mu", f_mu)
-f_delta = pm.Deterministic("f_delta", f_delta)
-f = pm.Deterministic("f", f_mu[:, None] + f_delta)
-```
-
-```{code-cell} ipython3
-x_new = np.linspace(0, 15, 300)
-```
-
 ```{code-cell} ipython3
 with model:
+    pm.set_data({"X": x_full[:, None]})
+
     idata.extend(
-        pm.sample_posterior_predictive(idata, var_names=["y"]),
+        pm.sample_posterior_predictive(idata, var_names=["f_mu", "f"], predictions=True),
     )
 ```
 
 ```{code-cell} ipython3
-with model:
-    pm.set_data({"X": x_new[:, None]})
-
-    # thinned_idata = idata.sel(draw=slice(None, None, 5))
-    idata.extend(
-        pm.sample_posterior_predictive(idata, var_names=["f_mu", "f", "y"], predictions=True),
-    )
+pred_f_mu_mu, pred_f_mu_sd, pred_f_mu, pred_f_sd = plot_gps(
+    idata, f_mu_true_full, f_true_full, group="predictions", return_f=True
+)
 ```
 
 ```{code-cell} ipython3
-with model:
-    preds = pm.sample_posterior_predictive(idata, var_names=["f_mu", "f", "y"], predictions=True)
-```
+---
+editable: true
+slideshow:
+  slide_type: ''
+tags: [hide-input]
+---
+fig, axs = plt.subplot_mosaic(
+    [["True", "Data"], ["Preds", "Preds"]],
+    layout="constrained",
+    sharex=True,
+    sharey=True,
+    figsize=(12, 7),
+)
 
-```{code-cell} ipython3
-f_mu_pp = az.extract(preds, group="predictions", var_names="f_mu").mean("sample")
-```
+axs["True"].plot(x_train, f_mu_true_train, color="C1", lw=3)
+axs["True"].plot(x_test, f_mu_true_test, color="C1", lw=3, ls="--")
+axs["True"].axvline(x_train[-1], ls=":", lw=3, color="k", alpha=0.6)
+axs["True"].text(
+    train_text_x,
+    text_y,
+    "Training territory",
+    horizontalalignment="center",
+    verticalalignment="center",
+    fontsize=14,
+    color="blue",
+    alpha=0.7,
+)
+axs["True"].text(
+    test_text_x,
+    text_y,
+    "Testing territory",
+    horizontalalignment="center",
+    verticalalignment="center",
+    fontsize=14,
+    color="green",
+    alpha=0.7,
+)
 
-```{code-cell} ipython3
-plt.plot(x, f_mu_true, color="k", lw=3, label="true")
-plt.plot(x, idata.posterior["f_mu"].mean(("chain", "draw")), lw=3)
-plt.plot(x_new, f_mu_pp, color="k", lw=3, alpha=0.5, label="postpred")
-plt.legend();
-```
+axs["Data"].axvline(x_train[-1], ls=":", lw=3, color="k", alpha=0.6)
+axs["Preds"].axvline(x_train[-1], ls=":", lw=3, color="k", alpha=0.6)
 
-```{code-cell} ipython3
-
-```
-
-```{code-cell} ipython3
-fig, axs = plt.subplots(2, 2, figsize=(14, 8), sharey=True)
-axs = axs.flatten()
-colors = plt.cm.Blues(np.linspace(0.1, 0.9, n_gps))
-ylims = [1.1 * np.min(y_obs), 1.1 * np.max(y_obs)]
+# Plot mean GP
+axs["Preds"].fill_between(
+    x_full,
+    pred_f_mu_mu - pred_f_mu_sd,
+    pred_f_mu_mu + pred_f_mu_sd,
+    color="C1",
+    alpha=0.8,
+    edgecolor="none",
+)
 
 for i in range(n_gps):
-    axs[0].scatter(
-        x,
-        idata.prior_predictive["y"].sel(y_dim_1=i).mean(("chain", "draw")).to_numpy(),
-        color=colors[i],
-        marker="v",
+    axs["True"].plot(x_train, f_true_train[:, i], color=colors_train[i])
+    axs["True"].plot(x_test, f_true_test[:, i], color=colors_test[i])
+    axs["Data"].scatter(x_train, y_train[:, i], color=colors_train[i], alpha=0.6)
+    axs["Data"].scatter(x_test, y_test[:, i], color=colors_test[i], alpha=0.6)
+    # Plot inferred GPs with uncertainty
+    axs["Preds"].fill_between(
+        x_train,
+        pred_f_mu[:n_train, i] - pred_f_sd[:n_train, i],
+        pred_f_mu[:n_train, i] + pred_f_sd[:n_train, i],
+        color=colors_train[i],
+        alpha=0.3,
+        edgecolor="none",
     )
-    axs[1].scatter(x, y_obs[:, i], color=colors[i])
-    axs[2].scatter(
-        x,
-        idata.posterior_predictive["y"].sel(y_dim_3=i).mean(("chain", "draw")).to_numpy(),
-        color=colors[i],
+    axs["Preds"].fill_between(
+        x_test,
+        pred_f_mu[n_train:, i] - pred_f_sd[n_train:, i],
+        pred_f_mu[n_train:, i] + pred_f_sd[n_train:, i],
+        color=colors_test[i],
+        alpha=0.3,
+        edgecolor="none",
     )
-    axs[3].scatter(
-        x_new,
-        idata.predictions["y"].sel(y_dim_3=i).mean(("chain", "draw")).to_numpy(),
-        color=colors[i],
-    )
-axs[0].set_ylim(ylims)
-axs[1].set_ylim(ylims)
 
-for ax in axs:
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-axs[0].set_title("Prior")
-axs[1].set_title("Data")
-axs[2].set_title("Posterior")
-axs[3].set_title("Predictions");
+axs["True"].set(xlabel="x", ylim=ylims, title="True GPs\nMean GP in orange")
+axs["Data"].set(xlabel="x", ylim=ylims, title="Observed data\nColor corresponding to GP")
+axs["Preds"].set(
+    xlabel="x",
+    ylim=ylims,
+    title="Predicted GPs, $\\pm 1 \\sigma$ posterior intervals\nMean GP in orange",
+);
 ```
 
-+++ {"jp-MarkdownHeadingCollapsed": true}
++++ {"editable": true, "jp-MarkdownHeadingCollapsed": true, "slideshow": {"slide_type": ""}}
 
 # Example 4: An HSGP that exploits Kronecker structure
 
