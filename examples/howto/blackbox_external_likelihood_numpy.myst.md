@@ -64,7 +64,7 @@ Another issue is that if you want to be able to use the gradient-based step samp
 
 Defining a model/likelihood that PyMC can use and that calls your "black box" function is possible, but it relies on creating a custom PyTensor Op. This is, hopefully, a clear description of how to do this, including one way of writing a gradient function that could be generally applicable.
 
-In the examples below, we create a very simple lineral model and log-likelihood function in numpy.
+In the examples below, we create a very simple linear model and log-likelihood function in numpy.
 
 ```{code-cell} ipython3
 def my_model(m, c, x):
