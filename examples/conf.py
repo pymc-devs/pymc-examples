@@ -135,6 +135,7 @@ notfound_urls_prefix = "/projects/examples/en/latest/"
 
 # MyST config
 myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "amsmath", "substitution"]
+myst_dmath_double_inline = True
 citation_code = f"""
 ```bibtex
 @incollection{{citekey,
