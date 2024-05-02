@@ -715,7 +715,7 @@ fig, ax = plot_component(
 
 ## Conclusion
 
-We hope you better understand HSGPs and how to use them in practice with the very convenient PyMC's API. It's great to be able to strategically fold GPs into larger models. It's "possible" with GPs, but HSGPs make that actually possible. The reason is that the complexity of each GP component the is reduced by the approximation from $\mathcal{O}(n^3)$ to $\mathcal{O}(nm^2)$, where $m$ is the number of basis functions used in the approximation. This is a huge speedup!
+We hope you better understand HSGPs and how to use them in practice with the very convenient PyMC's API. It's great to be able to strategically fold GPs into larger models. It's "possible" with GPs, but HSGPs make that actually possible. The reason is that the complexity of each GP component the is reduced by the approximation from $\mathcal{O}(n^3)$ to $\mathcal{O}(nm + m)$, where $m$ is the number of basis functions used in the approximation. This is a huge speedup!
 
 ``````{admonition} HSGP Limitations
 Keep in mind that HSGPs are not a silver bullet. 
