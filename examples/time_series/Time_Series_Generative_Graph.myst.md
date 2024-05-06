@@ -21,7 +21,19 @@ kernelspec:
 
 +++
 
-In This notebook, we show to model and fit a time series model starting from a generative graph. In particular, we explain how to use {func}`~pytensor.scan.basic.scan` to loop efficiently inside a PyMC model.
+In this notebook, we show how to model and fit a time series model starting from a generative graph. In particular, we explain how to use {func}`~pytensor.scan.basic.scan` to loop efficiently inside a PyMC model.
+
+:::{admonition} **Motivation**
+:class: note
+
+Why would we do that, instead of just using {class}`~pm.distributions.timeseries.AR`? What are the benefits? 
+
+The pre-built time series models in PyMC are very useful and easy to use. Nevertheless, they are not flexible enough to model more complex time series models. By using a generative graph, we can model any time series model we want, as long as we can define it in terms of a generative graph. For example:
+
+- Auto-regressive models with different noise distribution (e.g. {class}`~pm.distributions.continuous.StudentT` noise).
+- Exponential smoothing models.
+- ARIMA-GARCH models.
+:::
 
 For this example, we consider an autoregressive model AR(2). Recall that an AR(2) model is defined as:
 
@@ -61,17 +73,39 @@ We start by encoding the generative graph of the AR(2) model as a function `ar_d
 
 We need to specify the initial state (`ar_init`), the autoregressive coefficients (`rho`), and the standard deviation of the noise (`sigma`). Given such parameters, we can define the generative graph of the AR(2) model using the  {func}`~pytensor.scan.basic.scan` operation.
 
+:::{admonition} **What are all of these functions?**
+:class: note
+
+At first, it might seem a bit overwhelming to see all these functions. However, they are just helper functions to define the generative graph of the AR(2) model.
+
+- {func}`~pymc.pytensorfcollect_default_updates` tells PyMC that the random variable (RV) in the generative graph should be updated in every iteration of the loop. 
+
+- {func}`~pytensor.scan.basic.scan`  is an efficient way to loop inside a PyMC model. It is similar to the `for` loop in Python, but it is optimized for `pytensor`. We need to specify the following arguments:
+
+    - `fn`: The function that defines the transition steep.
+    - `outputs_info`: The is the list of variables or dictionaries describing the initial state of the outputs computed recurrently.
+    - `non_sequences`: The list of arguments that are passed to `fn` at each steps. In this case are the autoregressive coefficients and the noise standard deviation of the AR(2) model.
+    - `n_steps`: The number of steps to loop.
+    - `strict`:  If `True`, all the shared variables used in `fn` must be provided as a part of `non_sequences` or `sequences` (In this example we do not use the argument `sequences`, which is the list of variables or dictionaries describing the sequences `scan` has to iterate over. In this case we can simply loop over the time steps).
+:::
+
+Let's see concrete implementations:
+
 ```{code-cell} ipython3
 lags = 2  # Number of lags
 trials = 100  # Time series length
 
 
 def ar_dist(ar_init, rho, sigma, size):
+    # This is the transition function for the AR(2) model.
+    # We take as inputs previous steps and then specify the autoregressive relationship.
+    # Finally, we add Gaussian noise to the model.
     def ar_step(x_tm2, x_tm1, rho, sigma):
         mu = x_tm1 * rho[0] + x_tm2 * rho[1]
         x = mu + pm.Normal.dist(sigma=sigma)
         return x, collect_default_updates([x])
 
+    # Here we actually "loop" over the time series.
     ar_innov, _ = pytensor.scan(
         fn=ar_step,
         outputs_info=[{"initial": ar_init, "taps": range(-lags, 0)}],
