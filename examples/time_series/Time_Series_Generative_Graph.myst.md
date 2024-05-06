@@ -131,10 +131,10 @@ with pm.Model(coords=coords, check_bounds=False) as model:
     rho = pm.Normal(name="rho", mu=0, sigma=0.2, dims=("lags",))
     sigma = pm.HalfNormal(name="sigma", sigma=0.2)
 
-    ar_init_obs = pm.MutableData(name="ar_init_obs", value=np.zeros(lags), dims=("lags",))
+    ar_init_obs = pm.Data(name="ar_init_obs", value=np.zeros(lags), dims=("lags",))
     ar_init = pm.Normal(name="ar_init", observed=ar_init_obs, dims=("lags",))
 
-    ar_innov_obs = pm.MutableData("ar_innov_obs", np.zeros(trials - lags), dims=("steps",))
+    ar_innov_obs = pm.Data("ar_innov_obs", np.zeros(trials - lags), dims=("steps",))
     ar_innov = pm.CustomDist(
         "ar_dist",
         ar_init,
@@ -179,7 +179,7 @@ for i, hdi_prob in enumerate((0.94, 0.64), 1):
 ax.plot(prior.prior["ar"].mean(("chain", "draw")), color="C0", label="Mean")
 ax.legend(loc="upper right")
 ax.set_xlabel("time")
-ax.set_title("AR(2) Prior Samples", fontsize=18, fontweight="bold")
+ax.set_title("AR(2) Prior Samples", fontsize=18, fontweight="bold");
 ```
 
 It is not surprising that the prior distribution is a stationary process around zero given that the prior of the  `rho` parameter is far from one.
@@ -197,7 +197,7 @@ for i, axi in enumerate(ax, start=chosen_draw):
         color="C0" if i == chosen_draw else "black",
     )
     axi.set_title(f"Sample {i}", fontsize=18, fontweight="bold")
-ax[-1].set_xlabel("time")
+ax[-1].set_xlabel("time");
 ```
 
 ## Posterior
@@ -239,14 +239,14 @@ axes = az.plot_trace(
     ],
     backend_kwargs={"figsize": (12, 5), "layout": "constrained"},
 )
-plt.gcf().suptitle("AR(2) Model Trace", fontsize=18, fontweight="bold")
+plt.gcf().suptitle("AR(2) Model Trace", fontsize=18, fontweight="bold");
 ```
 
 ```{code-cell} ipython3
 axes = az.plot_posterior(
     trace, var_names=["rho", "sigma"], ref_val=[*rho_true, sigma_true], figsize=(15, 5)
 )
-plt.gcf().suptitle("AR(2) Model Parameters Posterior", fontsize=18, fontweight="bold")
+plt.gcf().suptitle("AR(2) Model Parameters Posterior", fontsize=18, fontweight="bold");
 ```
 
 We see we have successfully recovered the true parameters of the model.
@@ -282,7 +282,7 @@ ax.plot(prior.prior["ar"].mean(("chain", "draw")), color="C0", label="Mean")
 ax.plot(ar_obs, color="black", label="Observed")
 ax.legend(loc="upper right")
 ax.set_xlabel("time")
-ax.set_title("AR(2) Posterior Predictive Samples", fontsize=18, fontweight="bold")
+ax.set_title("AR(2) Posterior Predictive Samples", fontsize=18, fontweight="bold");
 ```
 
 Overall, we the model is capturing the global dynamics of the time series. In order to have a abetter insight of the model, we can plot a subset of the posterior samples and compare them with the observed data.
@@ -299,7 +299,7 @@ for i, axi in enumerate(ax):
 
 ax[-1].set_xlabel("time")
 
-fig.suptitle("AR(2) Posterior Predictive Samples", fontsize=18, fontweight="bold", y=1.05)
+fig.suptitle("AR(2) Posterior Predictive Samples", fontsize=18, fontweight="bold", y=1.05);
 ```
 
 ## Authors
