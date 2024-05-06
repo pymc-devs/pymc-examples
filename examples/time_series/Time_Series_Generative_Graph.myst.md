@@ -267,7 +267,7 @@ for i, hdi_prob in enumerate((0.94, 0.64), 1):
         color="C0",
         label=f"{hdi_prob:.0%} HDI",
     )
-ax.plot(prior.prior["ar"].mean(("chain", "draw")), color="C0", label="Mean")
+ax.plot(post_pred_ar.mean(("chain", "draw")), color="C0", label="Mean")
 ax.plot(ar_obs, color="black", label="Observed")
 ax.legend(loc="upper right")
 ax.set_xlabel("time")
@@ -304,6 +304,87 @@ $$
 (what you get in statsmodels/stata/everything), which are much tighter and follow the data more closely.
 
 :::
+
++++
+
+Let's see how to do this in PyMC! The key observation is that we need to pass the observed data explicitly into out "for loop" in the generative graph. That is, we need to pass it into the {meth}`scan <pytensor.scan.basic.scan>` function.
+
+```{code-cell} ipython3
+def conditional_ar_dist(y_data, ar_init, rho, sigma, size):
+    def ar_step(x_tm2, x_tm1, rho, sigma):
+        mu = x_tm1 * rho[0] + x_tm2 * rho[1]
+        x = mu + pm.Normal.dist(sigma=sigma)
+        return x, collect_default_updates([x])
+
+    # Here we condition on the observed data by passing it through the `sequences` argument.
+    ar_innov, _ = pytensor.scan(
+        fn=ar_step,
+        sequences=[{"input": y_data, "taps": list(range(-lags, 0))}],
+        non_sequences=[rho, sigma],
+        n_steps=trials - lags,
+        strict=True,
+    )
+
+    return ar_innov
+```
+
+Then we can simply generate samples from the posterior predictive distribution. Observe we need to "rewrite" the generative graph to include te conditioned transition step. Nevertheless, we will use the posterior samples from the model above, this means we can put *any* "prior" distributions on the parameters we learned. For a detailed explanation on these type of cross model predictions, see the great blog post [Out of model predictions with PyMC](https://www.pymc-labs.com/blog-posts/out-of-model-predictions-with-pymc/).
+
+```{code-cell} ipython3
+coords = {
+    "lags": range(-lags, 0),
+    "steps": range(trials - lags),
+    "trials": range(trials),
+}
+with pm.Model(coords=coords, check_bounds=False) as conditional_model:
+    y_data = pm.Data("y_data", ar_obs)
+    rho = pm.Flat(name="rho", dims=("lags",))
+    sigma = pm.Flat(name="sigma")
+    ar_init = pm.Flat(name="ar_init", dims=("lags",))
+
+    ar_innov = pm.CustomDist(
+        "ar_dist",
+        y_data,
+        ar_init,
+        rho,
+        sigma,
+        dist=conditional_ar_dist,
+        dims=("steps",),
+    )
+
+    ar = pm.Deterministic(
+        name="ar", var=pt.concatenate([ar_init, ar_innov], axis=-1), dims=("trials",)
+    )
+
+    post_pred_conditional = pm.sample_posterior_predictive(trace, var_names=["ar"], random_seed=rng)
+```
+
+Let's visualize the conditional posterior predictive distribution:
+
+```{code-cell} ipython3
+conditional_post_pred_ar = post_pred_conditional.posterior_predictive["ar"]
+
+_, ax = plt.subplots()
+for i, hdi_prob in enumerate((0.94, 0.64), 1):
+    hdi = az.hdi(conditional_post_pred_ar, hdi_prob=hdi_prob)["ar"]
+    lower = hdi.sel(hdi="lower")
+    upper = hdi.sel(hdi="higher")
+    ax.fill_between(
+        x=np.arange(trials),
+        y1=lower,
+        y2=upper,
+        alpha=(i - 0.2) * 0.2,
+        color="C1",
+        label=f"{hdi_prob:.0%} HDI",
+    )
+ax.plot(conditional_post_pred_ar.mean(("chain", "draw")), color="C1", label="Mean")
+ax.plot(ar_obs, color="black", label="Observed")
+ax.legend(loc="upper right")
+ax.set_xlabel("time")
+ax.set_title("AR(2) Conditional Posterior Predictive Samples", fontsize=18, fontweight="bold");
+```
+
+We indeed see that these credible intervals are tighter than the unconditional ones.
 
 +++
 
