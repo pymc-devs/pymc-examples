@@ -71,16 +71,16 @@ rng = np.random.default_rng(42)
 
 We start by encoding the generative graph of the AR(2) model as a function `ar_dist`. The strategy is to pass this function as a custom distribution via {class}`~pymc.CustomDist` inside a PyMC model. 
 
-We need to specify the initial state (`ar_init`), the autoregressive coefficients (`rho`), and the standard deviation of the noise (`sigma`). Given such parameters, we can define the generative graph of the AR(2) model using the  {func}`scan <pytensor.scan.basic.scan>` operation.
+We need to specify the initial state (`ar_init`), the autoregressive coefficients (`rho`), and the standard deviation of the noise (`sigma`). Given such parameters, we can define the generative graph of the AR(2) model using the  {meth}`scan <pytensor.scan.basic.scan>` operation.
 
 :::{admonition} **What are all of these functions?**
 :class: note
 
 At first, it might seem a bit overwhelming to see all these functions. However, they are just helper functions to define the generative graph of the AR(2) model.
 
-- {func}`~pymc.pytensorf.collect_default_updates` tells PyMC that the random variable (RV) in the generative graph should be updated in every iteration of the loop. 
+- {meth}`~pymc.pytensorf.collect_default_updates` tells PyMC that the random variable (RV) in the generative graph should be updated in every iteration of the loop. 
 
-- {func}`scan <pytensor.scan.basic.scan>` is an efficient way to loop inside a PyMC model. It is similar to the `for` loop in Python, but it is optimized for `pytensor`. We need to specify the following arguments:
+- {meth}`scan <pytensor.scan.basic.scan>` is an efficient way to loop inside a PyMC model. It is similar to the `for` loop in Python, but it is optimized for `pytensor`. We need to specify the following arguments:
 
     - `fn`: The function that defines the transition steep.
     - `outputs_info`: The is the list of variables or dictionaries describing the initial state of the outputs computed recurrently.
@@ -274,7 +274,7 @@ ax.set_xlabel("time")
 ax.set_title("AR(2) Posterior Predictive Samples", fontsize=18, fontweight="bold");
 ```
 
-Overall, we the model is capturing the global dynamics of the time series. In order to have a abetter insight of the model, we can plot a subset of the posterior samples and compare them with the observed data.
+Overall, we see the model is capturing the global dynamics of the time series. In order to have a better insight of the model, we can plot a subset of the posterior samples and compare them with the observed data.
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(
@@ -291,8 +291,24 @@ ax[-1].set_xlabel("time")
 fig.suptitle("AR(2) Posterior Predictive Samples", fontsize=18, fontweight="bold", y=1.05);
 ```
 
+:::{admonition} **Conditional and Unconditional Posteriors**
+:class: warning
+
+Many users will be surprised by this posterior because they are used to seeing conditional one-step forecasts, that is 
+
+$$
+P(x_{t} \: | \: \{ x_{\tau} \}_{\tau = 1} ^{t - 1})
+$$
+
+
+(what you get in statsmodels/stata/everything), which are much tighter and follow the data more closely.
+
+:::
+
++++
+
 ## Authors
-- Authored by [Juan Orduz](https://juanitorduz.github.io/) and [Ricardo Vieira](https://github.com/ricardoV94) in March 2024
+- Authored by [Jesse Grabowski](https://github.com/jessegrabowski), [Juan Orduz](https://juanitorduz.github.io/) and [Ricardo Vieira](https://github.com/ricardoV94) in March 2024
 
 +++
 
