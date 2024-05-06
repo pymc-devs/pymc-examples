@@ -16,21 +16,21 @@ kernelspec:
 :::{post} March, 2024
 :tags: time-series, 
 :category: intermediate, reference
-:author: Juan Orduz and Ricardo Vieira
+:author: Jesse Grabowski, Juan Orduz and Ricardo Vieira
 :::
 
 +++
 
-In this notebook, we show how to model and fit a time series model starting from a generative graph. In particular, we explain how to use {func}`~pytensor.scan.basic.scan` to loop efficiently inside a PyMC model.
+In this notebook, we show how to model and fit a time series model starting from a generative graph. In particular, we explain how to use {func}`scan <pytensor.scan.basic.scan>` to loop efficiently inside a PyMC model.
 
 :::{admonition} **Motivation**
 :class: note
 
-Why would we do that, instead of just using {class}`~pm.distributions.timeseries.AR`? What are the benefits? 
+Why would we do that, instead of just using {class}`~pymc.distributions.timeseries.AR`? What are the benefits? 
 
 The pre-built time series models in PyMC are very useful and easy to use. Nevertheless, they are not flexible enough to model more complex time series models. By using a generative graph, we can model any time series model we want, as long as we can define it in terms of a generative graph. For example:
 
-- Auto-regressive models with different noise distribution (e.g. {class}`~pm.distributions.continuous.StudentT` noise).
+- Auto-regressive models with different noise distribution (e.g. {class}`~pymc.distributions.continuous.StudentT` noise).
 - Exponential smoothing models.
 - ARIMA-GARCH models.
 :::
@@ -71,16 +71,16 @@ rng = np.random.default_rng(42)
 
 We start by encoding the generative graph of the AR(2) model as a function `ar_dist`. The strategy is to pass this function as a custom distribution via {class}`~pymc.CustomDist` inside a PyMC model. 
 
-We need to specify the initial state (`ar_init`), the autoregressive coefficients (`rho`), and the standard deviation of the noise (`sigma`). Given such parameters, we can define the generative graph of the AR(2) model using the  {func}`~pytensor.scan.basic.scan` operation.
+We need to specify the initial state (`ar_init`), the autoregressive coefficients (`rho`), and the standard deviation of the noise (`sigma`). Given such parameters, we can define the generative graph of the AR(2) model using the  {func}`scan <pytensor.scan.basic.scan>` operation.
 
 :::{admonition} **What are all of these functions?**
 :class: note
 
 At first, it might seem a bit overwhelming to see all these functions. However, they are just helper functions to define the generative graph of the AR(2) model.
 
-- {func}`~pymc.pytensorfcollect_default_updates` tells PyMC that the random variable (RV) in the generative graph should be updated in every iteration of the loop. 
+- {func}`~pymc.pytensorf.collect_default_updates` tells PyMC that the random variable (RV) in the generative graph should be updated in every iteration of the loop. 
 
-- {func}`~pytensor.scan.basic.scan`  is an efficient way to loop inside a PyMC model. It is similar to the `for` loop in Python, but it is optimized for `pytensor`. We need to specify the following arguments:
+- {func}`scan <pytensor.scan.basic.scan>` is an efficient way to loop inside a PyMC model. It is similar to the `for` loop in Python, but it is optimized for `pytensor`. We need to specify the following arguments:
 
     - `fn`: The function that defines the transition steep.
     - `outputs_info`: The is the list of variables or dictionaries describing the initial state of the outputs computed recurrently.
@@ -131,17 +131,14 @@ with pm.Model(coords=coords, check_bounds=False) as model:
     rho = pm.Normal(name="rho", mu=0, sigma=0.2, dims=("lags",))
     sigma = pm.HalfNormal(name="sigma", sigma=0.2)
 
-    ar_init_obs = pm.Data(name="ar_init_obs", value=np.zeros(lags), dims=("lags",))
-    ar_init = pm.Normal(name="ar_init", observed=ar_init_obs, dims=("lags",))
+    ar_init = pm.Normal(name="ar_init", sigma=0.5, dims=("lags",))
 
-    ar_innov_obs = pm.Data("ar_innov_obs", np.zeros(trials - lags), dims=("steps",))
     ar_innov = pm.CustomDist(
         "ar_dist",
         ar_init,
         rho,
         sigma,
         dist=ar_dist,
-        observed=ar_innov_obs,
         dims=("steps",),
     )
 
@@ -205,30 +202,22 @@ ax[-1].set_xlabel("time");
 Next, we want to condition the AR(2) model on some observed data so that we can do a parameter recovery analysis.
 
 ```{code-cell} ipython3
-# Pick a random draw from the prior (i.e. a time series)
+# select a random draw from the prior
 prior_draw = prior.prior.isel(chain=0, draw=chosen_draw)
+test_data = prior_draw["ar_dist"].values
 
-# Set the observed values
-ar_init_obs.set_value(prior_draw["ar"].values[:lags])
-ar_innov_obs.set_value(prior_draw["ar"].values[lags:])
-ar_obs = prior_draw["ar"].to_numpy()
-rho_true = prior_draw["rho"].to_numpy()
-sigma_true = prior_draw["sigma"].to_numpy()
-
-# Output the true values
-print(f"rho_true={np.round(rho_true, 3)}, {sigma_true=:.3f}")
-```
-
-We now run the MCMC algorithm to sample from the posterior distribution.
-
-```{code-cell} ipython3
-with model:
-    trace = pm.sample(random_seed=rng)
+with pm.observe(model, {"ar_dist": test_data}) as observed_model:
+    trace = pm.sample()
 ```
 
 Let's plot the trace and the posterior distribution of the parameters.
 
 ```{code-cell} ipython3
+# Get the true values of the parameters from the prior draw
+rho_true = prior_draw["rho"].to_numpy()
+sigma_true = prior_draw["sigma"].to_numpy()
+ar_obs = prior_draw["ar"].to_numpy()
+
 axes = az.plot_trace(
     data=trace,
     var_names=["rho", "sigma"],
@@ -258,7 +247,7 @@ We see we have successfully recovered the true parameters of the model.
 Finally, we can use the posterior samples to generate new data from the AR(2) model. We can then compare the generated data with the observed data to check the goodness of fit of the model.
 
 ```{code-cell} ipython3
-with model:
+with observed_model:
     post_pred = pm.sample_posterior_predictive(trace, random_seed=rng)
 ```
 
