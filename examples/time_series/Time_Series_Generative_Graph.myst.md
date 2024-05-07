@@ -54,6 +54,7 @@ import numpy as np
 import pymc as pm
 import pytensor
 import pytensor.tensor as pt
+import statsmodels.api as sm
 
 from pymc.pytensorf import collect_default_updates
 
@@ -96,16 +97,17 @@ lags = 2  # Number of lags
 trials = 100  # Time series length
 
 
-def ar_dist(ar_init, rho, sigma, size):
-    # This is the transition function for the AR(2) model.
-    # We take as inputs previous steps and then specify the autoregressive relationship.
-    # Finally, we add Gaussian noise to the model.
-    def ar_step(x_tm2, x_tm1, rho, sigma):
-        mu = x_tm1 * rho[0] + x_tm2 * rho[1]
-        x = mu + pm.Normal.dist(sigma=sigma)
-        return x, collect_default_updates([x])
+# This is the transition function for the AR(2) model.
+# We take as inputs previous steps and then specify the autoregressive relationship.
+# Finally, we add Gaussian noise to the model.
+def ar_step(x_tm2, x_tm1, rho, sigma):
+    mu = x_tm1 * rho[0] + x_tm2 * rho[1]
+    x = mu + pm.Normal.dist(sigma=sigma)
+    return x, collect_default_updates([x])
 
-    # Here we actually "loop" over the time series.
+
+# Here we actually "loop" over the time series.
+def ar_dist(ar_init, rho, sigma, size):
     ar_innov, _ = pytensor.scan(
         fn=ar_step,
         outputs_info=[{"initial": ar_init, "taps": range(-lags, 0)}],
@@ -260,14 +262,19 @@ for i, hdi_prob in enumerate((0.94, 0.64), 1):
     lower = hdi.sel(hdi="lower")
     upper = hdi.sel(hdi="higher")
     ax.fill_between(
-        x=np.arange(trials),
+        x=post_pred_ar["trials"],
         y1=lower,
         y2=upper,
         alpha=(i - 0.2) * 0.2,
         color="C0",
         label=f"{hdi_prob:.0%} HDI",
     )
-ax.plot(post_pred_ar.mean(("chain", "draw")), color="C0", label="Mean")
+ax.plot(
+    post_pred_ar["trials"],
+    post_pred_ar.mean(("chain", "draw")),
+    color="C0",
+    label="Mean",
+)
 ax.plot(ar_obs, color="black", label="Observed")
 ax.legend(loc="upper right")
 ax.set_xlabel("time")
@@ -310,12 +317,7 @@ $$
 Let's see how to do this in PyMC! The key observation is that we need to pass the observed data explicitly into out "for loop" in the generative graph. That is, we need to pass it into the {meth}`scan <pytensor.scan.basic.scan>` function.
 
 ```{code-cell} ipython3
-def conditional_ar_dist(y_data, ar_init, rho, sigma, size):
-    def ar_step(x_tm2, x_tm1, rho, sigma):
-        mu = x_tm1 * rho[0] + x_tm2 * rho[1]
-        x = mu + pm.Normal.dist(sigma=sigma)
-        return x, collect_default_updates([x])
-
+def conditional_ar_dist(y_data, rho, sigma, size):
     # Here we condition on the observed data by passing it through the `sequences` argument.
     ar_innov, _ = pytensor.scan(
         fn=ar_step,
@@ -330,22 +332,26 @@ def conditional_ar_dist(y_data, ar_init, rho, sigma, size):
 
 Then we can simply generate samples from the posterior predictive distribution. Observe we need to "rewrite" the generative graph to include te conditioned transition step. Nevertheless, we will use the posterior samples from the model above, this means we can put *any* "prior" distributions on the parameters we learned. For a detailed explanation on these type of cross model predictions, see the great blog post [Out of model predictions with PyMC](https://www.pymc-labs.com/blog-posts/out-of-model-predictions-with-pymc/).
 
++++
+
+```{warning}
+We need to shift the coordinate `steps` forward by one! The reasons is that the data at (for example) `step=1` is used to create the prediction for `step=2`. If one does not do the shift, the `step=0` prediction will be mislabeled as `step=0`, and the model will look better than it is. 
+```
+
 ```{code-cell} ipython3
 coords = {
     "lags": range(-lags, 0),
-    "steps": range(trials - lags),
-    "trials": range(trials),
+    "steps": range(-1, trials - lags - 1),  # <- Coordinate shift!
+    "trials": range(1, trials + 1),  # <- Coordinate shift!
 }
 with pm.Model(coords=coords, check_bounds=False) as conditional_model:
     y_data = pm.Data("y_data", ar_obs)
     rho = pm.Flat(name="rho", dims=("lags",))
     sigma = pm.Flat(name="sigma")
-    ar_init = pm.Flat(name="ar_init", dims=("lags",))
 
     ar_innov = pm.CustomDist(
         "ar_dist",
         y_data,
-        ar_init,
         rho,
         sigma,
         dist=conditional_ar_dist,
@@ -359,26 +365,44 @@ with pm.Model(coords=coords, check_bounds=False) as conditional_model:
     post_pred_conditional = pm.sample_posterior_predictive(trace, var_names=["ar"], random_seed=rng)
 ```
 
-Let's visualize the conditional posterior predictive distribution:
+Let's visualize the conditional posterior predictive distribution and compare it with the `statsmodels` result:
 
 ```{code-cell} ipython3
+# PyMC conditional posterior predictive samples
 conditional_post_pred_ar = post_pred_conditional.posterior_predictive["ar"]
 
+# Statsmodels AR(2) model
+mod = sm.tsa.ARIMA(ar_obs, order=(2, 0, 0))
+res = mod.fit()
+```
+
+```{code-cell} ipython3
 _, ax = plt.subplots()
 for i, hdi_prob in enumerate((0.94, 0.64), 1):
     hdi = az.hdi(conditional_post_pred_ar, hdi_prob=hdi_prob)["ar"]
     lower = hdi.sel(hdi="lower")
     upper = hdi.sel(hdi="higher")
     ax.fill_between(
-        x=np.arange(trials),
+        x=conditional_post_pred_ar["trials"],
         y1=lower,
         y2=upper,
         alpha=(i - 0.2) * 0.2,
         color="C1",
         label=f"{hdi_prob:.0%} HDI",
     )
-ax.plot(conditional_post_pred_ar.mean(("chain", "draw")), color="C1", label="Mean")
+ax.plot(
+    conditional_post_pred_ar["trials"],
+    conditional_post_pred_ar.mean(("chain", "draw")),
+    color="C1",
+    label="Mean",
+)
 ax.plot(ar_obs, color="black", label="Observed")
+ax.plot(
+    conditional_post_pred_ar["trials"],
+    res.fittedvalues,
+    color="C2",
+    label="statsmodels",
+)
 ax.legend(loc="upper right")
 ax.set_xlabel("time")
 ax.set_title("AR(2) Conditional Posterior Predictive Samples", fontsize=18, fontweight="bold");
@@ -387,6 +411,133 @@ ax.set_title("AR(2) Conditional Posterior Predictive Samples", fontsize=18, font
 We indeed see that these credible intervals are tighter than the unconditional ones.
 
 +++
+
+Here are some additional remarks:
+
+- There's no prediction for $y_0$, because we don't observe $y_{t - 1}$. 
+- The predictions seem to "chase" the data, since that's exactly what we're doing. At each step, we reset to the observed data and make one prediction.
+
+```{note}
+Relative to the `statsmodel` reference, we're just a little different in the initialization. This makes sense, since they do some fancy MLE initialization trickery and we estimate it as a parameter. The difference should wash out as we iterate over the sequence, and we see that indeed it does.
+```
+
++++
+
+## Out of Sample Predictions
+
+In this last section, wee describe how to generate out-of-sample predictions.
+
+```{code-cell} ipython3
+# Specify the number of steps to forecast
+forecast_steps = 10
+```
+
+The idea is to use the posterior samples and the latest available two data points (because we have an AR(2) model) to generate the forecast:
+
+```{code-cell} ipython3
+coords = {
+    "lags": range(-lags, 0),
+    "trials": range(trials),
+    "steps": range(trials, trials + forecast_steps),
+}
+with pm.Model(coords=coords, check_bounds=False) as forecasting_model:
+    y_data = pm.Data("y_data", ar_obs[-lags:], dims=("lags",))
+    rho = pm.Flat(name="rho", dims=("lags",))
+    sigma = pm.Flat(name="sigma")
+    ar_init = pm.Flat(name="ar_init", dims=("lags",))
+
+    def ar_dist_forecasting(y_data, rho, sigma, size):
+        ar_innov, _ = pytensor.scan(
+            fn=ar_step,
+            outputs_info=[{"initial": y_data, "taps": range(-lags, 0)}],
+            non_sequences=[rho, sigma],
+            n_steps=forecast_steps,
+            strict=True,
+        )
+        return ar_innov
+
+    ar_innov = pm.CustomDist(
+        "ar_dist",
+        y_data,
+        rho,
+        sigma,
+        dist=ar_dist_forecasting,
+        dims=("steps",),
+    )
+
+    post_pred_forecast = pm.sample_posterior_predictive(
+        trace, var_names=["ar_dist"], random_seed=rng
+    )
+```
+
+We can visualize the out-of-sample predictions and compare thee results wth the one from  `statsmodels`.
+
+```{code-cell} ipython3
+forecast_post_pred_ar = post_pred_forecast.posterior_predictive["ar_dist"]
+
+_, ax = plt.subplots()
+for i, hdi_prob in enumerate((0.94, 0.64), 1):
+    hdi = az.hdi(conditional_post_pred_ar, hdi_prob=hdi_prob)["ar"]
+    lower = hdi.sel(hdi="lower")
+    upper = hdi.sel(hdi="higher")
+    ax.fill_between(
+        x=conditional_post_pred_ar["trials"],
+        y1=lower,
+        y2=upper,
+        alpha=(i - 0.2) * 0.2,
+        color="C1",
+        label=f"{hdi_prob:.0%} HDI",
+    )
+
+ax.plot(
+    conditional_post_pred_ar["trials"],
+    conditional_post_pred_ar.mean(("chain", "draw")),
+    color="C1",
+    label="Mean",
+)
+
+for i, hdi_prob in enumerate((0.94, 0.64), 1):
+    hdi = az.hdi(forecast_post_pred_ar, hdi_prob=hdi_prob)["ar_dist"]
+    lower = hdi.sel(hdi="lower")
+    upper = hdi.sel(hdi="higher")
+    ax.fill_between(
+        x=forecast_post_pred_ar["steps"],
+        y1=lower,
+        y2=upper,
+        alpha=(i - 0.2) * 0.2,
+        color="C3",
+        label=f"{hdi_prob:.0%} HDI forecast",
+    )
+
+ax.plot(
+    forecast_post_pred_ar["steps"],
+    forecast_post_pred_ar.mean(("chain", "draw")),
+    color="C3",
+    label="Mean Forecast",
+)
+
+
+ax.plot(ar_obs, color="black", label="Observed")
+ax.plot(
+    conditional_post_pred_ar["trials"],
+    res.fittedvalues,
+    color="C2",
+    label="statsmodels",
+)
+ax.plot(
+    forecast_post_pred_ar["steps"],
+    res.forecast(forecast_steps),
+    color="C2",
+    label="statsmodels forecast",
+)
+ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.1), ncol=4)
+ax.set_xlabel("time")
+ax.set_title(
+    "AR(2) Conditional Posterior Predictive Samples & Forecast",
+    fontsize=18,
+    fontweight="bold",
+);
+```
 
 ## Authors
 - Authored by [Jesse Grabowski](https://github.com/jessegrabowski), [Juan Orduz](https://juanitorduz.github.io/) and [Ricardo Vieira](https://github.com/ricardoV94) in March 2024
