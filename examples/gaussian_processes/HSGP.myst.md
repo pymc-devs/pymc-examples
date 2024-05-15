@@ -41,7 +41,9 @@ A secondary goal of this implementation is flexibility via an accessible impleme
 
 +++
 
-# Example 1: Basic HSGP Usage
+## Example 1: Basic HSGP Usage
+
++++
 
 We'll use simulated data to motivate an overview of the usage of `pm.gp.HSGP`.  Refer to this section if you're interested in:
 1. Seeing a simple example of `HSGP` in action.
@@ -64,8 +66,6 @@ plt.rcParams["figure.figsize"] = [12, 5]
 seed = sum(map(ord, "hsgp"))
 rng = np.random.default_rng(seed)
 ```
-
-+++ {"jp-MarkdownHeadingCollapsed": true}
 
 ### Simulate data
 
@@ -102,8 +102,6 @@ ax.set_ylabel("y")
 ax.legend(frameon=True)
 ax.grid(False)
 ```
-
-+++ {"jp-MarkdownHeadingCollapsed": true}
 
 ### Define and fit the HSGP model
 
@@ -166,11 +164,15 @@ with pm.Model() as model:
 ```
 
 ```{code-cell} ipython3
-az.summary(idata, var_names=["eta", "ell", "sigma"])
+az.summary(idata, var_names=["eta", "ell", "sigma"], round_to=2)
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(idata, var_names=["eta", "ell", "sigma"]);
+az.plot_trace(
+    idata,
+    var_names=["eta", "ell", "sigma"],
+    lines=[("eta", {}, [1]), ("ell", {}, [1]), ("sigma", {}, [1])],
+);
 ```
 
 ```{code-cell} ipython3
@@ -186,11 +188,13 @@ ax.set(title="The HSGP Fit", xlabel="x", ylabel="y")
 ax.legend();
 ```
 
-+++ {"jp-MarkdownHeadingCollapsed": true}
-
 The inferred underlying GP (shaded in red) accurately matches the true underlying GP (in light blue).
 
++++
+
 ### Additive GPs
+
++++
 
 The `pm.gp.HSGP` class is compatible with additive covariances, instead of defining two completely independent HSGPs.  Additive processes result in a product of the power spectral densities.  This can help reduce the number of unknown parameters, because the two GPs can share the same basis set.  The code for this would look similar to:
 
@@ -204,7 +208,9 @@ gp = pm.gp.HSGP(m=[m], c=c, cov_func=cov_func)
 
 +++
 
-# Choosing the HSGP approximation parameters, `m`, `L`, and `c`
+## Choosing the HSGP approximation parameters, `m`, `L`, and `c`
+
++++
 
 Before fitting a model with an HSGP, you have to choose `m` and `c` or `L`.  `m` is the number of basis vectors.  Recall that the computational complexity of the HSGP approximation is $\mathcal{O}(mn + m)$, where $n$ is the number of data points. 
 
@@ -213,13 +219,17 @@ This choice is a balance between three concerns:
 2.  Reducing the computational burden.
 3.  The `X` locations where predictions or forecasts will need to be made.
 
-At the end of this section, we'll give the rules of thumb given in [Paper].  The best way to understand how to choose these parameters is to understand how `m`, `c` and `L` relate to each other, which requires understanding a bit more about how the approximation works under the hood.  
+At the end of this section, we'll give the rules of thumb given in [Paper].  The best way to understand how to choose these parameters is to understand how `m`, `c` and `L` relate to each other, which requires understanding a bit more about how the approximation works under the hood.
+
++++
 
 ### How `L` and `c` affect the basis
 
++++
+
 Speaking non-technically, the HSGP approximates the GP prior as a linear combination of sinusoids.  The coefficients of the linear combination are IID normal random variables whose standard deviation depends on GP hyperparameters (which are an amplitude and lengthscale for the Matern family). 
 
-To see this, we'll make a few plots of the $m=3$ basis vectors and pay careful attention to how they behave at the boundaries of the domain.  Note that we have to center the `x` data first, and then choose `L` in relation to the centered data.  It's worth mentioning here that the basis vectors we're plotting do not depend on either the choice of the covariance kernel or on any unknown parameters the covariance function has.    
+To see this, we'll make a few plots of the $m=3$ and $m=5$ basis vectors and pay careful attention to how they behave at the boundaries of the domain.  Note that we have to center the `x` data first, and then choose `L` in relation to the centered data.  It's worth mentioning here that the basis vectors we're plotting do not depend on either the choice of the covariance kernel or on any unknown parameters the covariance function has.
 
 ```{code-cell} ipython3
 # Our data goes from x=-5 to x=5
@@ -244,9 +254,12 @@ for i, ax in enumerate(axs.flatten()):
     L = L_options[i]
     m = m_options[i]
 
-    eigvals = pm.gp.hsgp_approx.calc_eigenvalues(pt.as_tensor([L]), [m], tl=pt)
+    eigvals = pm.gp.hsgp_approx.calc_eigenvalues(pt.as_tensor([L]), [m])
     phi = pm.gp.hsgp_approx.calc_eigenvectors(
-        x[:, None], pt.as_tensor([L]), eigvals, [m], tl=pt
+        x[:, None],
+        pt.as_tensor([L]),
+        eigvals,
+        [m],
     ).eval()
 
     colors = plt.cm.cividis_r(np.linspace(0.05, 0.95, m))
@@ -279,14 +292,15 @@ To summarize:
 - When choosing $m$, $c$ or $L$, it's important to **consider the locations where you will need to make predictions**, such that they also aren't affected by the boundary condition.
 - **The first eigenvector in the basis may be unidentified** with the intercept, especially when $L$ or $c$ are larger.
 
++++
 
 ### Heuristics for choosing $m$ and $c$
+
++++
 
 In practice, you'll need to infer the lengthscale from the data, so the HSGP needs to approximate a GP across a range of lengthscales that are representative of your chosen prior. You'll need to choose **$c$ large enough to handle the largest lengthscales** you might fit, and also **choose $m$ large enough to accommodate the smallest lengthscales**.
 
 [Ruitort-Mayol et. al.] give some handy heuristics for the range of lengthscales that are accurately reproduced for given values of $m$ and $c$.  Below, we provide a function that uses their heuristics to recommend minimum $m$ and $c$ value.  Note that these recommendations are based on a one-dimensional GP.
-
-For example, if you're using the `Matern52` covariance and your data ranges from $x=-5$ to $x=95$, and the bulk of your lengthscale prior is between $\ell=1$ and $\ell=50$, then the smallest recommended values are $m=280$ and $c=3.2$.
 
 ```{code-cell} ipython3
 def approx_params(x_lower, x_upper, ell_lower, ell_upper, cov_func="matern52"):
@@ -308,17 +322,20 @@ def approx_params(x_lower, x_upper, ell_lower, ell_upper, cov_func="matern52"):
     m = int(a2 * c / (ell_lower / S))
 
     return m, c, S
+```
 
+For example, if you're using the `Matern52` covariance and your data ranges from $x=-5$ to $x=95$, and the bulk of your lengthscale prior is between $\ell=1$ and $\ell=50$, then the smallest recommended values are $m=280$ and $c=3.2$, as you can see below:
 
+```{code-cell} ipython3
 m, c, _ = approx_params(x_lower=-5, x_upper=95, ell_lower=1, ell_upper=50, cov_func="expquad")
 
 print(f"Smallest m: {m}")
 print(f"Smallest c: {c:.1f}")
 ```
 
-+++ {"jp-MarkdownHeadingCollapsed": true}
-
 ### The HSGP approximate Gram matrix
+
++++
 
 You may not be able to rely on these heuristics for a few reasons.  You may be using a different covariance function than `ExpQuad`, `Matern52`, or `Matern32`.  Also, they're only defined for one dimensional GPs.  Another way to check HSGP fidelity is to directly compare the unapproximated Gram matrix (the Gram matrix is the matrix obtained after calculating the covariance function over the inputs `X`), $\mathbf{K}$, to the one resulting from the HSGP approximation, 
 $$
@@ -342,13 +359,14 @@ Xs = X - np.mean(X, axis=0)
 
 # Calculate L given Xs and c
 m, c = [20, 20], 2.0
-L = pm.gp.hsgp_approx.set_boundary(Xs, c).eval()
+L = pm.gp.hsgp_approx.set_boundary(Xs, c)
+```
 
-
+```{code-cell} ipython3
 def calculate_Kapprox(Xs, L, m):
     # Calculate Phi and the diagonal matrix of power spectral densities
-    eigvals = pm.gp.hsgp_approx.calc_eigenvalues(L, m, tl=pt)
-    phi = pm.gp.hsgp_approx.calc_eigenvectors(Xs, L, eigvals, m, tl=pt).eval()
+    eigvals = pm.gp.hsgp_approx.calc_eigenvalues(L, m)
+    phi = pm.gp.hsgp_approx.calc_eigenvectors(Xs, L, eigvals, m)
     omega = pt.sqrt(eigvals)
     psd = cov_func.power_spectral_density(omega)
     return (phi @ pt.diag(psd) @ phi.T).eval()
@@ -358,6 +376,7 @@ def calculate_Kapprox(Xs, L, m):
 fig, axs = plt.subplots(2, 4, figsize=(14, 7))
 
 axs[0, 0].imshow(K, cmap="inferno", vmin=0, vmax=1)
+axs[0, 0].set_title("True Gram matrix")
 axs[1, 0].axis("off")
 for ax in axs.flatten():
     ax.set_xticks([])
@@ -373,39 +392,39 @@ im_kwargs = {
 
 ## column 1
 m, c = [20, 20], 3.0
-L = pm.gp.hsgp_approx.set_boundary(Xs, c).eval()
+L = pm.gp.hsgp_approx.set_boundary(Xs, c)
 K_approx = calculate_Kapprox(Xs, L, m)
 axs[0, 1].imshow(K_approx, **im_kwargs)
 axs[0, 1].set_title(f"m = {m}, c = {c}")
 
 m, c = [20, 20], 1.5
-L = pm.gp.hsgp_approx.set_boundary(Xs, c).eval()
+L = pm.gp.hsgp_approx.set_boundary(Xs, c)
 K_approx = calculate_Kapprox(Xs, L, m)
 axs[1, 1].imshow(K_approx, **im_kwargs)
 axs[1, 1].set_title(f"m = {m}, c = {c}")
 
 ## column 2
 m, c = [10, 10], 3.0
-L = pm.gp.hsgp_approx.set_boundary(Xs, c).eval()
+L = pm.gp.hsgp_approx.set_boundary(Xs, c)
 K_approx = calculate_Kapprox(Xs, L, m)
 axs[0, 2].imshow(K_approx, **im_kwargs)
 axs[0, 2].set_title(f"m = {m}, c = {c}")
 
 m, c = [10, 10], 1.5
-L = pm.gp.hsgp_approx.set_boundary(Xs, c).eval()
+L = pm.gp.hsgp_approx.set_boundary(Xs, c)
 K_approx = calculate_Kapprox(Xs, L, m)
 axs[1, 2].imshow(K_approx, **im_kwargs)
 axs[1, 2].set_title(f"m = {m}, c = {c}")
 
 ## column 3
 m, c = [4, 4], 3.0
-L = pm.gp.hsgp_approx.set_boundary(Xs, c).eval()
+L = pm.gp.hsgp_approx.set_boundary(Xs, c)
 K_approx = calculate_Kapprox(Xs, L, m)
 axs[0, 3].imshow(K_approx, **im_kwargs)
 axs[0, 3].set_title(f"m = {m}, c = {c}")
 
 m, c = [4, 4], 1.5
-L = pm.gp.hsgp_approx.set_boundary(Xs, c).eval()
+L = pm.gp.hsgp_approx.set_boundary(Xs, c)
 K_approx = calculate_Kapprox(Xs, L, m)
 axs[1, 3].imshow(K_approx, **im_kwargs)
 axs[1, 3].set_title(f"m = {m}, c = {c}")
@@ -413,20 +432,22 @@ axs[1, 3].set_title(f"m = {m}, c = {c}")
 plt.tight_layout();
 ```
 
-The plots above compare the approximate Gram matrices to the unapproximated Gram matrix in the top left panel.  The goal is to compare the approximated Gram matrices to the true one (upper left).  Qualitatively, the more similar they look the better the approximation.  Also, these results are only relevant to the context of the particular domain defined by `X` and the chosen lengthscale, $\ell = 3$ -- just because it looks good for $\ell = 3$ doesn't mean it will look good for, for instance, $\ell = 10$.  
+The plots above compare the approximate Gram matrices to the unapproximated Gram matrix in the top left panel.  The goal is to compare the approximated Gram matrices to the true one (upper left).  Qualitatively, **the more similar they look the better the approximation**.  Also, these results are **only relevant to the context of the particular domain defined by `X` and the chosen lengthscale**, $\ell = 3$ -- just because it looks good for $\ell = 3$ doesn't mean it will look good for, for instance, $\ell = 10$.  
 
 We can make a few observations:
 - The approximation visually looks good for the two panels with $m = [20, 20]$ and $m = [10, 10]$, with $c=3.0$.  The rest show clear differences to the unapproximated Gram matrix.  
 - $c=1.5$ is generally too small, regardless of $m$.
 - Perhaps surprisingly, the $m=[4, 4]$, $c=1.5$ approximation looks better than the $m=[4, 4]$, $c=3$ one.  As we showed earlier, when we "stretch" the eigenvector basis to fill a larger domain than our `X` (larger by the multiple $c$), we can lose fidelity at smaller lengthscales.  
 
-For your particular situation, you will need to experiment across your range of lengthscales and quantify how much approximation error is acceptable. Often, when prototyping a model, you can use a lower fidelity HSGP approximation for faster sampling.  Then, once you understand the range of relevant lengthscales, you can dial in the correct $m$ and $L$ (or $c$) values.  
+For your particular situation, **you will need to experiment across your range of lengthscales and quantify how much approximation error is acceptable**. Often, when prototyping a model, you can use a lower fidelity HSGP approximation for faster sampling.  Then, once you understand the range of relevant lengthscales, you can dial in the correct $m$ and $L$ (or $c$) values.  
 
 Be aware that it's also possible to encounter scenarios where a low fidelity HSGP approximation gives a more parsimonious fit than a high fidelity HSGP approximation.  A low fidelity HSGP approximation is still a valid prior for some unknown function, if somewhat contrived.  Whether that matters will depend on your context.
 
-+++ {"jp-MarkdownHeadingCollapsed": true}
++++
 
-# Example 2: Working with HSGPs as a parametric, linear model 
+## Example 2: Working with HSGPs as a parametric, linear model
+
++++
 
 One of the main benefits of the HSGP approximation is the ability to integrate it into existing models, especially if you need to do prediction in new x-locations after sampling.  Unlike other GP implementations in PyMC, you can bypass the `.prior` and `.conditional` API, and insead use `HSGP.prior_linearized`, which allows you use `pm.MutableData` and `pm.set_data` for making predictions. 
 
@@ -823,7 +844,7 @@ Next, we build a function that constructs the hierarchical GP.  Notice that it a
 def hierarchical_HSGP(Xs, m, c, eta_mu, ell_mu, eta_delta, ell_delta):
     L = pm.gp.hsgp_approx.set_boundary(Xs, c)
     eigvals = pm.gp.hsgp_approx.calc_eigenvalues(L, m, tl=pt)
-    phi = pm.Deterministic("phi", pm.gp.hsgp_approx.calc_eigenvectors(Xs, L, eigvals, m, tl=pt))
+    phi = pm.gp.hsgp_approx.calc_eigenvectors(Xs, L, eigvals, m, tl=pt)
     omega = pt.sqrt(eigvals)
 
     # calculate f_mu, the mean of the hierarchical gp
@@ -834,10 +855,10 @@ def hierarchical_HSGP(Xs, m, c, eta_mu, ell_mu, eta_delta, ell_delta):
     # calculate f_delta, the gp offsets
     beta = pm.Normal("f_delta_coeffs", mu=0.0, sigma=1.0, dims=("m_ix", "gp_ix"))
     psd = matern52_psd(omega, ell_delta)
-    f_delta = pm.Deterministic("f_delta", phi @ (beta * pt.sqrt(psd) * eta_delta))
+    f_delta = phi @ (beta * pt.sqrt(psd) * eta_delta)
 
     # calculate total gp
-    return pm.Deterministic("f", f_mu[:, None] + f_delta)
+    return phi, pm.Deterministic("f", f_mu[:, None] + f_delta)
 ```
 
 Next, we use the heuristics to choose `m` and `c`, 
@@ -855,6 +876,11 @@ print(f"m: {m}, c: {c:.2f}")
 ```
 
 ```{code-cell} ipython3
+m = 350
+c = 15
+```
+
+```{code-cell} ipython3
 coords = {
     "gp_ix": np.arange(n_gps),
     "m_ix": np.arange(m),
@@ -862,9 +888,9 @@ coords = {
 
 with pm.Model(coords=coords) as model:
     # handle mean subtraction correctly
-    x_mu = np.mean(x_train)
-    X_ = pm.Data("X", x_train[:, None])
-    Xs = X_ - x_mu
+    # x_mu = np.mean(x_train)
+    X = pm.Data("X", x_train[:, None])
+    # Xs = X_ - x_mu
 
     ## Prior for the mean process
     eta_mu = pm.Exponential("eta_mu", scale=1.0)
@@ -881,9 +907,9 @@ with pm.Model(coords=coords) as model:
     log_ell_delta = log_ell_mu + log_ell_delta_sd * log_ell_delta_z
     ell_delta = pm.Deterministic("ell_delta", pt.exp(log_ell_delta), dims="gp_ix")
 
-    f = hierarchical_HSGP(Xs, [m], c, eta_mu, ell_mu, eta_delta, ell_delta)
+    phi, f = hierarchical_HSGP(X, [m], c, eta_mu, ell_mu, eta_delta, ell_delta)
     sigma = pm.Exponential("sigma", scale=3)
-    pm.Normal("y", mu=f, sigma=sigma, observed=y_train, shape=(X_.shape[0], n_gps))
+    pm.Normal("y", mu=f, sigma=sigma, observed=y_train, shape=(X.shape[0], n_gps))
 ```
 
 ## Prior predictive checks
@@ -998,7 +1024,11 @@ az.summary(idata, var_names=["eta_mu", "ell_mu", "eta_delta", "ell_delta", "sigm
 az.plot_trace(idata, var_names=["eta_mu", "ell_mu", "eta_delta", "ell_delta", "sigma"]);
 ```
 
++++ {"jp-MarkdownHeadingCollapsed": true}
+
 ## Posterior checks
+
+TODO: ADD EXPLANATORY TEXT
 
 ```{code-cell} ipython3
 az.plot_posterior(
@@ -1027,6 +1057,11 @@ That looks great! Now we can go ahead and predict out of sample.
 ## Prediction
 
 ```{code-cell} ipython3
+phi1 = phi.eval()
+phi1.shape
+```
+
+```{code-cell} ipython3
 with model:
     pm.set_data({"X": x_full[:, None]})
 
@@ -1036,10 +1071,21 @@ with model:
 ```
 
 ```{code-cell} ipython3
+phi.eval().shape
+```
+
+```{code-cell} ipython3
+plt.plot(x_train, phi1, "k")
+plt.plot(x_full, phi.eval(), "b", alpha=0.5);
+```
+
+```{code-cell} ipython3
 pred_f_mu_mu, pred_f_mu_sd, pred_f_mu, pred_f_sd = plot_gps(
     idata, f_mu_true_full, f_true_full, group="predictions", return_f=True
 )
 ```
+
+### TODO: CHECK PREDICTIONS BY PLOTTING GPs ONE BY ONE
 
 ```{code-cell} ipython3
 ---
