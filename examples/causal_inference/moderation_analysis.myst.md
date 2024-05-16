@@ -13,8 +13,8 @@ kernelspec:
 (moderation_analysis)=
 # Bayesian moderation analysis
 
-:::{post} March, 2022
-:tags: moderation, path analysis, 
+:::{post} May, 2024
+:tags: moderation, path analysis, causal inference
 :category: beginner
 :author: Benjamin T. Vincent
 :::
@@ -27,6 +27,7 @@ Note that this is sometimes mixed up with [mediation analysis](https://en.wikipe
 
 ```{code-cell} ipython3
 import arviz as az
+import daft
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -149,11 +150,32 @@ def plot_moderation_effect(result, m, m_quantiles, ax=None):
 
 I've taken inspiration from a blog post {cite:t}`vandenbergSPSS` which examines whether age influences (moderates) the effect of training on muscle percentage. We might speculate that more training results in higher muscle mass, at least for younger people. But it might be the case that the relationship between training and muscle mass changes with age - perhaps training is less effective at increasing muscle mass in older age?
 
-The schematic box and arrow notation often used to represent moderation is shown by an arrow from the moderating variable to the line between a predictor and an outcome variable.
+The schematic box and arrow notation often used in the _statistical_ literature to represent moderation is shown by an arrow from the moderating variable to the line between a predictor and an outcome variable.
 
 ![](moderation_figure.png)
 
-It can be useful to use consistent notation, so we will define:
++++
+
+It is useful to draw the same diagram out using the visual notation of _structural causal modeling_ (see below). This notation shows that both age and training causally influence muscle mass. The causal relationship also states that muscle mass is a function of both age and training. There is no specific visual notation in the SCM approach to represent moderation. Instead, that would be captured by the functional form of the relationship $f$. Note that the operator $:=$ is similar to the traditional $=$ operator, but it is used to denote a _causal_ or directional relationship rather than just equality.
+
+```{code-cell} ipython3
+:tags: [hide-input]
+
+pgm = daft.PGM(dpi=200)
+
+pgm.add_node("x", "training", 0, 0, aspect=2)
+pgm.add_node("m", "age", 0, 1, aspect=2)
+pgm.add_node("y", "muscle mass", 2, 0.5, aspect=3)
+
+pgm.add_edge("x", "y")
+pgm.add_edge("m", "y")
+
+pgm.add_text(-0.25, -0.75, r"muscle mass := $f$(training, age)")
+
+pgm.render();
+```
+
+Because we want to focus on the moderation concept and not the specific example. it can be useful to use consistent and more abstract notation, so we will define:
 - $x$ as the main predictor variable. In this example it is training.
 - $y$ as the outcome variable. In this example it is muscle percentage.
 - $m$ as the moderator. In this example it is age.
@@ -231,8 +253,8 @@ ax[2].set(xlabel="muscle percentage, $y$");
 ```{code-cell} ipython3
 def model_factory(x, m, y):
     with pm.Model() as model:
-        x = pm.ConstantData("x", x)
-        m = pm.ConstantData("m", m)
+        x = pm.Data("x", x)
+        m = pm.Data("m", m)
         # priors
         β0 = pm.Normal("β0", mu=0, sigma=10)
         β1 = pm.Normal("β1", mu=0, sigma=10)
@@ -257,7 +279,7 @@ pm.model_to_graphviz(model)
 
 ```{code-cell} ipython3
 with model:
-    result = pm.sample(draws=1000, tune=1000, random_seed=42, nuts={"target_accept": 0.9})
+    result = pm.sample()
 ```
 
 Visualise the trace to check for convergence.
@@ -280,7 +302,7 @@ az.plot_pair(
     marginals=True,
     point_estimate="median",
     figsize=(12, 12),
-    scatter_kwargs={"alpha": 0.01},
+    scatter_kwargs={"alpha": 0.05},
 );
 ```
 
@@ -363,6 +385,7 @@ But readers are strongly encouraged to read {cite:t}`mcclelland2017multicollinea
 - Updated by Benjamin T. Vincent in March 2022
 - Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5
 - Updated to use `az.extract` by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
+- Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in May 2024 to incorporate causal concepts
 
 +++
 
