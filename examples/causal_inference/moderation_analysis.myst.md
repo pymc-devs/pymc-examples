@@ -175,7 +175,7 @@ pgm.add_text(-0.25, -0.75, r"muscle mass := $f$(training, age)")
 pgm.render();
 ```
 
-Because we want to focus on the moderation concept and not the specific example. it can be useful to use consistent and more abstract notation, so we will define:
+Because we want to focus on the moderation concept and not the specific example it can be useful to use consistent and more abstract notation, so we will define:
 - $x$ as the main predictor variable. In this example it is training.
 - $y$ as the outcome variable. In this example it is muscle percentage.
 - $m$ as the moderator. In this example it is age.
