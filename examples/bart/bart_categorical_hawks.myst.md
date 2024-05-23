@@ -42,8 +42,7 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 # set formats
 RANDOM_SEED = 8457
 rng = np.random.RandomState(RANDOM_SEED)
-az.style.use("arviz-white")
-plt.rcParams["figure.dpi"] = 300
+az.style.use("arviz-darkgrid")
 ```
 
 ## Hawks dataset  
@@ -64,7 +63,7 @@ try:
         ["Wing", "Weight", "Culmen", "Hallux", "Tail", "Species"]
     ].dropna()
 except FileNotFoundError:
-    Hawks = pd.read_csv(pm.get_data("marketing.csv"))[
+    Hawks = pd.read_csv(pm.get_data("Hawks.csv"))[
         ["Wing", "Weight", "Culmen", "Hallux", "Tail", "Species"]
     ].dropna()
 
@@ -78,7 +77,7 @@ The following compares covariables to get a rapid data visualization for the 3 s
 sns.pairplot(Hawks, hue="Species");
 ```
 
-It can be seen that the RT species have distributions more differentiated than the other two in almost all covariables, and the covariables wing, weight, and culmen present certain separations between species. Still, no one covariables have a marked separation between distributions for all the species which allows selecting a unique covariable to separate these 3 species, because there is always an overlapping between distributions. It is possible to make a combination of covariables, probably wing, weight, and culmen, to achieve the classification. These are the principal reasons for realizing the regression.  
+It can be seen that the RT species have distributions more differentiated than the other two in almost all covariables, and the covariables wing, weight, and culmen present certain separations between species. Still, none of the variables have a marked separation among the species distributions such that they can cleanly separate them. It is possible to make a combination of covariables, probably wing, weight, and culmen, to achieve the classification. These are the principal reasons for realizing the regression.  
 
 +++
 
@@ -125,13 +124,14 @@ with model_hawks:
 ## Results  
 
 ### Variable Importance  
-As we say, it could be useful to select a covariable or a subset of these to achieve the classification, this is also important when we try to reduce the computational cost of calculations. PyMC-BART provides the function `pmb.utils.plot_variable_importance()`, which generates a plot that shows on his x-axis the number of covariables and on the y-axis the R$^2$ (the square of the Pearson correlation coefficient) between the predictions made for the full model (all variables included) and the restricted models, those with only a subset of the variables. The error bars represent the 94 % HDI from the posterior predictive distribution. 
+
+It may be that some of the input variables are not informative for classifying by species, so in the interest of parsimony and in reducing the computational cost of model estimation, it is useful to quantify the importance of each variable in the dataset. PyMC-BART provides the function `pmb.utils.plot_variable_importance()`, which generates a plot that shows on his x-axis the number of covariables and on the y-axis the R$^2$ (the square of the Pearson correlation coefficient) between the predictions made for the full model (all variables included) and the restricted models, those with only a subset of the variables. The error bars represent the 94 % HDI from the posterior predictive distribution. 
 
 ```{code-cell} ipython3
 pmb.utils.plot_variable_importance(idata, μ, x_0, method="VI", random_seed=RANDOM_SEED);
 ```
 
-It can be observed that with the covariables Hallux, Culmen, and Wing we achieve the same R$^2$ value that we obtained with all the covariables, this is that the last two covariables contribute less than the other three to the classification. One thing we have to take into account in this is that the HDI is quite wide, which gives us less precision on the results, later we are going to see a way to reduce this.    
+It can be observed that with the covariables `Hallux`, `Culmen`, and `Wing` we achieve the same R$^2$ value that we obtained with all the covariables, this is that the last two covariables contribute less than the other three to the classification. One thing we have to take into account in this is that the HDI is quite wide, which gives us less precision on the results, later we are going to see a way to reduce this.    
 
 +++
 
@@ -143,11 +143,9 @@ Let's check the behavior of each covariable for each species with `pmb.plot_pdp(
 pmb.plot_pdp(μ, X=x_0, Y=y_0, grid=(5, 3), figsize=(6, 9));
 ```
 
-First of all, this plot, together with the Variable Importance plot, confirms that the Tail is the covariable with less effect over the predicted variable. In the previous Tail is the last covariable to be added and does not improve the result, in this Tail has the most flattered response. For the rest of the covariables in this plot, it's hard to see which of them have more effect over the predicted variable, because they have great variability, showed in the HDI wide, same as before later we are going to see a way to reduce this variability. Finally, some variability depends on the amount of data for each species, which we can see  in the `counts` from one of the covariables using Pandas `.describe()` and grouping the data from "Species" with `.groupby("Species")`.  
+The pdp plot, together with the Variable Importance plot, confirms that `Tail` is the covariable with the smaller effect over the predicted variable. In the Variable Importance plot `Tail` is the last covariable to be added and does not improve the result, in the pdp plot `Tail` has the flattest response. For the rest of the covariables in this plot, it's hard to see which of them have more effect over the predicted variable, because they have great variability, showed in the HDI wide, same as before later we are going to see a way to reduce this variability. Finally, some variability depends on the amount of data for each species, which we can see  in the `counts` from one of the covariables using Pandas `.describe()` and grouping the data from "Species" with `.groupby("Species")`.  
 
-```{code-cell} ipython3
-Hawks.groupby("Species").describe()["Wing"]["count"]
-```
++++
 
 ### Predicted vs Observed  
 
@@ -183,15 +181,15 @@ for i in range(3):
 all
 ```
 
-Til here we have a very good result concerning the classification of the species based on these covariables. However, if we want to select a covariable or a group of them to reach the classification is not very clear which of them to select, maybe something sure is that Tail could be eliminated. At the beginning when we plot the distribution of each covariable we say that the most important variables to make the classification could be Wing, Weight and, Culmen, nevertheless after running the model we saw that Hallux, Culmen and, Wing, proved to be the most important ones. But this result has a wide dispersion and can't not be sure if we really can discard Weight. One way to reduce this variability is adjusting the trees separately, below we will see how to do this and get a more accurate result.  
+So far we have a very good result concerning the classification of the species based on the 5 covariables. However, if we want to select a subset of covariable to perform future classifications is not very clear which of them to select. Maybe something sure is that `Tail` could be eliminated. At the beginning when we plot the distribution of each covariable we said that the most important variables to make the classification could be `Wing`, `Weight` and, `Culmen`, nevertheless after running the model we saw that `Hallux`, `Culmen` and, `Wing`, proved to be the most important ones.
+
+Unfortunatelly, the partial dependence plots show a very wide dispersion, making results look suspicious. One way to reduce this variability is adjusting independent trees, below we will see how to do this and get a more accurate result. 
 
 +++
 
-## Fit the model fitting trees separately  
+## Fitting independent trees  
 
-The option to fit each tree separately with `pymc-bart` is set in the parameter `pmb.BART(..., separate_trees=True, ...)`.  
-In this example using this option doesn't give a big difference in the result, but helps us to reduce the variability in the ppc and get a small improvement in the in-sample comparison.  
-In case this option is used with bigger datasets you have to take into account that the model fits more slowly, so you can obtain a better result at the expense of computational cost. The following run the same model and analysis of the above, but fitting trees separately. Compare the time to run this model with the previous one.  
+The option to fit independent trees with `pymc-bart` is set with the parameter `pmb.BART(..., separate_trees=True, ...)`. As we will see, for this example, using this option doesn't give a big difference in the predictions, but helps us to reduce the variability in the ppc and get a small improvement in the in-sample comparison. In case this option is used with bigger datasets you have to take into account that the model fits more slowly, so you can obtain a better result at the expense of computational cost. The following code runs the same model and analysis as before, but fitting 3 independent trees. Compare the time to run this model with the previous one.  
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as model_t:
@@ -202,7 +200,7 @@ with pm.Model(coords=coords) as model_t:
     pm.sample_posterior_predictive(idata_t, extend_inferencedata=True)
 ```
 
-Now we are going to remake the same analyses as before.
+Now we are going to reproduce the same analyses as before.  
 
 ```{code-cell} ipython3
 pmb.utils.plot_variable_importance(idata_t, μ_t, x_0, method="VI", random_seed=RANDOM_SEED);
@@ -214,7 +212,7 @@ pmb.plot_pdp(μ_t, X=x_0, Y=y_0, grid=(5, 3), figsize=(6, 9));
 
 Comparing these two plots with the previous ones shows a marked reduction in the variance for each one. In the case of `pmb.utils.plot_variable_importance()` there are smallers error bands with an R$^{2}$ value more close to 1. And for `pm.plot_pdp()` we can see thinner bands and a reduction in the limits on the y-axis, this is a representation of the reduction of the uncertainty due to adjusting the trees separately. Another benefit of this is that is more visible the behavior of each covariable for each one of the species.   
 
-With all these together, we can select Hallux, Culmen, and, Wing as covariables to make the classification.
+With all these together, we can select `Hallux`, `Culmen`, and, `Wing` as covariables to make the classification.
 
 +++
 
