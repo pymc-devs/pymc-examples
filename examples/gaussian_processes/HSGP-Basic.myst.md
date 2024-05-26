@@ -38,6 +38,7 @@ A secondary goal of this implementation is flexibility via an accessible impleme
 - HSGPs in probabilistic programming languages: [Riutort-Mayol et al., 2020](https://arxiv.org/abs/2004.11408).
 - HSTPs (Student-t process): [Sellier & Dellaportas, 2023](https://proceedings.mlr.press/v202/sellier23a.html).
 - Kronecker HSGPs: [Dan et al., 2022](https://arxiv.org/pdf/2210.11358.pdf)
+- PyMC's {class}`~pymc.gp.HSGP` API
 
 +++
 
