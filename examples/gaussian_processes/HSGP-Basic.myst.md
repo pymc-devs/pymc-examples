@@ -68,11 +68,6 @@ seed = sum(map(ord, "hsgp"))
 rng = np.random.default_rng(seed)
 ```
 
-```{code-cell} ipython3
-%load_ext autoreload
-%autoreload 2
-```
-
 ### Simulate data
 
 ```{code-cell} ipython3
