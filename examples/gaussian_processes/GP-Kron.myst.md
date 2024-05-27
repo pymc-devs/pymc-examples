@@ -189,20 +189,20 @@ with pm.Model() as model:
     # Set priors on the hyperparameters of the covariance
     ls1 = pm.TruncatedNormal("ls1", lower=0.5, upper=1.5, mu=1, sigma=0.5)
     ls2 = pm.TruncatedNormal("ls2", lower=0.5, upper=1.5, mu=1, sigma=0.5)
-    eta = pm.TruncatedNormal("eta", lower=0.5, upper=1.5, mu=1, sigma=0.5)
+    eta = pm.HalfNormal("eta", sigma=0.5)
 
     # Specify the covariance functions for each Xi
     cov_x1 = pm.gp.cov.Matern52(1, ls=ls1)
     cov_x2 = eta**2 * pm.gp.cov.Cosine(1, ls=ls2)
 
-    # Set the prior on the variance for the Gaussian noise
-    sigma = pm.TruncatedNormal("sigma", lower=0.1, upper=1.5, mu=0.5, sigma=0.5)
-
-    # Specify the GP.  The default mean function is `Zero`
+    # Specify the GP. The default mean function is `Zero`
     gp = pm.gp.LatentKron(cov_funcs=[cov_x1, cov_x2])
 
     # Place a GP prior over the function f
     f = gp.prior("f", Xs=Xs)
+
+    # Set the prior on the variance for the Gaussian noise
+    sigma = pm.HalfNormal("sigma", sigma=0.5)
 
     y_ = pm.Normal("y_", mu=f, sigma=sigma, observed=y)
 ```
@@ -214,6 +214,10 @@ pm.model_to_graphviz(model)
 ```{code-cell} ipython3
 with model:
     idata = pm.sample(nuts_sampler="numpyro", target_accept=0.9, tune=1500, draws=1500)
+```
+
+```{code-cell} ipython3
+idata.sample_stats.diverging.sum().data
 ```
 
 ### Posterior convergence
