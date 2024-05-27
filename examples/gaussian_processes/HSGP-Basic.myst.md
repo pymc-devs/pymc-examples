@@ -106,6 +106,8 @@ ax.grid(False)
 
 ### Define and fit the HSGP model
 
++++
+
 First we use `pm.find_constrained_prior` to choose our prior for the lengthscale parameter.  We use a Lognormal to penalize very small lengthscales while having a heavy right tail.  When the signal from the GP is high relative to the noise, we are able to use more informative priors.
 
 ```{code-cell} ipython3
@@ -120,24 +122,28 @@ support = np.linspace(0, 7.0, 1000)
 logp = pm.logp(ell_dist.dist(**ell_params), support)
 p = np.exp(logp.eval())
 
-plt.figure(figsize=(8, 3))
+_, ax = plt.subplots()
 
 bulk_ix = (support >= lower) & (support <= upper)
-plt.fill_between(
+ax.fill_between(
     support[bulk_ix],
     np.zeros(sum(bulk_ix)),
     p[bulk_ix],
     color="slateblue",
     alpha=0.3,
     edgecolor="none",
+    label="90% of mass",
 )
-plt.plot(support, p, color="k", lw=2)
+ax.plot(support, p, color="k", lw=2)
 
-plt.xlabel("x")
-plt.ylabel("p(x)")
-plt.xlim([-0.1, 7.0])
-plt.ylim([0.0, 0.6])
-plt.title(r"Prior for the lengthscale, $\ell$");
+ax.set(
+    xlabel="x",
+    ylabel="p(x)",
+    xlim=[-0.1, 7.0],
+    ylim=[0.0, 0.6],
+    title=r"Prior for the lengthscale, $\ell$",
+)
+ax.legend();
 ```
 
 There are a few things to note about the model code below:
@@ -177,6 +183,12 @@ az.plot_trace(
 );
 ```
 
+Fitting went all good, so we can go ahead and plot the inferred GP, as well as the posterior predictive samples.
+
++++
+
+### Posterior predictive plot
+
 ```{code-cell} ipython3
 fig = plt.figure(figsize=(10, 4))
 ax = fig.gca()
@@ -197,11 +209,9 @@ The inferred underlying GP (in bordeaux) accurately matches the true underlying 
 
 +++
 
-### Additive GPs
-
-+++
-
-The `pm.gp.HSGP` class is compatible with additive covariances, instead of defining two completely independent HSGPs. 
+`````{admonition} Additive GPs
+:class: tip
+{class}`~pymc.gp.HSGP` is compatible with additive covariances, instead of defining two completely independent HSGPs. 
 
 Instead of constructing and then directly adding them, the sum of two HSGPs can be computed more efficiently by first taking the product of their power spectral densities, and then creating a single GP from the combined power spectral density. This reduces the number of unknown parameters because the two GPs can share the same basis set.
 
@@ -213,6 +223,7 @@ cov = cov1 + cov2
 
 gp = pm.gp.HSGP(m=[m], c=c, cov_func=cov_func)
 ```
+``````
 
 +++
 
@@ -244,16 +255,13 @@ To see this, we'll make a few plots of the $m=3$ and $m=5$ basis vectors and pay
 x = np.linspace(-5, 5, 1000)
 
 # (plotting code)
-fig, axs = plt.subplots(1, 3, figsize=(14, 4))
-plt.subplots_adjust(wspace=0.02)
+fig, axs = plt.subplots(1, 3, figsize=(14, 4), sharey=True, constrained_layout=True)
+
 ylim = 0.55
 axs[0].set_ylim([-ylim, ylim])
 axs[1].set_yticks([])
-axs[1].set_ylim([-ylim, ylim])
 axs[1].set_xlabel("xs (mean subtracted x)")
-axs[1].set_title("The effect of changing $L$ on the HSGP basis vectors")
 axs[2].set_yticks([])
-axs[2].set_ylim([-ylim, ylim])
 
 # change L as we create the basis vectors
 L_options = [5.0, 6.0, 20.0]
@@ -278,6 +286,9 @@ for i, ax in enumerate(axs.flatten()):
     S = 5.0
     c = L / S
     ax.text(-4.9, -0.45, f"L = {L}\nc = {c}", fontsize=15)
+    ax.set(title=f"{m} basis functions")
+
+plt.suptitle("The effect of changing $L$ on the HSGP basis vectors", fontsize=18);
 ```
 
 The first and middle panels have 3 basis functions, and the rightmost has 5.
@@ -314,12 +325,12 @@ In practice, you'll need to infer the lengthscale from the data, so the HSGP nee
 For example, if you're using the `Matern52` covariance and your data ranges from $x=-5$ to $x=95$, and the bulk of your lengthscale prior is between $\ell=1$ and $\ell=50$, then the smallest recommended values are $m=543$ and $c=4.1$, as you can see below:
 
 ```{code-cell} ipython3
-m, c, _ = pm.gp.hsgp_approx.approx_hsgp_hyperparams(
+hsgp_params = pm.gp.hsgp_approx.approx_hsgp_hyperparams(
     x_range=[-5, 95], lengthscale_range=[1, 50], cov_func="matern52"
 )
 
-print(f"Smallest m: {m}")
-print(f"Smallest c: {c:.1f}")
+print("Recommended smallest number of basis vectors (m):", hsgp_params.m)
+print("Recommended smallest scaling factor (c):", hsgp_params.c)
 ```
 
 ### The HSGP approximate Gram matrix
