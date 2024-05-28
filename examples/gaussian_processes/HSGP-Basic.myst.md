@@ -322,15 +322,15 @@ In practice, you'll need to infer the lengthscale from the data, so the HSGP nee
 
 [Ruitort-Mayol et. al.](https://arxiv.org/abs/2004.11408) give some handy heuristics for the range of lengthscales that are accurately reproduced for given values of $m$ and $c$. Below, we provide a function that uses their heuristics to recommend minimum $m$ and $c$ value. Note that **these recommendations are based on a one-dimensional GP**.
 
-For example, if you're using the `Matern52` covariance and your data ranges from $x=-5$ to $x=95$, and the bulk of your lengthscale prior is between $\ell=1$ and $\ell=50$, then the smallest recommended values are $m=543$ and $c=4.1$, as you can see below:
+For example, if you're using the `Matern52` covariance and your data ranges from $x=-5$ to $x=95$, and the bulk of your lengthscale prior is between $\ell=1$ and $\ell=50$, then the smallest recommended values are $m=543$ and $c=3.7$, as you can see below:
 
 ```{code-cell} ipython3
 hsgp_params = pm.gp.hsgp_approx.approx_hsgp_hyperparams(
-    x_range=[-5, 95], lengthscale_range=[1, 50], cov_func="matern52"
+    x=np.linspace(-5, 95), lengthscale_range=[1, 50], cov_func="matern52"
 )
 
 print("Recommended smallest number of basis vectors (m):", hsgp_params.m)
-print("Recommended smallest scaling factor (c):", hsgp_params.c)
+print("Recommended smallest scaling factor (c):", np.round(hsgp_params.c, 1))
 ```
 
 ### The HSGP approximate Gram matrix
@@ -549,7 +549,7 @@ with pm.Model() as model:
     beta = pm.Normal("beta", mu=0.0, sigma=10.0, shape=2)
 
     # Prior on the HSGP
-    eta = pm.Exponential("eta", scale=3.0)
+    eta = pm.HalfNormal("eta", 0.5)
     ell_params = pm.find_constrained_prior(
         pm.Lognormal, lower=0.5, upper=5.0, mass=0.9, init_guess={"mu": 1.0, "sigma": 1.0}
     )
@@ -567,7 +567,7 @@ with pm.Model() as model:
 
     mu = pm.Deterministic("mu", beta[0] + beta[1] * X_fe + f)
 
-    sigma = pm.Exponential("sigma", scale=3.0)
+    sigma = pm.HalfNormal("sigma", 0.5)
     pm.Normal("y_obs", mu=mu, sigma=sigma, observed=y_tr, shape=X_gp.shape[0])
 
     idata = pm.sample_prior_predictive()
