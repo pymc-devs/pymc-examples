@@ -218,7 +218,7 @@ pmb.plot_variable_importance(idata_t, μ_t, x_0, method="VI", random_seed=RANDOM
 pmb.plot_pdp(μ_t, X=x_0, Y=y_0, grid=(5, 3), figsize=(6, 9));
 ```
 
-Comparing these two plots with the previous ones shows a marked reduction in the variance for each one. In the case of `pmb.utils.plot_variable_importance()` there are smallers error bands with an R$^{2}$ value more close to 1. And for `pm.plot_pdp()` we can see thinner bands and a reduction in the limits on the y-axis, this is a representation of the reduction of the uncertainty due to adjusting the trees separately. Another benefit of this is that is more visible the behavior of each covariable for each one of the species.   
+Comparing these two plots with the previous ones shows a marked reduction in the variance for each one. In the case of `pmb.plot_variable_importance()` there are smallers error bands with an R$^{2}$ value more close to 1. And for `pm.plot_pdp()` we can see thinner bands and a reduction in the limits on the y-axis, this is a representation of the reduction of the uncertainty due to adjusting the trees separately. Another benefit of this is that is more visible the behavior of each covariable for each one of the species.   
 
 With all these together, we can select `Hallux`, `Culmen`, and, `Wing` as covariables to make the classification.
 
