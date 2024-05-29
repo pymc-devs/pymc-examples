@@ -10,6 +10,8 @@ kernelspec:
   name: python3
 ---
 
++++ {"editable": true, "slideshow": {"slide_type": ""}}
+
 (bart_categorical)=
 # Categorical regression
 
@@ -21,7 +23,9 @@ kernelspec:
 
 +++
 
-In this example, we will model outcomes with more than two categories. 
+In this example, we will model outcomes with more than two categories.  
+:::{include} ../extra_installs.md
+:::
 
 ```{code-cell} ipython3
 import os
@@ -41,7 +45,6 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 ```{code-cell} ipython3
 # set formats
 RANDOM_SEED = 8457
-rng = np.random.RandomState(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
 
@@ -91,7 +94,7 @@ x_0 = Hawks[["Wing", "Weight", "Culmen", "Hallux", "Tail"]]
 print(len(x_0), x_0.shape, y_0.shape)
 ```
 
-We only can have an instance of `pmb.BART()` in each pymc model (for now), so to model 3 species we can use coordinate and dimension names to specify the shapes of variables, *indicating* that there are 891 rows of information for 3 species. This step facilite the later selection of groups from the `InferenceData`.  
+We only can have an instance of {class}`~pymc_bart.BART()` in each pymc model (for now), so to model 3 species we can use coordinate and dimension names to specify the shapes of variables, *indicating* that there are 891 rows of information for 3 species. This step facilite the later selection of groups from the `InferenceData`.  
 
 ```{code-cell} ipython3
 _, species = pd.factorize(Hawks["Species"], sort=True)
@@ -125,10 +128,15 @@ with model_hawks:
 
 ### Variable Importance  
 
-It may be that some of the input variables are not informative for classifying by species, so in the interest of parsimony and in reducing the computational cost of model estimation, it is useful to quantify the importance of each variable in the dataset. PyMC-BART provides the function `pmb.utils.plot_variable_importance()`, which generates a plot that shows on his x-axis the number of covariables and on the y-axis the R$^2$ (the square of the Pearson correlation coefficient) between the predictions made for the full model (all variables included) and the restricted models, those with only a subset of the variables. The error bars represent the 94 % HDI from the posterior predictive distribution. 
+It may be that some of the input variables are not informative for classifying by species, so in the interest of parsimony and in reducing the computational cost of model estimation, it is useful to quantify the importance of each variable in the dataset. PyMC-BART provides the function {func}`~pymc_bart.plot_variable_importance()`, which generates a plot that shows on his x-axis the number of covariables and on the y-axis the R$^2$ (the square of the Pearson correlation coefficient) between the predictions made for the full model (all variables included) and the restricted models, those with only a subset of the variables. The error bars represent the 94 % HDI from the posterior predictive distribution. 
 
 ```{code-cell} ipython3
-pmb.utils.plot_variable_importance(idata, μ, x_0, method="VI", random_seed=RANDOM_SEED);
+---
+editable: true
+slideshow:
+  slide_type: ''
+---
+pmb.plot_variable_importance(idata, μ, x_0, method="VI", random_seed=RANDOM_SEED);
 ```
 
 It can be observed that with the covariables `Hallux`, `Culmen`, and `Wing` we achieve the same R$^2$ value that we obtained with all the covariables, this is that the last two covariables contribute less than the other three to the classification. One thing we have to take into account in this is that the HDI is quite wide, which gives us less precision on the results, later we are going to see a way to reduce this.    
@@ -203,7 +211,7 @@ with pm.Model(coords=coords) as model_t:
 Now we are going to reproduce the same analyses as before.  
 
 ```{code-cell} ipython3
-pmb.utils.plot_variable_importance(idata_t, μ_t, x_0, method="VI", random_seed=RANDOM_SEED);
+pmb.plot_variable_importance(idata_t, μ_t, x_0, method="VI", random_seed=RANDOM_SEED);
 ```
 
 ```{code-cell} ipython3
