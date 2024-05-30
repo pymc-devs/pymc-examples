@@ -8,6 +8,10 @@ kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
+myst:
+  substitutions:
+    conda_dependencies: python-graphviz
+    pip_dependencies: graphviz
 ---
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}}
