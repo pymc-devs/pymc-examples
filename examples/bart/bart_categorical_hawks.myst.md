@@ -10,8 +10,8 @@ kernelspec:
   name: python3
 myst:
   substitutions:
-    conda_dependencies: python-graphviz
-    pip_dependencies: graphviz
+    conda_dependencies: pymc-bart
+    pip_dependencies: pymc-bart
 ---
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}}
