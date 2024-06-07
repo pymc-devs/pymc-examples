@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc-examples
   language: python
-  name: python3
+  name: pymc-examples
 myst:
   substitutions:
     extra_dependencies: jax numpyro
@@ -119,14 +119,13 @@ cov_func = eta_true**2 * pm.gp.cov.ExpQuad(1, ell_true)
 mean_func = pm.gp.mean.Zero()
 
 # The latent function values are one sample from a multivariate normal
-# Note that we have to call `eval()` because PyMC built on top of Theano
 f_true = pm.draw(pm.MvNormal.dist(mu=mean_func(X), cov=cov_func(X)), 1, random_seed=rng)
 
 # The observed data is the latent function plus a small amount of T distributed noise
 # The standard deviation of the noise is `sigma`, and the degrees of freedom is `nu`
 sigma_true = 1.0
 nu_true = 5.0
-y = f_true + sigma_true * rng.normal(size=n)
+y = f_true + sigma_true * rng.standard_t(df=nu_true, size=n)
 
 ## Plot the data and the unobserved latent function
 fig = plt.figure(figsize=(10, 4))
@@ -164,7 +163,7 @@ with pm.Model() as model:
     )  # add one because student t is undefined for degrees of freedom less than one
     y_ = pm.StudentT("y", mu=f, lam=1.0 / sigma, nu=nu, observed=y)
 
-    idata = pm.sample(1000, tune=1000, chains=2, cores=2, nuts_sampler="numpyro")
+    idata = pm.sample(nuts_sampler="numpyro")
 ```
 
 ```{code-cell} ipython3
@@ -249,7 +248,9 @@ As you can see by the red shading, the posterior of the GP prior over the functi
 
 ### Prediction using `.conditional`
 
-Next, we extend the model by adding the conditional distribution so we can predict at new $x$ locations.  Lets see how the extrapolation looks out to higher $x$.  To do this, we extend our `model` with the `conditional` distribution of the GP.  Then, we can sample from it using the `trace` and the `sample_posterior_predictive` function.  This is similar to how Stan uses its `generated quantities {...}` block.  We could have included `gp.conditional` in the model *before* we did the NUTS sampling, but it is more efficient to separate these steps.
+Next, we extend the model by adding the conditional distribution so we can predict at new $x$ locations.  Lets see how the extrapolation looks out to higher $x$.  To do this, we extend our `model` with the `conditional` distribution of the GP. Then, we can sample from it using the `trace` and the `sample_posterior_predictive` function.
+
+This is similar to how Stan uses its `generated quantities {...}` block.  We could have included `gp.conditional` in the model *before* we did the NUTS sampling, but it is more efficient to separate these steps.
 
 ```{code-cell} ipython3
 ---
@@ -259,14 +260,12 @@ jupyter:
 n_new = 200
 X_new = np.linspace(-4, 14, n_new)[:, None]
 
-# add the GP conditional to the model, given the new X values
 with model:
+    # add the GP conditional to the model, given the new X values
     f_pred = gp.conditional("f_pred", X_new, jitter=1e-4)
 
-# Sample from the GP conditional distribution
-with model:
-    ppc = pm.sample_posterior_predictive(idata.posterior, var_names=["f_pred"])
-    idata.extend(ppc)
+    # Sample from the GP conditional distribution
+    idata.extend(pm.sample_posterior_predictive(idata, var_names=["f_pred"]))
 ```
 
 ```{code-cell} ipython3
@@ -394,8 +393,7 @@ with model:
     p_pred = pm.Deterministic("p_pred", pm.math.invlogit(f_pred))
 
 with model:
-    ppc = pm.sample_posterior_predictive(idata.posterior, var_names=["f_pred", "p_pred"])
-    idata.extend(ppc)
+    idata.extend(pm.sample_posterior_predictive(idata.posterior, var_names=["f_pred", "p_pred"]))
 ```
 
 ```{code-cell} ipython3
@@ -436,6 +434,7 @@ plt.legend(loc=(0.32, 0.65), frameon=True);
 * Reexecuted by [Colin Caroll](https://github.com/ColCarroll) in 2019 ([pymc#3397](https://github.com/pymc-devs/pymc/pull/3397))
 * Updated for V4 by Bill Engels in September 2022 ([pymc-examples#237](https://github.com/pymc-devs/pymc-examples/pull/237))
 * Updated for V5 by Chris Fonnesbeck in July 2023 ([pymc-examples#549](https://github.com/pymc-devs/pymc-examples/pull/549))
+* Updated by [Alexandre Andorra](https://github.com/AlexAndorra) in May 2024
 
 +++
 
