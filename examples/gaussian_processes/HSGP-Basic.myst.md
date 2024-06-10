@@ -13,7 +13,7 @@ kernelspec:
 (hsgp)=
 # Gaussian Processes: HSGP Reference & First Steps
 
-:::{post} May 26, 2024
+:::{post} June 10, 2024
 :tags: gaussian processes
 :category: reference, intermediate
 :author: Bill Engels, Alexandre Andorra
@@ -361,7 +361,7 @@ K = cov_func(X).eval()
 
 ## Calculate the HSGP approximate Gram matrix
 # Center or "scale" X so we can work with Xs (important)
-X_center = (np.max(X, axis=0) - np.min(X, axis=0)) / 2.0
+X_center = (np.max(X, axis=0) + np.min(X, axis=0)) / 2.0
 Xs = X - X_center
 
 # Calculate L given Xs and c
