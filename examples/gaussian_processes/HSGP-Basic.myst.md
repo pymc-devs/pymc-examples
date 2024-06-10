@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-dev
+  display_name: pymc-examples
   language: python
-  name: pymc-dev
+  name: pymc-examples
 ---
 
 (hsgp)=
@@ -21,12 +21,12 @@ kernelspec:
 
 +++
 
-The Hilbert Space Gaussian processes approximation is a low-rank GP approximation that is particularly well-suited to usage in probabilistic programming languages like PyMC.  It approximates the GP using a pre-computed and fixed set of basis functions that don't depend on the form of the covariance kernel or its hyperparameters.  It's a _parametric_ approximation, so prediction in PyMC can be done as one would with a linear model via `pm.MutableData` or `pm.set_data`.  You don't need to define the `.conditional` distribution that non-parameteric GPs rely on.  This makes it _much_ easier to integrate an HSGP, instead of a GP, into your existing PyMC model.  Additionally, unlike many other GP approximations, HSGPs can be used anywhere within a model and with any likelihood function.  
+The Hilbert Space Gaussian processes approximation is a low-rank GP approximation that is particularly well-suited to usage in probabilistic programming languages like PyMC.  It approximates the GP using a pre-computed and fixed set of basis functions that don't depend on the form of the covariance kernel or its hyperparameters.  It's a _parametric_ approximation, so prediction in PyMC can be done as one would with a linear model via `pm.Data` or `pm.set_data`.  You don't need to define the `.conditional` distribution that non-parameteric GPs rely on.  This makes it _much_ easier to integrate an HSGP, instead of a GP, into your existing PyMC model.  Additionally, unlike many other GP approximations, HSGPs can be used anywhere within a model and with any likelihood function.  
 
 It's also fast.  The computational cost for unapproximated GPs per MCMC step is $\mathcal{O}(n^3)$, where $n$ is the number of data points.  For HSGPs, it is $\mathcal{O}(mn + m)$, where $m$ is the number of basis vectors.  It's important to note that _sampling speeds_ are also very strongly determined by posterior geometry. 
 
 The HSGP approximation does carry some restrictions:
-1. It can only be used with _stationary_ covariance kernels such as the Matern family.  The `HSGP` class is compatible with any `Covariance` class that implements the `power_spectral_density` method.  There is a special case made for the `Periodic` covariance, which is implemented in PyMC by `HSGPPeriodic`. 
+1. It can only be used with _stationary_ covariance kernels such as the Matern family.  The {class}`~pymc.gp.HSGP` class is compatible with any `Covariance` class that implements the `power_spectral_density` method.  There is a special case made for the `Periodic` covariance, which is implemented in PyMC by `HSGPPeriodic`. 
 2. It does not scale well with the input dimension.  The HSGP approximation is a good choice if your GP is over a one dimensional process like a time series, or a two dimensional spatial point process.  It's likely not an efficient choice where the input dimension is larger than three. 
 3. It _may_ struggle with more rapidly varying processes.  If the process you're trying to model changes very quickly relative to the extent of the domain, the HSGP approximation may fail to accurately represent it.  We'll show in later sections how to set the accuracy of the approximation, which involves a trade-off between the fidelity of the approximation and the computational complexity.
 4. For smaller data sets, the full unapproximated GP may still be more efficient.
@@ -46,7 +46,7 @@ A secondary goal of this implementation is flexibility via an accessible impleme
 
 +++
 
-We'll use simulated data to motivate an overview of the usage of `pm.gp.HSGP`.  Refer to this section if you're interested in:
+We'll use simulated data to motivate an overview of the usage of {class}`~pymc.gp.HSGP`.  Refer to this section if you're interested in:
 1. Seeing a simple example of `HSGP` in action.
 2. Replacing a standard GP, i.e. `pm.gp.Latent`, with a faster approximation -- as long as you're using one of the more common covariance kernels, like `ExpQuad`, `Matern52` or `Matern32`.
 3. Understanding when to use the centered or the non-centered parameterization.
