@@ -5,15 +5,15 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-examples
+  display_name: pymc-dev
   language: python
-  name: pymc-examples
+  name: pymc-dev
 ---
 
 (hsgp)=
 # Gaussian Processes: HSGP Reference & First Steps
 
-:::{post} May 26, 2024
+:::{post} June 10, 2024
 :tags: gaussian processes
 :category: reference, intermediate
 :author: Bill Engels, Alexandre Andorra
@@ -58,6 +58,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
 import pytensor.tensor as pt
+
+# Sample on the CPU
+%env CUDA_VISIBLE_DEVICES=''
+# import jax
+# import numpyro
+# numpyro.set_host_device_count(6)
 ```
 
 ```{code-cell} ipython3
@@ -325,12 +331,12 @@ In practice, you'll need to infer the lengthscale from the data, so the HSGP nee
 For example, if you're using the `Matern52` covariance and your data ranges from $x=-5$ to $x=95$, and the bulk of your lengthscale prior is between $\ell=1$ and $\ell=50$, then the smallest recommended values are $m=543$ and $c=3.7$, as you can see below:
 
 ```{code-cell} ipython3
-hsgp_params = pm.gp.hsgp_approx.approx_hsgp_hyperparams(
-    x=np.linspace(-5, 95), lengthscale_range=[1, 50], cov_func="matern52"
+m, c = pm.gp.hsgp_approx.approx_hsgp_hyperparams(
+    x_range=[-5, 95], lengthscale_range=[1, 50], cov_func="matern52"
 )
 
-print("Recommended smallest number of basis vectors (m):", hsgp_params.m)
-print("Recommended smallest scaling factor (c):", np.round(hsgp_params.c, 1))
+print("Recommended smallest number of basis vectors (m):", m)
+print("Recommended smallest scaling factor (c):", np.round(c, 1))
 ```
 
 ### The HSGP approximate Gram matrix
@@ -355,7 +361,8 @@ K = cov_func(X).eval()
 
 ## Calculate the HSGP approximate Gram matrix
 # Center or "scale" X so we can work with Xs (important)
-Xs = X - np.mean(X, axis=0)
+X_center = (np.max(X, axis=0) + np.min(X, axis=0)) / 2.0
+Xs = X - X_center
 
 # Calculate L given Xs and c
 m, c = [20, 20], 2.0
@@ -376,7 +383,7 @@ def calculate_Kapprox(Xs, L, m):
 fig, axs = plt.subplots(2, 4, figsize=(14, 7), sharey=True)
 
 axs[0, 0].imshow(K, cmap="inferno", vmin=0, vmax=1)
-axs[0, 0].set(xlabel="x1", ylabel="x2", title=f"True Gram matrix\nTrue $\ell$ = {chosen_ell}")
+axs[0, 0].set(xlabel="x1", ylabel="x2", title=f"True Gram matrix\nTrue $\\ell$ = {chosen_ell}")
 axs[1, 0].axis("off")
 im_kwargs = {
     "cmap": "inferno",
@@ -424,6 +431,8 @@ K_approx = calculate_Kapprox(Xs, L, m)
 axs[1, 3].imshow(K_approx, **im_kwargs)
 axs[1, 3].set_title(f"m = {m}, c = {c}")
 
+for ax in axs.flatten():
+    ax.grid(False)
 plt.tight_layout();
 ```
 
@@ -549,7 +558,7 @@ with pm.Model() as model:
     beta = pm.Normal("beta", mu=0.0, sigma=10.0, shape=2)
 
     # Prior on the HSGP
-    eta = pm.HalfNormal("eta", 0.5)
+    eta = pm.Exponential("eta", scale=2.0)
     ell_params = pm.find_constrained_prior(
         pm.Lognormal, lower=0.5, upper=5.0, mass=0.9, init_guess={"mu": 1.0, "sigma": 1.0}
     )
@@ -557,17 +566,17 @@ with pm.Model() as model:
     cov_func = eta**2 * pm.gp.cov.Matern52(input_dim=2, ls=ell)
 
     # m and c control the fidelity of the approximation
-    m0, m1, c = 30, 30, 2.5
+    m0, m1, c = 30, 30, 2.0
     gp = pm.gp.HSGP(m=[m0, m1], c=c, cov_func=cov_func)
 
-    phi, sqrt_psd = gp.prior_linearized(Xs=X_gp)
+    phi, sqrt_psd = gp.prior_linearized(X=X_gp)
 
     basis_coeffs = pm.Normal("basis_coeffs", size=gp.n_basis_vectors)
     f = pm.Deterministic("f", phi @ (basis_coeffs * sqrt_psd))
 
     mu = pm.Deterministic("mu", beta[0] + beta[1] * X_fe + f)
 
-    sigma = pm.HalfNormal("sigma", 0.5)
+    sigma = pm.Exponential("sigma", scale=2.0)
     pm.Normal("y_obs", mu=mu, sigma=sigma, observed=y_tr, shape=X_gp.shape[0])
 
     idata = pm.sample_prior_predictive()
@@ -585,7 +594,7 @@ Before sampling and looking at the results, there are a few things to pay attent
 
 First, `prior_linearized` returns the eigenvector basis, `phi`, and the square root of the power spectrum at the eigenvalues, `sqrt_psd`.  You have to construct the HSGP approximation from these. The following are the relevant lines of code, showing both the centered and non-centered parameterization.
 ```python
-phi, sqrt_psd = gp.prior_linearized(Xs=Xs)
+phi, sqrt_psd = gp.prior_linearized(X=X)
 
 ## non-centered
 basis_coeffs= pm.Normal("basis_coeffs", size=gp.n_basis_vectors)
@@ -607,7 +616,7 @@ nu = pm.Gamma("nu", alpha=2, beta=0.1)
 basis_coeffs= pm.StudentT("basis_coeffs", nu=nu, size=gp.n_basis_vectors)
 f = pm.Deterministic("f", phi @ (beta * sqrt_psd)) 
 ```
-where we use a $\text{Gamma}(\alpha=2, \beta=0.1)$ prior for $\nu$, which places around 50% probability that $\nu > 30$, the point where a Student-T roughly becomes indistinguishable from a Gaussian.
+where we use a $\text{Gamma}(\alpha=2, \beta=0.1)$ prior for $\nu$, which places around 50% probability that $\nu > 30$, the point where a Student-T roughly becomes indistinguishable from a Gaussian.  See [this link](https://github.com/stan-dev/stan/wiki/prior-choice-recommendations#prior-for-degrees-of-freedom-in-students-t-distribution) for more information.
 
 +++
 
@@ -639,7 +648,7 @@ az.plot_trace(
 );
 ```
 
-Sampling went great, but, interestingly, we seem to have a bias in the model, for `eta`, `ell` and `sigma`. It's not the focus of this notebook, but it'd be interesting to dive into this in a real use-case.
+Sampling went great, but, interestingly, we seem to have a bias in the posterior for `sigma`. It's not the focus of this notebook, but it'd be interesting to dive into this in a real use-case.
 
 +++
 
