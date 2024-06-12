@@ -13,7 +13,7 @@ kernelspec:
 (hsgp)=
 # Gaussian Processes: HSGP Advanced Usage
 
-:::{post} June 11, 2024
+:::{post} June 12, 2024
 :tags: gaussian processes
 :category: reference, intermediate
 :author: Bill Engels, Alexandre Andorra
@@ -52,7 +52,7 @@ import pytensor.tensor as pt
 az.style.use("arviz-whitegrid")
 plt.rcParams["figure.figsize"] = [12, 5]
 %config InlineBackend.figure_format = 'retina'
-seed = sum(map(ord, "hsgp"))
+seed = sum(map(ord, "hsgp advanced"))
 rng = np.random.default_rng(seed)
 ```
 
@@ -675,6 +675,7 @@ f_true = pm.draw(pm.MvNormal.dist(mu=np.zeros(n_gps * n_t), cov=K)).reshape(n_gp
 # Additive gaussian noise
 sigma_noise = 0.5
 noise_dist = pm.Normal.dist(mu=0.0, sigma=sigma_noise)
+
 y_obs = f_true + pm.draw(noise_dist, draws=n_t * n_gps, random_seed=rng).reshape(n_t, n_gps)
 ```
 
@@ -698,27 +699,28 @@ axs[1].set(ylim=ylims, title="Observed data, color corresponding to GP");
 
 ```{code-cell} ipython3
 def kronecker_HSGP(Xs, m, c, cov_t, cov_x):
-    Xs_t, Xs_x = Xs
+    Xs_t, Xs_x = Xs  # Xs needs to be 0-centered
     m_t, m_x = m
     c_t, c_x = c
 
     L_t = pm.gp.hsgp_approx.set_boundary(Xs_t, c_t)
-    eigvals_t = pm.gp.hsgp_approx.calc_eigenvalues(L_t, [m_t], tl=pt)
-    phi_t = pm.gp.hsgp_approx.calc_eigenvectors(Xs_t, L_t, eigvals_t, [m_t], tl=pt)
+    eigvals_t = pm.gp.hsgp_approx.calc_eigenvalues(L_t, [m_t])
+    phi_t = pm.gp.hsgp_approx.calc_eigenvectors(Xs_t, L_t, eigvals_t, [m_t])
     omega_t = pt.sqrt(eigvals_t)
 
     sqrt_psd_t = pt.sqrt(cov_t.power_spectral_density(omega_t))
     chol_t = phi_t * sqrt_psd_t
 
     L_x = pm.gp.hsgp_approx.set_boundary(Xs_x, c_x)
-    eigvals_x = pm.gp.hsgp_approx.calc_eigenvalues(L_x, [m_x], tl=pt)
-    phi_x = pm.gp.hsgp_approx.calc_eigenvectors(Xs_x, L_x, eigvals_x, [m_x], tl=pt)
+    eigvals_x = pm.gp.hsgp_approx.calc_eigenvalues(L_x, [m_x])
+    phi_x = pm.gp.hsgp_approx.calc_eigenvectors(Xs_x, L_x, eigvals_x, [m_x])
     omega_x = pt.sqrt(eigvals_x)
 
     sqrt_psd_x = pt.sqrt(cov_x.power_spectral_density(omega_x))
     chol_x = phi_x * sqrt_psd_x
 
     z = pm.Normal("beta", size=m_x * m_t)
+
     return (chol_x @ (chol_t @ pt.reshape(z, (m_t, m_x))).T).T
 ```
 
@@ -729,11 +731,11 @@ def kronecker_HSGP(Xs, m, c, cov_t, cov_x):
 Next, we use the heuristics to choose `m` and `c`:
 
 ```{code-cell} ipython3
-m_t, c_t, _ = approx_params(
-    x_lower=np.min(t), x_upper=np.max(t), ell_lower=1.0, ell_upper=3.0, cov_func="matern52"
+m_t, c_t = pm.gp.hsgp_approx.approx_hsgp_hyperparams(
+    x_range=[np.min(t), np.max(t)], lengthscale_range=[1.0, 3.0], cov_func="matern52"
 )
-m_x, c_x, _ = approx_params(
-    x_lower=np.min(x), x_upper=np.max(x), ell_lower=1.0, ell_upper=3.0, cov_func="matern52"
+m_x, c_x = pm.gp.hsgp_approx.approx_hsgp_hyperparams(
+    x_range=[np.min(x), np.max(x)], lengthscale_range=[1.0, 3.0], cov_func="matern52"
 )
 
 print(f"m_t: {m_t}, c_t: {c_t:.2f}")
@@ -742,34 +744,44 @@ print(f"m_x: {m_x}, c_x: {c_x:.2f}")
 
 ```{code-cell} ipython3
 with pm.Model() as model:
-    # handle mean subtraction correctly
-    xt_mu = np.mean(t)
-    Xt_ = pm.MutableData("Xt", t[:, None])
-    Xs_t = Xt_ - xt_mu
+    ## handle 0-centering correctly
+    xt_center = (np.max(t) + np.min(t)) / 2
+    Xt = pm.Data("Xt", t[:, None])
+    Xs_t = Xt - xt_center
 
-    xx_mu = np.mean(x)
-    Xx_ = pm.MutableData("Xx", x[:, None])
-    Xs_x = Xx_ - xx_mu
+    xx_center = (np.max(x) + np.min(x)) / 2
+    Xx = pm.Data("Xx", x[:, None])
+    Xs_x = Xx - xx_center
 
+    ## covariance on time GP
     ell_t_params = pm.find_constrained_prior(
-        pm.Lognormal, lower=0.2, upper=2.0, mass=0.95, init_guess={"mu": 1.0, "sigma": 1.0}
+        pm.Lognormal, lower=0.5, upper=4.0, mass=0.95, init_guess={"mu": 1.0, "sigma": 1.0}
     )
     ell_t = pm.Lognormal("ell_t", **ell_t_params)
     cov_t = pm.gp.cov.Matern52(1, ls=ell_t)
 
+    ## covariance on space GP
     ell_x_params = pm.find_constrained_prior(
-        pm.Lognormal, lower=0.2, upper=2.0, mass=0.95, init_guess={"mu": 1.0, "sigma": 1.0}
+        pm.Lognormal, lower=0.5, upper=4.0, mass=0.95, init_guess={"mu": 1.0, "sigma": 1.0}
     )
     ell_x = pm.Lognormal("ell_x", **ell_x_params)
     cov_x = pm.gp.cov.Matern52(1, ls=ell_x)
 
-    eta = pm.Exponential("eta", scale=1.0)
+    ## Kronecker GP
+    eta = pm.Gamma("eta", 2, 2)
     Xs, m, c = [Xs_t, Xs_x], [m_t, m_x], [c_t, c_x]
     f = kronecker_HSGP(Xs, m, c, cov_t, cov_x)
     f = pm.Deterministic("f", eta * f)
 
-    sigma = pm.Exponential("sigma", scale=3)
+    # observational noise
+    sigma = pm.Exponential("sigma", scale=1)
+
+    # likelihood
     pm.Normal("y", mu=f, sigma=sigma, observed=y_obs)
+```
+
+```{code-cell} ipython3
+pm.model_to_graphviz(model)
 ```
 
 ## Prior predictive checks
@@ -783,7 +795,7 @@ with model:
 f_mu = az.extract(idata, group="prior", var_names="f").mean(dim="sample")
 f_sd = az.extract(idata, group="prior", var_names="f").std(dim="sample")
 
-fig, axs = plt.subplots(1, 2, figsize=(14, 5), sharex=True, sharey=True)
+fig, axs = plt.subplots(1, 2, figsize=(14, 4), sharex=True, sharey=True)
 colors = plt.cm.Blues(np.linspace(0.0, 0.9, n_gps))
 ylims = [1.1 * np.min(y_obs), 1.1 * np.max(y_obs)]
 
@@ -818,11 +830,20 @@ idata.sample_stats.diverging.sum().data
 ```
 
 ```{code-cell} ipython3
-az.summary(idata, var_names=["eta", "ell_x", "ell_t", "sigma"])
+az.summary(idata, var_names=["eta", "ell_x", "ell_t", "sigma"], round_to=2)
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(idata, var_names=["eta", "ell_x", "ell_t", "sigma"]);
+az.plot_trace(
+    idata,
+    var_names=["eta", "ell_x", "ell_t", "sigma"],
+    lines=[
+        ("eta", {}, [eta_true]),
+        ("ell_x", {}, [ell_x_true]),
+        ("ell_t", {}, [ell_t_true]),
+        ("sigma", {}, [sigma_noise]),
+    ],
+);
 ```
 
 ## Posterior predictive checks
@@ -854,39 +875,13 @@ axs[0].set(ylim=ylims, title="True Kronecker GP")
 axs[1].set(ylim=ylims, title=r"Prior GPs, $\pm 1 \sigma$ posterior intervals");
 ```
 
-```{code-cell} ipython3
+And isn't this beautiful?? Now go on, and HSGP-on!
 
-```
-
-```{code-cell} ipython3
-
-```
-
-```{code-cell} ipython3
-
-```
-
-```{raw-cell}
-Discovered issues:
-- In Latent example: 
-  - "The observed data is the latent function plus a small amount of T distributed noise" (NOISE ISNT ACTUALLY T!)
-  - Outdated mention of theano and .eval() in the comments
-  
-- in pm.gp.HSGP: 
-  - `parametrization` is not documented
-  - Add option to pass in nicely named coords to HSGP for the beta coefficients
-  - in HSGP class, make ._m_star more accessible / user friendly (make a property with no leading underscore so existing code doesnt break), document it, and fix example in prior_linearized docstring.
-  - Get rid of numpy option, tl=np.  Its subtly wrong when calculating the eigen stuff and its not used anywhere.
-  - Move the `approx_params` function to `hsgp_approx` file, so take it out of the nb here and think of a better name
-```
-
-```{code-cell} ipython3
-
-```
++++
 
 ## Authors
 
-* Created by [Bill Engels](https://github.com/bwengals) in 2024 ([pymc-examples#647](https://github.com/pymc-devs/pymc-examples/pull/647))
+* Created by [Bill Engels](https://github.com/bwengals) and [Alexandre Andorra](https://github.com/AlexAndorra) in 2024 ([pymc-examples#668](https://github.com/pymc-devs/pymc-examples/pull/668))
 
 +++
 
@@ -899,7 +894,3 @@ Discovered issues:
 
 :::{include} ../page_footer.md
 :::
-
-```{code-cell} ipython3
-
-```
