@@ -46,7 +46,7 @@ A secondary goal of this implementation is flexibility via an accessible impleme
 
 +++
 
-We'll use simulated data to motivate an overview of the usage of `pm.gp.HSGP`.  Refer to this section if you're interested in:
+We'll use simulated data to motivate an overview of the usage of {class}`~pymc.gp.HSGP`.  Refer to this section if you're interested in:
 1. Seeing a simple example of `HSGP` in action.
 2. Replacing a standard GP, i.e. `pm.gp.Latent`, with a faster approximation -- as long as you're using one of the more common covariance kernels, like `ExpQuad`, `Matern52` or `Matern32`.
 3. Understanding when to use the centered or the non-centered parameterization.
