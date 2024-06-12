@@ -267,7 +267,7 @@ def hierarchical_HSGP(Xs, m, c, eta_mu, ell_mu, eta_delta, ell_delta):
     f_delta = phi @ (beta * pt.sqrt(psd) * eta_delta)
 
     # calculate total gp
-    return phi, pm.Deterministic("f", f_mu[:, None] + f_delta)
+    return pm.Deterministic("f", f_mu[:, None] + f_delta)
 ```
 
 ### Choosing the HSGP parameters
@@ -347,7 +347,7 @@ with pm.Model(coords=coords) as model:
     eta_delta = pm.Gamma("eta_delta", 2, 2)
 
     ## define full GP
-    phi, f = hierarchical_HSGP(Xs, [m], c, eta_mu, ell_mu, eta_delta, ell_delta)
+    f = hierarchical_HSGP(Xs, [m], c, eta_mu, ell_mu, eta_delta, ell_delta)
 
     ## prior on observational noise
     sigma = pm.Exponential("sigma", scale=1)
@@ -528,12 +528,7 @@ That looks great! Now we can go ahead and predict out of sample.
 
 +++
 
-## Prediction
-
-```{code-cell} ipython3
-phi1 = phi.eval()
-phi1.shape
-```
+## Out-of-sample predictions
 
 ```{code-cell} ipython3
 with model:
@@ -542,15 +537,6 @@ with model:
     idata.extend(
         pm.sample_posterior_predictive(idata, var_names=["f_mu", "f"], predictions=True),
     )
-```
-
-```{code-cell} ipython3
-phi.eval().shape
-```
-
-```{code-cell} ipython3
-plt.plot(x_train, phi1[:, ::20], "k")
-plt.plot(x_full, phi.eval()[:, ::20], "b", alpha=0.5);
 ```
 
 ```{code-cell} ipython3
@@ -649,7 +635,9 @@ axs["Preds"].set(
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}}
 
-This example is a multiple GP model like the previous one, but it assumes a different relationship between the GPs.  Instead of pooling towards a common mean GP, there is an additional covariance structure that specifies their relationship.  For example, we may have time series measurements of temperature from multiple weather stations.  The similarity over time should mostly depend only on the distance between the weather stations.  They all will likely have the same dynamics, or same covariance structure, over time.  You can think of this as _local_ partial pooling.  
+This example is a multiple GP model like the previous one, but it assumes a different relationship between the GPs. **Instead of pooling towards a common mean GP, there is an additional covariance structure that specifies their relationship**.
+
+For example, we may have time series measurements of temperature from multiple weather stations. The similarity over time should mostly depend only on the _distance_ between the weather stations. They all will likely have the same dynamics, or same covariance structure, over time. You can think of this as _local_ partial pooling.  
 
 In the example below, we arrange the GPs along a single "spatial" axis, so it's a 1D problem and not 2D, and then allow them to share the same time covariance.  This might be clearer after taking a look at the simulated data below.  
 
@@ -657,7 +645,7 @@ Mathematically, this model uses the [Kronecker product](GP-Kron.myst.md), where 
 $$
 K = K_{x} \otimes K_{t}
 $$
-If there are $n_t$ time points and $n_x$ GPs, then the resulting $K$ matrix will have dimension $n_x \cdot n_t \times n_x \cdot n_t$.  Using a regular GP, this would be $\mathcal{O}(n_t^3 n_x^3)$.  So, we can achieve a pretty massive speed-up by both taking advantage of Kronecker structure and using the HSGP approximation.  It isn't required that both of the dimensions (in this example, space or time) use the HSGP approximation.  It's possible to use either a vanilla GP or inducing points for the "spatial" covariance, and the HSGP approximation in time.  In the example below, both use the HSGP approximation.
+If there are $n_t$ time points and $n_x$ GPs, then the resulting $K$ matrix will have dimension $n_x \cdot n_t \times n_x \cdot n_t$.  Using a regular GP, this would be $\mathcal{O}(n_t^3 n_x^3)$.  So, we can achieve a pretty massive speed-up by both taking advantage of Kronecker structure and using the HSGP approximation.  It isn't required that both of the dimensions (in this example, space and time) use the HSGP approximation.  It's possible to use either a vanilla GP or inducing points for the "spatial" covariance, and the HSGP approximation in time.  In the example below, both use the HSGP approximation.
 
 **Refer to this section if you're interested in:**
 1. Seeing an example of exploiting Kronecker structure and the HSGP approximation.
