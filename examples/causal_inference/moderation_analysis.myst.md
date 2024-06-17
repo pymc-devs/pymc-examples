@@ -457,10 +457,14 @@ Bearing in mind {cite:t}`mcclelland2017multicollinearity` took a frequentist hyp
 
 But readers are strongly encouraged to read {cite:t}`mcclelland2017multicollinearity` for more details, as well as the reply from {cite:t}`iacobucci2017mean`. Readers should also be aware that there are conflicting opinions and recommendations about mean centering etc in textbooks (see Further Reading below), some of which are published before 2017. None of these textbooks explicitly cite {cite:t}`mcclelland2017multicollinearity`, so it is unclear if the textbook authors are unaware of, agree with, or disagree with {cite:t}`mcclelland2017multicollinearity`.
 
+
++++
+
 ## Further reading
 - Further information about the 'moderation effect', or what {cite:t}`mcclelland2017multicollinearity` called a spotlight graphs, can be found in {cite:t}`bauer2005probing` and {cite:t}`spiller2013spotlights`. Although these papers take a frequentist (not Bayesian) perspective.
 - {cite:t}`zhang2017moderation` compare maximum likelihood and Bayesian methods for moderation analysis with missing predictor variables.
 - Multicollinearity, data centering, and linear models with interaction terms are also discussed in a number of prominent Bayesian text books {cite:p}`gelman2013bayesian, gelman2020regression,kruschke2014doing,mcelreath2018statistical`.
+- Readers interested in issues of causality around moderation are directed to {cite:t}`rohrer2022process`, {cite:t}`rohrer2018thinking`, and {cite:t}`rohrer2021precise`.
 
 +++
 
