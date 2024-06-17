@@ -21,7 +21,7 @@ kernelspec:
 
 This notebook covers Bayesian [moderation analysis](https://en.wikipedia.org/wiki/Moderation_(statistics)). This is appropriate when we believe that one predictor variable (the moderator) may influence the linear relationship between another predictor variable and an outcome. Here we look at an example where we look at the relationship between hours of training and muscle mass, where it may be that age (the moderating variable) affects this relationship.
 
-This is not intended as a one-stop solution to a wide variety of data analysis problems, rather, it is intended as an educational exposition to show how moderation analysis works and how to conduct Bayesian parameter estimation in PyMC.
+This is not intended as a one-stop solution to a wide variety of data analysis problems, rather, it is intended as an educational exposition to show how moderation analysis works and how to conduct Bayesian parameter estimation in PyMC. This notebook focusses on observational methods and does not explore experimental interventions.
 
 Moderation analysis has been approached from a variety of approaches:
 * Statistical approaches: It is entirely possible to approach moderation analysis from a purely statistical perspective. In this approach we might build a linear model (for example) whose aim is purely to _describe_ the data we have while making no claims about causality.
