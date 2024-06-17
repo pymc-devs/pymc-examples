@@ -331,7 +331,7 @@ def conditional_ar_dist(y_data, rho, sigma, size):
     return ar_innov
 ```
 
-Then we can simply generate samples from the posterior predictive distribution. Observe we need to "rewrite" the generative graph to include the conditioned transition step. When you call {meth}`~pm.sample_posterior_predictive`,PyMC will attempt to match the names of random variables in the active model context to names in the provided `idata.posterior`. If a match is found, the specified model prior is ignored, and replaced with draws from the posterior. This means we can put any prior we want on these parameters, because it will be ignored. We choose {class}`pymc.distributions.continuous.Flat` because you cannot sample from it. This way, if PyMC does not find a match for one of our priors, we will get an error to let us know something isn't right. For a detailed explanation on these type of cross model predictions, see the great blog post [Out of model predictions with PyMC](https://www.pymc-labs.com/blog-posts/out-of-model-predictions-with-pymc/).
+Then we can simply generate samples from the posterior predictive distribution. Observe we need to "rewrite" the generative graph to include the conditioned transition step. When you call {meth}`~pm.sample_posterior_predictive`,PyMC will attempt to match the names of random variables in the active model context to names in the provided `idata.posterior`. If a match is found, the specified model prior is ignored, and replaced with draws from the posterior. This means we can put any prior we want on these parameters, because it will be ignored. We choose {class}`~pymc.distributions.continuous.Flat` because you cannot sample from it. This way, if PyMC does not find a match for one of our priors, we will get an error to let us know something isn't right. For a detailed explanation on these type of cross model predictions, see the great blog post [Out of model predictions with PyMC](https://www.pymc-labs.com/blog-posts/out-of-model-predictions-with-pymc/).
 
 +++
 
@@ -419,7 +419,7 @@ Here are some additional remarks:
 - The predictions seem to "chase" the data, since that's exactly what we're doing. At each step, we reset to the observed data and make one prediction.
 
 ```{note}
-Relative to the `statsmodel` reference, we're just a little different in the initialization. This makes sense, since they do some fancy MLE initialization trickery and we estimate it as a parameter. The difference should wash out as we iterate over the sequence, and we see that indeed it does.
+Relative to the `statsmodels` reference, we're just a little different in the initialization. This makes sense, since they do some fancy MLE initialization trickery and we estimate it as a parameter. The difference should wash out as we iterate over the sequence, and we see that indeed it does.
 ```
 
 +++
