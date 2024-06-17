@@ -13,7 +13,7 @@ kernelspec:
 (moderation_analysis)=
 # Bayesian moderation analysis
 
-:::{post} May, 2024
+:::{post} June, 2024
 :tags: moderation, path analysis, causal inference
 :category: beginner
 :author: Benjamin T. Vincent
@@ -86,7 +86,7 @@ def posterior_prediction_plot(result, x, moderator, m_quantiles, ax=None):
     m_levels = result.constant_data["m"].quantile(m_quantiles).rename({"quantile": "m_level"})
 
     for p, m in zip(m_quantiles, m_levels):
-        y = post.β0 + post.β1 * xi + post.β2 * xi * m + post.β3 * m
+        y = post.β[0] + post.β[1] * xi + post.β[2] * xi * m + post.β[3] * m
         region = y.quantile([0.025, 0.5, 0.975], dim="sample")
         ax.fill_between(
             xi,
@@ -119,7 +119,7 @@ def plot_moderation_effect(result, m, m_quantiles, ax=None):
 
     # calculate 95% CI region and median
     xi = xr.DataArray(np.linspace(np.min(m), np.max(m), 20), dims=["x_plot"])
-    rate = post.β1 + post.β2 * xi
+    rate = post.β[1] + post.β[2] * xi
     region = rate.quantile([0.025, 0.5, 0.975], dim="sample")
 
     ax.fill_between(
@@ -139,7 +139,7 @@ def plot_moderation_effect(result, m, m_quantiles, ax=None):
     for p, m in zip(percentile_list, m_levels):
         ax.plot(
             m,
-            np.mean(post.β1) + np.mean(post.β2) * m,
+            np.mean(post.β[1]) + np.mean(post.β[2]) * m,
             "o",
             c=scalarMap.to_rgba(m),
             markersize=10,
@@ -202,7 +202,7 @@ $$
 +++
 
 ### Conceptual or path diagram
-We can also draw moderation in a mode conceptual manner. This is perhaps visually simpler and easier to parse, but is less explicit. The moderation is shown by an arrow from the moderating variable to the line between a predictor and an outcome variable.
+We can also draw moderation in a more conceptual manner. This is perhaps visually simpler and easier to parse, but is less explicit. The moderation is shown by an arrow from the moderating variable to the line between a predictor and an outcome variable.
 
 But the diagram would represent the exact same equation as shown above.
 
@@ -344,13 +344,10 @@ def model_factory(x, m, y):
         x = pm.Data("x", x)
         m = pm.Data("m", m)
         # priors
-        β0 = pm.Normal("β0", mu=0, sigma=10)
-        β1 = pm.Normal("β1", mu=0, sigma=10)
-        β2 = pm.Normal("β2", mu=0, sigma=10)
-        β3 = pm.Normal("β3", mu=0, sigma=10)
+        β = pm.Normal("β", mu=0, sigma=10, size=4)
         σ = pm.HalfCauchy("σ", 1)
         # likelihood
-        y = pm.Normal("y", mu=β0 + (β1 * x) + (β2 * x * m) + (β3 * m), sigma=σ, observed=y)
+        y = pm.Normal("y", mu=β[0] + (β[1] * x) + (β[2] * x * m) + (β[3] * m), sigma=σ, observed=y)
 
     return model
 ```
@@ -373,7 +370,7 @@ with model:
 Visualise the trace to check for convergence.
 
 ```{code-cell} ipython3
-az.plot_trace(result);
+az.plot_trace(result, compact=False);
 ```
 
 We have good chain mixing and the posteriors for each chain look very similar, so no problems in that regard.
@@ -397,7 +394,7 @@ az.plot_pair(
 And just for the sake of completeness, we can plot the posterior distributions for each of the $\beta$ parameters and use this to arrive at research conclusions.
 
 ```{code-cell} ipython3
-az.plot_posterior(result, var_names=["β1", "β2", "β3"], figsize=(14, 4));
+az.plot_posterior(result, var_names=["β"], figsize=(14, 4));
 ```
 
 For example, from an estimation (in contrast to a hypothesis testing) perspective, we could look at the posterior over $\beta_2$ and claim a credibly less than zero moderation effect.
@@ -425,9 +422,14 @@ ax.set_title("Data and posterior prediction");
 We can also visualise the moderation effect by plotting $\beta_1 + \beta_2 \cdot m$ as a function of the $m$. This was named a spotlight graph, see {cite:t}`spiller2013spotlights` and {cite:t}`mcclelland2017multicollinearity`.
 
 ```{code-cell} ipython3
+# result.posterior["β"].isel(β_dim_0=2)
+```
+
+```{code-cell} ipython3
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
 plot_moderation_effect(result, m, m_quantiles, ax[0])
-az.plot_posterior(result, var_names="β2", ax=ax[1]);
+az.plot_posterior(result.posterior["β"].isel(β_dim_0=2), ax=ax[1])
+ax[1].set(title="Posterior distribution of $\\beta_2$");
 ```
 
 The expression $\beta_1 + \beta_2 \cdot \text{moderator}$ defines the rate of change of the outcome (muscle percentage) per unit of $x$ (training hours/week). We can see that as age (the moderator) increases, this effect of training hours/week on muscle percentage decreases.
@@ -473,7 +475,7 @@ But readers are strongly encouraged to read {cite:t}`mcclelland2017multicollinea
 - Updated by Benjamin T. Vincent in March 2022
 - Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5
 - Updated to use `az.extract` by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
-- Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in May 2024 to incorporate causal concepts
+- Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in June 2024 to incorporate causal concepts
 
 +++
 
