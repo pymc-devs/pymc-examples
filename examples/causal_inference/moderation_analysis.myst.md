@@ -23,7 +23,7 @@ This notebook covers Bayesian [moderation analysis](https://en.wikipedia.org/wik
 
 This is not intended as a one-stop solution to a wide variety of data analysis problems, rather, it is intended as an educational exposition to show how moderation analysis works and how to conduct Bayesian parameter estimation in PyMC. This notebook focusses on observational methods and does not explore experimental interventions.
 
-Moderation analysis has been approached from a variety of approaches:
+Moderation analysis has been framed in a variety of ways:
 * Statistical approaches: It is entirely possible to approach moderation analysis from a purely statistical perspective. In this approach we might build a linear model (for example) whose aim is purely to _describe_ the data we have while making no claims about causality.
 * Path analysis: This approach asserts that the variables in the model are causally related and is exemplified in {cite:t}`hayes2017introduction`, for example. This approach cannot be considered as 'fully causal' as it lacks a variety of the concepts present in the causal approach.
 * Causal inference: This approach builds upon the path analysis approach in that there is a claim of causal relationships between the variables. But it goes further in that there are additional causal concepts which can be brought to bear.
@@ -31,7 +31,7 @@ Moderation analysis has been approached from a variety of approaches:
 +++
 
 :::{attention}
-Note that this is sometimes mixed up with [mediation analysis](https://en.wikipedia.org/wiki/Mediation_(statistics)). Mediation analysis is appropriate when we believe the effect of a predictor variable upon an outcome variable is (partially, or fully) mediated through a 3rd mediating variable. Readers are referred to the textbook by {cite:t}`hayes2017introduction` as a comprehensive (albeit Frequentist) guide to moderation and related models as well as the PyMC example {ref}`mediation_analysis`.
+Note that moderation is sometimes mixed up with [mediation analysis](https://en.wikipedia.org/wiki/Mediation_(statistics)). Mediation analysis is appropriate when we believe the effect of a predictor variable upon an outcome variable is (partially, or fully) mediated through a 3rd mediating variable. Readers are referred to the textbook by {cite:t}`hayes2017introduction` as a comprehensive (albeit Frequentist) guide to moderation and related models as well as the PyMC example {ref}`mediation_analysis`.
 :::
 
 ```{code-cell} ipython3
@@ -257,23 +257,23 @@ We can see that the mean $y$ is simply a multiple linear regression with an inte
 We can get some insight into why this is the case by thinking about this as a multiple linear regression with $x$ and $m$ as predictor variables, but where the value of $m$ influences the relationship between $x$ and $y$. This is achieved by making the regression coefficient for $x$ is a function of $m$:
 
 $$
-y \sim \beta_0 + f(m) \cdot x + \beta_3 \cdot m
+\mathbb{E}(y) = \beta_0 + f(m) \cdot x + \beta_3 \cdot m
 $$
 
 and if we define that as a linear function, $f(m) = \beta_1 + \beta_2 \cdot m$, we get
 
 $$
-y \sim \beta_0 + (\beta_1 + \beta_2 \cdot m) \cdot x + \beta_3 \cdot m
+\mathbb{E}(y) = \beta_0 + (\beta_1 + \beta_2 \cdot m) \cdot x + \beta_3 \cdot m
 $$
 
 which multiplies out to
 
 $$
-y \sim \beta_0 + \beta_1 \cdot x + \beta_2 \cdot x \cdot m + \beta_3 \cdot m
+\mathbb{E}(y) = \beta_0 + \beta_1 \cdot x + \beta_2 \cdot x \cdot m + \beta_3 \cdot m
 $$
 
 :::{note}
-We can use $f(m) = \beta_1 + \beta_2 \cdot m$ later to visualise the moderation effect.
+We can use $f(m) = \beta_1 + \beta_2 \cdot m$ later to visualise the moderation effect in a so-called spotlight graph.
 :::
 
 +++
@@ -286,7 +286,7 @@ $$
 \begin{aligned}
 \beta_0, \ldots, \beta_3 & \sim \text{Normal}(0, 10)\\
 \sigma & \sim \text{HalfCauchy}(1)\\
-\mu &\sim \beta_0 + \beta_1 \cdot x + \beta_2 \cdot x \cdot m + \beta_3 \cdot m\\
+\mu &= \beta_0 + \beta_1 \cdot x + \beta_2 \cdot x \cdot m + \beta_3 \cdot m\\
 y   &\sim \mathrm{Normal}(\mu, \sigma^2)
 \end{aligned}
 $$
@@ -343,11 +343,9 @@ def model_factory(x, m, y):
     with pm.Model() as model:
         x = pm.Data("x", x)
         m = pm.Data("m", m)
-        # priors
         β = pm.Normal("β", mu=0, sigma=10, size=4)
         σ = pm.HalfCauchy("σ", 1)
-        # likelihood
-        y = pm.Normal("y", mu=β[0] + (β[1] * x) + (β[2] * x * m) + (β[3] * m), sigma=σ, observed=y)
+        pm.Normal("y", mu=β[0] + (β[1] * x) + (β[2] * x * m) + (β[3] * m), sigma=σ, observed=y)
 
     return model
 ```
@@ -420,10 +418,6 @@ ax.set_title("Data and posterior prediction");
 
 ### Spotlight graph
 We can also visualise the moderation effect by plotting $\beta_1 + \beta_2 \cdot m$ as a function of the $m$. This was named a spotlight graph, see {cite:t}`spiller2013spotlights` and {cite:t}`mcclelland2017multicollinearity`.
-
-```{code-cell} ipython3
-# result.posterior["β"].isel(β_dim_0=2)
-```
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
