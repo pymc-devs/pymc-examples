@@ -10,13 +10,13 @@ kernelspec:
   name: pymc-examples
 ---
 
-(hsgp)=
+(hsgp-advanced)=
 # Gaussian Processes: HSGP Advanced Usage
 
-:::{post} June 12, 2024
+:::{post} June 28, 2024
 :tags: gaussian processes
 :category: reference, intermediate
-:author: Bill Engels, Alexandre Andorra
+:author: Bill Engels, Alexandre Andorra, Maxim Kochurov
 :::
 
 +++
@@ -62,7 +62,7 @@ rng = np.random.default_rng(seed)
 
 `````{admonition} Looking for a beginner's introduction?
 :class: tip
-This notebook is the second part of our HSGP tutorials. We strongly recommend you start by reading [the first part](HSGP-Basic.myst.md), which is a smoother introduction to HSGPs and covers more basic use-cases.
+This notebook is the second part of our HSGP tutorials. We strongly recommend you start by reading {ref}`the first part <hsgp>`, which is a smoother introduction to HSGPs and covers more basic use-cases.
 
 The following notebook does _not_ cover the theory of HSGPs and shows more advanced use-cases.
 ``````
@@ -91,7 +91,29 @@ There are two scale parameters $\eta^\mu$ and $\eta^\delta$. $\eta^\mu$ controls
 
 +++
 
-Let's simulate a one-dimensional GP observed at 300 locations (200 used for training, the remaining 100 for testing):
+Let's simulate a one-dimensional GP observed at 300 locations (200 used for training, the remaining 100 for testing), across the range from 0 to 15. You'll see there is a lot going on in the code below, so let's break down the gist of what's happening.
+
++++
+
+### Defining the Mean GP
+
++++
+
+- **Long-Term Trend GP**: A GP with a Matérn covariance function, characterized by a larger length scale (`ell_mu_trend_true = 10`), models the long-term linear trend in the data. The magnitude of variability in this trend is controlled by `eta_mu_trend_true`, which is also quite big relative to the other components, making this trend important in the data generating process.
+
+- **Short-Term Variations GP**: Another GP, also using a Matérn covariance function but with a shorter length scale (`ell_mu_short_true = 1.5`), captures more rapid fluctuations in the data. This is controlled by `eta_mu_short_true`.
+
+- The **overall mean GP** (`cov_mu`) is the sum of these two GPs, combining long-term trends and short-term variations.
+
++++
+
+### Delta GPs for Hierarchical Modeling
+
++++
+
+We define several (10 in this case) **delta GPs**, each intended to capture different **deviations from the mean GP**. These are characterized by a length scale drawn from a log-normal distribution centered at the length scale of the short-term mean GP, `ell_mu_short_true`. 
+
+The amount of diversity between the delta GPs is controlled by `eta_delta_true`: the bigger it is, the more diverse from each other the delta GPs -- kind of like the `sigma` parameter in a hierarchical model (see {ref}`A Primer on Bayesian Methods for Multilevel Modeling <multilevel_modeling>`).
 
 ```{code-cell} ipython3
 # Generate wider range data
@@ -102,15 +124,23 @@ n_train = 200
 x_train = x_full[:n_train]
 x_test = x_full[n_train:]
 
-# Definfe the mean GP
-eta_mu_true = 1.0
-ell_mu_true = 1.5
-cov_mu = eta_mu_true**2 * pm.gp.cov.Matern52(input_dim=1, ls=ell_mu_true)
+# Define true linear trend
+eta_mu_trend_true = 3.5
+ell_mu_trend_true = 10
+cov_trend = eta_mu_trend_true**2 * pm.gp.cov.Matern52(input_dim=1, ls=ell_mu_trend_true)
+
+# Define the short-variation mean GP
+eta_mu_short_true = 2.0
+ell_mu_short_true = 1.5
+cov_short = eta_mu_short_true**2 * pm.gp.cov.Matern52(input_dim=1, ls=ell_mu_short_true)
+
+# Define the full mean GP
+cov_mu = cov_trend + cov_short
 
 # Define the delta GPs
 n_gps = 10
-eta_delta_true = 0.5
-ell_delta_true = pm.draw(pm.Lognormal.dist(mu=np.log(ell_mu_true), sigma=0.5), draws=n_gps)
+eta_delta_true = 3
+ell_delta_true = pm.draw(pm.Lognormal.dist(mu=np.log(ell_mu_short_true), sigma=0.5), draws=n_gps)
 
 cov_deltas = [
     eta_delta_true**2 * pm.gp.cov.Matern52(input_dim=1, ls=ell_i) for ell_i in ell_delta_true
@@ -120,6 +150,14 @@ cov_deltas = [
 sigma_noise = 0.5
 noise_dist = pm.Normal.dist(mu=0.0, sigma=sigma_noise)
 ```
+
+### Helper function
+
++++
+
+Now we can define a function to generate observations from this data-generating structure. `generate_gp_samples` generates samples from the mean GP, adds contributions from each delta GP, and incorporates noise, producing a set of observations that reflect both underlying processes and observational noise.
+
+This function is used to generate both the full set of GP realizations (`f_mu_true_full`, `f_true_full`) and the observed data (`y_full`).
 
 ```{code-cell} ipython3
 def generate_gp_samples(x, cov_mu, cov_deltas, noise_dist, rng):
@@ -146,8 +184,13 @@ def generate_gp_samples(x, cov_mu, cov_deltas, noise_dist, rng):
     return f_mu_true, f_true, y_obs
 ```
 
+### Generate samples for the full data
+
++++
+
+Now we can call the function and generate data! The sampled data (both the underlying GP realizations and the noisy observations) are split according to the earlier defined training and testing segments. This setup allows for the evaluation of model predictions against unseen data, mimicking real-world scenarios where models are trained on a subset of available data.
+
 ```{code-cell} ipython3
-# Generate samples for the full data
 f_mu_true_full, f_true_full, y_full = generate_gp_samples(
     x_full, cov_mu, cov_deltas, noise_dist, rng
 )
@@ -161,6 +204,8 @@ f_true_test = f_true_full[n_train:]
 y_train = y_full[:n_train]
 y_test = y_full[n_train:]
 ```
+
+### Visualize generated data
 
 ```{code-cell} ipython3
 ---
@@ -248,23 +293,75 @@ Next, we build a function that constructs the hierarchical GP.  Notice that it a
 
 ### Coding the hierarchical GP
 
++++
+
+One of the added complexities is modeling the additive GPs for the mean GP (long term trend + short term variation). The cool thing is that **HSGP is compatible with additive covariances**, meaning that we don't have to define two completely _independent_ HSGPs.
+
+Instead, we can sum the two independent power spectral densities, and _then_ create a single GP from the combined power spectral densities. This reduces the number of unknown parameters because the two GPs can share the same basis vectors and basis coefficients.
+
+Essentially, this amounts to creating **two independent covariance functions, and just adding them before defining the HSGP object** -- instead of defining two independent HSGP objects. 
+
+If we were able to use the high-level {class}`~pymc.gp.HSGP` class, the code for this would look like:
+
+```python
+cov1 = eta1**2 * pm.gp.cov.ExpQuad(input_dim, ls=ell1)
+cov2 = eta2**2 * pm.gp.cov.Matern32(input_dim, ls=ell2)
+cov = cov1 + cov2
+
+gp = pm.gp.HSGP(m=[m], c=c, cov_func=cov_func)
+```
+
 ```{code-cell} ipython3
 def hierarchical_HSGP(Xs, m, c, eta_mu, ell_mu, eta_delta, ell_delta):
-    "Important: the Xs need to be 0-centered"
+    """
+    Constructs a hierarchical Gaussian Process using the HSGP approximation.
+    Important: The input features (Xs) should be 0-centered before being passed
+    to this function to ensure accurate model behavior.
+
+    Parameters:
+    ----------
+    Xs : np.ndarray
+        The input data for the GPs, which should be zero-centered.
+    m : List[int]
+        The number of basis vectors to use in the HSGP approximation.
+    c : float
+        A constant used to set the boundary condition of the HSGP.
+    eta_mu : tuple of pm.Distribution
+        A tuple containing the amplitude distributions for the mean GP's short-term and long-term components.
+    ell_mu : tuple of pm.Distribution
+        A tuple containing the length scale distributions for the mean GP's short-term and long-term components.
+    eta_delta : pm.Distribution
+        The amplitude distribution for the GP offsets. Common to all GPs.
+    ell_delta : pm.Distribution
+        The length scale distributions for the GP offsets. One per GP.
+
+    Returns:
+    -------
+    f : pm.Deterministic
+        The total GP, combining both the mean GP and hierarchical offsets.
+    """
     L = pm.gp.hsgp_approx.set_boundary(Xs, c)
     eigvals = pm.gp.hsgp_approx.calc_eigenvalues(L, m)
     phi = pm.gp.hsgp_approx.calc_eigenvectors(Xs, L, eigvals, m)
     omega = pt.sqrt(eigvals)
 
     # calculate f_mu, the mean of the hierarchical gp
-    beta = pm.Normal("f_mu_coeffs", mu=0.0, sigma=1.0, dims="m_ix")
-    psd = matern52_psd(omega, ell_mu).flatten()
-    f_mu = pm.Deterministic("f_mu", phi @ (beta * pt.sqrt(psd) * eta_mu))
+    basis_coeffs = pm.Normal("f_mu_coeffs", mu=0.0, sigma=1.0, dims="m_ix")
+
+    eta_mu_short, eta_mu_trend = eta_mu
+    ell_mu_short, ell_mu_trend = ell_mu
+
+    cov_short = pm.gp.cov.Matern52(input_dim=1, ls=ell_mu_short)
+    cov_trend = pm.gp.cov.Matern52(input_dim=1, ls=ell_mu_trend)
+    sqrt_psd = eta_mu_short * pt.sqrt(
+        cov_short.power_spectral_density(omega).flatten()
+    ) + eta_mu_trend * pt.sqrt(cov_trend.power_spectral_density(omega).flatten())
+    f_mu = pm.Deterministic("f_mu", phi @ (basis_coeffs * sqrt_psd))
 
     # calculate f_delta, the gp offsets
-    beta = pm.Normal("f_delta_coeffs", mu=0.0, sigma=1.0, dims=("m_ix", "gp_ix"))
-    psd = matern52_psd(omega, ell_delta)
-    f_delta = phi @ (beta * pt.sqrt(psd) * eta_delta)
+    basis_coeffs = pm.Normal("f_delta_coeffs", mu=0.0, sigma=1.0, dims=("m_ix", "gp_ix"))
+    sqrt_psd = pt.sqrt(matern52_psd(omega, ell_delta))
+    f_delta = phi @ (basis_coeffs * sqrt_psd * eta_delta)
 
     # calculate total gp
     return pm.Deterministic("f", f_mu[:, None] + f_delta)
@@ -323,7 +420,7 @@ coords = {
 }
 ```
 
-As discussed, you'll see we're handling the 0-centering of `X` before defining the GP. When you're using `pm.HSGP` or `prior_linearized`, you don't need to care about that, as it's done for you under the hood. But when using more advanced model like this one, you need to get your hands dirtier as you need to access lower-level functions of the package.
+As discussed, you'll see we're handling the 0-centering of `X` `before` defining the GP. When you're using `pm.HSGP` or `prior_linearized`, you don't need to care about that, as it's done for you under the hood. But when using more advanced models like this one, you need to get your hands dirtier as you need to access lower-level functions of the package.
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as model:
@@ -333,21 +430,29 @@ with pm.Model(coords=coords) as model:
     Xs = X - x_center
 
     ## Prior for the mean process
-    eta_mu = pm.Gamma("eta_mu", 2, 2)
-    log_ell_mu = pm.Normal("log_ell_mu")
-    ell_mu = pm.Deterministic("ell_mu", pt.softplus(log_ell_mu))
+    eta_mu_short = pm.Gamma("eta_mu_short", 2, 2)
+    log_ell_mu_short = pm.Normal("log_ell_mu_short")
+    ell_mu_short = pm.Deterministic("ell_mu_short", pt.softplus(log_ell_mu_short))
+
+    eta_mu_trend = pm.Gamma("eta_mu_trend", mu=3.5, sigma=1)
+    ell_mu_trend_params = pm.find_constrained_prior(
+        pm.InverseGamma, lower=5, upper=12, mass=0.95, init_guess={"mu": 9.0, "sigma": 3.0}
+    )
+    ell_mu_trend = pm.InverseGamma("ell_mu_trend", **ell_mu_trend_params)
 
     ## Prior for the offsets
     log_ell_delta_offset = pm.ZeroSumNormal("log_ell_delta_offset", dims="gp_ix")
     log_ell_delta_sd = pm.Gamma("log_ell_delta_sd", 2, 2)
 
-    log_ell_delta = log_ell_mu + log_ell_delta_sd * log_ell_delta_offset
+    log_ell_delta = log_ell_mu_short + log_ell_delta_sd * log_ell_delta_offset
     ell_delta = pm.Deterministic("ell_delta", pt.softplus(log_ell_delta), dims="gp_ix")
 
     eta_delta = pm.Gamma("eta_delta", 2, 2)
 
     ## define full GP
-    f = hierarchical_HSGP(Xs, [m], c, eta_mu, ell_mu, eta_delta, ell_delta)
+    f = hierarchical_HSGP(
+        Xs, [m], c, [eta_mu_short, eta_mu_trend], [ell_mu_short, ell_mu_trend], eta_delta, ell_delta
+    )
 
     ## prior on observational noise
     sigma = pm.Exponential("sigma", scale=1)
@@ -459,7 +564,7 @@ Once we're satisfied with our priors, which is the case here, we can... sample t
 
 ```{code-cell} ipython3
 with model:
-    idata.extend(pm.sample(nuts_sampler="numpyro"))
+    idata.extend(pm.sample(nuts_sampler="numpyro", target_accept=0.9))
 ```
 
 ```{code-cell} ipython3
@@ -467,24 +572,30 @@ idata.sample_stats.diverging.sum().data
 ```
 
 ```{code-cell} ipython3
-az.summary(idata, var_names=["eta_mu", "ell_mu", "eta_delta", "ell_delta", "sigma"], round_to=2)
+var_names = ["eta_mu", "ell_mu", "eta_delta", "ell_delta", "sigma"]
+az.summary(idata, var_names=var_names, round_to=2, filter_vars="regex")
 ```
 
 ```{code-cell} ipython3
+ref_val_lines = [
+    ("eta_mu_short", {}, [eta_mu_short_true]),
+    ("eta_mu_trend", {}, [eta_mu_trend_true]),
+    ("ell_mu_short", {}, [ell_mu_short_true]),
+    ("ell_mu_trend", {}, [ell_mu_trend_true]),
+    ("eta_delta", {}, [eta_delta_true]),
+    ("ell_delta", {}, [ell_delta_true]),
+    ("sigma", {}, [sigma_noise]),
+]
+
 az.plot_trace(
     idata,
     var_names=["eta_mu", "ell_mu", "eta_delta", "ell_delta", "sigma"],
-    lines=[
-        ("eta_mu", {}, [eta_mu_true]),
-        ("ell_mu", {}, [ell_mu_true]),
-        ("eta_delta", {}, [eta_delta_true]),
-        ("ell_delta", {}, [ell_delta_true]),
-        ("sigma", {}, [sigma_noise]),
-    ],
+    lines=ref_val_lines,
+    filter_vars="regex",
 );
 ```
 
-Everything went great here, that's really goos sign! Now let's see if the model could recover the true parameters.
+Everything went great here, that's really good sign! Now let's see if the model could recover the true parameters.
 
 +++
 
@@ -493,15 +604,25 @@ Everything went great here, that's really goos sign! Now let's see if the model 
 ```{code-cell} ipython3
 az.plot_posterior(
     idata,
-    var_names=["eta_mu", "ell_mu", "eta_delta", "ell_delta", "sigma"],
+    var_names=[
+        "eta_mu_short",
+        "eta_mu_trend",
+        "ell_mu_short",
+        "ell_mu_trend",
+        "eta_delta",
+        "ell_delta",
+        "sigma",
+    ],
     ref_val={
-        "eta_mu": [{"ref_val": eta_mu_true}],
-        "ell_mu": [{"ref_val": ell_mu_true}],
+        "eta_mu_short": [{"ref_val": eta_mu_short_true}],
+        "eta_mu_trend": [{"ref_val": eta_mu_trend_true}],
+        "ell_mu_short": [{"ref_val": ell_mu_short_true}],
+        "ell_mu_trend": [{"ref_val": ell_mu_trend_true}],
         "eta_delta": [{"ref_val": eta_delta_true}],
         "ell_delta": [{"gp_ix": i, "ref_val": ell_delta_true[i]} for i in range(n_gps)],
         "sigma": [{"ref_val": sigma_noise}],
     },
-    grid=(5, 3),
+    grid=(6, 3),
     textsize=30,
 );
 ```
@@ -512,7 +633,15 @@ Really good job -- the model recovered everything decently!
 az.plot_forest(
     [idata.prior, idata.posterior],
     model_names=["Prior", "Posterior"],
-    var_names=["eta_mu", "ell_mu", "eta_delta", "ell_delta", "sigma"],
+    var_names=[
+        "eta_mu_short",
+        "eta_mu_trend",
+        "ell_mu_short",
+        "ell_mu_trend",
+        "eta_delta",
+        "ell_delta",
+        "sigma",
+    ],
     combined=True,
     figsize=(12, 6),
 );
@@ -535,7 +664,12 @@ with model:
     pm.set_data({"X": x_full[:, None]})
 
     idata.extend(
-        pm.sample_posterior_predictive(idata, var_names=["f_mu", "f"], predictions=True),
+        pm.sample_posterior_predictive(
+            idata,
+            var_names=["f_mu", "f"],
+            predictions=True,
+            compile_kwargs={"mode": "NUMBA"},
+        ),
     )
 ```
 
@@ -555,11 +689,11 @@ slideshow:
 tags: [hide-input]
 ---
 fig, axs = plt.subplot_mosaic(
-    [["True", "Data"], ["Preds", "Preds"]],
+    [["True", "Data"], ["Preds", "Preds"], ["Subset", "Subset"]],
     layout="constrained",
     sharex=True,
     sharey=True,
-    figsize=(12, 8),
+    figsize=(12, 10),
 )
 
 axs["True"].plot(x_train, f_mu_true_train, color="C1", lw=3)
@@ -585,9 +719,11 @@ axs["True"].text(
     color="green",
     alpha=0.7,
 )
-
 axs["Data"].axvline(x_train[-1], ls=":", lw=3, color="k", alpha=0.6)
 axs["Preds"].axvline(x_train[-1], ls=":", lw=3, color="k", alpha=0.6)
+axs["Subset"].axvline(x_train[-1], ls=":", lw=3, color="k", alpha=0.6)
+axs["Preds"].axhline(lw=1, color="k", alpha=0.6)
+axs["Subset"].axhline(lw=1, color="k", alpha=0.6)
 
 # Plot mean GP
 axs["Preds"].fill_between(
@@ -598,12 +734,29 @@ axs["Preds"].fill_between(
     alpha=0.8,
     edgecolor="none",
 )
+axs["Subset"].fill_between(
+    x_full,
+    pred_f_mu_mu - pred_f_mu_sd,
+    pred_f_mu_mu + pred_f_mu_sd,
+    color="C1",
+    alpha=0.8,
+    edgecolor="none",
+)
+axs["Subset"].plot(
+    x_full,
+    pred_f_mu_mu,
+    color="k",
+    alpha=0.5,
+    ls="--",
+    label="Mean GP",
+)
 
 for i in range(n_gps):
     axs["True"].plot(x_train, f_true_train[:, i], color=colors_train[i])
     axs["True"].plot(x_test, f_true_test[:, i], color=colors_test[i])
     axs["Data"].scatter(x_train, y_train[:, i], color=colors_train[i], alpha=0.6)
     axs["Data"].scatter(x_test, y_test[:, i], color=colors_test[i], alpha=0.6)
+
     # Plot inferred GPs with uncertainty
     axs["Preds"].fill_between(
         x_train,
@@ -622,14 +775,54 @@ for i in range(n_gps):
         edgecolor="none",
     )
 
+i = rng.choice(n_gps)
+axs["Subset"].fill_between(
+    x_train,
+    pred_f_mu[:n_train, i] - pred_f_sd[:n_train, i],
+    pred_f_mu[:n_train, i] + pred_f_sd[:n_train, i],
+    color="C0",
+    alpha=0.4,
+    edgecolor="none",
+)
+axs["Subset"].fill_between(
+    x_test,
+    pred_f_mu[n_train:, i] - pred_f_sd[n_train:, i],
+    pred_f_mu[n_train:, i] + pred_f_sd[n_train:, i],
+    color="C2",
+    alpha=0.4,
+    edgecolor="none",
+)
+axs["Subset"].plot(
+    x_full,
+    pred_f_mu[:, i],
+    color="k",
+    alpha=0.6,
+    ls="-.",
+    label="Offset GP",
+)
+
 axs["True"].set(xlabel="x", ylim=ylims, title="True GPs\nMean GP in orange")
 axs["Data"].set(xlabel="x", ylim=ylims, title="Observed data\nColor corresponding to GP")
 axs["Preds"].set(
     xlabel="x",
     ylim=ylims,
     title="Predicted GPs, $\\pm 1 \\sigma$ posterior intervals\nMean GP in orange",
-);
+)
+axs["Subset"].set(
+    xlabel="x",
+    ylim=ylims,
+    title="Mean GP and Randomly drawn Offset GP",
+)
+axs["Subset"].legend(title="Average of:", frameon=True, ncols=2, fontsize=10, title_fontsize=11);
 ```
+
+Phew, that's a lot of information! Let's see what we can make of this:
+
+- As data become sparse, the **long-term trend is reverting back to the overall GP mean** (i.e 0), but hasn't reached it yet, because the length scale on the trend is bigger than the testing period of 5 (`ell_mu_trend_true = 10`).
+- The **short-term variation on the mean GP isn't obvious** because it's small relative to the trend. But it _is_ noticeable: it creates the small wiggles in the orange HDI, and makes this HDI wider in comparison to the individual GPs (the blue ones).
+- The **individual GPs revert faster to the mean GP** (orange enveloppe) **than to the GP mean** (i.e 0), which is the behavior we want from the hierarchical structure.
+
++++
 
 # Example 2: An HSGP that exploits Kronecker structure
 
@@ -641,7 +834,7 @@ For example, we may have time series measurements of temperature from multiple w
 
 In the example below, we arrange the GPs along a single "spatial" axis, so it's a 1D problem and not 2D, and then allow them to share the same time covariance.  This might be clearer after taking a look at the simulated data below.  
 
-Mathematically, this model uses the [Kronecker product](GP-Kron.myst.md), where the "space" and "time" dimensions are _separable_.
+Mathematically, this model uses the {ref}`Kronecker product <GP-Kron>`, where the "space" and "time" dimensions are _separable_.
 $$
 K = K_{x} \otimes K_{t}
 $$
@@ -881,7 +1074,7 @@ And isn't this beautiful?? Now go on, and HSGP-on!
 
 ## Authors
 
-* Created by [Bill Engels](https://github.com/bwengals) and [Alexandre Andorra](https://github.com/AlexAndorra) in 2024 ([pymc-examples#668](https://github.com/pymc-devs/pymc-examples/pull/668))
+* Created by [Bill Engels](https://github.com/bwengals), [Alexandre Andorra](https://github.com/AlexAndorra) and [Maxim Kochurov](https://github.com/ferrine) in 2024 ([pymc-examples#668](https://github.com/pymc-devs/pymc-examples/pull/668))
 
 +++
 
