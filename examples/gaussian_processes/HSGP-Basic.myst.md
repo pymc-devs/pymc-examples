@@ -219,7 +219,7 @@ The inferred underlying GP (in bordeaux) accurately matches the true underlying 
 :class: tip
 {class}`~pymc.gp.HSGP` is compatible with additive covariances, instead of defining two completely independent HSGPs. 
 
-Instead of constructing and then directly adding them, the sum of two HSGPs can be computed more efficiently by first taking the product of their power spectral densities, and then creating a single GP from the combined power spectral density. This reduces the number of unknown parameters because the two GPs can share the same basis set.
+Instead of constructing and then directly adding them, the sum of two HSGPs can be computed more efficiently by first taking the sum of their power spectral densities, and then creating a single GP from the combined power spectral density. This reduces the number of unknown parameters because the two GPs can share the same basis set.
 
 The code for this would look similar to:
 ```python
