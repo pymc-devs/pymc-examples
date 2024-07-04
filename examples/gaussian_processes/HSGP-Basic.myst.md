@@ -26,10 +26,10 @@ The Hilbert Space Gaussian processes approximation is a low-rank GP approximatio
 It's also fast.  The computational cost for unapproximated GPs per MCMC step is $\mathcal{O}(n^3)$, where $n$ is the number of data points.  For HSGPs, it is $\mathcal{O}(mn + m)$, where $m$ is the number of basis vectors.  It's important to note that _sampling speeds_ are also very strongly determined by posterior geometry. 
 
 The HSGP approximation does carry some restrictions:
-1. It can only be used with _stationary_ covariance kernels such as the Matern family.  The {class}`~pymc.gp.HSGP` class is compatible with any `Covariance` class that implements the `power_spectral_density` method.  There is a special case made for the `Periodic` covariance, which is implemented in PyMC by `HSGPPeriodic`. 
-2. It does not scale well with the input dimension.  The HSGP approximation is a good choice if your GP is over a one dimensional process like a time series, or a two dimensional spatial point process.  It's likely not an efficient choice where the input dimension is larger than three. 
-3. It _may_ struggle with more rapidly varying processes.  If the process you're trying to model changes very quickly relative to the extent of the domain, the HSGP approximation may fail to accurately represent it.  We'll show in later sections how to set the accuracy of the approximation, which involves a trade-off between the fidelity of the approximation and the computational complexity.
-4. For smaller data sets, the full unapproximated GP may still be more efficient.
+1. It **can only be used with _stationary_ covariance kernels** such as the Matern family.  The {class}`~pymc.gp.HSGP` class is compatible with any `Covariance` class that implements the `power_spectral_density` method.  There is a special case made for the `Periodic` covariance, which is implemented in PyMC by The {class}`~pymc.gp.HSGPPeriodic`.
+2. It **does not scale well with the input dimension**.  The HSGP approximation is a good choice if your GP is over a one dimensional process like a time series, or a two dimensional spatial point process.  It's likely not an efficient choice where the input dimension is larger than three. 
+3. It **_may_ struggle with more rapidly varying processes**.  If the process you're trying to model changes very quickly relative to the extent of the domain, the HSGP approximation may fail to accurately represent it.  We'll show in later sections how to set the accuracy of the approximation, which involves a trade-off between the fidelity of the approximation and the computational complexity.
+4. **For smaller data sets, the full unapproximated GP may still be more efficient**.
 
 A secondary goal of this implementation is flexibility via an accessible implementation where the core computations are implemented in a modular way.  For basic usage, users can use the `.prior` and `.conditional` methods and essentially treat the HSGP class as a drop in replacement for `pm.gp.Latent`, the unapproximated GP.  More advanced users can bypass those methods and work with `.prior_linearized` instead, which exposes the HSGP as a parametric model.  For more complex models with multiple HSGPs, users can work directly with functions like `pm.gp.hsgp_approx.calc_eigenvalues` and `pm.gp.hsgp_approx.calc_eigenvectors`.
 
@@ -219,7 +219,7 @@ The inferred underlying GP (in bordeaux) accurately matches the true underlying 
 :class: tip
 {class}`~pymc.gp.HSGP` is compatible with additive covariances, instead of defining two completely independent HSGPs. 
 
-Instead of constructing and then directly adding them, the sum of two HSGPs can be computed more efficiently by first taking the product of their power spectral densities, and then creating a single GP from the combined power spectral density. This reduces the number of unknown parameters because the two GPs can share the same basis set.
+Instead of constructing and then directly adding them, the sum of two HSGPs can be computed more efficiently by first taking the sum of their power spectral densities, and then creating a single GP from the combined power spectral density. This reduces the number of unknown parameters because the two GPs can share the same basis set.
 
 The code for this would look similar to:
 ```python
