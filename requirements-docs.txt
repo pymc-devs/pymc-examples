@@ -1,6 +1,6 @@
 ablog>=0.11
 matplotlib
-myst-nb
+myst-nb<=1.0.0
 sphinx-codeautolink
 sphinx>=5
 pymc-sphinx-theme==0.14

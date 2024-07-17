@@ -86,7 +86,7 @@ x, m, y = make_data()
 sns.pairplot(DataFrame({"x": x, "m": m, "y": y}));
 ```
 
-## Define the PyMC3 model and conduct inference
+## Define the PyMC model and conduct inference
 
 ```{code-cell} ipython3
 def mediation_model(x, m, y):
