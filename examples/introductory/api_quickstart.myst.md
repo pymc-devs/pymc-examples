@@ -87,7 +87,7 @@ Every probabilistic program consists of observed and unobserved Random Variables
 - {ref}`pymc:api_distributions_discrete`
 - {ref}`pymc:api_distributions_multivariate`
 - {ref}`pymc:api_distributions_mixture`
-- {ref}`pymc:api_distributions_rimeseries`
+- {ref}`pymc:api_distributions_timeseries`
 - {ref}`pymc:api_distributions_censored`
 - {ref}`pymc:api_distributions_simulator`
 
