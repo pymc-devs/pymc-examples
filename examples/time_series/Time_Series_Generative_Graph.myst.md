@@ -128,7 +128,7 @@ Now that we have implemented the AR(2) step, we can assign priors to the paramet
 coords = {
     "lags": range(-lags, 0),
     "steps": range(timeseries_length - lags),
-    "trials": range(timeseries_length),
+    "timeseries_length": range(timeseries_length),
 }
 with pm.Model(coords=coords, check_bounds=False) as model:
     rho = pm.Normal(name="rho", mu=0, sigma=0.2, dims=("lags",))
@@ -146,7 +146,7 @@ with pm.Model(coords=coords, check_bounds=False) as model:
     )
 
     ar = pm.Deterministic(
-        name="ar", var=pt.concatenate([ar_init, ar_innov], axis=-1), dims=("trials",)
+        name="ar", var=pt.concatenate([ar_init, ar_innov], axis=-1), dims=("timeseries_length",)
     )
 
 
@@ -191,6 +191,7 @@ fig, ax = plt.subplots(
     nrows=5, ncols=1, figsize=(12, 12), sharex=True, sharey=True, layout="constrained"
 )
 chosen_draw = 2
+
 for i, axi in enumerate(ax, start=chosen_draw):
     axi.plot(
         prior.prior["ar"].isel(draw=i, chain=0),
@@ -207,10 +208,10 @@ Next, we want to condition the AR(2) model on some observed data so that we can 
 ```{code-cell} ipython3
 # select a random draw from the prior
 prior_draw = prior.prior.isel(chain=0, draw=chosen_draw)
-test_data = prior_draw["ar_dist"].values
+test_data = prior_draw["ar_dist"].to_numpy()
 
 with pm.observe(model, {"ar_dist": test_data}) as observed_model:
-    trace = pm.sample()
+    trace = pm.sample(chains=4, random_seed=rng)
 ```
 
 Let's plot the trace and the posterior distribution of the parameters.
@@ -229,7 +230,7 @@ axes = az.plot_trace(
         ("rho", {}, rho_true),
         ("sigma", {}, sigma_true),
     ],
-    backend_kwargs={"figsize": (12, 5), "layout": "constrained"},
+    backend_kwargs={"figsize": (12, 7), "layout": "constrained"},
 )
 plt.gcf().suptitle("AR(2) Model Trace", fontsize=18, fontweight="bold");
 ```
@@ -263,7 +264,7 @@ for i, hdi_prob in enumerate((0.94, 0.64), 1):
     lower = hdi.sel(hdi="lower")
     upper = hdi.sel(hdi="higher")
     ax.fill_between(
-        x=post_pred_ar["trials"],
+        x=post_pred_ar["timeseries_length"],
         y1=lower,
         y2=upper,
         alpha=(i - 0.2) * 0.2,
@@ -271,7 +272,7 @@ for i, hdi_prob in enumerate((0.94, 0.64), 1):
         label=f"{hdi_prob:.0%} HDI",
     )
 ax.plot(
-    post_pred_ar["trials"],
+    post_pred_ar["timeseries_length"],
     post_pred_ar.mean(("chain", "draw")),
     color="C0",
     label="Mean",
@@ -343,7 +344,7 @@ We need to shift the coordinate `steps` forward by one! The reasons is that the 
 coords = {
     "lags": range(-lags, 0),
     "steps": range(-1, timeseries_length - lags - 1),  # <- Coordinate shift!
-    "trials": range(1, timeseries_length + 1),  # <- Coordinate shift!
+    "timeseries_length": range(1, timeseries_length + 1),  # <- Coordinate shift!
 }
 with pm.Model(coords=coords, check_bounds=False) as conditional_model:
     y_data = pm.Data("y_data", ar_obs)
@@ -360,7 +361,7 @@ with pm.Model(coords=coords, check_bounds=False) as conditional_model:
     )
 
     ar = pm.Deterministic(
-        name="ar", var=pt.concatenate([ar_init, ar_innov], axis=-1), dims=("trials",)
+        name="ar", var=pt.concatenate([ar_init, ar_innov], axis=-1), dims=("timeseries_length",)
     )
 
     post_pred_conditional = pm.sample_posterior_predictive(trace, var_names=["ar"], random_seed=rng)
@@ -384,7 +385,7 @@ for i, hdi_prob in enumerate((0.94, 0.64), 1):
     lower = hdi.sel(hdi="lower")
     upper = hdi.sel(hdi="higher")
     ax.fill_between(
-        x=conditional_post_pred_ar["trials"],
+        x=conditional_post_pred_ar["timeseries_length"],
         y1=lower,
         y2=upper,
         alpha=(i - 0.2) * 0.2,
@@ -392,19 +393,19 @@ for i, hdi_prob in enumerate((0.94, 0.64), 1):
         label=f"{hdi_prob:.0%} HDI",
     )
 ax.plot(
-    conditional_post_pred_ar["trials"],
+    conditional_post_pred_ar["timeseries_length"],
     conditional_post_pred_ar.mean(("chain", "draw")),
     color="C1",
     label="Mean",
 )
 ax.plot(ar_obs, color="black", label="Observed")
 ax.plot(
-    conditional_post_pred_ar["trials"],
+    conditional_post_pred_ar["timeseries_length"],
     res.fittedvalues,
     color="C2",
     label="statsmodels",
 )
-ax.legend(loc="upper right")
+ax.legend(loc="lower center", bbox_to_anchor=(0.5, -0.2), ncol=5)
 ax.set_xlabel("time")
 ax.set_title("AR(2) Conditional Posterior Predictive Samples", fontsize=18, fontweight="bold");
 ```
@@ -438,7 +439,6 @@ The idea is to use the posterior samples and the latest available two data point
 ```{code-cell} ipython3
 coords = {
     "lags": range(-lags, 0),
-    "trials": range(timeseries_length),
     "steps": range(timeseries_length, timeseries_length + forecast_steps),
 }
 with pm.Model(coords=coords, check_bounds=False) as forecasting_model:
@@ -481,7 +481,7 @@ for i, hdi_prob in enumerate((0.94, 0.64), 1):
     lower = hdi.sel(hdi="lower")
     upper = hdi.sel(hdi="higher")
     ax.fill_between(
-        x=conditional_post_pred_ar["trials"],
+        x=conditional_post_pred_ar["timeseries_length"],
         y1=lower,
         y2=upper,
         alpha=(i - 0.2) * 0.2,
@@ -490,7 +490,7 @@ for i, hdi_prob in enumerate((0.94, 0.64), 1):
     )
 
 ax.plot(
-    conditional_post_pred_ar["trials"],
+    conditional_post_pred_ar["timeseries_length"],
     conditional_post_pred_ar.mean(("chain", "draw")),
     color="C1",
     label="Mean",
@@ -519,7 +519,7 @@ ax.plot(
 
 ax.plot(ar_obs, color="black", label="Observed")
 ax.plot(
-    conditional_post_pred_ar["trials"],
+    conditional_post_pred_ar["timeseries_length"],
     res.fittedvalues,
     color="C2",
     label="statsmodels",
