@@ -13,7 +13,7 @@ kernelspec:
 (time_series_generative_graph)=
 # Time Series Models Derived From a Generative Graph
 
-:::{post} March, 2024
+:::{post} July, 2024
 :tags: time-series, 
 :category: intermediate, reference
 :author: Jesse Grabowski, Juan Orduz and Ricardo Vieira
@@ -95,7 +95,7 @@ Let's see concrete implementations:
 
 ```{code-cell} ipython3
 lags = 2  # Number of lags
-trials = 100  # Time series length
+timeseries_length = 100  # Time series length
 
 
 # This is the transition function for the AR(2) model.
@@ -113,7 +113,7 @@ def ar_dist(ar_init, rho, sigma, size):
         fn=ar_step,
         outputs_info=[{"initial": ar_init, "taps": range(-lags, 0)}],
         non_sequences=[rho, sigma],
-        n_steps=trials - lags,
+        n_steps=timeseries_length - lags,
         strict=True,
     )
 
@@ -127,8 +127,8 @@ Now that we have implemented the AR(2) step, we can assign priors to the paramet
 ```{code-cell} ipython3
 coords = {
     "lags": range(-lags, 0),
-    "steps": range(trials - lags),
-    "trials": range(trials),
+    "steps": range(timeseries_length - lags),
+    "trials": range(timeseries_length),
 }
 with pm.Model(coords=coords, check_bounds=False) as model:
     rho = pm.Normal(name="rho", mu=0, sigma=0.2, dims=("lags",))
@@ -169,7 +169,7 @@ for i, hdi_prob in enumerate((0.94, 0.64), 1):
     lower = hdi.sel(hdi="lower")
     upper = hdi.sel(hdi="higher")
     ax.fill_between(
-        x=np.arange(trials),
+        x=np.arange(timeseries_length),
         y1=lower,
         y2=upper,
         alpha=(i - 0.2) * 0.2,
@@ -324,7 +324,7 @@ def conditional_ar_dist(y_data, rho, sigma, size):
         fn=ar_step,
         sequences=[{"input": y_data, "taps": list(range(-lags, 0))}],
         non_sequences=[rho, sigma],
-        n_steps=trials - lags,
+        n_steps=timeseries_length - lags,
         strict=True,
     )
 
@@ -342,8 +342,8 @@ We need to shift the coordinate `steps` forward by one! The reasons is that the 
 ```{code-cell} ipython3
 coords = {
     "lags": range(-lags, 0),
-    "steps": range(-1, trials - lags - 1),  # <- Coordinate shift!
-    "trials": range(1, trials + 1),  # <- Coordinate shift!
+    "steps": range(-1, timeseries_length - lags - 1),  # <- Coordinate shift!
+    "trials": range(1, timeseries_length + 1),  # <- Coordinate shift!
 }
 with pm.Model(coords=coords, check_bounds=False) as conditional_model:
     y_data = pm.Data("y_data", ar_obs)
@@ -438,8 +438,8 @@ The idea is to use the posterior samples and the latest available two data point
 ```{code-cell} ipython3
 coords = {
     "lags": range(-lags, 0),
-    "trials": range(trials),
-    "steps": range(trials, trials + forecast_steps),
+    "trials": range(timeseries_length),
+    "steps": range(timeseries_length, timeseries_length + forecast_steps),
 }
 with pm.Model(coords=coords, check_bounds=False) as forecasting_model:
     forecast_initial_state = pm.Data("forecast_initial_state", ar_obs[-lags:], dims=("lags",))
