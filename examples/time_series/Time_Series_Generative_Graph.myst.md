@@ -159,7 +159,7 @@ Let's sample from the prior distribution to see how the AR(2) model behaves.
 
 ```{code-cell} ipython3
 with model:
-    prior = pm.sample_prior_predictive(samples=100, random_seed=rng)
+    prior = pm.sample_prior_predictive(samples=500, random_seed=rng)
 ```
 
 ```{code-cell} ipython3
