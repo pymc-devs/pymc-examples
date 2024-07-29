@@ -10,6 +10,8 @@ kernelspec:
   name: pymc3-dev
 ---
 
+(bayes_param_survival_pymc3)=
+
 # Bayesian Parametric Survival Analysis with PyMC3
 
 ```{code-cell} ipython3
