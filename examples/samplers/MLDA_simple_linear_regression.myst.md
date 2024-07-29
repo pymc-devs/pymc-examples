@@ -13,7 +13,7 @@ kernelspec:
 ### The MLDA sampler
 This notebook is a good starting point to understand the basic usage of the Multi-Level Delayed Acceptance MCMC algorithm (MLDA) proposed in [1], as implemented within PyMC.
 
-It uses a simple linear regression model (and a toy coarse model counterpart) to show the basic workflow when using MLDA. The model is similar to the one used in https://docs.pymc.io/notebooks/GLM-linear.html.
+It uses a simple linear regression model (and a toy coarse model counterpart) to show the basic workflow when using MLDA. The model is similar to the one used in {ref}`pymc:glm_linear`.
 
 The MLDA sampler is designed to deal with computationally intensive problems where we have access not only to the desired (fine) posterior distribution but also to a set of approximate (coarse) posteriors of decreasing accuracy and decreasing computational cost (we need at least one of those). Its main idea is that coarser chains' samples are used as proposals for the finer chains. A coarse chain runs for a fixed number of iterations and the last sample is used as a proposal for the finer chain. This has been shown to improve the effective sample size of the finest chain and this allows us to reduce the number of expensive fine-chain likelihood evaluations. 
 
