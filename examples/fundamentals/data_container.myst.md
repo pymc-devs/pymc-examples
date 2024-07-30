@@ -47,7 +47,7 @@ az.style.use("arviz-darkgrid")
 
 After building the statistical model of your dreams, you're going to need to feed it some data. Data is typically introduced to a PyMC model in one of two ways. Some data is used as an exogenous input, called `X` in linear regression models, where `mu = X @ beta`. Other data are "observed" examples of the endogenous outputs of your model, called `y` in regression models, and is used as input to the likelihood function implied by your model. These data, either exogenous or endogenous, can be included in your model as wide variety of datatypes, including numpy `ndarrays`, pandas `Series` and `DataFrame`, and even pytensor `TensorVariables`. 
 
-Although you can pass these "raw" datatypes to your PyMC model, the best way to introduce data into your model is to use {func}`pymc.Data` containers. These containers make it extremely easy to work with data in a PyMC model. They offer a range of benefits, including:
+Although you can pass these "raw" datatypes to your PyMC model, the best way to introduce data into your model is to use {class}`pymc.Data` containers. These containers make it extremely easy to work with data in a PyMC model. They offer a range of benefits, including:
 
 1. Visualization of data as a component of your probabilistic graph
 2. Access to labeled dimensions for readability and accessibility
@@ -58,11 +58,9 @@ This notebook will illustrate each of these benefits in turn, and show you the b
 
 +++
 
-## Current and past states of Data Containers
-
- PyMC data containers are always mutable. This allows you to change your data. When `X` is mutated, this enables out-of-sample inference tasks. When `y` is mutated, it allows you to reuse the same model on multiple datasets to perform parameter recovery studies or sensitivity analysis. These abilities do, however, come with a small performance cost.
- 
- In past versions of PyMC, there were two types of data containers {func}`pymc.MutableData` or {func}`pymc.ConstantData` these are now deprecated.
+:::{important}
+In past versions of PyMC, there were two types of data containers {func}`pymc.MutableData` and {func}`pymc.ConstantData` these are now deprecated.
+:::
 
 +++
 
@@ -97,7 +95,7 @@ Furthermore, inside `idata`, PyMC has automatically saved the observed (endogeno
 idata.observed_data
 ```
 
-In this next model, we create a `pm.Data` container to hold the observations, and pass this container to the `observed`. We also make a `pm.Data` container to hold the `x` data:
+In this next model, we create a {class}`pm.Data` container to hold the observations, and pass this container to the `observed`. We also make a {class}`pm.Data` container to hold the `x` data:
 
 ```{code-cell} ipython3
 with pm.Model() as no_data_model:
@@ -110,7 +108,7 @@ with pm.Model() as no_data_model:
     idata = pm.sample(random_seed=RANDOM_SEED)
 ```
 
-Because we used a `pm.Data` container, the data now appears on our probabilistic graph. It is downstream from `obs` (since the `obs` variable "causes" the data), shaded in gray (because it is observed), and has a special rounded square shape to emphasize that it is data. We also see that `x_data` has been added to the graph.
+Because we used a {class}`pm.Data` container, the data now appears in our probabilistic graph. It is downstream from `obs` (since the `obs` variable "causes" the data), shaded in gray (because it is observed), and has a special rounded square shape to emphasize that it is data. We also see that `x_data` has been added to the graph.
 
 ```{code-cell} ipython3
 pm.model_to_graphviz(no_data_model)
@@ -140,7 +138,7 @@ df_data.index.name = "date"
 df_data.head()
 ```
 
-As noted above, `pm.Data` gives you the ability to give named labels to the dimensions of your data. This is done by passing a dictionary of `dimension: coordinate` key-value pairs to the `coords` argument of {class}`pymc.Model` when you create your model.
+As noted above, {class}`pm.Data` gives you the ability to give named labels to the dimensions of your data. This is done by passing a dictionary of `dimension: coordinate` key-value pairs to the `coords` argument of {class}`pymc.Model` when you create your model.
 
 For more explanation about dimensions, coordinates and their big benefits, we encourage you to take a look at the {ref}`ArviZ documentation <arviz:xarray_for_arviz>`.
 
@@ -195,7 +193,7 @@ Coordinates are also used by `arviz` when making plots. Here we pass `legend=Tru
 axes = az.plot_trace(idata, var_names=["europe_mean_temp", "expected_city_temp"], legend=True);
 ```
 
-When we use `pm.Data`, the data are internally represented as a pytensor {class}`pytensor.tensor.sharedvar.TensorSharedVariable`.
+When we use {class}`pm.Data`, the data are internally represented as a pytensor {class}`pytensor.tensor.sharedvar.TensorSharedVariable`.
 
 ```{code-cell} ipython3
 type(data)
@@ -279,7 +277,7 @@ A common task in machine learning is to predict values for unseen data, and the 
 
 One small detail to pay attention to in this case is that the shapes of the input data (`x`) and output data (`obs`) must be the same. When we make out-of-sample predictions, we typically change only the input data, the shape of which may not be the same as the training observations. Naively changing only one will result in a shape error. There are two solutions:
 
-1. Use a `pm.Data` for the `x` data and the `y` data, and use `pm.set_data` to change `y` to something of the same shape as the test inputs. 
+1. Use a {class}`pm.Data` for the `x` data and the `y` data, and use `pm.set_data` to change `y` to something of the same shape as the test inputs. 
 2. Tell PyMC that the shape of the `obs` should always be the shape of the input data.
 
 In the next model, we use option 2. This way, we don't need to pass dummy data to `y` every time we want to change `x`.
