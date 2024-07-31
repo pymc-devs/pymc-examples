@@ -383,10 +383,20 @@ The payoff of all this work is that we can now visualize what it means to decomp
 We'll extract the means of several parameters to generate predictions. In the first case, we'll visualize only the predictions that come from the spatial component of the model. In other words, we are assuming $\rho = 1$ and we ignore $\theta$ and social fragmentation.
 
 ```{code-cell} ipython3
-phi_pred = idata.posterior.phi.mean(("chain", "draw")).values
-beta0_pred = idata.posterior.beta0.mean(("chain", "draw")).values
-sigma_pred = idata.posterior.sigma.mean(("chain", "draw")).values
-y_predict = np.exp(log_E + beta0_pred + sigma_pred * (1 / scaling_factor) * phi_pred)
+import pymc as pm
+import numpy as np
+# Wrapping mixture and mu in pm.Deterministic in the model definition
+with BYM_model:
+    mixture = pm.Deterministic('mixture', some_mixture_expression)
+    mu = pm.Deterministic('mu', some_mu_expression)
+
+# Use pm.do to condition on rho=1 and sample posterior predictive
+with pm.do(BYM_model, {'rho': 1.0}):
+    y_predict_rho_1 = pm.sample_posterior_predictive(idata, var_names=['mixture', 'mu'], predictions=True, extend_inferencedata=False)
+
+# Compute the mean of the predictions
+y_predict = y_predict_rho_1.predictions.mu.mean(dim=['chain', 'draw'])
+
 ```
 
 Then we'll overlay our predictions onto the same {ref}`adjacency map we built earlier <adjacency-map>`. 
