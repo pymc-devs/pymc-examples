@@ -13,7 +13,7 @@ kernelspec:
 (model_averaging)=
 # Model Averaging
 
-:::{post} Aug 2022
+:::{post} Aug 2024
 :tags: model comparison, model averaging
 :category: intermediate
 :author: Osvaldo Martin
@@ -32,9 +32,9 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
@@ -93,10 +93,10 @@ The following example is taken from the superb book {cite:t}`mcelreath2018statis
 Briefly, our problem is as follows: We want to explore the composition of milk across several primate species, it is hypothesized that females from species of primates with larger brains produce more _nutritious_ milk (loosely speaking this is done _in order to_ support the development of such big brains). This is an important question for evolutionary biologists and try to give an answer we will use 3 variables, two predictor variables: the proportion of neocortex compare to the total mass of the brain and the logarithm of the body mass of the mothers. And for predicted variable, the kilocalories per gram of milk. With these variables we are going to build 3 different linear models:
  
 1. A model using only the neocortex variable
-2. A model using only the logarithm of the mass variable
+2. A model using only the mass variable
 3. A model using both variables
 
-Let start by uploading the data and centering the `neocortex` and `log mass` variables, for better sampling.
+Let start by uploading the data and centering the `neocortex` and `mass` variables, for better sampling.
 
 ```{code-cell} ipython3
 ---
@@ -112,8 +112,7 @@ d = pd.read_csv(
     sep=";",
 )
 d = d[["kcal.per.g", "neocortex.perc", "mass"]].rename({"neocortex.perc": "neocortex"}, axis=1)
-d["log_mass"] = np.log(d["mass"])
-d = d[~d.isna().any(axis=1)].drop("mass", axis=1)
+d = d[~d.isna().any(axis=1)]  # .drop("mass", axis=1)
 d.iloc[:, 1:] = d.iloc[:, 1:] - d.iloc[:, 1:].mean()
 d.head()
 ```
@@ -132,14 +131,16 @@ papermill:
   status: completed
 ---
 with pm.Model() as model_0:
-    alpha = pm.Normal("alpha", mu=0, sigma=10)
-    beta = pm.Normal("beta", mu=0, sigma=10)
-    sigma = pm.HalfNormal("sigma", 10)
+    alpha = pm.Normal("alpha", mu=0, sigma=1)
+    beta = pm.Normal("beta", mu=0, sigma=1)
+    sigma = pm.HalfNormal("sigma", 1)
 
     mu = alpha + beta * d["neocortex"]
 
     kcal = pm.Normal("kcal", mu=mu, sigma=sigma, observed=d["kcal.per.g"])
-    trace_0 = pm.sample(2000, return_inferencedata=True)
+
+    idata_0 = pm.sample(idata_kwargs={"log_likelihood": True})
+    idata_0.extend(pm.sample_posterior_predictive(idata_0))
 ```
 
 +++ {"papermill": {"duration": 0.049578, "end_time": "2020-11-29T12:14:25.401979", "exception": false, "start_time": "2020-11-29T12:14:25.352401", "status": "completed"}}
@@ -156,20 +157,21 @@ papermill:
   status: completed
 ---
 with pm.Model() as model_1:
-    alpha = pm.Normal("alpha", mu=0, sigma=10)
+    alpha = pm.Normal("alpha", mu=0, sigma=1)
     beta = pm.Normal("beta", mu=0, sigma=1)
-    sigma = pm.HalfNormal("sigma", 10)
+    sigma = pm.HalfNormal("sigma", 1)
 
-    mu = alpha + beta * d["log_mass"]
+    mu = alpha + beta * d["mass"]
 
     kcal = pm.Normal("kcal", mu=mu, sigma=sigma, observed=d["kcal.per.g"])
 
-    trace_1 = pm.sample(2000, return_inferencedata=True)
+    idata_1 = pm.sample(idata_kwargs={"log_likelihood": True})
+    idata_1.extend(pm.sample_posterior_predictive(idata_1))
 ```
 
 +++ {"papermill": {"duration": 0.049839, "end_time": "2020-11-29T12:14:34.547268", "exception": false, "start_time": "2020-11-29T12:14:34.497429", "status": "completed"}}
 
-And finally the third model using the `neocortex` and `log_mass` variables
+And finally the third model using the `neocortex` and `mass` variables
 
 ```{code-cell} ipython3
 ---
@@ -181,15 +183,16 @@ papermill:
   status: completed
 ---
 with pm.Model() as model_2:
-    alpha = pm.Normal("alpha", mu=0, sigma=10)
+    alpha = pm.Normal("alpha", mu=0, sigma=1)
     beta = pm.Normal("beta", mu=0, sigma=1, shape=2)
-    sigma = pm.HalfNormal("sigma", 10)
+    sigma = pm.HalfNormal("sigma", 1)
 
-    mu = alpha + pm.math.dot(beta, d[["neocortex", "log_mass"]].T)
+    mu = alpha + pm.math.dot(beta, d[["neocortex", "mass"]].T)
 
     kcal = pm.Normal("kcal", mu=mu, sigma=sigma, observed=d["kcal.per.g"])
 
-    trace_2 = pm.sample(2000, return_inferencedata=True)
+    idata_2 = pm.sample(idata_kwargs={"log_likelihood": True})
+    idata_2.extend(pm.sample_posterior_predictive(idata_2))
 ```
 
 +++ {"papermill": {"duration": 0.050236, "end_time": "2020-11-29T12:14:54.072799", "exception": false, "start_time": "2020-11-29T12:14:54.022563", "status": "completed"}}
@@ -205,8 +208,8 @@ papermill:
   start_time: '2020-11-29T12:14:54.123411'
   status: completed
 ---
-traces = [trace_0, trace_1, trace_2]
-az.plot_forest(traces, figsize=(10, 5));
+idatas = [idata_0, idata_1, idata_2]
+az.plot_forest(idatas, figsize=(10, 5));
 ```
 
 +++ {"papermill": {"duration": 0.052958, "end_time": "2020-11-29T12:14:55.196722", "exception": false, "start_time": "2020-11-29T12:14:55.143764", "status": "completed"}}
@@ -223,10 +226,10 @@ papermill:
   status: completed
 ---
 ax = az.plot_density(
-    traces,
+    idatas,
     var_names=["alpha", "sigma"],
     shade=0.1,
-    data_labels=["Model 0 (neocortex)", "Model 1 (log_mass)", "Model 2 (neocortex+log_mass)"],
+    data_labels=["Model 0 (neocortex)", "Model 1 (mass)", "Model 2 (neocortex+mass)"],
 )
 
 ax[0, 0].set_xlabel("Density")
@@ -235,12 +238,12 @@ ax[0, 0].set_title("95% Credible Intervals: alpha")
 
 ax[0, 1].set_xlabel("Density")
 ax[0, 1].set_ylabel("")
-ax[0, 1].set_title("95% Credible Intervals: sigma")
+ax[0, 1].set_title("95% Credible Intervals: sigma");
 ```
 
 +++ {"papermill": {"duration": 0.055089, "end_time": "2020-11-29T12:14:57.977616", "exception": false, "start_time": "2020-11-29T12:14:57.922527", "status": "completed"}}
 
-Now that we have sampled the posterior for the 3 models, we are going to use WAIC (Widely applicable information criterion) to compare the 3 models. We can do this using the `compare` function included with ArviZ.
+Now that we have sampled the posterior for the 3 models, we are going to compare the 3 models. We can do this using the `compare` function included with ArviZ. By default `compare` used the `LOO` method and the weights using `stacking`.
 
 ```{code-cell} ipython3
 ---
@@ -251,14 +254,14 @@ papermill:
   start_time: '2020-11-29T12:14:58.033914'
   status: completed
 ---
-model_dict = dict(zip(["model_0", "model_1", "model_2"], traces))
+model_dict = dict(zip(["model_0", "model_1", "model_2"], idatas))
 comp = az.compare(model_dict)
 comp
 ```
 
 +++ {"papermill": {"duration": 0.056609, "end_time": "2020-11-29T12:14:58.387481", "exception": false, "start_time": "2020-11-29T12:14:58.330872", "status": "completed"}}
 
-We can see that the best model is `model_2`, the one with both predictor variables. Notice the DataFrame is ordered from lowest to highest WAIC (_i.e_ from _better_ to _worst_ model). Check the {ref}`pymc:model_comparison` for a more detailed discussion on model comparison.
+We can see that the best model is `model_2`, the one with both predictor variables. Notice the DataFrame is ordered from the highest value of ELPD (_i.e_ from _better_ to _worst_ model). Check the {ref}`pymc:model_comparison` for a more detailed discussion on model comparison.
 
 We can also see that we get a column with the relative `weight` for each model (according to the first equation at the beginning of this notebook). This weights can be _vaguely_ interpreted as the probability that each model will make the correct predictions on future data. Of course this interpretation is conditional on the models used to compute the weights, if we add or remove models the weights will change. And also is dependent on the assumptions behind WAIC (or any other Information Criterion used). So try to not overinterpret these `weights`. 
 
@@ -273,19 +276,16 @@ papermill:
   start_time: '2020-11-29T12:14:58.444313'
   status: completed
 ---
-ppc_w = pm.sample_posterior_predictive_w(
-    traces=traces,
-    models=[model_0, model_1, model_2],
-    weights=comp.weight.sort_index(ascending=True),
-    progressbar=True,
-)
+ppc_w = az.weight_predictions(
+    [idata_2, idata_1, idata_0], weights=list(comp.weight.values)
+).posterior_predictive
 ```
 
 +++ {"papermill": {"duration": 0.058454, "end_time": "2020-11-29T12:15:30.024455", "exception": false, "start_time": "2020-11-29T12:15:29.966001", "status": "completed"}}
 
-Notice that we are passing the weights ordered by their index. We are doing this because we pass `traces` and `models` ordered from model 0 to 2, but the computed weights are ordered from lowest to highest WAIC (or equivalently from larger to lowest weight). In summary, we must be sure that we are correctly pairing the weights and models.
+Notice that the order of the weights and idatas match the order in the `comp` DataFrame.
 
-We are also going to compute PPCs for the lowest-WAIC model.
+We are also going to extract the posterior predictive samples for the model with the highest ELPD.
 
 ```{code-cell} ipython3
 ---
@@ -296,7 +296,7 @@ papermill:
   start_time: '2020-11-29T12:15:30.082568'
   status: completed
 ---
-ppc_2 = pm.sample_posterior_predictive(trace=trace_2, model=model_2, progressbar=False)
+ppc_2 = az.extract(idata_2, group="posterior_predictive")
 ```
 
 +++ {"papermill": {"duration": 0.058214, "end_time": "2020-11-29T12:15:55.404271", "exception": false, "start_time": "2020-11-29T12:15:55.346057", "status": "completed"}}
@@ -313,10 +313,10 @@ papermill:
   status: completed
 ---
 mean_w = ppc_w["kcal"].mean()
-hpd_w = az.hdi(ppc_w["kcal"].flatten())
+hpd_w = az.hdi(ppc_w["kcal"].values.flatten())
 
 mean = ppc_2["kcal"].mean()
-hpd = az.hdi(ppc_2["kcal"].flatten())
+hpd = az.hdi(ppc_2["kcal"].values.flatten())
 
 plt.plot(mean_w, 1, "C0o", label="weighted models")
 plt.hlines(1, *hpd_w, "C0")
@@ -349,6 +349,7 @@ Besides averaging discrete models we can sometimes think of continuous versions 
 * Moved from pymc to pymc-examples repo in December 2020 ([pymc-examples#8](https://github.com/pymc-devs/pymc-examples/pull/8))
 * Updated by Raul Maldonado in February 2021 ([pymc#25](https://github.com/pymc-devs/pymc-examples/pull/25))
 * Updated Markdown and styling by @reshamas in August 2022, ([pymc-examples#414](https://github.com/pymc-devs/pymc-examples/pull/414))
+* Updated by Osvaldo Martin in Aug 2024
 
 +++
 
