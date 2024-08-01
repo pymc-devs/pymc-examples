@@ -329,7 +329,7 @@ with pm.Model(coords=coords) as BYM_model:
     theta = pm.Normal("theta", 0, 1, dims="area_idx")
 
     # spatially structured random effect
-    phi = pm.ICAR("phi", W=W_nyc)
+    phi = pm.ICAR("phi", W=W_nyc, dims="area_idx")
 
     # joint variance of random effects
     sigma = pm.HalfNormal("sigma", 1)
@@ -338,11 +338,15 @@ with pm.Model(coords=coords) as BYM_model:
     rho = pm.Beta("rho", 0.5, 0.5)
 
     # the bym component - it mixes a spatial and a random effect
-    mixture = pt.sqrt(1 - rho) * theta + pt.sqrt(rho / scaling_factor) * phi
+    mixture = pm.Deterministic(
+        "mixture", pt.sqrt(1 - rho) * theta + pt.sqrt(rho / scaling_factor) * phi, dims="area_idx"
+    )
 
     # exponential link function to ensure
     # predictions are positive
-    mu = pt.exp(log_E + beta0 + beta1 * fragment_index + sigma * mixture)
+    mu = pm.Deterministic(
+        "mu", pt.exp(log_E + beta0 + beta1 * fragment_index + sigma * mixture), dims="area_idx"
+    )
 
     y_i = pm.Poisson("y_i", mu, observed=y)
 ```
@@ -361,7 +365,7 @@ with BYM_model:
 We can evaluate the sampler in several ways. First, it looks like all our chains converged. All parameters have rhat values very close to one.
 
 ```{code-cell} ipython3
-rhat = az.summary(idata).r_hat.values
+rhat = az.summary(idata, kind="diagnostics").r_hat.values
 sum(rhat > 1.03)
 ```
 
@@ -380,29 +384,33 @@ Our trace plot also indicates there is a small effect of social fragmentation on
 
 The payoff of all this work is that we can now visualize what it means to decompose the variance into explanatory, spatial and unstructured parts. One way to make this vivid is to inspect each component of the model individually.  We'll see what the model thinks NYC should look like if spatial effects were the only source of variance, then we'll turn to the explanatory effect and finally the random effect.
 
-We'll extract the means of several parameters to generate predictions. In the first case, we'll visualize only the predictions that come from the spatial component of the model. In other words, we are assuming $\rho = 1$ and we ignore $\theta$ and social fragmentation.
+In the first case, we'll visualize only the predictions that come from the spatial component of the model. In other words, we are assuming $\rho = 1$ and we ignore $\theta$ and social fragmentation. 
 
-```{code-cell} ipython3
-phi_pred = idata.posterior.phi.mean(("chain", "draw")).values
-beta0_pred = idata.posterior.beta0.mean(("chain", "draw")).values
-sigma_pred = idata.posterior.sigma.mean(("chain", "draw")).values
-y_predict = np.exp(log_E + beta0_pred + sigma_pred * (1 / scaling_factor) * phi_pred)
-```
++++
 
 Then we'll overlay our predictions onto the same {ref}`adjacency map we built earlier <adjacency-map>`. 
 
 ```{code-cell} ipython3
+# draw posterio
+
+with pm.do(BYM_model, {"rho": 1.0, "beta1": 0}):
+    y_predict = pm.sample_posterior_predictive(
+        idata, var_names=["mu", "mixture"], predictions=True, extend_inferencedata=False
+    )
+
+y_spatial_pred = y_predict.predictions.mu.mean(dim=["chain", "draw"]).values
+
 plt.figure(figsize=(10, 8))
 nx.draw_networkx(
     G_nyc,
     pos=pos,
-    node_color=y_predict,
+    node_color=y_spatial_pred,
     cmap="plasma",
     vmax=30,
     width=0.5,
     alpha=0.6,
     with_labels=False,
-    node_size=20 + 3 * y_predict,
+    node_size=20 + 3 * y_spatial_pred,
 )
 ```
 
@@ -413,40 +421,53 @@ Spatial smoothing is especially useful for forecasting. Imagine there was a low-
 We can notice that there are three neighborhoods of risk, represented by large yellow clusters, that are well-captured. This suggests that a lot of the explanation for traffic accidents has to do with unidentified but spatially structured causes. By contrast, the social fragmentation index only explains a single neighborhood of risk in the bottom center of the map (with a few small pockets of success elsewhere).
 
 ```{code-cell} ipython3
-beta1_pred = idata.posterior.beta1.mean(("chain", "draw")).values
-y_predict = np.exp(log_E + beta0_pred + beta1_pred * fragment_index)
+with pm.do(
+    BYM_model,
+    {
+        "sigma": 0.0,
+    },
+):
+    y_predict = pm.sample_posterior_predictive(
+        idata, var_names=["mu", "mixture"], predictions=True, extend_inferencedata=False
+    )
+
+y_frag_pred = y_predict.predictions.mu.mean(dim=["chain", "draw"]).values
 
 plt.figure(figsize=(10, 8))
 nx.draw_networkx(
     G_nyc,
     pos=pos,
-    node_color=y_predict,
+    node_color=y_frag_pred,
     cmap="plasma",
     vmax=30,
     width=0.5,
     alpha=0.6,
     with_labels=False,
-    node_size=20 + 3 * y_predict,
+    node_size=20 + 3 * y_frag_pred,
 )
 ```
 
 Finally, we might look at the unstructured variance by assuming $\rho = 0$. If our model managed to partition variance successfully, there should not be too many spatial clusters left over in the unstructured variance. Instead, variance should be scattered all over the map.
 
 ```{code-cell} ipython3
-theta_pred = idata.posterior.theta.mean(("chain", "draw")).values
-y_predict = np.exp(log_E + beta0_pred + sigma_pred * theta_pred)
+with pm.do(BYM_model, {"rho": 0.0, "beta1": 0}):
+    y_predict = pm.sample_posterior_predictive(
+        idata, var_names=["mu", "mixture"], predictions=True, extend_inferencedata=False
+    )
+
+y_unspatial_pred = y_predict.predictions.mu.mean(dim=["chain", "draw"]).values
 
 plt.figure(figsize=(10, 8))
 nx.draw_networkx(
     G_nyc,
     pos=pos,
-    node_color=y_predict,
+    node_color=y_unspatial_pred,
     cmap="plasma",
     vmax=30,
     width=0.5,
     alpha=0.6,
     with_labels=False,
-    node_size=20 + 3 * y_predict,
+    node_size=20 + 3 * y_unspatial_pred,
 )
 ```
 
