@@ -99,7 +99,7 @@ repos:
       language: pygrep
       types_or: [markdown, rst, jupyter]
 - repo: https://github.com/mwouts/jupytext
-  rev: v1.16.4b
+  rev: v1.16.3
   hooks:
   - id: jupytext
     files: ^examples/.+\.ipynb$
