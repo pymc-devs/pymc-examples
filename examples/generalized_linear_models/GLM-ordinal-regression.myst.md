@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_examples_new
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -20,10 +20,6 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-import warnings
-
-warnings.simplefilter(action="ignore", category=FutureWarning)
-
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
