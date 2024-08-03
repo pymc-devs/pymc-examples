@@ -6,7 +6,6 @@ at two correlations (0, 0.9) and print out the effective sample sizes, runtime a
 normalized effective sampling rates.
 """
 
-
 import time
 
 import arviz as az
