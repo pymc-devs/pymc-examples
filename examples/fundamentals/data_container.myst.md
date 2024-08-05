@@ -59,7 +59,7 @@ This notebook will illustrate each of these benefits in turn, and show you the b
 +++
 
 :::{important}
-In past versions of PyMC, there were two types of data containers {func}`pymc.MutableData` and {func}`pymc.ConstantData` these are now deprecated.
+In past versions of PyMC, there were two types of data containers {func}`pymc.MutableData` and {func}`pymc.ConstantData`. These have been deprecated as all data containers are mutable now.
 :::
 
 +++
