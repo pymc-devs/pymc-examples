@@ -39,10 +39,7 @@ import pytensor.tensor as pt
 from scipy import stats
 from tqdm.notebook import trange
 
-az.style.use("arviz-darkgrid")
-plt.rcParams["figure.figsize"] = [12, 7]
-plt.rcParams["figure.dpi"] = 100
-plt.rcParams["figure.facecolor"] = "white"
+az.style.use("arviz-white")
 
 %load_ext autoreload
 %autoreload 2
