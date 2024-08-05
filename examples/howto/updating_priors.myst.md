@@ -10,7 +10,7 @@ kernelspec:
   name: python3
 ---
 
-(updating-priors)=
+(updating_priors)=
 # Updating Priors
 
 :::{post} January, 2017
@@ -41,8 +41,6 @@ from tqdm.notebook import trange
 
 az.style.use("arviz-white")
 
-%load_ext autoreload
-%autoreload 2
 %config InlineBackend.figure_format = "retina"
 ```
 
