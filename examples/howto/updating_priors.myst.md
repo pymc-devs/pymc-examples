@@ -20,7 +20,12 @@ kernelspec:
 
 +++
 
-In this notebook, we will show how it is possible to update the priors as new data becomes available.
+In this notebook, we will show how, in principle, it is possible to update the priors as new data becomes available.
+
+`````{admonition} Words of Caution
+:class: warning
+This example provides a very nice usage example for the {class}`~pymc.Interpolated` class, as we will see below. However, this might not be a good idea to do in practice, not only for the posterior -> kde part, but mostly because Interpolated distributions used as priors are **unidimensional** and **uncorrelated**.  So even if a perfect fit *marginally* they don't really incorporate all the information we have from the previous posterior into the model, especially when posterior variables are correlated. See a nice discussion about the subject in the blog post [Some dimensionality devils](https://oriolabrilpla.cat/en/blog/posts/2022/too-eager-reduction.html#univariate-priors) by [Oriol Abril](https://oriolabrilpla.cat/en/).
+``````
 
 ```{code-cell} ipython3
 import arviz as az
@@ -183,6 +188,25 @@ for i, (param, true_value) in enumerate(
 You can re-execute the last two cells to generate more updates.
 
 What is interesting to note is that the posterior distributions for our parameters tend to get centered on their true value (vertical lines), and the distribution gets thiner and thiner. This means that we get more confident each time, and the (false) belief we had at the beginning gets flushed away by the new data we incorporate.
+
++++
+
+``````{admonition} Not silver bullet
+:class: warning
+Observe that, despite the fact that the iterations seems improving,  toms of them look actually a bit sketchy as the MC error can creep in.
+``````
+
++++
+
+``````{admonition} An alternative approach
+:class: tip
+There is an alternative way in `pymc-experimental` trough the function {func}`~pymc_experimental/utils/prior.prior_from_idata` that does something similar. This function:
+> Creates a prior from posterior using MvNormal approximation.
+> The approximation uses MvNormal distribution. Keep in mind that this function will only work well for unimodal
+> posteriors and will fail when complicated interactions happen. Moreover, if a retrieved variable is constrained, you
+> should specify a transform for the variable, e.g.
+> {func}`~pymc.distributions.transforms.log` for standard deviation posterior.
+``````
 
 ```{code-cell} ipython3
 %load_ext watermark
