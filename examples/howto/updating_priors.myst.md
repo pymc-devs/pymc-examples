@@ -16,6 +16,7 @@ kernelspec:
 :::{post} January, 2017
 :tags: priors
 :category: intermediate, how-to
+:author: [David Brochart](https://github.com/davidbrochart)
 :::
 
 +++
@@ -207,6 +208,12 @@ There is an alternative way in `pymc-experimental` trough the function {func}`~p
 > should specify a transform for the variable, e.g.
 > {func}`~pymc.distributions.transforms.log` for standard deviation posterior.
 ``````
+
++++
+
+## Authors
+- Created by [David Brochart](https://github.com/davidbrochart) ([pymc#1878](https://github.com/pymc-devs/pymc/pull/1878)) on May 2017.
+- Updated by [Juan Orduz](https://github.com/juanitorduz) on August 2024.
 
 ```{code-cell} ipython3
 %load_ext watermark
