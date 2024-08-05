@@ -25,7 +25,7 @@ In this notebook, we will show how, in principle, it is possible to update the p
 
 `````{admonition} Words of Caution
 :class: warning
-This example provides a very nice usage example for the {class}`~pymc.Interpolated` class, as we will see below. However, this might not be a good idea to do in practice, not only for the posterior -> kde part, but mostly because Interpolated distributions used as priors are **unidimensional** and **uncorrelated**.  So even if a perfect fit *marginally* they don't really incorporate all the information we have from the previous posterior into the model, especially when posterior variables are correlated. See a nice discussion about the subject in the blog post [Some dimensionality devils](https://oriolabrilpla.cat/en/blog/posts/2022/too-eager-reduction.html#univariate-priors) by [Oriol Abril](https://oriolabrilpla.cat/en/).
+This example provides a very nice usage example for the {class}`~pymc.Interpolated` class, as we will see below. However, this might not be a good idea to do in practice, not only because KDEs are being used to compute pdf values for the posterior, but mostly because Interpolated distributions used as priors are **unidimensional** and **uncorrelated**.  So even if a perfect fit *marginally* they don't really incorporate all the information we have from the previous posterior into the model, especially when posterior variables are correlated. See a nice discussion about the subject in the blog post [Some dimensionality devils](https://oriolabrilpla.cat/en/blog/posts/2022/too-eager-reduction.html#univariate-priors) by [Oriol Abril](https://oriolabrilpla.cat/en/).
 ``````
 
 ```{code-cell} ipython3
