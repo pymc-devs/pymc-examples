@@ -189,10 +189,12 @@ What is interesting to note is that the posterior distributions for our paramete
 
 +++
 
-``````{admonition} Not silver bullet
+``````{admonition} Not a silver bullet
 :class: warning
-Observe that, despite the fact that the iterations seems improving,  toms of them look actually a bit sketchy as the MC error can creep in.
-``````
+Observe that, despite the fact that the iterations seems improving, some of them don't look so good, even sometimes it seems it regresses. In addition to reasons noted at the beginning of the notebook, there are a couple key steps in the process where randomness is involved. Thus, things should be expected to improve on average.
+
+1. New observations are random. If in the initial iterations we get values closer to the bulk of the distribuion and then we get several values in a row from the positive tail, the iterations where we have accumulated a couple draws from the tail will probably be biased and "look worse" than previous ones.
+2. MCMC is random. Even when it converges, MCMC is a random process, so different calls to `pymc.sample` will return values centered around the exact posterior but not always the same; how large a variation we should expect can be checked with {func}`arviz.mcse`. KDEs also incorporate this often negligible yet present source of uncertainty in the posterior estimates, and so will the generated Interpolated distributions.
 
 +++
 
