@@ -1,0 +1,391 @@
+---
+jupytext:
+  text_representation:
+    extension: .md
+    format_name: myst
+    format_version: 0.13
+kernelspec:
+  display_name: pymc
+  language: python
+  name: python3
+---
+
+(The prevalence of malaria in the Gambia)=
+# The prevalence of malaria in the Gambia
+
+:::{post} Aug 04, 2024 
+:tags: spatial, autoregressive, count data
+:category: beginner, tutorial
+:author: Jonathan Dekermanjian, bwengals (please add your name here)
+:::
+
++++
+
+# Imports
+
+```{code-cell} ipython3
+import arviz as az
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pymc as pm
+import pytensor.tensor as pt
+```
+
+:::{include} ../extra_installs.md
+:::
+
+```{code-cell} ipython3
+# These dependencies need to be installed separately from PyMC
+import folium
+import geopandas as gpd
+import mapclassify
+import rasterio as rio
+
+from pyproj import Transformer
+```
+
+# Introduction
+
++++
+
+Often, we find ourselves with a sample of continuous measurements that are spatially related (Geostatistical data) and our goal is to determine an estimate of that measure in unsampled surrounding areas. In the following case-study we look at the number of individuals who test positive for malaria in our sample of 65 villages across the Gambia region and proceed with estimating the prevalence (total positive / total individuals tested) of malaria within the surrounding areas to the 65 sampled villages. 
+
++++
+
+# Data Processing
+
+```{code-cell} ipython3
+# load the tabular data
+try:
+    gambia = pd.read_csv("../data/gambia_dataset.csv")
+except FileNotFoundError:
+    gambia = pd.read_csv(pm.get_data("gambia_dataset.csv"))
+gambia.head()
+```
+
+```{code-cell} ipython3
+# For each village compute the total tested, total positive, and the prevalence
+gambia_agg = (
+    gambia.groupby(["x", "y"])
+    .agg(total=("x", "size"), positive=("pos", "sum"))
+    .eval("prev = positive / total")
+    .reset_index()
+)
+```
+
+```{code-cell} ipython3
+gambia_agg
+```
+
+```{code-cell} ipython3
+# Create a GeoDataframe and set coordinate reference system to EPSG 4326
+gambia_gpdf = gpd.GeoDataFrame(
+    gambia_agg, geometry=gpd.points_from_xy(gambia_agg["x"], gambia_agg["y"]), crs="EPSG:32628"
+).drop(["x", "y"], axis=1)
+```
+
+```{code-cell} ipython3
+gambia_gpdf_4326 = gambia_gpdf.to_crs(crs="EPSG:4326")
+```
+
+```{code-cell} ipython3
+# Get an interactive plot of the data with a cmap on the prevalence values
+gambia_gpdf_4326.round(2).explore(column="prev")
+```
+
+```{code-cell} ipython3
+# Overlay the raster image of elevations in the Gambia on top of the map
+m = gambia_gpdf_4326.round(2).explore(column="prev")
+
+## Load the elevation rasterfile
+in_path = "../data/GMB_elv_msk.tif"
+
+dst_crs = "EPSG:4326"
+
+with rio.open(in_path) as src:
+
+    img = src.read()
+
+    src_crs = src.crs["init"].upper()
+    min_lon, min_lat, max_lon, max_lat = src.bounds
+    xs = gambia_gpdf_4326["geometry"].x
+    ys = gambia_gpdf_4326["geometry"].y
+    rows, cols = rio.transform.rowcol(src.transform, xs, ys)
+
+## Conversion of elevation locations from UTM to WGS84 CRS
+bounds_orig = [[min_lat, min_lon], [max_lat, max_lon]]
+
+bounds_fin = []
+
+for item in bounds_orig:
+    # converting to lat/lon
+    lat = item[0]
+    lon = item[1]
+
+    proj = Transformer.from_crs(
+        int(src_crs.split(":")[1]), int(dst_crs.split(":")[1]), always_xy=True
+    )
+
+    lon_n, lat_n = proj.transform(lon, lat)
+
+    bounds_fin.append([lat_n, lon_n])
+
+# Finding the center of latitude & longitude
+centre_lon = bounds_fin[0][1] + (bounds_fin[1][1] - bounds_fin[0][1]) / 2
+centre_lat = bounds_fin[0][0] + (bounds_fin[1][0] - bounds_fin[0][0]) / 2
+
+# Overlay raster
+m.add_child(
+    folium.raster_layers.ImageOverlay(
+        img.transpose(1, 2, 0),
+        opacity=0.7,
+        bounds=bounds_fin,
+        overlay=True,
+        control=True,
+        cross_origin=False,
+        zindex=1,
+        colormap=lambda x: (1, 0, 0, x),
+    )
+)
+
+m
+```
+
+```{code-cell} ipython3
+# Pull the elevation values from the raster file and put them into a dataframe
+path = "../data/GMB_elv_msk.tif"
+
+with rio.open(path) as f:
+    arr = f.read(1)
+    mask = arr != f.nodata
+    elev = arr[mask]
+    col, row = np.where(mask)
+    x, y = f.xy(col, row)
+    uid = np.arange(f.height * f.width).reshape((f.height, f.width))[mask]
+
+result = np.rec.fromarrays([uid, x, y, elev], names=["id", "x", "y", "elev"])
+elevations = pd.DataFrame(result)
+elevations = gpd.GeoDataFrame(
+    elevations, geometry=gpd.points_from_xy(elevations["x"], elevations["y"], crs="EPSG:4326")
+)
+```
+
+```{code-cell} ipython3
+# Set coordinate system to EPSG 32628 and spatially join our prevalence dataframe to our elevations dataframe
+elevations = elevations.to_crs(epsg="32628")
+```
+
+```{code-cell} ipython3
+gambia_gpdf = gambia_gpdf.sjoin_nearest(elevations, how="inner")
+```
+
+```{code-cell} ipython3
+# Set CRS to EPSG 4326
+gambia_gpdf_4326 = gambia_gpdf.to_crs(crs="EPSG:4326")
+```
+
+```{code-cell} ipython3
+gambia_gpdf_4326
+```
+
+```{code-cell} ipython3
+# Get relevant measures for modeling
+elev = gambia_gpdf_4326["elev"].values
+pos = gambia_gpdf_4326["positive"].values
+n = gambia_gpdf_4326["total"].values
+lonlat = gambia_gpdf_4326[["y", "x"]].values
+```
+
+```{code-cell} ipython3
+# Standardize elevation values
+elev_std = (elev - np.mean(elev)) / np.std(elev)
+```
+
+# Model Specification
+
++++
+
+We specify the following model:
+$$Y_{i} \sim Binomial(n_{i}, P(x_{i}))$$
+$$logit(P(x_{i})) = \beta_{0} + \beta_{1} \times Elevation + S(x_{i})$$
+
+Where $n_{i}$ represents an individual tested for malaria, $P(x_{i})$ is the prevalence of malaria at location $x_{i}$, $\beta_{0}$ is the intercept, $\beta_{1}$ is the coefficient for the elevation covariate and $S(x_{i})$ is a zero mean field guassian process with a Matérn covariance function with $\nu=\frac{3}{2}$ that we will approximate using a Hilbert Space Gaussian Process (HSGP)
+
+```{code-cell} ipython3
+with pm.Model() as hsgp_model:
+    _X = pm.Data("X", lonlat)
+    _elev = pm.Data("elevation", elev_std)
+
+    ls = pm.Gamma("ls", mu=20, sigma=5)
+    cov_func = pm.gp.cov.Matern32(2, ls=ls)
+    m0, m1, c = 40, 40, 2.5
+    gp = pm.gp.HSGP(m=[m0, m1], c=c, cov_func=cov_func)
+    s = gp.prior("s", X=_X)
+
+    beta_0 = pm.Normal("beta_0", 0, 1)
+    beta_1 = pm.Normal("beta_1", 0, 1)
+
+    p_logit = pm.Deterministic("p_logit", beta_0 + beta_1 * _elev + s)
+    p = pm.Deterministic("p", pm.math.invlogit(p_logit))
+    pm.Binomial("likelihood", n=n, logit_p=p_logit, observed=pos)
+```
+
+```{code-cell} ipython3
+hsgp_model.to_graphviz()
+```
+
+```{code-cell} ipython3
+with hsgp_model:
+    hsgp_trace = pm.sample(1000, tune=2000, target_accept=0.95, nuts_sampler="numpyro")
+```
+
+```{code-cell} ipython3
+az.summary(hsgp_trace, var_names=["ls"])
+```
+
+# Posterior Predictive Checks
+
++++
+
+We need to validate that our model specification properly represents the observed data. We can push out posterior predictions of the prevalence and plot them on a coordinate system to check if they resemble the observed prevalence from our sample
+
+```{code-cell} ipython3
+with hsgp_model:
+    ppc = pm.sample_posterior_predictive(hsgp_trace)
+```
+
+```{code-cell} ipython3
+posterior_prevalence = hsgp_trace["posterior"]["p"]
+```
+
+Refering to the map we plotted above, we can see that our posterior predictions in the figure below agree with the observed sample.
+
+```{code-cell} ipython3
+fig = plt.figure(figsize=(16, 8))
+
+plt.scatter(
+    lonlat[:, 1],
+    lonlat[:, 0],
+    c=posterior_prevalence.mean(("chain", "draw")),
+    marker="o",
+    alpha=0.75,
+    s=100,
+    edgecolor=None,
+)
+plt.xlabel("Latitude")
+plt.ylabel("Longitude")
+plt.title("Prevalence of Malaria in the Gambia")
+plt.colorbar(label="Posterior mean");
+```
+
+We can also check if the likelihood (number of individuals who test positive for malaria) agrees with the observed data. As you can see from Figure X, our posterior predictive sample is representative of the observed sample.
+
+```{code-cell} ipython3
+az.plot_ppc(ppc, kind="cumulative");
+```
+
+# Out-of-sample posterior predictions
+
++++
+
+Now that we have validated that we have a representative model that converged, we want to estimate the prevalence of malaria in the surrounding areas to where we have observed data points. Our new dataset will include every longitude and latitude position within the Gambia where we have a measure of elevation.
+
+```{code-cell} ipython3
+# Set new values for out-of-sample predictions
+new_lonlat = elevations[["y", "x"]].to_numpy()
+new_elev = elevations["elev"].to_numpy()
+new_elev_std = (new_elev - np.mean(new_elev)) / np.std(new_elev)
+```
+
+```{code-cell} ipython3
+with hsgp_model:
+    pm.set_data(new_data={"X": new_lonlat, "elevation": new_elev_std})
+    pp = pm.sample_posterior_predictive(hsgp_trace, var_names=["p"])
+```
+
+```{code-cell} ipython3
+posterior_predictive_prevalence = pp["posterior_predictive"]["p"]
+```
+
+We can plot our out-of-sample posterior predictions to visualize the estimated prevalence of malaria across the Gambia. In figure below you'll notice that there is a smooth transition of prevalences surrounding the areas where we observed data in a way where nearer areas have more similar prevalences and as you move away you approach zero (the mean of the guassian process).
+
+```{code-cell} ipython3
+fig = plt.figure(figsize=(16, 8))
+
+plt.scatter(
+    new_lonlat[:, 1],
+    new_lonlat[:, 0],
+    c=posterior_predictive_prevalence.mean(("chain", "draw")),
+    marker="o",
+    alpha=0.75,
+    s=100,
+    edgecolor=None,
+)
+plt.xlabel("Latitude")
+plt.ylabel("Longitude")
+plt.title("Prevalence of Malaria in the Gambia")
+plt.colorbar(label="Posterior mean");
+```
+
+# Making decisions based on exceedance probabilities
+
++++
+
+One way to determine where we might decide to apply interventions is to look at exceedance probabilities of some selected threshold of malaria prevalence. These exeedance probabilities will allow us to incorporate our uncertainty in the prevalences we have estimated instead of just considering the mean of the posterior distribution. For our use case, we decide to set an exceedance threshold of 20% on the prevalance.
+
+```{code-cell} ipython3
+prob_prev_gt_20percent = 1 - (posterior_predictive_prevalence <= 0.2).mean(("chain", "draw"))
+```
+
+We can use the insights gained from the figure below to send out aid to the regions where we are most confident that the prevalence of malaria exceeds 20%.
+
+```{code-cell} ipython3
+fig = plt.figure(figsize=(16, 8))
+
+plt.scatter(
+    new_lonlat[:, 1],
+    new_lonlat[:, 0],
+    c=prob_prev_gt_20percent,
+    marker="o",
+    alpha=0.75,
+    s=100,
+    edgecolor=None,
+)
+plt.xlabel("Latitude")
+plt.ylabel("Longitude")
+plt.title("Probability of Malaria Prevelance greater than 20%")
+plt.colorbar(label="Posterior mean");
+```
+
+# Conclusion
+
++++
+
+The case-study walked us through how we can utilize an HSGP to include spatial information into our estimates. Specifically, we saw how we can validate our model specification, produce out-of-sample estimates, and how we can use the whole posterior distribution to make decisions.
+
++++
+
+## Authors
+
+* Adapted from {ref}`Geospatial Health Data: Modeling and Visualization with R-INLA and Shiny` by Dr. Paula Moraga ([link](https://www.paulamoraga.com/book-geospatial/index.html)).
+
++++
+
+# References 
+
+:::{bibliography}
+:filter: docname in docnames 
+:::
+
++++
+
+# Watermark
+
+```{code-cell} ipython3
+%load_ext watermark
+%watermark -n -u -v -iv -w -p xarray
+```
+
+:::{include} ../page_footer.md
+:::
