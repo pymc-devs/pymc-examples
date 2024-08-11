@@ -16,7 +16,7 @@ kernelspec:
 :::{post} Aug 04, 2024 
 :tags: spatial, autoregressive, count data
 :category: beginner, tutorial
-:author: Jonathan Dekermanjian, bwengals (please add your name here)
+:author: Jonathan Dekermanjian
 :::
 
 +++
@@ -202,6 +202,12 @@ lonlat = gambia_gpdf_4326[["y", "x"]].values
 elev_std = (elev - np.mean(elev)) / np.std(elev)
 ```
 
+```{code-cell} ipython3
+# Set a seed for reproducibility of results
+seed: int = sum(map(ord, "spatialmalaria"))
+rng: np.random.Generator = np.random.default_rng(seed=seed)
+```
+
 # Model Specification
 
 +++
@@ -211,6 +217,8 @@ $$Y_{i} \sim Binomial(n_{i}, P(x_{i}))$$
 $$logit(P(x_{i})) = \beta_{0} + \beta_{1} \times Elevation + S(x_{i})$$
 
 Where $n_{i}$ represents an individual tested for malaria, $P(x_{i})$ is the prevalence of malaria at location $x_{i}$, $\beta_{0}$ is the intercept, $\beta_{1}$ is the coefficient for the elevation covariate and $S(x_{i})$ is a zero mean field guassian process with a Matérn covariance function with $\nu=\frac{3}{2}$ that we will approximate using a Hilbert Space Gaussian Process (HSGP)
+
+In order to approximate a Gaussian process using an HSGP we need to select the parameters `m` and `c`. To learn more about how to set these parameters please refer to this wonderful ([example](../gaussian_processes/HSGP-Basic.myst.md)) of how to set these parameters.
 
 ```{code-cell} ipython3
 with pm.Model() as hsgp_model:
@@ -237,8 +245,12 @@ hsgp_model.to_graphviz()
 
 ```{code-cell} ipython3
 with hsgp_model:
-    hsgp_trace = pm.sample(1000, tune=2000, target_accept=0.95, nuts_sampler="numpyro")
+    hsgp_trace = pm.sample(
+        1000, tune=2000, target_accept=0.95, nuts_sampler="numpyro", random_seed=rng
+    )
 ```
+
+ The posterior mean of the length scale is 0.21 (shown below). Therefore, we can expect the gaussian mean to decay towards 0 (since we set a 0 mean function) as we move 0.21 degrees away from any sampled point on the map. While this is not a hard cut-off due to the lengthscale not being constrained by the observed data it is still useful to be able to intuit how the lengthscale effects the estimation.
 
 ```{code-cell} ipython3
 az.summary(hsgp_trace, var_names=["ls"])
@@ -252,7 +264,7 @@ We need to validate that our model specification properly represents the observe
 
 ```{code-cell} ipython3
 with hsgp_model:
-    ppc = pm.sample_posterior_predictive(hsgp_trace)
+    ppc = pm.sample_posterior_predictive(hsgp_trace, random_seed=rng)
 ```
 
 ```{code-cell} ipython3
@@ -279,7 +291,7 @@ plt.title("Prevalence of Malaria in the Gambia")
 plt.colorbar(label="Posterior mean");
 ```
 
-We can also check if the likelihood (number of individuals who test positive for malaria) agrees with the observed data. As you can see from Figure X, our posterior predictive sample is representative of the observed sample.
+We can also check if the likelihood (number of individuals who test positive for malaria) agrees with the observed data. As you can see in the below figure, our posterior predictive sample is representative of the observed sample.
 
 ```{code-cell} ipython3
 az.plot_ppc(ppc, kind="cumulative");
@@ -301,7 +313,7 @@ new_elev_std = (new_elev - np.mean(new_elev)) / np.std(new_elev)
 ```{code-cell} ipython3
 with hsgp_model:
     pm.set_data(new_data={"X": new_lonlat, "elevation": new_elev_std})
-    pp = pm.sample_posterior_predictive(hsgp_trace, var_names=["p"])
+    pp = pm.sample_posterior_predictive(hsgp_trace, var_names=["p"], random_seed=rng)
 ```
 
 ```{code-cell} ipython3
@@ -358,6 +370,92 @@ plt.title("Probability of Malaria Prevelance greater than 20%")
 plt.colorbar(label="Posterior mean");
 ```
 
+# Different Covariance Functions
+Before we conclude let's talk breifly about why we decided to use the Matérn family of covariance functions instead of the Exponential Quadratic. The Matérn family of covariances is a generalization of the Exponential Quadtratic. When the smooting paramter of the Matérn $\nu \to \infty$ then we have the Exponential Quadratic covariance function. As the smoothing parameter increases the function you are estimating becomes smoother. A few commonly used values for $\nu$ are $\frac{1}{2}$, $\frac{3}{2}$, and $\frac{5}{2}$. Typically, when estimating a measure that has a spatial dependence we don't want an overly smooth function because that will prevent our estimate to capture abrupt changes in the measurement we are estimating. Below we simulate some data to show how the Matérn is able to capture these abrupt changes, whereas the Exponential Quadratic is overly smooth. For simplicity's sake we will be working in one dimension but these concepts apply with two-dimensional data.
+
+```{code-cell} ipython3
+# simulate 1-dimensional data
+x = np.linspace(0, 10, 20)
+y = list()
+for v in x:
+    # introduce abrupt changes
+    if v > 3 and v < 7:
+        y.append(np.array(10.0))
+    else:
+        y.append(np.array(3.0))
+y = np.array(y).ravel()
+```
+
+```{code-cell} ipython3
+# Fit a GP using HSGP to model to simulated data
+with pm.Model() as matern_model:
+    _X = pm.Data("X", x[:, None])
+    measurement_error = pm.HalfNormal("measurement_error", 1)
+
+    ls = pm.Gamma("ls", 0.5, 1)
+    eta = pm.Exponential("eta", scale=4.0)
+    cov_func = eta**2 * pm.gp.cov.Matern32(input_dim=1, ls=ls)
+    m0, c = 2000, 70.0
+    gp = pm.gp.HSGP(m=[m0], c=c, cov_func=cov_func)
+    s = gp.prior("s", X=_X)
+
+    pm.Normal("likelihood", mu=s, sigma=measurement_error, observed=y)
+    matern_idata = pm.sample(nuts_sampler="numpyro", target_accept=0.95, random_seed=rng)
+```
+
+```{code-cell} ipython3
+with matern_model:
+    ppc = pm.sample_posterior_predictive(matern_idata, random_seed=rng)
+```
+
+```{code-cell} ipython3
+y_mean_ppc = ppc["posterior_predictive"]["likelihood"].mean(("chain", "draw"))
+```
+
+```{code-cell} ipython3
+# Plot the estimated function against the true function
+plt.plot(x, y_mean_ppc, c="k", label="estimated function")
+plt.scatter(x, y, label="true function")
+plt.legend(loc="best")
+```
+
+```{code-cell} ipython3
+# Fit a EXPQUAD GP using HSGP to model to simulated data
+with pm.Model() as expquad_model:
+    _X = pm.Data("X", x[:, None])
+    measurement_error = pm.HalfNormal("measurement_error", 1)
+
+    ls = pm.Gamma("ls", 0.5, 1)
+    eta = pm.Exponential("eta", scale=4.0)
+    cov_func = eta**2 * pm.gp.cov.ExpQuad(input_dim=1, ls=ls)
+    m0, c = 2000, 70.0
+    gp = pm.gp.HSGP(m=[m0], c=c, cov_func=cov_func)
+    s = gp.prior("s", X=_X)
+
+    pm.Normal("likelihood", mu=s, sigma=measurement_error, observed=y)
+    expquad_idata = pm.sample(nuts_sampler="numpyro", target_accept=0.95, random_seed=rng)
+```
+
+```{code-cell} ipython3
+with expquad_model:
+    ppc = pm.sample_posterior_predictive(expquad_idata, random_seed=rng)
+```
+
+```{code-cell} ipython3
+y_mean_ppc = ppc["posterior_predictive"]["likelihood"].mean(("chain", "draw"))
+```
+
+```{code-cell} ipython3
+# Plot the estimated function against the true function
+plt.plot(x, y_mean_ppc, c="k", label="estimated function")
+plt.scatter(x, y, label="true function")
+plt.legend(loc="best")
+```
+
+As you can see from the above figures. The Exponential Quadratic covariance function is too slow to capture the abrupt change but also overshoots the change due to being overly smooth. 
+
++++
+
 # Conclusion
 
 +++
@@ -369,6 +467,8 @@ The case-study walked us through how we can utilize an HSGP to include spatial i
 ## Authors
 
 * Adapted from {ref}`Geospatial Health Data: Modeling and Visualization with R-INLA and Shiny` by Dr. Paula Moraga ([link](https://www.paulamoraga.com/book-geospatial/index.html)).
+### Acknowledgments
+* Bill Engels who encouraged, reviewed, and provided feedback to this example
 
 +++
 
