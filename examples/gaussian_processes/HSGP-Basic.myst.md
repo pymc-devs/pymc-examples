@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-examples
+  display_name: preliz
   language: python
-  name: pymc-examples
+  name: python3
 ---
 
 (hsgp)=
@@ -56,6 +56,7 @@ We'll use simulated data to motivate an overview of the usage of {class}`~pymc.g
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
+import preliz as pz
 import pymc as pm
 import pytensor.tensor as pt
 
@@ -114,42 +115,21 @@ ax.grid(False)
 
 +++
 
-First we use `pm.find_constrained_prior` to choose our prior for the lengthscale parameter.  We use a Lognormal to penalize very small lengthscales while having a heavy right tail.  When the signal from the GP is high relative to the noise, we are able to use more informative priors.
+First we use `pz.maxent` to choose our prior for the lengthscale parameter, maxent return the maximum entropy prior with the specified `mass` within the interval [`lower`, `upper`].  
+
+We use a Lognormal to penalize very small lengthscales while having a heavy right tail.  When the signal from the GP is high relative to the noise, we are able to use more informative priors.
 
 ```{code-cell} ipython3
-ell_dist = pm.Lognormal
-
 lower, upper = 0.5, 5.0
-ell_params = pm.find_constrained_prior(
-    ell_dist, lower=lower, upper=upper, mass=0.9, init_guess={"mu": 1.0, "sigma": 1.0}
+ell_dist, ax = pz.maxent(
+    pz.LogNormal(),
+    lower=lower,
+    upper=upper,
+    mass=0.9,
+    plot_kwargs={"support": (0, 7), "legend": None},
 )
 
-support = np.linspace(0, 7.0, 1000)
-logp = pm.logp(ell_dist.dist(**ell_params), support)
-p = np.exp(logp.eval())
-
-_, ax = plt.subplots()
-
-bulk_ix = (support >= lower) & (support <= upper)
-ax.fill_between(
-    support[bulk_ix],
-    np.zeros(sum(bulk_ix)),
-    p[bulk_ix],
-    color="slateblue",
-    alpha=0.3,
-    edgecolor="none",
-    label="90% of mass",
-)
-ax.plot(support, p, color="k", lw=2)
-
-ax.set(
-    xlabel="x",
-    ylabel="p(x)",
-    xlim=[-0.1, 7.0],
-    ylim=[0.0, 0.6],
-    title=r"Prior for the lengthscale, $\ell$",
-)
-ax.legend();
+ax.set_title(r"Prior for the lengthscale, $\ell$")
 ```
 
 There are a few things to note about the model code below:
@@ -158,7 +138,7 @@ There are a few things to note about the model code below:
 
 ```{code-cell} ipython3
 with pm.Model(coords={"basis_coeffs": np.arange(200), "obs_id": np.arange(len(y_obs))}) as model:
-    ell = ell_dist("ell", **ell_params)
+    ell = ell_dist.to_pymc("ell")
     eta = pm.Exponential("eta", scale=1.0)
     cov_func = eta**2 * pm.gp.cov.Matern52(input_dim=1, ls=ell)
 
@@ -174,7 +154,7 @@ with pm.Model(coords={"basis_coeffs": np.arange(200), "obs_id": np.arange(len(y_
     pm.Normal("y_obs", mu=f, sigma=sigma, observed=y_obs, dims="obs_id")
 
     idata = pm.sample()
-    idata.extend(pm.sample_posterior_predictive(idata))
+    idata.extend(pm.sample_posterior_predictive(idata, random_seed=rng))
 ```
 
 ```{code-cell} ipython3
@@ -579,7 +559,7 @@ with pm.Model() as model:
     sigma = pm.Exponential("sigma", scale=2.0)
     pm.Normal("y_obs", mu=mu, sigma=sigma, observed=y_tr, shape=X_gp.shape[0])
 
-    idata = pm.sample_prior_predictive()
+    idata = pm.sample_prior_predictive(random_seed=rng)
 
 pm.model_to_graphviz(model)
 ```
@@ -628,7 +608,7 @@ Now, let's sample the model and quickly check the results:
 
 ```{code-cell} ipython3
 with model:
-    idata.extend(pm.sample(nuts_sampler="numpyro"))
+    idata.extend(pm.sample(nuts_sampler="numpyro", random_seed=rng))
 ```
 
 ```{code-cell} ipython3
@@ -663,7 +643,9 @@ with model:
     pm.set_data({"X_gp": X[:, :2], "X_fe": X[:, 2]})
 
     idata_thinned = idata.sel(draw=slice(None, None, 10))
-    idata.extend(pm.sample_posterior_predictive(idata_thinned, var_names=["f", "mu"]))
+    idata.extend(
+        pm.sample_posterior_predictive(idata_thinned, var_names=["f", "mu"], random_seed=rng)
+    )
 ```
 
 ```{code-cell} ipython3
@@ -704,6 +686,7 @@ Sampling diagnostics all look good, and we can see that the underlying GP was in
 ## Authors
 
 * Created by [Bill Engels](https://github.com/bwengals) and [Alexandre Andorra](https://github.com/AlexAndorra) in 2024 ([pymc-examples#647](https://github.com/pymc-devs/pymc-examples/pull/647))
+* Use `pz.maxent` instead of `pm.find_constrained_prior`, and add random seed. [Osvaldo Martin](https://aloctavodia.github.io/). August 2024
 
 +++
 
