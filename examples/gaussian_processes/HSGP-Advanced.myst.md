@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-examples
+  display_name: pymc
   language: python
-  name: pymc-examples
+  name: python3
 ---
 
 (hsgp-advanced)=
@@ -44,6 +44,7 @@ A secondary goal of this implementation is flexibility via an accessible impleme
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
+import preliz as pz
 import pymc as pm
 import pytensor.tensor as pt
 ```
@@ -140,7 +141,9 @@ cov_mu = cov_trend + cov_short
 # Define the delta GPs
 n_gps = 10
 eta_delta_true = 3
-ell_delta_true = pm.draw(pm.Lognormal.dist(mu=np.log(ell_mu_short_true), sigma=0.5), draws=n_gps)
+ell_delta_true = pm.draw(
+    pm.Lognormal.dist(mu=np.log(ell_mu_short_true), sigma=0.5), draws=n_gps, random_seed=rng
+)
 
 cov_deltas = [
     eta_delta_true**2 * pm.gp.cov.Matern52(input_dim=1, ls=ell_i) for ell_i in ell_delta_true
@@ -166,12 +169,14 @@ def generate_gp_samples(x, cov_mu, cov_deltas, noise_dist, rng):
     """
     n = len(x)
     # One draw from the mean GP
-    f_mu_true = pm.draw(pm.MvNormal.dist(mu=np.zeros(n), cov=cov_mu(x[:, None])))
+    f_mu_true = pm.draw(pm.MvNormal.dist(mu=np.zeros(n), cov=cov_mu(x[:, None])), random_seed=rng)
 
     # Draws from the delta GPs
     f_deltas = []
     for cov_delta in cov_deltas:
-        f_deltas.append(pm.draw(pm.MvNormal.dist(mu=np.zeros(n), cov=cov_delta(x[:, None]))))
+        f_deltas.append(
+            pm.draw(pm.MvNormal.dist(mu=np.zeros(n), cov=cov_delta(x[:, None])), random_seed=rng)
+        )
     f_delta = np.vstack(f_deltas)
 
     # The hierarchical GP
@@ -435,10 +440,9 @@ with pm.Model(coords=coords) as model:
     ell_mu_short = pm.Deterministic("ell_mu_short", pt.softplus(log_ell_mu_short))
 
     eta_mu_trend = pm.Gamma("eta_mu_trend", mu=3.5, sigma=1)
-    ell_mu_trend_params = pm.find_constrained_prior(
-        pm.InverseGamma, lower=5, upper=12, mass=0.95, init_guess={"mu": 9.0, "sigma": 3.0}
+    ell_mu_trend = pz.maxent(pz.InverseGamma(), lower=5, upper=12, mass=0.95, plot=False).to_pymc(
+        "ell_mu_trend"
     )
-    ell_mu_trend = pm.InverseGamma("ell_mu_trend", **ell_mu_trend_params)
 
     ## Prior for the offsets
     log_ell_delta_offset = pm.ZeroSumNormal("log_ell_delta_offset", dims="gp_ix")
@@ -473,7 +477,7 @@ Now, what do these priors mean? Good question. As always, it's crucial to do **p
 
 ```{code-cell} ipython3
 with model:
-    idata = pm.sample_prior_predictive()
+    idata = pm.sample_prior_predictive(random_seed=rng)
 ```
 
 ```{code-cell} ipython3
@@ -564,7 +568,7 @@ Once we're satisfied with our priors, which is the case here, we can... sample t
 
 ```{code-cell} ipython3
 with model:
-    idata.extend(pm.sample(nuts_sampler="numpyro", target_accept=0.9))
+    idata.extend(pm.sample(nuts_sampler="numpyro", target_accept=0.9, random_seed=rng))
 ```
 
 ```{code-cell} ipython3
@@ -669,6 +673,7 @@ with model:
             var_names=["f_mu", "f"],
             predictions=True,
             compile_kwargs={"mode": "NUMBA"},
+            random_seed=rng,
         ),
     )
 ```
@@ -863,7 +868,11 @@ cov_t = pm.gp.cov.Matern52(input_dim=1, ls=ell_t_true)
 Kt = cov_t(t[:, None])
 
 K = pt.slinalg.kron(Kx, Kt)
-f_true = pm.draw(pm.MvNormal.dist(mu=np.zeros(n_gps * n_t), cov=K)).reshape(n_gps, n_t).T
+f_true = (
+    pm.draw(pm.MvNormal.dist(mu=np.zeros(n_gps * n_t), cov=K), random_seed=rng)
+    .reshape(n_gps, n_t)
+    .T
+)
 
 # Additive gaussian noise
 sigma_noise = 0.5
@@ -947,17 +956,11 @@ with pm.Model() as model:
     Xs_x = Xx - xx_center
 
     ## covariance on time GP
-    ell_t_params = pm.find_constrained_prior(
-        pm.Lognormal, lower=0.5, upper=4.0, mass=0.95, init_guess={"mu": 1.0, "sigma": 1.0}
-    )
-    ell_t = pm.Lognormal("ell_t", **ell_t_params)
+    ell_t = pz.maxent(pz.LogNormal(), lower=0.5, upper=4.0, mass=0.95, plot=False).to_pymc("ell_t")
     cov_t = pm.gp.cov.Matern52(1, ls=ell_t)
 
     ## covariance on space GP
-    ell_x_params = pm.find_constrained_prior(
-        pm.Lognormal, lower=0.5, upper=4.0, mass=0.95, init_guess={"mu": 1.0, "sigma": 1.0}
-    )
-    ell_x = pm.Lognormal("ell_x", **ell_x_params)
+    ell_x = pz.maxent(pz.LogNormal(), lower=0.5, upper=4.0, mass=0.95, plot=False).to_pymc("ell_x")
     cov_x = pm.gp.cov.Matern52(1, ls=ell_x)
 
     ## Kronecker GP
@@ -981,7 +984,7 @@ pm.model_to_graphviz(model)
 
 ```{code-cell} ipython3
 with model:
-    idata = pm.sample_prior_predictive()
+    idata = pm.sample_prior_predictive(random_seed=rng)
 ```
 
 ```{code-cell} ipython3
@@ -1015,7 +1018,7 @@ axs[1].set(ylim=ylims, title=r"Prior GPs, $\pm 1 \sigma$ posterior intervals");
 
 ```{code-cell} ipython3
 with model:
-    idata.extend(pm.sample(nuts_sampler="numpyro"))
+    idata.extend(pm.sample(nuts_sampler="numpyro", random_seed=rng))
 ```
 
 ```{code-cell} ipython3
@@ -1075,6 +1078,7 @@ And isn't this beautiful?? Now go on, and HSGP-on!
 ## Authors
 
 * Created by [Bill Engels](https://github.com/bwengals), [Alexandre Andorra](https://github.com/AlexAndorra) and [Maxim Kochurov](https://github.com/ferrine) in 2024 ([pymc-examples#668](https://github.com/pymc-devs/pymc-examples/pull/668))
+* Use `pz.maxent` instead of `pm.find_constrained_prior`, and add random seed. [Osvaldo Martin](https://aloctavodia.github.io/). August 2024
 
 +++
 
