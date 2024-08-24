@@ -13,7 +13,7 @@ kernelspec:
 (The prevalence of malaria in the Gambia)=
 # The prevalence of malaria in the Gambia
 
-:::{post} Aug 04, 2024 
+:::{post} Aug 24, 2024 
 :tags: spatial, autoregressive, count data
 :category: beginner, tutorial
 :author: Jonathan Dekermanjian
@@ -64,6 +64,8 @@ except FileNotFoundError:
 gambia.head()
 ```
 
+The data are currently on the individual person level but for our purposes we need it to be on the village level. We will aggregate the data by village to compute the total number of people tested, the number of people who tested positive, and the sample prevalence; which will be computed by dividing the total tested positive by the total tested individuals.
+
 ```{code-cell} ipython3
 # For each village compute the total tested, total positive, and the prevalence
 gambia_agg = (
@@ -72,20 +74,17 @@ gambia_agg = (
     .eval("prev = positive / total")
     .reset_index()
 )
+gambia_agg.head()
 ```
 
-```{code-cell} ipython3
-gambia_agg
-```
+We need to convert our dataframe into a geodataframe. In order to do this we need to know what coordinate reference system (CRS) either geographic coordinate system (GCS) or projected coordinate system (PCS) to use. GCS tells you where your data is on the earth, whereas PCS tells you how to draw your data on a two-dimensional plane. There are many different GCS/PCS because each GCS/PCS is a model of the earth's surface. However, the earth's surface is variable from one location to another. Therefore, different GCS/PCS versions will be more accurate depending on the geography your analysis is based in. Since our analysis is in the Gambia we will use PCS [EPSG 32628](https://epsg.io/32628) and GCS [EPSG 4326](https://epsg.io/4326) when plotting on a globe. Where EPSG stands for European Petroluem Survey Group, which is an organization that maintains geodetic parameters for coordinate systems.
 
 ```{code-cell} ipython3
 # Create a GeoDataframe and set coordinate reference system to EPSG 4326
 gambia_gpdf = gpd.GeoDataFrame(
     gambia_agg, geometry=gpd.points_from_xy(gambia_agg["x"], gambia_agg["y"]), crs="EPSG:32628"
 ).drop(["x", "y"], axis=1)
-```
 
-```{code-cell} ipython3
 gambia_gpdf_4326 = gambia_gpdf.to_crs(crs="EPSG:4326")
 ```
 
@@ -93,6 +92,8 @@ gambia_gpdf_4326 = gambia_gpdf.to_crs(crs="EPSG:4326")
 # Get an interactive plot of the data with a cmap on the prevalence values
 gambia_gpdf_4326.round(2).explore(column="prev")
 ```
+
+We want to include on our map the elevations within the Gambia. To do that we extract the elevation values store in our raster file and overlay it on the map. Areas with darker red signify higher elevation.
 
 ```{code-cell} ipython3
 # Overlay the raster image of elevations in the Gambia on top of the map
@@ -152,6 +153,8 @@ m.add_child(
 m
 ```
 
+We will want to include elevation as a covariate in our model. So, we need to extract the values from the raster image and store it into a dataframe.
+
 ```{code-cell} ipython3
 # Pull the elevation values from the raster file and put them into a dataframe
 path = "../data/GMB_elv_msk.tif"
@@ -171,6 +174,8 @@ elevations = gpd.GeoDataFrame(
 )
 ```
 
+After extracting the elevation values we need to perform a spatial join to our aggregated dataset with the prevalences. A spatial join is a special join that joins data based on geographical information. It is critical that when you perform such a join you use a projected coordinate system that is accurate for your geography.
+
 ```{code-cell} ipython3
 # Set coordinate system to EPSG 32628 and spatially join our prevalence dataframe to our elevations dataframe
 elevations = elevations.to_crs(epsg="32628")
@@ -181,20 +186,17 @@ gambia_gpdf = gambia_gpdf.sjoin_nearest(elevations, how="inner")
 ```
 
 ```{code-cell} ipython3
-# Set CRS to EPSG 4326
+# Set CRS to EPSG 4326 for plotting
 gambia_gpdf_4326 = gambia_gpdf.to_crs(crs="EPSG:4326")
-```
-
-```{code-cell} ipython3
-gambia_gpdf_4326
+gambia_gpdf_4326.head()
 ```
 
 ```{code-cell} ipython3
 # Get relevant measures for modeling
-elev = gambia_gpdf_4326["elev"].values
-pos = gambia_gpdf_4326["positive"].values
-n = gambia_gpdf_4326["total"].values
-lonlat = gambia_gpdf_4326[["y", "x"]].values
+elev = gambia_gpdf["elev"].values
+pos = gambia_gpdf["positive"].values
+n = gambia_gpdf["total"].values
+lonlat = gambia_gpdf[["y", "x"]].values
 ```
 
 ```{code-cell} ipython3
@@ -253,7 +255,7 @@ with hsgp_model:
  The posterior mean of the length scale is 0.21 (shown below). Therefore, we can expect the gaussian mean to decay towards 0 (since we set a 0 mean function) as we move 0.21 degrees away from any sampled point on the map. While this is not a hard cut-off due to the lengthscale not being constrained by the observed data it is still useful to be able to intuit how the lengthscale effects the estimation.
 
 ```{code-cell} ipython3
-az.summary(hsgp_trace, var_names=["ls"])
+az.summary(hsgp_trace, var_names=["ls"], kind="stats")
 ```
 
 # Posterior Predictive Checks
@@ -271,10 +273,11 @@ with hsgp_model:
 posterior_prevalence = hsgp_trace["posterior"]["p"]
 ```
 
-Refering to the map we plotted above, we can see that our posterior predictions in the figure below agree with the observed sample.
+we can see that our posterior predictions in the figure below on the left agree with the observed sample shown on the right.
 
 ```{code-cell} ipython3
-fig = plt.figure(figsize=(16, 8))
+plt.subplots(nrows=1, ncols=2, figsize=(16, 8))
+plt.subplot(1, 2, 1)
 
 plt.scatter(
     lonlat[:, 1],
@@ -287,8 +290,24 @@ plt.scatter(
 )
 plt.xlabel("Latitude")
 plt.ylabel("Longitude")
-plt.title("Prevalence of Malaria in the Gambia")
-plt.colorbar(label="Posterior mean");
+plt.title("Estimated Prevalence of Malaria in the Gambia")
+plt.colorbar(label="Posterior mean")
+
+plt.subplot(1, 2, 2)
+
+plt.scatter(
+    lonlat[:, 1],
+    lonlat[:, 0],
+    c=gambia_gpdf_4326["prev"],
+    marker="o",
+    alpha=0.75,
+    s=100,
+    edgecolor=None,
+)
+plt.xlabel("Latitude")
+plt.ylabel("Longitude")
+plt.title("Measured Sample Prevalence of Malaria in the Gambia")
+plt.colorbar(label="Sample Prevalence");
 ```
 
 We can also check if the likelihood (number of individuals who test positive for malaria) agrees with the observed data. As you can see in the below figure, our posterior predictive sample is representative of the observed sample.
@@ -371,7 +390,7 @@ plt.colorbar(label="Posterior mean");
 ```
 
 # Different Covariance Functions
-Before we conclude let's talk breifly about why we decided to use the Matérn family of covariance functions instead of the Exponential Quadratic. The Matérn family of covariances is a generalization of the Exponential Quadtratic. When the smooting paramter of the Matérn $\nu \to \infty$ then we have the Exponential Quadratic covariance function. As the smoothing parameter increases the function you are estimating becomes smoother. A few commonly used values for $\nu$ are $\frac{1}{2}$, $\frac{3}{2}$, and $\frac{5}{2}$. Typically, when estimating a measure that has a spatial dependence we don't want an overly smooth function because that will prevent our estimate to capture abrupt changes in the measurement we are estimating. Below we simulate some data to show how the Matérn is able to capture these abrupt changes, whereas the Exponential Quadratic is overly smooth. For simplicity's sake we will be working in one dimension but these concepts apply with two-dimensional data.
+Before we conclude let's talk breifly about why we decided to use the Matérn family of covariance functions instead of the Exponential Quadratic. The Matérn family of covariances is a generalization of the Exponential Quadratic. When the smoothing parameter of the Matérn $\nu \to \infty$ then we have the Exponential Quadratic covariance function. As the smoothing parameter increases the function you are estimating becomes smoother. A few commonly used values for $\nu$ are $\frac{1}{2}$, $\frac{3}{2}$, and $\frac{5}{2}$. Typically, when estimating a measure that has a spatial dependence we don't want an overly smooth function because that will prevent our estimate to capture abrupt changes in the measurement we are estimating. Below we simulate some data to show how the Matérn is able to capture these abrupt changes, whereas the Exponential Quadratic is overly smooth. For simplicity's sake we will be working in one dimension but these concepts apply with two-dimensional data.
 
 ```{code-cell} ipython3
 # simulate 1-dimensional data
