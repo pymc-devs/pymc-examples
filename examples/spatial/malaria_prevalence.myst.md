@@ -394,7 +394,7 @@ Before we conclude let's talk breifly about why we decided to use the Matérn fa
 
 ```{code-cell} ipython3
 # simulate 1-dimensional data
-x = np.linspace(0, 10, 20)
+x = np.linspace(0, 10, 30)
 y = list()
 for v in x:
     # introduce abrupt changes
@@ -406,20 +406,19 @@ y = np.array(y).ravel()
 ```
 
 ```{code-cell} ipython3
-# Fit a GP using HSGP to model to simulated data
+# Fit a GP to model the simulated data
 with pm.Model() as matern_model:
     _X = pm.Data("X", x[:, None])
     measurement_error = pm.HalfNormal("measurement_error", 1)
 
-    ls = pm.Gamma("ls", 0.5, 1)
-    eta = pm.Exponential("eta", scale=4.0)
+    ls = pm.Exponential("ls", 0.5)
+    eta = pm.Lognormal("eta", mu=4, sigma=0.5)
     cov_func = eta**2 * pm.gp.cov.Matern32(input_dim=1, ls=ls)
-    m0, c = 2000, 70.0
-    gp = pm.gp.HSGP(m=[m0], c=c, cov_func=cov_func)
+    gp = pm.gp.Latent(cov_func=cov_func)
     s = gp.prior("s", X=_X)
 
     pm.Normal("likelihood", mu=s, sigma=measurement_error, observed=y)
-    matern_idata = pm.sample(nuts_sampler="numpyro", target_accept=0.95, random_seed=rng)
+    matern_idata = pm.sample(tune=2000, nuts_sampler="numpyro", target_accept=0.95, random_seed=rng)
 ```
 
 ```{code-cell} ipython3
@@ -439,20 +438,21 @@ plt.legend(loc="best")
 ```
 
 ```{code-cell} ipython3
-# Fit a EXPQUAD GP using HSGP to model to simulated data
+# Fit an EXPQUAD GP to model the simulated data
 with pm.Model() as expquad_model:
     _X = pm.Data("X", x[:, None])
     measurement_error = pm.HalfNormal("measurement_error", 1)
 
-    ls = pm.Gamma("ls", 0.5, 1)
-    eta = pm.Exponential("eta", scale=4.0)
+    ls = pm.Exponential("ls", 0.5)
+    eta = pm.Lognormal("eta", mu=4, sigma=0.5)
     cov_func = eta**2 * pm.gp.cov.ExpQuad(input_dim=1, ls=ls)
-    m0, c = 2000, 70.0
-    gp = pm.gp.HSGP(m=[m0], c=c, cov_func=cov_func)
+    gp = pm.gp.Latent(cov_func=cov_func)
     s = gp.prior("s", X=_X)
 
     pm.Normal("likelihood", mu=s, sigma=measurement_error, observed=y)
-    expquad_idata = pm.sample(nuts_sampler="numpyro", target_accept=0.95, random_seed=rng)
+    expquad_idata = pm.sample(
+        tune=2000, nuts_sampler="numpyro", target_accept=0.95, random_seed=rng
+    )
 ```
 
 ```{code-cell} ipython3
