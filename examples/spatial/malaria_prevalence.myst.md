@@ -408,17 +408,18 @@ y = np.array(y).ravel()
 ```{code-cell} ipython3
 # Fit a GP to model the simulated data
 with pm.Model() as matern_model:
-    _X = pm.Data("X", x[:, None])
-    measurement_error = pm.HalfNormal("measurement_error", 1)
 
-    ls = pm.Exponential("ls", 0.5)
-    eta = pm.Lognormal("eta", mu=4, sigma=0.5)
+    eta = pm.Exponential("eta", scale=10.0)
+    ls = pm.Lognormal("ls", mu=0.5, sigma=0.75)
     cov_func = eta**2 * pm.gp.cov.Matern32(input_dim=1, ls=ls)
     gp = pm.gp.Latent(cov_func=cov_func)
-    s = gp.prior("s", X=_X)
+    s = gp.prior("s", X=x[:, None])
 
+    measurement_error = pm.Exponential("measurement_error", scale=5.0)
     pm.Normal("likelihood", mu=s, sigma=measurement_error, observed=y)
-    matern_idata = pm.sample(tune=2000, nuts_sampler="numpyro", target_accept=0.95, random_seed=rng)
+    matern_idata = pm.sample(
+        draws=2000, tune=2000, nuts_sampler="numpyro", target_accept=0.98, random_seed=rng
+    )
 ```
 
 ```{code-cell} ipython3
@@ -438,20 +439,19 @@ plt.legend(loc="best")
 ```
 
 ```{code-cell} ipython3
-# Fit an EXPQUAD GP to model the simulated data
+# Fit a GP to model the simulated data
 with pm.Model() as expquad_model:
-    _X = pm.Data("X", x[:, None])
-    measurement_error = pm.HalfNormal("measurement_error", 1)
 
-    ls = pm.Exponential("ls", 0.5)
-    eta = pm.Lognormal("eta", mu=4, sigma=0.5)
+    eta = pm.Exponential("eta", scale=10.0)
+    ls = pm.Lognormal("ls", mu=0.5, sigma=0.75)
     cov_func = eta**2 * pm.gp.cov.ExpQuad(input_dim=1, ls=ls)
     gp = pm.gp.Latent(cov_func=cov_func)
-    s = gp.prior("s", X=_X)
+    s = gp.prior("s", X=x[:, None])
 
+    measurement_error = pm.Exponential("measurement_error", scale=5.0)
     pm.Normal("likelihood", mu=s, sigma=measurement_error, observed=y)
     expquad_idata = pm.sample(
-        tune=2000, nuts_sampler="numpyro", target_accept=0.95, random_seed=rng
+        draws=2000, tune=2000, nuts_sampler="numpyro", target_accept=0.98, random_seed=rng
     )
 ```
 
@@ -487,7 +487,8 @@ The case-study walked us through how we can utilize an HSGP to include spatial i
 
 * Adapted from {ref}`Geospatial Health Data: Modeling and Visualization with R-INLA and Shiny` by Dr. Paula Moraga ([link](https://www.paulamoraga.com/book-geospatial/index.html)).
 ### Acknowledgments
-* Bill Engels who encouraged, reviewed, and provided feedback to this example
+* Bill Engels who encouraged, reviewed, and provided both feedback and code improvements to this example
+* Osvaldo A Martin, reviewed and provided valuable feedback that improved the example
 
 +++
 
