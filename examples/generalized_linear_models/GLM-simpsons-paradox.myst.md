@@ -513,7 +513,7 @@ ax[2].set(
 )
 ```
 
-The panel on the right shows the posterior group level posterior of the slope and intercept parameters in black. This particular visualisation is a little unclear however, so we can just plot the marginal distribution below to see how much belief we have in the slope being less than zero.
+The panel on the right shows the posterior group level posterior of the slope and intercept parameters as a contour plot. We can also just plot the marginal distribution below to see how much belief we have in the slope being less than zero.
 
 ```{code-cell} ipython3
 :tags: [hide-input]
