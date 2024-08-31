@@ -443,9 +443,7 @@ This model could also be called a partial pooling model.
 
 +++
 
-:::{admonition} **Notes**
-:class: note
-
+:::{note}
 The hierarchical model we are considering contains a simplification in that the population level slope and intercept are assumed to be independent. It is possible to relax this assumption and model any correlation between these parameters by using a multivariate normal distribution.
 
 In one sense this move from Model 2 to Model 3 can be seen as adding parameters, and therefore increasing model complexity. However, in another sense, adding this knowledge about the nested structure of the data actually provides a constraint over parameter space.
@@ -496,9 +494,7 @@ with hierarchical:
     idata = pm.sample(tune=4000, target_accept=0.99, random_seed=rng)
 ```
 
-:::{admonition} **Divergences**
-:class: note
-
+:::{note}
 Note that despite having a longer tune period and increased `target_accept`, this model can still generate a low number of divergent samples. If the reader is interested, you can explore the a "reparameterisation trick" is used by setting the flag `non_centered=True`. See the blog post [Why hierarchical models are awesome, tricky, and Bayesian](https://twiecki.io/blog/2017/02/08/bayesian-hierchical-non-centered/) by Thomas Wiecki for more information on this.
 :::
 
