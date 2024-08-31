@@ -124,7 +124,7 @@ $$
 ### Build model
 
 ```{code-cell} ipython3
-with pm.Model() as linear_regression:
+with pm.Model() as model1:
     β0 = pm.Normal("β0", 0, sigma=5)
     β1 = pm.Normal("β1", 0, sigma=5)
     sigma = pm.Gamma("sigma", 2, 2)
@@ -134,95 +134,118 @@ with pm.Model() as linear_regression:
 ```
 
 ```{code-cell} ipython3
-pm.model_to_graphviz(linear_regression)
+pm.model_to_graphviz(model1)
 ```
 
 ### Do inference
 
 ```{code-cell} ipython3
-with linear_regression:
-    idata = pm.sample(random_seed=rng)
+with model1:
+    idata1 = pm.sample(random_seed=rng)
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(idata, var_names=["~μ"]);
+az.plot_trace(idata1, var_names=["~μ"]);
 ```
 
 ### Visualisation
 
-```{code-cell} ipython3
-# posterior prediction for these x values
-xi = np.linspace(data.x.min(), data.x.max(), 20)
+First we'll define a handy predict function which will do out of sample predictions for us. This will be handy when it comes to visualising the model fit.
 
-# do posterior predictive inference
-with linear_regression:
-    pm.set_data({"x": xi})
-    idata.extend(pm.sample_posterior_predictive(idata, var_names=["y", "μ"], random_seed=rng))
+```{code-cell} ipython3
+def predict(model: pm.Model, idata: az.InferenceData, predict_at: dict) -> az.InferenceData:
+    """Do posterior predictive inference"""
+    with model:
+        pm.set_data(predict_at)
+        idata.extend(pm.sample_posterior_predictive(idata, var_names=["y", "μ"], random_seed=rng))
+    return idata
+```
+
+```{code-cell} ipython3
+idata1 = predict(
+    model=model1,
+    idata=idata1,
+    predict_at={"x": np.linspace(data.x.min(), data.x.max(), 20)},
+)
 ```
 
 ```{code-cell} ipython3
 :tags: [hide-input]
 
-fig, ax = plt.subplots(1, 3, figsize=(12, 4))
+def plot(idata):
+    fig, ax = plt.subplots(1, 3, figsize=(12, 4))
 
-# conditional mean plot ---------------------------------------------
-# data
-ax[0].scatter(data.x, data.y, color="k")
-# conditional mean credible intervals
-post = az.extract(idata)
-xi = xr.DataArray(np.linspace(np.min(data.x), np.max(data.x), 20), dims=["x_plot"])
-y = post.β0 + post.β1 * xi
-region = y.quantile([0.025, 0.15, 0.5, 0.85, 0.975], dim="sample")
-ax[0].fill_between(
-    xi, region.sel(quantile=0.025), region.sel(quantile=0.975), alpha=0.2, color="k", edgecolor="w"
-)
-ax[0].fill_between(
-    xi, region.sel(quantile=0.15), region.sel(quantile=0.85), alpha=0.2, color="k", edgecolor="w"
-)
-# conditional mean
-ax[0].plot(xi, region.sel(quantile=0.5), "k", linewidth=2)
-# formatting
-ax[0].set(xlabel="x", ylabel="y", title="Conditional mean")
+    # conditional mean plot ---------------------------------------------
+    # data
+    ax[0].scatter(data.x, data.y, color="k")
+    # conditional mean credible intervals
+    post = az.extract(idata)
+    xi = xr.DataArray(np.linspace(np.min(data.x), np.max(data.x), 20), dims=["x_plot"])
+    y = post.β0 + post.β1 * xi
+    region = y.quantile([0.025, 0.15, 0.5, 0.85, 0.975], dim="sample")
+    ax[0].fill_between(
+        xi,
+        region.sel(quantile=0.025),
+        region.sel(quantile=0.975),
+        alpha=0.2,
+        color="k",
+        edgecolor="w",
+    )
+    ax[0].fill_between(
+        xi,
+        region.sel(quantile=0.15),
+        region.sel(quantile=0.85),
+        alpha=0.2,
+        color="k",
+        edgecolor="w",
+    )
+    # conditional mean
+    ax[0].plot(xi, region.sel(quantile=0.5), "k", linewidth=2)
+    # formatting
+    ax[0].set(xlabel="x", ylabel="y", title="Conditional mean")
 
-# posterior prediction ----------------------------------------------
-# data
-ax[1].scatter(data.x, data.y, color="k")
-# posterior mean and HDI's
+    # posterior prediction ----------------------------------------------
+    # data
+    ax[1].scatter(data.x, data.y, color="k")
+    # posterior mean and HDI's
 
-ax[1].plot(xi, idata.posterior_predictive.y.mean(["chain", "draw"]), "k")
+    ax[1].plot(xi, idata.posterior_predictive.y.mean(["chain", "draw"]), "k")
 
-az.plot_hdi(
-    xi,
-    idata.posterior_predictive.y,
-    hdi_prob=0.6,
-    color="k",
-    fill_kwargs={"alpha": 0.2, "linewidth": 0},
-    ax=ax[1],
-)
-az.plot_hdi(
-    xi,
-    idata.posterior_predictive.y,
-    hdi_prob=0.95,
-    color="k",
-    fill_kwargs={"alpha": 0.2, "linewidth": 0},
-    ax=ax[1],
-)
-# formatting
-ax[1].set(xlabel="x", ylabel="y", title="Posterior predictive distribution")
+    az.plot_hdi(
+        xi,
+        idata.posterior_predictive.y,
+        hdi_prob=0.6,
+        color="k",
+        fill_kwargs={"alpha": 0.2, "linewidth": 0},
+        ax=ax[1],
+    )
+    az.plot_hdi(
+        xi,
+        idata.posterior_predictive.y,
+        hdi_prob=0.95,
+        color="k",
+        fill_kwargs={"alpha": 0.2, "linewidth": 0},
+        ax=ax[1],
+    )
+    # formatting
+    ax[1].set(xlabel="x", ylabel="y", title="Posterior predictive distribution")
 
-# parameter space ---------------------------------------------------
-ax[2].scatter(
-    az.extract(idata, var_names=["β1"]),
-    az.extract(idata, var_names=["β0"]),
-    color="k",
-    alpha=0.01,
-    rasterized=True,
-)
+    # parameter space ---------------------------------------------------
+    ax[2].scatter(
+        az.extract(idata, var_names=["β1"]),
+        az.extract(idata, var_names=["β0"]),
+        color="k",
+        alpha=0.01,
+        rasterized=True,
+    )
 
-# formatting
-ax[2].set(xlabel="slope", ylabel="intercept", title="Parameter space")
-ax[2].axhline(y=0, c="k")
-ax[2].axvline(x=0, c="k");
+    # formatting
+    ax[2].set(xlabel="slope", ylabel="intercept", title="Parameter space")
+    ax[2].axhline(y=0, c="k")
+    ax[2].axvline(x=0, c="k")
+
+
+plot(idata1)
 ```
 
 The plot on the left shows the data and the posterior of the **conditional mean**. For a given $x$, we get a posterior distribution of the model (i.e. of $\mu$).
@@ -269,7 +292,7 @@ Where $g_i$ is the group index for observation $i$. So the parameters $\beta_0$ 
 ```{code-cell} ipython3
 coords = {"group": group_list}
 
-with pm.Model(coords=coords) as ind_slope_intercept:
+with pm.Model(coords=coords) as model2:
     # Define priors
     β0 = pm.Normal("β0", 0, sigma=5, dims="group")
     β1 = pm.Normal("β1", 0, sigma=5, dims="group")
@@ -286,115 +309,133 @@ with pm.Model(coords=coords) as ind_slope_intercept:
 By plotting the DAG for this model it is clear to see that we now have individual intercept, slope, and variance parameters for each of the groups.
 
 ```{code-cell} ipython3
-pm.model_to_graphviz(ind_slope_intercept)
+pm.model_to_graphviz(model2)
 ```
 
 ```{code-cell} ipython3
-with ind_slope_intercept:
-    idata = pm.sample(random_seed=rng)
+with model2:
+    idata2 = pm.sample(random_seed=rng)
 
-az.plot_trace(idata, var_names=["~μ"]);
+az.plot_trace(idata2, var_names=["~μ"]);
 ```
 
 ### Visualisation
 
 ```{code-cell} ipython3
-# Create values of x and g to use for posterior prediction
-xi = [
-    np.linspace(data.query(f"group_idx=={i}").x.min(), data.query(f"group_idx=={i}").x.max(), 10)
-    for i, _ in enumerate(group_list)
-]
-g = [np.ones(10) * i for i, _ in enumerate(group_list)]
-xi, g = np.concatenate(xi), np.concatenate(g)
+# Generate values of xi and g for posterior prediction
+n_points = 10
+n_groups = len(data.group.unique())
+xi = np.concatenate(
+    [
+        np.linspace(group[1].x.min(), group[1].x.max(), n_points)
+        for group in data.groupby("group_idx")
+    ]
+)
+g = np.concatenate([[i] * n_points for i in range(n_groups)]).astype(int)
+predict_at = {"x": xi, "g": g}
+```
 
-# Do the posterior prediction
-with ind_slope_intercept:
-    pm.set_data({"x": xi, "g": g.astype(int)})
-    idata.extend(pm.sample_posterior_predictive(idata, var_names=["μ", "y"], random_seed=rng))
+```{code-cell} ipython3
+idata2 = predict(
+    model=model2,
+    idata=idata2,
+    predict_at=predict_at,
+)
 ```
 
 ```{code-cell} ipython3
 :tags: [hide-input]
 
-def get_ppy_for_group(group_list, group):
+def get_ppy_for_group(idata, group_list, group):
     """Get posterior predictive outcomes for observations from a given group"""
     return idata.posterior_predictive.y.data[:, :, group_list == group]
 
 
-fig, ax = plt.subplots(1, 3, figsize=(12, 4))
+def plot(idata):
+    fig, ax = plt.subplots(1, 3, figsize=(12, 4))
 
-# conditional mean plot ---------------------------------------------
-for i, groupname in enumerate(group_list):
-    # data
-    ax[0].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
-    # conditional mean credible intervals
-    post = az.extract(idata)
-    _xi = xr.DataArray(
-        np.linspace(np.min(data.x[data.group_idx == i]), np.max(data.x[data.group_idx == i]), 20),
-        dims=["x_plot"],
-    )
-    y = post.β0.sel(group=groupname) + post.β1.sel(group=groupname) * _xi
-    region = y.quantile([0.025, 0.15, 0.5, 0.85, 0.975], dim="sample")
-    ax[0].fill_between(
-        _xi,
-        region.sel(quantile=0.025),
-        region.sel(quantile=0.975),
-        alpha=0.2,
-        color=f"C{i}",
-        edgecolor="w",
-    )
-    ax[0].fill_between(
-        _xi,
-        region.sel(quantile=0.15),
-        region.sel(quantile=0.85),
-        alpha=0.2,
-        color=f"C{i}",
-        edgecolor="w",
-    )
-    # conditional mean
-    ax[0].plot(_xi, region.sel(quantile=0.5), color=f"C{i}", linewidth=2)
-    # formatting
-    ax[0].set(xlabel="x", ylabel="y", title="Conditional mean")
+    # conditional mean plot ---------------------------------------------
+    for i, groupname in enumerate(group_list):
+        # data
+        ax[0].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
+        # conditional mean credible intervals
+        post = az.extract(idata)
+        _xi = xr.DataArray(
+            np.linspace(
+                np.min(data.x[data.group_idx == i]),
+                np.max(data.x[data.group_idx == i]),
+                20,
+            ),
+            dims=["x_plot"],
+        )
+        y = post.β0.sel(group=groupname) + post.β1.sel(group=groupname) * _xi
+        region = y.quantile([0.025, 0.15, 0.5, 0.85, 0.975], dim="sample")
+        ax[0].fill_between(
+            _xi,
+            region.sel(quantile=0.025),
+            region.sel(quantile=0.975),
+            alpha=0.2,
+            color=f"C{i}",
+            edgecolor="w",
+        )
+        ax[0].fill_between(
+            _xi,
+            region.sel(quantile=0.15),
+            region.sel(quantile=0.85),
+            alpha=0.2,
+            color=f"C{i}",
+            edgecolor="w",
+        )
+        # conditional mean
+        ax[0].plot(_xi, region.sel(quantile=0.5), color=f"C{i}", linewidth=2)
+        # formatting
+        ax[0].set(xlabel="x", ylabel="y", title="Conditional mean")
 
-# posterior prediction ----------------------------------------------
-for i, groupname in enumerate(group_list):
-    # data
-    ax[1].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
-    # posterior mean and HDI's
-    ax[1].plot(xi[g == i], np.mean(get_ppy_for_group(g, i), axis=(0, 1)), label=groupname)
-    az.plot_hdi(
-        xi[g == i],
-        get_ppy_for_group(g, i),  # pp_y[:, :, g == i],
-        hdi_prob=0.6,
-        color=f"C{i}",
-        fill_kwargs={"alpha": 0.4, "linewidth": 0},
-        ax=ax[1],
-    )
-    az.plot_hdi(
-        xi[g == i],
-        get_ppy_for_group(g, i),
-        hdi_prob=0.95,
-        color=f"C{i}",
-        fill_kwargs={"alpha": 0.2, "linewidth": 0},
-        ax=ax[1],
-    )
+    # posterior prediction ----------------------------------------------
+    for i, groupname in enumerate(group_list):
+        # data
+        ax[1].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
+        # posterior mean and HDI's
+        ax[1].plot(
+            xi[g == i],
+            np.mean(get_ppy_for_group(idata, g, i), axis=(0, 1)),
+            label=groupname,
+        )
+        az.plot_hdi(
+            xi[g == i],
+            get_ppy_for_group(idata, g, i),  # pp_y[:, :, g == i],
+            hdi_prob=0.6,
+            color=f"C{i}",
+            fill_kwargs={"alpha": 0.4, "linewidth": 0},
+            ax=ax[1],
+        )
+        az.plot_hdi(
+            xi[g == i],
+            get_ppy_for_group(idata, g, i),
+            hdi_prob=0.95,
+            color=f"C{i}",
+            fill_kwargs={"alpha": 0.2, "linewidth": 0},
+            ax=ax[1],
+        )
 
-ax[1].set(xlabel="x", ylabel="y", title="Posterior predictive distribution")
+    ax[1].set(xlabel="x", ylabel="y", title="Posterior predictive distribution")
+
+    # parameter space ---------------------------------------------------
+    for i, _ in enumerate(group_list):
+        ax[2].scatter(
+            az.extract(idata, var_names="β1")[i, :],
+            az.extract(idata, var_names="β0")[i, :],
+            color=f"C{i}",
+            alpha=0.01,
+            rasterized=True,
+        )
+
+    ax[2].set(xlabel="slope", ylabel="intercept", title="Parameter space")
+    ax[2].axhline(y=0, c="k")
+    ax[2].axvline(x=0, c="k")
 
 
-# parameter space ---------------------------------------------------
-for i, _ in enumerate(group_list):
-    ax[2].scatter(
-        az.extract(idata, var_names="β1")[i, :],
-        az.extract(idata, var_names="β0")[i, :],
-        color=f"C{i}",
-        alpha=0.01,
-        rasterized=True,
-    )
-
-ax[2].set(xlabel="slope", ylabel="intercept", title="Parameter space")
-ax[2].axhline(y=0, c="k")
-ax[2].axvline(x=0, c="k");
+plot(idata2)
 ```
 
 In contrast to plain regression model (Model 1), when we model on the group level we can see that now the evidence points toward _negative_ relationships between $x$ and $y$.
@@ -438,7 +479,7 @@ In one sense this move from Model 2 to Model 3 can be seen as adding parameters,
 ```{code-cell} ipython3
 non_centered = False
 
-with pm.Model(coords=coords) as hierarchical:
+with pm.Model(coords=coords) as model3:
     # Define priors
     intercept_mu = pm.Normal("intercept_mu", 0, 1)
     slope_mu = pm.Normal("slope_mu", 0, 1)
@@ -470,14 +511,14 @@ with pm.Model(coords=coords) as hierarchical:
 Plotting the DAG now makes it clear that the group-level intercept and slope parameters are drawn from a population level distributions. That is, we have hyper-priors for the slopes and intercept parameters. This particular model does not have a hyper-prior for the measurement error - this is just left as one parameter per group, as in the previous model.
 
 ```{code-cell} ipython3
-pm.model_to_graphviz(hierarchical)
+pm.model_to_graphviz(model3)
 ```
 
 The nodes `pop_intercept` and `pop_slope` represent the population-level intercept and slope parameters. While the 5 $\beta_0$ and $\beta_1$ nodes represent intercepts and slopes for each of the 5 observed groups (respectively), the `pop_intercept` and `pop_slope` represent what we can infer about the population-level intercept and slope. Equivalently, we could say they represent our beliefs about an as yet unobserved group.
 
 ```{code-cell} ipython3
-with hierarchical:
-    idata = pm.sample(tune=4000, target_accept=0.99, random_seed=rng)
+with model3:
+    idata3 = pm.sample(tune=4000, target_accept=0.99, random_seed=rng)
 ```
 
 :::{caution}
@@ -485,109 +526,132 @@ Note that despite having a longer tune period and increased `target_accept`, thi
 :::
 
 ```{code-cell} ipython3
-az.plot_trace(idata, var_names=["pop_intercept", "pop_slope", "β0", "β1", "sigma"]);
+az.plot_trace(idata3, var_names=["pop_intercept", "pop_slope", "β0", "β1", "sigma"]);
 ```
 
 ### Visualise
 
 ```{code-cell} ipython3
-# Create values of x and g to use for posterior prediction
-xi = [
-    np.linspace(data.query(f"group_idx=={i}").x.min(), data.query(f"group_idx=={i}").x.max(), 10)
-    for i, _ in enumerate(group_list)
-]
-g = [np.ones(10) * i for i, _ in enumerate(group_list)]
-xi, g = np.concatenate(xi), np.concatenate(g)
+# Generate values of xi and g for posterior prediction
+n_points = 10
+n_groups = len(data.group.unique())
+xi = np.concatenate(
+    [
+        np.linspace(group[1].x.min(), group[1].x.max(), n_points)
+        for group in data.groupby("group_idx")
+    ]
+)
+g = np.concatenate([[i] * n_points for i in range(n_groups)]).astype(int)
+predict_at = {"x": xi, "g": g}
 
-# Do the posterior prediction
-with hierarchical:
-    pm.set_data({"x": xi, "g": g.astype(int)})
-    idata.extend(pm.sample_posterior_predictive(idata, var_names=["μ", "y"], random_seed=rng))
+idata3 = predict(
+    model=model3,
+    idata=idata3,
+    predict_at=predict_at,
+)
 ```
 
 ```{code-cell} ipython3
 :tags: [hide-input]
 
-fig, ax = plt.subplots(1, 3, figsize=(12, 4))
+def plot(idata):
+    fig, ax = plt.subplots(1, 3, figsize=(12, 4))
 
-# conditional mean plot ---------------------------------------------
-for i, groupname in enumerate(group_list):
-    # data
-    ax[0].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
-    # conditional mean credible intervals
-    post = az.extract(idata)
-    _xi = xr.DataArray(
-        np.linspace(np.min(data.x[data.group_idx == i]), np.max(data.x[data.group_idx == i]), 20),
-        dims=["x_plot"],
-    )
-    y = post.β0.sel(group=groupname) + post.β1.sel(group=groupname) * _xi
-    region = y.quantile([0.025, 0.15, 0.5, 0.85, 0.975], dim="sample")
-    ax[0].fill_between(
-        _xi,
-        region.sel(quantile=0.025),
-        region.sel(quantile=0.975),
-        alpha=0.2,
-        color=f"C{i}",
-        edgecolor="w",
-    )
-    ax[0].fill_between(
-        _xi,
-        region.sel(quantile=0.15),
-        region.sel(quantile=0.85),
-        alpha=0.2,
-        color=f"C{i}",
-        edgecolor="w",
-    )
-    # conditional mean
-    ax[0].plot(_xi, region.sel(quantile=0.5), color=f"C{i}", linewidth=2)
-    # formatting
-    ax[0].set(xlabel="x", ylabel="y", title="Conditional mean")
+    # conditional mean plot ---------------------------------------------
+    for i, groupname in enumerate(group_list):
+        # data
+        ax[0].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
+        # conditional mean credible intervals
+        post = az.extract(idata)
+        _xi = xr.DataArray(
+            np.linspace(
+                np.min(data.x[data.group_idx == i]),
+                np.max(data.x[data.group_idx == i]),
+                20,
+            ),
+            dims=["x_plot"],
+        )
+        y = post.β0.sel(group=groupname) + post.β1.sel(group=groupname) * _xi
+        region = y.quantile([0.025, 0.15, 0.5, 0.85, 0.975], dim="sample")
+        ax[0].fill_between(
+            _xi,
+            region.sel(quantile=0.025),
+            region.sel(quantile=0.975),
+            alpha=0.2,
+            color=f"C{i}",
+            edgecolor="w",
+        )
+        ax[0].fill_between(
+            _xi,
+            region.sel(quantile=0.15),
+            region.sel(quantile=0.85),
+            alpha=0.2,
+            color=f"C{i}",
+            edgecolor="w",
+        )
+        # conditional mean
+        ax[0].plot(_xi, region.sel(quantile=0.5), color=f"C{i}", linewidth=2)
+        # formatting
+        ax[0].set(xlabel="x", ylabel="y", title="Conditional mean")
 
-# posterior prediction ----------------------------------------------
-for i, groupname in enumerate(group_list):
-    # data
-    ax[1].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
-    # posterior mean and HDI's
-    ax[1].plot(xi[g == i], np.mean(get_ppy_for_group(g, i), axis=(0, 1)), label=groupname)
-    az.plot_hdi(
-        xi[g == i],
-        get_ppy_for_group(g, i),
-        hdi_prob=0.6,
-        color=f"C{i}",
-        fill_kwargs={"alpha": 0.4, "linewidth": 0},
-        ax=ax[1],
-    )
-    az.plot_hdi(
-        xi[g == i],
-        get_ppy_for_group(g, i),
-        hdi_prob=0.95,
-        color=f"C{i}",
-        fill_kwargs={"alpha": 0.2, "linewidth": 0},
-        ax=ax[1],
-    )
+    # posterior prediction ----------------------------------------------
+    for i, groupname in enumerate(group_list):
+        # data
+        ax[1].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
+        # posterior mean and HDI's
+        ax[1].plot(
+            xi[g == i],
+            np.mean(get_ppy_for_group(idata, g, i), axis=(0, 1)),
+            label=groupname,
+        )
+        az.plot_hdi(
+            xi[g == i],
+            get_ppy_for_group(idata, g, i),
+            hdi_prob=0.6,
+            color=f"C{i}",
+            fill_kwargs={"alpha": 0.4, "linewidth": 0},
+            ax=ax[1],
+        )
+        az.plot_hdi(
+            xi[g == i],
+            get_ppy_for_group(idata, g, i),
+            hdi_prob=0.95,
+            color=f"C{i}",
+            fill_kwargs={"alpha": 0.2, "linewidth": 0},
+            ax=ax[1],
+        )
 
-ax[1].set(xlabel="x", ylabel="y", title="Posterior Predictive")
+    ax[1].set(xlabel="x", ylabel="y", title="Posterior Predictive")
 
-# parameter space ---------------------------------------------------
-# plot posterior for population level slope and intercept
-ax[2].scatter(
-    az.extract(idata, var_names="pop_slope"),
-    az.extract(idata, var_names="pop_intercept"),
-    color="k",
-    alpha=0.05,
-)
-# plot posterior for group level slope and intercept
-for i, _ in enumerate(group_list):
+    # parameter space ---------------------------------------------------
+    # plot posterior for population level slope and intercept
     ax[2].scatter(
-        az.extract(idata, var_names="β1")[i, :],
-        az.extract(idata, var_names="β0")[i, :],
-        color=f"C{i}",
-        alpha=0.01,
+        az.extract(idata, var_names="pop_slope"),
+        az.extract(idata, var_names="pop_intercept"),
+        color="k",
+        alpha=0.05,
     )
+    # plot posterior for group level slope and intercept
+    for i, _ in enumerate(group_list):
+        ax[2].scatter(
+            az.extract(idata, var_names="β1")[i, :],
+            az.extract(idata, var_names="β0")[i, :],
+            color=f"C{i}",
+            alpha=0.01,
+        )
 
-ax[2].set(xlabel="slope", ylabel="intercept", title="Parameter space", xlim=[-2, 1], ylim=[-5, 5])
-ax[2].axhline(y=0, c="k")
-ax[2].axvline(x=0, c="k");
+    ax[2].set(
+        xlabel="slope",
+        ylabel="intercept",
+        title="Parameter space",
+        xlim=[-2, 1],
+        ylim=[-5, 5],
+    )
+    ax[2].axhline(y=0, c="k")
+    ax[2].axvline(x=0, c="k")
+
+
+plot(idata3)
 ```
 
 The panel on the right shows the posterior group level posterior of the slope and intercept parameters in black. This particular visualisation is a little unclear however, so we can just plot the marginal distribution below to see how much belief we have in the slope being less than zero.
@@ -595,7 +659,7 @@ The panel on the right shows the posterior group level posterior of the slope an
 ```{code-cell} ipython3
 :tags: [hide-input]
 
-az.plot_posterior(idata.posterior["pop_slope"], ref_val=0)
+az.plot_posterior(idata3.posterior["pop_slope"], ref_val=0)
 plt.title("Population level slope parameter");
 ```
 
