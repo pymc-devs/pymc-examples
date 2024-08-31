@@ -133,7 +133,7 @@ with linear_regression:
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(idata, filter_vars="regex", var_names=["~μ"]);
+az.plot_trace(idata, var_names=["~μ"]);
 ```
 
 ### Visualisation
@@ -256,7 +256,7 @@ pm.model_to_graphviz(ind_slope_intercept)
 with ind_slope_intercept:
     idata = pm.sample()
 
-az.plot_trace(idata, filter_vars="regex", var_names=["~μ"]);
+az.plot_trace(idata, var_names=["~μ"]);
 ```
 
 ### Visualisation
@@ -413,7 +413,7 @@ pm.model_to_graphviz(hierarchical)
 with hierarchical:
     idata = pm.sample(tune=2000, target_accept=0.99)
 
-az.plot_trace(idata, filter_vars="regex", var_names=["~μ"]);
+az.plot_trace(idata, var_names=["~μ"]);
 ```
 
 ### Visualise
