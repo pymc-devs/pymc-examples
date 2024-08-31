@@ -13,7 +13,7 @@ kernelspec:
 (GLM-simpsons-paradox)=
 # Simpson's paradox and mixed models
 
-:::{post} March, 2022
+:::{post} September, 2024
 :tags: regression, hierarchical model, linear model, posterior predictive, Simpson's paradox 
 :category: beginner
 :author: Benjamin T. Vincent
@@ -109,13 +109,26 @@ First we examine the simplest model - plain linear regression which pools all th
 
 +++
 
+We could describe this model mathematically as:
+
+$$
+\begin{aligned}
+\beta_0, \beta_1 &\sim \text{Normal}(0, 5) \\
+\sigma &\sim \text{Gamma}(2, 2) \\
+\mu_i &= \beta_0 + \beta_1 x_i \\
+y_i &\sim \text{Normal}(\mu_i, \sigma)
+\end{aligned}
+$$
+
++++
+
 ### Build model
 
 ```{code-cell} ipython3
 with pm.Model() as linear_regression:
-    sigma = pm.HalfCauchy("sigma", beta=2)
     β0 = pm.Normal("β0", 0, sigma=5)
     β1 = pm.Normal("β1", 0, sigma=5)
+    sigma = pm.Gamma("sigma", 2, 2)
     x = pm.Data("x", data.x, dims="obs_id")
     μ = pm.Deterministic("μ", β0 + β1 * x, dims="obs_id")
     pm.Normal("y", mu=μ, sigma=sigma, observed=data.y, dims="obs_id")
@@ -129,7 +142,7 @@ pm.model_to_graphviz(linear_regression)
 
 ```{code-cell} ipython3
 with linear_regression:
-    idata = pm.sample()
+    idata = pm.sample(random_seed=rng)
 ```
 
 ```{code-cell} ipython3
@@ -145,7 +158,7 @@ xi = np.linspace(data.x.min(), data.x.max(), 20)
 # do posterior predictive inference
 with linear_regression:
     pm.set_data({"x": xi})
-    idata.extend(pm.sample_posterior_predictive(idata, var_names=["y", "μ"]))
+    idata.extend(pm.sample_posterior_predictive(idata, var_names=["y", "μ"], random_seed=rng))
 ```
 
 ```{code-cell} ipython3
@@ -227,23 +240,38 @@ One of the clear things about this analysis is that we have credible evidence th
 
 ## Model 2: Independent slopes and intercepts model
 
-We will use the same data in this analysis, but this time we will use our knowledge that data come from groups. More specifically we will essentially fit independent regressions to data within each group.
+We will use the same data in this analysis, but this time we will use our knowledge that data come from groups. More specifically we will essentially fit independent regressions to data within each group. This could also be described as an unpooled model.
+
++++
+
+We could describe this model mathematically as:
+
+$$
+\begin{aligned}
+\vec{\beta_0}, \vec{\beta_1} &\sim \text{Normal}(0, 5) \\
+\sigma &\sim \text{Gamma}(2, 2) \\
+\mu_i &= \beta_0[g_i] + \beta_1[g_i] x_i \\
+y_i &\sim \text{Normal}(\mu_i, g_i)
+\end{aligned}
+$$
+
+Where $g_i$ is the group index for observation $i$. So the parameters $\beta_0$ and $\beta_1$ are now length $g$ vectors, not scalars. And the $[g_i]$ acts as an index to look up the group for the $i^{\th}$ observation.
 
 ```{code-cell} ipython3
 coords = {"group": group_list}
 
 with pm.Model(coords=coords) as ind_slope_intercept:
     # Define priors
-    sigma = pm.HalfCauchy("sigma", beta=2, dims="group")
     β0 = pm.Normal("β0", 0, sigma=5, dims="group")
     β1 = pm.Normal("β1", 0, sigma=5, dims="group")
+    sigma = pm.Gamma("sigma", 2, 2)
     # Data
     x = pm.Data("x", data.x, dims="obs_id")
     g = pm.Data("g", data.group_idx, dims="obs_id")
     # Linear model
     μ = pm.Deterministic("μ", β0[g] + β1[g] * x, dims="obs_id")
     # Define likelihood
-    pm.Normal("y", mu=μ, sigma=sigma[g], observed=data.y, dims="obs_id")
+    pm.Normal("y", mu=μ, sigma=sigma, observed=data.y, dims="obs_id")
 ```
 
 By plotting the DAG for this model it is clear to see that we now have individual intercept, slope, and variance parameters for each of the groups.
@@ -254,7 +282,7 @@ pm.model_to_graphviz(ind_slope_intercept)
 
 ```{code-cell} ipython3
 with ind_slope_intercept:
-    idata = pm.sample()
+    idata = pm.sample(random_seed=rng)
 
 az.plot_trace(idata, var_names=["~μ"]);
 ```
@@ -273,7 +301,7 @@ xi, g = np.concatenate(xi), np.concatenate(g)
 # Do the posterior prediction
 with ind_slope_intercept:
     pm.set_data({"x": xi, "g": g.astype(int)})
-    idata.extend(pm.sample_posterior_predictive(idata, var_names=["μ", "y"]))
+    idata.extend(pm.sample_posterior_predictive(idata, var_names=["μ", "y"], random_seed=rng))
 ```
 
 ```{code-cell} ipython3
@@ -369,30 +397,58 @@ We can go beyond Model 2 and incorporate even more knowledge about the structure
 
 In one sense this move from Model 2 to Model 3 can be seen as adding parameters, and therefore increasing model complexity. However, in another sense, adding this knowledge about the nested structure of the data actually provides a constraint over parameter space.
 
-Note: This model was producing divergent samples, so a reparameterisation trick is used. See the blog post [Why hierarchical models are awesome, tricky, and Bayesian](https://twiecki.io/blog/2017/02/08/bayesian-hierchical-non-centered/) by Thomas Wiecki for more information on this.
++++
+
+And we could describe this model mathematically as:
+
+$$
+\begin{aligned}
+p_{0\mu}, p_{1\mu} &= \text{Normal}(0, 1) \\
+p_{0\sigma}, p_{1\sigma} &= \text{Gamma}(2, 2) \\
+\vec{\beta_0} &\sim \text{Normal}(p_{0\mu}, p_{0\sigma}) \\
+\vec{\beta_1} &\sim \text{Normal}(p_{1\mu}, p_{1\sigma}) \\
+\sigma &\sim \text{Gamma}(2, 2) \\
+\mu_i &= \beta_0[g_i] +  \beta_1[g_i] \cdot x_i \\
+y_i &\sim \text{Normal}(\mu_i, \sigma)
+\end{aligned}
+$$
+
+where $\beta_0$ and $\beta_1$ are the population-level parameters, and $\gamma_0$ and $\gamma_1$ are the group offset parameters.
+
++++
+
+:::{admonition} **Independence assumptions**
+:class: note
+
+The hierarchical model we are considering contains a simplification in that the population level slope and intercept are assumed to be independent. It is possible to relax this assumption and model any correlation between these parameters by using a multivariate normal distribution.
+:::
+
++++
+
+This model could also be called a partial pooling model. 
 
 ```{code-cell} ipython3
-non_centered = True
+non_centered = False
 
 with pm.Model(coords=coords) as hierarchical:
-    # Hyperpriors
-    intercept_mu = pm.Normal("intercept_mu", 0, sigma=1)
-    intercept_sigma = pm.HalfNormal("intercept_sigma", sigma=2)
-    slope_mu = pm.Normal("slope_mu", 0, sigma=1)
-    slope_sigma = pm.HalfNormal("slope_sigma", sigma=2)
-    sigma_hyperprior = pm.HalfNormal("sigma_hyperprior", sigma=0.5)
-
     # Define priors
-    sigma = pm.HalfNormal("sigma", sigma=sigma_hyperprior, dims="group")
-
+    intercept_mu = pm.Normal("intercept_mu", 0, 1)
+    slope_mu = pm.Normal("slope_mu", 0, 1)
+    intercept_sigma = pm.Gamma("intercept_sigma", 2, 2)
+    slope_sigma = pm.Gamma("slope_sigma", 2, 2)
+    sigma = pm.Gamma("sigma", 2, 2)
     if non_centered:
-        β0_offset = pm.Normal("β0_offset", 0, sigma=1, dims="group")
-        β0 = pm.Deterministic("β0", intercept_mu + β0_offset * intercept_sigma, dims="group")
-        β1_offset = pm.Normal("β1_offset", 0, sigma=1, dims="group")
-        β1 = pm.Deterministic("β1", slope_mu + β1_offset * slope_sigma, dims="group")
+        gamma_0 = pm.Normal("gamma_0", 0, 1, dims="group")
+        β0 = pm.Deterministic("β0", intercept_mu + gamma_0 * intercept_sigma, dims="group")
+        gamma_1_offset = pm.Normal("gamma_1_offset", 0, 1, dims="group")
+        β1 = pm.Deterministic("β1", slope_mu + gamma_1_offset * slope_sigma, dims="group")
     else:
-        β0 = pm.Normal("β0", intercept_mu, sigma=intercept_sigma, dims="group")
-        β1 = pm.Normal("β1", slope_mu, sigma=slope_sigma, dims="group")
+        β0 = pm.Normal("β0", intercept_mu, intercept_sigma, dims="group")
+        β1 = pm.Normal("β1", slope_mu, slope_sigma, dims="group")
+
+    # Sample from population level slope and intercepts for convenience
+    pm.Normal("pop_intercept", intercept_mu, intercept_sigma)
+    pm.Normal("pop_slope", slope_mu, slope_sigma)
 
     # Data
     x = pm.Data("x", data.x, dims="obs_id")
@@ -400,7 +456,7 @@ with pm.Model(coords=coords) as hierarchical:
     # Linear model
     μ = pm.Deterministic("μ", β0[g] + β1[g] * x, dims="obs_id")
     # Define likelihood
-    pm.Normal("y", mu=μ, sigma=sigma[g], observed=data.y, dims="obs_id")
+    pm.Normal("y", mu=μ, sigma=sigma, observed=data.y, dims="obs_id")
 ```
 
 Plotting the DAG now makes it clear that the group-level intercept and slope parameters are drawn from a population level distributions. That is, we have hyper-priors for the slopes and intercept parameters. This particular model does not have a hyper-prior for the measurement error - this is just left as one parameter per group, as in the previous model.
@@ -411,9 +467,17 @@ pm.model_to_graphviz(hierarchical)
 
 ```{code-cell} ipython3
 with hierarchical:
-    idata = pm.sample(tune=2000, target_accept=0.99)
+    idata = pm.sample(tune=4000, target_accept=0.99, random_seed=rng)
+```
 
-az.plot_trace(idata, var_names=["~μ"]);
+:::{admonition} **Divergences**
+:class: note
+
+Note that despite having a longer tune period and increased `target_accept`, this model can still generate a low number of divergent samples. If the reader is interested, you can explore the a "reparameterisation trick" is used by setting the flag `non_centered=True`. See the blog post [Why hierarchical models are awesome, tricky, and Bayesian](https://twiecki.io/blog/2017/02/08/bayesian-hierchical-non-centered/) by Thomas Wiecki for more information on this.
+:::
+
+```{code-cell} ipython3
+az.plot_trace(idata, var_names=["pop_intercept", "pop_slope", "β0", "β1", "sigma"]);
 ```
 
 ### Visualise
@@ -430,7 +494,7 @@ xi, g = np.concatenate(xi), np.concatenate(g)
 # Do the posterior prediction
 with hierarchical:
     pm.set_data({"x": xi, "g": g.astype(int)})
-    idata.extend(pm.sample_posterior_predictive(idata, var_names=["μ", "y"]))
+    idata.extend(pm.sample_posterior_predictive(idata, var_names=["μ", "y"], random_seed=rng))
 ```
 
 ```{code-cell} ipython3
@@ -498,15 +562,12 @@ ax[1].set(xlabel="x", ylabel="y", title="Posterior Predictive")
 
 # parameter space ---------------------------------------------------
 # plot posterior for population level slope and intercept
-slope = rng.normal(
-    az.extract(idata, var_names="slope_mu"),
-    az.extract(idata, var_names="slope_sigma"),
+ax[2].scatter(
+    az.extract(idata, var_names="pop_slope"),
+    az.extract(idata, var_names="pop_intercept"),
+    color="k",
+    alpha=0.05,
 )
-intercept = rng.normal(
-    az.extract(idata, var_names="intercept_mu"),
-    az.extract(idata, var_names="intercept_sigma"),
-)
-ax[2].scatter(slope, intercept, color="k", alpha=0.05)
 # plot posterior for group level slope and intercept
 for i, _ in enumerate(group_list):
     ax[2].scatter(
@@ -526,7 +587,7 @@ The panel on the right shows the posterior group level posterior of the slope an
 ```{code-cell} ipython3
 :tags: [hide-input]
 
-az.plot_posterior(slope, ref_val=0)
+az.plot_posterior(idata.posterior["pop_slope"], ref_val=0)
 plt.title("Population level slope parameter");
 ```
 
