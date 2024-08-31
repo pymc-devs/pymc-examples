@@ -35,6 +35,7 @@ This notebook covers:
 
 ```{code-cell} ipython3
 import arviz as az
+import graphviz as gr
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -108,6 +109,18 @@ The rest of the notebook will cover different ways that we can analyse this data
 First we examine the simplest model - plain linear regression which pools all the data and has no knowledge of the group/multi-level structure of the data.
 
 +++
+
+From a causal perspective, this approach embodies the belief that $x$ causes $y$ and that this relationship is constant across all groups, or groups are simply not considered. This can be shown in the causal DAG below.
+
+```{code-cell} ipython3
+:tags: [hide-input]
+
+g = gr.Digraph()
+g.node(name="x", label="x")
+g.node(name="y", label="y")
+g.edge(tail_name="x", head_name="y")
+g
+```
 
 We could describe this model mathematically as:
 
@@ -240,11 +253,21 @@ One of the clear things about this analysis is that we have credible evidence th
 
 ## Model 2: Independent slopes and intercepts model
 
-We will use the same data in this analysis, but this time we will use our knowledge that data come from groups. More specifically we will essentially fit independent regressions to data within each group. This could also be described as an unpooled model.
+We will use the same data in this analysis, but this time we will use our knowledge that data come from groups. From a causal perspective we are exploring the notion that both $x$ and $y$ are influenced by group membership. This can be shown in the causal DAG below.
 
-+++
+```{code-cell} ipython3
+:tags: [hide-input]
 
-We could describe this model mathematically as:
+g = gr.Digraph()
+g.node(name="x", label="x")
+g.node(name="g", label="group")
+g.node(name="y", label="y")
+g.edge(tail_name="x", head_name="y")
+g.edge(tail_name="g", head_name="y")
+g
+```
+
+More specifically we will essentially fit independent regressions to data within each group. This could also be described as an unpooled model. We could describe this model mathematically as:
 
 $$
 \begin{aligned}
@@ -393,9 +416,8 @@ In contrast to plain regression model (Model 1), when we model on the group leve
 +++
 
 ## Model 3: Hierarchical regression
-We can go beyond Model 2 and incorporate even more knowledge about the structure of our data. Rather than treating each group as entirely independent, we can use our knowledge that these groups are drawn from a population-level distribution. These are sometimes called hyper-parameters. 
 
-In one sense this move from Model 2 to Model 3 can be seen as adding parameters, and therefore increasing model complexity. However, in another sense, adding this knowledge about the nested structure of the data actually provides a constraint over parameter space.
+Model 3 assumes the same causal DAG as model 2 (see above). However, we can go further and incorporate more knowledge about the structure of our data. Rather than treating each group as entirely independent, we can use our knowledge that these groups are drawn from a population-level distribution. 
 
 +++
 
@@ -417,15 +439,17 @@ where $\beta_0$ and $\beta_1$ are the population-level parameters, and $\gamma_0
 
 +++
 
-:::{admonition} **Independence assumptions**
-:class: note
-
-The hierarchical model we are considering contains a simplification in that the population level slope and intercept are assumed to be independent. It is possible to relax this assumption and model any correlation between these parameters by using a multivariate normal distribution.
-:::
+This model could also be called a partial pooling model. 
 
 +++
 
-This model could also be called a partial pooling model. 
+:::{admonition} **Notes**
+:class: note
+
+The hierarchical model we are considering contains a simplification in that the population level slope and intercept are assumed to be independent. It is possible to relax this assumption and model any correlation between these parameters by using a multivariate normal distribution.
+
+In one sense this move from Model 2 to Model 3 can be seen as adding parameters, and therefore increasing model complexity. However, in another sense, adding this knowledge about the nested structure of the data actually provides a constraint over parameter space.
+:::
 
 ```{code-cell} ipython3
 non_centered = False
@@ -464,6 +488,8 @@ Plotting the DAG now makes it clear that the group-level intercept and slope par
 ```{code-cell} ipython3
 pm.model_to_graphviz(hierarchical)
 ```
+
+The nodes `pop_intercept` and `pop_slope` represent the population-level intercept and slope parameters. While the 5 $\beta_0$ and $\beta_1$ nodes represent intercepts and slopes for each of the 5 observed groups (respectively), the `pop_intercept` and `pop_slope` represent what we can infer about the population-level intercept and slope. Equivalently, we could say they represent our beliefs about an as yet unobserved group.
 
 ```{code-cell} ipython3
 with hierarchical:
