@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_env
+  display_name: Python 3
   language: python
-  name: pymc_env
+  name: python3
 ---
 
 (GLM-simpsons-paradox)=
@@ -34,6 +34,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
+import seaborn as sns
 import xarray as xr
 ```
 
@@ -82,16 +83,7 @@ display(data)
 And we can visualise this as below.
 
 ```{code-cell} ipython3
-:tags: [hide-input]
-
-for i, group in enumerate(group_list):
-    plt.scatter(
-        data.query(f"group_idx=={i}").x,
-        data.query(f"group_idx=={i}").y,
-        color=f"C{i}",
-        label=f"{group}",
-    )
-plt.legend(title="group");
+sns.scatterplot(data=data, x="x", y="y", hue="group");
 ```
 
 The rest of the notebook will cover different ways that we can analyse this data using linear models.
@@ -488,7 +480,7 @@ with hierarchical:
     idata = pm.sample(tune=4000, target_accept=0.99, random_seed=rng)
 ```
 
-:::{note}
+:::{caution}
 Note that despite having a longer tune period and increased `target_accept`, this model can still generate a low number of divergent samples. If the reader is interested, you can explore the a "reparameterisation trick" is used by setting the flag `non_centered=True`. See the blog post [Why hierarchical models are awesome, tricky, and Bayesian](https://twiecki.io/blog/2017/02/08/bayesian-hierchical-non-centered/) by Thomas Wiecki for more information on this.
 :::
 
