@@ -116,7 +116,7 @@ with pm.Model() as linear_regression:
     sigma = pm.HalfCauchy("sigma", beta=2)
     β0 = pm.Normal("β0", 0, sigma=5)
     β1 = pm.Normal("β1", 0, sigma=5)
-    x = pm.MutableData("x", data.x, dims="obs_id")
+    x = pm.Data("x", data.x, dims="obs_id")
     μ = pm.Deterministic("μ", β0 + β1 * x, dims="obs_id")
     pm.Normal("y", mu=μ, sigma=sigma, observed=data.y, dims="obs_id")
 ```
@@ -238,8 +238,8 @@ with pm.Model(coords=coords) as ind_slope_intercept:
     β0 = pm.Normal("β0", 0, sigma=5, dims="group")
     β1 = pm.Normal("β1", 0, sigma=5, dims="group")
     # Data
-    x = pm.MutableData("x", data.x, dims="obs_id")
-    g = pm.MutableData("g", data.group_idx, dims="obs_id")
+    x = pm.Data("x", data.x, dims="obs_id")
+    g = pm.Data("g", data.group_idx, dims="obs_id")
     # Linear model
     μ = pm.Deterministic("μ", β0[g] + β1[g] * x, dims="obs_id")
     # Define likelihood
@@ -395,8 +395,8 @@ with pm.Model(coords=coords) as hierarchical:
         β1 = pm.Normal("β1", slope_mu, sigma=slope_sigma, dims="group")
 
     # Data
-    x = pm.MutableData("x", data.x, dims="obs_id")
-    g = pm.MutableData("g", data.group_idx, dims="obs_id")
+    x = pm.Data("x", data.x, dims="obs_id")
+    g = pm.Data("g", data.group_idx, dims="obs_id")
     # Linear model
     μ = pm.Deterministic("μ", β0[g] + β1[g] * x, dims="obs_id")
     # Define likelihood
