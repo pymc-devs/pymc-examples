@@ -98,7 +98,7 @@ The rest of the notebook will cover different ways that we can analyse this data
 
 +++
 
-## Model 1: Basic linear regression
+## Model 1: Pooled regression
 
 First we examine the simplest model - plain linear regression which pools all the data and has no knowledge of the group/multi-level structure of the data.
 
@@ -245,7 +245,7 @@ One of the clear things about this analysis is that we have credible evidence th
 
 +++
 
-## Model 2: Independent slopes and intercepts model
+## Model 2: Unpooled regression
 
 We will use the same data in this analysis, but this time we will use our knowledge that data come from groups. From a causal perspective we are exploring the notion that both $x$ and $y$ are influenced by group membership. This can be shown in the causal DAG below.
 
@@ -409,7 +409,7 @@ In contrast to plain regression model (Model 1), when we model on the group leve
 
 +++
 
-## Model 3: Hierarchical regression
+## Model 3: Partial pooling (hierarchical) model
 
 Model 3 assumes the same causal DAG as model 2 (see above). However, we can go further and incorporate more knowledge about the structure of our data. Rather than treating each group as entirely independent, we can use our knowledge that these groups are drawn from a population-level distribution. 
 
