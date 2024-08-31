@@ -21,17 +21,11 @@ kernelspec:
 
 +++
 
-This notebook covers:
-- [Simpson's Paradox](https://en.wikipedia.org/wiki/Simpson%27s_paradox) and its resolution through mixed or hierarchical models. This is a situation where there might be a negative relationship between two variables within a group, but when data from multiple groups are combined, that relationship may disappear or even reverse sign. The gif below (from the [Simpson's Paradox](https://en.wikipedia.org/wiki/Simpson%27s_paradox) Wikipedia page) demonstrates this very nicely.
-- How to build linear regression models, starting with linear regression, moving up to hierarchical linear regression. Simpon's paradox is a nice motivation for why we might want to do this - but of course we should aim to build models which incorporate as much as our knowledge about the structure of the data (e.g. it's nested nature) as possible.
-- Use of `pm.Data` containers to facilitate posterior prediction at different $x$ values with the same model.
-- Providing array dimensions (see `coords`) to models to help with shape problems. This involves the use of [xarray](http://xarray.pydata.org/) and is quite helpful in multi-level / hierarchical models.
-- Differences between posteriors and posterior predictive distributions.
-- How to visualise models in data space and parameter space, using a mixture of [ArviZ](https://arviz-devs.github.io/arviz/) and [matplotlib](https://matplotlib.org/).
-
-+++
+[Simpson's Paradox](https://en.wikipedia.org/wiki/Simpson%27s_paradox) describes a situation where there might be a negative relationship between two variables within a group, but when data from multiple groups are combined, that relationship may disappear or even reverse sign. The gif below (from the [Simpson's Paradox](https://en.wikipedia.org/wiki/Simpson%27s_paradox) Wikipedia page) demonstrates this very nicely.
 
 ![](https://upload.wikimedia.org/wikipedia/commons/f/fb/Simpsons_paradox_-_animation.gif)
+
+This paradox can be resolved by assuming a causal DAG which includes how the main predictor variable _and_ group membership influence the outcome variable. We demonstrate an example where we _don't_ incorporate group membership (so our causal DAG is wrong, or in other words out model is misspecified). We then show 2 wayes to resolve this by including group membership as causal influence upon the outcome variable. This is shown in an unpooled model (which we could also call a fixed effects model) and a hierarchical model (which we could also call a mixed effects model).
 
 ```{code-cell} ipython3
 import arviz as az
