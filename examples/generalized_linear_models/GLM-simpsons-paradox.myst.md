@@ -168,6 +168,8 @@ def predict(model: pm.Model, idata: az.InferenceData, predict_at: dict) -> az.In
     return idata
 ```
 
+And now let's use that `predict` function to do out of sample predictions which we will use for visualisation.
+
 ```{code-cell} ipython3
 :tags: [hide-output]
 
@@ -177,6 +179,8 @@ idata1 = predict(
     predict_at={"x": np.linspace(data.x.min(), data.x.max(), 20)},
 )
 ```
+
+Finally, we can now visualise the model fit to data, and our posterior in parameter space.
 
 ```{code-cell} ipython3
 :tags: [hide-input]
@@ -413,16 +417,16 @@ def plot(idata):
 plot(idata2);
 ```
 
-In contrast to plain regression model (Model 1), when we model on the group level we can see that now the evidence points toward _negative_ relationships between $x$ and $y$.
+In contrast to Model 1, when we consider groups we can see that now the evidence points toward _negative_ relationships between $x$ and $y$.
 
 ```{code-cell} ipython3
 ax = az.plot_forest(idata2.posterior["β1"], combined=True, figsize=(12, 4))
 ax[0].set(
-    title="Model 2 suggests a negative slopes for each group", xlabel=r"$\beta_1$", ylabel="Group"
+    title="Model 2 suggests negative slopes for each group", xlabel=r"$\beta_1$", ylabel="Group"
 );
 ```
 
-## Model 3: Partial pooling (hierarchical) model
+## Model 3: Partial pooling model
 
 Model 3 assumes the same causal DAG as model 2 (see above). However, we can go further and incorporate more knowledge about the structure of our data. Rather than treating each group as entirely independent, we can use our knowledge that these groups are drawn from a population-level distribution. 
 
@@ -442,11 +446,7 @@ y_i &\sim \text{Normal}(\mu_i, \sigma)
 \end{aligned}
 $$
 
-where $\beta_0$ and $\beta_1$ are the population-level parameters, and $\gamma_0$ and $\gamma_1$ are the group offset parameters.
-
-+++
-
-This model could also be called a partial pooling model. 
+where $\vec{\beta_0}$ and $\vec{\beta_1}$ are the group-level parameters. These group level parameters can be though of as being sampled from population level intercept distribution $\text{Normal}(p_{0\mu}, p_{0\sigma})$ and population level slope distribution $\text{Normal}(p_{1\mu}, p_{1\sigma})$.
 
 +++
 
@@ -508,32 +508,13 @@ with pm.Model(coords=coords) as model3:
     pm.Normal("y", mu=μ, sigma=sigma, observed=data.y, dims="obs_id")
 ```
 
-```{code-cell} ipython3
-with pm.Model(coords=coords) as model3:
-    # Define priors
-    intercept_mu = pm.Normal("intercept_mu", 0, 1)
-    slope_mu = pm.Normal("slope_mu", 0, 1)
-    intercept_sigma = pm.Gamma("intercept_sigma", 2, 2)
-    slope_sigma = pm.Gamma("slope_sigma", 2, 2)
-    sigma = pm.Gamma("sigma", 2, 2)
-    β0 = pm.Normal("β0", intercept_mu, intercept_sigma, dims="group")
-    β1 = pm.Normal("β1", slope_mu, slope_sigma, dims="group")
-    # Data
-    x = pm.Data("x", data.x, dims="obs_id")
-    g = pm.Data("g", data.group_idx, dims="obs_id")
-    # Linear model
-    μ = pm.Deterministic("μ", β0[g] + β1[g] * x, dims="obs_id")
-    # Define likelihood
-    pm.Normal("y", mu=μ, sigma=sigma, observed=data.y, dims="obs_id")
-```
-
-Plotting the DAG now makes it clear that the group-level intercept and slope parameters are drawn from a population level distributions. That is, we have hyper-priors for the slopes and intercept parameters. This particular model does not have a hyper-prior for the measurement error - this is just left as one parameter per group, as in the previous model.
+Plotting the DAG now makes it clear that the group-level intercept and slope parameters are drawn from population level distributions. That is, we have hyper-priors for the slopes and intercept parameters. This particular model does not have a hyper-prior for the measurement error - this is just left as one parameter per group, as in the previous model.
 
 ```{code-cell} ipython3
 pm.model_to_graphviz(model3)
 ```
 
-The nodes `pop_intercept` and `pop_slope` represent the population-level intercept and slope parameters. While the 5 $\beta_0$ and $\beta_1$ nodes represent intercepts and slopes for each of the 5 observed groups (respectively), the `pop_intercept` and `pop_slope` represent what we can infer about the population-level intercept and slope. Equivalently, we could say they represent our beliefs about an as yet unobserved group.
+The nodes `pop_intercept` and `pop_slope` represent the population-level intercept and slope parameters. While the $\beta_0$ and $\beta_1$ nodes represent intercepts and slopes for each of the 5 observed groups (respectively), the `pop_intercept` and `pop_slope` represent what we can infer about the population-level intercept and slope. Equivalently, we could say they represent our beliefs about an as yet unobserved group.
 
 +++
 
@@ -601,8 +582,17 @@ The panel on the right shows the posterior group level posterior of the slope an
 ```{code-cell} ipython3
 :tags: [hide-input]
 
-az.plot_posterior(idata3.posterior["pop_slope"], ref_val=0)
-plt.title("Population level slope parameter");
+fig, ax = plt.subplots(1, 2)
+
+az.plot_forest(idata2.posterior["β1"], combined=True, ax=ax[0])
+ax[0].set(
+    title="Model 3 suggests negative slopes for each group", xlabel=r"$\beta_1$", ylabel="Group"
+)
+
+az.plot_posterior(idata3.posterior["pop_slope"], ref_val=0, ax=ax[1])
+ax[1].set(
+    title="Population level slope parameter", xlabel=r"$\text{Normal}(p_{1\mu}, p_{1\sigma})$"
+);
 ```
 
 ## Summary
