@@ -119,7 +119,7 @@ $$
 
 +++
 
-:::{info}
+:::{note}
 We can also express Model 1 in Wilkinson notation as `y ~ 1 + x` which is equivalent to `y ~ x` as the intercept is included by default.
 
 * The `1` term corresponds to the intercept term $\beta_0$.
@@ -283,7 +283,7 @@ Where $g_i$ is the group index for observation $i$. So the parameters $\beta_0$ 
 
 +++
 
-:::{info}
+:::{note}
 We can also express this Model 2 in Wilkinson notation as `y ~ g + x:g`.
 
 * The `g` term captures the group specific intercept $\beta_0[g_i]$ parameters.
@@ -450,7 +450,7 @@ This model could also be called a partial pooling model.
 
 +++
 
-:::{info}
+:::{note}
 We can also express this Model 3 in Wilkinson notation as `1 + x + (1 + x | g)`.
 
 * The `1` captures the global intercept, $\mathrm{Normal}(p_{0\mu}, p_{0\sigma})$.
@@ -462,10 +462,14 @@ We can also express this Model 3 in Wilkinson notation as `1 + x + (1 + x | g)`.
 
 +++
 
-:::{note}
-The hierarchical model we are considering contains a simplification in that the population level slope and intercept are assumed to be independent. It is possible to relax this assumption and model any correlation between these parameters by using a multivariate normal distribution.
+:::{seealso}
+The hierarchical model we are considering contains a simplification in that the population level slope and intercept are assumed to be independent. It is possible to relax this assumption and model any correlation between these parameters by using a multivariate normal distribution. See the {ref}`lkj_prior_for_multivariate_normal` notebook for more details.
+:::
 
-In one sense this move from Model 2 to Model 3 can be seen as adding parameters, and therefore increasing model complexity. However, in another sense, adding this knowledge about the nested structure of the data actually provides a constraint over parameter space.
++++
+
+:::{seealso}
+In one sense this move from Model 2 to Model 3 can be seen as adding parameters, and therefore increasing model complexity. However, in another sense, adding this knowledge about the nested structure of the data actually provides a constraint over parameter space. It would be possible to engage in model comparison to arbitrate between these models - see for example the {ref}`GLM-model-selection` notebook for more details.
 :::
 
 +++
