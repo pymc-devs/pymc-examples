@@ -21,7 +21,7 @@ kernelspec:
 
 +++
 
-This is some introductory text. Consult the [style guide](https://docs.pymc.io/en/latest/contributing/jupyter_style.html).
+This is some introductory text. 
 
 ```{code-cell} ipython3
 import arviz as az
