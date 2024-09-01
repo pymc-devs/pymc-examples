@@ -420,6 +420,8 @@ plot(idata2);
 In contrast to Model 1, when we consider groups we can see that now the evidence points toward _negative_ relationships between $x$ and $y$.
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 ax = az.plot_forest(idata2.posterior["β1"], combined=True, figsize=(12, 4))
 ax[0].set(
     title="Model 2 suggests negative slopes for each group", xlabel=r"$\beta_1$", ylabel="Group"
@@ -577,7 +579,7 @@ sns.kdeplot(
 ax[2].set(xlim=[-2, 1], ylim=[-5, 5]);
 ```
 
-The panel on the right shows the posterior group level posterior of the slope and intercept parameters as a contour plot. We can also just plot the marginal distribution below to see how much belief we have in the slope being less than zero.
+The panel on the right shows the group level posterior of the slope and intercept parameters as a contour plot. We can also just plot the marginal distribution below to see how much belief we have in the slope being less than zero.
 
 ```{code-cell} ipython3
 :tags: [hide-input]
