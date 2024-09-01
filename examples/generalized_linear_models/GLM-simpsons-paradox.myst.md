@@ -21,7 +21,7 @@ kernelspec:
 
 +++
 
-[Simpson's Paradox](https://en.wikipedia.org/wiki/Simpson%27s_paradox) describes a situation where there might be a negative relationship between two variables within a group, but when data from multiple groups are combined, that relationship may disappear or even reverse sign. The gif below (from the [Simpson's Paradox](https://en.wikipedia.org/wiki/Simpson%27s_paradox) Wikipedia page) demonstrates this very nicely.
+[Simpson's Paradox](https://en.wikipedia.org/wiki/Simpson%27s_paradox) describes a situation where there might be a negative relationship between two variables within a group, but when data from multiple groups are combined, that relationship may disappear or even reverse sign. The gif below (from the Simpson's Paradox [Wikipedia](https://en.wikipedia.org/wiki/Simpson%27s_paradox) page) demonstrates this very nicely.
 
 ![](https://upload.wikimedia.org/wikipedia/commons/f/fb/Simpsons_paradox_-_animation.gif)
 
@@ -41,6 +41,7 @@ import xarray as xr
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
 az.style.use("arviz-darkgrid")
+plt.rcParams["figure.figsize"] = [12, 6]
 rng = np.random.default_rng(1234)
 ```
 
@@ -49,8 +50,6 @@ rng = np.random.default_rng(1234)
 This data generation was influenced by this [stackexchange](https://stats.stackexchange.com/questions/479201/understanding-simpsons-paradox-with-random-effects) question.
 
 ```{code-cell} ipython3
-:tags: [hide-input]
-
 def generate():
     group_list = ["one", "two", "three", "four", "five"]
     trials_per_group = 20
@@ -68,9 +67,8 @@ def generate():
     y = rng.normal(intercept + (x - mx) * slope, 1)
     data = pd.DataFrame({"group": group, "group_idx": subject, "x": x, "y": y})
     return data, group_list
-```
 
-```{code-cell} ipython3
+
 data, group_list = generate()
 ```
 
@@ -137,7 +135,7 @@ with pm.Model() as model1:
 pm.model_to_graphviz(model1)
 ```
 
-### Do inference
+### Conduct inference
 
 ```{code-cell} ipython3
 with model1:
@@ -150,11 +148,11 @@ az.plot_trace(idata1, var_names=["~μ"]);
 
 ### Visualisation
 
-First we'll define a handy predict function which will do out of sample predictions for us. This will be handy when it comes to visualising the model fit.
+First we'll define a handy predict function which will do out of sample predictions for us. This will be handy when it comes to visualising the model fits.
 
 ```{code-cell} ipython3
 def predict(model: pm.Model, idata: az.InferenceData, predict_at: dict) -> az.InferenceData:
-    """Do posterior predictive inference"""
+    """Do posterior predictive inference at a set of out of sample points specified by `predict_at`."""
     with model:
         pm.set_data(predict_at)
         idata.extend(pm.sample_posterior_predictive(idata, var_names=["y", "μ"], random_seed=rng))
@@ -162,6 +160,8 @@ def predict(model: pm.Model, idata: az.InferenceData, predict_at: dict) -> az.In
 ```
 
 ```{code-cell} ipython3
+:tags: [hide-output]
+
 idata1 = predict(
     model=model1,
     idata=idata1,
@@ -234,9 +234,14 @@ The plot on the right shows out posterior beliefs in **parameter space**.
 
 +++
 
-One of the clear things about this analysis is that we have credible evidence that $x$ and $y$ are _positively_ correlated. We can see this from the posterior over the slope (see right hand panel in the figure above).
+One of the clear things about this analysis is that we have credible evidence that $x$ and $y$ are _positively_ correlated. We can see this from the posterior over the slope (see right hand panel in the figure above) which we isolate in the plot below.
 
-+++
+```{code-cell} ipython3
+:tags: [hide-input]
+
+ax = az.plot_posterior(idata1.posterior["β1"], ref_val=0)
+ax.set(title="Model 1 strongly suggests a positive slope", xlabel=r"$\beta_1$");
+```
 
 ## Model 2: Unpooled regression
 
@@ -260,12 +265,16 @@ $$
 \begin{aligned}
 \vec{\beta_0}, \vec{\beta_1} &\sim \text{Normal}(0, 5) \\
 \sigma &\sim \text{Gamma}(2, 2) \\
-\mu_i &= \beta_0[g_i] + \beta_1[g_i] x_i \\
+\mu_i &= \vec{\beta_0}[g_i] + \vec{\beta_1}[g_i] x_i \\
 y_i &\sim \text{Normal}(\mu_i, g_i)
 \end{aligned}
 $$
 
-Where $g_i$ is the group index for observation $i$. So the parameters $\beta_0$ and $\beta_1$ are now length $g$ vectors, not scalars. And the $[g_i]$ acts as an index to look up the group for the $i^{\th}$ observation.
+Where $g_i$ is the group index for observation $i$. So the parameters $\beta_0$ and $\beta_1$ are now length $g$ vectors, not scalars. And the $[g_i]$ acts as an index to look up the group for the $i^\text{th}$ observation.
+
++++
+
+### Build model
 
 ```{code-cell} ipython3
 coords = {"group": group_list}
@@ -284,11 +293,13 @@ with pm.Model(coords=coords) as model2:
     pm.Normal("y", mu=μ, sigma=sigma, observed=data.y, dims="obs_id")
 ```
 
-By plotting the DAG for this model it is clear to see that we now have individual intercept, slope, and variance parameters for each of the groups.
+By plotting the DAG for this model it is clear to see that we now have individual intercept and slope parameters for each of the groups.
 
 ```{code-cell} ipython3
 pm.model_to_graphviz(model2)
 ```
+
+### Conduct inference
 
 ```{code-cell} ipython3
 with model2:
@@ -303,17 +314,21 @@ az.plot_trace(idata2, var_names=["~μ"]);
 # Generate values of xi and g for posterior prediction
 n_points = 10
 n_groups = len(data.group.unique())
+# Generate xi values for each group and concatenate them
 xi = np.concatenate(
     [
         np.linspace(group[1].x.min(), group[1].x.max(), n_points)
         for group in data.groupby("group_idx")
     ]
 )
+# Generate the group indices array g and cast it to integers
 g = np.concatenate([[i] * n_points for i in range(n_groups)]).astype(int)
 predict_at = {"x": xi, "g": g}
 ```
 
 ```{code-cell} ipython3
+:tags: [hide-output]
+
 idata2 = predict(
     model=model2,
     idata=idata2,
@@ -382,7 +397,12 @@ plot(idata2);
 
 In contrast to plain regression model (Model 1), when we model on the group level we can see that now the evidence points toward _negative_ relationships between $x$ and $y$.
 
-+++
+```{code-cell} ipython3
+ax = az.plot_forest(idata2.posterior["β1"], combined=True, figsize=(12, 4))
+ax[0].set(
+    title="Model 2 suggests a negative slopes for each group", xlabel=r"$\beta_1$", ylabel="Group"
+);
+```
 
 ## Model 3: Partial pooling (hierarchical) model
 
@@ -399,7 +419,7 @@ p_{0\sigma}, p_{1\sigma} &= \text{Gamma}(2, 2) \\
 \vec{\beta_0} &\sim \text{Normal}(p_{0\mu}, p_{0\sigma}) \\
 \vec{\beta_1} &\sim \text{Normal}(p_{1\mu}, p_{1\sigma}) \\
 \sigma &\sim \text{Gamma}(2, 2) \\
-\mu_i &= \beta_0[g_i] +  \beta_1[g_i] \cdot x_i \\
+\mu_i &= \vec{\beta_0}[g_i] +  \vec{\beta_1}[g_i] \cdot x_i \\
 y_i &\sim \text{Normal}(\mu_i, \sigma)
 \end{aligned}
 $$
@@ -417,6 +437,10 @@ The hierarchical model we are considering contains a simplification in that the 
 
 In one sense this move from Model 2 to Model 3 can be seen as adding parameters, and therefore increasing model complexity. However, in another sense, adding this knowledge about the nested structure of the data actually provides a constraint over parameter space.
 :::
+
++++
+
+### Build model
 
 ```{code-cell} ipython3
 non_centered = False
@@ -458,6 +482,10 @@ pm.model_to_graphviz(model3)
 
 The nodes `pop_intercept` and `pop_slope` represent the population-level intercept and slope parameters. While the 5 $\beta_0$ and $\beta_1$ nodes represent intercepts and slopes for each of the 5 observed groups (respectively), the `pop_intercept` and `pop_slope` represent what we can infer about the population-level intercept and slope. Equivalently, we could say they represent our beliefs about an as yet unobserved group.
 
++++
+
+### Conduct inference
+
 ```{code-cell} ipython3
 with model3:
     idata3 = pm.sample(tune=4000, target_accept=0.99, random_seed=rng)
@@ -474,15 +502,19 @@ az.plot_trace(idata3, var_names=["pop_intercept", "pop_slope", "β0", "β1", "si
 ### Visualise
 
 ```{code-cell} ipython3
+:tags: [hide-output]
+
 # Generate values of xi and g for posterior prediction
 n_points = 10
 n_groups = len(data.group.unique())
+# Generate xi values for each group and concatenate them
 xi = np.concatenate(
     [
         np.linspace(group[1].x.min(), group[1].x.max(), n_points)
         for group in data.groupby("group_idx")
     ]
 )
+# Generate the group indices array g and cast it to integers
 g = np.concatenate([[i] * n_points for i in range(n_groups)]).astype(int)
 predict_at = {"x": xi, "g": g}
 
@@ -504,13 +536,11 @@ sns.kdeplot(
     y=az.extract(idata3, var_names="pop_intercept"),
     thresh=0.1,
     levels=5,
+    color="k",
     ax=ax[2],
 )
 
-ax[2].set(
-    xlim=[-2, 1],
-    ylim=[-5, 5],
-)
+ax[2].set(xlim=[-2, 1], ylim=[-5, 5]);
 ```
 
 The panel on the right shows the posterior group level posterior of the slope and intercept parameters as a contour plot. We can also just plot the marginal distribution below to see how much belief we have in the slope being less than zero.
@@ -540,7 +570,7 @@ If you are interested in learning more, there are a number of other [PyMC exampl
 * Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in April 2022
 * Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 to run on PyMC v5
 * Updated to use `az.extract` by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
-* Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in September 2024
+* Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in September 2024 ([pymc-examples#697](https://github.com/pymc-devs/pymc-examples/pull/697))
 
 +++
 
