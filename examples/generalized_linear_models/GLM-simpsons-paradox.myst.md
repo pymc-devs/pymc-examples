@@ -288,9 +288,10 @@ Where $g_i$ is the group index for observation $i$. So the parameters $\beta_0$ 
 +++
 
 :::{note}
-We can also express this Model 2 in Wilkinson notation as `y ~ g + x:g`.
+We can also express this Model 2 in Wilkinson notation as `y ~ 0 + g + x:g`.
 
 * The `g` term captures the group specific intercept $\beta_0[g_i]$ parameters.
+* The `0` means we do not have a global intercept term, leaving the group specific intercepts to be the only intercepts.
 * The `x:g` term captures group specific slope $\beta_1[g_i]$ parameters.
 :::
 
