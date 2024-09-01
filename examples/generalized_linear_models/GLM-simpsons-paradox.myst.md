@@ -119,6 +119,15 @@ $$
 
 +++
 
+:::{info}
+We can also express Model 1 in Wilkinson notation as `y ~ 1 + x` which is equivalent to `y ~ x` as the intercept is included by default.
+
+* The `1` term corresponds to the intercept term $\beta_0$.
+* The `x` term corresponds to the slope term $\beta_1$.
+:::
+
++++
+
 ### Build model
 
 ```{code-cell} ipython3
@@ -271,6 +280,15 @@ y_i &\sim \text{Normal}(\mu_i, g_i)
 $$
 
 Where $g_i$ is the group index for observation $i$. So the parameters $\beta_0$ and $\beta_1$ are now length $g$ vectors, not scalars. And the $[g_i]$ acts as an index to look up the group for the $i^\text{th}$ observation.
+
++++
+
+:::{info}
+We can also express this Model 2 in Wilkinson notation as `y ~ g + x:g`.
+
+* The `g` term captures the group specific intercept $\beta_0[g_i]$ parameters.
+* The `x:g` term captures group specific slope $\beta_1[g_i]$ parameters.
+:::
 
 +++
 
@@ -432,6 +450,18 @@ This model could also be called a partial pooling model.
 
 +++
 
+:::{info}
+We can also express this Model 3 in Wilkinson notation as `1 + x + (1 + x | g)`.
+
+* The `1` captures the global intercept, $\mathrm{Normal}(p_{0\mu}, p_{0\sigma})$.
+* The `x` captures the global slope, $\mathrm{Normal}(p_{1\mu}, p_{1\sigma})$.
+* The `(1 + x | g)` term captures group specific random effects for the intercept and slope.
+  * `1 | g` captures the group specific intercept $\vec{\beta_0}[g_i]$ parameters.
+  * `x | g` captures the group specific slope $\vec{\beta_1}[g_i]$ parameters.
+:::
+
++++
+
 :::{note}
 The hierarchical model we are considering contains a simplification in that the population level slope and intercept are assumed to be independent. It is possible to relax this assumption and model any correlation between these parameters by using a multivariate normal distribution.
 
@@ -465,6 +495,25 @@ with pm.Model(coords=coords) as model3:
     pm.Normal("pop_intercept", intercept_mu, intercept_sigma)
     pm.Normal("pop_slope", slope_mu, slope_sigma)
 
+    # Data
+    x = pm.Data("x", data.x, dims="obs_id")
+    g = pm.Data("g", data.group_idx, dims="obs_id")
+    # Linear model
+    μ = pm.Deterministic("μ", β0[g] + β1[g] * x, dims="obs_id")
+    # Define likelihood
+    pm.Normal("y", mu=μ, sigma=sigma, observed=data.y, dims="obs_id")
+```
+
+```{code-cell} ipython3
+with pm.Model(coords=coords) as model3:
+    # Define priors
+    intercept_mu = pm.Normal("intercept_mu", 0, 1)
+    slope_mu = pm.Normal("slope_mu", 0, 1)
+    intercept_sigma = pm.Gamma("intercept_sigma", 2, 2)
+    slope_sigma = pm.Gamma("slope_sigma", 2, 2)
+    sigma = pm.Gamma("sigma", 2, 2)
+    β0 = pm.Normal("β0", intercept_mu, intercept_sigma, dims="group")
+    β1 = pm.Normal("β1", slope_mu, slope_sigma, dims="group")
     # Data
     x = pm.Data("x", data.x, dims="obs_id")
     g = pm.Data("g", data.group_idx, dims="obs_id")
