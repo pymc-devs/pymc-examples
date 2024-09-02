@@ -258,7 +258,7 @@ ax.set(title="Model 1 strongly suggests a positive slope", xlabel=r"$\beta_1$");
 
 ## Model 2: Unpooled regression
 
-We will use the same data in this analysis, but this time we will use our knowledge that data come from groups. From a causal perspective we are exploring the notion that both $x$ and $y$ are influenced by group membership. This can be shown in the causal DAG below.
+We will use the same data in this analysis, but this time we will use our knowledge that data come from groups. From a causal perspective we are exploring the notion that both $x$ and $y$ are influenced by group membership. This can be shown in the causal directed acyclic graph ([DAG](https://en.wikipedia.org/wiki/Directed_acyclic_graph)) below.
 
 ```{code-cell} ipython3
 :tags: [hide-input]
