@@ -188,6 +188,7 @@ def make_ppc(
 
 
 make_ppc(idata)
+del idata
 ```
 
 ### Intermediate Cross-Loading Model
@@ -602,27 +603,13 @@ model_sem1, idata_sem1 = make_indirect_sem(
 model_sem2, idata_sem2 = make_indirect_sem(
     priors={"eta": 2, "lambda": [1, 1], "beta_r": 0.5, "beta_r2": 0.5}
 )
-model_sem3, idata_sem3 = make_indirect_sem(
-    priors={"eta": 2, "lambda": [1, 1], "beta_r": 1, "beta_r2": 1}
-)
-```
-
-```{code-cell} ipython3
-pm.model_to_graphviz(model_sem0)
-```
-
-```{code-cell} ipython3
-compare_df = az.compare(
-    {"SEM0": idata_sem0, "SEM1": idata_sem1, "SEM2": idata_sem2, "SEM3": idata_sem3}
-)
-compare_df
 ```
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(20, 15))
 az.plot_forest(
-    [idata_sem0, idata_sem1, idata_sem2, idata_sem3],
-    model_names=["SEM0", "SEM1", "SEM2", "SEM3"],
+    [idata_sem0, idata_sem1, idata_sem2],
+    model_names=["SEM0", "SEM1", "SEM2"],
     var_names=["lambdas1", "lambdas2", "lambdas3", "lambdas4", "lambdas5", "beta_r", "beta_r2"],
     combined=True,
     ax=ax,
@@ -678,15 +665,10 @@ def calculate_effects(idata, var="SUP_P"):
 
 ```{code-cell} ipython3
 summary_p = pd.concat(
-    [
-        calculate_effects(idata_sem0),
-        calculate_effects(idata_sem1),
-        calculate_effects(idata_sem2),
-        calculate_effects(idata_sem3),
-    ]
+    [calculate_effects(idata_sem0), calculate_effects(idata_sem1), calculate_effects(idata_sem2)]
 )
 
-summary_p.index = ["SEM0", "SEM1", "SEM2", "SEM3"]
+summary_p.index = ["SEM0", "SEM1", "SEM2"]
 summary_p
 ```
 
@@ -696,11 +678,10 @@ summary_f = pd.concat(
         calculate_effects(idata_sem0, "SUP_F"),
         calculate_effects(idata_sem1, "SUP_F"),
         calculate_effects(idata_sem2, "SUP_F"),
-        calculate_effects(idata_sem3, "SUP_F"),
     ]
 )
 
-summary_f.index = ["SEM0", "SEM1", "SEM2", "SEM3"]
+summary_f.index = ["SEM0", "SEM1", "SEM2"]
 summary_f
 ```
 
