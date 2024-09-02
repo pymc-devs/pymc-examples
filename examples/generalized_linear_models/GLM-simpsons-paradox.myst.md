@@ -439,8 +439,8 @@ And we could describe this model mathematically as:
 
 $$
 \begin{aligned}
-p_{0\mu}, p_{1\mu} &= \text{Normal}(0, 1) \\
-p_{0\sigma}, p_{1\sigma} &= \text{Gamma}(2, 2) \\
+p_{0\mu}, p_{1\mu} &\sim \text{Normal}(0, 1) \\
+p_{0\sigma}, p_{1\sigma} &\sim \text{Gamma}(2, 2) \\
 \vec{\beta_0} &\sim \text{Normal}(p_{0\mu}, p_{0\sigma}) \\
 \vec{\beta_1} &\sim \text{Normal}(p_{1\mu}, p_{1\sigma}) \\
 \sigma &\sim \text{Gamma}(2, 2) \\
