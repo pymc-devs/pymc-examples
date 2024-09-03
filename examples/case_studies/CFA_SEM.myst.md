@@ -21,7 +21,9 @@ kernelspec:
 
 +++
 
-This is some introductory text. 
+In the psychometrics literature the data is often derived from a strategically constructed survey aimed at a particular target phenomena. Some intuited, but not yet measured, concept that arguably plays a role in human action, motivation or sentiment. The relative “fuzziness” of the subject matter in psychometrics has had a catalyzing effect on the methodological rigour sought in the science. Survey designs are agonized over for correct tone and rhythm of sentence structure. Measurement scales are doubly checked for reliability and correctness. The literature is consulted and questions are refined. Analysis steps are justified and tested under a wealth of modelling routines. 
+
+Model architectures are defined and refined to better express the hypothesized structures in the data-generating process. We will see how such due diligence leads to powerful and expressive models that grant us tractability on thorny questions of human affect.
 
 ```{code-cell} ipython3
 import arviz as az
@@ -41,6 +43,11 @@ rng = np.random.default_rng(42)
 
 ### Latent Constructs and Measurement
 
+Our data is borrowed from work by Boris Mayer and Andrew Ellis found [here](https://methodenlehre.github.io/SGSCLM-R-course/cfa-and-sem-with-lavaan.html#structural-equation-modelling-sem). They demonstrate CFA and SEM modelling with lavaan. We’ll load up their data. We have survey responses from ~300 individuals who have answered questions regarding their upbringing, self-efficacy and reported life-satisfaction. The hypothetical dependency structure in this life-satisfaction data-set posits a moderated relationship between scores related to life-satisfaction, parental and family support and self-efficacy. It is not a trivial task to be able to design a survey that can elicit answers plausibly mapped to each of these “factors” or themes, never mind finding a model of their relationship that can inform us as to the relative of impact of each on life-satisfaction outcomes.
+
+First we'll pull out the data and examine some summary statistics.
+
+
 ```{code-cell} ipython3
 df = pd.read_csv("../data/sem_data.csv")
 df.head()
@@ -52,13 +59,43 @@ drivers = [c for c in df.columns if not c in ["region", "gender", "age", "ID"]]
 corr_df = df[drivers].corr()
 mask = np.triu(np.ones_like(corr_df, dtype=bool))
 sns.heatmap(corr_df, annot=True, cmap="Blues", ax=ax, center=0, mask=mask)
+ax.set_title("Sample Correlations between indicator Metrics")
 fig, ax = plt.subplots(figsize=(20, 7))
-sns.heatmap(df[drivers].cov(), annot=True, cmap="Blues", ax=ax, center=0, mask=mask);
+sns.heatmap(df[drivers].cov(), annot=True, cmap="Blues", ax=ax, center=0, mask=mask)
+ax.set_title("Sample Covariances between indicator Metrics");
+```
+
+Next we'll plot the pairplot to visualise the nature of the correlations
+
+```{code-cell} ipython3
+ax = sns.pairplot(df[drivers], kind="reg", corner=True, diag_kind="kde")
+plt.suptitle("Pair Plot of Indicator Metrics with Regression Fits", fontsize=30);
 ```
 
 ## Measurement Models
 
++++
+
+A measurement model is a key component within the more general structural equation model. A measurement model specifies the relationships between observed variables (typically survey items or indicators) and their underlying latent constructs (often referred to as factors or latent variables). We start our presentation of SEM models more generally by focusing on a type of measurement model with it's own history - the confirmatory factor model (CFA) which specifies a particular structure to the relationships between our indicator variables and the latent factors. It is this structure which is up for confirmation in our modelling. 
+
+We'll start by fitting a "simple" CFA model in `PyMC` to demonstrate how the pieces fit together, we'll then expand our focus. Here we ignore the majority of our indicator variables and focus on the idea that there are two latent constructs: (1) Social Self-efficacy and (2) Life Satisfaction. 
+
+We're aiming to articulate a mathematical structure where our indicator variables $y_{ij}$ are determined by a latent factor $\text{Ksi}_{j}$ through an estimated factor loading $\lambda_{ij}$.  Functionally we have a set of equations with error terms $\psi_i$
+
+$$ y_{1} = \tau_{1}  + \lambda_{11}\text{Ksi}_{1} + \psi_{1}  \\ 
+y_{2} = \tau_{2}  + \lambda_{21}\text{Ksi}_{1} + \psi_{2} \\
+ ... \\
+y_{n} = \tau_{n}  + \lambda_{n2}\text{Ksi}_{2} + \psi_{3} 
+$$ 
+
+The goal is to articulate the relationship between the different factors in terms of the covariances between these latent terms and estimate the relationships each latent factor has with the manifest indicator variables. At a high level, we're saying the joint distribution can be represented through conditionalisation in the following schema
+
+$$p(x_{i}.....x_{n} | \text{Ksi}, \Psi, \tau, \Lambda) \sim Normal(\tau + \Lambda\cdot \text{Ksi}, \Psi) $$
+
+We will show how to build these structures into our model below
+
 ```{code-cell} ipython3
+# Set up coordinates for appropriate indexing of latent factors
 coords = {
     "obs": list(range(len(df))),
     "indicators": ["se_social_p1", "se_social_p2", "se_social_p3", "ls_p1", "ls_p2", "ls_p3"],
@@ -71,7 +108,7 @@ coords = {
 obs_idx = list(range(len(df)))
 with pm.Model(coords=coords) as model:
 
-    Psi = pm.InverseGamma("Psi", 5, 10, dims="indicators")
+    # Set up Factor Loadings
     lambdas_ = pm.Normal("lambdas_1", 1, 10, dims=("indicators_1"))
     # Force a fixed scale on the factor loadings for factor 1
     lambdas_1 = pm.Deterministic(
@@ -82,14 +119,15 @@ with pm.Model(coords=coords) as model:
     lambdas_2 = pm.Deterministic(
         "lambdas2", pt.set_subtensor(lambdas_[0], 1), dims=("indicators_2")
     )
-    tau = pm.Normal("tau", 3, 10, dims="indicators")
+
     # Specify covariance structure between latent factors
     kappa = 0
     sd_dist = pm.Exponential.dist(1.0, shape=2)
     chol, _, _ = pm.LKJCholeskyCov("chol_cov", n=2, eta=2, sd_dist=sd_dist, compute_corr=True)
     ksi = pm.MvNormal("ksi", kappa, chol=chol, dims=("obs", "latent"))
 
-    # Construct Observation matrix
+    # Construct Pseudo Observation matrix based on Factor Loadings
+    tau = pm.Normal("tau", 3, 10, dims="indicators")
     m1 = tau[0] + ksi[obs_idx, 0] * lambdas_1[0]
     m2 = tau[1] + ksi[obs_idx, 0] * lambdas_1[1]
     m3 = tau[2] + ksi[obs_idx, 0] * lambdas_1[2]
@@ -98,6 +136,11 @@ with pm.Model(coords=coords) as model:
     m6 = tau[5] + ksi[obs_idx, 1] * lambdas_2[2]
 
     mu = pm.Deterministic("mu", pm.math.stack([m1, m2, m3, m4, m5, m6]).T)
+
+    ## Error Terms
+    Psi = pm.InverseGamma("Psi", 5, 10, dims="indicators")
+
+    # Likelihood
     _ = pm.Normal(
         "likelihood",
         mu,
@@ -115,19 +158,29 @@ with pm.Model(coords=coords) as model:
 pm.model_to_graphviz(model)
 ```
 
+### Meausurement Model Structure
+
+We can now see how the covariance structure among the latent constructs is integral piece of the overarching model design which is fed forward into our pseudo regression components and weighted with the respective lambda terms. 
+
 ```{code-cell} ipython3
 az.summary(idata, var_names=["lambdas1", "lambdas2"])
 ```
 
+These factor loadings are generally important to interpret in terms of construct validity. Because we've specified one of the indicator variables to be fixed at 1, the other indicators which load on that factor should have a loading coefficient in broadly the same scale as the fixed point indicator that defines the construct scale. We're looking for consistency among the loadings to assess whether the indicators are reliable measures of the construct.
+
 ```{code-cell} ipython3
 idata
 ```
+
+Let's plot the trace diagnostics to validate the sampler has converged well to the posterior distribution. 
 
 ```{code-cell} ipython3
 az.plot_trace(idata, var_names=["lambdas1", "lambdas2", "tau", "Psi", "ksi"]);
 ```
 
 ### Sampling the Latent Constructs
+
+One thing to highlight in particular about the Bayesian manner of fitting CFA and SEM models is that we now have access to the posterior distribution of the latent quantities. These samples can offer insight into particular individuals in our survey that is harder to glean from the multivariate presentation of the manifest variables. 
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(1, 2, figsize=(20, 9))
@@ -156,7 +209,13 @@ ax2.set_title("Individual Life Satisfaction Metric \n On Latent Factor LS")
 plt.show();
 ```
 
+In this way we can identify and zero-in on individuals that appear to be outliers on one or more of the latent constructs.
+
++++
+
 ### Posterior Predictive Checks
+
+As in more traditional Bayesian modelling, a core component of model evaluation is the assessment of the posterior predictive distribution i.e. the implied outcome distribution. Here too we can pull out draws against each of the indicator variables to assess for coherence and adequacy. 
 
 ```{code-cell} ipython3
 def make_ppc(
@@ -192,6 +251,8 @@ del idata
 ```
 
 ### Intermediate Cross-Loading Model
+
+The idea of a measurment is maybe a little opaque when we only see models that fit well. Instead we want to briefly show how a in-apt measurement model gets reflected in the estimated parameters for the factor loadings. Here we specify a measurement model which attempts to couple the `se_social` and `sup_parents` indicators and bundle them into the same factor. 
 
 ```{code-cell} ipython3
 coords = {
@@ -285,6 +346,8 @@ with pm.Model(coords=coords) as model:
 pm.model_to_graphviz(model)
 ```
 
+Again our model samples well but the parameter estimates suggest that there is some inconsistency between the scale on which we're trying to force both sets of metrics. 
+
 ```{code-cell} ipython3
 az.summary(idata, var_names=["lambdas1", "lambdas2"])
 ```
@@ -295,6 +358,10 @@ axs = axs.flatten()
 az.plot_energy(idata, ax=axs[0])
 az.plot_forest(idata, var_names=["lambdas1"], combined=True, ax=axs[1]);
 ```
+
+This hints at a variety of measurement model misspecification and should force us back to the drawing board. 
+
++++
 
 ## Full Measurement Model
 
@@ -627,7 +694,7 @@ ax.set_title("Residuals between Model Implied and Sample Correlations", fontsize
 ```
 
 ```{code-cell} ipython3
-make_ppc(idata_sem0)
+make_ppc(idata_sem0, 100, drivers=drivers, dims=(3, 5))
 ```
 
 ```{code-cell} ipython3
