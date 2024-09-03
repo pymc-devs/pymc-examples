@@ -128,7 +128,7 @@ We can also express Model 1 in Wilkinson notation as `y ~ 1 + x` which is equiva
 
 +++
 
-### Build model
+So now we can express this as a PyMC model. We can notice how closely the model syntax mirrors the mathematical notation above.
 
 ```{code-cell} ipython3
 with pm.Model() as model1:
@@ -139,6 +139,8 @@ with pm.Model() as model1:
     μ = pm.Deterministic("μ", β0 + β1 * x, dims="obs_id")
     pm.Normal("y", mu=μ, sigma=sigma, observed=data.y, dims="obs_id")
 ```
+
+And we can visualize the DAG which can be a useful way to check that our model is correctly specified.
 
 ```{code-cell} ipython3
 pm.model_to_graphviz(model1)
@@ -297,7 +299,7 @@ We can also express this Model 2 in Wilkinson notation as `y ~ 0 + g + x:g`.
 
 +++
 
-### Build model
+Let's express Model 2 with PyMC code.
 
 ```{code-cell} ipython3
 coords = {"group": group_list}
@@ -431,11 +433,97 @@ ax[0].set(
 
 ## Model 3: Partial pooling model
 
-Model 3 assumes the same causal DAG as model 2 (see above). However, we can go further and incorporate more knowledge about the structure of our data. Rather than treating each group as entirely independent, we can use our knowledge that these groups are drawn from a population-level distribution. 
+Model 3 assumes the same causal DAG as model 2 (see above). However, we can go further and incorporate more knowledge about the structure of our data. Rather than treating each group as entirely independent, we can use our knowledge that these groups are drawn from a population-level distribution. We could formalise this as saying that the group-level slopes and intercepts are modeled as deflections from a population-level slopes and intercepts, respectively.
 
 +++
 
 And we could describe this model mathematically as:
+
+$$
+% \begin{aligned}
+% \beta_0 &\sim \text{Normal}(0, 1) \\
+% \beta_1 &\sim \text{Normal}(0, 1) \\
+% p_{0\sigma}, p_{1\sigma} &\sim \text{Gamma}(2, 2) \\
+% \vec{u_0} &\sim \text{Normal}(0, p_{0\sigma}) \\ 
+% \vec{u_1} &\sim \text{Normal}(0, p_{1\sigma}) \\ 
+% \sigma &\sim \text{Gamma}(2, 2) \\
+% \mu_i &= \overbrace{\Big( \underbrace{\beta_0}_{\text{pop}} + \underbrace{\vec{u_0}[g_i]}_{\text{group}} \Big)}^{\text{intercept}} 
+%          + \overbrace{\Big( \underbrace{\beta_1[g_i] \cdot x_i}_{\text{pop}} + \underbrace{\vec{u_1}[g_i] \cdot u_i }_{\text{group}}\Big) }^{\text{slope}}\\
+% y_i &\sim \text{Normal}(\mu_i, \sigma)
+% \end{aligned}
+\begin{aligned}
+\beta_0 &\sim \text{Normal}(0, 1), \\
+\beta_1 &\sim \text{Normal}(0, 1), \\
+p_{0\sigma}, p_{1\sigma} &\sim \text{Gamma}(2, 2), \\
+\vec{u_0} &\sim \text{Normal}(0, p_{0\sigma}), \\ 
+\vec{u_1} &\sim \text{Normal}(0, p_{1\sigma}), \\ 
+\sigma &\sim \text{Gamma}(2, 2), \\
+\mu_i &= \overbrace{
+            \left( 
+                \underbrace{\beta_0}_{\text{pop}} 
+                + \underbrace{\vec{u_0}[g_i]}_{\text{group}} 
+            \right)
+         }^{\text{intercept}}
+      + \overbrace{
+            \left( 
+                \underbrace{\beta_1 \cdot x_i}_{\text{pop}} 
+                + \underbrace{\vec{u_1}[g_i] \cdot u_i}_{\text{group}} 
+            \right)
+         }^{\text{slope}}, \\
+y_i &\sim \text{Normal}(\mu_i, \sigma).
+\end{aligned}
+$$
+
+where 
+* $\beta_0$ and $\beta_1$ are the population level intercepts and slopes, respectively.
+* $\vec{u_0}$ and $\vec{u_1}$ are group level deflections from the population level parameters.
+* $p_{0\sigma}, p_{1\sigma}$ are the standard deviations of the intercept and slope deflections and can be thought of as 'shrinkage parameters'. 
+  * In the limt of $p_{0\sigma}, p_{1\sigma} \rightarrow \infty$ we recover the unpooled model.
+  * In the limit of $p_{0\sigma}, p_{1\sigma} \rightarrow 0$ we recover the pooled model.
+
++++
+
+:::{note}
+We can also express this Model 3 in Wilkinson notation as `1 + x + (1 + x | g)`.
+
+* The `1` captures the global intercept, $\beta_0$.
+* The `x` captures the global slope, $\beta_1$.
+* The `(1 + x | g)` term captures group specific random effects for the intercept and slope.
+  * `1 | g` captures the group specific intercept deflections $\vec{u_0}$ parameters.
+  * `x | g` captures the group specific slope deflections $\vec{u_1}[g_i]$ parameters.
+:::
+
+```{code-cell} ipython3
+with pm.Model(coords=coords) as model3:
+    # Population level priors
+    β0 = pm.Normal("β0", 0, 1)
+    β1 = pm.Normal("β1", 0, 1)
+    # Group level shrinkage
+    intercept_sigma = pm.Gamma("intercept_sigma", 2, 2)
+    slope_sigma = pm.Gamma("slope_sigma", 2, 2)
+    # Group level deflections
+    u0 = pm.Normal("u0", 0, intercept_sigma, dims="group")
+    u1 = pm.Normal("u1", 0, slope_sigma, dims="group")
+    # observations noise prior
+    sigma = pm.Gamma("sigma", 2, 2)
+    # Data
+    x = pm.Data("x", data.x, dims="obs_id")
+    g = pm.Data("g", data.group_idx, dims="obs_id")
+    # Linear model
+    μ = pm.Deterministic("μ", (β0 + u0[g]) + (β1 * x + u1[g] * x), dims="obs_id")
+    # Define likelihood
+    pm.Normal("y", mu=μ, sigma=sigma, observed=data.y, dims="obs_id")
+```
+
+The DAG of this model highlights the scalar population level parameters $\beta_0$ and $\beta_1$ and the group level parameters $\vec{u_0}$ and $\vec{u_1}$.
+
+```{code-cell} ipython3
+pm.model_to_graphviz(model3)
+```
+
+:::{note}
+
+For the sake of completeness, there is another equivalent way to write this model.
 
 $$
 \begin{aligned}
@@ -451,16 +539,36 @@ $$
 
 where $\vec{\beta_0}$ and $\vec{\beta_1}$ are the group-level parameters. These group level parameters can be though of as being sampled from population level intercept distribution $\text{Normal}(p_{0\mu}, p_{0\sigma})$ and population level slope distribution $\text{Normal}(p_{1\mu}, p_{1\sigma})$.
 
-+++
+However, this formulation of the model does not so neatly map on to the Wilkinson notation. For this reason, we have chosen to present the model in the form given above. For an interesting discussion on this topic, see [Discussion #808](https://github.com/bambinos/bambi/discussions/808) in the [`bambi`](https://github.com/bambinos/bambi) repository.
 
-:::{note}
-We can also express this Model 3 in Wilkinson notation as `1 + x + (1 + x | g)`.
+---
 
-* The `1` captures the global intercept, $\mathrm{Normal}(p_{0\mu}, p_{0\sigma})$.
-* The `x` captures the global slope, $\mathrm{Normal}(p_{1\mu}, p_{1\sigma})$.
-* The `(1 + x | g)` term captures group specific random effects for the intercept and slope.
-  * `1 | g` captures the group specific intercept $\vec{\beta_0}[g_i]$ parameters.
-  * `x | g` captures the group specific slope $\vec{\beta_1}[g_i]$ parameters.
+And we could convert this into a PyMC model as:
+
+```python
+with pm.Model(coords=coords) as model3:
+    # Define priors
+    intercept_mu = pm.Normal("intercept_mu", 0, 1)
+    slope_mu = pm.Normal("slope_mu", 0, 1)
+    intercept_sigma = pm.Gamma("intercept_sigma", 2, 2)
+    slope_sigma = pm.Gamma("slope_sigma", 2, 2)
+    sigma = pm.Gamma("sigma", 2, 2)
+    β0 = pm.Normal("β0", intercept_mu, intercept_sigma, dims="group")
+    β1 = pm.Normal("β1", slope_mu, slope_sigma, dims="group")
+
+    # Sample from population level slope and intercepts for convenience
+    pm.Normal("pop_intercept", intercept_mu, intercept_sigma)
+    pm.Normal("pop_slope", slope_mu, slope_sigma)
+
+    # Data
+    x = pm.Data("x", data.x, dims="obs_id")
+    g = pm.Data("g", data.group_idx, dims="obs_id")
+    # Linear model
+    μ = pm.Deterministic("μ", β0[g] + β1[g] * x, dims="obs_id")
+    # Define likelihood
+    pm.Normal("y", mu=μ, sigma=sigma, observed=data.y, dims="obs_id")
+```
+
 :::
 
 +++
@@ -477,55 +585,12 @@ In one sense this move from Model 2 to Model 3 can be seen as adding parameters,
 
 +++
 
-### Build model
-
-```{code-cell} ipython3
-non_centered = False
-
-with pm.Model(coords=coords) as model3:
-    # Define priors
-    intercept_mu = pm.Normal("intercept_mu", 0, 1)
-    slope_mu = pm.Normal("slope_mu", 0, 1)
-    intercept_sigma = pm.Gamma("intercept_sigma", 2, 2)
-    slope_sigma = pm.Gamma("slope_sigma", 2, 2)
-    sigma = pm.Gamma("sigma", 2, 2)
-    if non_centered:
-        gamma_0 = pm.Normal("gamma_0", 0, 1, dims="group")
-        β0 = pm.Deterministic("β0", intercept_mu + gamma_0 * intercept_sigma, dims="group")
-        gamma_1_offset = pm.Normal("gamma_1_offset", 0, 1, dims="group")
-        β1 = pm.Deterministic("β1", slope_mu + gamma_1_offset * slope_sigma, dims="group")
-    else:
-        β0 = pm.Normal("β0", intercept_mu, intercept_sigma, dims="group")
-        β1 = pm.Normal("β1", slope_mu, slope_sigma, dims="group")
-
-    # Sample from population level slope and intercepts for convenience
-    pm.Normal("pop_intercept", intercept_mu, intercept_sigma)
-    pm.Normal("pop_slope", slope_mu, slope_sigma)
-
-    # Data
-    x = pm.Data("x", data.x, dims="obs_id")
-    g = pm.Data("g", data.group_idx, dims="obs_id")
-    # Linear model
-    μ = pm.Deterministic("μ", β0[g] + β1[g] * x, dims="obs_id")
-    # Define likelihood
-    pm.Normal("y", mu=μ, sigma=sigma, observed=data.y, dims="obs_id")
-```
-
-Plotting the DAG now makes it clear that the group-level intercept and slope parameters are drawn from population level distributions. That is, we have hyper-priors for the slopes and intercept parameters. This particular model does not have a hyper-prior for the measurement error - this is just left as one parameter per group, as in the previous model.
-
-```{code-cell} ipython3
-pm.model_to_graphviz(model3)
-```
-
-The nodes `pop_intercept` and `pop_slope` represent the population-level intercept and slope parameters. While the $\beta_0$ and $\beta_1$ nodes represent intercepts and slopes for each of the 5 observed groups (respectively), the `pop_intercept` and `pop_slope` represent what we can infer about the population-level intercept and slope. Equivalently, we could say they represent our beliefs about an as yet unobserved group.
-
-+++
-
 ### Conduct inference
 
 ```{code-cell} ipython3
 with model3:
-    idata3 = pm.sample(tune=4000, target_accept=0.99, random_seed=rng)
+    # idata3 = pm.sample(tune=4000, target_accept=0.99, random_seed=rng)
+    idata3 = pm.sample(random_seed=rng)
 ```
 
 :::{caution}
@@ -533,7 +598,7 @@ Note that despite having a longer tune period and increased `target_accept`, thi
 :::
 
 ```{code-cell} ipython3
-az.plot_trace(idata3, var_names=["pop_intercept", "pop_slope", "β0", "β1", "sigma"]);
+az.plot_trace(idata3, var_names=["~μ"]);
 ```
 
 ### Visualise
@@ -565,19 +630,72 @@ idata3 = predict(
 ```{code-cell} ipython3
 :tags: [hide-input]
 
+def plot(idata):
+    fig, ax = plt.subplots(1, 3, figsize=(12, 4))
+
+    for i in range(len(group_list)):
+
+        _xi = xr.DataArray(
+            np.linspace(
+                np.min(data.x[data.group_idx == i]),
+                np.max(data.x[data.group_idx == i]),
+                10,
+            ),
+            dims=["x_plot"],
+        )
+
+        # conditional mean plot ---------------------------------------------
+        ax[0].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
+        plot_band(
+            _xi,
+            idata.posterior_predictive.μ.isel(obs_id=(g == i)),
+            ax=ax[0],
+            color=f"C{i}",
+        )
+
+        # posterior prediction ----------------------------------------------
+        ax[1].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
+        plot_band(
+            _xi,
+            idata.posterior_predictive.y.isel(obs_id=(g == i)),
+            ax=ax[1],
+            color=f"C{i}",
+        )
+
+    # formatting
+    ax[0].set(xlabel="x", ylabel="y", title="Conditional mean")
+    ax[1].set(xlabel="x", ylabel="y", title="Posterior predictive distribution")
+
+    # parameter space ---------------------------------------------------
+    # for i, _ in enumerate(group_list):
+    #     ax[2].scatter(
+    #         az.extract(idata, var_names="β1")[i, :],
+    #         az.extract(idata, var_names="β0")[i, :],
+    #         color=f"C{i}",
+    #         alpha=0.01,
+    #         rasterized=True,
+    #         zorder=2,
+    #     )
+
+    ax[2].set(xlabel="slope", ylabel="intercept", title="Parameter space")
+    ax[2].axhline(y=0, c="k")
+    ax[2].axvline(x=0, c="k")
+    return ax
+
+
 ax = plot(idata3)
 
-# add a KDE countour plot of the population level parameters
-sns.kdeplot(
-    x=az.extract(idata3, var_names="pop_slope"),
-    y=az.extract(idata3, var_names="pop_intercept"),
-    thresh=0.1,
-    levels=5,
-    color="k",
-    ax=ax[2],
-)
+# # add a KDE countour plot of the population level parameters
+# sns.kdeplot(
+#     x=az.extract(idata3, var_names="pop_slope"),
+#     y=az.extract(idata3, var_names="pop_intercept"),
+#     thresh=0.1,
+#     levels=5,
+#     color="k",
+#     ax=ax[2],
+# )
 
-ax[2].set(xlim=[-2, 1], ylim=[-5, 5]);
+# ax[2].set(xlim=[-2, 1], ylim=[-5, 5]);
 ```
 
 The panel on the right shows the group level posterior of the slope and intercept parameters as a contour plot. We can also just plot the marginal distribution below to see how much belief we have in the slope being less than zero.
@@ -592,10 +710,10 @@ ax[0].set(
     title="Model 3 suggests negative slopes for each group", xlabel=r"$\beta_1$", ylabel="Group"
 )
 
-az.plot_posterior(idata3.posterior["pop_slope"], ref_val=0, ax=ax[1])
-ax[1].set(
-    title="Population level slope parameter", xlabel=r"$\text{Normal}(p_{1\mu}, p_{1\sigma})$"
-);
+# az.plot_posterior(idata3.posterior["pop_slope"], ref_val=0, ax=ax[1])
+# ax[1].set(
+#     title="Population level slope parameter", xlabel=r"$\text{Normal}(p_{1\mu}, p_{1\sigma})$"
+# );
 ```
 
 ## Summary
