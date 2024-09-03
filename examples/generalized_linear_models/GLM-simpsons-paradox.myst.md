@@ -175,10 +175,12 @@ And now let's use that `predict` function to do out of sample predictions which 
 ```{code-cell} ipython3
 :tags: [hide-output]
 
+xi = np.linspace(data.x.min(), data.x.max(), 20)
+
 idata1 = predict(
     model=model1,
     idata=idata1,
-    predict_at={"x": np.linspace(data.x.min(), data.x.max(), 20)},
+    predict_at={"x": xi},
 )
 ```
 
@@ -210,8 +212,6 @@ def plot_band(xi, var: xr.DataArray, ax, color: str):
 
 def plot(idata: az.InferenceData):
     fig, ax = plt.subplots(1, 3, figsize=(12, 4))
-
-    xi = xr.DataArray(np.linspace(np.min(data.x), np.max(data.x), 20), dims=["x_plot"])
 
     # conditional mean plot ---------------------------------------------
     ax[0].scatter(data.x, data.y, color="k")
@@ -368,20 +368,10 @@ def plot(idata):
     fig, ax = plt.subplots(1, 3, figsize=(12, 4))
 
     for i in range(len(group_list)):
-
-        _xi = xr.DataArray(
-            np.linspace(
-                np.min(data.x[data.group_idx == i]),
-                np.max(data.x[data.group_idx == i]),
-                10,
-            ),
-            dims=["x_plot"],
-        )
-
         # conditional mean plot ---------------------------------------------
         ax[0].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
         plot_band(
-            _xi,
+            xi[g == i],
             idata.posterior_predictive.μ.isel(obs_id=(g == i)),
             ax=ax[0],
             color=f"C{i}",
@@ -390,7 +380,7 @@ def plot(idata):
         # posterior prediction ----------------------------------------------
         ax[1].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
         plot_band(
-            _xi,
+            xi[g == i],
             idata.posterior_predictive.y.isel(obs_id=(g == i)),
             ax=ax[1],
             color=f"C{i}",
@@ -578,13 +568,8 @@ In one sense this move from Model 2 to Model 3 can be seen as adding parameters,
 
 ```{code-cell} ipython3
 with model3:
-    # idata3 = pm.sample(tune=4000, target_accept=0.99, random_seed=rng)
-    idata3 = pm.sample(random_seed=rng)
+    idata3 = pm.sample(target_accept=0.95, random_seed=rng)
 ```
-
-:::{caution}
-Note that despite having a longer tune period and increased `target_accept`, this model can still generate a low number of divergent samples. If the reader is interested, you can explore the a "reparameterisation trick" is used by setting the flag `non_centered=True`. See the blog post [Why hierarchical models are awesome, tricky, and Bayesian](https://twiecki.io/blog/2017/02/08/bayesian-hierchical-non-centered/) by Thomas Wiecki for more information on this.
-:::
 
 ```{code-cell} ipython3
 az.plot_trace(idata3, var_names=["~μ"]);
@@ -623,20 +608,10 @@ def plot(idata):
     fig, ax = plt.subplots(1, 3, figsize=(12, 4))
 
     for i in range(len(group_list)):
-
-        _xi = xr.DataArray(
-            np.linspace(
-                np.min(data.x[data.group_idx == i]),
-                np.max(data.x[data.group_idx == i]),
-                10,
-            ),
-            dims=["x_plot"],
-        )
-
         # conditional mean plot ---------------------------------------------
         ax[0].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
         plot_band(
-            _xi,
+            xi[g == i],
             idata.posterior_predictive.μ.isel(obs_id=(g == i)),
             ax=ax[0],
             color=f"C{i}",
@@ -645,7 +620,7 @@ def plot(idata):
         # posterior prediction ----------------------------------------------
         ax[1].scatter(data.x[data.group_idx == i], data.y[data.group_idx == i], color=f"C{i}")
         plot_band(
-            _xi,
+            xi[g == i],
             idata.posterior_predictive.y.isel(obs_id=(g == i)),
             ax=ax[1],
             color=f"C{i}",
@@ -656,15 +631,15 @@ def plot(idata):
     ax[1].set(xlabel="x", ylabel="y", title="Posterior predictive distribution")
 
     # parameter space ---------------------------------------------------
-    # for i, _ in enumerate(group_list):
-    #     ax[2].scatter(
-    #         az.extract(idata, var_names="β1")[i, :],
-    #         az.extract(idata, var_names="β0")[i, :],
-    #         color=f"C{i}",
-    #         alpha=0.01,
-    #         rasterized=True,
-    #         zorder=2,
-    #     )
+    for i, _ in enumerate(group_list):
+        ax[2].scatter(
+            az.extract(idata, var_names="β1") + az.extract(idata, var_names="u1")[i, :],
+            az.extract(idata, var_names="β0") + az.extract(idata, var_names="u0")[i, :],
+            color=f"C{i}",
+            alpha=0.01,
+            rasterized=True,
+            zorder=2,
+        )
 
     ax[2].set(xlabel="slope", ylabel="intercept", title="Parameter space")
     ax[2].axhline(y=0, c="k")
