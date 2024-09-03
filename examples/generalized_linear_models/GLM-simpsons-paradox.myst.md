@@ -433,24 +433,13 @@ ax[0].set(
 
 ## Model 3: Partial pooling model
 
-Model 3 assumes the same causal DAG as model 2 (see above). However, we can go further and incorporate more knowledge about the structure of our data. Rather than treating each group as entirely independent, we can use our knowledge that these groups are drawn from a population-level distribution. We could formalise this as saying that the group-level slopes and intercepts are modeled as deflections from a population-level slopes and intercepts, respectively.
+Model 3 assumes the same causal DAG as model 2 (see above). However, we can go further and incorporate more knowledge about the structure of our data. Rather than treating each group as entirely independent, we can use our knowledge that these groups are drawn from a population-level distribution. We could formalise this as saying that the group-level slopes and intercepts are modeled as deflections from a population-level slope and intercept, respectively.
 
 +++
 
 And we could describe this model mathematically as:
 
 $$
-% \begin{aligned}
-% \beta_0 &\sim \text{Normal}(0, 1) \\
-% \beta_1 &\sim \text{Normal}(0, 1) \\
-% p_{0\sigma}, p_{1\sigma} &\sim \text{Gamma}(2, 2) \\
-% \vec{u_0} &\sim \text{Normal}(0, p_{0\sigma}) \\ 
-% \vec{u_1} &\sim \text{Normal}(0, p_{1\sigma}) \\ 
-% \sigma &\sim \text{Gamma}(2, 2) \\
-% \mu_i &= \overbrace{\Big( \underbrace{\beta_0}_{\text{pop}} + \underbrace{\vec{u_0}[g_i]}_{\text{group}} \Big)}^{\text{intercept}} 
-%          + \overbrace{\Big( \underbrace{\beta_1[g_i] \cdot x_i}_{\text{pop}} + \underbrace{\vec{u_1}[g_i] \cdot u_i }_{\text{group}}\Big) }^{\text{slope}}\\
-% y_i &\sim \text{Normal}(\mu_i, \sigma)
-% \end{aligned}
 \begin{aligned}
 \beta_0 &\sim \text{Normal}(0, 1), \\
 \beta_1 &\sim \text{Normal}(0, 1), \\
@@ -467,7 +456,7 @@ p_{0\sigma}, p_{1\sigma} &\sim \text{Gamma}(2, 2), \\
       + \overbrace{
             \left( 
                 \underbrace{\beta_1 \cdot x_i}_{\text{pop}} 
-                + \underbrace{\vec{u_1}[g_i] \cdot u_i}_{\text{group}} 
+                + \underbrace{\vec{u_1}[g_i] \cdot x_i}_{\text{group}} 
             \right)
          }^{\text{slope}}, \\
 y_i &\sim \text{Normal}(\mu_i, \sigma).
