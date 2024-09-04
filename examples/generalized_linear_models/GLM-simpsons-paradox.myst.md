@@ -433,12 +433,12 @@ And we could describe this model mathematically as:
 
 $$
 \begin{aligned}
-\beta_0 &\sim \text{Normal}(0, 5), \\
-\beta_1 &\sim \text{Normal}(0, 5), \\
-p_{0\sigma}, p_{1\sigma} &\sim \text{Gamma}(2, 2), \\
-\vec{u_0} &\sim \text{Normal}(0, p_{0\sigma}), \\ 
-\vec{u_1} &\sim \text{Normal}(0, p_{1\sigma}), \\ 
-\sigma &\sim \text{Gamma}(2, 2), \\
+\beta_0 &\sim \text{Normal}(0, 5) \\
+\beta_1 &\sim \text{Normal}(0, 5) \\
+p_{0\sigma}, p_{1\sigma} &\sim \text{Gamma}(2, 2) \\
+\vec{u_0} &\sim \text{Normal}(0, p_{0\sigma}) \\ 
+\vec{u_1} &\sim \text{Normal}(0, p_{1\sigma}) \\ 
+\sigma &\sim \text{Gamma}(2, 2) \\
 \mu_i &= \overbrace{
             \left( 
                 \underbrace{\beta_0}_{\text{pop}} 
@@ -450,8 +450,8 @@ p_{0\sigma}, p_{1\sigma} &\sim \text{Gamma}(2, 2), \\
                 \underbrace{\beta_1 \cdot x_i}_{\text{pop}} 
                 + \underbrace{\vec{u_1}[g_i] \cdot x_i}_{\text{group}} 
             \right)
-         }^{\text{slope}}, \\
-y_i &\sim \text{Normal}(\mu_i, \sigma).
+         }^{\text{slope}} \\
+y_i &\sim \text{Normal}(\mu_i, \sigma)
 \end{aligned}
 $$
 
