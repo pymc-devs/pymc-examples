@@ -252,7 +252,7 @@ del idata
 
 ### Intermediate Cross-Loading Model
 
-The idea of a measurment is maybe a little opaque when we only see models that fit well. Instead we want to briefly show how a in-apt measurement model gets reflected in the estimated parameters for the factor loadings. Here we specify a measurement model which attempts to couple the `se_social` and `sup_parents` indicators and bundle them into the same factor. 
+The idea of a measurment is maybe a little opaque when we only see models that fit well. Instead we want to briefly show how an in-apt measurement model gets reflected in the estimated parameters for the factor loadings. Here we specify a measurement model which attempts to couple the `se_social` and `sup_parents` indicators and bundle them into the same factor. 
 
 ```{code-cell} ipython3
 coords = {
@@ -352,6 +352,8 @@ Again our model samples well but the parameter estimates suggest that there is s
 az.summary(idata, var_names=["lambdas1", "lambdas2"])
 ```
 
+This is similarly refected in the diagnostic energy plots here too. 
+
 ```{code-cell} ipython3
 fig, axs = plt.subplots(1, 2, figsize=(20, 9))
 axs = axs.flatten()
@@ -359,11 +361,13 @@ az.plot_energy(idata, ax=axs[0])
 az.plot_forest(idata, var_names=["lambdas1"], combined=True, ax=axs[1]);
 ```
 
-This hints at a variety of measurement model misspecification and should force us back to the drawing board. 
+This hints at a variety of measurement model misspecification and should force us back to the drawing board. An appropriate measurement model maps the indicator variables to a consistently defined latent construct that plausibly reflects aspects of the realised indicator metrics. 
 
 +++
 
 ## Full Measurement Model
+
+With this in mind we'll now specify a full measurement that maps each of our thematically similar indicator metrics to an indicidual latent construct. This mandates the postulation of 5 distinct constructs. 
 
 ```{code-cell} ipython3
 drivers = [
@@ -509,7 +513,62 @@ ax.set_title("Residuals between Model Implied and Sample Covariances", fontsize=
 ```
 
 ```{code-cell} ipython3
-make_ppc(idata_mm, 100, drivers=residuals_posterior_cov.columns, dims=(5, 3));
+make_ppc(idata_mm, 100, drivers=residuals_posterior_cov.columns, dims=(3, 5));
+```
+
+```{code-cell} ipython3
+cov_df = pd.DataFrame(az.extract(idata_mm["posterior"])["cov"].mean(axis=2))
+cov_df.index = ["SE_ACAD", "SE_SOCIAL", "SUP_F", "SUP_P", "LS"]
+cov_df.columns = ["SE_ACAD", "SE_SOCIAL", "SUP_F", "SUP_P", "LS"]
+
+correlation_df = pd.DataFrame(az.extract(idata_mm["posterior"])["chol_cov_corr"].mean(axis=2))
+correlation_df.index = ["SE_ACAD", "SE_SOCIAL", "SUP_F", "SUP_P", "LS"]
+correlation_df.columns = ["SE_ACAD", "SE_SOCIAL", "SUP_F", "SUP_P", "LS"]
+
+factor_loadings = pd.DataFrame(
+    az.summary(idata_mm, var_names=["lambdas1", "lambdas2", "lambdas3", "lambdas4", "lambdas5"])[
+        "mean"
+    ]
+).reset_index()
+factor_loadings["factor"] = factor_loadings["index"].str.split("[", expand=True)[0]
+factor_loadings.columns = ["factor_loading", "factor_loading_weight", "factor"]
+factor_loadings["factor_loading_weight_sq"] = factor_loadings["factor_loading_weight"] ** 2
+factor_loadings["sum_sq_loadings"] = factor_loadings.groupby("factor")[
+    "factor_loading_weight_sq"
+].transform(sum)
+factor_loadings["error_variances"] = az.summary(idata_mm, var_names=["Psi"])["mean"].values
+factor_loadings["total_indicator_variance"] = (
+    factor_loadings["factor_loading_weight_sq"] + factor_loadings["error_variances"]
+)
+factor_loadings["total_variance"] = factor_loadings["total_indicator_variance"].sum()
+factor_loadings["indicator_explained_variance"] = (
+    factor_loadings["factor_loading_weight_sq"] / factor_loadings["total_variance"]
+)
+factor_loadings["factor_explained_variance"] = (
+    factor_loadings["sum_sq_loadings"] / factor_loadings["total_variance"]
+)
+factor_loadings.style.background_gradient(
+    axis=0, subset=["indicator_explained_variance", "factor_explained_variance"]
+)
+```
+
+```{code-cell} ipython3
+fig, ax = plt.subplots(figsize=(20, 6))
+temp = factor_loadings[["factor_loading", "indicator_explained_variance"]].sort_values(
+    by="indicator_explained_variance"
+)
+ax.barh(temp["factor_loading"], temp["indicator_explained_variance"], align="center")
+ax.set_title("Explained Variance")
+```
+
+```{code-cell} ipython3
+fig, axs = plt.subplots(1, 2, figsize=(20, 6))
+axs = axs.flatten()
+mask = np.triu(np.ones_like(cov_df, dtype=bool))
+sns.heatmap(cov_df, annot=True, cmap="Blues", ax=axs[0], mask=mask)
+axs[0].set_title("Covariance of Latent Constructs")
+axs[1].set_title("Covariance of Latent Constructs")
+sns.heatmap(correlation_df, annot=True, cmap="Blues", ax=axs[1], mask=mask);
 ```
 
 ## Bayesian Structural Equation Models
@@ -596,8 +655,9 @@ def make_indirect_sem(priors):
         # Regression Components
         beta_r = pm.Normal("beta_r", 0, priors["beta_r"], dims="latent_regression")
         beta_r2 = pm.Normal("beta_r2", 0, priors["beta_r2"], dims="regression")
+        sd_dist1 = pm.Exponential.dist(1.0, shape=2)
         resid_chol, _, _ = pm.LKJCholeskyCov(
-            "resid_chol", n=2, eta=priors["eta"], sd_dist=sd_dist, compute_corr=True
+            "resid_chol", n=2, eta=1, sd_dist=sd_dist1, compute_corr=True
         )
         _ = pm.Deterministic("resid_cov", chol.dot(chol.T))
         sigmas_resid = pm.MvNormal("sigmas_resid", kappa, chol=resid_chol)
@@ -673,7 +733,7 @@ model_sem2, idata_sem2 = make_indirect_sem(
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(20, 15))
+fig, ax = plt.subplots(figsize=(10, 15))
 az.plot_forest(
     [idata_sem0, idata_sem1, idata_sem2],
     model_names=["SEM0", "SEM1", "SEM2"],
