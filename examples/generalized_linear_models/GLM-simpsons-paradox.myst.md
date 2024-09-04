@@ -47,7 +47,7 @@ rng = np.random.default_rng(1234)
 
 ## Generate data
 
-This data generation was influenced by this [stackexchange](https://stats.stackexchange.com/questions/479201/understanding-simpsons-paradox-with-random-effects) question.
+This data generation was influenced by this [stackexchange](https://stats.stackexchange.com/questions/479201/understanding-simpsons-paradox-with-random-effects) question. It will comprise observations from $G=5$ groups. The data is constructed such that there is a negative relationship between $x$ and $y$ within each group, but when all groups are combined, the relationship is positive.
 
 ```{code-cell} ipython3
 def generate():
@@ -245,7 +245,7 @@ The plot on the left shows the data and the posterior of the **conditional mean*
 
 The plot in the middle shows the **posterior predictive distribution**, which gives a statement about the data we expect to see. Intuitively, this can be understood as not only incorporating what we know of the model (left plot) but also what we know about the distribution of error.
 
-The plot on the right shows out posterior beliefs in **parameter space**.
+The plot on the right shows our posterior beliefs in **parameter space**.
 
 +++
 
@@ -285,7 +285,7 @@ y_i &\sim \text{Normal}(\mu_i, g_i)
 \end{aligned}
 $$
 
-Where $g_i$ is the group index for observation $i$. So the parameters $\beta_0$ and $\beta_1$ are now length $g$ vectors, not scalars. And the $[g_i]$ acts as an index to look up the group for the $i^\text{th}$ observation.
+Where $g_i$ is the group index for observation $i$. So the parameters $\vec{\beta_0}$ and $\vec{\beta_1}$ are now length $G$ vectors, not scalars. And the $[g_i]$ acts as an index to look up the group for the $i^\text{th}$ observation.
 
 +++
 
@@ -410,7 +410,9 @@ def plot(idata):
 plot(idata2);
 ```
 
-In contrast to Model 1, when we consider groups we can see that now the evidence points toward _negative_ relationships between $x$ and $y$.
+In contrast to Model 1, when we consider groups we can see that now the evidence points toward _negative_ relationships between $x$ and $y$. We can see that from the negative slopes in the left and middle panels of the plot above, as well as from the majority of the posterior samples for the slope parameter being negative in the left panel above.
+
+The plot below takes a closer look at the group level slope parameters.
 
 ```{code-cell} ipython3
 :tags: [hide-input]
@@ -431,8 +433,8 @@ And we could describe this model mathematically as:
 
 $$
 \begin{aligned}
-\beta_0 &\sim \text{Normal}(0, 1), \\
-\beta_1 &\sim \text{Normal}(0, 1), \\
+\beta_0 &\sim \text{Normal}(0, 5), \\
+\beta_1 &\sim \text{Normal}(0, 5), \\
 p_{0\sigma}, p_{1\sigma} &\sim \text{Gamma}(2, 2), \\
 \vec{u_0} &\sim \text{Normal}(0, p_{0\sigma}), \\ 
 \vec{u_1} &\sim \text{Normal}(0, p_{1\sigma}), \\ 
@@ -475,8 +477,8 @@ We can also express this Model 3 in Wilkinson notation as `1 + x + (1 + x | g)`.
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as model3:
     # Population level priors
-    β0 = pm.Normal("β0", 0, 1)
-    β1 = pm.Normal("β1", 0, 1)
+    β0 = pm.Normal("β0", 0, 5)
+    β1 = pm.Normal("β1", 0, 5)
     # Group level shrinkage
     intercept_sigma = pm.Gamma("intercept_sigma", 2, 2)
     slope_sigma = pm.Gamma("slope_sigma", 2, 2)
@@ -506,7 +508,7 @@ For the sake of completeness, there is another equivalent way to write this mode
 
 $$
 \begin{aligned}
-p_{0\mu}, p_{1\mu} &\sim \text{Normal}(0, 1) \\
+p_{0\mu}, p_{1\mu} &\sim \text{Normal}(0, 5) \\
 p_{0\sigma}, p_{1\sigma} &\sim \text{Gamma}(2, 2) \\
 \vec{\beta_0} &\sim \text{Normal}(p_{0\mu}, p_{0\sigma}) \\
 \vec{\beta_1} &\sim \text{Normal}(p_{1\mu}, p_{1\sigma}) \\
@@ -519,35 +521,6 @@ $$
 where $\vec{\beta_0}$ and $\vec{\beta_1}$ are the group-level parameters. These group level parameters can be though of as being sampled from population level intercept distribution $\text{Normal}(p_{0\mu}, p_{0\sigma})$ and population level slope distribution $\text{Normal}(p_{1\mu}, p_{1\sigma})$.
 
 However, this formulation of the model does not so neatly map on to the Wilkinson notation. For this reason, we have chosen to present the model in the form given above. For an interesting discussion on this topic, see [Discussion #808](https://github.com/bambinos/bambi/discussions/808) in the [`bambi`](https://github.com/bambinos/bambi) repository.
-
----
-
-And we could convert this into a PyMC model as:
-
-```python
-with pm.Model(coords=coords) as model3:
-    # Define priors
-    intercept_mu = pm.Normal("intercept_mu", 0, 1)
-    slope_mu = pm.Normal("slope_mu", 0, 1)
-    intercept_sigma = pm.Gamma("intercept_sigma", 2, 2)
-    slope_sigma = pm.Gamma("slope_sigma", 2, 2)
-    sigma = pm.Gamma("sigma", 2, 2)
-    β0 = pm.Normal("β0", intercept_mu, intercept_sigma, dims="group")
-    β1 = pm.Normal("β1", slope_mu, slope_sigma, dims="group")
-
-    # Sample from population level slope and intercepts for convenience
-    pm.Normal("pop_intercept", intercept_mu, intercept_sigma)
-    pm.Normal("pop_slope", slope_mu, slope_sigma)
-
-    # Data
-    x = pm.Data("x", data.x, dims="obs_id")
-    g = pm.Data("g", data.group_idx, dims="obs_id")
-    # Linear model
-    μ = pm.Deterministic("μ", β0[g] + β1[g] * x, dims="obs_id")
-    # Define likelihood
-    pm.Normal("y", mu=μ, sigma=sigma, observed=data.y, dims="obs_id")
-```
-
 :::
 
 +++
