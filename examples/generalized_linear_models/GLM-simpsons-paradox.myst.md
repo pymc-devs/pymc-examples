@@ -25,7 +25,7 @@ kernelspec:
 
 ![](https://upload.wikimedia.org/wikipedia/commons/f/fb/Simpsons_paradox_-_animation.gif)
 
-This paradox can be resolved by assuming a causal DAG which includes how the main predictor variable _and_ group membership influence the outcome variable. We demonstrate an example where we _don't_ incorporate group membership (so our causal DAG is wrong, or in other words out model is misspecified). We then show 2 wayes to resolve this by including group membership as causal influence upon the outcome variable. This is shown in an unpooled model (which we could also call a fixed effects model) and a hierarchical model (which we could also call a mixed effects model).
+This paradox can be resolved by assuming a causal DAG which includes how the main predictor variable _and_ group membership influence the outcome variable. We demonstrate an example where we _don't_ incorporate group membership (so our causal DAG is wrong, or in other words our model is misspecified). We then show 2 wayes to resolve this by including group membership as causal influence upon the outcome variable. This is shown in an unpooled model (which we could also call a fixed effects model) and a hierarchical model (which we could also call a mixed effects model).
 
 ```{code-cell} ipython3
 import arviz as az
