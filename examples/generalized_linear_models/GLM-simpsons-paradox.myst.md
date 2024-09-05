@@ -518,7 +518,7 @@ y_i &\sim \text{Normal}(\mu_i, \sigma)
 \end{aligned}
 $$
 
-where $\vec{\beta_0}$ and $\vec{\beta_1}$ are the group-level parameters. These group level parameters can be though of as being sampled from population level intercept distribution $\text{Normal}(p_{0\mu}, p_{0\sigma})$ and population level slope distribution $\text{Normal}(p_{1\mu}, p_{1\sigma})$.
+where $\vec{\beta_0}$ and $\vec{\beta_1}$ are the group-level parameters. These group level parameters can be thought of as being sampled from population level intercept distribution $\text{Normal}(p_{0\mu}, p_{0\sigma})$ and population level slope distribution $\text{Normal}(p_{1\mu}, p_{1\sigma})$. So these distributions would represent what we might expect to observe for some as yet unobserved group.
 
 However, this formulation of the model does not so neatly map on to the Wilkinson notation. For this reason, we have chosen to present the model in the form given above. For an interesting discussion on this topic, see [Discussion #808](https://github.com/bambinos/bambi/discussions/808) in the [`bambi`](https://github.com/bambinos/bambi) repository.
 :::
@@ -621,18 +621,6 @@ def plot(idata):
 
 
 ax = plot(idata3)
-
-# # add a KDE countour plot of the population level parameters
-# sns.kdeplot(
-#     x=az.extract(idata3, var_names="pop_slope"),
-#     y=az.extract(idata3, var_names="pop_intercept"),
-#     thresh=0.1,
-#     levels=5,
-#     color="k",
-#     ax=ax[2],
-# )
-
-# ax[2].set(xlim=[-2, 1], ylim=[-5, 5]);
 ```
 
 The panel on the right shows the group level posterior of the slope and intercept parameters as a contour plot. We can also just plot the marginal distribution below to see how much belief we have in the slope being less than zero.
@@ -640,17 +628,10 @@ The panel on the right shows the group level posterior of the slope and intercep
 ```{code-cell} ipython3
 :tags: [hide-input]
 
-fig, ax = plt.subplots(1, 2)
-
-az.plot_forest(idata2.posterior["β1"], combined=True, ax=ax[0])
+az.plot_forest(idata2.posterior["β1"], combined=True)
 ax[0].set(
     title="Model 3 suggests negative slopes for each group", xlabel=r"$\beta_1$", ylabel="Group"
-)
-
-# az.plot_posterior(idata3.posterior["pop_slope"], ref_val=0, ax=ax[1])
-# ax[1].set(
-#     title="Population level slope parameter", xlabel=r"$\text{Normal}(p_{1\mu}, p_{1\sigma})$"
-# );
+);
 ```
 
 ## Summary
