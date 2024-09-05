@@ -41,7 +41,8 @@ import xarray as xr
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
 az.style.use("arviz-darkgrid")
-plt.rcParams["figure.figsize"] = [12, 6]
+figsize = [12, 4]
+plt.rcParams["figure.figsize"] = figsize
 rng = np.random.default_rng(1234)
 ```
 
@@ -81,7 +82,8 @@ display(data)
 And we can visualise this as below.
 
 ```{code-cell} ipython3
-sns.scatterplot(data=data, x="x", y="y", hue="group");
+fig, ax = plt.subplots(figsize=(8, 6))
+sns.scatterplot(data=data, x="x", y="y", hue="group", ax=ax);
 ```
 
 The rest of the notebook will cover different ways that we can analyse this data using linear models.
@@ -417,7 +419,7 @@ The plot below takes a closer look at the group level slope parameters.
 ```{code-cell} ipython3
 :tags: [hide-input]
 
-ax = az.plot_forest(idata2.posterior["β1"], combined=True, figsize=(12, 4))
+ax = az.plot_forest(idata2.posterior["β1"], combined=True, figsize=figsize)
 ax[0].set(
     title="Model 2 suggests negative slopes for each group", xlabel=r"$\beta_1$", ylabel="Group"
 );
@@ -628,10 +630,8 @@ The panel on the right shows the group level posterior of the slope and intercep
 ```{code-cell} ipython3
 :tags: [hide-input]
 
-az.plot_forest(idata2.posterior["β1"], combined=True)
-ax[0].set(
-    title="Model 3 suggests negative slopes for each group", xlabel=r"$\beta_1$", ylabel="Group"
-);
+ax = az.plot_forest(idata2.posterior["β1"], combined=True, figsize=figsize)[0]
+ax.set(title="Model 3 suggests negative slopes for each group", xlabel=r"$\beta_1$", ylabel="Group");
 ```
 
 ## Summary
