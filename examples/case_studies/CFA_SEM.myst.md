@@ -23,9 +23,11 @@ kernelspec:
 
 In the psychometrics literature the data is often derived from a strategically constructed survey aimed at a particular target phenomena. Some intuited, but not yet measured, concept that arguably plays a role in human action, motivation or sentiment. The relative “fuzziness” of the subject matter in psychometrics has had a catalyzing effect on the methodological rigour sought in the science. Survey designs are agonized over for correct tone and rhythm of sentence structure. Measurement scales are doubly checked for reliability and correctness. The literature is consulted and questions are refined. Analysis steps are justified and tested under a wealth of modelling routines. 
 
-Model architectures are defined and refined to better express the hypothesized structures in the data-generating process. We will see how such due diligence leads to powerful and expressive models that grant us tractability on thorny questions of human affect.
+Model architectures are defined and refined to better express the hypothesized structures in the data-generating process. We will see how such due diligence leads to powerful and expressive models that grant us tractability on thorny questions of human affect. We draw on Roy Levy and Robert J. Mislevy's _Bayesian Psychometric Modeling_. 
 
 ```{code-cell} ipython3
+import warnings
+
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
@@ -33,6 +35,8 @@ import pandas as pd
 import pymc as pm
 import pytensor.tensor as pt
 import seaborn as sns
+
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 ```
 
 ```{code-cell} ipython3
@@ -65,7 +69,7 @@ sns.heatmap(df[drivers].cov(), annot=True, cmap="Blues", ax=ax, center=0, mask=m
 ax.set_title("Sample Covariances between indicator Metrics");
 ```
 
-Next we'll plot the pairplot to visualise the nature of the correlations
+The lens here on the sample covariance matrix is common in the traditional SEM models are often fit to the data by optimising a fit to the covariance matrix. Model assessment routines often gauge the model's ability to recover the sample covariance relations. There is a slightyly different approach taken in the Bayesian approach to estimating these models which focuses on the observed data rather than the derived summary statistics. Next we'll plot the pairplot to visualise the nature of the correlations
 
 ```{code-cell} ipython3
 ax = sns.pairplot(df[drivers], kind="reg", corner=True, diag_kind="kde")
@@ -88,11 +92,11 @@ y_{2} = \tau_{2}  + \lambda_{21}\text{Ksi}_{1} + \psi_{2} \\
 y_{n} = \tau_{n}  + \lambda_{n2}\text{Ksi}_{2} + \psi_{3} 
 $$ 
 
-The goal is to articulate the relationship between the different factors in terms of the covariances between these latent terms and estimate the relationships each latent factor has with the manifest indicator variables. At a high level, we're saying the joint distribution can be represented through conditionalisation in the following schema
+The goal is to articulate the relationship between the different factors in terms of the covariances between these latent terms and estimate the relationships each latent factor has with the manifest indicator variables. At a high level, we're saying the joint distribution of the observed data can be represented through conditionalisation in the following schema
 
 $$p(x_{i}.....x_{n} | \text{Ksi}, \Psi, \tau, \Lambda) \sim Normal(\tau + \Lambda\cdot \text{Ksi}, \Psi) $$
 
-We will show how to build these structures into our model below
+This is the Bayesian approach to the estimation of CFA and SEM models. We're seeking a conditionalisation structure that can retrodict the observed data based on latent constructs and hypothetical relationships among the constructs and the observed data points. We will show how to build these structures into our model below
 
 ```{code-cell} ipython3
 # Set up coordinates for appropriate indexing of latent factors
@@ -158,6 +162,10 @@ with pm.Model(coords=coords) as model:
 pm.model_to_graphviz(model)
 ```
 
+Here the model structure and dependency graph becomes a little clearer. Our likelihood term models a outcome matrix of 283x6 observations i.e. the survey responses for 6 questions. These survey responses are modelled as draws from a multivariate normal $Ksi$ with a prior correlation structure between the latent constructs. We then specify how each of the outcome measures is a function of one of the latent factor modified by the appropriate factor loading `lambda`.
+
++++
+
 ### Meausurement Model Structure
 
 We can now see how the covariance structure among the latent constructs is integral piece of the overarching model design which is fed forward into our pseudo regression components and weighted with the respective lambda terms. 
@@ -183,6 +191,8 @@ az.plot_trace(idata, var_names=["lambdas1", "lambdas2", "tau", "Psi", "ksi"]);
 One thing to highlight in particular about the Bayesian manner of fitting CFA and SEM models is that we now have access to the posterior distribution of the latent quantities. These samples can offer insight into particular individuals in our survey that is harder to glean from the multivariate presentation of the manifest variables. 
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 fig, axs = plt.subplots(1, 2, figsize=(20, 9))
 axs = axs.flatten()
 ax1 = axs[0]
@@ -342,8 +352,6 @@ with pm.Model(coords=coords) as model:
         random_seed=114,
     )
     idata.extend(pm.sample_posterior_predictive(idata))
-
-pm.model_to_graphviz(model)
 ```
 
 Again our model samples well but the parameter estimates suggest that there is some inconsistency between the scale on which we're trying to force both sets of metrics. 
@@ -367,7 +375,7 @@ This hints at a variety of measurement model misspecification and should force u
 
 ## Full Measurement Model
 
-With this in mind we'll now specify a full measurement that maps each of our thematically similar indicator metrics to an indicidual latent construct. This mandates the postulation of 5 distinct constructs. 
+With this in mind we'll now specify a full measurement that maps each of our thematically similar indicator metrics to an indicidual latent construct. This mandates the postulation of 5 distinct constructs where we only admit three metrics load on each construct. The choice of which metric loads on the latent construct is determined in our case by the constructs each measure is intended to measure. 
 
 ```{code-cell} ipython3
 drivers = [
@@ -463,12 +471,18 @@ with pm.Model(coords=coords) as model:
     idata_mm.extend(pm.sample_posterior_predictive(idata_mm))
 ```
 
+### Model Evaluation Checks
+
+We can see quickly here how this factor structure seems to sample better and retains a consistency of scale. 
+
 ```{code-cell} ipython3
 fig, axs = plt.subplots(1, 2, figsize=(20, 9))
 axs = axs.flatten()
 az.plot_energy(idata_mm, ax=axs[0])
 az.plot_forest(idata_mm, var_names=["lambdas1", "lambdas2", "lambdas3"], combined=True, ax=axs[1]);
 ```
+
+We can also pull out the more typical patterns of model evaluation by assessing the fit between the posterior predicted covariances and the sample covariances. This is a sanity check to assess local model fit statistics. The below code iterates over draws from the posterior predictive distribution and calculates the covariance or correlation matrix on eah draw, we calculate the residuals on each draw between each of the covariances and then average across the draws. 
 
 ```{code-cell} ipython3
 def get_posterior_resids(idata, samples=100, metric="cov"):
@@ -499,6 +513,8 @@ residuals_posterior_cov = get_posterior_resids(idata_mm, 2500)
 residuals_posterior_corr = get_posterior_resids(idata_mm, 2500, metric="corr")
 ```
 
+These tables lend themselves to nice plots where we can highlight the deviation from the sample covariance and correlation statistics. 
+
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(20, 7))
 mask = np.triu(np.ones_like(residuals_posterior_corr, dtype=bool))
@@ -512,11 +528,69 @@ ax = sns.heatmap(residuals_posterior_cov, annot=True, cmap="bwr", mask=mask)
 ax.set_title("Residuals between Model Implied and Sample Covariances", fontsize=25);
 ```
 
+But we can also do more contemporary Bayesian posterior predictive checks as we pull out the predictive posterior distribution for each of the observed metrics. 
+
 ```{code-cell} ipython3
 make_ppc(idata_mm, 100, drivers=residuals_posterior_cov.columns, dims=(3, 5));
 ```
 
+### Model Analysis
+
+We're not just interested in recovering the observed data patterns we also want a way of pulling out the inferences relating to the latent constructs. For instance we can pull out the factor loadings and calculate measures of variance accounted for by each of the indicator variables in this factor system and for the factors themselves. 
+
 ```{code-cell} ipython3
+def make_factor_loadings_df(idata):
+    factor_loadings = pd.DataFrame(
+        az.summary(
+            idata_mm, var_names=["lambdas1", "lambdas2", "lambdas3", "lambdas4", "lambdas5"]
+        )["mean"]
+    ).reset_index()
+    factor_loadings["factor"] = factor_loadings["index"].str.split("[", expand=True)[0]
+    factor_loadings.columns = ["factor_loading", "factor_loading_weight", "factor"]
+    factor_loadings["factor_loading_weight_sq"] = factor_loadings["factor_loading_weight"] ** 2
+    factor_loadings["sum_sq_loadings"] = factor_loadings.groupby("factor")[
+        "factor_loading_weight_sq"
+    ].transform(sum)
+    factor_loadings["error_variances"] = az.summary(idata_mm, var_names=["Psi"])["mean"].values
+    factor_loadings["total_indicator_variance"] = (
+        factor_loadings["factor_loading_weight_sq"] + factor_loadings["error_variances"]
+    )
+    factor_loadings["total_variance"] = factor_loadings["total_indicator_variance"].sum()
+    factor_loadings["indicator_explained_variance"] = (
+        factor_loadings["factor_loading_weight_sq"] / factor_loadings["total_variance"]
+    )
+    factor_loadings["factor_explained_variance"] = (
+        factor_loadings["sum_sq_loadings"] / factor_loadings["total_variance"]
+    )
+    num_cols = [c for c in factor_loadings.columns if not c in ["factor_loading", "factor"]]
+    return factor_loadings
+
+
+factor_loadings = make_factor_loadings_df(idata_mm)
+num_cols = [c for c in factor_loadings.columns if not c in ["factor_loading", "factor"]]
+factor_loadings.style.format("{:.2f}", subset=num_cols).background_gradient(
+    axis=0, subset=["indicator_explained_variance", "factor_explained_variance"]
+)
+```
+
+We can pull out and plot the ordered weightings as a kind of feature importance plot.
+
+```{code-cell} ipython3
+fig, ax = plt.subplots(figsize=(15, 6))
+temp = factor_loadings[["factor_loading", "indicator_explained_variance"]].sort_values(
+    by="indicator_explained_variance"
+)
+ax.barh(
+    temp["factor_loading"], temp["indicator_explained_variance"], align="center", color="slateblue"
+)
+ax.set_title("Explained Variance");
+```
+
+The goal of this kind of view isn't necessarily to find useful features as in the machine learning context, but to help understand the nature of the variation in our system. We can also pull out covariances and correlations among the latent factors
+
+```{code-cell} ipython3
+:tags: [hide-input]
+
 cov_df = pd.DataFrame(az.extract(idata_mm["posterior"])["cov"].mean(axis=2))
 cov_df.index = ["SE_ACAD", "SE_SOCIAL", "SUP_F", "SUP_P", "LS"]
 cov_df.columns = ["SE_ACAD", "SE_SOCIAL", "SUP_F", "SUP_P", "LS"]
@@ -525,43 +599,6 @@ correlation_df = pd.DataFrame(az.extract(idata_mm["posterior"])["chol_cov_corr"]
 correlation_df.index = ["SE_ACAD", "SE_SOCIAL", "SUP_F", "SUP_P", "LS"]
 correlation_df.columns = ["SE_ACAD", "SE_SOCIAL", "SUP_F", "SUP_P", "LS"]
 
-factor_loadings = pd.DataFrame(
-    az.summary(idata_mm, var_names=["lambdas1", "lambdas2", "lambdas3", "lambdas4", "lambdas5"])[
-        "mean"
-    ]
-).reset_index()
-factor_loadings["factor"] = factor_loadings["index"].str.split("[", expand=True)[0]
-factor_loadings.columns = ["factor_loading", "factor_loading_weight", "factor"]
-factor_loadings["factor_loading_weight_sq"] = factor_loadings["factor_loading_weight"] ** 2
-factor_loadings["sum_sq_loadings"] = factor_loadings.groupby("factor")[
-    "factor_loading_weight_sq"
-].transform(sum)
-factor_loadings["error_variances"] = az.summary(idata_mm, var_names=["Psi"])["mean"].values
-factor_loadings["total_indicator_variance"] = (
-    factor_loadings["factor_loading_weight_sq"] + factor_loadings["error_variances"]
-)
-factor_loadings["total_variance"] = factor_loadings["total_indicator_variance"].sum()
-factor_loadings["indicator_explained_variance"] = (
-    factor_loadings["factor_loading_weight_sq"] / factor_loadings["total_variance"]
-)
-factor_loadings["factor_explained_variance"] = (
-    factor_loadings["sum_sq_loadings"] / factor_loadings["total_variance"]
-)
-factor_loadings.style.background_gradient(
-    axis=0, subset=["indicator_explained_variance", "factor_explained_variance"]
-)
-```
-
-```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(20, 6))
-temp = factor_loadings[["factor_loading", "indicator_explained_variance"]].sort_values(
-    by="indicator_explained_variance"
-)
-ax.barh(temp["factor_loading"], temp["indicator_explained_variance"], align="center")
-ax.set_title("Explained Variance")
-```
-
-```{code-cell} ipython3
 fig, axs = plt.subplots(1, 2, figsize=(20, 6))
 axs = axs.flatten()
 mask = np.triu(np.ones_like(cov_df, dtype=bool))
@@ -571,7 +608,60 @@ axs[1].set_title("Covariance of Latent Constructs")
 sns.heatmap(correlation_df, annot=True, cmap="Blues", ax=axs[1], mask=mask);
 ```
 
+Which highlights the strong relationships between life-satisfaction `LS` construct, parental support `SUP_P` and social self-efficacy `SE_SOCIAL`. We can observe these patterns in the draws of our latent constructs too
+
+```{code-cell} ipython3
+:tags: [hide-input]
+
+fig, axs = plt.subplots(1, 3, figsize=(15, 10))
+axs = axs.flatten()
+ax = axs[0]
+ax1 = axs[1]
+ax2 = axs[2]
+az.plot_forest(idata_mm, var_names=["ksi"], combined=True, ax=ax, coords={"latent": ["SUP_P"]})
+az.plot_forest(
+    idata_mm,
+    var_names=["ksi"],
+    combined=True,
+    ax=ax1,
+    colors="forestgreen",
+    coords={"latent": ["SE_SOCIAL"]},
+)
+az.plot_forest(
+    idata_mm,
+    var_names=["ksi"],
+    combined=True,
+    ax=ax2,
+    colors="slateblue",
+    coords={"latent": ["LS"]},
+)
+ax.set_yticklabels([])
+ax.set_xlabel("SUP_P")
+ax1.set_yticklabels([])
+ax1.set_xlabel("SE_SOCIAL")
+ax2.set_yticklabels([])
+ax2.set_xlabel("LS")
+ax.axvline(-2, color="red")
+ax1.axvline(-2, color="red")
+ax2.axvline(-2, color="red")
+ax.set_title("Individual Parental Support Metric \n On Latent Factor SUP_P")
+ax1.set_title("Individual Social Self Efficacy \n On Latent Factor SE_SOCIAL")
+ax2.set_title("Individual Life Satisfaction Metric \n On Latent Factor LS")
+plt.show();
+```
+
 ## Bayesian Structural Equation Models
+
+We've now seen how measurement models help us understand the relationships between disparate indicator variables in a kind of crude way. We have postulated a system of latent factors and derive the correlations between these factors to help us understand the strength of relationships between the broader constructs of interest. But this is kind a special case of a structural equation models. In the SEM tradition we're interested in figuring out aspects of the structural relations between variables that means want to posit dependence and independence relationship to interrogate our beliefs about influence flows through the system. For our data set we can postulate the following chain of dependencies
+
+![Candidate Structural Model](structural_model_sem.png)
+
+This model introduces the specific claims of dependence and the question then becomes how to model these patterns? In the next section we'll build on the structures of the basic measurement model to articulate these chain of dependence as functional equations of the "root" constructs. This allows to evaluate the same questions of model adequacy as before, but additionally we can now phrase questions about direct and indirect relationships between the latent constructs. In particular, since our focus is on what drives life-satisfaction, we can ask about the mediated effects of parental support. 
+
+### Model Complexity and Bayesian Sensitivity Analysis
+
+These models are complicated, we're adding a bunch of new parameters and structure to the model. Each of the parameters is equipped with a prior that shapes the implications of the model specification. This is hugely expressive framework where we can encode a huge variety of dependencies and correlations With this freedom to structure of inferential model we need to be careful to assess the robustness of our inferences. As such we will here perform a quick sensitivity analysis to show how the central implications of this model vary under prior settings. 
+
 
 ```{code-cell} ipython3
 drivers = [
@@ -732,8 +822,16 @@ model_sem2, idata_sem2 = make_indirect_sem(
 )
 ```
 
+The main structural feature to observe is that we've now added a bunch of regressions to our model such that some of the constructs that we took as given in the measurement model are now derived as a linear combination of others. Because we removed the correlation effect between `SE_SOCIAL` AND `SE_ACAD` we re-introduce the possibility of their correlation by adding correlated error terms to their regression equations.
+
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(10, 15))
+pm.model_to_graphviz(model_sem0)
+```
+
+Next we'll see how the parameter estimates change across our prior specifications for the model
+
+```{code-cell} ipython3
+fig, ax = plt.subplots(figsize=(15, 15))
 az.plot_forest(
     [idata_sem0, idata_sem1, idata_sem2],
     model_names=["SEM0", "SEM1", "SEM2"],
@@ -742,6 +840,10 @@ az.plot_forest(
     ax=ax,
 );
 ```
+
+### Model Evaluation Checks
+
+A quick evaluation of model performance suggests we do somewhat less well in recovering the sample covariance structures than we did with simpler measurement model
 
 ```{code-cell} ipython3
 residuals_posterior_cov = get_posterior_resids(idata_sem0, 2500)
@@ -753,9 +855,17 @@ ax = sns.heatmap(residuals_posterior_corr, annot=True, cmap="bwr", center=0, mas
 ax.set_title("Residuals between Model Implied and Sample Correlations", fontsize=25);
 ```
 
+But the posterior predictive checks still look reasonable.
+
 ```{code-cell} ipython3
 make_ppc(idata_sem0, 100, drivers=drivers, dims=(3, 5))
 ```
+
+We can also continue to assess questions of direct and indirect effects that were obscure in the simpler measurement model.
+
++++
+
+### Indirect and Direct Effects
 
 ```{code-cell} ipython3
 def calculate_effects(idata, var="SUP_P"):
@@ -811,6 +921,10 @@ summary_f = pd.concat(
 summary_f.index = ["SEM0", "SEM1", "SEM2"]
 summary_f
 ```
+
+# Conclusion
+
++++
 
 ## Authors
 - Authored by [Nathaniel Forde](https://nathanielf.github.io/posts/post-with-code/CFA_AND_SEM/CFA_AND_SEM.html) in September 2024 
