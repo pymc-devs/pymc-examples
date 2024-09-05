@@ -375,7 +375,18 @@ This hints at a variety of measurement model misspecification and should force u
 
 ## Full Measurement Model
 
-With this in mind we'll now specify a full measurement that maps each of our thematically similar indicator metrics to an indicidual latent construct. This mandates the postulation of 5 distinct constructs where we only admit three metrics load on each construct. The choice of which metric loads on the latent construct is determined in our case by the constructs each measure is intended to measure. 
+With this in mind we'll now specify a full measurement that maps each of our thematically similar indicator metrics to an indicidual latent construct. This mandates the postulation of 5 distinct constructs where we only admit three metrics load on each construct. The choice of which metric loads on the latent construct is determined in our case by the constructs each measure is intended to measure. In the typical `lavaan` syntax we might write the model as follows: 
+
+
+```
+SUP_Parents =~ sup_parents_p1 + sup_parents_p2 + sup_parents_p3
+SUP_Friends =~ sup_friends_p1 + sup_friends_p2 + sup_friends_p3
+SE_Academic =~ se_acad_p1 + se_acad_p2 + se_acad_p3
+SE_Social =~ se_social_p1 + se_social_p2 + se_social_p3
+LS  =~ ls_p1 + ls_p2 + ls_p3
+```
+
+where the `=~` syntax denotes "is measured by" relation. It is the manner in which each of these indicator variables is determined by the latent construct that we seek to estimate when fitting a measurement model of this type. 
 
 ```{code-cell} ipython3
 drivers = [
