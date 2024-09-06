@@ -21,9 +21,9 @@ kernelspec:
 
 +++
 
-In the psychometrics literature the data is often derived from a strategically constructed survey aimed at a particular target phenomena. Some intuited, but not yet measured, concept that arguably plays a role in human action, motivation or sentiment. The relative “fuzziness” of the subject matter in psychometrics has had a catalyzing effect on the methodological rigour sought in the science. Survey designs are agonized over for correct tone and rhythm of sentence structure. Measurement scales are doubly checked for reliability and correctness. The literature is consulted and questions are refined. Analysis steps are justified and tested under a wealth of modelling routines. 
+In the psychometrics literature the data is often derived from a strategically constructed survey aimed at a particular target phenomena. Some intuited, but not yet measured, concept that arguably plays a role in human action, motivation or sentiment. The relative “fuzziness” of the subject matter in psychometrics has had a catalyzing effect on the methodological rigour sought in the science. 
 
-Model architectures are defined and refined to better express the hypothesized structures in the data-generating process. We will see how such due diligence leads to powerful and expressive models that grant us tractability on thorny questions of human affect. We draw on Roy Levy and Robert J. Mislevy's _Bayesian Psychometric Modeling_. 
+Survey designs are agonized over for correct tone and rhythm of sentence structure. Measurement scales are doubly checked for reliability and correctness. The literature is consulted and questions are refined. Analysis steps are justified and tested under a wealth of modelling routines. Model architectures are defined and refined to better express the hypothesized structures in the data-generating process. We will see how such due diligence leads to powerful and expressive models that grant us tractability on thorny questions of human affect. We draw on Roy Levy and Robert J. Mislevy's _Bayesian Psychometric Modeling_. 
 
 ```{code-cell} ipython3
 import warnings
@@ -162,7 +162,7 @@ with pm.Model(coords=coords) as model:
 pm.model_to_graphviz(model)
 ```
 
-Here the model structure and dependency graph becomes a little clearer. Our likelihood term models a outcome matrix of 283x6 observations i.e. the survey responses for 6 questions. These survey responses are modelled as draws from a multivariate normal $Ksi$ with a prior correlation structure between the latent constructs. We then specify how each of the outcome measures is a function of one of the latent factor modified by the appropriate factor loading `lambda`.
+Here the model structure and dependency graph becomes a little clearer. Our likelihood term models a outcome matrix of 283x6 observations i.e. the survey responses for 6 questions. These survey responses are modelled as regression-like outcomes from a multivariate normal $Ksi$ with a prior correlation structure between the latent constructs. We then specify how each of the outcome measures is a function of one of the latent factor modified by the appropriate factor loading `lambda`.
 
 +++
 
@@ -174,7 +174,7 @@ We can now see how the covariance structure among the latent constructs is integ
 az.summary(idata, var_names=["lambdas1", "lambdas2"])
 ```
 
-These factor loadings are generally important to interpret in terms of construct validity. Because we've specified one of the indicator variables to be fixed at 1, the other indicators which load on that factor should have a loading coefficient in broadly the same scale as the fixed point indicator that defines the construct scale. We're looking for consistency among the loadings to assess whether the indicators are reliable measures of the construct.
+These factor loadings are generally important to interpret in terms of construct validity. Because we've specified one of the indicator variables to be fixed at 1, the other indicators which load on that factor should have a loading coefficient in broadly the same scale as the fixed point indicator that defines the construct scale. We're looking for consistency among the loadings to assess whether the indicators are reliable measures of the construct i.e. if the indicator loadings deviates too far from unit 1 then there is an argument to be made that these indicators don't belong in the same factor construct. 
 
 ```{code-cell} ipython3
 idata
@@ -259,6 +259,10 @@ def make_ppc(
 make_ppc(idata)
 del idata
 ```
+
+Which shows a relatively sound recovery of the observed data. 
+
++++
 
 ### Intermediate Cross-Loading Model
 
@@ -661,17 +665,21 @@ ax2.set_title("Individual Life Satisfaction Metric \n On Latent Factor LS")
 plt.show();
 ```
 
+It's worth highlighting here the cohort on the top left of the `SUP_P` graph which have low parental support scores, seem to have less severe `SE_SOCIAL` scores. This combination seems to result in fairly standard `LS` scores suggesting some kind of moderated relationship. 
+
++++
+
 ## Bayesian Structural Equation Models
 
-We've now seen how measurement models help us understand the relationships between disparate indicator variables in a kind of crude way. We have postulated a system of latent factors and derive the correlations between these factors to help us understand the strength of relationships between the broader constructs of interest. But this is kind a special case of a structural equation models. In the SEM tradition we're interested in figuring out aspects of the structural relations between variables that means want to posit dependence and independence relationship to interrogate our beliefs about influence flows through the system. For our data set we can postulate the following chain of dependencies
+We've now seen how measurement models help us understand the relationships between disparate indicator variables in a kind of crude way. We have postulated a system of latent factors and derived the correlations between these factors to help us understand the strength of relationships between the broader constructs of interest. This is kind a special case of a structural equation models. In the SEM tradition we're interested in figuring out aspects of the structural relations between variables that means want to posit dependence and independence relationship to interrogate our beliefs about influence flows through the system. For our data set we can postulate the following chain of dependencies
 
 ![Candidate Structural Model](structural_model_sem.png)
 
-This model introduces the specific claims of dependence and the question then becomes how to model these patterns? In the next section we'll build on the structures of the basic measurement model to articulate these chain of dependence as functional equations of the "root" constructs. This allows to evaluate the same questions of model adequacy as before, but additionally we can now phrase questions about direct and indirect relationships between the latent constructs. In particular, since our focus is on what drives life-satisfaction, we can ask about the mediated effects of parental support. 
+This model introduces the specific claims of dependence and the question then becomes how to model these patterns? In the next section we'll build on the structures of the basic measurement model to articulate these chain of dependence as functional equations of the "root" constructs. This allows to evaluate the same questions of model adequacy as before, but additionally we can now phrase questions about direct and indirect relationships between the latent constructs. In particular, since our focus is on what drives life-satisfaction, we can ask about the mediated effects of parental and peer support. 
 
 ### Model Complexity and Bayesian Sensitivity Analysis
 
-These models are already complicated and now we're adding a bunch of new parameters and structure to the model. Each of the parameters is equipped with a prior that shapes the implications of the model specification. This is hugely expressive framework where we can encode a huge variety of dependencies and correlations With this freedom to structure of inferential model we need to be careful to assess the robustness of our inferences. As such we will here perform a quick sensitivity analysis to show how the central implications of this model vary under prior settings. 
+These models are already complicated and now we're adding a bunch of new parameters and structure to the model. Each of the parameters is equipped with a prior that shapes the implications of the model specification. This is a hugely expressive framework where we can encode a large variety of dependencies and correlations. With this freedom to structure our inferential model we need to be careful to assess the robustness of our inferences. As such we will here perform a quick sensitivity analysis to show how the central implications of this model vary under differing prior settings. 
 
 
 ```{code-cell} ipython3
@@ -1002,11 +1010,11 @@ Mislevy and Levy highlight this connection by focusing on the role of De Finetti
 
 $$ p(x_{1}....x_{m}) = \dfrac{p(X | \theta)p(\theta)}{p_{i}(X)} = \dfrac{p(x_{i}.....x_{n} | \text{Ksi}, \Psi, \tau, \Lambda, \beta)p(\text{Ksi}, \Psi, \tau, \Lambda, \beta) }{p(x_{i}.....x_{n})} $$
 
-So if we specify the conditional distribution correctly, we recover the conditions that warrant inference with a well designed model. The mixture distribution is just the vector of parameters upon which we condition our model. This plays out nicely in SEM and CFA models because we explicitly structure the interaction of the system to reflect remove biasing dependence structure and license clean inferences.
+So if we specify the conditional distribution __correctly__, we recover the conditions that warrant inference with a well designed model. The mixture distribution is just the vector of parameters upon which we condition our model. This plays out nicely in SEM and CFA models because we explicitly structure the interaction of the system to reflect remove biasing dependence structure and license clean inferences.
 
 > [C]onditional independence is not a grace of nature for which we must wait passively, but rather a psychological necessity which we satisfy by organising our knowledge in a specific way. An important tool in such an organisation is the identification of intermediate variables that induce conditional independence among observables; if such variables are not in our vocabulary, we create them. In medical diagnosis, for instance, when some symptoms directly influence one another, the medical profession invents a name for that interaction (e.g. “syndrome”, “complication”, “pathological state”) and treats it as a new auxiliary variable that induces conditional independence.” - Pearl quoted in {cite:t}`levy2020bayesian` p61
 
-It's this deliberate and careful focus on the structure of conditionalisation that unites the seemingly disparate disciplines of psychometrics and causal inference. 
+It's this deliberate and careful focus on the structure of conditionalisation that unites the seemingly disparate disciplines of psychometrics and causal inference. Both disciplines cultivate careful thinking about the structure of the data generating process and further proffer conditionalisation strategies to bettern target some estimand of interest. Both are well phrased in the expressive lexicon of a probabilistic programming language like `PyMC`. We encourage you to explore the rich possibilities for yourself! 
 
 +++
 
