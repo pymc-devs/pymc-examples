@@ -543,7 +543,7 @@ ax = sns.heatmap(residuals_posterior_cov, annot=True, cmap="bwr", mask=mask)
 ax.set_title("Residuals between Model Implied and Sample Covariances", fontsize=25);
 ```
 
-But we can also do more contemporary Bayesian posterior predictive checks as we pull out the predictive posterior distribution for each of the observed metrics. 
+However the focus on recovering a fit to such summary statistics is less compelling and more indirect than recovering the observed data itself. We can also do more contemporary Bayesian posterior predictive checks as we pull out the predictive posterior distribution for each of the observed metrics. 
 
 ```{code-cell} ipython3
 make_ppc(idata_mm, 100, drivers=residuals_posterior_cov.columns, dims=(5, 3));
@@ -671,7 +671,9 @@ It's worth highlighting here the cohort on the top left of the `SUP_P` graph whi
 
 ## Bayesian Structural Equation Models
 
-We've now seen how measurement models help us understand the relationships between disparate indicator variables in a kind of crude way. We have postulated a system of latent factors and derived the correlations between these factors to help us understand the strength of relationships between the broader constructs of interest. This is kind a special case of a structural equation models. In the SEM tradition we're interested in figuring out aspects of the structural relations between variables that means want to posit dependence and independence relationship to interrogate our beliefs about influence flows through the system. For our data set we can postulate the following chain of dependencies
+We've now seen how measurement models help us understand the relationships between disparate indicator variables in a kind of crude way. We have postulated a system of latent factors and derived the correlations between these factors to help us understand the strength of relationships between the broader constructs of interest. This is kind a special case of a structural equation models. In the SEM tradition we're interested in figuring out aspects of the structural relations between variables that means want to posit dependence and independence relationship to interrogate our beliefs about influence flows through the system. 
+
+For our data set we can postulate the following chain of dependencies
 
 ![Candidate Structural Model](structural_model_sem.png)
 
@@ -879,7 +881,7 @@ az.plot_forest(
 
 ### Model Evaluation Checks
 
-A quick evaluation of model performance suggests we do somewhat less well in recovering the sample covariance structures than we did with simpler measurement model
+A quick evaluation of model performance suggests we do somewhat less well in recovering the sample covariance structures than we did with simpler measurement model.
 
 ```{code-cell} ipython3
 residuals_posterior_cov = get_posterior_resids(idata_sem0, 2500)
@@ -1014,7 +1016,7 @@ So if we specify the conditional distribution __correctly__, we recover the cond
 
 > [C]onditional independence is not a grace of nature for which we must wait passively, but rather a psychological necessity which we satisfy by organising our knowledge in a specific way. An important tool in such an organisation is the identification of intermediate variables that induce conditional independence among observables; if such variables are not in our vocabulary, we create them. In medical diagnosis, for instance, when some symptoms directly influence one another, the medical profession invents a name for that interaction (e.g. “syndrome”, “complication”, “pathological state”) and treats it as a new auxiliary variable that induces conditional independence.” - Pearl quoted in {cite:t}`levy2020bayesian` p61
 
-It's this deliberate and careful focus on the structure of conditionalisation that unites the seemingly disparate disciplines of psychometrics and causal inference. Both disciplines cultivate careful thinking about the structure of the data generating process and further proffer conditionalisation strategies to bettern target some estimand of interest. Both are well phrased in the expressive lexicon of a probabilistic programming language like `PyMC`. We encourage you to explore the rich possibilities for yourself! 
+It's this deliberate and careful focus on the structure of conditionalisation that unites the seemingly disparate disciplines of psychometrics and causal inference. Both disciplines cultivate careful thinking about the structure of the data generating process and further proffer conditionalisation strategies to better target some estimand of interest. Both are well phrased in the expressive lexicon of a probabilistic programming language like `PyMC`. We encourage you to explore the rich possibilities for yourself! 
 
 +++
 
