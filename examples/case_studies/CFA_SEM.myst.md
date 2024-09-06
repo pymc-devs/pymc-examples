@@ -262,7 +262,7 @@ del idata
 
 ### Intermediate Cross-Loading Model
 
-The idea of a measurment is maybe a little opaque when we only see models that fit well. Instead we want to briefly show how an in-apt measurement model gets reflected in the estimated parameters for the factor loadings. Here we specify a measurement model which attempts to couple the `se_social` and `sup_parents` indicators and bundle them into the same factor. 
+The idea of a measurment model is maybe a little opaque when we only see models that fit well. Instead we want to briefly show how an in-apt measurement model gets reflected in the estimated parameters for the factor loadings. Here we specify a measurement model which attempts to couple the `se_social` and `sup_parents` indicators and bundle them into the same factor. 
 
 ```{code-cell} ipython3
 coords = {
@@ -542,7 +542,7 @@ ax.set_title("Residuals between Model Implied and Sample Covariances", fontsize=
 But we can also do more contemporary Bayesian posterior predictive checks as we pull out the predictive posterior distribution for each of the observed metrics. 
 
 ```{code-cell} ipython3
-make_ppc(idata_mm, 100, drivers=residuals_posterior_cov.columns, dims=(3, 5));
+make_ppc(idata_mm, 100, drivers=residuals_posterior_cov.columns, dims=(5, 3));
 ```
 
 ### Model Analysis
@@ -671,7 +671,7 @@ This model introduces the specific claims of dependence and the question then be
 
 ### Model Complexity and Bayesian Sensitivity Analysis
 
-These models are complicated, we're adding a bunch of new parameters and structure to the model. Each of the parameters is equipped with a prior that shapes the implications of the model specification. This is hugely expressive framework where we can encode a huge variety of dependencies and correlations With this freedom to structure of inferential model we need to be careful to assess the robustness of our inferences. As such we will here perform a quick sensitivity analysis to show how the central implications of this model vary under prior settings. 
+These models are already complicated and now we're adding a bunch of new parameters and structure to the model. Each of the parameters is equipped with a prior that shapes the implications of the model specification. This is hugely expressive framework where we can encode a huge variety of dependencies and correlations With this freedom to structure of inferential model we need to be careful to assess the robustness of our inferences. As such we will here perform a quick sensitivity analysis to show how the central implications of this model vary under prior settings. 
 
 
 ```{code-cell} ipython3
@@ -833,13 +833,30 @@ model_sem2, idata_sem2 = make_indirect_sem(
 )
 ```
 
-The main structural feature to observe is that we've now added a bunch of regressions to our model such that some of the constructs that we took as given in the measurement model are now derived as a linear combination of others. Because we removed the correlation effect between `SE_SOCIAL` AND `SE_ACAD` we re-introduce the possibility of their correlation by adding correlated error terms to their regression equations.
+The main structural feature to observe is that we've now added a bunch of regressions to our model such that some of the constructs that we took as given in the measurement model are now derived as a linear combination of others. Because we removed the correlation effect between `SE_SOCIAL` AND `SE_ACAD` we re-introduce the possibility of their correlation by adding correlated error terms to their regression equations. In the `lavaan` syntax we're aiming for something like
+
+```
+Measurement model
+SUP_Parents =~ sup_parents_p1 + sup_parents_p2 + sup_parents_p3
+SUP_Friends =~ sup_friends_p1 + sup_friends_p2 + sup_friends_p3
+SE_Academic =~ se_acad_p1 + se_acad_p2 + se_acad_p3
+SE_Social =~ se_social_p1 + se_social_p2 + se_social_p3
+LS  =~ ls_p1 + ls_p2 + ls_p3
+
+Regressions
+SE_Academic ~ SUP_Parents + SUP_Friends
+SE_Social ~ SUP_Parents + SUP_Friends
+LS ~ SE_Academic + SE_Social + SUP_Parents + SUP_Friends
+
+Residual covariances
+SE_Academic ~~ SE_Social
+```
 
 ```{code-cell} ipython3
 pm.model_to_graphviz(model_sem0)
 ```
 
-Next we'll see how the parameter estimates change across our prior specifications for the model
+It's worth pausing to examine the nature of the dependencies sketched in this diagram. We can see here how we've replaced the simpler measurement model structure and added three regression functions that replace the draws from the multivariate normal $Ksi$. In other words we've expressed a dependency as a series of regressions all within the one model. Next we'll see how the parameter estimates change across our prior specifications for the model. Notice the relative stability of the factor loadings compared to the regression coefficients. 
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(15, 15))
@@ -866,17 +883,57 @@ ax = sns.heatmap(residuals_posterior_corr, annot=True, cmap="bwr", center=0, mas
 ax.set_title("Residuals between Model Implied and Sample Correlations", fontsize=25);
 ```
 
-But the posterior predictive checks still look reasonable.
+But the posterior predictive checks still look reasonable. Our focal quantity of life-satisfaction seems to be recovered well.
 
 ```{code-cell} ipython3
-make_ppc(idata_sem0, 100, drivers=drivers, dims=(3, 5))
+make_ppc(idata_sem0, 100, drivers=drivers, dims=(5, 3))
 ```
 
-We can also continue to assess questions of direct and indirect effects that were obscure in the simpler measurement model.
+Model diagnostics show generally healthy looking trace plots with some divergences, but the effective sample sizea and r-hat measures are fine so we should be generally pretty happy that the model has converged to the posterior distribution well.
+
+```{code-cell} ipython3
+az.plot_trace(
+    idata_sem0,
+    var_names=["lambdas1", "lambdas2", "lambdas3", "lambdas4", "lambdas5", "beta_r", "beta_r2"],
+);
+```
+
+```{code-cell} ipython3
+az.summary(
+    idata_sem0,
+    var_names=[
+        "lambdas1",
+        "lambdas2",
+        "lambdas3",
+        "lambdas4",
+        "lambdas5",
+        "beta_r",
+        "beta_r2",
+        "Psi",
+        "tau",
+    ],
+)
+```
+
+Similar diagnostic results hold for the other models. We now continue to assess questions of direct and indirect effects that were obscure in the simpler measurement model. By which I mean we trace out the total paths that influence life-satisfaction and assess the relative strength of impact  due to parental and peer support.  
 
 +++
 
 ### Indirect and Direct Effects
+
+We now turn the additional regression structures that we've encoded into the model graph. First we pull out the regression coefficients 
+
+```{code-cell} ipython3
+fig, axs = plt.subplots(1, 2, figsize=(20, 8))
+
+az.plot_energy(idata_sem0, ax=axs[0])
+
+az.plot_forest(idata_sem0, var_names=["beta_r", "beta_r2"], combined=True, ax=axs[1])
+axs[1].axvline(0, color="red", label="zero-effect")
+axs[1].legend();
+```
+
+The coefficients indicate a smaller relative weight accorded to the effects of peer support than we see with parental support. This is borne out as we trace out the cumulative causal effects (direct and indirect) through our DAG or chain of regression coefficients. 
 
 ```{code-cell} ipython3
 def calculate_effects(idata, var="SUP_P"):
@@ -911,6 +968,8 @@ def calculate_effects(idata, var="SUP_P"):
     )
 ```
 
+Importantly we see here the effect of priors on the implied relationships. As we pull our priors closer to 0 the total effects of parental support is pulled downwards away from .5, while the peer support remains relatively stable ~.10. However it remains clear that the impact of parental support dwarfs the effects due to peer support. 
+
 ```{code-cell} ipython3
 summary_p = pd.concat(
     [calculate_effects(idata_sem0), calculate_effects(idata_sem1), calculate_effects(idata_sem2)]
@@ -919,6 +978,8 @@ summary_p = pd.concat(
 summary_p.index = ["SEM0", "SEM1", "SEM2"]
 summary_p
 ```
+
+The sensitivity of the estimated impact due to parental support varies strongly as a function of our prior on the variances. Here is a substantive example of the role of theory choice in model design. How strongly should believe that parental and peer effects have 0 effect on life-satisfaction? I'm inclined to believe we're too conservative if we try and shrink the effect toward zero and should prefer a less conservative model. However, the example here is not to dispute the issue, but demonstrate the importance of sensitivity checks. 
 
 ```{code-cell} ipython3
 summary_f = pd.concat(
@@ -934,6 +995,18 @@ summary_f
 ```
 
 # Conclusion
+
+We've just seen how we can go from thinking about the measurment of abstract psychometric constructs, through the evaluation of complex patterns of correlation and covariances among these latent constructs to evaluating hypothetical causal structures amongst the latent factors. This is a bit of whirlwind tour of psychometric models and the expressive power of SEM and CFA models, which we're ending by linking them to the realm of causal inference! This is not an accident, but rather evidence that causal concerns sit at the heart of most modeling endeavours. When we're interested in any kind of complex joint-distribution of variables, we're likely interested in the causal structure of the system - how are the realised values of some observed metrics dependent on or related to others? Importantly, we need to understand how these observations are realised without confusing simple correlation for cause through naive or confounded inference.
+
+Mislevy and Levy highlight this connection by focusing on the role of De Finetti's theorem in the recovery of exchangeable through Bayesian inference. By De Finetti’s theorem a distribution of exchangeable sequence of variables be expressed as mixture of conditional independent variables.
+
+$$ p(x_{1}....x_{m}) = \dfrac{p(X | \theta)p(\theta)}{p_{i}(X)} = \dfrac{p(x_{i}.....x_{n} | \text{Ksi}, \Psi, \tau, \Lambda, \beta)p(\text{Ksi}, \Psi, \tau, \Lambda, \beta) }{p(x_{i}.....x_{n})} $$
+
+So if we specify the conditional distribution correctly, we recover the conditions that warrant inference with a well designed model. The mixture distribution is just the vector of parameters upon which we condition our model. This plays out nicely in SEM and CFA models because we explicitly structure the interaction of the system to reflect remove biasing dependence structure and license clean inferences.
+
+> [C]onditional independence is not a grace of nature for which we must wait passively, but rather a psychological necessity which we satisfy by organising our knowledge in a specific way. An important tool in such an organisation is the identification of intermediate variables that induce conditional independence among observables; if such variables are not in our vocabulary, we create them. In medical diagnosis, for instance, when some symptoms directly influence one another, the medical profession invents a name for that interaction (e.g. “syndrome”, “complication”, “pathological state”) and treats it as a new auxiliary variable that induces conditional independence.” - Pearl quoted in {cite:t}`levy2020bayesian` p61
+
+It's this deliberate and careful focus on the structure of conditionalisation that unites the seemingly disparate disciplines of psychometrics and causal inference. 
 
 +++
 
