@@ -23,7 +23,9 @@ kernelspec:
 
 In the psychometrics literature the data is often derived from a strategically constructed survey aimed at a particular target phenomena. Some intuited, but not yet measured, concept that arguably plays a role in human action, motivation or sentiment. The relative “fuzziness” of the subject matter in psychometrics has had a catalyzing effect on the methodological rigour sought in the science. 
 
-Survey designs are agonized over for correct tone and rhythm of sentence structure. Measurement scales are doubly checked for reliability and correctness. The literature is consulted and questions are refined. Analysis steps are justified and tested under a wealth of modelling routines. Model architectures are defined and refined to better express the hypothesized structures in the data-generating process. We will see how such due diligence leads to powerful and expressive models that grant us tractability on thorny questions of human affect. We draw on Roy Levy and Robert J. Mislevy's _Bayesian Psychometric Modeling_. 
+Survey designs are agonized over for correct tone and rhythm of sentence structure. Measurement scales are doubly checked for reliability and correctness. The literature is consulted and questions are refined. Analysis steps are justified and tested under a wealth of modelling routines. Model architectures are defined and refined to better express the hypothesized structures in the data-generating process. We will see how such due diligence leads to powerful and expressive models that grant us tractability on thorny questions of human affect. 
+
+Throughout we draw on Roy Levy and Robert J. Mislevy's excellent _Bayesian Psychometric Modeling_. 
 
 ```{code-cell} ipython3
 import warnings
@@ -47,10 +49,11 @@ rng = np.random.default_rng(42)
 
 ### Latent Constructs and Measurement
 
-Our data is borrowed from work by Boris Mayer and Andrew Ellis found [here](https://methodenlehre.github.io/SGSCLM-R-course/cfa-and-sem-with-lavaan.html#structural-equation-modelling-sem). They demonstrate CFA and SEM modelling with lavaan. We’ll load up their data. We have survey responses from ~300 individuals who have answered questions regarding their upbringing, self-efficacy and reported life-satisfaction. The hypothetical dependency structure in this life-satisfaction data-set posits a moderated relationship between scores related to life-satisfaction, parental and family support and self-efficacy. It is not a trivial task to be able to design a survey that can elicit answers plausibly mapped to each of these “factors” or themes, never mind finding a model of their relationship that can inform us as to the relative of impact of each on life-satisfaction outcomes.
+Our data is borrowed from work by Boris Mayer and Andrew Ellis found [here](https://methodenlehre.github.io/SGSCLM-R-course/cfa-and-sem-with-lavaan.html#structural-equation-modelling-sem). They demonstrate CFA and SEM modelling with lavaan.
 
-First we'll pull out the data and examine some summary statistics.
+We have survey responses from ~300 individuals who have answered questions regarding their upbringing, self-efficacy and reported life-satisfaction. The hypothetical dependency structure in this life-satisfaction data-set posits a moderated relationship between scores related to life-satisfaction, parental and family support and self-efficacy. It is not a trivial task to be able to design a survey that can elicit answers plausibly mapped to each of these “factors” or themes, never mind finding a model of their relationship that can inform us as to the relative of impact of each on life-satisfaction outcomes.
 
+First let's pull out the data and examine some summary statistics.
 
 ```{code-cell} ipython3
 df = pd.read_csv("../data/sem_data.csv")
@@ -58,23 +61,29 @@ df.head()
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(20, 7))
+fig, ax = plt.subplots(figsize=(20, 10))
 drivers = [c for c in df.columns if not c in ["region", "gender", "age", "ID"]]
 corr_df = df[drivers].corr()
 mask = np.triu(np.ones_like(corr_df, dtype=bool))
 sns.heatmap(corr_df, annot=True, cmap="Blues", ax=ax, center=0, mask=mask)
 ax.set_title("Sample Correlations between indicator Metrics")
-fig, ax = plt.subplots(figsize=(20, 7))
+fig, ax = plt.subplots(figsize=(20, 10))
 sns.heatmap(df[drivers].cov(), annot=True, cmap="Blues", ax=ax, center=0, mask=mask)
 ax.set_title("Sample Covariances between indicator Metrics");
 ```
 
-The lens here on the sample covariance matrix is common in the traditional SEM models are often fit to the data by optimising a fit to the covariance matrix. Model assessment routines often gauge the model's ability to recover the sample covariance relations. There is a slightyly different approach taken in the Bayesian approach to estimating these models which focuses on the observed data rather than the derived summary statistics. Next we'll plot the pairplot to visualise the nature of the correlations
+The lens here on the sample covariance matrix is common in the traditional SEM modeling. CFA and SEM models are often estimated by fitting parameters to the data by optimising the parameter structure of the covariance matrix. Model assessment routines often gauge the model's ability to recover the sample covariance relations. There is a slightyly different (less constrained) approach taken in the Bayesian approach to estimating these models which focuses on the observed data rather than the derived summary statistics. 
+
+Next we'll plot the pairplot to visualise the nature of the correlations
 
 ```{code-cell} ipython3
 ax = sns.pairplot(df[drivers], kind="reg", corner=True, diag_kind="kde")
 plt.suptitle("Pair Plot of Indicator Metrics with Regression Fits", fontsize=30);
 ```
+
+It's this wide-ranging set of relationships that we seek to distill in our CFA models. How can we take this complex joint distribution and structure it in a way that is plausible and interpretable?
+
++++
 
 ## Measurement Models
 
@@ -535,14 +544,14 @@ residuals_posterior_corr = get_posterior_resids(idata_mm, 2500, metric="corr")
 These tables lend themselves to nice plots where we can highlight the deviation from the sample covariance and correlation statistics. 
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(20, 7))
+fig, ax = plt.subplots(figsize=(20, 10))
 mask = np.triu(np.ones_like(residuals_posterior_corr, dtype=bool))
 ax = sns.heatmap(residuals_posterior_corr, annot=True, cmap="bwr", mask=mask)
 ax.set_title("Residuals between Model Implied and Sample Correlations", fontsize=25);
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(20, 7))
+fig, ax = plt.subplots(figsize=(20, 10))
 ax = sns.heatmap(residuals_posterior_cov, annot=True, cmap="bwr", mask=mask)
 ax.set_title("Residuals between Model Implied and Sample Covariances", fontsize=25);
 ```
@@ -595,7 +604,7 @@ factor_loadings.style.format("{:.2f}", subset=num_cols).background_gradient(
 We can pull out and plot the ordered weightings as a kind of feature importance plot.
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(15, 6))
+fig, ax = plt.subplots(figsize=(15, 8))
 temp = factor_loadings[["factor_loading", "indicator_explained_variance"]].sort_values(
     by="indicator_explained_variance"
 )
@@ -618,7 +627,7 @@ correlation_df = pd.DataFrame(az.extract(idata_mm["posterior"])["chol_cov_corr"]
 correlation_df.index = ["SE_ACAD", "SE_SOCIAL", "SUP_F", "SUP_P", "LS"]
 correlation_df.columns = ["SE_ACAD", "SE_SOCIAL", "SUP_F", "SUP_P", "LS"]
 
-fig, axs = plt.subplots(1, 2, figsize=(20, 6))
+fig, axs = plt.subplots(1, 2, figsize=(20, 10))
 axs = axs.flatten()
 mask = np.triu(np.ones_like(cov_df, dtype=bool))
 sns.heatmap(cov_df, annot=True, cmap="Blues", ax=axs[0], mask=mask)
@@ -891,7 +900,7 @@ A quick evaluation of model performance suggests we do somewhat less well in rec
 residuals_posterior_cov = get_posterior_resids(idata_sem0, 2500)
 residuals_posterior_corr = get_posterior_resids(idata_sem0, 2500, metric="corr")
 
-fig, ax = plt.subplots(figsize=(20, 7))
+fig, ax = plt.subplots(figsize=(20, 10))
 mask = np.triu(np.ones_like(residuals_posterior_corr, dtype=bool))
 ax = sns.heatmap(residuals_posterior_corr, annot=True, cmap="bwr", center=0, mask=mask)
 ax.set_title("Residuals between Model Implied and Sample Correlations", fontsize=25);
