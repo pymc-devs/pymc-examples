@@ -84,19 +84,23 @@ A measurement model is a key component within the more general structural equati
 
 We'll start by fitting a "simple" CFA model in `PyMC` to demonstrate how the pieces fit together, we'll then expand our focus. Here we ignore the majority of our indicator variables and focus on the idea that there are two latent constructs: (1) Social Self-efficacy and (2) Life Satisfaction. 
 
-We're aiming to articulate a mathematical structure where our indicator variables $y_{ij}$ are determined by a latent factor $\text{Ksi}_{j}$ through an estimated factor loading $\lambda_{ij}$.  Functionally we have a set of equations with error terms $\psi_i$
+We're aiming to articulate a mathematical structure where our indicator variables $x_{ij}$ are determined by a latent factor $\text{Ksi}_{j}$ through an estimated factor loading $\lambda_{ij}$.  Functionally we have a set of equations with error terms $\psi_i$ for each individual.
 
-$$ y_{1} = \tau_{1}  + \lambda_{11}\text{Ksi}_{1} + \psi_{1}  \\ 
-y_{2} = \tau_{2}  + \lambda_{21}\text{Ksi}_{1} + \psi_{2} \\
+$$ x_{1} = \tau_{1}  + \lambda_{11}\text{Ksi}_{1} + \psi_{1}  \\ 
+x_{2} = \tau_{2}  + \lambda_{21}\text{Ksi}_{1} + \psi_{2} \\
  ... \\
-y_{n} = \tau_{n}  + \lambda_{n2}\text{Ksi}_{2} + \psi_{3} 
+x_{n} = \tau_{n}  + \lambda_{n2}\text{Ksi}_{2} + \psi_{3} 
 $$ 
 
-The goal is to articulate the relationship between the different factors in terms of the covariances between these latent terms and estimate the relationships each latent factor has with the manifest indicator variables. At a high level, we're saying the joint distribution of the observed data can be represented through conditionalisation in the following schema
+or more compactly
 
-$$p(x_{i}.....x_{n} | \text{Ksi}, \Psi, \tau, \Lambda) \sim Normal(\tau + \Lambda\cdot \text{Ksi}, \Psi) $$
+$$ \mathbf{x} = \tau + \Lambda\text{Ksi} + \Psi $$
 
-This is the Bayesian approach to the estimation of CFA and SEM models. We're seeking a conditionalisation structure that can retrodict the observed data based on latent constructs and hypothetical relationships among the constructs and the observed data points. We will show how to build these structures into our model below
+The goal is to articulate the relationship between the different factors in terms of the covariances between these latent terms and estimate the relationships each latent factor has with the manifest indicator variables. At a high level, we're saying the joint distribution of the observed data can be represented through conditionalisation in the following schema.
+
+$$p(\mathbf{x_{i}}^{T}.....\mathbf{x_{q}}^{T} | \text{Ksi}, \Psi, \tau, \Lambda) \sim Normal(\tau + \Lambda\cdot \text{Ksi}, \Psi) $$
+
+We're making an argument that the multivariate observations $\mathbf{x}$ from each individual $q$ can be considered conditionally exchangeable and in this way represented via Bayesian conditionalisation via De Finetti's theorem. This is the Bayesian approach to the estimation of CFA and SEM models. We're seeking a conditionalisation structure that can retrodict the observed data based on latent constructs and hypothetical relationships among the constructs and the observed data points. We will show how to build these structures into our model below
 
 ```{code-cell} ipython3
 # Set up coordinates for appropriate indexing of latent factors
@@ -677,7 +681,7 @@ For our data set we can postulate the following chain of dependencies
 
 ![Candidate Structural Model](structural_model_sem.png)
 
-This model introduces the specific claims of dependence and the question then becomes how to model these patterns? In the next section we'll build on the structures of the basic measurement model to articulate these chain of dependence as functional equations of the "root" constructs. This allows to evaluate the same questions of model adequacy as before, but additionally we can now phrase questions about direct and indirect relationships between the latent constructs. In particular, since our focus is on what drives life-satisfaction, we can ask about the mediated effects of parental and peer support. 
+This picture introduces specific claims of dependence and the question then becomes how to model these patterns? In the next section we'll build on the structures of the basic measurement model to articulate these chain of dependence as functional equations of the "root" constructs. This allows to evaluate the same questions of model adequacy as before, but additionally we can now phrase questions about direct and indirect relationships between the latent constructs. In particular, since our focus is on what drives life-satisfaction, we can ask our model about the mediated effects of parental and peer support. 
 
 ### Model Complexity and Bayesian Sensitivity Analysis
 
@@ -1008,15 +1012,15 @@ summary_f
 
 We've just seen how we can go from thinking about the measurment of abstract psychometric constructs, through the evaluation of complex patterns of correlation and covariances among these latent constructs to evaluating hypothetical causal structures amongst the latent factors. This is a bit of whirlwind tour of psychometric models and the expressive power of SEM and CFA models, which we're ending by linking them to the realm of causal inference! This is not an accident, but rather evidence that causal concerns sit at the heart of most modeling endeavours. When we're interested in any kind of complex joint-distribution of variables, we're likely interested in the causal structure of the system - how are the realised values of some observed metrics dependent on or related to others? Importantly, we need to understand how these observations are realised without confusing simple correlation for cause through naive or confounded inference.
 
-Mislevy and Levy highlight this connection by focusing on the role of De Finetti's theorem in the recovery of exchangeable through Bayesian inference. By De Finetti’s theorem a distribution of exchangeable sequence of variables be expressed as mixture of conditional independent variables.
+Mislevy and Levy highlight this connection by focusing on the role of De Finetti's theorem in the recovery of exchangeablility through Bayesian inference. By De Finetti’s theorem a distribution of exchangeable sequence of variables be expressed as mixture of conditional independent variables.
 
-$$ p(x_{1}....x_{m}) = \dfrac{p(X | \theta)p(\theta)}{p_{i}(X)} = \dfrac{p(x_{i}.....x_{n} | \text{Ksi}, \Psi, \tau, \Lambda, \beta)p(\text{Ksi}, \Psi, \tau, \Lambda, \beta) }{p(x_{i}.....x_{n})} $$
+$$ p(\mathbf{x_{1}}^{T}....\mathbf{x_{q}}^{T}) = \dfrac{p(X | \theta)p(\theta)}{p_{i}(X)} = \dfrac{p(\mathbf{x_{i}}^{T}.....\mathbf{x_{n}}^{T} | \text{Ksi}, \Psi, \tau, \Lambda, \beta)p(\text{Ksi}, \Psi, \tau, \Lambda, \beta) }{p(\mathbf{x_{i}}^{T}.....\mathbf{x_{n}}^{T})} $$
 
-So if we specify the conditional distribution __correctly__, we recover the conditions that warrant inference with a well designed model. The mixture distribution is just the vector of parameters upon which we condition our model. This plays out nicely in SEM and CFA models because we explicitly structure the interaction of the system to reflect remove biasing dependence structure and license clean inferences.
+This representation licenses substantive claims about the system. So if we specify the conditional distribution __correctly__, we recover the conditions that warrant inference with a well designed model because the subject's outcomes are considered exchangeable conditional on our model. The mixture distribution is just the vector of parameters upon which we condition our model. This plays out nicely in SEM and CFA models because we explicitly structure the interaction of the system to remove biasing dependence structure and license clean inferences. Holding fixed levels of the latent constructs we expect to be able to draw generalisable claims the expected realisations of the indicator metrics. 
 
 > [C]onditional independence is not a grace of nature for which we must wait passively, but rather a psychological necessity which we satisfy by organising our knowledge in a specific way. An important tool in such an organisation is the identification of intermediate variables that induce conditional independence among observables; if such variables are not in our vocabulary, we create them. In medical diagnosis, for instance, when some symptoms directly influence one another, the medical profession invents a name for that interaction (e.g. “syndrome”, “complication”, “pathological state”) and treats it as a new auxiliary variable that induces conditional independence.” - Pearl quoted in {cite:t}`levy2020bayesian` p61
 
-It's this deliberate and careful focus on the structure of conditionalisation that unites the seemingly disparate disciplines of psychometrics and causal inference. Both disciplines cultivate careful thinking about the structure of the data generating process and further proffer conditionalisation strategies to better target some estimand of interest. Both are well phrased in the expressive lexicon of a probabilistic programming language like `PyMC`. We encourage you to explore the rich possibilities for yourself! 
+It's this deliberate and careful focus on the structure of conditionalisation that unites the seemingly disparate disciplines of psychometrics and causal inference. Both disciplines cultivate careful thinking about the structure of the data generating process and, more, they proffer conditionalisation strategies to better target some estimand of interest. Both are well phrased in the expressive lexicon of a probabilistic programming language like `PyMC`. We encourage you to explore the rich possibilities for yourself! 
 
 +++
 
