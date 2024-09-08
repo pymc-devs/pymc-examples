@@ -21,7 +21,9 @@ kernelspec:
 
 +++
 
-In the psychometrics literature the data is often derived from a strategically constructed survey aimed at a particular target phenomena. Some intuited, but not yet measured, concept that arguably plays a role in human action, motivation or sentiment. The relative “fuzziness” of the subject matter in psychometrics has had a catalyzing effect on the methodological rigour sought in the science. 
+> "Evidently, the notions of relevance and dependence are far more basic to human reasoning than the numerical values attached to probability judgments...the language used for representing probabilistic information should allow assertions about dependency relationships to be expressed qualitatively, directly, and explicitly" - Pearl in _Probabilistic Reasoning in Intelligent Systems_ {cite:t}`pearl1985prob`
+
+Measurement data is psychometrics is often derived from a strategically constructed survey aimed at a particular target phenomena. Some intuited, but not yet measured, concept that arguably plays a determining role in human action, motivation or sentiment. The relative “fuzziness” of the subject matter in psychometrics has had a catalyzing effect on the methodological rigour sought in the science. 
 
 Survey designs are agonized over for correct tone and rhythm of sentence structure. Measurement scales are doubly checked for reliability and correctness. The literature is consulted and questions are refined. Analysis steps are justified and tested under a wealth of modelling routines. Model architectures are defined and refined to better express the hypothesized structures in the data-generating process. We will see how such due diligence leads to powerful and expressive models that grant us tractability on thorny questions of human affect. 
 
@@ -594,6 +596,7 @@ def make_factor_loadings_df(idata):
     return factor_loadings
 
 
+pd.set_option("display.max_colwidth", 15)
 factor_loadings = make_factor_loadings_df(idata_mm)
 num_cols = [c for c in factor_loadings.columns if not c in ["factor_loading", "factor"]]
 factor_loadings.style.format("{:.2f}", subset=num_cols).background_gradient(
