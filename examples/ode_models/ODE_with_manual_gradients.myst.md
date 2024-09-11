@@ -157,9 +157,9 @@ class LotkaVolterraModel:
                 ret = np.zeros(
                     (self._n_states, self._n_odeparams + self._n_ivs)
                 )  # except the following entries
-                ret[
-                    0, 0
-                ] = X  # \frac{\partial  [\alpha X - \beta XY]}{\partial \alpha}, and so on...
+                ret[0, 0] = (
+                    X  # \frac{\partial  [\alpha X - \beta XY]}{\partial \alpha}, and so on...
+                )
                 ret[0, 1] = -X * Y
                 ret[1, 2] = -Y
                 ret[1, 3] = X * Y

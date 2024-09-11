@@ -3,6 +3,7 @@ Sphinx plugin to run generate a gallery for notebooks
 
 Modified from the seaborn project, which modified the mpld3 project.
 """
+
 import base64
 import json
 import os
