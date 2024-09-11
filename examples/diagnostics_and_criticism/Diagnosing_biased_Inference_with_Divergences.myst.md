@@ -285,11 +285,13 @@ Algorithm implemented in `Stan` uses a heuristic to quickly identify these misbe
 
 To resolve this potential ambiguity we can adjust the step size, $\epsilon$, of the Hamiltonian transition. The smaller the step size the more accurate the trajectory and the less likely it will be mislabeled as a divergence. In other words, if we have geometric ergodicity between the Hamiltonian transition and the target distribution then decreasing the step size will reduce and then ultimately remove the divergences entirely. If we do not have geometric ergodicity, however, then decreasing the step size will not completely remove the divergences.
 
-Like `Stan`, the step size in `PyMC` is tuned automatically during warm up, but we can coerce smaller step sizes by tweaking the configuration of `PyMC`'s adaptation routine. In particular, we can increase the `target_accept` parameter from its default value of 0.8 closer to its maximum value of 1.
+In `PyMC` we do not control the step size directly, but we can coerce smaller step sizes by tweaking the configuration of `PyMC`'s adaptation routine. In particular, we can increase the `target_accept` parameter from its default value of 0.8 closer to its maximum value of 1.
 
 +++
 
 ### Adjusting Adaptation Routine
+
+To evaluate the effect of decreasing step size (increasing `target_accept`) we can run the same model across a range of `target_accept` values.
 
 ```{code-cell} ipython3
 acceptance_runs = dict()
@@ -303,10 +305,6 @@ for target_accept in [0.85, 0.90, 0.95, 0.99]:
             random_seed=SEED,
             progressbar=False,
         )
-```
-
-```{code-cell} ipython3
-longer_trace.sample_stats["diverging"].sum().item()
 ```
 
 ```{code-cell} ipython3
@@ -337,9 +335,7 @@ Here, the number of divergent transitions dropped dramatically when delta was in
 
 This behavior also has a nice geometric intuition. The more we decrease the step size the more the Hamiltonian Markov chain can explore the neck of the funnel. Consequently, the marginal posterior distribution for $log (\tau)$ stretches further and further towards negative values with the decreasing step size. 
 
-Since in `PyMC` after tuning we have a smaller step size than `Stan`, the geometery is better explored.
-
-However, the Hamiltonian transition is still not geometrically ergodic with respect to the centered implementation of the Eight Schools model. Indeed, this is expected given the observed bias.
+The Hamiltonian transition is still not geometrically ergodic with respect to the centered implementation of the Eight Schools model, as evidenced by the observed bias.
 
 ```{code-cell} ipython3
 _, ax = plt.subplots(1, 1, figsize=(10, 6))
@@ -384,7 +380,7 @@ $$\tau \sim \text{Half-Cauchy}(0, 5)$$
 $$\tilde{\theta}_{n} \sim \mathcal{N}(0, 1)$$
 $$\theta_{n} = \mu + \tau \cdot \tilde{\theta}_{n}.$$
 
-Stan model:
+In Stan, this is specified as:
 
 ```C
 data {
@@ -413,6 +409,8 @@ model {
 }
 ```
 
+Here is the corresponding `PyMC` model:
+
 ```{code-cell} ipython3
 def non_centered_eight_model():
     with pm.Model() as NonCentered_eight:
@@ -433,13 +431,13 @@ with non_centered_eight_model():
 az.summary(fit_ncp80).round(2)
 ```
 
-As shown above, the effective sample size per iteration has drastically improved, and the trace plots no longer show any "stickyness". However, we do still see the rare divergence. These infrequent divergences do not seem concentrate anywhere in parameter space, which is indicative of the divergences being false positives.
+Notice that the effective sample size per iteration has drastically improved, and the trace plots demonstrate relatively homogeneous exploration. However, we do still see the rare divergence. These infrequent divergences do not seem concentrate anywhere in parameter space, which is indicative of the divergences being false positives.
 
 ```{code-cell} ipython3
 report_trace(fit_ncp80)
 ```
 
-As expected of false positives, we can remove the divergences entirely by decreasing the step size.
+As expected of false positives, we can remove the divergences almost entirely by decreasing the step size.
 
 ```{code-cell} ipython3
 with non_centered_eight_model():
@@ -487,7 +485,7 @@ plt.legend();
 * Updated by Agustina Arroyuelo in February 2018, ([pymc#2861](https://github.com/pymc-devs/pymc/pull/2861))
 * Updated by [@CloudChaoszero](https://github.com/CloudChaoszero) in January 2021, ([pymc-examples#25](https://github.com/pymc-devs/pymc-examples/pull/25))
 * Updated Markdown and styling by @reshamas in August 2022, ([pymc-examples#402](https://github.com/pymc-devs/pymc-examples/pull/402))
-* Updated by @fonnesbeck in August 2024
+* Updated by @fonnesbeck in August 2024 ([pymc-examples#699](https://github.com/pymc-devs/pymc-examples/pull/699))
 
 ```{code-cell} ipython3
 %load_ext watermark
@@ -496,7 +494,3 @@ plt.legend();
 
 :::{include} ../page_footer.md
 :::
-
-```{code-cell} ipython3
-
-```
