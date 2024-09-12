@@ -37,11 +37,12 @@ az.style.use("arviz-darkgrid")
 warnings.filterwarnings("ignore")
 ```
 
-[Survival analysis](https://en.wikipedia.org/wiki/Survival_analysis) studies the distribution of the time between when a subject comes under observation and when that subject experiences an event of interest.  One of the fundamental challenges of survival analysis (which also makes is mathematically interesting) is that, in general, not every subject will experience the event of interest before we conduct our analysis.  In more concrete terms, if we are studying the time between cancer treatment and death (as we will in this post), we will often want to analyze our data before every subject has died.  This phenomenon is called <a href="https://en.wikipedia.org/wiki/Censoring_(statistics)">censoring</a> and is fundamental to survival analysis.
+[Survival analysis](https://en.wikipedia.org/wiki/Survival_analysis) studies the distribution of the time between when a subject comes under observation and when that subject experiences an event of interest.  One of the fundamental challenges of survival analysis (which also makes is mathematically interesting) is that, in general, not every subject will experience the event of interest before we conduct our analysis.  In more concrete terms, if we are studying the time between cancer treatment and death (as we will in this post), we will often want to analyze our data before every subject has died.  This phenomenon is called [censoring](https://en.wikipedia.org/wiki/Censoring_(statistics)) and is fundamental to survival analysis.
 
-I have previously [written](http://austinrochford.com/posts/2015-10-05-bayes-survival.html) about Bayesian survival analysis using the [semiparametric](https://en.wikipedia.org/wiki/Semiparametric_model) [Cox proportional hazards model](https://en.wikipedia.org/wiki/Proportional_hazards_model#The_Cox_model).  Implementing that semiparametric model in PyMC involved some fairly complex `numpy` code and nonobvious probability theory equivalences.  This post illustrates a parametric approach to Bayesian survival analysis in PyMC.  Parametric models of survival are simpler to both implement and understand than semiparametric models; statistically, they are also more [powerful](https://en.wikipedia.org/wiki/Statistical_power) than non- or semiparametric methods _when they are correctly specified_. This post will not further cover the differences between parametric and nonparametric models or the various methods for choosing between them.
 
-As in the previous post, we will analyze [mastectomy data](https://vincentarelbundock.github.io/Rdatasets/doc/HSAUR/mastectomy.html) from `R`'s [`HSAUR`](https://cran.r-project.org/web/packages/HSAUR/index.html) package.  First, we load the data.
+This post illustrates a parametric approach to Bayesian survival analysis in PyMC. Parametric models of survival are simpler to both implement and understand than semiparametric models; statistically, they are also more [powerful](https://en.wikipedia.org/wiki/Power_(statistics)) than non- or semiparametric methods when they are correctly specified. For an example of a [semiparametric](https://en.wikipedia.org/wiki/Semiparametric_model) [Cox proportional hazards model](https://en.wikipedia.org/wiki/Proportional_hazards_model#The_Cox_model), you can read this [blogpost](http://austinrochford.com/posts/2015-10-05-bayes-survival.html), but be aware that the post used and old version of PyMC and that Implementing a semiparametric model in PyMC involved some fairly complex numpy code and nonobvious probability theory equivalences.
+
+We will analyze the [mastectomy data](https://vincentarelbundock.github.io/Rdatasets/doc/HSAUR/mastectomy.html) from `R`'s [`HSAUR`](https://cran.r-project.org/web/packages/HSAUR/index.html) package. 
 
 ```{code-cell} ipython3
 sns.set()
@@ -227,7 +228,7 @@ with weibull_model:
 The energy plot and Bayesian fraction of missing information give no cause for concern about poor mixing in NUTS.
 
 ```{code-cell} ipython3
-az.plot_energy(weibull_trace);
+az.plot_energy(weibull_trace, fill_color=("C0", "C1"));
 ```
 
 The $\hat{R}$ statistics also indicate convergence.
@@ -239,10 +240,10 @@ max(np.max(gr_stats) for gr_stats in az.rhat(weibull_trace).values())
 Below we plot posterior distributions of the parameters.
 
 ```{code-cell} ipython3
-az.plot_forest(weibull_trace);
+az.plot_forest(weibull_trace, figsize=(10, 4));
 ```
 
-These are somewhat interesting (espescially the fact that the posterior of $\beta_1$ is fairly well-separated from zero), but the posterior predictive survival curves will be much more interpretable.
+These are somewhat interesting (especially the fact that the posterior of $\beta_1$ is fairly well-separated from zero), but the posterior predictive survival curves will be much more interpretable.
 
 The advantage of using `Data` variables is that we can now change their values to perform posterior predictive sampling.  For posterior prediction, we set $X$ to have two rows, one for a subject whose cancer had not metastized and one for a subject whose cancer had metastized.  Since we want to predict actual survival times, none of the posterior predictive rows are censored.
 
@@ -341,7 +342,7 @@ with log_logistic_model:
 All of the sampling diagnostics look good for this model.
 
 ```{code-cell} ipython3
-az.plot_energy(log_logistic_trace);
+az.plot_energy(log_logistic_trace, fill_color=("C0", "C1"));
 ```
 
 ```{code-cell} ipython3
