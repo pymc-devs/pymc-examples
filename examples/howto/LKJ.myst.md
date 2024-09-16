@@ -12,6 +12,7 @@ kernelspec:
 
 +++ {"id": "XShKDkNir2PX"}
 
+(lkj_prior_for_multivariate_normal)=
 # LKJ Cholesky Covariance Priors for Multivariate Normal Models
 
 +++ {"id": "QxSKBbjKr2PZ"}
