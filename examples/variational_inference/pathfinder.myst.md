@@ -26,7 +26,7 @@ Pathfinder {cite:p}`zhang2021pathfinder` is a variational inference algorithm th
 
 This algorithm is [implemented](https://github.com/blackjax-devs/blackjax/pull/194) in [BlackJAX](https://github.com/blackjax-devs/blackjax), a library of inference algorithms for [JAX](https://github.com/google/jax). Through PyMC's JAX-backend (through [pytensor](https://github.com/pytensor-devs/pytensor)) we can run BlackJAX's pathfinder on any PyMC model with some simple wrapper code.
 
-This wrapper code is implemented in [pymc-experimental](https://github.com/pymc-devs/pymc-experimental/). This tutorial shows how to run Pathfinder on your PyMC model.
+This wrapper code is implemented in [pymc-experimental](https://github.com/pymc-devs/pymc-experimental/). This tutorial shows how to run Pathfinder on a simple PyMC model.
 
 You first need to install `pymc-experimental`:
 
@@ -40,30 +40,58 @@ Instructions for installing other packages:
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import pymc as pm
 import pymc_experimental as pmx
+import seaborn as sns
+
+from sklearn.datasets import make_biclusters
 
 print(f"Running on PyMC v{pm.__version__}")
 ```
 
-First, define your PyMC model. Here, we use the 8-schools model.
+We will demonstrate Pathfinder on a simple logistic regression model. Follwing the example in [The Sampling Book](https://blackjax-devs.github.io/sampling-book/algorithms/pathfinder.html#the-data), we will use scikit-learn's `make_biclusters` to generate a synthetic dataset.
 
 ```{code-cell} ipython3
-# Data of the Eight Schools Model
-J = 8
-y = np.array([28.0, 8.0, -3.0, 7.0, -1.0, 1.0, 18.0, 12.0])
-sigma = np.array([15.0, 10.0, 16.0, 11.0, 9.0, 11.0, 10.0, 18.0])
+N = 50
+X, rows, cols = make_biclusters((N, 2), 2, noise=0.6, random_state=42, minval=-3, maxval=3)
+y = rows[0].astype(np.float32)
 
-with pm.Model() as model:
-    mu = pm.Normal("mu", mu=0.0, sigma=10.0)
-    tau = pm.HalfCauchy("tau", 5.0)
-
-    z = pm.Normal("z", mu=0, sigma=1, shape=J)
-    theta = mu + tau * z
-    obs = pm.Normal("obs", mu=theta, sigma=sigma, shape=J, observed=y)
+df = pd.DataFrame(X, columns=["Variable1", "Variable2"])
+df["y"] = y
 ```
 
-Next, we call `pmx.fit()` and pass in the algorithm we want it to use.
+```{code-cell} ipython3
+sns.scatterplot(data=df, x="Variable1", y="Variable2", hue="y", palette="viridis")
+```
+
+A logistic regression model can be used to infer the cluster membership of each data point:
+
+$$
+y \sim \text{Bernoulli}(p)
+$$
+
+where the probability of being in a cluster is given by:
+
+$$
+p = \text{sigmoid}(X w)
+$$
+
+We will use a normal distribution as our prior for the weights:
+
+$$
+w \sim \text{Normal}(0, \sigma)
+$$
+
+```{code-cell} ipython3
+with pm.Model() as model:
+    sigma = pm.HalfNormal("sigma", sigma=1)
+    w = pm.Normal("w", mu=0, sigma=sigma, shape=2)
+    y_hat = X @ w
+    pm.Bernoulli("y", p=pm.math.sigmoid(y_hat), observed=y)
+```
+
+Next, we call `pmx.fit()` and pass "pathfinder" as the variational inference method.
 
 ```{code-cell} ipython3
 with model:
@@ -75,6 +103,18 @@ Just like `pymc.sample()`, this returns an idata with samples from the posterior
 ```{code-cell} ipython3
 az.plot_trace(idata)
 plt.tight_layout();
+```
+
+```{code-cell} ipython3
+with model:
+    pm.sample_posterior_predictive(idata, extend_inferencedata=True)
+```
+
+The model has done a reasonable job of estimating the group membership probabilities.
+
+```{code-cell} ipython3
+df["y_hat"] = idata.posterior_predictive.mean(dim="draw")["y"].values.squeeze()
+sns.scatterplot(data=df, x="Variable1", y="Variable2", hue="y_hat", palette="viridis")
 ```
 
 ## References
@@ -90,6 +130,7 @@ plt.tight_layout();
 * Authored by Thomas Wiecki on Oct 11 2022 ([pymc-examples#429](https://github.com/pymc-devs/pymc-examples/pull/429))
 * Re-execute notebook by Reshama Shaikh on Feb 5, 2023
 * Bug fix by Chris Fonnesbeck on Jul 17, 2024
+* Changed to model to logistic regression by Chris Fonnesbeck on Sep 17, 2024
 
 +++
 
