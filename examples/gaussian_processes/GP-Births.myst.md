@@ -347,7 +347,7 @@ ax.set_title(
 );
 ```
 
-The motivation is that we have around $7.3$K data points and we want to consider the in between data points distance in the normalized (log) scale. That is why we consider the ratio `7_000 / time_str`. Note that we want to capture the long term trend, so we want to consider a length scale that is larger than the data points distance. We increase the order of magnitude by dividing by $10$. Finally, as we are setting the prior on the normalized log-scale (because that's what the GP is seeing) we take a log-transform.
+The motivation is that we have around $7.3$K data points and we want to consider the in between data points distance in the normalized scale. That is why we consider the ratio `7_000 / time_str`. Note that we want to capture the long term trend, so we want to consider a length scale that is larger than the data points distance. We increase the order of magnitude by dividing by $10$. Finally, since a {class}`~pymc.distributions.continuous.LogNormal` distribution has positive support and a common choice for length scales, we take a log-transform on the resulting quantity `700 / time_str` so ensure the mean of the prior is close to this value.
 
 +++
 
