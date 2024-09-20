@@ -353,15 +353,15 @@ Here is where hierarchical models come into play.
 
 When we pool our data, we imply that they are sampled from the same model. This ignores any variation among sampling units (other than sampling variance) -- we assume that counties are all the same:
 
-![pooled](../case_studies/pooled_model.png)
+![pooled](pooled_model.png)
 
 When we analyze data unpooled, we imply that they are sampled independently from separate models. At the opposite extreme from the pooled case, this approach claims that differences between sampling units are too large to combine them -- we assume that counties have no similarity whatsoever:
 
-![unpooled](../case_studies/unpooled_model.png)
+![unpooled](unpooled_model.png)
 
 In a hierarchical model, parameters are viewed as a sample from a population distribution of parameters. Thus, we view them as being neither entirely different or exactly the same. This is ***partial pooling***:
 
-![hierarchical](../case_studies/partial_pooled_model.png)
+![hierarchical](partial_pooled_model.png)
 
 We can use PyMC to easily specify multilevel models, and fit them using Markov chain Monte Carlo.
 
