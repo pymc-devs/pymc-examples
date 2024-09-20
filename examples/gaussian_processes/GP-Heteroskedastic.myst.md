@@ -321,7 +321,7 @@ plot_var(axs[1], sigma_samples.T**2)
 plot_total(axs[2], mu_samples.T, sigma_samples.T**2)
 ```
 
-That looks much better! We've accurately captured the mean behavior of our system, as well as the underlying trend in the variance (with appropriate uncertainty). Crucially, the aggregate behavior of the model integrates both epistemic *and* aleatoric uncertainty, and the ~5% of our observations fall outside the 2σ band are more or less evenly distributed across the domain. However, even with the Numpyro sampler, this took nearly an hour on a Ryen 7040 laptop to sample only 4k NUTS iterations. Due to the expense of the requisite matrix inversions, GPs are notoriously inefficient for large data sets. Let's reformulate this model using a sparse approximation.
+That looks much better! We've accurately captured the mean behavior of our system, as well as the underlying trend in the variance (with appropriate uncertainty). Crucially, the aggregate behavior of the model integrates both epistemic *and* aleatoric uncertainty, and the ~5% of our observations fall outside the 2σ band are more or less evenly distributed across the domain. However, even with the Numpyro sampler, this took nearly an hour on a Ryzen 7040 laptop to sample only 4k NUTS iterations. Due to the expense of the requisite matrix inversions, GPs are notoriously inefficient for large data sets. Let's reformulate this model using a sparse approximation.
 
 +++
 
@@ -341,20 +341,20 @@ class SparseLatent:
         self.L = pt.linalg.cholesky(pm.gp.util.stabilize(Kuu))
 
         self.v = pm.Normal(f"u_rotated_{name}", mu=0.0, sigma=1.0, shape=len(Xu))
-        self.u = pm.Deterministic(f"u_{name}", pt.dot(self.L, self.v))
+        self.u = pm.Deterministic(f"u_{name}", self.L @ self.v)
 
         Kfu = self.cov(X, Xu)
         self.Kuiu = pt.slinalg.solve_triangular(
             self.L.T, pt.slinalg.solve_triangular(self.L, self.u, lower=True), lower=False
         )
-        self.mu = pm.Deterministic(f"mu_{name}", pt.dot(Kfu, self.Kuiu))
+        self.mu = pm.Deterministic(f"mu_{name}", Kfu @ self.Kuiu)
         return self.mu
 
     def conditional(self, name, Xnew, Xu):
         Ksu = self.cov(Xnew, Xu)
-        mus = pt.dot(Ksu, self.Kuiu)
+        mus = Ksu @ self.Kuiu
         tmp = pt.slinalg.solve_triangular(self.L, Ksu.T, lower=True)
-        Qss = pt.dot(tmp.T, tmp)
+        Qss = tmp.T @ tmp
         Kss = self.cov(Xnew)
         Lss = pt.linalg.cholesky(pm.gp.util.stabilize(Kss - Qss))
         mu_pred = pm.MvNormal(name, mu=mus, chol=Lss, shape=len(Xnew))
@@ -374,8 +374,8 @@ with pm.Model() as model_hts:
     mu_f = mu_gp.prior("mu", X_obs, Xu)
 
     sigma_ell = pm.InverseGamma("sigma_ell", mu=ell_mu, sigma=ell_sigma)
-    sigma_η = pm.Gamma("sigma_η", alpha=2, beta=1)
-    sigma_cov = sigma_η**2 * pm.gp.cov.ExpQuad(input_dim=1, ls=sigma_ell)
+    sigma_eta = pm.Gamma("sigma_eta", alpha=2, beta=1)
+    sigma_cov = sigma_eta**2 * pm.gp.cov.ExpQuad(input_dim=1, ls=sigma_ell)
 
     lg_sigma_gp = SparseLatent(sigma_cov)
     lg_sigma_f = lg_sigma_gp.prior("lg_sigma_f", X_obs, Xu)
@@ -429,33 +429,37 @@ def add_coreg_idx(x):
     return np.hstack([np.tile(x, (2, 1)), np.vstack([np.zeros(x.shape), np.ones(x.shape)])])
 
 
+Xu = X[1::2]
 Xu_c, X_obs_c, Xnew_c = [add_coreg_idx(x) for x in [Xu, X_obs, Xnew]]
+```
 
+```{code-cell} ipython3
 with pm.Model() as model_htsc:
-    ell = pm.InverseGamma("ell", mu=ell_mu, sigma=ell_sigma)
-    eta = pm.Gamma("eta", alpha=2, beta=1)
-    cov = eta**2 * pm.gp.cov.ExpQuad(input_dim=1, ls=ell)
+    ell = pm.InverseGamma("ell", mu=ell_mu, sigma=ell_sigma, initval=1.0)
+    eta = pm.Gamma("eta", alpha=2, beta=1, initval=1.0)
+    eq_cov = eta**2 * pm.gp.cov.Matern52(input_dim=1, active_dims=[0], ls=ell)
 
     D_out = 2  # two output dimensions, mean and variance
     rank = 2  # two basis GPs
-    W = pm.Normal("W", mu=0, sigma=3, shape=(D_out, rank), initval=np.full([D_out, rank], 0.1))
+    W = pm.Normal("W", mu=0, sigma=3, shape=(D_out, rank))
     kappa = pm.Gamma("kappa", alpha=1.5, beta=1, shape=D_out)
     coreg = pm.gp.cov.Coregion(input_dim=1, active_dims=[0], kappa=kappa, W=W)
 
-    cov = pm.gp.cov.Kron([cov, coreg])
+    cov = pm.gp.cov.Kron([eq_cov, coreg])
 
     gp_LMC = SparseLatent(cov)
     LMC_f = gp_LMC.prior("LMC", X_obs_c, Xu_c)
 
+    # First half of LMC_f is the mean, second half is the log-scale
     mu_f = LMC_f[: len(y_obs_)]
     lg_sigma_f = LMC_f[len(y_obs_) :]
     sigma_f = pm.Deterministic("sigma_f", pm.math.exp(lg_sigma_f))
 
     lik_htsc = pm.Normal("lik_htsc", mu=mu_f, sigma=sigma_f, observed=y_obs_)
     trace_htsc = pm.sample(
-        target_accept=0.95,
+        target_accept=0.9,
         chains=2,
-        nuts_sampler="numpyro",
+        nuts_sampler="nutpie",
         return_inferencedata=True,
         random_seed=SEED,
     )
@@ -468,21 +472,84 @@ with model_htsc:
 ```
 
 ```{code-cell} ipython3
-sigma_samples.shape
+def get_icm(input_dim, kernel, W=None, kappa=None, B=None, active_dims=None):
+    """
+    This function generates an ICM kernel from an input kernel and a Coregion kernel.
+    """
+    coreg = pm.gp.cov.Coregion(input_dim=input_dim, W=W, kappa=kappa, B=B, active_dims=active_dims)
+    icm_cov = kernel * coreg  # Use Hadamard Product for separate inputs
+    return icm_cov
+```
+
+```{code-cell} ipython3
+with pm.Model() as model_htsc:
+    ell = pm.InverseGamma("ell", mu=ell_mu, sigma=ell_sigma, initval=1.0)
+    eta = pm.Gamma("eta", alpha=2, beta=1, initval=1.0)
+    eq_cov = eta**2 * pm.gp.cov.Matern52(input_dim=2, active_dims=[0], ls=ell)
+
+    D_out = 2  # two output dimensions, mean and variance
+    rank = 2  # two basis GPs
+    W = pm.Normal("W", mu=0, sigma=1, shape=(D_out, rank), initval=-1 * np.ones((D_out, rank)))
+    kappa = pm.Gamma("kappa", alpha=1.5, beta=1, shape=D_out)
+    B = pm.Deterministic("B", pt.dot(W, W.T) + pt.diag(kappa))
+    cov_icm = get_icm(input_dim=2, kernel=eq_cov, B=B, active_dims=[1])
+
+    gp_LMC = SparseLatent(cov_icm)
+    LMC_f = gp_LMC.prior("LMC", X_obs_c, Xu_c)
+
+    # First half of LMC_f is the mean, second half is the log-scale
+    mu_f = LMC_f[: len(y_obs_)]
+    lg_sigma_f = LMC_f[len(y_obs_) :]
+    sigma_f = pm.Deterministic("sigma_f", pm.math.exp(lg_sigma_f))
+
+    lik_htsc = pm.Normal("lik_htsc", mu=mu_f, sigma=sigma_f, observed=y_obs_)
+    trace_htsc = pm.sample(
+        target_accept=0.95,
+        chains=2,
+        nuts_sampler="nutpie",
+        return_inferencedata=True,
+        random_seed=SEED,
+    )
+
+with model_htsc:
+    c_mu_pred = gp_LMC.conditional("c_mu_pred", Xnew_c, Xu_c)
+    pm.sample_posterior_predictive(
+        trace_htsc, var_names=["c_mu_pred"], extend_inferencedata=True, predictions=True
+    )
+```
+
+```{code-cell} ipython3
+mu_f.eval()
+```
+
+```{code-cell} ipython3
+az.plot_trace(trace_htsc, var_names=["ell", "eta", "kappa"])
+```
+
+```{code-cell} ipython3
+trace_htsc.predictions["c_mu_pred"].shape
+az.extract(trace_htsc.predictions)["c_mu_pred"].shape
 ```
 
 ```{code-cell} ipython3
 # μ_samples = samples_htsc["c_mu_pred"][:, : len(Xnew)]
 # σ_samples = np.exp(samples_htsc["c_mu_pred"][:, len(Xnew) :])
-mu_samples = az.extract(trace_htsc.predictions["c_mu_pred"])["c_mu_pred"][: len(Xnew)]
-sigma_samples = np.exp(az.extract(trace_htsc.predictions["c_mu_pred"])["c_mu_pred"])[len(Xnew) :]
+samples_htsc = az.extract(trace_htsc.predictions)["c_mu_pred"]
+mu_samples = samples_htsc[: len(Xnew)]
+sigma_samples = np.exp(samples_htsc[len(Xnew) :])
 
 _, axs = plt.subplots(1, 3, figsize=(18, 4))
+# plot_mean(axs[0], mu_samples.T)
+# plot_inducing_points(axs[0])
+# plot_var(axs[1], sigma_samples.T**2)
+# axs[1].set_ylim(-0.01, 0.2)
+# axs[1].legend(loc="upper left")
+# plot_inducing_points(axs[1])
+# plot_total(axs[2], mu_samples.T, sigma_samples.T**2)
+# plot_inducing_points(axs[2])
 plot_mean(axs[0], mu_samples.T)
 plot_inducing_points(axs[0])
 plot_var(axs[1], sigma_samples.T**2)
-axs[1].set_ylim(-0.01, 0.2)
-axs[1].legend(loc="upper left")
 plot_inducing_points(axs[1])
 plot_total(axs[2], mu_samples.T, sigma_samples.T**2)
 plot_inducing_points(axs[2])
