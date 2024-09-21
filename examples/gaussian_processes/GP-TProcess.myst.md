@@ -10,9 +10,16 @@ kernelspec:
   name: python3
 ---
 
+(GP-TProcess)=
 # Student-t Process
 
-PyMC3 also includes T-process priors.  They are a generalization of a Gaussian process prior to the multivariate Student's T distribution.  The usage is identical to that of `gp.Latent`, except they require a degrees of freedom parameter when they are specified in the model.  For more information, see chapter 9 of [Rasmussen+Williams](http://www.gaussianprocess.org/gpml/), and [Shah et al.](https://arxiv.org/abs/1402.4306).
+:::{post} August 2017
+:tags: t-process, gaussian process, bayesian non-parametrics
+:category: intermediate
+:author: Bill Engels
+:::
+
+PyMC also includes T-process priors.  They are a generalization of a Gaussian process prior to the multivariate Student's T distribution.  The usage is identical to that of `gp.Latent`, except they require a degrees of freedom parameter when they are specified in the model.  For more information, see chapter 9 of [Rasmussen+Williams](http://www.gaussianprocess.org/gpml/), and [Shah et al.](https://arxiv.org/abs/1402.4306).
 
 Note that T processes aren't additive in the same way as GPs, so addition of `TP` objects are not supported.
 
@@ -152,6 +159,18 @@ plt.ylabel("True f(x)")
 plt.title("Conditional distribution of f_*, given f")
 plt.legend();
 ```
+
+## Authors
+
+* Authored by Bill Engels
+* Updated by Chris Fonnesbeck to use PyMC v5
+
++++
+
+## References
+:::{bibliography}
+:filter: docname in docnames
+:::
 
 ```{code-cell} ipython3
 %load_ext watermark
