@@ -657,7 +657,7 @@ Model 3 assumed the same causal DAG, but adds the knowledge that each of these g
 * Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in April 2022
 * Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 to run on PyMC v5
 * Updated to use `az.extract` by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
-* Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in September 2024 ([pymc-examples#697](https://github.com/pymc-devs/pymc-examples/pull/697))
+* Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in September 2024 ([pymc-examples#697](https://github.com/pymc-devs/pymc-examples/pull/697) and [pymc-examples#709](https://github.com/pymc-devs/pymc-examples/pull/709))
 
 +++
 
