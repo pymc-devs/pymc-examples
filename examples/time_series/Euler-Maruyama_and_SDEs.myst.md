@@ -25,13 +25,12 @@ run_control:
 slideshow:
   slide_type: '-'
 ---
-%pylab inline
 import arviz as az
-import pymc3 as pm
-import scipy
-import theano.tensor as tt
-
-from pymc3.distributions.timeseries import EulerMaruyama
+import matplotlib.pyplot as plt
+import numpy as np
+import pymc as pm
+import pytensor.tensor as pt
+import scipy as sp
 ```
 
 ```{code-cell} ipython3
@@ -57,8 +56,8 @@ run_control:
   read_only: false
 ---
 # parameters
-λ = -0.78
-σ2 = 5e-3
+lam = -0.78
+s2 = 5e-3
 N = 200
 dt = 1e-1
 
@@ -68,13 +67,13 @@ x_t = []
 
 # simulate
 for i in range(N):
-    x += dt * λ * x + sqrt(dt) * σ2 * randn()
+    x += dt * lam * x + np.sqrt(dt) * s2 * np.random.randn()
     x_t.append(x)
 
-x_t = array(x_t)
+x_t = np.array(x_t)
 
 # z_t noisy observation
-z_t = x_t + randn(x_t.size) * 5e-3
+z_t = x_t + np.random.randn(x_t.size) * 5e-3
 ```
 
 ```{code-cell} ipython3
@@ -88,14 +87,16 @@ run_control:
 slideshow:
   slide_type: subslide
 ---
-figure(figsize=(10, 3))
-subplot(121)
-plot(x_t[:30], "k", label="$x(t)$", alpha=0.5), plot(z_t[:30], "r", label="$z(t)$", alpha=0.5)
-title("Transient"), legend()
-subplot(122)
-plot(x_t[30:], "k", label="$x(t)$", alpha=0.5), plot(z_t[30:], "r", label="$z(t)$", alpha=0.5)
-title("All time")
-tight_layout()
+plt.figure(figsize=(10, 3))
+plt.plot(x_t[:30], "k", label="$x(t)$", alpha=0.5)
+plt.plot(z_t[:30], "r", label="$z(t)$", alpha=0.5)
+plt.title("Transient")
+plt.legend()
+plt.subplot(122)
+plt.plot(x_t[30:], "k", label="$x(t)$", alpha=0.5)
+plt.plot(z_t[30:], "r", label="$z(t)$", alpha=0.5)
+plt.title("All time")
+plt.legend();
 ```
 
 +++ {"button": false, "new_sheet": false, "run_control": {"read_only": false}}
@@ -114,7 +115,7 @@ run_control:
   read_only: false
 ---
 def lin_sde(x, lam):
-    return lam * x, σ2
+    return lam * x, s2
 ```
 
 +++ {"button": false, "new_sheet": false, "run_control": {"read_only": false}, "slideshow": {"slide_type": "subslide"}}
@@ -134,11 +135,11 @@ slideshow:
 ---
 with pm.Model() as model:
     # uniform prior, but we know it must be negative
-    lam = pm.Flat("lam")
+    l = pm.Flat("l")
 
     # "hidden states" following a linear SDE distribution
     # parametrized by time step (det. variable) and lam (random variable)
-    xh = EulerMaruyama("xh", dt, lin_sde, (lam,), shape=N, testval=x_t)
+    xh = pm.EulerMaruyama("xh", dt=dt, sde_fn=lin_sde, sde_pars=(l,), shape=N)
 
     # predicted observation
     zh = pm.Normal("zh", mu=xh, sigma=5e-3, observed=z_t)
@@ -156,7 +157,7 @@ run_control:
   read_only: false
 ---
 with model:
-    trace = pm.sample(2000, tune=1000)
+    trace = pm.sample()
 ```
 
 +++ {"button": false, "new_sheet": false, "run_control": {"read_only": false}, "slideshow": {"slide_type": "subslide"}}
@@ -164,24 +165,20 @@ with model:
 Next, we plot some basic statistics on the samples from the posterior,
 
 ```{code-cell} ipython3
----
-button: false
-nbpresent:
-  id: 925f1829-24cb-4c28-9b6b-7e9c9e86f2fd
-new_sheet: false
-run_control:
-  read_only: false
----
-figure(figsize=(10, 3))
-subplot(121)
-plot(percentile(trace[xh], [2.5, 97.5], axis=0).T, "k", label=r"$\hat{x}_{95\%}(t)$")
-plot(x_t, "r", label="$x(t)$")
-legend()
+plt.figure(figsize=(10, 3))
+plt.subplot(121)
+plt.plot(
+    trace.posterior.quantile((0.025, 0.975), dim=("chain", "draw"))["xh"].values.T,
+    "k",
+    label=r"$\hat{x}_{95\%}(t)$",
+)
+plt.plot(x_t, "r", label="$x(t)$")
+plt.legend()
 
-subplot(122)
-hist(trace[lam], 30, label=r"$\hat{\lambda}$", alpha=0.5)
-axvline(λ, color="r", label=r"$\lambda$", alpha=0.5)
-legend();
+plt.subplot(122)
+plt.hist(az.extract(trace.posterior)["l"], 30, label=r"$\hat{\lambda}$", alpha=0.5)
+plt.axvline(lam, color="r", label=r"$\lambda$", alpha=0.5)
+plt.legend();
 ```
 
 +++ {"button": false, "new_sheet": false, "run_control": {"read_only": false}, "slideshow": {"slide_type": "subslide"}}
@@ -194,20 +191,20 @@ In other words, we
 - check that the new observations fit with the original data
 
 ```{code-cell} ipython3
----
-button: false
-new_sheet: false
-run_control:
-  read_only: false
----
 # generate trace from posterior
-ppc_trace = pm.sample_posterior_predictive(trace, model=model)
+with model:
+    pm.sample_posterior_predictive(trace, extend_inferencedata=True)
+```
 
-# plot with data
-figure(figsize=(10, 3))
-plot(percentile(ppc_trace["zh"], [2.5, 97.5], axis=0).T, "k", label=r"$z_{95\% PP}(t)$")
-plot(z_t, "r", label="$z(t)$")
-legend()
+```{code-cell} ipython3
+plt.figure(figsize=(10, 3))
+plt.plot(
+    trace.posterior_predictive.quantile((0.025, 0.975), dim=("chain", "draw"))["zh"].values.T,
+    "k",
+    label=r"$z_{95\% PP}(t)$",
+)
+plt.plot(z_t, "r", label="$z(t)$")
+plt.legend();
 ```
 
 +++ {"button": false, "new_sheet": false, "run_control": {"read_only": false}}
@@ -231,28 +228,22 @@ As the next model, let's use a 2D deterministic oscillator,
 with noisy observation $z(t) = m x + (1 - m) y + N(0, 0.05)$.
 
 ```{code-cell} ipython3
----
-button: false
-new_sheet: false
-run_control:
-  read_only: false
----
-N, τ, a, m, σ2 = 200, 3.0, 1.05, 0.2, 1e-1
+N, tau, a, m, s2 = 200, 3.0, 1.05, 0.2, 1e-1
 xs, ys = [0.0], [1.0]
 for i in range(N):
     x, y = xs[-1], ys[-1]
-    dx = τ * (x - x**3.0 / 3.0 + y)
-    dy = (1.0 / τ) * (a - x)
-    xs.append(x + dt * dx + sqrt(dt) * σ2 * randn())
-    ys.append(y + dt * dy + sqrt(dt) * σ2 * randn())
-xs, ys = array(xs), array(ys)
-zs = m * xs + (1 - m) * ys + randn(xs.size) * 0.1
+    dx = tau * (x - x**3.0 / 3.0 + y)
+    dy = (1.0 / tau) * (a - x)
+    xs.append(x + dt * dx + np.sqrt(dt) * s2 * np.random.randn())
+    ys.append(y + dt * dy + np.sqrt(dt) * s2 * np.random.randn())
+xs, ys = np.array(xs), np.array(ys)
+zs = m * xs + (1 - m) * ys + np.random.randn(xs.size) * 0.1
 
-figure(figsize=(10, 2))
-plot(xs, label="$x(t)$")
-plot(ys, label="$y(t)$")
-plot(zs, label="$z(t)$")
-legend()
+plt.figure(figsize=(10, 2))
+plt.plot(xs, label="$x(t)$")
+plt.plot(ys, label="$y(t)$")
+plt.plot(zs, label="$z(t)$")
+plt.legend()
 ```
 
 +++ {"button": false, "new_sheet": false, "run_control": {"read_only": false}, "slideshow": {"slide_type": "subslide"}}
@@ -268,12 +259,12 @@ new_sheet: false
 run_control:
   read_only: false
 ---
-def osc_sde(xy, τ, a):
+def osc_sde(xy, tau, a):
     x, y = xy[:, 0], xy[:, 1]
-    dx = τ * (x - x**3.0 / 3.0 + y)
-    dy = (1.0 / τ) * (a - x)
-    dxy = tt.stack([dx, dy], axis=0).T
-    return dxy, σ2
+    dx = tau * (x - x**3.0 / 3.0 + y)
+    dy = (1.0 / tau) * (a - x)
+    dxy = pt.stack([dx, dy], axis=0).T
+    return dxy, s2
 ```
 
 +++ {"button": false, "new_sheet": false, "run_control": {"read_only": false}}
@@ -291,14 +282,20 @@ new_sheet: false
 run_control:
   read_only: false
 ---
-xys = c_[xs, ys]
+xys = np.c_[xs, ys]
 
 with pm.Model() as model:
-    τh = pm.Uniform("τh", lower=0.1, upper=5.0)
-    ah = pm.Uniform("ah", lower=0.5, upper=1.5)
-    mh = pm.Uniform("mh", lower=0.0, upper=1.0)
-    xyh = EulerMaruyama("xyh", dt, osc_sde, (τh, ah), shape=xys.shape, testval=xys)
-    zh = pm.Normal("zh", mu=mh * xyh[:, 0] + (1 - mh) * xyh[:, 1], sigma=0.1, observed=zs)
+    tau_h = pm.Uniform("tau_h", lower=0.1, upper=5.0)
+    a_h = pm.Uniform("a_h", lower=0.5, upper=1.5)
+    m_h = pm.Uniform("m_h", lower=0.0, upper=1.0)
+    xy_h = pm.EulerMaruyama(
+        "xy_h", dt=dt, sde_fn=osc_sde, sde_pars=(tau_h, a_h), shape=xys.shape, initval=xys
+    )
+    zh = pm.Normal("zh", mu=m_h * xy_h[:, 0] + (1 - m_h) * xy_h[:, 1], sigma=0.1, observed=zs)
+```
+
+```{code-cell} ipython3
+pm.__version__
 ```
 
 ```{code-cell} ipython3
