@@ -12,7 +12,14 @@ kernelspec:
 
 +++ {"button": false, "new_sheet": false, "run_control": {"read_only": false}, "slideshow": {"slide_type": "slide"}}
 
+(Euler-Maruyama_and_SDEs)=
 # Inferring parameters of SDEs using a Euler-Maruyama scheme
+
+:::{post} July 2016
+:tags: time series
+:category: advanced, reference
+:author: @maedoc
+:::
 
 _This notebook is derived from a presentation prepared for the Theoretical Neuroscience Group, Institute of Systems Neuroscience at Aix-Marseile University._
 
@@ -25,12 +32,20 @@ run_control:
 slideshow:
   slide_type: '-'
 ---
+import warnings
+
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
 import pytensor.tensor as pt
 import scipy as sp
+
+# Ignore UserWarnings
+warnings.filterwarnings("ignore", category=UserWarning)
+
+RANDOM_SEED = 8927
+np.random.seed(RANDOM_SEED)
 ```
 
 ```{code-cell} ipython3
@@ -40,13 +55,15 @@ az.style.use("arviz-darkgrid")
 
 +++ {"button": false, "nbpresent": {"id": "2325c7f9-37bd-4a65-aade-86bee1bff5e3"}, "new_sheet": false, "run_control": {"read_only": false}, "slideshow": {"slide_type": "slide"}}
 
-## Toy model 1
+## Example Model
 
 Here's a scalar linear SDE in symbolic form
 
 $ dX_t = \lambda X_t + \sigma^2 dW_t $
 
-discretized with the Euler-Maruyama scheme
+discretized with the Euler-Maruyama scheme. 
+
+We can simulate data from this process and then attempt to recover the parameters.
 
 ```{code-cell} ipython3
 ---
@@ -87,16 +104,19 @@ run_control:
 slideshow:
   slide_type: subslide
 ---
-plt.figure(figsize=(10, 3))
-plt.plot(x_t[:30], "k", label="$x(t)$", alpha=0.5)
-plt.plot(z_t[:30], "r", label="$z(t)$", alpha=0.5)
-plt.title("Transient")
-plt.legend()
-plt.subplot(122)
-plt.plot(x_t[30:], "k", label="$x(t)$", alpha=0.5)
-plt.plot(z_t[30:], "r", label="$z(t)$", alpha=0.5)
-plt.title("All time")
-plt.legend();
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 3))
+
+ax1.plot(x_t[:30], "k", label="$x(t)$", alpha=0.5)
+ax1.plot(z_t[:30], "r", label="$z(t)$", alpha=0.5)
+ax1.set_title("Transient")
+ax1.legend()
+
+ax2.plot(x_t[30:], "k", label="$x(t)$", alpha=0.5)
+ax2.plot(z_t[30:], "r", label="$z(t)$", alpha=0.5)
+ax2.set_title("All time")
+ax2.legend()
+
+plt.tight_layout()
 ```
 
 +++ {"button": false, "new_sheet": false, "run_control": {"read_only": false}}
@@ -105,7 +125,7 @@ What is the inference we want to make? Since we've made a noisy observation of t
 
 +++ {"button": false, "new_sheet": false, "run_control": {"read_only": false}, "slideshow": {"slide_type": "subslide"}}
 
-First, we rewrite our SDE as a function returning a tuple of the drift and diffusion coefficients
+We need to provide an SDE function that returns the drift and diffusion coefficients.
 
 ```{code-cell} ipython3
 ---
@@ -114,13 +134,13 @@ new_sheet: false
 run_control:
   read_only: false
 ---
-def lin_sde(x, lam):
+def lin_sde(x, lam, s2):
     return lam * x, s2
 ```
 
 +++ {"button": false, "new_sheet": false, "run_control": {"read_only": false}, "slideshow": {"slide_type": "subslide"}}
 
-Next, we describe the probability model as a set of three stochastic variables, `lam`, `xh`, and `zh`:
+The probability model is comprised of a prior on the drift parameter `lam`, the diffusion coefficient `s`, the latent Euler-Maruyama process `xh` and the likelihood describing the noisy observations `zh`. We will assume that we know the observation noise.
 
 ```{code-cell} ipython3
 ---
@@ -135,11 +155,12 @@ slideshow:
 ---
 with pm.Model() as model:
     # uniform prior, but we know it must be negative
-    l = pm.Flat("l")
+    l = pm.HalfCauchy("l", beta=1)
+    s = pm.Uniform("s", 0.005, 0.5)
 
     # "hidden states" following a linear SDE distribution
     # parametrized by time step (det. variable) and lam (random variable)
-    xh = pm.EulerMaruyama("xh", dt=dt, sde_fn=lin_sde, sde_pars=(l,), shape=N)
+    xh = pm.EulerMaruyama("xh", dt=dt, sde_fn=lin_sde, sde_pars=(-l, s**2), shape=N, initval=x_t)
 
     # predicted observation
     zh = pm.Normal("zh", mu=xh, sigma=5e-3, observed=z_t)
@@ -147,7 +168,7 @@ with pm.Model() as model:
 
 +++ {"button": false, "nbpresent": {"id": "287d10b5-0193-4ffe-92a7-362993c4b72e"}, "new_sheet": false, "run_control": {"read_only": false}, "slideshow": {"slide_type": "subslide"}}
 
-Once the model is constructed, we perform inference, i.e. sample from the posterior distribution, in the following steps:
+Once the model is constructed, we perform inference, which here is via the NUTS algorithm as implemented in `nutpie`, which will be extremely fast.
 
 ```{code-cell} ipython3
 ---
@@ -157,7 +178,7 @@ run_control:
   read_only: false
 ---
 with model:
-    trace = pm.sample()
+    trace = pm.sample(nuts_sampler="nutpie", random_seed=RANDOM_SEED, target_accept=0.99)
 ```
 
 +++ {"button": false, "new_sheet": false, "run_control": {"read_only": false}, "slideshow": {"slide_type": "subslide"}}
@@ -176,7 +197,7 @@ plt.plot(x_t, "r", label="$x(t)$")
 plt.legend()
 
 plt.subplot(122)
-plt.hist(az.extract(trace.posterior)["l"], 30, label=r"$\hat{\lambda}$", alpha=0.5)
+plt.hist(-1 * az.extract(trace.posterior)["l"], 30, label=r"$\hat{\lambda}$", alpha=0.5)
 plt.axvline(lam, color="r", label=r"$\lambda$", alpha=0.5)
 plt.legend();
 ```
@@ -209,148 +230,24 @@ plt.legend();
 
 +++ {"button": false, "new_sheet": false, "run_control": {"read_only": false}}
 
-Note that 
+Note that the initial conditions are also estimated, and that most of the observed data $z(t)$ lies within the 95% interval of the PPC.
 
-- inference also estimates the initial conditions
-- the observed data $z(t)$ lies fully within the 95% interval of the PPC.
-- there are many other ways of evaluating fit
-
-+++ {"button": false, "new_sheet": false, "run_control": {"read_only": false}, "slideshow": {"slide_type": "slide"}}
-
-### Toy model 2
-
-As the next model, let's use a 2D deterministic oscillator, 
-\begin{align}
-\dot{x} &= \tau (x - x^3/3 + y) \\
-\dot{y} &= \frac{1}{\tau} (a - x)
-\end{align}
-
-with noisy observation $z(t) = m x + (1 - m) y + N(0, 0.05)$.
+Another approach is to look at draws from the sampling distribution of the data relative to the observed data. This too shows a good fit across the range of observations -- the posterior predictive mean almost perfectly tracks the data.
 
 ```{code-cell} ipython3
-N, tau, a, m, s2 = 200, 3.0, 1.05, 0.2, 1e-1
-xs, ys = [0.0], [1.0]
-for i in range(N):
-    x, y = xs[-1], ys[-1]
-    dx = tau * (x - x**3.0 / 3.0 + y)
-    dy = (1.0 / tau) * (a - x)
-    xs.append(x + dt * dx + np.sqrt(dt) * s2 * np.random.randn())
-    ys.append(y + dt * dy + np.sqrt(dt) * s2 * np.random.randn())
-xs, ys = np.array(xs), np.array(ys)
-zs = m * xs + (1 - m) * ys + np.random.randn(xs.size) * 0.1
-
-plt.figure(figsize=(10, 2))
-plt.plot(xs, label="$x(t)$")
-plt.plot(ys, label="$y(t)$")
-plt.plot(zs, label="$z(t)$")
-plt.legend()
+az.plot_ppc(trace)
 ```
 
-+++ {"button": false, "new_sheet": false, "run_control": {"read_only": false}, "slideshow": {"slide_type": "subslide"}}
+## Authors
+- Authored by @maedoc in July 2016
+- Updated to PyMC v5 by @fonnesbeck in September 2024
 
-Now, estimate the hidden states $x(t)$ and $y(t)$, as well as parameters $\tau$, $a$ and $m$.
++++
 
-As before, we rewrite our SDE as a function returned drift & diffusion coefficients:
-
-```{code-cell} ipython3
----
-button: false
-new_sheet: false
-run_control:
-  read_only: false
----
-def osc_sde(xy, tau, a):
-    x, y = xy[:, 0], xy[:, 1]
-    dx = tau * (x - x**3.0 / 3.0 + y)
-    dy = (1.0 / tau) * (a - x)
-    dxy = pt.stack([dx, dy], axis=0).T
-    return dxy, s2
-```
-
-+++ {"button": false, "new_sheet": false, "run_control": {"read_only": false}}
-
-As before, the Euler-Maruyama discretization of the SDE is written as a prediction of the state at step $i+1$ based on the state at step $i$.
-
-+++ {"button": false, "new_sheet": false, "run_control": {"read_only": false}, "slideshow": {"slide_type": "subslide"}}
-
-We can now write our statistical model as before, with uninformative priors on $\tau$, $a$ and $m$:
-
-```{code-cell} ipython3
----
-button: false
-new_sheet: false
-run_control:
-  read_only: false
----
-xys = np.c_[xs, ys]
-
-with pm.Model() as model:
-    tau_h = pm.Uniform("tau_h", lower=0.1, upper=5.0)
-    a_h = pm.Uniform("a_h", lower=0.5, upper=1.5)
-    m_h = pm.Uniform("m_h", lower=0.0, upper=1.0)
-    xy_h = pm.EulerMaruyama(
-        "xy_h", dt=dt, sde_fn=osc_sde, sde_pars=(tau_h, a_h), shape=xys.shape, initval=xys
-    )
-    zh = pm.Normal("zh", mu=m_h * xy_h[:, 0] + (1 - m_h) * xy_h[:, 1], sigma=0.1, observed=zs)
-```
-
-```{code-cell} ipython3
-pm.__version__
-```
-
-```{code-cell} ipython3
----
-button: false
-new_sheet: false
-run_control:
-  read_only: false
----
-with model:
-    trace = pm.sample(2000, tune=1000)
-```
-
-+++ {"button": false, "new_sheet": false, "run_control": {"read_only": false}, "slideshow": {"slide_type": "subslide"}}
-
-Again, the result is a set of samples from the posterior, including our parameters of interest but also the hidden states
-
-```{code-cell} ipython3
----
-button: false
-new_sheet: false
-run_control:
-  read_only: false
----
-figure(figsize=(10, 6))
-subplot(211)
-plot(percentile(trace[xyh][..., 0], [2.5, 97.5], axis=0).T, "k", label=r"$\hat{x}_{95\%}(t)$")
-plot(xs, "r", label="$x(t)$")
-legend(loc=0)
-subplot(234), hist(trace["τh"]), axvline(τ), xlim([1.0, 4.0]), title("τ")
-subplot(235), hist(trace["ah"]), axvline(a), xlim([0, 2.0]), title("a")
-subplot(236), hist(trace["mh"]), axvline(m), xlim([0, 1]), title("m")
-tight_layout()
-```
-
-+++ {"button": false, "new_sheet": false, "run_control": {"read_only": false}, "slideshow": {"slide_type": "subslide"}}
-
-Again, we can perform a posterior predictive check, that our data are likely given the fit model
-
-```{code-cell} ipython3
----
-button: false
-new_sheet: false
-run_control:
-  read_only: false
----
-# generate trace from posterior
-ppc_trace = pm.sample_posterior_predictive(trace, model=model)
-
-# plot with data
-figure(figsize=(10, 3))
-plot(percentile(ppc_trace["zh"], [2.5, 97.5], axis=0).T, "k", label=r"$z_{95\% PP}(t)$")
-plot(zs, "r", label="$z(t)$")
-legend()
-```
+## References
+:::{bibliography}
+:filter: docname in docnames
+:::
 
 ```{code-cell} ipython3
 %load_ext watermark
