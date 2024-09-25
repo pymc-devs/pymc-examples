@@ -11,7 +11,7 @@ kernelspec:
 ---
 
 (cfa_sem_notebook)=
-# Confirmatory Factor Analysis and Structural Equation Models
+# Confirmatory Factor Analysis and Structural Equation Models in Psychometrics
 
 :::{post} September, 2024
 :tags: cfa, sem, regression, 
@@ -41,6 +41,7 @@ import pytensor.tensor as pt
 import seaborn as sns
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
 ```
 
 ```{code-cell} ipython3
@@ -53,7 +54,7 @@ rng = np.random.default_rng(42)
 
 Our data is borrowed from work by Boris Mayer and Andrew Ellis found [here](https://methodenlehre.github.io/SGSCLM-R-course/cfa-and-sem-with-lavaan.html#structural-equation-modelling-sem). They demonstrate CFA and SEM modelling with lavaan.
 
-We have survey responses from ~300 individuals who have answered questions regarding their upbringing, self-efficacy and reported life-satisfaction. The hypothetical dependency structure in this life-satisfaction data-set posits a moderated relationship between scores related to life-satisfaction, parental and family support and self-efficacy. It is not a trivial task to be able to design a survey that can elicit answers plausibly mapped to each of these “factors” or themes, never mind finding a model of their relationship that can inform us as to the relative of impact of each on life-satisfaction outcomes.
+We have survey responses from ~300 individuals who have answered questions regarding their upbringing, self-efficacy and reported life-satisfaction. The hypothetical dependency structure in this life-satisfaction dataset posits a moderated relationship between scores related to life-satisfaction, parental and family support and self-efficacy. It is not a trivial task to be able to design a survey that can elicit answers plausibly mapped to each of these “factors” or themes, never mind finding a model of their relationship that can inform us as to the relative of impact of each on life-satisfaction outcomes.
 
 First let's pull out the data and examine some summary statistics.
 
@@ -74,7 +75,7 @@ sns.heatmap(df[drivers].cov(), annot=True, cmap="Blues", ax=ax, center=0, mask=m
 ax.set_title("Sample Covariances between indicator Metrics");
 ```
 
-The lens here on the sample covariance matrix is common in the traditional SEM modeling. CFA and SEM models are often estimated by fitting parameters to the data by optimising the parameter structure of the covariance matrix. Model assessment routines often gauge the model's ability to recover the sample covariance relations. There is a slightyly different (less constrained) approach taken in the Bayesian approach to estimating these models which focuses on the observed data rather than the derived summary statistics. 
+The lens here on the sample covariance matrix is common in the traditional [SEM](https://en.wikipedia.org/wiki/Structural_equation_modeling) modeling. [CFA](https://en.wikipedia.org/wiki/Confirmatory_factor_analysis) and SEM models are often estimated by fitting parameters to the data by optimising the parameter structure of the covariance matrix. Model assessment routines often gauge the model's ability to recover the sample covariance relations. There is a slightyly different (less constrained) approach taken in the Bayesian approach to estimating these models which focuses on the observed data rather than the derived summary statistics. 
 
 Next we'll plot the pairplot to visualise the nature of the correlations
 
@@ -100,7 +101,7 @@ We're aiming to articulate a mathematical structure where our indicator variable
 $$ x_{1} = \tau_{1}  + \lambda_{11}\text{Ksi}_{1} + \psi_{1}  \\ 
 x_{2} = \tau_{2}  + \lambda_{21}\text{Ksi}_{1} + \psi_{2} \\
  ... \\
-x_{n} = \tau_{n}  + \lambda_{n2}\text{Ksi}_{2} + \psi_{3} 
+x_{n} = \tau_{n}  + \lambda_{n2}\text{Ksi}_{2} + \psi_{n} 
 $$ 
 
 or more compactly
@@ -111,7 +112,7 @@ The goal is to articulate the relationship between the different factors in term
 
 $$p(\mathbf{x_{i}}^{T}.....\mathbf{x_{q}}^{T} | \text{Ksi}, \Psi, \tau, \Lambda) \sim Normal(\tau + \Lambda\cdot \text{Ksi}, \Psi) $$
 
-We're making an argument that the multivariate observations $\mathbf{x}$ from each individual $q$ can be considered conditionally exchangeable and in this way represented via Bayesian conditionalisation via De Finetti's theorem. This is the Bayesian approach to the estimation of CFA and SEM models. We're seeking a conditionalisation structure that can retrodict the observed data based on latent constructs and hypothetical relationships among the constructs and the observed data points. We will show how to build these structures into our model below
+We're making an argument that the multivariate observations $\mathbf{x}$ from each individual $q$ can be considered conditionally exchangeable and in this way represented through Bayesian conditionalisation via De Finetti's theorem. This is the Bayesian approach to the estimation of CFA and SEM models. We're seeking a conditionalisation structure that can retrodict the observed data based on latent constructs and hypothetical relationships among the constructs and the observed data points. We will show how to build these structures into our model below
 
 ```{code-cell} ipython3
 # Set up coordinates for appropriate indexing of latent factors
@@ -364,6 +365,7 @@ with pm.Model(coords=coords) as model:
     )
 
     idata = pm.sample(
+        # draws = 4000,
         draws=10000,
         nuts_sampler="numpyro",
         target_accept=0.99,
@@ -379,7 +381,7 @@ Again our model samples well but the parameter estimates suggest that there is s
 az.summary(idata, var_names=["lambdas1", "lambdas2"])
 ```
 
-This is similarly refected in the diagnostic energy plots here too. 
+This is similarly reflected in the diagnostic energy plots here too. 
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(1, 2, figsize=(20, 9))
@@ -394,7 +396,7 @@ This hints at a variety of measurement model misspecification and should force u
 
 ## Full Measurement Model
 
-With this in mind we'll now specify a full measurement that maps each of our thematically similar indicator metrics to an indicidual latent construct. This mandates the postulation of 5 distinct constructs where we only admit three metrics load on each construct. The choice of which metric loads on the latent construct is determined in our case by the constructs each measure is intended to measure. In the typical `lavaan` syntax we might write the model as follows: 
+With this in mind we'll now specify a full measurement that maps each of our thematically similar indicator metrics to an individual latent construct. This mandates the postulation of 5 distinct constructs where we only admit three metrics load on each construct. The choice of which metric loads on the latent construct is determined in our case by the constructs each measure is intended to measure. In the typical `lavaan` syntax we might write the model as follows: 
 
 
 ```
@@ -512,7 +514,7 @@ az.plot_energy(idata_mm, ax=axs[0])
 az.plot_forest(idata_mm, var_names=["lambdas1", "lambdas2", "lambdas3"], combined=True, ax=axs[1]);
 ```
 
-We can also pull out the more typical patterns of model evaluation by assessing the fit between the posterior predicted covariances and the sample covariances. This is a sanity check to assess local model fit statistics. The below code iterates over draws from the posterior predictive distribution and calculates the covariance or correlation matrix on eah draw, we calculate the residuals on each draw between each of the covariances and then average across the draws. 
+We can also pull out the more typical patterns of model evaluation by assessing the fit between the posterior predicted covariances and the sample covariances. This is a sanity check to assess local model fit statistics. The below code iterates over draws from the posterior predictive distribution and calculates the covariance or correlation matrix on each draw, we calculate the residuals on each draw between each of the covariances and then average across the draws. 
 
 ```{code-cell} ipython3
 def get_posterior_resids(idata, samples=100, metric="cov"):
@@ -635,7 +637,7 @@ axs = axs.flatten()
 mask = np.triu(np.ones_like(cov_df, dtype=bool))
 sns.heatmap(cov_df, annot=True, cmap="Blues", ax=axs[0], mask=mask)
 axs[0].set_title("Covariance of Latent Constructs")
-axs[1].set_title("Covariance of Latent Constructs")
+axs[1].set_title("Correlation of Latent Constructs")
 sns.heatmap(correlation_df, annot=True, cmap="Blues", ax=axs[1], mask=mask);
 ```
 
@@ -770,7 +772,7 @@ def make_indirect_sem(priors):
         lambdas_5 = pm.Deterministic(
             "lambdas5", pt.set_subtensor(lambdas_[0], 1), dims=("indicators_5")
         )
-        tau = pm.Normal("tau", 3, 10, dims="indicators")
+        tau = pm.Normal("tau", 3, 0.5, dims="indicators")
         kappa = 0
         sd_dist = pm.Exponential.dist(1.0, shape=2)
         chol, _, _ = pm.LKJCholeskyCov(
@@ -784,7 +786,7 @@ def make_indirect_sem(priors):
         beta_r2 = pm.Normal("beta_r2", 0, priors["beta_r2"], dims="regression")
         sd_dist1 = pm.Exponential.dist(1.0, shape=2)
         resid_chol, _, _ = pm.LKJCholeskyCov(
-            "resid_chol", n=2, eta=1, sd_dist=sd_dist1, compute_corr=True
+            "resid_chol", n=2, eta=3, sd_dist=sd_dist1, compute_corr=True
         )
         _ = pm.Deterministic("resid_cov", chol.dot(chol.T))
         sigmas_resid = pm.MvNormal("sigmas_resid", kappa, chol=resid_chol)
@@ -1018,6 +1020,17 @@ summary_f = pd.concat(
 
 summary_f.index = ["SEM0", "SEM1", "SEM2"]
 summary_f
+```
+
+### Calculating Global Model Fit
+
+We can also calculate global measures of model fit. Here we compare, somewhat unfairly, the measurement model and various incarnations of our SEM model. The SEM models are attempting to articulate more complex structures and can suffer in the simple measures of global fit against comparably simpler models. The complexity is not arbitrary and you need to make a decision regarding trade-offs between expressive power and global model fit against the observed data points. 
+
+```{code-cell} ipython3
+compare_df = az.compare(
+    {"SEM0": idata_sem0, "SEM1": idata_sem1, "SEM2": idata_sem2, "MM": idata_mm}
+)
+compare_df
 ```
 
 # Conclusion
