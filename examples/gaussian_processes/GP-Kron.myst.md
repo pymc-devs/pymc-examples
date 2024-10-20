@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc-examples
   language: python
-  name: python3
+  name: pymc-examples
 ---
 
 (GP-Kron)=
@@ -16,7 +16,7 @@ kernelspec:
 :::{post} October, 2022
 :tags: gaussian process
 :category: intermediate
-:author: Bill Engels, Raul-ing Average, Christopher Krapu, Danh Phan
+:author: Bill Engels, Raul-ing Average, Christopher Krapu, Danh Phan, Alex Andorra
 :::
 
 +++
@@ -59,16 +59,18 @@ import arviz as az
 import matplotlib as mpl
 import numpy as np
 import pymc as pm
-
-plt = mpl.pyplot
-%matplotlib inline
-%config InlineBackend.figure_format = 'retina'
 ```
 
 ```{code-cell} ipython3
-RANDOM_SEED = 12345
-rng = np.random.default_rng(RANDOM_SEED)
+az.style.use("arviz-whitegrid")
+plt = mpl.pyplot
+%matplotlib inline
+%config InlineBackend.figure_format = 'retina'
+seed = sum(map(ord, "gpkron"))
+rng = np.random.default_rng(seed)
+```
 
+```{code-cell} ipython3
 # One dimensional column vectors of inputs
 n1, n2 = (50, 30)
 x1 = np.linspace(0, 5, n1)
@@ -91,7 +93,7 @@ cov = (
 K = cov(X).eval()
 f_true = rng.multivariate_normal(np.zeros(X.shape[0]), K, 1).flatten()
 
-sigma_true = 0.25
+sigma_true = 0.5
 y = f_true + sigma_true * rng.standard_normal(X.shape[0])
 ```
 
@@ -174,60 +176,83 @@ plt.title("observed data 'y' (circles) with predicted mean (squares)");
 
 Like the `gp.Latent` implementation, the `gp.LatentKron` implementation specifies a Kronecker structured GP regardless of context.  **It can be used with any likelihood function, or can be used to model a variance or some other unobserved processes**.  The syntax follows that of `gp.Latent` exactly.  
 
-### Example 1
+### Model
 
 To compare with `MarginalLikelihood`, we use same example as before where the noise is normal, but the GP itself is not marginalized out.  Instead, it is sampled directly using NUTS.  It is very important to note that `gp.LatentKron` does not require a Gaussian likelihood like `gp.MarginalKron`; rather, any likelihood is admissible.
+
+Here though, we'll need to be more informative for our priors, at least those for the GP hyperparameters. This is a general rule when using GPs: **use as informative priors as you can**, as sampling lenghtscale and amplitude is a challenging business, so you want to make the sampler's work as easy as possible.
+
+Here thankfully, we have a lot of information about our amplitude and lenghtscales -- we're the ones who created them ;) So we could fix them, but we'll show how you could code that prior knowledge in your own models, with, e.g, Truncated Normal distributions:
 
 ```{code-cell} ipython3
 with pm.Model() as model:
     # Set priors on the hyperparameters of the covariance
-    ls1 = pm.Gamma("ls1", alpha=2, beta=2)
-    ls2 = pm.Gamma("ls2", alpha=2, beta=2)
-    eta = pm.HalfNormal("eta", sigma=2)
+    ls1 = pm.TruncatedNormal("ls1", lower=0.5, upper=1.5, mu=1, sigma=0.5)
+    ls2 = pm.TruncatedNormal("ls2", lower=0.5, upper=1.5, mu=1, sigma=0.5)
+    eta = pm.HalfNormal("eta", sigma=0.5)
 
     # Specify the covariance functions for each Xi
     cov_x1 = pm.gp.cov.Matern52(1, ls=ls1)
     cov_x2 = eta**2 * pm.gp.cov.Cosine(1, ls=ls2)
 
-    # Set the prior on the variance for the Gaussian noise
-    sigma = pm.HalfNormal("sigma", sigma=2)
-
-    # Specify the GP.  The default mean function is `Zero`.
+    # Specify the GP. The default mean function is `Zero`
     gp = pm.gp.LatentKron(cov_funcs=[cov_x1, cov_x2])
 
-    # Place a GP prior over the function f.
+    # Place a GP prior over the function f
     f = gp.prior("f", Xs=Xs)
+
+    # Set the prior on the variance for the Gaussian noise
+    sigma = pm.HalfNormal("sigma", sigma=0.5)
 
     y_ = pm.Normal("y_", mu=f, sigma=sigma, observed=y)
 ```
 
 ```{code-cell} ipython3
-with model:
-    tr = pm.sample(500, chains=1, return_inferencedata=True, target_accept=0.90)
-```
-
-The posterior distribution of the unknown lengthscale parameters, covariance scaling `eta`, and white noise `sigma` are shown below.  The vertical lines are the true values that were used to generate the original data set.
-
-```{code-cell} ipython3
-az.plot_trace(
-    tr,
-    var_names=["ls1", "ls2", "eta", "sigma"],
-    lines={"ls1": l1_true, "ls2": l2_true, "eta": eta_true, "sigma": sigma_true},
-)
-plt.tight_layout()
+pm.model_to_graphviz(model)
 ```
 
 ```{code-cell} ipython3
-x1new = np.linspace(5.1, 7.1, 20)
-x2new = np.linspace(-0.5, 3.5, 40)
-Xnew = pm.math.cartesian(x1new[:, None], x2new[:, None])
-
 with model:
-    fnew = gp.conditional("fnew3", Xnew, jitter=1e-6)
-
-with model:
-    ppc = pm.sample_posterior_predictive(tr, var_names=["fnew3"])
+    idata = pm.sample(nuts_sampler="numpyro", target_accept=0.9, tune=1500, draws=1500)
 ```
+
+```{code-cell} ipython3
+idata.sample_stats.diverging.sum().data
+```
+
+### Posterior convergence
+
++++
+
+The posterior distribution of the unknown lengthscale parameters, covariance scaling `eta`, and white noise `sigma` are shown below.  The vertical lines are the true values that were used to generate the original data set:
+
+```{code-cell} ipython3
+var_names = ["ls1", "ls2", "eta", "sigma"]
+```
+
+```{code-cell} ipython3
+az.plot_posterior(
+    idata,
+    var_names=var_names,
+    ref_val=[l1_true, l2_true, eta_true, sigma_true],
+    grid=(2, 2),
+    figsize=(12, 6),
+);
+```
+
+We can see how challenging sampling can be in these situations. Here, all went well because we were careful with our choice of priors -- especially in this simulated case, where parameters don't have a real interpretation.
+
+What does the trace plot looks like?
+
+```{code-cell} ipython3
+az.plot_trace(idata, var_names=var_names);
+```
+
+All good, so let's go ahead with out-of-sample predictions!
+
++++
+
+### Out-of-sample predictions
 
 ```{code-cell} ipython3
 x1new = np.linspace(5.1, 7.1, 20)[:, None]
@@ -243,7 +268,7 @@ with model:
 
 ```{code-cell} ipython3
 with model:
-    ppc = pm.sample_posterior_predictive(tr, var_names=["fnew"])
+    ppc = pm.sample_posterior_predictive(idata, var_names=["fnew"], compile_kwargs={"mode": "JAX"})
 ```
 
 Below we show the original data set as colored circles, and the mean of the conditional samples as colored squares.  The results closely follow those given by the `gp.MarginalKron` implementation.
@@ -291,6 +316,7 @@ for i, ax in enumerate(axs):
 * Updated by [Raul-ing Average](https://github.com/CloudChaoszero), March 2021
 * Updated by [Christopher Krapu](https://github.com/ckrapu), July 2021
 * Updated to PyMC 4.x by [Danh Phan](https://github.com/danhphan), November 2022
+* Updated with some new plots and priors, by [Alex Andorra](https://github.com/AlexAndorra), April 2024
 
 +++
 
@@ -298,7 +324,7 @@ for i, ax in enumerate(axs):
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p pytensor,aeppl,xarray
+%watermark -n -u -v -iv -w -p pytensor,xarray
 ```
 
 :::{include} ../page_footer.md

@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_examples_new
+  display_name: pymc
   language: python
-  name: pymc_examples_new
+  name: python3
 ---
 
 (longitudinal_models)=
@@ -25,11 +25,10 @@ import bambi as bmb
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import preliz as pz
 import pymc as pm
 import statsmodels.api as sm
 import xarray as xr
-
-from pymc.sampling_jax import sample_numpyro_nuts
 
 lowess = sm.nonparametric.lowess
 ```
@@ -616,7 +615,7 @@ az.plot_forest(
 );
 ```
 
-For a numerical summary of the models Willett and Singer suggest using deviance statistics. In the Bayesian workflow we'll use the widely applicable information criteria. 
+For a numerical summary of the models Willett and Singer suggest using deviance statistics. In the Bayesian workflow we'll use LOO. 
 
 ```{code-cell} ipython3
 compare = az.compare(
@@ -626,13 +625,12 @@ compare = az.compare(
         "COA growth Model": idata_m2,
         "COA_Peer_Model": idata_m3,
     },
-    "waic",
 )
 compare
 ```
 
 ```{code-cell} ipython3
-az.plot_compare(compare);
+az.plot_compare(compare, figsize=(10, 4));
 ```
 
 Willett and Singer have a detailed discussion about how to analyse the differences between the models and assess the different sources of variation to derive a number of summary statistics about the relationships between the predictors and outcomes. We highly recommend it as a deep-dive for the interested reader. 
@@ -679,7 +677,7 @@ az.summary(
         "age_14:cpeer",
         "1|id_sigma",
         "age_14|id_sigma",
-        "alcuse_sigma",
+        "sigma",
     ],
 )
 ```
@@ -696,7 +694,7 @@ az.plot_forest(
         "age_14:cpeer",
         "1|id_sigma",
         "age_14|id_sigma",
-        "alcuse_sigma",
+        "sigma",
     ],
     figsize=(20, 6),
     kind="ridgeplot",
@@ -744,14 +742,7 @@ for ax, g in zip(axs, [1, 2, 3, 4, 5, 6]):
 We can see that there is a strong skew in the dataset towards low `external` score. We'll diverge from Willett and Singer's presentation here and try and model this distribution as a Gumbel distribution with censoring. To do so we'll get PyMC to find a prior with on the Gumbel distribution that makes good sense. 
 
 ```{code-cell} ipython3
-guess = pm.find_constrained_prior(
-    pm.Gumbel, lower=0, upper=68, mass=0.99, init_guess={"mu": 0.60, "beta": 7}
-)
-print(guess)
-```
-
-```{code-cell} ipython3
-plt.hist(np.random.gumbel(guess["mu"], guess["beta"], 1000), bins=30, ec="black", color="C0");
+pz.maxent(pz.Gumbel(), lower=0, upper=68, mass=0.99);
 ```
 
 ## A Minimal Model
@@ -1043,8 +1034,12 @@ with pm.Model(coords=coords) as model:
 
     idata_m7 = pm.sample_prior_predictive()
     idata_m7.extend(
-        sample_numpyro_nuts(
-            draws=5000, random_seed=100, target_accept=0.99, idata_kwargs={"log_likelihood": True}
+        pm.sample(
+            draws=5000,
+            random_seed=100,
+            target_accept=0.99,
+            nuts_sampler="numpyro",
+            idata_kwargs={"log_likelihood": True},
         )
     )
     idata_m7.extend(pm.sample_posterior_predictive(idata_m7))
@@ -1084,7 +1079,7 @@ az.plot_ppc(idata_m7, figsize=(20, 7));
 
 ## Comparing Models
 
-As above we'll compare the various models for parameter fits and model performance measures using WAIC. 
+As above we'll compare the various models for parameter fits and model performance measures using LOO. 
 
 ```{code-cell} ipython3
 az.plot_forest(
@@ -1120,13 +1115,12 @@ compare = az.compare(
         "Polynomial Model": idata_m6,
         "Polynomial + Gender": idata_m7,
     },
-    "waic",
 )
 compare
 ```
 
 ```{code-cell} ipython3
-az.plot_compare(compare);
+az.plot_compare(compare, figsize=(10, 4));
 ```
 
 As perhaps expected our final gender based model is deemed to be best according the WAIC ranking. But somewhat suprisingly the Linear model with fixed trajectories is not far behind. 
@@ -1256,6 +1250,7 @@ These are powerful models for capturing and assessing patterns of change to comp
 
 ## Authors
 - Authored by [Nathaniel Forde](https://nathanielf.github.io/) in April 2023 
+- Updated to use `pz.maxent` instead of `pm.find_constrained_prior` and LOO instead of WAIC. [Osvaldo Martin](https://aloctavodia.github.io/). August 2024
 
 +++
 
