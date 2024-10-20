@@ -13,20 +13,30 @@ kernelspec:
 (moderation_analysis)=
 # Bayesian moderation analysis
 
-:::{post} March, 2022
-:tags: moderation, path analysis, 
+:::{post} June, 2024
+:tags: moderation, path analysis, causal inference
 :category: beginner
 :author: Benjamin T. Vincent
 :::
 
 This notebook covers Bayesian [moderation analysis](https://en.wikipedia.org/wiki/Moderation_(statistics)). This is appropriate when we believe that one predictor variable (the moderator) may influence the linear relationship between another predictor variable and an outcome. Here we look at an example where we look at the relationship between hours of training and muscle mass, where it may be that age (the moderating variable) affects this relationship.
 
-This is not intended as a one-stop solution to a wide variety of data analysis problems, rather, it is intended as an educational exposition to show how moderation analysis works and how to conduct Bayesian parameter estimation in PyMC.
+This is not intended as a one-stop solution to a wide variety of data analysis problems, rather, it is intended as an educational exposition to show how moderation analysis works and how to conduct Bayesian parameter estimation in PyMC. This notebook focusses on observational methods and does not explore experimental interventions.
 
-Note that this is sometimes mixed up with [mediation analysis](https://en.wikipedia.org/wiki/Mediation_(statistics)). Mediation analysis is appropriate when we believe the effect of a predictor variable upon an outcome variable is (partially, or fully) mediated through a 3rd mediating variable. Readers are referred to the textbook by {cite:t}`hayes2017introduction` as a comprehensive (albeit Frequentist) guide to moderation and related models as well as the PyMC example {ref}`mediation_analysis`.
+Moderation analysis has been framed in a variety of ways:
+* Statistical: It is entirely possible to approach moderation analysis from a purely statistical perspective. In this approach we might build a linear model (for example) whose aim is purely to _describe_ the data we have while making no claims about causality.
+* Path analysis: This approach asserts that the variables in the model are causally related and is exemplified in {cite:t}`hayes2017introduction`, for example. This approach cannot be considered as 'fully causal' as it lacks a variety of the concepts present in the causal approach.
+* Causal inference: This approach builds upon the path analysis approach in that there is a claim of causal relationships between the variables. But it goes further in that there are additional causal concepts which can be brought to bear.
+
++++
+
+:::{attention}
+Note that moderation is sometimes mixed up with [mediation analysis](https://en.wikipedia.org/wiki/Mediation_(statistics)). Mediation analysis is appropriate when we believe the effect of a predictor variable upon an outcome variable is (partially, or fully) mediated through a 3rd mediating variable. Readers are referred to the textbook by {cite:t}`hayes2017introduction` as a comprehensive (albeit Frequentist) guide to moderation and related models as well as the PyMC example {ref}`mediation_analysis`.
+:::
 
 ```{code-cell} ipython3
 import arviz as az
+import daft
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -76,7 +86,7 @@ def posterior_prediction_plot(result, x, moderator, m_quantiles, ax=None):
     m_levels = result.constant_data["m"].quantile(m_quantiles).rename({"quantile": "m_level"})
 
     for p, m in zip(m_quantiles, m_levels):
-        y = post.β0 + post.β1 * xi + post.β2 * xi * m + post.β3 * m
+        y = post.β[0] + post.β[1] * xi + post.β[2] * xi * m + post.β[3] * m
         region = y.quantile([0.025, 0.5, 0.975], dim="sample")
         ax.fill_between(
             xi,
@@ -109,7 +119,7 @@ def plot_moderation_effect(result, m, m_quantiles, ax=None):
 
     # calculate 95% CI region and median
     xi = xr.DataArray(np.linspace(np.min(m), np.max(m), 20), dims=["x_plot"])
-    rate = post.β1 + post.β2 * xi
+    rate = post.β[1] + post.β[2] * xi
     region = rate.quantile([0.025, 0.5, 0.975], dim="sample")
 
     ax.fill_between(
@@ -129,7 +139,7 @@ def plot_moderation_effect(result, m, m_quantiles, ax=None):
     for p, m in zip(percentile_list, m_levels):
         ax.plot(
             m,
-            np.mean(post.β1) + np.mean(post.β2) * m,
+            np.mean(post.β[1]) + np.mean(post.β[2]) * m,
             "o",
             c=scalarMap.to_rgba(m),
             markersize=10,
@@ -145,49 +155,149 @@ def plot_moderation_effect(result, m, m_quantiles, ax=None):
     )
 ```
 
-# Does the effect of training upon muscularity decrease with age?
+## Does the effect of training upon muscularity decrease with age?
 
 I've taken inspiration from a blog post {cite:t}`vandenbergSPSS` which examines whether age influences (moderates) the effect of training on muscle percentage. We might speculate that more training results in higher muscle mass, at least for younger people. But it might be the case that the relationship between training and muscle mass changes with age - perhaps training is less effective at increasing muscle mass in older age?
 
-The schematic box and arrow notation often used to represent moderation is shown by an arrow from the moderating variable to the line between a predictor and an outcome variable.
+Let's see how we can visualize this in 3 different ways.
+
++++
+
+### Statistical diagram
+
+In this approach we might model the outcome variable (muscle mass) as a function of the predictor variables. In this case they would be age, training, and the interaction term between age and training. This is a purely statistical approach and does not make any claims about causality or the direction of the relationships.
+
+```{code-cell} ipython3
+:tags: [hide-input]
+
+pgm = daft.PGM(dpi=200)
+
+pgm.add_node("i", "1", 0, 2, aspect=3)
+pgm.add_node("t", "training", 0, 1, aspect=3)
+pgm.add_node("a", "age", 0, 0, aspect=3)
+pgm.add_node("m", r"age $\times$ training", 0, -1, aspect=3)
+pgm.add_node("y", "muscle mass", 4, 0.5, aspect=3)
+pgm.add_node("e", r"$\epsilon$", 4, 1.5, fixed=True)
+
+pgm.add_edge("i", "y", label=r"$\beta_0$")
+pgm.add_edge("t", "y", label=r"$\beta_1$")
+pgm.add_edge("a", "y", label=r"$\beta_2$")
+pgm.add_edge("m", "y", label=r"$\beta_3$")
+pgm.add_edge("e", "y")
+
+
+pgm.render();
+```
+
+This diagram makes it explicit that the moderation effect is the interaction term between age and training. We'll come back to why this is the case below.
+
++++
+
+We could also write this in the form of an equation:
+
+$$
+\text{muscle mass} = \beta_0 + \beta_1 \times \text{training} + \beta_2 \times \text{age} + \beta_3 \times \text{training} \times \text{age} + \epsilon.
+$$
+
++++
+
+### Conceptual or path diagram
+We can also draw moderation in a more conceptual manner. This is perhaps visually simpler and easier to parse, but is less explicit. The moderation is shown by an arrow from the moderating variable to the line between a predictor and an outcome variable.
+
+But the diagram would represent the exact same equation as shown above.
 
 ![](moderation_figure.png)
 
-It can be useful to use consistent notation, so we will define:
++++
+
+### Causal diagram
+
++++
+
+Finally, we could draw the same diagram from the perspective of _structural causal modeling_. This notation shows that both age and training causally influence muscle mass. There is no specific visual notation to represent moderation in this approach. Instead, that would be captured by the functional form of the relationship $f$.
+
+```{code-cell} ipython3
+:tags: [hide-input]
+
+pgm = daft.PGM(dpi=200)
+
+pgm.add_node("x", "training", 0, 0, aspect=2)
+pgm.add_node("m", "age", 0, 1, aspect=2)
+pgm.add_node("y", "muscle mass", 2, 0.5, aspect=3)
+
+pgm.add_edge("x", "y")
+pgm.add_edge("m", "y")
+
+pgm.add_text(-0.25, -0.75, r"muscle mass := $f$(training, age)")
+
+pgm.render();
+```
+
+Note that the operator $:=$ is similar to the traditional $=$ operator, but it is used to denote a _causal_ or directional relationship rather than just equality.
+
+And we could, if we wanted to assume linearity, model this just as above:
+$$
+\text{muscle mass} := \beta_0 + \beta_1 \times \text{training} + \beta_2 \times \text{age} + \beta_3 \times \text{training} \times \text{age} + \epsilon.
+$$
+
++++
+
+## The moderation model
+
+Because we want to focus on the moderation concept and not the specific example it can be useful to use consistent and more abstract notation, so we will define:
 - $x$ as the main predictor variable. In this example it is training.
 - $y$ as the outcome variable. In this example it is muscle percentage.
 - $m$ as the moderator. In this example it is age.
 
-## The moderation model
++++
 
-While the visual schematic (above) is a useful shorthand to understand complex models when you already know what moderation is, you can't derive it from the diagram alone. So let us formally specify the moderation model - it defines an outcome variable $y$ as:
+### Why is the interaction term the moderation effect?
+We can see that the mean $y$ is simply a multiple linear regression with an interaction term between the two predictors, $x$ and $m$. 
+
+We can get some insight into why this is the case by thinking about this as a multiple linear regression with $x$ and $m$ as predictor variables, but where the value of $m$ influences the relationship between $x$ and $y$. This is achieved by making the regression coefficient for $x$ is a function of $m$:
 
 $$
-y \sim \mathrm{Normal}(\beta_0 + \beta_1 \cdot x + \beta_2 \cdot x \cdot m + \beta_3 \cdot m, \sigma^2)
+\mathbb{E}(y) = \beta_0 + f(m) \cdot x + \beta_3 \cdot m
 $$
 
-where $y$, $x$, and $m$ are your observed data, and the following are the model parameters:
+and if we define that as a linear function, $f(m) = \beta_1 + \beta_2 \cdot m$, we get
+
+$$
+\mathbb{E}(y) = \beta_0 + (\beta_1 + \beta_2 \cdot m) \cdot x + \beta_3 \cdot m
+$$
+
+which multiplies out to
+
+$$
+\mathbb{E}(y) = \beta_0 + \beta_1 \cdot x + \beta_2 \cdot x \cdot m + \beta_3 \cdot m
+$$
+
+:::{note}
+We can use $f(m) = \beta_1 + \beta_2 \cdot m$ later to visualise the moderation effect in a so-called spotlight graph.
+:::
+
++++
+
+### Specifying a Bayesian moderation model
+
+Ok, so let's start to define our moderation model in a Bayesian manner. For this example we will treat the outcome variable as normally distributed around the mean.
+
+$$
+\begin{aligned}
+\beta_0, \ldots, \beta_3 & \sim \text{Normal}(0, 10)\\
+\sigma & \sim \text{HalfCauchy}(1)\\
+\mu &= \beta_0 + \beta_1 \cdot x + \beta_2 \cdot x \cdot m + \beta_3 \cdot m\\
+y   &\sim \mathrm{Normal}(\mu, \sigma^2)
+\end{aligned}
+$$
+
+where $y$, $x$, and $m$ are your observed data, $\mu$ is the expected outcome value, and the following are the model parameters for which we place priors upon:
 - $\beta_0$ is the intercept, its value does not have that much importance in the interpretation of this model.
 - $\beta_1$ is the rate at which $y$ (muscle percentage) increases per unit of $x$ (training hours). 
 - $\beta_2$ is the coefficient for the interaction term $x \cdot m$.
 - $\beta_3$ is the rate at which $y$ (muscle percentage) increases per unit of $m$ (age). 
 - $\sigma$ is the standard deviation of the observation noise.
 
-We can see that the mean $y$ is simply a multiple linear regression with an interaction term between the two predictors, $x$ and $m$. 
-
-We can get some insight into why this is the case by thinking about this as a multiple linear regression with $x$ and $m$ as predictor variables, but where the value of $m$ influences the relationship between $x$ and $y$. This is achieved by making the regression coefficient for $x$ is a function of $m$:
-
-$$
-y \sim \mathrm{Normal}(\beta_0 + f(m) \cdot x + \beta_3 \cdot m, \sigma^2)
-$$
-
-and if we define that as a linear function, $f(m) = \beta_1 + \beta_2 \cdot m$, we get
-
-$$
-y \sim \mathrm{Normal}(\beta_0 + (\beta_1 + \beta_2 \cdot m) \cdot x + \beta_3 \cdot m, \sigma^2)
-$$
-
-We can use $f(m) = \beta_1 + \beta_2 \cdot m$ later to visualise the moderation effect.
 
 +++
 
@@ -231,16 +341,11 @@ ax[2].set(xlabel="muscle percentage, $y$");
 ```{code-cell} ipython3
 def model_factory(x, m, y):
     with pm.Model() as model:
-        x = pm.ConstantData("x", x)
-        m = pm.ConstantData("m", m)
-        # priors
-        β0 = pm.Normal("β0", mu=0, sigma=10)
-        β1 = pm.Normal("β1", mu=0, sigma=10)
-        β2 = pm.Normal("β2", mu=0, sigma=10)
-        β3 = pm.Normal("β3", mu=0, sigma=10)
+        x = pm.Data("x", x)
+        m = pm.Data("m", m)
+        β = pm.Normal("β", mu=0, sigma=10, size=4)
         σ = pm.HalfCauchy("σ", 1)
-        # likelihood
-        y = pm.Normal("y", mu=β0 + (β1 * x) + (β2 * x * m) + (β3 * m), sigma=σ, observed=y)
+        pm.Normal("y", mu=β[0] + (β[1] * x) + (β[2] * x * m) + (β[3] * m), sigma=σ, observed=y)
 
     return model
 ```
@@ -257,13 +362,13 @@ pm.model_to_graphviz(model)
 
 ```{code-cell} ipython3
 with model:
-    result = pm.sample(draws=1000, tune=1000, random_seed=42, nuts={"target_accept": 0.9})
+    result = pm.sample()
 ```
 
 Visualise the trace to check for convergence.
 
 ```{code-cell} ipython3
-az.plot_trace(result);
+az.plot_trace(result, compact=False);
 ```
 
 We have good chain mixing and the posteriors for each chain look very similar, so no problems in that regard.
@@ -280,14 +385,14 @@ az.plot_pair(
     marginals=True,
     point_estimate="median",
     figsize=(12, 12),
-    scatter_kwargs={"alpha": 0.01},
+    scatter_kwargs={"alpha": 0.05},
 );
 ```
 
 And just for the sake of completeness, we can plot the posterior distributions for each of the $\beta$ parameters and use this to arrive at research conclusions.
 
 ```{code-cell} ipython3
-az.plot_posterior(result, var_names=["β1", "β2", "β3"], figsize=(14, 4));
+az.plot_posterior(result, var_names=["β"], figsize=(14, 4));
 ```
 
 For example, from an estimation (in contrast to a hypothesis testing) perspective, we could look at the posterior over $\beta_2$ and claim a credibly less than zero moderation effect.
@@ -317,7 +422,8 @@ We can also visualise the moderation effect by plotting $\beta_1 + \beta_2 \cdot
 ```{code-cell} ipython3
 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
 plot_moderation_effect(result, m, m_quantiles, ax[0])
-az.plot_posterior(result, var_names="β2", ax=ax[1]);
+az.plot_posterior(result.posterior["β"].isel(β_dim_0=2), ax=ax[1])
+ax[1].set(title="Posterior distribution of $\\beta_2$");
 ```
 
 The expression $\beta_1 + \beta_2 \cdot \text{moderator}$ defines the rate of change of the outcome (muscle percentage) per unit of $x$ (training hours/week). We can see that as age (the moderator) increases, this effect of training hours/week on muscle percentage decreases.
@@ -326,9 +432,9 @@ The expression $\beta_1 + \beta_2 \cdot \text{moderator}$ defines the rate of ch
 
 ## Related issues: mean centering and multicollinearity
 
-Readers should be aware that there are issues around mean-centering and multicollinearity. The original [SPSS Moderation Regression Tutorial](https://www.spss-tutorials.com/spss-regression-with-moderation-interaction-effect/) did mean-centre the predictor variables $x$ and $m$. This will have a downstream effect upon the interaction term $x \cdot m$.
+Readers should be aware that there are statistical issues around mean-centering and multicollinearity. The original [SPSS Moderation Regression Tutorial](https://www.spss-tutorials.com/spss-regression-with-moderation-interaction-effect/) did mean-centre the predictor variables $x$ and $m$. This will have a downstream effect upon the interaction term $x \cdot m$.
 
-One effect of mean centering is to change the interpretation of the parameter estimates. In this notebook, we did not mean center the variables which will affect the parameter estimates and their interpretation. It is not that one is correct or incorrect, but one must be cognisant of how mean-centering (or not) affects the interpretation of parameter estimates. Readers are again directed to {cite:t}`hayes2017introduction` for a more in-depth consideration of mean-centering in moderation analyses.
+One effect of mean centering is to change the interpretation of the parameter estimates. In this notebook, we did not mean center the vriables which will affect the parameter estimates and their interpretation. It is not that one is correct or incorrect, but one must be cognisant of how mean-centering (or not) affects the interpretation of parameter estimates. Readers are again directed to {cite:t}`hayes2017introduction` for a more in-depth consideration of mean-centering in moderation analyses.
 
 Another issue, particularly relevant to moderation analysis is [multicollinearity](https://en.wikipedia.org/wiki/Multicollinearity), where one predictor variable is well-described as a linear combination of other predictors. This is clearly the case in moderation analysis as the interaction term $m \cdot x$ is by definition a linear combination of $x$ and $m$.
 
@@ -343,7 +449,7 @@ They state:
 
 > Researchers using MMR [moderated multiple regression] need not compute any multicollinearity diagnostics nor worry about it at all. They need not use mean-centering or the orthogonal transformation or do anything else to avoid the purported problems of multicollinearity. The only purpose of those transformations is to facilitate understanding of MMR models.
 
-Bearing in mind {cite:t}`mcclelland2017multicollinearity` took a frequentist hypothesis testing (not a Bayesian approach) their take-home points can be paraphrased as:
+Bearing in mind {cite:t}`mcclelland2017multicollinearity` took a frequentist hypothesis testing approach (not a Bayesian approach) their take-home points can be paraphrased as:
 1. Fit the regression model, $y \sim \mathrm{Normal}(\beta_0 + \beta_1 \cdot x + \beta_2 \cdot x \cdot m + \beta_3 \cdot m, \sigma^2)$, with original (not mean-centred) data.
 2. If the main interest is on the moderation effect, then focus upon $\beta_2$.
 3. Transformations are useful if conditional relationships are to be highlighted.
@@ -351,10 +457,14 @@ Bearing in mind {cite:t}`mcclelland2017multicollinearity` took a frequentist hyp
 
 But readers are strongly encouraged to read {cite:t}`mcclelland2017multicollinearity` for more details, as well as the reply from {cite:t}`iacobucci2017mean`. Readers should also be aware that there are conflicting opinions and recommendations about mean centering etc in textbooks (see Further Reading below), some of which are published before 2017. None of these textbooks explicitly cite {cite:t}`mcclelland2017multicollinearity`, so it is unclear if the textbook authors are unaware of, agree with, or disagree with {cite:t}`mcclelland2017multicollinearity`.
 
+
++++
+
 ## Further reading
 - Further information about the 'moderation effect', or what {cite:t}`mcclelland2017multicollinearity` called a spotlight graphs, can be found in {cite:t}`bauer2005probing` and {cite:t}`spiller2013spotlights`. Although these papers take a frequentist (not Bayesian) perspective.
 - {cite:t}`zhang2017moderation` compare maximum likelihood and Bayesian methods for moderation analysis with missing predictor variables.
 - Multicollinearity, data centering, and linear models with interaction terms are also discussed in a number of prominent Bayesian text books {cite:p}`gelman2013bayesian, gelman2020regression,kruschke2014doing,mcelreath2018statistical`.
+- Readers interested in issues of causality around moderation are directed to {cite:t}`rohrer2018thinking`, {cite:t}`rohrer2021precise`, and {cite:t}`rohrer2022process`.
 
 +++
 
@@ -363,6 +473,7 @@ But readers are strongly encouraged to read {cite:t}`mcclelland2017multicollinea
 - Updated by Benjamin T. Vincent in March 2022
 - Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5
 - Updated to use `az.extract` by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
+- Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in Oct 2024 ([pymc-examples#662](https://github.com/pymc-devs/pymc-examples/pull/662))
 
 +++
 
