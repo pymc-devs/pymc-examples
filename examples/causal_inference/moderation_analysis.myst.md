@@ -434,7 +434,7 @@ The expression $\beta_1 + \beta_2 \cdot \text{moderator}$ defines the rate of ch
 
 Readers should be aware that there are statistical issues around mean-centering and multicollinearity. The original [SPSS Moderation Regression Tutorial](https://www.spss-tutorials.com/spss-regression-with-moderation-interaction-effect/) did mean-centre the predictor variables $x$ and $m$. This will have a downstream effect upon the interaction term $x \cdot m$.
 
-One effect of mean centering is to change the interpretation of the parameter estimates. In this notebook, we did not mean center the variables which will affect the parameter estimates and their interpretation. It is not that one is correct or incorrect, but one must be cognisant of how mean-centering (or not) affects the interpretation of parameter estimates. Readers are again directed to {cite:t}`hayes2017introduction` for a more in-depth consideration of mean-centering in moderation analyses.
+One effect of mean centering is to change the interpretation of the parameter estimates. In this notebook, we did not mean center the vriables which will affect the parameter estimates and their interpretation. It is not that one is correct or incorrect, but one must be cognisant of how mean-centering (or not) affects the interpretation of parameter estimates. Readers are again directed to {cite:t}`hayes2017introduction` for a more in-depth consideration of mean-centering in moderation analyses.
 
 Another issue, particularly relevant to moderation analysis is [multicollinearity](https://en.wikipedia.org/wiki/Multicollinearity), where one predictor variable is well-described as a linear combination of other predictors. This is clearly the case in moderation analysis as the interaction term $m \cdot x$ is by definition a linear combination of $x$ and $m$.
 
@@ -464,7 +464,7 @@ But readers are strongly encouraged to read {cite:t}`mcclelland2017multicollinea
 - Further information about the 'moderation effect', or what {cite:t}`mcclelland2017multicollinearity` called a spotlight graphs, can be found in {cite:t}`bauer2005probing` and {cite:t}`spiller2013spotlights`. Although these papers take a frequentist (not Bayesian) perspective.
 - {cite:t}`zhang2017moderation` compare maximum likelihood and Bayesian methods for moderation analysis with missing predictor variables.
 - Multicollinearity, data centering, and linear models with interaction terms are also discussed in a number of prominent Bayesian text books {cite:p}`gelman2013bayesian, gelman2020regression,kruschke2014doing,mcelreath2018statistical`.
-- Readers interested in issues of causality around moderation are directed to {cite:t}`rohrer2022process`, {cite:t}`rohrer2018thinking`, and {cite:t}`rohrer2021precise`.
+- Readers interested in issues of causality around moderation are directed to {cite:t}`rohrer2018thinking`, {cite:t}`rohrer2021precise`, and {cite:t}`rohrer2022process`.
 
 +++
 
@@ -473,7 +473,7 @@ But readers are strongly encouraged to read {cite:t}`mcclelland2017multicollinea
 - Updated by Benjamin T. Vincent in March 2022
 - Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5
 - Updated to use `az.extract` by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
-- Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in June 2024 to incorporate causal concepts
+- Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in Oct 2024 ([pymc-examples#662](https://github.com/pymc-devs/pymc-examples/pull/662))
 
 +++
 
