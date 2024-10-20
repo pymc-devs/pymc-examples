@@ -24,7 +24,7 @@ This notebook covers Bayesian [moderation analysis](https://en.wikipedia.org/wik
 This is not intended as a one-stop solution to a wide variety of data analysis problems, rather, it is intended as an educational exposition to show how moderation analysis works and how to conduct Bayesian parameter estimation in PyMC. This notebook focusses on observational methods and does not explore experimental interventions.
 
 Moderation analysis has been framed in a variety of ways:
-* Statistical approaches: It is entirely possible to approach moderation analysis from a purely statistical perspective. In this approach we might build a linear model (for example) whose aim is purely to _describe_ the data we have while making no claims about causality.
+* Statistical: It is entirely possible to approach moderation analysis from a purely statistical perspective. In this approach we might build a linear model (for example) whose aim is purely to _describe_ the data we have while making no claims about causality.
 * Path analysis: This approach asserts that the variables in the model are causally related and is exemplified in {cite:t}`hayes2017introduction`, for example. This approach cannot be considered as 'fully causal' as it lacks a variety of the concepts present in the causal approach.
 * Causal inference: This approach builds upon the path analysis approach in that there is a claim of causal relationships between the variables. But it goes further in that there are additional causal concepts which can be brought to bear.
 
@@ -449,7 +449,7 @@ They state:
 
 > Researchers using MMR [moderated multiple regression] need not compute any multicollinearity diagnostics nor worry about it at all. They need not use mean-centering or the orthogonal transformation or do anything else to avoid the purported problems of multicollinearity. The only purpose of those transformations is to facilitate understanding of MMR models.
 
-Bearing in mind {cite:t}`mcclelland2017multicollinearity` took a frequentist hypothesis testing (not a Bayesian approach) their take-home points can be paraphrased as:
+Bearing in mind {cite:t}`mcclelland2017multicollinearity` took a frequentist hypothesis testing approach (not a Bayesian approach) their take-home points can be paraphrased as:
 1. Fit the regression model, $y \sim \mathrm{Normal}(\beta_0 + \beta_1 \cdot x + \beta_2 \cdot x \cdot m + \beta_3 \cdot m, \sigma^2)$, with original (not mean-centred) data.
 2. If the main interest is on the moderation effect, then focus upon $\beta_2$.
 3. Transformations are useful if conditional relationships are to be highlighted.
