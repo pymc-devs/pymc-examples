@@ -16,7 +16,7 @@ kernelspec:
 # GLM-ordinal-features
 
 :::{post} Oct 27, 2024
-:tags: ordinal-features, ordinal-regression
+:tags: ordinal-features, ordinal-regression, glm, bayesian-workflow, r-datasets
 :category: beginner
 :author: Jonathan Sedar
 :::
@@ -1580,7 +1580,7 @@ outputId: e145f47a-a63f-4b50-b1cb-33e1401b32b5
 ---
 # tested running on Google Colab 2024-10-27
 %load_ext watermark
-%watermark -a "jonathan.sedar@oreum.io" -udtmv -iv -p pymc,pytensor
+%watermark -n -u -v -iv -w
 ```
 
 :::{include} ../page_footer.md
