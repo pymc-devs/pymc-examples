@@ -17,7 +17,7 @@ kernelspec:
 
 :::{post} Oct 27, 2024
 :tags: ordinal-features, ordinal-regression, glm, bayesian-workflow, r-datasets
-:category: beginner
+:category: beginner, reference
 :author: Jonathan Sedar
 :::
 
@@ -72,7 +72,7 @@ which we show in another notebook
   + As a totally subjective opinion which might be different between observations e.g. "bad, good, better, way better,
     best, actually the best, magnificent"  - these are difficult to work with and a symptom of poor survey design
   + On a partially subjective, standardized scale e.g. "strongly agree, agree, disagree, strongly disagree" - this is
-    the approach of the familar [Likert scale](https://en.wikipedia.org/wiki/Likert_scale))
+    the approach of the familar [Likert scale](https://en.wikipedia.org/wiki/Likert_scale)
   + As a summary binning of a metric scale e.g. binning ages into age-groups [<30, 30 - 60, 60+], or medical
     self-scoring "[0-10%, ..., 90-100%]" - these are typically a misuse of the metric because the data has been
     compressed: losing infomation, and reasoning for the binning and the choices of bin-edges are usually not given
