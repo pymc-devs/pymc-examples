@@ -90,12 +90,12 @@ which we show in another notebook
     
 + This notebook takes the opportunity to:
   + Demonstrate a general method using a constrained Dirichlet prior, based on
-    {cite:p}burkner2018 
-  + Using the same health dataset as that paper `ICFCoreSetCWP.RData` available 
+    {cite:p}burkner2018
+  + Using the same health dataset as that paper `ICFCoreSetCWP.RData` available
     in an R package [ordPens](https://cran.r-project.org/src/contrib/ordPens_1.1.0.tar.gz )
   + Extend a pymc-specific example by
     Austin Rochford {cite:p}`rochford2018`
-  + Demonstrate a reasonably complete Bayesian workflow {cite:p}`gelman2020bayesian` including 
+  + Demonstrate a reasonably complete Bayesian workflow {cite:p}`gelman2020bayesian` including
     data curation and grabbing data from an RDataset which is characteristically ugly
 
 + This notebook is a partner to another notebook (TBD) where we estimate an **ordinal endogenous target feature**.
@@ -110,18 +110,14 @@ which we show in another notebook
 
 # Setup
 
-+++
++++ {"id": "4YE-JcFC9I8Q"}
 
 :::{include} ../extra_installs.md
 :::
 
 ```{code-cell} ipython3
----
-colab:
-  base_uri: https://localhost:8080/
-id: CQixNaaKJ8fH
-outputId: ca76e80a-0950-4b7a-93ea-a86d62061caf
----
+:id: CQixNaaKJ8fH
+
 # uncomment to install in a Google Colab environment
 # !pip install pyreadr watermark
 ```
@@ -169,6 +165,7 @@ SAMPLE_KWS = dict(
     progressbar=True,
     draws=500,
     tune=2000,
+    chains=4,
     target_accept=0.8,
     idata_kwargs=dict(log_likelihood=True),
 )
@@ -222,7 +219,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 691
 id: HbZvu2rDJagB
-outputId: 3db23e4f-3c64-4680-d880-dae21a245409
+outputId: d8487bb5-acbe-4cfa-f5a1-5f7d9f42f377
 ---
 print(dfr.shape)
 display(pd.concat((dfr.describe(include="all").T, dfr.isnull().sum(), dfr.dtypes), axis=1))
@@ -246,7 +243,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 364
 id: 5kFxNzDQJagB
-outputId: 4245cc14-6850-475b-b839-e969a03633f5
+outputId: 74ffd824-5a3c-442b-8968-4638f575de39
 ---
 fts_austin = ["d450", "d455", "phcs"]
 df = dfr[fts_austin].copy()
@@ -299,7 +296,7 @@ Nothing really needed, will rename the index when we force dtype and set index
 colab:
   base_uri: https://localhost:8080/
 id: dfIcUcOEJagC
-outputId: cb6c455f-1220-4e82-a93d-01ae600e5aeb
+outputId: 10fe2f37-4f50-41a5-f8bb-fb40bb1f647a
 ---
 ft = "d450"
 idx = df[ft].notnull()
@@ -312,7 +309,7 @@ df[ft].unique()
 colab:
   base_uri: https://localhost:8080/
 id: Hk-DR6akJagC
-outputId: f7bfd499-ddfe-4ddf-807d-307dddc3f158
+outputId: bb70e394-2623-470a-8621-efacdb107b72
 ---
 lvls = ["c0", "c1", "c2", "c3"]
 df[ft] = pd.Categorical(df[ft].values, categories=lvls, ordered=True)
@@ -328,7 +325,7 @@ df[ft].cat.categories
 colab:
   base_uri: https://localhost:8080/
 id: wzNpQLS9JagC
-outputId: 84dea368-b39f-478e-c252-b1bf4ebf25dc
+outputId: 2da81148-a046-4c95-c314-5d80d88b408f
 ---
 ft = "d455"
 idx = df[ft].notnull()
@@ -341,7 +338,7 @@ df[ft].unique()
 colab:
   base_uri: https://localhost:8080/
 id: Yiwey6naJagC
-outputId: 18197b5d-e556-475f-945e-8de8c46ad015
+outputId: 7ccd7545-9cf4-48f2-ded8-34383d40bd3e
 ---
 lvls = ["c0", "c1", "c2", "c3", "c4"]
 df[ft] = pd.Categorical(df[ft].values, categories=lvls, ordered=True)
@@ -371,7 +368,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 382
 id: o81OeFEKJagC
-outputId: 38c657f8-31b8-4fef-9b9a-d6dd3774681a
+outputId: 955dc115-301d-49e1-a56e-f9549293a6fe
 ---
 print(df.shape)
 display(pd.concat((df.describe(include="all").T, df.isnull().sum(), df.dtypes), axis=1))
@@ -392,7 +389,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 186
 id: FYfSlaV1JagD
-outputId: 0ae59d07-3979-422d-8c5f-f691fa0cb81e
+outputId: 80c8b2a4-f9c8-45d6-fa7c-c953c9d8ea5d
 ---
 fts = ["phcs"]
 v_kws = dict(data=df, cut=0)
@@ -421,7 +418,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 441
 id: H-cc0MBLJagH
-outputId: fb2d2128-bb13-435b-8455-cb7ecf814854
+outputId: d2336185-7f78-41b0-d676-16327d6f8b43
 ---
 def plot_numeric_vs_cat(df, ftnum="phcs", ftcat="d450") -> plt.figure:
     f = plt.figure(figsize=(12, 3))
@@ -520,7 +517,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 238
 id: IJrcR2AkJagH
-outputId: 84cb0688-5614-4068-cbde-230af0d08754
+outputId: 2aa8d64b-dbfd-46f4-e3d2-a428f6f4884c
 ---
 MNS = np.nanmean(df[fts_num], axis=0)
 SDEVS = np.nanstd(df[fts_num], axis=0)
@@ -547,7 +544,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 238
 id: _cs_cls9JagI
-outputId: c919000d-fc4c-46be-9a6d-5b5fc5fc7266
+outputId: 9cc9cb72-52e0-4c7f-9bb0-06e17d4c4a39
 ---
 dff = df.groupby(["d450", "d455"]).size().reset_index()[["d450", "d455"]]
 lvls_d450 = ["c0", "c1", "c2", "c3"]
@@ -570,7 +567,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 238
 id: DBretpaKJagI
-outputId: cf120edf-aaf6-4ae2-97f8-1cc6888310c7
+outputId: 62e65d97-17c3-43bc-e291-7621a477df89
 ---
 dff["d450_idx"] = dff["d450"].map(MAP_CAT_TO_INT_D450).astype(int)
 dff["d455_idx"] = dff["d455"].map(MAP_CAT_TO_INT_D455).astype(int)
@@ -637,7 +634,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 35
 id: aejLD20fJagI
-outputId: 412b4cab-7f8b-4c3b-faf3-b9aa739938e5
+outputId: 52fea489-cf9c-4dbd-bfa7-ab39d5513bfa
 ---
 with pm.Model(coords=COORDS) as mdla:
     # 0. create (Mutable)Data containers for obs (Y, X)
@@ -665,7 +662,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 720
 id: sxvwwMBPJagI
-outputId: 293c88c8-bf62-480f-e8ee-8b0ad6f63569
+outputId: 7f26512f-5051-404a-ee5d-63810ba08850
 ---
 display(pm.model_to_graphviz(mdla, formatting="plain"))
 assert_no_rvs(mdla.logp())
@@ -699,7 +696,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 255
 id: a6YDSKYMJagI
-outputId: 1a6cbacf-8a48-4405-903f-5c916c363f34
+outputId: 9c0b5535-743d-46ca-97ac-42f2b0b8866c
 ---
 def plot_ppc_retrodictive(idata, group="prior", mdlname="mdla", ynm="y") -> plt.figure:
     """Convenience plot PPC retrodictive KDE"""
@@ -728,7 +725,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 173
 id: FN8eOipFJagI
-outputId: 26b99de0-cbef-43bd-fbcb-608acfe36eca
+outputId: 700d6da8-e867-43f5-db71-ffd0956d825e
 ---
 def plot_posterior(
     idata,
@@ -769,12 +766,13 @@ f = plot_posterior(ida, "prior", rvs=RVS_SIMPLE_COMMON, mdlname="mdla", n=1 + 3 
 ---
 colab:
   base_uri: https://localhost:8080/
-  height: 67
-  referenced_widgets: [5ac4d556355b4890a980ad4d4f53d792, 14ad4102c38a40da9a7387328c48429b,
-    7f43a317059147bf90d614dc574ff130, d913e7dcfcb34696a5f766a25c4db9aa, b8eae6e849a64fa0b35642c162295e77,
-    82adca499c4e4893a8ace68c81287ce5]
+  height: 100
+  referenced_widgets: [06cc3d00728540e5b575070062775484, 0a4168d5e6624e969ad00bedd2857e3a,
+    24f3c3466b984e90871abe6010a00a2b, a013b3649b4f4cffac7cba760e293ce9, 75baebed1bf74beca21c1286c418236b,
+    7b9eaf22b36d4d24b61b1e776f0c3048, 525e4c51751f461889ce090e0a6d8942, a9b2452905344c76b4d5eaf98f62cbac,
+    2663c7804b6c4d47a9f0c7f5120f0258, 28295446a86f427792864bfb5e310ba6]
 id: NDZ1i4wwJagJ
-outputId: 76ca3d59-923e-495b-8895-3601a675ad71
+outputId: d6c45daa-aae2-41b6-cc49-fe3cd82d8d10
 ---
 with mdla:
     ida.extend(pm.sample(**SAMPLE_KWS), join="right")
@@ -792,9 +790,9 @@ with mdla:
 ---
 colab:
   base_uri: https://localhost:8080/
-  height: 606
+  height: 619
 id: m6lCwXTjJagJ
-outputId: e8ac1e4e-79a7-414d-9cd0-a1aa7d5e3d16
+outputId: 9980067e-fe78-47e2-f486-6e0854f14e23
 ---
 def plot_traces_and_display_summary(idata, rvs, coords=None, mdlname="mdla") -> plt.figure:
     """Convenience to plot traces and display summary table for rvs"""
@@ -829,7 +827,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 255
 id: 4XRuM0y6JagJ
-outputId: 9185a4c6-9258-4566-8e72-9fec8db5a976
+outputId: 4b1370cc-865a-462d-850e-801d38cbf460
 ---
 f = plot_ppc_retrodictive(ida, "posterior", "mdla", "phcs")
 ```
@@ -851,7 +849,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 187
 id: 4-MDBU4fJagJ
-outputId: 467795eb-b539-45eb-f296-6b03f3549376
+outputId: 14deb0a9-e51d-44e2-91f7-acbf7e1faca0
 ---
 def plot_loo_pit(idata, mdlname="mdla", y="phcs_hat", y_hat="phcs_hat"):
     """Convenience plot LOO-PIT KDE and ECDF"""
@@ -902,7 +900,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 173
 id: 1bJK1kGrJagK
-outputId: c04eab92-6d9e-444e-fef4-8e5bfd0cc8b0
+outputId: c5aa010c-cc07-4f3a-ff4b-42a7324801cd
 ---
 f = plot_posterior(ida, "posterior", rvs=RVS_SIMPLE_COMMON, mdlname="mdla", n=5, nrows=1)
 ```
@@ -940,7 +938,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 720
 id: x3YSDHhyJagK
-outputId: c77315fe-e798-4001-b362-15240a5b1e53
+outputId: 649c2ff0-09a1-4006-f7a5-4ae0500b3a42
 ---
 COORDS_F = deepcopy(COORDS)
 COORDS_F["oid"] = dffx.index.values
@@ -958,9 +956,9 @@ mdla.debug(fn="random", verbose=True)
 colab:
   base_uri: https://localhost:8080/
   height: 34
-  referenced_widgets: [fd6b9ad3a49146f3b552e8a703716147, cf40da57e90e47abbf51aa5fa82ba586]
+  referenced_widgets: [0a60c8d42b27478a9c684057d6fa9e15, 12afca8696704967a11afcda55c9999b]
 id: 1o8-uBpvJagK
-outputId: 53b7f11f-b39b-43ba-f3f0-563c71b0bf12
+outputId: 96e6e8a6-e45c-46a2-f2f3-d45bd40544b0
 ---
 with mdla:
     ida_ppc = pm.sample_posterior_predictive(
@@ -978,7 +976,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 440
 id: cPDzQbRhJagK
-outputId: 7a2b46b4-4da5-4cbf-8b5b-aba139a410ff
+outputId: 2956df0c-3794-4430-9bbe-27d315c7eafd
 ---
 def plot_predicted_phcshat_d450_d455(idata, mdlname) -> plt.Figure:
     """Convenience to plot predicted phcs_hat vs d450 and d455"""
@@ -1100,7 +1098,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 196
 id: ZyP0P29AJagK
-outputId: f9aaa950-5d29-4823-a359-0067ee343305
+outputId: 2f5e3717-7549-43d0-a334-7875b3871dcd
 ---
 with pm.Model(coords=COORDS) as mdlb:
     # NOTE: Spec not particuarly optimised / vectorised / DRY to aid explanation
@@ -1150,7 +1148,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 877
 id: GlUShTelJagK
-outputId: 846953d9-aa03-4c80-cfd5-a1fe38be6075
+outputId: 049b9d63-b975-4dec-e42b-3a4e07372c5b
 ---
 display(pm.model_to_graphviz(mdlb, formatting="plain"))
 assert_no_rvs(mdlb.logp())
@@ -1184,7 +1182,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 255
 id: 0YpdzHXLJagL
-outputId: 0e7cc3d2-a864-4439-88ad-0e25375fa206
+outputId: 3b769a22-07d0-4a3b-dac9-cb2f16c645cd
 ---
 f = plot_ppc_retrodictive(idb, "prior", "mdlb", "phcs")
 ```
@@ -1205,7 +1203,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 683
 id: QnsGBp2-JagL
-outputId: 155ae8b3-50ed-48d5-ef00-6e3ab372758b
+outputId: be8acc83-5c8b-4b0f-8eac-1b8aec23c0f2
 ---
 f = plot_posterior(idb, "prior", rvs=rvs_simple, mdlname="mdlb", n=5, nrows=1)
 f = plot_posterior(idb, "prior", rvs=rvs_d450, mdlname="mdlb", n=4 * 2, nrows=2)
@@ -1237,12 +1235,13 @@ f = plot_posterior(idb, "prior", rvs=rvs_d455, mdlname="mdlb", n=5 * 2, nrows=2)
 ---
 colab:
   base_uri: https://localhost:8080/
-  height: 104
-  referenced_widgets: [ab1520d761ed4391aa348dd2545aea62, ed77bbddc4b841a891c19168713432be,
-    09f77186189b44c1a54f61922bd05997, 818b1bffe7b24fbc91ec7970f414b7fa, fab11b7a600b468bb6e6729043894957,
-    e58e85ebd77548219658075b7f365ef6]
+  height: 117
+  referenced_widgets: [0d589c6414744b46b26ab53684a46a6c, 186760fa868747e0a725b0ebfc236c60,
+    a1015cbb012a43c48d86a5bdf03fa0dc, c01d887394474462a3cfc601ea40dc13, 7ff6e1d26b3a4c40bf34d7cafd84f51d,
+    1fabd430cd72478780ac4b10b1bef4ec, e4addbe432cd42ce92f694e7517d0a6c, e0ec99304ad442a881d0522376972bc1,
+    8756d6e881344e099dcb7b2f737e3958, c209b8e19bed4966a4aa3445babac4da]
 id: uMoTtZA-JagL
-outputId: 7bca1e61-988f-48fe-e63c-10890128dfbb
+outputId: 97c84404-6427-4bf4-ccb5-eb0057097c69
 ---
 SAMPLE_KWS["target_accept"] = 0.9  # raise to mitigate some minor divergences
 with mdlb:
@@ -1263,7 +1262,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 1000
 id: CWgQdiUoJagL
-outputId: a9979558-7902-46bf-a040-6b5485e40e99
+outputId: 933701f3-4e28-4383-b21d-9d6c6e9288e7
 ---
 f = plot_traces_and_display_summary(idb, rvs=rvs_simple + rvs_d450 + rvs_d455, mdlname="mdlb")
 ```
@@ -1287,7 +1286,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 255
 id: 0RgDbOKyJagL
-outputId: 769052e0-babd-4e49-ddaa-1efb59ada87b
+outputId: 3950cd3e-a882-456f-f25a-047f13890e4f
 ---
 f = plot_ppc_retrodictive(idb, "posterior", "mdlb", "phcs")
 ```
@@ -1309,7 +1308,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 187
 id: gzVgnVAqJagL
-outputId: 76a9eef5-9aa9-4905-a364-4288b5518fca
+outputId: bf747f62-d0cb-41a3-f55d-ab03e6a42c3a
 ---
 f = plot_loo_pit(idb, "mdlb")
 ```
@@ -1330,7 +1329,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 324
 id: mwiaR6CcJagM
-outputId: 0b2f95f5-7bf7-46c4-e389-4b99c2f7fe55
+outputId: 53c87454-13b0-40be-b4cf-08764dab5e80
 ---
 def plot_compare_log_likelihood(idata_dict={}, y_hat="phcs_hat") -> plt.figure:
     """Convenience to plot comparison for a dict of idatas"""
@@ -1374,7 +1373,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 173
 id: Wh8MPtTLJagM
-outputId: 9a03b5bc-9e31-48be-fb0b-527e233f38f2
+outputId: 5614b32c-41ec-4fae-d0f0-d5119c05c415
 ---
 f = plot_posterior(idb, "posterior", rvs=rvs_simple, mdlname="mdlb", n=5, nrows=1)
 ```
@@ -1401,7 +1400,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 272
 id: WdqLVls4JagM
-outputId: 9364c0b9-c62b-414f-9e03-3af44283454e
+outputId: 14ab8ce0-8e52-4b85-ae23-23605ba1db87
 ---
 f = plot_posterior(idb, "posterior", rvs=rvs_d450, mdlname="mdlb", n=4 * 2, nrows=2)
 ```
@@ -1420,7 +1419,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 272
 id: QCDyC6gAJagM
-outputId: 5770d257-1581-4d25-f12d-b9105824df7c
+outputId: 8a2d7aef-8afe-42ba-ce7e-a321455f26eb
 ---
 f = plot_posterior(idb, "posterior", rvs=rvs_d455, mdlname="mdlb", n=5 * 2, nrows=2)
 ```
@@ -1445,7 +1444,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 357
 id: tx3ma1oRJagM
-outputId: 1b324a3b-c4c3-419b-8804-0d8277c2ec85
+outputId: 9be55708-399c-4f71-9ecf-443e916c2395
 ---
 def plot_posterior_forest(idata, group="posterior", rv="beta", mdlname="mdla"):
     """Convenience forestplot posterior (or prior) KDE"""
@@ -1489,7 +1488,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 877
 id: Z-0pSJVPJagM
-outputId: e7a091f0-a8af-48be-ecab-58b7c263aeb7
+outputId: 61c38a1c-8e54-4fcb-aa59-2d9e3c8cd2cc
 ---
 COORDS_F = deepcopy(COORDS)
 COORDS_F["oid"] = dffx.index.values
@@ -1509,9 +1508,9 @@ mdlb.debug(fn="random", verbose=True)
 colab:
   base_uri: https://localhost:8080/
   height: 34
-  referenced_widgets: [28826f8350af445d9c1ca0a3580ded88, 8e0c363af1aa48feb60083e0ff42cd5e]
+  referenced_widgets: [5bdb3b1ed6c045f38ac7267a07d6dcd7, 17a29d68378e4306af111358bd850e5e]
 id: Ilbo7p8pJagM
-outputId: 4028df37-29dc-4e52-8fbb-65b86328c3ad
+outputId: ddb942f9-46c6-4ce6-dccd-72924598acb8
 ---
 with mdlb:
     idb_ppc = pm.sample_posterior_predictive(
@@ -1529,7 +1528,7 @@ colab:
   base_uri: https://localhost:8080/
   height: 440
 id: nErBbUVaJagN
-outputId: d0ff8cd0-e3ee-4c5f-802d-a85fb2770498
+outputId: bff0b44b-8beb-40d3-bf0f-55ea05f5de98
 ---
 plot_predicted_phcshat_d450_d455(idata=idb_ppc, mdlname="mdlb")
 ```
@@ -1553,7 +1552,7 @@ plot_predicted_phcshat_d450_d455(idata=idb_ppc, mdlname="mdlb")
 
 ---
 
-+++
++++ {"id": "OK4z3NA49I8c"}
 
 # Errata
 
@@ -1576,12 +1575,14 @@ plot_predicted_phcshat_d450_d455(idata=idb_ppc, mdlname="mdlb")
 colab:
   base_uri: https://localhost:8080/
 id: _JhXV8qjJagN
-outputId: e145f47a-a63f-4b50-b1cb-33e1401b32b5
+outputId: b5b3518f-b295-42cc-a525-d8f6767270b2
 ---
 # tested running on Google Colab 2024-10-27
 %load_ext watermark
 %watermark -n -u -v -iv -w
 ```
+
++++ {"id": "VXNIouB29I8c"}
 
 :::{include} ../page_footer.md
 :::
