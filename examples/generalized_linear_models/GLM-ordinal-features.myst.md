@@ -67,38 +67,56 @@ which we show in another notebook
 
 ## Problem Statement
 
-+ Human action and economics is all about expressing our ordinal preferences between limited options in the real-world.
-+ We often encounter situations (and datasets) where a predictior feature is an ordinal category, recorded either:
-  + As a totally subjective opinion which might be different between observations e.g. "bad, good, better, way better,
-    best, actually the best, magnificent"  - these are difficult to work with and a symptom of poor survey design
-  + On a partially subjective, standardized scale e.g. "strongly agree, agree, disagree, strongly disagree" - this is
-    the approach of the familar [Likert scale](https://en.wikipedia.org/wiki/Likert_scale)
-  + As a summary binning of a metric scale e.g. binning ages into age-groups [<30, 30 - 60, 60+], or medical
-    self-scoring "[0-10%, ..., 90-100%]" - these are typically a misuse of the metric because the data has been
-    compressed: losing infomation, and reasoning for the binning and the choices of bin-edges are usually not given
-+ This latter binning is common practice in many industries from insurance to health, and erroneously encourages
-  modellers to incorporate such features as a categorical (very bad choice) or a numeric value (a subtly bad choice).
+Human action and economics is all about expressing our ordinal preferences between limited options in the real-world.
 
-> Our problem statement is that when faced with ordinal features we want to:
->
-> 1) **Infer** a series of cutpoints that transform the ordinals into a linear (polynomial) scale
->
-> 2) **Predict** the endogenous feature as usual, having captured the information from the ordinals
-    
+We often encounter real-world situations and datasets where a predictor feature is an ordinal category recording a
+preference or summarizing a metric value, and is particularly common in insurance and health. For example:
+
++ As a totally subjective opinion which can be different between observations (e.g. `["bad", "medium", "good", "better",
+  "way better", "best", "actually the best"]`)  - these are difficult to work with and a symptom of poor data design
++ On a subjective but standardized scale (e.g. `["strongly disagree", "disagree", "agree", "strongly agree"]`) 
+  this is the approach of the familar [Likert scale](https://en.wikipedia.org/wiki/Likert_scale)
++ As a summary binning of a real objective value on a metric scale (e.g. binning ages into age-groups 
+  `["<30", "30 to 60", "60+"]`), or a subjective value that's been mapped to a metric scale (e.g. medical health
+  self-scoring `["0-10%", ..., "90-100%"]`) - these are typically a misuse of the metric because the data has been
+  compressed (losing information), and the reason for the binning and the choices of bin-edges are usually not known
+
+In all these cases the critical issue is that the categorical values and their ordinal rank doesn't necessarily relate
+linearly to the target variable. For example in a 4-value Likert scale (shown above) the relative effect of 
+`"strongly agree"` (rank `4`) is probably not `"agree"` (rank 3) plus 1: `3+1 != 4`. 
+
+Another way to put it is the metric distance between ordinal categories is not known and can be unequal. For example in
+that 4-value Likert scale (shown above) the difference between `"disagree" vs "agree"` is probably not the same as 
+between `"agree" vs "strongly agree"`. 
+
+These properties can unfortunately encourage modellers to incorporate ordinal features as either a categorical (with
+infinite degrees of freedom - so we lose ordering / rank information), or as a numeric coefficient (which ignores the 
+unequal spacing, non-linear response). Both are poor choices and have subtly negative effects on the model performance.
+
+A final nuance is that we might not see the occurence of all valid categorial ordinal levels in the training dataset. 
+For example we might know a range is measured `["c0", "c1", "c2", "c3"]` but only see `["c0", "c1", "c3"]`. This is a 
+missing data problem which could further encourage the misuse of a numeric coefficient to average or "interpolate" a
+value. What we should do is incorporate our knowledge of the data domain into the model structure to autoimpute a
+coefficient value. This is actually the case in this dataset here (see Section 0)! 
+
 
 ## Data & Models Demonstrated
-    
-+ This notebook takes the opportunity to:
-  + Demonstrate a general method using a constrained Dirichlet prior, based on
-    {cite:p}burkner2018
-  + Using the same health dataset as that paper `ICFCoreSetCWP.RData` available
-    in an R package [ordPens](https://cran.r-project.org/src/contrib/ordPens_1.1.0.tar.gz )
-  + Extend a pymc-specific example by
-    Austin Rochford {cite:p}`rochford2018`
-  + Demonstrate a reasonably complete Bayesian workflow {cite:p}`gelman2020bayesian` including
-    data curation and grabbing data from an RDataset which is characteristically ugly
 
-+ This notebook is a partner to another notebook (TBD) where we estimate an **ordinal endogenous target feature**.
+Our problem statement is that when faced with such ordinal features we want to:
+
+1. **Infer** a series of prior allocators that transform the ordinal categories into a linear (polynomial) scale
+2. **Predict** the endogenous feature as usual, having captured the information from the ordinals
+    
+    
+This notebook takes the opportunity to:
+
++ Demonstrate a general method using a constrained Dirichlet prior, based on {cite:p}`burkner2018` and demonstrated in a 
+  pymc-specific example by Austin Rochford {cite:p}`rochford2018`
++ Improve upon both those methods by structurally correcting for a missing level value in an ordinal feature
++ Demonstrate a reasonably complete Bayesian workflow {cite:p}`gelman2020bayesian` including data curation and grabbing
+  data from an RDataset 
+
+This notebook is a partner to another notebook (TBD) where we estimate an **ordinal endogenous target feature**.
 
 +++ {"id": "CemVRXjtJaf_"}
 
@@ -166,7 +184,6 @@ SAMPLE_KWS = dict(
     draws=500,
     tune=2000,
     chains=4,
-    target_accept=0.8,
     idata_kwargs=dict(log_likelihood=True),
 )
 
@@ -183,14 +200,43 @@ USE_LOCAL_DATASET = False
 
 # 0. Curate Dataset
 
++++
+
+We use the same health dataset as in {cite:p}`burkner2018`, named `ICFCoreSetCWP.RData`, available in an R package 
+[ordPens](https://github.com/cran/ordPens)
+
+Per the Bürkner paper (Section 4: Case Study) this dataset is from a study ** of Chronic Widespread Pain(CWP) wherein
+420 patients were self-surveyed on 67 health features (each a subjective ordinal category) and also assigned a 
+differently generated (and also subjective) measure of physical health. In the dataset these 67 features are named e.g.\
+`b1602`, `b102`, ... `d450`, `d455`, ... `s770` etc, and the target feature is named `phcs`.
+
+Per the Bürkner paper we will subselect 2 features `d450`, `d455` (which measure an impairment of patient
+walking ability on a scale `[0 to 4]` [no problem to complete problem]) and use them to predict `phcs`.
+
+Quite interestingly, for feature `d450`, the highest ordinal level value `4` is not seen in the dataset, so we have a 
+missing data problem which could further encourage the misuse of a numeric coefficient to average or "interpolate" a
+value. What we should do is incorporate our knowledge of the data domain into the model structure to auto-impute a
+coefficient value. This means that our model can make predictions on new data where a `d450=4` value might be seen.
+
+** _Just for completness (but not needed for this notebook) that study is reported in 
+Gertheiss, J., Hogger, S., Oberhauser, C., & Tutz, G. (2011). Selection of ordinally
+784 scaled independent variables with applications to international classification of functioning
+785 core sets. Journal of the Royal Statistical Society: Series C (Applied Statistics), 60 (3),
+786 377–395._
+
+NOTE some boilerplate steps are included but ~~struck through~~ with and explanatory comment 
+e.g. "Not needed in this simple example". This is to preserve the logical workflow which is 
+more generally useful
+
 +++ {"id": "fiQFFNqhJagB"}
 
 ## 0.1 Extract
 
 +++ {"id": "pwNFAyKzJagB"}
 
-Annoyingly but not suprisingly for an R project, despite being a small, simple table, the dataset is only available in a
-highly proprietary and obscure, obsolete R binary format, so we'll download, unpack and store locally as a normal CSV file
+Annoyingly but not suprisingly for an R project, despite being a small, simple table, the dataset is only available in 
+an obscure R binary format, and tarred, so we'll download, unpack and store locally as a normal CSV file.
+This uses the rather helpful [`pyreadr`](https://github.com/ofajardo/pyreadr) package.
 
 ```{code-cell} ipython3
 :id: -hJ0BqsHJagB
@@ -230,8 +276,8 @@ display(dfr.head())
 
 **Observe:**
 
-+ Looks okay - if this was a prpper project we'd want to know what those cryptic column headings actually mean
-+ For this purpose we'll only use a couplf of the features so will press ahead
++ Looks okay - if this was a proper project we'd want to know what those cryptic column headings actually mean
++ For this purpose we'll only use a couple of the features [`d450`, `d455`] and will press ahead
 
 +++ {"id": "M7oFbrrsJagB"}
 
@@ -255,11 +301,9 @@ df.head()
 
 ### ~~0.2.1 Clean Observations~~
 
-```{code-cell} ipython3
-:id: g6-FYfnTJagB
++++ {"id": "g6-FYfnTJagB"}
 
-# Not needed
-```
+Not needed in this simple example
 
 +++ {"id": "v0lm92QsJagB"}
 
@@ -277,11 +321,9 @@ Nothing really needed, will rename the index when we force dtype and set index
 
 ### ~~0.2.2.2 Correct Features~~
 
-```{code-cell} ipython3
-:id: MsVLdwshJagC
++++
 
-# Seems not needed
-```
+Not needed in this simple example
 
 +++ {"id": "DxzUSnI4JagC"}
 
@@ -377,11 +419,7 @@ display(df.head())
 
 +++ {"id": "k7wl-XBoJagD"}
 
-### 0.3.1 Univariate
-
-+++ {"id": "7lWkS0HjJagD"}
-
-`Numerics`
+### 0.3.1 Univariate target `phcs`
 
 ```{code-cell} ipython3
 ---
@@ -406,11 +444,12 @@ _ = f.tight_layout()
 
 **Observe:**
 
-+ Fairly well-behaved target feature, suitable for use
++ `phcs` is a subjective scored measure of physical healt, see {cite:p}`burkner2018` for details
++ Seems well-behaved, unimodal, smooth
 
 +++ {"id": "p43qjcvJJagH"}
 
-### 0.3.2 Bivariate `phcs` vs `['d450', 'd455']`
+### 0.3.2 Target `phcs` vs `['d450', 'd455']`
 
 ```{code-cell} ipython3
 ---
@@ -455,6 +494,7 @@ f = plot_numeric_vs_cat(df, ftnum="phcs", ftcat="d455")
 `phcs vs d450`:
 + `c0` wider and higher: possibly a catch-all category because heavily observed too
 + `c3` fewer counts
++ `c4` is not observed: it's missing from the data despite being valid in the data domain
 
 `phcs vs d455`:
 + `c1` and `c2` look very similar
@@ -488,14 +528,10 @@ Map ordinal categorical to an ordinal numeric (int) based on its preexisting cat
 ```{code-cell} ipython3
 :id: 8C5fJCB_JagH
 
-map_int_to_cat_d450 = dict(enumerate(df["d450"].cat.categories))
-MAP_CAT_TO_INT_D450 = {v: k for k, v in map_int_to_cat_d450.items()}
-df["d450_idx"] = df["d450"].map(MAP_CAT_TO_INT_D450).astype(int)
+df["d450_idx"] = df["d450"].cat.codes.astype(int)
 df["d450_num"] = df["d450_idx"].copy()
 
-map_int_to_cat_d455 = dict(enumerate(df["d455"].cat.categories))
-MAP_CAT_TO_INT_D455 = {v: k for k, v in map_int_to_cat_d455.items()}
-df["d455_idx"] = df["d455"].map(MAP_CAT_TO_INT_D455).astype(int)
+df["d455_idx"] = df["d455"].cat.codes.astype(int)
 df["d455_num"] = df["d455_idx"].copy()
 ```
 
@@ -536,7 +572,9 @@ dfx.sample(5, random_state=42)
 
 +++ {"id": "hdJJvqc0JagH"}
 
-Create `forecast` set
+**NOTE:** We depart from the datasets used in {cite:p}`rochford2018` and {cite:p}`burkner2018` to make sure our 
+`forecast` dataset contains all valid levels of `d450` and `d455`. Specifically, the observed dataset does not contain 
+the domain-valid `d450 = 4`, so we will make sure that our forecast set does include it.
 
 ```{code-cell} ipython3
 ---
@@ -546,11 +584,12 @@ colab:
 id: _cs_cls9JagI
 outputId: 9cc9cb72-52e0-4c7f-9bb0-06e17d4c4a39
 ---
-dff = df.groupby(["d450", "d455"]).size().reset_index()[["d450", "d455"]]
-lvls_d450 = ["c0", "c1", "c2", "c3"]
-dff["d450"] = pd.Categorical(dff["d450"].values, categories=lvls_d450, ordered=True)
-lvls_d455 = ["c0", "c1", "c2", "c3", "c4"]
-dff["d455"] = pd.Categorical(dff["d455"].values, categories=lvls_d455, ordered=True)
+LVLS_D450_D455 = ["c0", "c1", "c2", "c3", "c4"]
+dff = pd.merge(
+    pd.Series(LVLS_D450_D455, name="d450"), pd.Series(LVLS_D450_D455, name="d455"), how="cross"
+)
+dff["d450"] = pd.Categorical(dff["d450"].values, categories=LVLS_D450_D455, ordered=True)
+dff["d455"] = pd.Categorical(dff["d455"].values, categories=LVLS_D450_D455, ordered=True)
 dff["phcs"] = 0.0
 dff["oid"] = [f"o{str(n).zfill(3)}" for n in range(len(dff))]
 dff.set_index("oid", inplace=True)
@@ -569,8 +608,8 @@ colab:
 id: DBretpaKJagI
 outputId: 62e65d97-17c3-43bc-e291-7621a477df89
 ---
-dff["d450_idx"] = dff["d450"].map(MAP_CAT_TO_INT_D450).astype(int)
-dff["d455_idx"] = dff["d455"].map(MAP_CAT_TO_INT_D455).astype(int)
+dff["d450_idx"] = dff["d450"].cat.codes.astype(int)
+dff["d455_idx"] = dff["d455"].cat.codes.astype(int)
 dff["d450_num"] = dff["d450_idx"].copy()
 dff["d455_num"] = dff["d455_idx"].copy()
 
@@ -651,10 +690,9 @@ with pm.Model(coords=COORDS) as mdla:
 
 RVS_PPC = ["phcs_hat"]
 RVS_SIMPLE_COMMON = ["beta_sigma", "beta", "epsilon"]
-
-# display RVS
-display(dict(unobserved=mdla.unobserved_RVs, observed=mdla.observed_RVs))
 ```
+
+##### Verify the built model structure matches our intent, and validate the parameterization
 
 ```{code-cell} ipython3
 ---
@@ -665,6 +703,7 @@ id: sxvwwMBPJagI
 outputId: 7f26512f-5051-404a-ee5d-63810ba08850
 ---
 display(pm.model_to_graphviz(mdla, formatting="plain"))
+display(dict(unobserved=mdla.unobserved_RVs, observed=mdla.observed_RVs))
 assert_no_rvs(mdla.logp())
 mdla.debug(fn="logp", verbose=True)
 mdla.debug(fn="random", verbose=True)
@@ -909,7 +948,7 @@ f = plot_posterior(ida, "posterior", rvs=RVS_SIMPLE_COMMON, mdlname="mdla", n=5,
 
 **Observe:**
 
-+ `beta_sigma`: `E ~ 10` indicates need for high variance in lcoations of `beta`s
++ `beta_sigma`: `E ~ 10` indicates need for high variance in locations of `beta`s
 + `beta: intercept`: `E ~ 32` confirms the bulk of the variance in `beta`s locations is simply due to the intercept
     offset required to get the zscored values into range of `phcs`, no problem
 + `beta: d450_num`: `E ~ -3` negative, HDI94 does not span 0, substantial effect, smooth central distribution:
@@ -1019,9 +1058,11 @@ plot_predicted_phcshat_d450_d455(idata=ida_ppc, mdlname="mdla")
 
 **Observe:**
 
-+ Compare this to the plots in
-  [Austin Rochford's notebook](https://austinrochford.com/posts/2018-11-10-monotonic-predictors.html)
++ Compare this to the final plots in {cite:p}`rochford2018` and Figure 12 in {cite:p}`burkner2018`
 + We see the linear responses and equal spacings of `d450` and of `d455` when treated as numeric values
++ We also see that `mdla` technically can make predictions for `d450=c4` which is not seen in the data. However, this
+  prediction is a purely linear extrapolation and although helpful in a sense, could be completely and misleadingly
+  wrong in this model specification
 + Note here we plot the full posteriors on each datapoint (rather than summarise to a mean) which emphasises
   the large amount of variance still in the data & model
 
@@ -1062,8 +1103,9 @@ lm &= \beta^{T}\mathbb{x}_{i,j} + \nu_{d450}[x_{i,d450}] + \nu_{d455}[x_{i,d455}
 $$
 
 where:
-+ Observations $i$ contain numeric features $j$ and ordinal categorical features
-  $k$ (here `d450, d455`) which each have factor value levels $k_{d450}, k_{d455}$
++ Observations $i$ contain numeric features $j$ and ordinal categorical features $k$ (here `d450, d455`) which each 
+  have factor value levels $k_{d450}, k_{d455}$ and note per Section 0, these are both in range `[0 - 4]` as recorded 
+  by notebook variable `LVLS_D450_D455`
 + $\hat{y_{i}}$ is our estimate, here of `phcs`
 + The linear sub-model $lm = \beta^{T}\mathbb{x}_{i,j} + \nu_{d450}[x_{i,d450}] + \nu_{d455}[x_{i,d455}]$ lets us
   regress onto those features
@@ -1087,8 +1129,8 @@ COORDS = dict(
     oid=dfx.index.values,
     y_nm=ft_y,
     x_nm=fts_x,
-    d450_nm=list(map_int_to_cat_d450.values()),
-    d455_nm=list(map_int_to_cat_d455.values()),
+    d450_nm=LVLS_D450_D455,  # not list(df[d450].cat.categories) because c4 missing
+    d455_nm=list(df["d450"].cat.categories),
 )
 ```
 
@@ -1133,14 +1175,12 @@ with pm.Model(coords=COORDS) as mdlb:
         dims="oid",
     )
 
-
 rvs_simple = RVS_SIMPLE_COMMON + ["beta_d450", "beta_d455"]
 rvs_d450 = ["chi_d450", "nu_d450"]
 rvs_d455 = ["chi_d455", "nu_d455"]
-
-# display RVS
-display(dict(unobserved=mdlb.unobserved_RVs, observed=mdlb.observed_RVs))
 ```
+
+##### Verify the built model structure matches our intent, and validate the parameterization
 
 ```{code-cell} ipython3
 ---
@@ -1151,6 +1191,7 @@ id: GlUShTelJagK
 outputId: 049b9d63-b975-4dec-e42b-3a4e07372c5b
 ---
 display(pm.model_to_graphviz(mdlb, formatting="plain"))
+display(dict(unobserved=mdlb.unobserved_RVs, observed=mdlb.observed_RVs))
 assert_no_rvs(mdlb.logp())
 mdlb.debug(fn="logp", verbose=True)
 mdlb.debug(fn="random", verbose=True)
@@ -1206,7 +1247,7 @@ id: QnsGBp2-JagL
 outputId: be8acc83-5c8b-4b0f-8eac-1b8aec23c0f2
 ---
 f = plot_posterior(idb, "prior", rvs=rvs_simple, mdlname="mdlb", n=5, nrows=1)
-f = plot_posterior(idb, "prior", rvs=rvs_d450, mdlname="mdlb", n=4 * 2, nrows=2)
+f = plot_posterior(idb, "prior", rvs=rvs_d450, mdlname="mdlb", n=5 * 2, nrows=2)
 f = plot_posterior(idb, "prior", rvs=rvs_d455, mdlname="mdlb", n=5 * 2, nrows=2)
 ```
 
@@ -1382,11 +1423,11 @@ f = plot_posterior(idb, "posterior", rvs=rvs_simple, mdlname="mdlb", n=5, nrows=
 
 **Observe:**
 
-+ `beta_sigma`: `E ~ 30` indicates need for high variance in locations of `beta`s
++ `beta_sigma`: `E ~ 12` indicates need for high variance in locations of `beta`s
 + `beta: intercept`: `E ~ 41` confirms the bulk of the variance in `beta`s locations is simply due to the intercept
     offset required to get the zscored values into range of `phcs`, no problem
 + `epsilon`: `E ~ 7` indicates quite a lot of variance still in the data, not yet handled by a modelled feature
-+ `beta: d450`: `E ~ -9` negative, HDI94 does not span 0, substantial effect, smooth central distribution:
++ `beta: d450`: `E ~ -12` negative, HDI94 does not span 0, substantial effect, smooth central distribution:
   + Higher indexes of `d450_idx` create a reduction in `phcs_hat`
 + `beta: d455`: `E ~ -7` negative, HDI94 does not span 0, substantial effect, smooth central distribution
   + Higher indexes of `d455_idx` create a reduction in `phcs_hat`
@@ -1402,7 +1443,7 @@ colab:
 id: WdqLVls4JagM
 outputId: 14ab8ce0-8e52-4b85-ae23-23605ba1db87
 ---
-f = plot_posterior(idb, "posterior", rvs=rvs_d450, mdlname="mdlb", n=4 * 2, nrows=2)
+f = plot_posterior(idb, "posterior", rvs=rvs_d450, mdlname="mdlb", n=5 * 2, nrows=2)
 ```
 
 +++ {"id": "ia14e6n-JagM"}
@@ -1412,6 +1453,13 @@ f = plot_posterior(idb, "posterior", rvs=rvs_d450, mdlname="mdlb", n=4 * 2, nrow
 Interesting pattern:
 + `chi_d450`: Non-linear response throughout the range
 + `nu_d450`: The non-linear effect `beta * chi.csum()` is clear, in particular `c0` is far from the trend of `c1, c2, c3`
+
+Note in particular that the posterior distribution of `chi_d450 = c4` (and thus `nu_d450 = c4`) is almost exactly the 
+same value as for its prior, because it hasn't been evidenced in the dataset. The constraint of the Dirichlet has in
+turn scaled the values for `c0` to `c3` and the scale of `beta_450`. 
+
+For comparison you can try the inferior alternative by setting `COORDS['d450_nm']=list(df[d450].cat.categories)` in the
+model spec in Section 2.1 and re-running and seeing what happens
 
 ```{code-cell} ipython3
 ---
@@ -1463,8 +1511,10 @@ f = plot_posterior_forest(idb, "posterior", "nu_d455", "mdlb")
 
 **Observe:**
 
-Here we see the same patterns in more detail, inparticular:
-+ `nu_d450`: `c0` is an outlier with disproportionately less impact than `c1, c2, c3`
+Here we see the same patterns in more detail, in particular:
++ `nu_d450`: 
+  + `c0` is an outlier with disproportionately less impact than `c1, c2, c3`
+  + `c4` has been auto-imputed and takes the prior value which has very wide variance around a linear extrapolation
 + `nu_d455`: `c1, c2` overlap strongly and so have very similar impact to one another
 
 +++ {"id": "iBabtpXpJagM"}
@@ -1537,12 +1587,12 @@ plot_predicted_phcshat_d450_d455(idata=idb_ppc, mdlname="mdlb")
 
 **Observe:**
 
-+ Compare this to Section 1.5.2 above, and the plots in
-  [Austin Rochford's notebook](https://austinrochford.com/posts/2018-11-10-monotonic-predictors.html)
++ Compare this to the final plots in {cite:p}`rochford2018` and Figure 12 in {cite:p}`burkner2018`
 + We see the non-linear responses and non-equal spacings of `d450` and of `d455` when treated as ordinal categories
 + In particular, note the behaviours we already saw in the posterior plots
   + LHS plot `d450`: all points for `c0` are all higher than the plot in Section 1.5.2 (also note the overlap of `d455: c1, c2` levels in the shaded points)
   + RHS plot `d455`: all points for `c1, c2` overlap strongly (also note `d455 c0` outlying)
++ We also see that `mdlb` can make predictions for `d450=c4` which is not seen in the data
 + Note here we plot the full posteriors on each datapoint (rather than summarise to a mean) which emphasises
   the large amount of variance still in the data & model
 
@@ -1577,7 +1627,7 @@ colab:
 id: _JhXV8qjJagN
 outputId: b5b3518f-b295-42cc-a525-d8f6767270b2
 ---
-# tested running on Google Colab 2024-10-27
+# tested running on Google Colab 2024-10-28
 %load_ext watermark
 %watermark -n -u -v -iv -w
 ```
