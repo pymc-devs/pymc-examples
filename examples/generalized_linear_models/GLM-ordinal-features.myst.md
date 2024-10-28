@@ -1130,7 +1130,7 @@ COORDS = dict(
     y_nm=ft_y,
     x_nm=fts_x,
     d450_nm=LVLS_D450_D455,  # not list(df[d450].cat.categories) because c4 missing
-    d455_nm=list(df["d450"].cat.categories),
+    d455_nm=list(df["d455"].cat.categories),
 )
 ```
 
