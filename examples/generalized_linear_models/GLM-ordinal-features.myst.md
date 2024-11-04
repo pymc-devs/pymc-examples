@@ -211,7 +211,7 @@ differently generated (and also subjective) measure of physical health. In the d
 `b1602`, `b102`, ... `d450`, `d455`, ... `s770` etc, and the target feature is named `phcs`.
 
 Per the Bürkner paper we will subselect 2 features `d450`, `d455` (which measure an impairment of patient
-walking ability on a scale `[0 to 4]` [no problem to complete problem]) and use them to predict `phcs`.
+walking ability on a scale `[0 to 4]` [`"no problem"` to `"complete problem"`]) and use them to predict `phcs`.
 
 Quite interestingly, for feature `d450`, the highest ordinal level value `4` is not seen in the dataset, so we have a 
 missing data problem which could further encourage the misuse of a numeric coefficient to average or "interpolate" a
@@ -346,6 +346,8 @@ df.loc[idx, ft] = df.loc[idx, ft].apply(lambda x: f"c{x}")
 df[ft].unique()
 ```
 
+NOTE force the categorical levels to include c4 which is valid in the data domain but unobserved
+
 ```{code-cell} ipython3
 ---
 colab:
@@ -353,7 +355,7 @@ colab:
 id: Hk-DR6akJagC
 outputId: bb70e394-2623-470a-8621-efacdb107b72
 ---
-lvls = ["c0", "c1", "c2", "c3"]
+lvls = ["c0", "c1", "c2", "c3", "c4"]
 df[ft] = pd.Categorical(df[ft].values, categories=lvls, ordered=True)
 df[ft].cat.categories
 ```
@@ -474,8 +476,8 @@ def plot_numeric_vs_cat(df, ftnum="phcs", ftcat="d450") -> plt.figure:
         meanprops=dict(markerfacecolor="w", markeredgecolor="#333333", marker="d", markersize=12),
     )
 
-    _ = sns.boxplot(x=ftnum, y=ftcat, hue=ftcat, data=df, **kws_box, ax=ax0)
-    _ = sns.countplot(y=ftcat, hue=ftcat, data=df, ax=ax1)
+    _ = sns.boxplot(x=ftnum, y=ftcat, data=df, **kws_box, ax=ax0)  # hue=ftcat,
+    _ = sns.countplot(y=ftcat, data=df, ax=ax1)  # hue=ftcat, seaborn >= 0.13
     _ = ax0.invert_yaxis()
     _ = ax1.yaxis.label.set_visible(False)
     _ = plt.setp(ax1.get_yticklabels(), visible=False)
@@ -1081,7 +1083,7 @@ plot_predicted_phcshat_d450_d455(idata=ida_ppc, mdlname="mdla")
 This is an improved linear model where we acknowledge that the categorical features are ordinal _and_ allow the ordinal
 values to have a non-equal spacing, For example, it might well be that `A > B > C`, but the spacing is not metric:
 instead `A >>> B > C`. We achieve this using a Dirichlet hyperprior to allocate hetrogenously spaced sections of a
-linear ceofficient:
+linear coefficient:
 
 $$
 \begin{align}
@@ -1090,11 +1092,11 @@ $$
 \\
 \beta_{d450} &\sim \text{Normal}(0, \sigma_{\beta})  \\
 \chi_{d450} &\sim \text{Dirichlet}(1, \text{shape}=k_{d450})  \\
-\nu_{d450} &\sim \beta_{d450} * \sum_{i=0}^{i=k_{d450}}\chi_{d450} \\
+\nu_{d450} &\sim \beta_{d450} * \sum_{k=0}^{k=k_{d450}}\chi_{d450} \\
 \\
 \beta_{d455} &\sim \text{Normal}(0, \sigma_{\beta})  \\
 \chi_{d455} &\sim \text{Dirichlet}(1, \text{shape}=k_{d455})  \\
-\nu_{d455} &\sim \beta_{d455} * \sum_{i=0}^{i=k_{d455}}\chi_{d455} \\
+\nu_{d455} &\sim \beta_{d455} * \sum_{k=0}^{k=k_{d455}}\chi_{d455} \\
 \\
 lm &= \beta^{T}\mathbb{x}_{i,j} + \nu_{d450}[x_{i,d450}] + \nu_{d455}[x_{i,d455}]\\
 \epsilon &\sim \text{InverseGamma}(11, 10)  \\
