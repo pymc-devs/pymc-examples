@@ -162,7 +162,7 @@ SAMPLE_KWS = dict(
 
 RNG = np.random.default_rng(seed=42)
 KWS_MN = dict(markerfacecolor="w", markeredgecolor="#333333", marker="d", markersize=12)
-KWS_BOX = dict(kind="box", sym="", showmeans=True, whis=(3, 97), meanprops=KWS_MN)  # orient='h',
+KWS_BOX = dict(kind="box", showmeans=True, whis=(3, 97), meanprops=KWS_MN)
 KWS_PNT = dict(estimator=np.mean, errorbar=("ci", 94), join=False, color="#32CD32")
 KWS_SCTR = dict(s=80, color="#32CD32")
 ```
@@ -1095,8 +1095,9 @@ f = plot_compare_log_likelihood(idatad={"mdl0": id0, "mdla": ida})
 
 **Observe:**
 
-+ Very interesting: our auto-imputing `Model A` does suffer in performance vs the complete dataset, but it's only 
-  `-10.7/45.6 = -23%` worse on the `elpd_diff`, and (of course) we've been able to handle missing values in the data!
++ Very interesting: our auto-imputing `Model A` does of course suffer in comparison to `Model 0` which has the benefit 
+  of the complete dataset (no missing values), but it's not that much worse, and (of course) we've been able to handle
+  missing values in the in-sample data!
 
 +++
 
