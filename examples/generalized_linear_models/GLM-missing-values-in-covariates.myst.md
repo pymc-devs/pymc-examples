@@ -10,26 +10,26 @@ kernelspec:
   name: python3
 ---
 
-(GLM-missing-numeric-values.ipynb)=
-# GLM-missing-numeric-values
+(GLM-missing-values-in-covariates.ipynb)=
+# GLM-missing-values-in-covariates
 
 :::{post} Nov 09, 2024
-:tags: missing-numeric-values, missing-values, auto-imputation, linear-regression, bayesian-workflow
+:tags: missing-covariate-values, missing-values, auto-imputation, linear-regression, bayesian-workflow
 :category: intermediate, reference
 :author: Jonathan Sedar
 :::
 
-Minimal Reproducible Example: Workflow to handle missing data in multiple numeric features
+Minimal Reproducible Example: Workflow to handle missing data in multiple covariates (numeric predictor features)
 
 
-## Automatic Imputation of Missing Numeric Values: Worked Example with Bayesian Workflow
+## Automatic Imputation of Missing Values In Covariates: Worked Example with Bayesian Workflow
 
-Here we demonstrate **automatic imputation of missing values within multiple numeric features** within a model:
+Here we demonstrate **automatic imputation of missing values within multiple covariates (numeric predictor features)**:
 
 ```
 y ~ x + e
-y: Numeric
-x: Numeric with missing values
+y: Numeric target
+x: Numeric with missing values in covariates (numeric predictor features)
 ```
 
 **Disclaimer:**
@@ -90,7 +90,8 @@ Our problem statement is that when faced with data with missing values, we want 
     
 This notebook takes the opportunity to:
 
-+ Demonstrate a general method using a `numpy.masked_array`, often mentioned in `pymc` folklore but rarely demonstrated
++ Demonstrate a general method using a `numpy.masked_array`, which is often mentioned in `pymc` folklore but rarely
+  shown in full. A helpful primer and related discussion is this PyMCon2020 talk: {cite:p}`junpenglao2020`
 + Demonstrate a reasonably complete Bayesian workflow {cite:p}`gelman2020bayesian` including data creation
 
 This notebook is a partner to another `pymc-examples` notebook **Missing_Data_Imputation.ipynb**
@@ -132,12 +133,12 @@ import pandas as pd
 import pymc as pm
 import pytensor.tensor as pt
 
+# warnings.simplefilter(action="ignore", category=FutureWarning)  # isort:skip
+import seaborn as sns
+
 from pymc.testing import assert_no_rvs
 
 import warnings  # isort:skip # suppress seaborn, it's far too chatty
-
-warnings.simplefilter(action="ignore", category=FutureWarning)  # isort:skip
-import seaborn as sns
 ```
 
 ```{code-cell} ipython3
@@ -151,7 +152,6 @@ sns.set_theme(
     rc={"figure.dpi": 72, "savefig.dpi": 144, "figure.figsize": (12, 4)},
 )
 
-# set target_accept quite high to minimise divergences in mdlb
 SAMPLE_KWS = dict(
     progressbar=True,
     draws=500,
@@ -255,11 +255,12 @@ display(pd.concat((df.describe(include="all").T, df.isnull().sum(), df.dtypes), 
 ### 0.2.1 Univariate: target `y`
 
 ```{code-cell} ipython3
-def plot_univariate(df: pd.DataFrame, fts: list):
+def plot_univariate_violin(df: pd.DataFrame, fts: list):
     v_kws = dict(data=df, cut=0)
     cs = sns.color_palette(n_colors=len(fts))
+    height_bump = 2 if len(fts) == 1 else 1
     f, axs = plt.subplots(
-        len(fts), 1, figsize=(12, 0.8 + 1.2 * len(fts)), squeeze=False, sharex=True
+        len(fts), 1, figsize=(12, 0.8 + height_bump * 1.2 * len(fts)), squeeze=False, sharex=True
     )
     for i, ft in enumerate(fts):
         ax = sns.violinplot(x=ft, **v_kws, ax=axs[i][0], color=cs[i])
@@ -279,7 +280,7 @@ def plot_univariate(df: pd.DataFrame, fts: list):
     _ = f.tight_layout()
 
 
-plot_univariate(df, fts=["y"])
+plot_univariate_violin(df, fts=["y"])
 ```
 
 **Observe:**
@@ -291,8 +292,7 @@ plot_univariate(df, fts=["y"])
 ### 0.2.2 Univariate: predictors `a, b, c, d`
 
 ```{code-cell} ipython3
-# plot_univariate(df, fts=['a', 'b', 'c', 'd'])
-plot_univariate(df, fts=["a"])
+plot_univariate_violin(df, fts=["a", "b", "c", "d"])
 ```
 
 **Observe:**
@@ -315,7 +315,6 @@ g = sns.lmplot(
     fit_reg=True,
     height=4,
     aspect=0.75,
-    sharex=False,
 )
 _ = g.fig.suptitle("Bivariate plots of `y` vs fts `a`, `b`, `c`, `d`")
 _ = g.fig.tight_layout()
@@ -581,7 +580,9 @@ f = plot_ppc_retrodictive(id0, grp="prior", rvs=["yhat"], mdlnm="mdl0", ynm="y")
 
 **Observe:**
 
-+ Values are wrong as expected, but range is reasonable
++ The prior PPC is wrong as expected, because we've set relatively uninformative priors
++ However the general range and scale is reasonable and the sampler should be able to 
+  find the highest likelihood latent space easily
 
 +++
 
@@ -592,7 +593,7 @@ f = plot_ppc_retrodictive(id0, grp="prior", rvs=["yhat"], mdlnm="mdl0", ynm="y")
 #### Coefficients etc
 
 ```{code-cell} ipython3
-def plot_posterior(
+def plot_krushke(
     idata: az.InferenceData,
     group: str = "posterior",
     rvs: list = RVS_PRIOR,
@@ -602,7 +603,7 @@ def plot_posterior(
     n: int = 1,
     nrows: int = 1,
 ) -> plt.figure:
-    """Convenience plot posterior (or prior) KDE"""
+    """Convenience plot Krushke-style posterior (or prior) KDE"""
     m = int(np.ceil(n / nrows))
     f, axs = plt.subplots(nrows, m, figsize=(3 * m, 0.8 + nrows * 2))
     _ = az.plot_posterior(
@@ -613,7 +614,7 @@ def plot_posterior(
     return f
 
 
-f = plot_posterior(id0, "prior", rvs=RVS_PRIOR, mdlnm="mdl0", n=1 + 1 + 5, nrows=2)
+f = plot_krushke(id0, "prior", rvs=RVS_PRIOR, mdlnm="mdl0", n=1 + 1 + 5, nrows=2)
 ```
 
 **Observe:**
@@ -703,12 +704,6 @@ f = plot_loo_pit(id0, "mdla")
 
 +++
 
-### ~~1.3.5 Compare Log-Likelihood vs Other Models~~
-
-```{code-cell} ipython3
-# Nothing to compare yet
-```
-
 ## 1.4 Evaluate Posterior Parameters
 
 +++
@@ -716,7 +711,7 @@ f = plot_loo_pit(id0, "mdla")
 ### 1.4.1 Coefficients etc
 
 ```{code-cell} ipython3
-f = plot_posterior(id0, "posterior", RVS_PRIOR, mdlnm="mdl0", n=1 + 1 + 5, nrows=2)
+f = plot_krushke(id0, "posterior", RVS_PRIOR, mdlnm="mdl0", n=1 + 1 + 5, nrows=2)
 ```
 
 **Observe:**
@@ -759,13 +754,16 @@ f = plot_forest(id0, grp="posterior", rvs=["beta_j"], mdlnm="mdl0")
 ```{code-cell} ipython3
 COORDS_F = deepcopy(COORDS)
 COORDS_F["oid"] = dfrawx_holdout.index.values
-mdl0.set_data("y", dfrawx_holdout[ft_y].values, coords=COORDS_F)
 mdl0.set_data("xj", dfrawx_holdout[FTS_XJ].values, coords=COORDS_F)
 
 display(pm.model_to_graphviz(mdl0, formatting="plain"))
 assert_no_rvs(mdl0.logp())
 mdl0.debug(fn="logp", verbose=True)
 mdl0.debug(fn="random", verbose=True)
+```
+
+```{code-cell} ipython3
+
 ```
 
 ### 1.5.2 Sample PPC for `yhat`
@@ -803,8 +801,8 @@ def plot_yhat_vs_y(
     g = sns.catplot(x=yhat, y="oid", data=df_h.reset_index(), **KWS_BOX, height=4, aspect=3)
     _ = g.map(sns.scatterplot, y, "oid", **KWS_SCTR, zorder=100)
     _ = g.fig.suptitle(
-        f"Out-of-sample: distributions of posterior `{yhat}` with overplotted actual `{y}` values"
-        + f" (green dots) - `{mdlnm}`"
+        f"Out-of-sample: boxplots of posterior `{yhat}` with overplotted actual `{y}` values"
+        + f" per observation `oid` (green dots) - `{mdlnm}`"
     )
     _ = g.tight_layout()
     return g.fig
@@ -983,7 +981,7 @@ f = plot_ppc_retrodictive(ida, grp="prior", rvs=["yhat"], mdlnm="mdla", ynm="y")
 #### Coefficients etc
 
 ```{code-cell} ipython3
-f = plot_posterior(ida, "prior", rvs=RVS_PRIOR, mdlnm="mdla", n=1 + 1 + 3 + 2, nrows=2)
+f = plot_krushke(ida, "prior", rvs=RVS_PRIOR, mdlnm="mdla", n=1 + 1 + 3 + 2, nrows=2)
 ```
 
 **Observe:**
@@ -995,7 +993,7 @@ f = plot_posterior(ida, "prior", rvs=RVS_PRIOR, mdlnm="mdla", n=1 + 1 + 3 + 2, n
 #### Hierarchical values $\mu_{k}$ for missing data in $\mathbb{x}_{k}$
 
 ```{code-cell} ipython3
-f = plot_posterior(ida, "prior", RVS_K, mdlnm="mdla", n=2, nrows=1)
+f = plot_krushke(ida, "prior", RVS_K, mdlnm="mdla", n=2, nrows=1)
 ```
 
 **Observe:**
@@ -1108,7 +1106,7 @@ f = plot_compare_log_likelihood(idatad={"mdl0": id0, "mdla": ida})
 ### 2.4.1 Coefficients etc
 
 ```{code-cell} ipython3
-f = plot_posterior(ida, "posterior", RVS_PRIOR, mdlnm="mdla", n=1 + 1 + 3 + 2, nrows=2)
+f = plot_krushke(ida, "posterior", RVS_PRIOR, mdlnm="mdla", n=1 + 1 + 3 + 2, nrows=2)
 ```
 
 **Observe:**
@@ -1133,7 +1131,7 @@ f = plot_forest(ida, grp="posterior", rvs=["beta_j", "beta_k"], mdlnm="mdla")
 ### 2.4.2 Hierarchical values for missing data in $\mathbb{x}_{k}$
 
 ```{code-cell} ipython3
-f = plot_posterior(ida, "posterior", RVS_K, mdlnm="mdla", n=2, nrows=1)
+f = plot_krushke(ida, "posterior", RVS_K, mdlnm="mdla", n=2, nrows=1)
 ```
 
 **Observe:**
@@ -1240,8 +1238,9 @@ def plot_xkhat_vs_xk(
     xkhat: str = "xk_unobs_ppc_data_domain",
     x: str = "xk_unobs_true_val",
     mdlnm: str = "mdla",
+    in_samp: bool = True,
 ) -> plt.Figure:
-    """Convenience plot forecast xkhat with overplotted x from holdout set"""
+    """Convenience plot forecast xkhat with overplotted x true val (from synthetic set)"""
     g = sns.catplot(
         x=xkhat,
         y="oid",
@@ -1253,9 +1252,10 @@ def plot_xkhat_vs_xk(
         sharex=False,
     )
     _ = g.map(sns.scatterplot, x, "oid", **KWS_SCTR, zorder=100)
+    s = "In-sample" if in_samp else "Out-of-sample"
     _ = g.fig.suptitle(
-        f"Out-of-sample: distributions of posterior `{xkhat}` with overplotted actual `{x}` values"
-        + f" (green dots) - `{mdlnm}`"
+        f"{s}: boxplots of posterior `{xkhat}` with overplotted actual `{x}` values"
+        + f" per observation `oid` (green dots) - `{mdlnm}`"
     )
     _ = g.tight_layout()
     return g.fig
@@ -1267,7 +1267,7 @@ _ = plot_xkhat_vs_xk(df_xk_unobs, mdlnm="mdla")
 **Observe:**
 
 + Here's our auto-imputed posterior distributions (boxplots) for the missing data on the in-sample dataset `dfx_train`
-+ Some observeTions (e.g. `o00`, `o03`) have missing values in both `c` and `d`, others (e.g `o04`, `o09`) have only one
++ Some observations (e.g. `o00`, `o03`) have missing values in both `c` and `d`, others (e.g `o06`, `o09`) have only one
 + These are a (very helpful!) side-effect of our model construction and let us fill-in the real-world missing values for
   `c`, and `d` in `df_train`
 + We also overplot the known true values from the synthetic dataset: and the match is very close for all: usually 
@@ -1283,7 +1283,7 @@ _ = plot_xkhat_vs_xk(df_xk_unobs, mdlnm="mdla")
 
 The following process is a bit of a hack:
 
-1. Firstly: Rebuild the model entirely, using `dfx_holdout`, because doing `mdla.set_data` 
+1. Firstly: Re-specify the model entirely, using `dfx_holdout`, because doing `mdla.set_data` 
    doesn't update the `np.ma.masked_array`, and as noted above $\S 2.1$ **Build Model Object** we can't put nans or 
   a `masked_array` into a `pm.Data`
 1. Secondly: Sample_ppc the `xk_unobserved`, because this is a precursor to computing `yhat`, and we can't specify
@@ -1293,7 +1293,7 @@ The following process is a bit of a hack:
 **REALITIES**
 
 + This process is suboptimal for a real-world scenario wherein we want to forecast new incoming data, because we have to
-  keep rebuilding the model in Step 1, and Steps 2 & 3 involve manipulations of idata objects. 
+  keep re-specifying the model in Step 1, and Steps 2 & 3 involve manipulations of idata objects. 
 + It might still be suitable for a relatively slow, (potentially batched) forecasting process on the order of seconds, 
   not sub-second.
 + In any case, if this were to be deployed to handle a stream of sub-second inputs, a miuch simpler way to rectify the 
@@ -1310,8 +1310,8 @@ COORDS_H["oid"] = dfx_holdout.index.values
 with pm.Model(coords=COORDS_H) as mdla_h:
     # 0. create (Mutable)Data containers for obs (Y, X)
     # NOTE: You could use mdla.set_data to change these pm.Data containers...
-    y = pm.Data("y", dfx_holdout[ft_y].values, dims="oid")  # (i, )
-    xj = pm.Data("xj", dfx_holdout[FTS_XJ].values, dims=("oid", "xj_nm"))  # (i, xj)
+    y = pm.Data("y", dfx_holdout[ft_y].values, dims="oid")
+    xj = pm.Data("xj", dfx_holdout[FTS_XJ].values, dims=("oid", "xj_nm"))
 
     # NOTE: ... but there's no way to put a nan-containing array into a pm.Data,
     # nor a masked_array, so you can't change this construction easily
@@ -1326,7 +1326,7 @@ with pm.Model(coords=COORDS_H) as mdla_h:
 
     # 2. define priors for contiguous and auto-imputed data
     b_s = pm.Gamma("beta_sigma", alpha=10, beta=10)  # E ~ 1
-    bj = pm.Normal("beta_j", mu=0, sigma=b_s, dims="xj_nm")  # (xk, )
+    bj = pm.Normal("beta_j", mu=0, sigma=b_s, dims="xj_nm")
     bk = pm.Normal("beta_k", mu=0, sigma=b_s, dims="xk_nm")
 
     # 4. define evidence
@@ -1440,7 +1440,6 @@ dfx_holdout_xk = (
     .set_index(["oid", "xk_nm"])
 )
 idx_h_xk_unobs = dfx_holdout_xk.loc[dfx_holdout_xk["xk"].isnull()].index
-idx_h_xk_unobs
 ```
 
 ##### Extract `xk_unobserved` from PPC idata , isolate via index, transform back into data domain
@@ -1462,7 +1461,6 @@ df_h_xk_unobs = (
 df_h_xk_unobs["xk_unobs_ppc_data_domain"] = (
     df_h_xk_unobs["xk"] * df_h_xk_unobs["sdev"]
 ) + df_h_xk_unobs["mn"]
-df_h_xk_unobs.head()
 ```
 
 ##### Attach real values (only possible in this synthetic example)
@@ -1471,7 +1469,6 @@ df_h_xk_unobs.head()
 df_h_xk_unobs = pd.merge(
     df_h_xk_unobs, dfraw_xk.loc[idx_h_xk_unobs], how="left", left_index=True, right_index=True
 )
-df_h_xk_unobs.head()
 ```
 
 ##### Force dtypes for plotting
@@ -1481,27 +1478,12 @@ df_h_xk_unobs = df_h_xk_unobs.reset_index()
 df_h_xk_unobs["oid"] = pd.Categorical(df_h_xk_unobs["oid"])
 df_h_xk_unobs["xk_nm"] = pd.Categorical(df_h_xk_unobs["xk_nm"])
 df_h_xk_unobs.set_index(["oid", "xk_nm"], inplace=True)
-df_h_xk_unobs.head()
 ```
 
 ##### Plot posterior `xk_unobserved` vs known true values (only possible in this synthetic example)
 
 ```{code-cell} ipython3
-g = sns.catplot(
-    x="xk_unobs_ppc_data_domain",
-    y="oid",
-    col="xk_nm",
-    data=df_h_xk_unobs.reset_index(),
-    **KWS_BOX,
-    height=3,
-    aspect=2,
-    sharex=False
-)
-_ = g.map(sns.scatterplot, "xk_unobs_true_val", "oid", **KWS_SCTR, zorder=100)
-_ = g.fig.suptitle(
-    "Out-of-sample: distributions of posterior `xk_unobserved` with overplotted actual known true values (green dots)"
-)
-_ = g.tight_layout()
+_ = plot_xkhat_vs_xk(df_h_xk_unobs, mdlnm="mdla", in_samp=False)
 ```
 
 **Observe:**
@@ -1512,7 +1494,8 @@ _ = g.tight_layout()
   conditional on anything else, so we get pretty much all the same predicted value
 + This should drive home the understanding that while technically this model **can** handle new missing values,
   and **does** auto-impute values for missing data in an out-of-sample dataset (here `dfx_holdout`), these auto-imputed
-  values for `xk_unobserved` **can't** be any more informative than the posterior distribution of `xk_mu`.
+  values for `xk_unobserved` **can't** be any more informative than the posterior distribution of the hierachical 
+  prior `xk_mu`.
 
 +++
 
