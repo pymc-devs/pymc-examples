@@ -1267,11 +1267,14 @@ _ = plot_xkhat_vs_xk(df_xk_unobs, mdlnm="mdla")
 **Observe:**
 
 + Here's our auto-imputed posterior distributions (boxplots) for the missing data on the in-sample dataset `dfx_train`
-+ Some observations (e.g. `o00`, `o03`) have missing values in both `c` and `d`, others (e.g `o06`, `o09`) have only one
 + These are a (very helpful!) side-effect of our model construction and let us fill-in the real-world missing values for
   `c`, and `d` in `df_train`
-+ We also overplot the known true values from the synthetic dataset: and the match is very close for all: usually 
++ Some observations (e.g. `o00`, `o03`) have missing values in both `c` and `d`, others (e.g `o04`, `o06`) have only one
++ We also overplot the known true values from the synthetic dataset: and the match is close for all: usually 
   well-within the HDI94
++ Where observations have more than one missing value (e.g. `o00`, `o8`, `o18`, `023` are good examples), we see the
+  possibility of a lack of identifiability: this is an interesting and not easily avoided side-effect of the data and
+  model architecture, and in the real-world we might seek to mitigate through removing observations or features.
 
 +++
 
@@ -1284,19 +1287,20 @@ _ = plot_xkhat_vs_xk(df_xk_unobs, mdlnm="mdla")
 The following process is a bit of a hack:
 
 1. Firstly: Re-specify the model entirely, using `dfx_holdout`, because doing `mdla.set_data` 
-   doesn't update the `np.ma.masked_array`, and as noted above $\S 2.1$ **Build Model Object** we can't put nans or 
+   doesn't update the `np.ma.masked_array`, and as noted above $\S 2.1$ **Build Model Object** we can't put `nans` or 
   a `masked_array` into a `pm.Data`
 1. Secondly: Sample_ppc the `xk_unobserved`, because this is a precursor to computing `yhat`, and we can't specify
-   a conditional order in sample_posterior_predictive
+   a conditional order in `sample_posterior_predictive`
 2. Thirdly: Use those predictions to sample_ppc the `yhat`
 
 **REALITIES**
 
 + This process is suboptimal for a real-world scenario wherein we want to forecast new incoming data, because we have to
-  keep re-specifying the model in Step 1, and Steps 2 & 3 involve manipulations of idata objects. 
-+ It might still be suitable for a relatively slow, (potentially batched) forecasting process on the order of seconds, 
-  not sub-second.
-+ In any case, if this were to be deployed to handle a stream of sub-second inputs, a miuch simpler way to rectify the 
+  keep re-specifying the model in Step 1 (which opens opportunities for simple human error), and Steps 2 & 3 involve 
+  manipulations of idata objects, which is a faff
++ It should still be suitable for a relatively slow, (potentially batched) forecasting process on the order of seconds, 
+  not sub-second
++ In any case, if this were to be deployed to handle a stream of sub-second inputs, a much simpler way to rectify the 
   situation would be to ensure proper data validation / hygiene upstream and require no missing data!
 
 +++
