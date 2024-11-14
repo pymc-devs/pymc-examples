@@ -17,7 +17,7 @@ kernelspec:
 
 :::{post} Oct 27, 2024
 :tags: ordinal-features, ordinal-regression, glm, bayesian-workflow, r-datasets
-:category: beginner, reference
+:category: intermediate, reference
 :author: Jonathan Sedar
 :::
 
