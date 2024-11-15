@@ -10,11 +10,21 @@ Examples
 --------
 Run all notebooks in a directory with mock code:
 
-    $ python scripts/run_notebooks/runner.py --notebooks notebooks/ --mock
+.. code-block:: bash
+
+    python scripts/run_notebooks/runner.py --notebooks notebooks/ --mock
 
 Run a single notebook without mocked code:
 
-    $ python scripts/run_notebooks/runner.py --notebooks notebooks/notebook.ipynb --no-mock
+.. code-block:: bash
+
+    python scripts/run_notebooks/runner.py --notebooks notebooks/notebook.ipynb --no-mock
+
+Run all the notebook is two different directories with mocked code (default):
+
+.. code-block:: bash
+
+    python scripts/run_notebooks/runner.py --notebooks notebooks/ notebooks2/
 
 """
 
