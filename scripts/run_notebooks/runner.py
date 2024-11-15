@@ -1,4 +1,22 @@
-"""Script to run all notebooks in the docs/source/notebooks directory."""
+"""CLI to notebook or directory of notebooks.
+
+Arguments
+---------
+--notebooks: Specific notebook or directory of notebooks to run.
+--mock: Run notebooks with mock code. Default is True. If --no-mock is provided,
+    notebooks will run without mock code.
+
+Examples
+--------
+Run all notebooks in a directory with mock code:
+
+    $ python scripts/run_notebooks/runner.py --notebooks notebooks/ --mock
+
+Run a single notebook without mocked code:
+
+    $ python scripts/run_notebooks/runner.py --notebooks notebooks/notebook.ipynb --no-mock
+
+"""
 
 from argparse import ArgumentParser
 
