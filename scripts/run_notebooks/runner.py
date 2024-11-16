@@ -31,6 +31,7 @@ Run all the notebook is two different directories with mocked code (default):
 from argparse import ArgumentParser
 
 from rich.console import Console
+from dataclasses import dataclass
 import logging
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -99,7 +100,13 @@ def actual_run(notebook_path: Path, i: int, total: int) -> None:
     )
 
 
-class NotebookFailure(TypedDict):
+@dataclass
+class NotebookSuccess:
+    notebook_path: Path
+
+
+@dataclass
+class NotebookFailure:
     notebook_path: Path
     error: str
 
@@ -109,19 +116,17 @@ def run_notebook(
     i: int,
     total: int,
     mock: bool = True,
-) -> NotebookFailure | None:
+) -> NotebookFailure | NotebookSuccess:
     logging.info(f"Running notebook: {notebook_path.name}")
     run = mock_run if mock else actual_run
 
     try:
         run(notebook_path, i=i, total=total)
     except Exception as e:
-        logging.error(
-            f"{e.__class__.__name__} encountered running notebook: {str(notebook_path)}"
-        )
+        logging.error(f"{e.__class__.__name__} encountered running notebook: {str(notebook_path)}")
         return NotebookFailure(notebook_path=notebook_path, error=str(e))
     else:
-        return
+        return NotebookSuccess(notebook_path=notebook_path)
 
 
 class RunParams(TypedDict):
@@ -133,19 +138,13 @@ class RunParams(TypedDict):
 
 def run_parameters(notebook_paths: list[Path], mock: bool = True) -> list[RunParams]:
     def to_mock(notebook_path: Path, i: int) -> RunParams:
-        return RunParams(
-            notebook_path=notebook_path, mock=mock, i=i, total=len(notebook_paths)
-        )
+        return RunParams(notebook_path=notebook_path, mock=mock, i=i, total=len(notebook_paths))
 
-    return [
-        to_mock(notebook_path, i=i)
-        for i, notebook_path in enumerate(notebook_paths, start=1)
-    ]
+    return [to_mock(notebook_path, i=i) for i, notebook_path in enumerate(notebook_paths, start=1)]
 
 
 def main(notebooks_to_run: list[Path], mock: bool = True) -> None:
     console = Console()
-    errors: list[NotebookFailure]
     setup_logging()
     logging.info("Starting notebook runner")
     logging.info(f"Running {len(notebooks_to_run)} notebook(s).")
@@ -153,15 +152,21 @@ def main(notebooks_to_run: list[Path], mock: bool = True) -> None:
         delayed(run_notebook)(**run_params)
         for run_params in run_parameters(notebooks_to_run, mock=mock)
     )
-    errors = [result for result in results if result is not None]
+    errors: list[NotebookFailure] = list(filter(lambda x: isinstance(x, NotebookFailure), results))
+    successes: list[NotebookSuccess] = list(
+        filter(lambda x: isinstance(x, NotebookSuccess), results)
+    )
 
     if not errors:
-        logging.info("Notebooks run successfully!")
+        logging.info("All notebooks ran successfully!")
         return
 
     for error in errors:
-        console.rule(f"[bold red]Error running {error['notebook_path']}[/bold red]")
-        console.print(error["error"])
+        console.rule(f"[bold red]Error running {error.notebook_path}[/bold red]")
+        console.print(error.error)
+
+    for success in successes:
+        console.print(f"[bold green]Success running {success.notebook_path}[/bold green]")
 
     logging.error(f"{len(errors)} / {len(notebooks_to_run)} notebooks failed")
 
