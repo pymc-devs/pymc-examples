@@ -138,7 +138,12 @@ class RunParams(TypedDict):
 
 def run_parameters(notebook_paths: list[Path], mock: bool = True) -> list[RunParams]:
     def to_mock(notebook_path: Path, i: int) -> RunParams:
-        return RunParams(notebook_path=notebook_path, mock=mock, i=i, total=len(notebook_paths))
+        return RunParams(
+            notebook_path=notebook_path,
+            mock=mock,
+            i=i,
+            total=len(notebook_paths),
+        )
 
     return [to_mock(notebook_path, i=i) for i, notebook_path in enumerate(notebook_paths, start=1)]
 
