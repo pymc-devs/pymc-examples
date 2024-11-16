@@ -26,10 +26,10 @@ def mock_sample(*args, **kwargs):
         coords={"chain": np.arange(n_chains)},
     )
     idata.add_groups(
-        posterior=(idata.prior.mean("chain") * expanded_chains).transpose(
-            "chain", "draw", ...
-        )
+        posterior=(idata.prior.mean("chain") * expanded_chains).transpose("chain", "draw", ...)
     )
+    idata.posterior.attrs["sampling_time"] = 1.0
+
     if "prior" in idata:
         del idata.prior
     if "prior_predictive" in idata:
@@ -50,9 +50,7 @@ def mock_sample(*args, **kwargs):
                     dims=("chain", "draw"),
                 ),
                 "tree_depth": xr.DataArray(
-                    rng.choice(
-                        [1, 2, 3], p=[0.01, 0.86, 0.13], size=(n_chains, n_draws)
-                    ),
+                    rng.choice([1, 2, 3], p=[0.01, 0.86, 0.13], size=(n_chains, n_draws)),
                     dims=("chain", "draw"),
                 ),
                 "acceptance_rate": xr.DataArray(
