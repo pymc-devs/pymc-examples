@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: pymc_spatial
   language: python
   name: python3
 ---
@@ -108,7 +108,7 @@ with rio.open(in_path) as src:
 
     img = src.read()
 
-    src_crs = src.crs["init"].upper()
+    src_crs = str(src.crs)
     min_lon, min_lat, max_lon, max_lat = src.bounds
     xs = gambia_gpdf_4326["geometry"].x
     ys = gambia_gpdf_4326["geometry"].y
@@ -252,7 +252,7 @@ with hsgp_model:
     )
 ```
 
- The posterior mean of the length scale is 0.21 (shown below). Therefore, we can expect the gaussian mean to decay towards 0 (since we set a 0 mean function) as we move 0.21 degrees away from any sampled point on the map. While this is not a hard cut-off due to the lengthscale not being constrained by the observed data it is still useful to be able to intuit how the lengthscale effects the estimation.
+ The posterior mean of the length scale is 0.2 (shown below). Therefore, we can expect the gaussian mean to decay towards 0 (since we set a 0 mean function) as we move 0.2 degrees away from any sampled point on the map. While this is not a hard cut-off due to the lengthscale not being constrained by the observed data it is still useful to be able to intuit how the lengthscale effects the estimation.
 
 ```{code-cell} ipython3
 az.summary(hsgp_trace, var_names=["ls"], kind="stats")
