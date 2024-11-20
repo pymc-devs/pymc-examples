@@ -8,6 +8,9 @@ kernelspec:
   display_name: pymc_spatial
   language: python
   name: python3
+myst:
+  substitutions:
+    extra_dependencies: folium geopandas mapclassify pyproj rasterio
 ---
 
 (The prevalence of malaria in the Gambia)=
