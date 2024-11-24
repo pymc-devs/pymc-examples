@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: pymc-examples
   language: python
-  name: python3
+  name: pymc-examples
 ---
 
 (weibull_aft)=
@@ -121,7 +121,7 @@ For more information, see [this Stan example model](https://github.com/stan-dev/
 ```{code-cell} ipython3
 with pm.Model() as model_2:
     alpha = pm.Normal("alpha", mu=0, sigma=10)
-    r = pm.Gamma("r", alpha=1, beta=0.001, testval=0.25)
+    r = pm.Gamma("r", alpha=1, beta=0.001, initval=0.25)
     beta = pm.Deterministic("beta", pt.exp(-alpha / r))
 
     y_obs = pm.Weibull("y_obs", alpha=r, beta=beta, observed=y[~censored])
