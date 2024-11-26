@@ -147,7 +147,6 @@ with pm.Model() as model_2:
 
 ```{code-cell} ipython3
 with model_2:
-    # Increase target_accept to avoid divergences
     idata_param2 = pm.sample(nuts_sampler="numpyro")
 ```
 
@@ -165,11 +164,6 @@ In this parameterization, we model the log-linear error distribution with a Gumb
 
 ```{code-cell} ipython3
 logtime = np.log(y)
-
-
-def gumbel_sf(y, mu, sigma):
-    """Gumbel survival function."""
-    return 1.0 - pt.exp(-pt.exp(-(y - mu) / sigma))
 ```
 
 ```{code-cell} ipython3
@@ -188,7 +182,6 @@ with pm.Model() as model_3:
 
 ```{code-cell} ipython3
 with model_3:
-    # Change init to avoid divergences
     idata_param3 = pm.sample(tune=4000, draws=2000, nuts_sampler="numpyro")
 ```
 
