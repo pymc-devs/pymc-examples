@@ -42,8 +42,9 @@ import statsmodels.api as sm
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
-RANDOM_SEED = 8927
-np.random.seed(RANDOM_SEED)
+# Set a seed for reproducibility of results
+seed: int = sum(map(ord, "aft_weibull"))
+rng: np.random.Generator = np.random.default_rng(seed=seed)
 az.style.use("arviz-darkgrid")
 ```
 
@@ -117,7 +118,7 @@ with pm.Model() as model_1:
 
 ```{code-cell} ipython3
 with model_1:
-    idata_param1 = pm.sample(nuts_sampler="numpyro")
+    idata_param1 = pm.sample(nuts_sampler="numpyro", random_seed=rng)
 ```
 
 ```{code-cell} ipython3
@@ -147,7 +148,7 @@ with pm.Model() as model_2:
 
 ```{code-cell} ipython3
 with model_2:
-    idata_param2 = pm.sample(nuts_sampler="numpyro")
+    idata_param2 = pm.sample(nuts_sampler="numpyro", random_seed=rng)
 ```
 
 ```{code-cell} ipython3
@@ -182,7 +183,7 @@ with pm.Model() as model_3:
 
 ```{code-cell} ipython3
 with model_3:
-    idata_param3 = pm.sample(tune=4000, draws=2000, nuts_sampler="numpyro")
+    idata_param3 = pm.sample(tune=4000, draws=2000, nuts_sampler="numpyro", random_seed=rng)
 ```
 
 ```{code-cell} ipython3
