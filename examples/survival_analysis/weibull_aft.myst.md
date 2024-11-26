@@ -42,7 +42,10 @@ import statsmodels.api as sm
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
-# Set a seed for reproducibility of results
+# These seeds are for sampling data observations
+RANDOM_SEED = 8927
+np.random.seed(RANDOM_SEED)
+# Set a seed for reproducibility of posterior results
 seed: int = sum(map(ord, "aft_weibull"))
 rng: np.random.Generator = np.random.default_rng(seed=seed)
 az.style.use("arviz-darkgrid")
