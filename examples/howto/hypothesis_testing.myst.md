@@ -169,6 +169,14 @@ This shows that there is only a 2.6% chance that the mean is within the chosen R
 
 +++
 
+{ref}`kruschke2018rejecting` outlines the HDI+ROPE decision rule, which is summarised in the figure taken from that paper:
+
+![](hdi_plus_rope_decision_rule.png)
+
+In our case, we would remain undecided because the HDI does not fall entirely outside nor within the ROPE.
+
++++
+
 ### Bayes Factors
 
 Bayes Factors provide a Bayesian alternative to classical hypothesis tests, allowing you to weigh evidence for one hypothesis relative to another. In the simplest case—testing whether $\mu=0$ versus $\mu \neq 0$ — the Bayes Factor (BF) tells you how much more (or less) likely your observed data are under the model where $\mu=0$ than under the model where $\mu$ is free to vary.
@@ -196,6 +204,13 @@ We can see that the probability of $\mu=0$ has gone _down_ after observing the d
 
 ## Authors
 * Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in December, 2024.
+
++++
+
+## References
+:::{bibliography}
+:filter: docname in docnames
+:::
 
 +++
 
