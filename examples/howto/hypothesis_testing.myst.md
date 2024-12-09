@@ -200,7 +200,7 @@ Yet again, `arviz` has a function to help us here. We can use `plot_bf` to compu
 az.plot_bf(idata, var_name="mu", ref_val=0, figsize=(14, 3));
 ```
 
-We can see that the probability of $\mu=0$ has gone _down_ after observing the data. This is reflected in the value of $BF_{01}=0.66$ in that it is less than 1.
+We can see that the probability of $\mu=0$ has gone _down_ after observing the data. This is reflected in the value of $BF_{01}=0.54$ in that it is less than 1.
 
 +++
 
