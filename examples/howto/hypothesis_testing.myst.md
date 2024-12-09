@@ -115,17 +115,17 @@ p_mu_greater_0 = np.mean(mu_samples > 0)
 p_mu_greater_0
 ```
 
+We can also include such information in a visual plot using `az.plot_posterior`.
+
+```{code-cell} ipython3
+az.plot_posterior(idata, var_names=["mu"], ref_val=0, hdi_prob="hide", figsize=(14, 3));
+```
+
 It could also be that we have some kind of minimum meaningful threshold that we care about. For example, we might care about whether the mean is greater than 0.1. We can compute this in the same way.
 
 ```{code-cell} ipython3
 p_mu_greater = np.mean(mu_samples > 0.1)
 p_mu_greater
-```
-
-We can also include such information in a visual plot using `az.plot_posterior`.
-
-```{code-cell} ipython3
-az.plot_posterior(idata, var_names=["mu"], ref_val=0, hdi_prob="hide", figsize=(14, 3));
 ```
 
 ### Highest Density Intervals (HDIs)
