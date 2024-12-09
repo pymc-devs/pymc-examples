@@ -133,7 +133,7 @@ p_mu_greater
 The HDI gives an interval of highest probability density. If zero is outside the HDI, it’s unlikely the parameter is near zero.
 
 ```{code-cell} ipython3
-hdi_mu = az.hdi(idata, var_names=["mu"])["mu"].data
+hdi_mu = az.hdi(idata.posterior["mu"])["mu"].data
 hdi_mu
 ```
 
@@ -151,7 +151,7 @@ az.plot_posterior(idata, var_names=["mu"], figsize=(14, 3));
 
 If the probability that the parameter is within a certain range is high, we can say that the parameter is practically equivalent to that value. This is a useful way to express that we don't care about small differences. 
 
-One proposal is that we now examine the HDI's but compare them to the ROPE and not zero.
+For example, if we state that values within $-0.1$ to $0.1$ (this region need not be symmetric) are practically equivalent to zero, we can compute the probability that $\mu$ is within this range. If this probability is high enough then we can say that the mean is practically equivalent to zero.
 
 ```{code-cell} ipython3
 rope = [-0.1, 0.1]
@@ -159,15 +159,15 @@ p_in_rope = np.mean((mu_samples > rope[0]) & (mu_samples < rope[1]))
 p_in_rope
 ```
 
+So there is only a 2.2% probability that the mean is practically equivalent to zero. This is sufficiently low that we can reject the hypothesis that the mean is practically equivalent to zero.
+
++++
+
 Third time in a row, `arviz` has our back and can plot the ROPE and HDIs.
 
 ```{code-cell} ipython3
 az.plot_posterior(idata, var_names=["mu"], rope=rope, figsize=(14, 3));
 ```
-
-This shows that there is only a 2.6% chance that the mean is within the chosen ROPE.
-
-+++
 
 {ref}`kruschke2018rejecting` outlines the HDI+ROPE decision rule, which is summarised in the figure taken from that paper:
 
@@ -199,6 +199,31 @@ We can see that the probability of $\mu=0$ has gone _down_ after observing the d
 +++
 
 ## Summary
+
+**Posterior Probability Statements**  
+- *Idea:* Compute $P(\theta > \delta \mid \text{data})$ directly from the posterior.  
+- *Pros:* Simple, intuitive, no special tools needed.  
+- *Cons:* Requires choosing a threshold $\delta$.
+
+**Highest Density Intervals (HDIs)**  
+- *Idea:* Identify the range of values containing a fixed portion (e.g., 95%) of the posterior mass.  
+- *Pros:* Provides a clear summary of where the parameter lies; easy to interpret.  
+- *Cons:* By itself, doesn’t encode a decision rule; must still choose what HDI exclusion implies.
+
+**ROPE (Region of Practical Equivalence)**  
+- *Idea:* Define a small interval around the null (e.g., zero) representing negligible effect size and assess posterior mass within it.  
+- *Pros:* Focuses on practical rather than just statistical significance; flexible.  
+- *Cons:* Requires subjective definition of what counts as negligible.
+
+**ROPE + HDI Decision Rule**  
+- *Idea:* Combine ROPE with HDI to classify results as negligible, meaningful, or inconclusive.  
+- *Pros:* Offers a three-way decision with practical interpretation; balances interval uncertainty and practical thresholds.  
+- *Cons:* Still needs careful definition of ROPE bounds and HDI level.
+
+**Bayes Factors**  
+- *Idea:* Compare evidence for one model/hypothesis against another by ratio of marginal likelihoods.  
+- *Pros:* Provides a direct measure of relative evidence; can be viewed as updating prior odds.  
+- *Cons:* Sensitive to priors; can be computationally challenging; interpreting BF scales can be tricky.
 
 +++
 
