@@ -51,6 +51,14 @@ We'll work through a scenario where we want to know if the mean of some metric (
 
 +++
 
+:::{note}
+Many Bayesian practitioners argue that collapsing a rich posterior distribution into a single binary decision (e.g., "reject" or "fail to reject") undermines the essence of Bayesian inference. The Bayesian perspective values the entire posterior as a nuanced representation of uncertainty about parameters. Reducing it to yes/no decisions discards that nuance and may mislead by oversimplifying the uncertainty involved.
+
+However, in real-world scenarios—such as policy-making, resource allocation, or medical decision-making—practitioners often must choose a single course of action. In such cases, translating the posterior into a decision rule or threshold is necessary. The key is to do so transparently and thoughtfully, ideally incorporating utilities, costs, and the full breadth of uncertainty in the decision process.
+:::
+
++++
+
 ## Setting up the example
 
 Rather than focus on a complex example, we'll pick a trivial one were we are simply estimating the mean of a single variable. This will allow us to focus on the hypothesis testing. The important thing is what we do with our MCMC samples, not the particulars of the model.
