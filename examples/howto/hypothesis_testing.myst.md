@@ -183,7 +183,7 @@ az.plot_posterior(idata, var_names=["mu"], rope=rope, figsize=(14, 3));
 
 +++
 
-{ref}`kruschke2018rejecting` outlines the HDI+ROPE decision rule, which is summarised in the figure taken from that paper:
+{cite:t}`kruschke2018rejecting` outlines the HDI+ROPE decision rule, which is summarised in the figure taken from that paper:
 
 ![](hdi_plus_rope_decision_rule.png)
 
