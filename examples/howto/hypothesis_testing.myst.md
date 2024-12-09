@@ -169,6 +169,10 @@ Third time in a row, `arviz` has our back and can plot the ROPE and HDIs.
 az.plot_posterior(idata, var_names=["mu"], rope=rope, figsize=(14, 3));
 ```
 
+### HDI+ROPE decision criteria
+
++++
+
 {ref}`kruschke2018rejecting` outlines the HDI+ROPE decision rule, which is summarised in the figure taken from that paper:
 
 ![](hdi_plus_rope_decision_rule.png)
