@@ -47,7 +47,7 @@ In this tutorial, we'll use PyMC to:
   * Regions of Practical Equivalence (ROPE)
   * Bayes Factors using ArviZ's `plot_bf` function
 
-We'll work through a scenario where we want to know if the mean of some metric (e.g., sales) is different from zero.
+We'll work through a scenario where we want to know if the mean of some metric (e.g., monthly profit) is different from zero.
 
 +++
 
