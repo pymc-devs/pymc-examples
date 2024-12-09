@@ -72,6 +72,8 @@ ax.set(yticklabels=[], yticks=[], xlabel="x", title="Observations");
 Now we'll build our simple model. Again, the focus here is not on the model of the data as such, but simply obtaining a meaningful prior and posterior distribution. We'll ask for more MCMC samples than we normally do, so that we can get a more accurate approximation of the prior and posterior distributions.
 
 ```{code-cell} ipython3
+:tags: [hide-output]
+
 with pm.Model() as model:
     # priors
     mu = pm.Normal("mu", mu=0, sigma=2)
