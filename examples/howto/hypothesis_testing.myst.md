@@ -113,7 +113,7 @@ az.plot_dist(idata.posterior["mu"], label="Posterior", color="C1", ax=ax)
 ax.set(title=r"Prior and posterior distributions of $\mu$");
 ```
 
-## Bayesian Hypothesis Testing Methods
+## Bayesian hypothesis testing methods
 
 ### Posterior probability statements
 
