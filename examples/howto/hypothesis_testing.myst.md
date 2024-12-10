@@ -45,7 +45,7 @@ In this tutorial, we'll use PyMC to:
   * Posterior probability statements
   * Highest Density Intervals (HDIs)
   * Regions of Practical Equivalence (ROPE)
-  * Bayes Factors using ArviZ's `plot_bf` function
+  * Bayes Factors
 
 We'll work through a scenario where we want to know if the mean of some metric (e.g., monthly profit) is different from zero.
 
@@ -56,6 +56,18 @@ Many Bayesian practitioners argue that collapsing a rich posterior distribution 
 
 However, in real-world scenarios—such as policy-making, resource allocation, or medical decision-making—practitioners often must choose a single course of action. In such cases, translating the posterior into a decision rule or threshold is necessary. The key is to do so transparently and thoughtfully, ideally incorporating utilities, costs, and the full breadth of uncertainty in the decision process.
 :::
+
++++
+
+### Parameter estimation vs model comparison
+
+The Bayesian evaluation of null values can proceed in two distinct ways (see {cite:t}`kruschke2011bayesian`):
+
+#### Parameter estimation
+The parameter estimation approach considers a model where the parameter is allowed to vary (which includes the null value). We then compute the posterior distribution of this value and come up with some kind of decision rule which determines if we accept or reject the null value.
+
+#### Model comparison
+Two competing models are considered. The first model assumes that the null value is true, or fixed, and the second model allows a range of values. The models are compared to see which is more supported by the data. An example would be in assessing if a coin is fair (null hypothesis) or biased (alternative hypothesis) - we would set up a model where the coin has a fixed probability of heads (0.5) and another model where the probability of heads is a free parameter. Readers are referred to the PyMC examples focussing on {ref}`pymc:model_comparison` for more details.
 
 +++
 
@@ -179,15 +191,23 @@ Third time in a row, `arviz` has our back and can plot the ROPE and HDIs.
 az.plot_posterior(idata, var_names=["mu"], rope=rope, figsize=(14, 3));
 ```
 
+The intuition we can get from this is that if the ROPE is narrow, we would require quite a high level of precision to accept the null hypthesis. The posterior distribution would have to be very tightly centered around the null value to have a large probability of being within the ROPE.
+
++++
+
 ### HDI+ROPE decision criteria
 
 +++
 
-{cite:t}`kruschke2018rejecting` outlines the HDI+ROPE decision rule, which is summarised in the figure taken from that paper:
+{cite:t}`kruschke2018rejecting` outlines the HDI+ROPE decision rule, which is summarised in the figure taken from that paper. Namely:
+
+* **Accept the null value**: If the HDI falls entirely within the ROPE. The HDI does not need to include the null value.
+* **Reject the null value**: If the HDI falls entirely outside the ROPE. 
+* **Remain undecided**: If the HDI is partially or fully outside the ROPE.
+
+In our case, looking back at our posterior + ROPE plot above, we would remain undecided because the HDI does not fall entirely outside nor within the ROPE.
 
 ![](hdi_plus_rope_decision_rule.png)
-
-In our case, we would remain undecided because the HDI does not fall entirely outside nor within the ROPE.
 
 +++
 
@@ -209,6 +229,10 @@ az.plot_bf(idata, var_name="mu", ref_val=0, figsize=(14, 3));
 ```
 
 We can see that the probability of $\mu=0$ has gone _down_ after observing the data. This is reflected in the value of $BF_{01}=0.54$ in that it is less than 1.
+
++++
+
+Readers are referred to {ref}`Bayes_factor` for a more detailed look at Bayes Factors.
 
 +++
 
