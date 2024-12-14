@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc4-dev
+  display_name: default
   language: python
-  name: pymc4-dev
+  name: python3
 ---
 
 # Generalized Extreme Value Distribution
@@ -42,7 +42,7 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
-import pymc_experimental.distributions as pmx
+import pymc_extras.distributions as pmx
 import pytensor.tensor as pt
 
 from arviz.plots import plot_utils as azpu
@@ -229,8 +229,4 @@ az.plot_pair(idata, var_names=["μ", "σ", "ξ"], kind="kde", marginals=True, di
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w -p pytensor,arviz
-```
-
-```{code-cell} ipython3
-
 ```

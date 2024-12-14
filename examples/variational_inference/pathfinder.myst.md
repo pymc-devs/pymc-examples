@@ -26,11 +26,11 @@ Pathfinder {cite:p}`zhang2021pathfinder` is a variational inference algorithm th
 
 This algorithm is [implemented](https://github.com/blackjax-devs/blackjax/pull/194) in [BlackJAX](https://github.com/blackjax-devs/blackjax), a library of inference algorithms for [JAX](https://github.com/google/jax). Through PyMC's JAX-backend (through [pytensor](https://github.com/pytensor-devs/pytensor)) we can run BlackJAX's pathfinder on any PyMC model with some simple wrapper code.
 
-This wrapper code is implemented in [pymc-experimental](https://github.com/pymc-devs/pymc-experimental/). This tutorial shows how to run Pathfinder on your PyMC model.
+This wrapper code is implemented in [pymc-extras](https://github.com/pymc-devs/pymc-extras/). This tutorial shows how to run Pathfinder on your PyMC model.
 
-You first need to install `pymc-experimental`:
+You first need to install `pymc-extras`:
 
-`pip install git+https://github.com/pymc-devs/pymc-experimental`
+`pip install git+https://github.com/pymc-devs/pymc-extras`
 
 Instructions for installing other packages:  
 - [jax](https://github.com/google/jax#installation)
@@ -41,7 +41,7 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
-import pymc_experimental as pmx
+import pymc_extras as pmx
 
 print(f"Running on PyMC v{pm.__version__}")
 ```
