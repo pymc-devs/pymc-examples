@@ -198,7 +198,7 @@ Observe that, despite the fact that the iterations seems improving, some of them
 
 ``````{admonition} An alternative approach
 :class: tip
-There is an alternative way in `pymc-experimental` trough the function {func}`~pymc_experimental.utils.prior.prior_from_idata` that does something similar. This function:
+There is an alternative way in `pymc-extras` trough the function {func}`~pymc_extras.utils.prior.prior_from_idata` that does something similar. This function:
 > Creates a prior from posterior using MvNormal approximation.
 > The approximation uses MvNormal distribution. Keep in mind that this function will only work well for unimodal
 > posteriors and will fail when complicated interactions happen. Moreover, if a retrieved variable is constrained, you
