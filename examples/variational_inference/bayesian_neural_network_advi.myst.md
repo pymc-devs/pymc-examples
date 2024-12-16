@@ -114,7 +114,7 @@ A neural network is quite simple. The basic unit is a [perceptron](https://en.wi
 jupyter:
   outputs_hidden: true
 ---
-def construct_nn(ann_input, ann_output):
+def construct_nn():
     n_hidden = 5
 
     # Initialize random weights between each layer
@@ -128,9 +128,14 @@ def construct_nn(ann_input, ann_output):
         "train_cols": np.arange(X_train.shape[1]),
         "obs_id": np.arange(X_train.shape[0]),
     }
+
     with pm.Model(coords=coords) as neural_network:
-        ann_input = pm.Data("ann_input", X_train, dims=("obs_id", "train_cols"))
-        ann_output = pm.Data("ann_output", Y_train, dims="obs_id")
+        # Define minibatch variables
+        minibatch_x, minibatch_y = pm.Minibatch(X_train, Y_train, batch_size=50)
+
+        # Define data variables using minibatches
+        ann_input = pm.Data("ann_input", minibatch_x, mutable=True, dims=("obs_id", "train_cols"))
+        ann_output = pm.Data("ann_output", minibatch_y, mutable=True, dims="obs_id")
 
         # Weights from input to hidden layer
         weights_in_1 = pm.Normal(
@@ -155,13 +160,14 @@ def construct_nn(ann_input, ann_output):
             "out",
             act_out,
             observed=ann_output,
-            total_size=Y_train.shape[0],  # IMPORTANT for minibatches
+            total_size=X_train.shape[0],  # IMPORTANT for minibatches
             dims="obs_id",
         )
     return neural_network
 
 
-neural_network = construct_nn(X_train, Y_train)
+# Create the neural network model
+neural_network = construct_nn()
 ```
 
 That's not so bad. The `Normal` priors help regularize the weights. Usually we would add a constant `b` to the inputs but I omitted it here to keep the code cleaner.
