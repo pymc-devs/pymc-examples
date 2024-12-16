@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_examples_new
+  display_name: pymc_causal
   language: python
-  name: pymc_examples_new
+  name: pymc_causal
 ---
 
 (bayes_np_causal)=
@@ -307,7 +307,11 @@ def make_propensity_model(X, t, bart=True, probit=True, samples=1000, m=50):
         t_pred = pm.Bernoulli("t_pred", p=p, observed=t_data, dims="obs")
 
         idata = pm.sample_prior_predictive()
-        idata.extend(pm.sample(samples, random_seed=105, idata_kwargs={"log_likelihood": True}))
+        idata.extend(
+            pm.sample(
+                samples, init="adapt_diag", random_seed=105, idata_kwargs={"log_likelihood": True}
+            )
+        )
         idata.extend(pm.sample_posterior_predictive(idata))
     return model_ps, idata
 
