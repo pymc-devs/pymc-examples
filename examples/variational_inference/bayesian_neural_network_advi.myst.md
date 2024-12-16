@@ -131,8 +131,12 @@ def construct_nn():
     }
 
     with pm.Model(coords=coords) as neural_network:
-        ann_input = pm.Data("ann_input", X_train, mutable=True)
-        ann_output = pm.Data("ann_output", Y_train, mutable=True)
+        # Define minibatch variables
+        minibatch_x, minibatch_y = pm.Minibatch(X_train, Y_train, batch_size=50)
+
+        # Define data variables using minibatches
+        ann_input = pm.Data("ann_input", minibatch_x, mutable=True, dims=("obs_id", "train_cols"))
+        ann_output = pm.Data("ann_output", minibatch_y, mutable=True, dims="obs_id")
 
         # Weights from input to hidden layer
         weights_in_1 = pm.Normal(
@@ -157,7 +161,8 @@ def construct_nn():
             "out",
             act_out,
             observed=ann_output,
-            total_size=Y_train.shape[0],  # IMPORTANT for minibatches
+            total_size=X_train.shape[0],  # IMPORTANT for minibatches
+            dims="obs_id",
         )
     return neural_network
 
