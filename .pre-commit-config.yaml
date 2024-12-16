@@ -3,11 +3,11 @@ ci:
 
 repos:
 - repo: https://github.com/psf/black
-  rev: 24.4.2
+  rev: 24.10.0
   hooks:
     - id: black-jupyter
 - repo: https://github.com/nbQA-dev/nbQA
-  rev: 1.8.5
+  rev: 1.9.1
   hooks:
     - id: nbqa-isort
       additional_dependencies: [isort==5.6.4]
@@ -35,7 +35,7 @@ repos:
             |examples/samplers/MLDA_variance_reduction_linear_regression\.ipynb$
 
 - repo: https://github.com/FlamingTempura/bibtex-tidy
-  rev: v1.11.0
+  rev: v1.14.0
   hooks:
     - id: bibtex-tidy
       files: examples/references.bib
@@ -99,7 +99,7 @@ repos:
       language: pygrep
       types_or: [markdown, rst, jupyter]
 - repo: https://github.com/mwouts/jupytext
-  rev: v1.16.3
+  rev: v1.16.5
   hooks:
   - id: jupytext
     files: ^examples/.+\.ipynb$
