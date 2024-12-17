@@ -119,6 +119,7 @@ folder_title_map = {
     "ode_models": "ODE models",
     "samplers": "MCMC",
     "variational_inference": "Variational Inference",
+    "statistical_rethinking_lectures": "Statistical Rethinking Lectures",
 }
 
 
