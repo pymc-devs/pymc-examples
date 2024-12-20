@@ -327,11 +327,11 @@ df["Divergent"] = pd.Series(
         acceptance_runs[0.99].sample_stats["diverging"].sum().item(),
     ]
 )
-df["delta_target"] = pd.Series([".80", ".85", ".90", ".95", ".99"])
+df["target_accept"] = pd.Series([".80", ".85", ".90", ".95", ".99"])
 df
 ```
 
-Here, the number of divergent transitions dropped dramatically when delta was increased to 0.99. 
+Here, the number of divergent transitions dropped dramatically when the target acceptance rate was increased to 0.99. 
 
 This behavior also has a nice geometric intuition. The more we decrease the step size the more the Hamiltonian Markov chain can explore the neck of the funnel. Consequently, the marginal posterior distribution for $log (\tau)$ stretches further and further towards negative values with the decreasing step size. 
 
@@ -345,7 +345,7 @@ pairplot_divergence(acceptance_runs[0.99], ax=ax, color="C3", divergence=False)
 
 pairplot_divergence(longer_trace, ax=ax, color="C1", divergence=False)
 
-ax.legend(["Centered, delta=0.99", "Centered, delta=0.85"]);
+ax.legend(["Centered, target_accept=0.99", "Centered, target_accept=0.85"]);
 ```
 
 ```{code-cell} ipython3
@@ -357,11 +357,11 @@ plt.figure(figsize=(15, 4))
 plt.axhline(0.7657852, lw=2.5, color="gray")
 
 mlogtau0 = [logtau0[:, :i].mean() for i in longer_trace.posterior.coords["draw"].values]
-plt.plot(mlogtau0, label="Centered, delta=0.85", lw=2.5)
+plt.plot(mlogtau0, label="Centered, target_accept=0.85", lw=2.5)
 mlogtau2 = [logtau2[:, :i].mean() for i in acceptance_runs[0.90].posterior.coords["draw"].values]
-plt.plot(mlogtau2, label="Centered, delta=0.90", lw=2.5)
+plt.plot(mlogtau2, label="Centered, target_accept=0.90", lw=2.5)
 mlogtau1 = [logtau1[:, :i].mean() for i in acceptance_runs[0.99].posterior.coords["draw"].values]
-plt.plot(mlogtau1, label="Centered, delta=0.99", lw=2.5)
+plt.plot(mlogtau1, label="Centered, target_accept=0.99", lw=2.5)
 plt.ylim(0, 2)
 plt.xlabel("Iteration")
 plt.ylabel("MCMC mean of log(tau)")
@@ -459,7 +459,13 @@ pairplot_divergence(acceptance_runs[0.99], ax=ax, color="C3", divergence=False)
 acceptance_runs[0.90].posterior["log_tau"] = np.log(acceptance_runs[0.90].posterior["tau"])
 pairplot_divergence(acceptance_runs[0.90], ax=ax, color="C1", divergence=False)
 
-ax.legend(["Non-Centered, delta=0.80", "Centered, delta=0.99", "Centered, delta=0.90"]);
+ax.legend(
+    [
+        "Non-Centered, target_accept=0.80",
+        "Centered, target_accept=0.99",
+        "Centered, target_accept=0.90",
+    ]
+);
 ```
 
 ```{code-cell} ipython3
@@ -468,11 +474,11 @@ plt.axhline(0.7657852, lw=2.5, color="gray")
 mlogtaun = [
     fit_ncp80.posterior["log_tau"][:, :i].mean() for i in fit_ncp80.posterior.coords["draw"].values
 ]
-plt.plot(mlogtaun, color="C0", lw=2.5, label="Non-Centered, delta=0.80")
+plt.plot(mlogtaun, color="C0", lw=2.5, label="Non-Centered, target_accept=0.80")
 mlogtau2 = [logtau2[:, :i].mean() for i in acceptance_runs[0.90].posterior.coords["draw"].values]
-plt.plot(mlogtau2, color="C2", label="Centered, delta=0.90", lw=2.5)
+plt.plot(mlogtau2, color="C2", label="Centered, target_accept=0.90", lw=2.5)
 mlogtau1 = [logtau1[:, :i].mean() for i in acceptance_runs[0.99].posterior.coords["draw"].values]
-plt.plot(mlogtau1, color="C1", label="Centered, delta=0.99", lw=2.5)
+plt.plot(mlogtau1, color="C1", label="Centered, target_accept=0.99", lw=2.5)
 plt.ylim(0, 2)
 plt.xlabel("Iteration")
 plt.ylabel("MCMC mean of log(tau)")
