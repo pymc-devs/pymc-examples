@@ -269,7 +269,7 @@ This approach captured slightly more nuance in the overall uncertainty than the 
 
 Now let's model the mean and the log of the variance as separate GPs through PyMC's `Latent` implementation, feeding both into a `Normal` likelihood. Note that we add a small amount of diagonal noise to the individual covariances in order to stabilize them for inversion.
 
-The `Latent` parameterization takes signifiantly longer to sample than the `Marginal` model, so we are going to accerelate the sampling with the Numpyro NUTS sampler.
+The `Latent` parameterization takes signifiantly longer to sample than the `Marginal` model, so we are going to accerelate the sampling with the Nutpie NUTS sampler.
 
 ```{code-cell} ipython3
 with pm.Model() as model_ht:
@@ -295,8 +295,7 @@ with pm.Model() as model_ht:
     trace_ht = pm.sample(
         target_accept=0.95,
         chains=2,
-        nuts_sampler="numpyro",
-        return_inferencedata=True,
+        nuts_sampler="nutpie",
         random_seed=SEED,
     )
 
@@ -321,7 +320,7 @@ plot_var(axs[1], sigma_samples.T**2)
 plot_total(axs[2], mu_samples.T, sigma_samples.T**2)
 ```
 
-That looks much better! We've accurately captured the mean behavior of our system, as well as the underlying trend in the variance (with appropriate uncertainty). Crucially, the aggregate behavior of the model integrates both epistemic *and* aleatoric uncertainty, and the ~5% of our observations fall outside the 2σ band are more or less evenly distributed across the domain. However, even with the Numpyro sampler, this took nearly an hour on a Ryzen 7040 laptop to sample only 4k NUTS iterations. Due to the expense of the requisite matrix inversions, GPs are notoriously inefficient for large data sets. Let's reformulate this model using a sparse approximation.
+That looks much better! We've accurately captured the mean behavior of our system, as well as the underlying trend in the variance (with appropriate uncertainty). Crucially, the aggregate behavior of the model integrates both epistemic *and* aleatoric uncertainty, and the ~5% of our observations fall outside the 2σ band are more or less evenly distributed across the domain. However, even with the Nutpie sampler, this took nearly an hour on a Ryzen 7040 laptop to sample only 4k NUTS iterations. Due to the expense of the requisite matrix inversions, GPs are notoriously inefficient for large data sets. Let's reformulate this model using a sparse approximation.
 
 +++
 
@@ -384,9 +383,8 @@ with pm.Model() as model_hts:
     lik_hts = pm.Normal("lik_hts", mu=mu_f, sigma=sigma_f, observed=y_obs_)
     trace_hts = pm.sample(
         target_accept=0.95,
-        nuts_sampler="numpyro",
+        nuts_sampler="nutpie",
         chains=2,
-        return_inferencedata=True,
         random_seed=SEED,
     )
 
