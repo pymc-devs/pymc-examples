@@ -293,9 +293,9 @@ with pm.Model() as model_ht:
     lik_ht = pm.Normal("lik_ht", mu=mu_f, sigma=sigma_f, observed=y_obs_)
 
     trace_ht = pm.sample(
-        target_accept=0.95,
+        # target_accept=0.95,
         chains=2,
-        nuts_sampler="nutpie",
+        nuts_sampler="numpyro",
         random_seed=SEED,
     )
 
@@ -382,8 +382,7 @@ with pm.Model() as model_hts:
 
     lik_hts = pm.Normal("lik_hts", mu=mu_f, sigma=sigma_f, observed=y_obs_)
     trace_hts = pm.sample(
-        target_accept=0.95,
-        nuts_sampler="nutpie",
+        nuts_sampler="numpyro",
         chains=2,
         random_seed=SEED,
     )
@@ -455,9 +454,9 @@ with pm.Model() as model_htsc:
 
     lik_htsc = pm.Normal("lik_htsc", mu=mu_f, sigma=sigma_f, observed=y_obs_)
     trace_htsc = pm.sample(
-        target_accept=0.9,
+        # target_accept=0.9,
         chains=2,
-        nuts_sampler="nutpie",
+        nuts_sampler="numpyro",
         return_inferencedata=True,
         random_seed=SEED,
     )
@@ -482,12 +481,13 @@ def get_icm(input_dim, kernel, W=None, kappa=None, B=None, active_dims=None):
 ```{code-cell} ipython3
 with pm.Model() as model_htsc:
     ell = pm.InverseGamma("ell", mu=ell_mu, sigma=ell_sigma, initval=1.0)
-    eta = pm.Gamma("eta", alpha=2, beta=1, initval=1.0)
+    # eta = pm.Gamma("eta", alpha=2, beta=1, initval=1.0)
+    eta = pm.HalfNormal("eta", sigma=3.0)
     eq_cov = eta**2 * pm.gp.cov.Matern52(input_dim=2, active_dims=[0], ls=ell)
 
     D_out = 2  # two output dimensions, mean and variance
     rank = 2  # two basis GPs
-    W = pm.Normal("W", mu=0, sigma=1, shape=(D_out, rank), initval=-1 * np.ones((D_out, rank)))
+    W = pm.Normal("W", mu=0, sigma=1, shape=(D_out, rank))
     kappa = pm.Gamma("kappa", alpha=1.5, beta=1, shape=D_out)
     B = pm.Deterministic("B", pt.dot(W, W.T) + pt.diag(kappa))
     cov_icm = get_icm(input_dim=2, kernel=eq_cov, B=B, active_dims=[1])
@@ -501,15 +501,15 @@ with pm.Model() as model_htsc:
     sigma_f = pm.Deterministic("sigma_f", pm.math.exp(lg_sigma_f))
 
     lik_htsc = pm.Normal("lik_htsc", mu=mu_f, sigma=sigma_f, observed=y_obs_)
+
     trace_htsc = pm.sample(
         target_accept=0.95,
         chains=2,
-        nuts_sampler="nutpie",
+        nuts_sampler="numpyro",
         return_inferencedata=True,
         random_seed=SEED,
     )
 
-with model_htsc:
     c_mu_pred = gp_LMC.conditional("c_mu_pred", Xnew_c, Xu_c)
     pm.sample_posterior_predictive(
         trace_htsc, var_names=["c_mu_pred"], extend_inferencedata=True, predictions=True
@@ -517,11 +517,7 @@ with model_htsc:
 ```
 
 ```{code-cell} ipython3
-mu_f.eval()
-```
-
-```{code-cell} ipython3
-az.plot_trace(trace_htsc, var_names=["ell", "eta", "kappa"])
+az.plot_trace(trace_htsc.sel(chain=[0]), var_names=["ell", "eta", "kappa"])
 ```
 
 ```{code-cell} ipython3
@@ -554,18 +550,18 @@ plot_inducing_points(axs[2])
 ```
 
 ```{code-cell} ipython3
-μ_samples = samples_htsc["c_mu_pred"][:, : len(Xnew)]
-σ_samples = np.exp(samples_htsc["c_mu_pred"][:, len(Xnew) :])
+# μ_samples = samples_htsc[:, : len(Xnew)]
+# σ_samples = np.exp(samples_htsc[:, len(Xnew) :])
 
-_, axs = plt.subplots(1, 3, figsize=(18, 4))
-plot_mean(axs[0], μ_samples)
-plot_inducing_points(axs[0])
-plot_var(axs[1], σ_samples**2)
-axs[1].set_ylim(-0.01, 0.2)
-axs[1].legend(loc="upper left")
-plot_inducing_points(axs[1])
-plot_total(axs[2], μ_samples, σ_samples**2)
-plot_inducing_points(axs[2])
+# _, axs = plt.subplots(1, 3, figsize=(18, 4))
+# plot_mean(axs[0], μ_samples)
+# plot_inducing_points(axs[0])
+# plot_var(axs[1], σ_samples**2)
+# axs[1].set_ylim(-0.01, 0.2)
+# axs[1].legend(loc="upper left")
+# plot_inducing_points(axs[1])
+# plot_total(axs[2], μ_samples, σ_samples**2)
+# plot_inducing_points(axs[2])
 ```
 
 We can look at the learned correlation between the mean and variance by inspecting the covariance matrix $\bf{B}$ constructed via $\mathbf{B} \equiv \mathbf{WW}^T+diag(\kappa)$:
@@ -573,10 +569,6 @@ We can look at the learned correlation between the mean and variance by inspecti
 ```{code-cell} ipython3
 with model_htsc:
     B_samples = pm.sample_posterior_predictive(trace_htsc, var_names=["W", "kappa"])
-```
-
-```{code-cell} ipython3
-kappa.shape
 ```
 
 ```{code-cell} ipython3
@@ -618,21 +610,25 @@ The three latent approaches shown here varied in their complexity and efficiency
 ### Regression surfaces
 
 ```{code-cell} ipython3
+trace_ht.predictions["lg_sigma_pred_ht"].shape
+```
+
+```{code-cell} ipython3
 _, axs = plt.subplots(1, 3, figsize=(18, 4))
 
-μ_samples = samples_ht["μ_pred_ht"]
-σ_samples = np.exp(samples_ht["lg_σ_pred_ht"])
-plot_total(axs[0], μ_samples, σ_samples**2)
+mu_samples = trace_ht.predictions["mu_pred_ht"]
+sigma_samples = np.exp(trace_ht.predictions["lg_sigma_pred_ht"])
+plot_total(axs[0], mu_samples, sigma_samples**2)
 axs[0].set_title("Latent")
 
-μ_samples = samples_hts["μ_pred"]
-σ_samples = np.exp(samples_hts["lg_σ_pred"])
-plot_total(axs[1], μ_samples, σ_samples**2)
+mu_samples = trace_hts.predictions["mu_pred"]
+sigma_samples = np.exp(trace_hts.predictions["lg_sigma_pred"])
+plot_total(axs[1], mu_samples, sigma_samples**2)
 axs[1].set_title("Sparse Latent")
 
-μ_samples = samples_htsc["c_mu_pred"][:, : len(Xnew)]
-σ_samples = np.exp(samples_htsc["c_mu_pred"][:, len(Xnew) :])
-plot_total(axs[2], μ_samples, σ_samples**2)
+mu_samples = trace_htsc.predictions["c_mu_pred"][:, :100]
+sigma_samples = np.exp(trace_htsc.predictions["c_mu_pred"][:, 100:])
+plot_total(axs[2], mu_samples, sigma_samples**2)
 axs[2].set_title("Correlated Sparse Latent")
 
 yls = [ax.get_ylim() for ax in axs]
