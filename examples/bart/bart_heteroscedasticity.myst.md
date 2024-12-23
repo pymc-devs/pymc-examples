@@ -147,6 +147,7 @@ The fit looks good! In fact, we see that the mean and variance increase as a fun
 - Authored by [Juan Orduz](https://juanitorduz.github.io/) in Feb, 2023 
 - Rerun by Osvaldo Martin in Mar, 2023
 - Rerun by Osvaldo Martin in Nov, 2023
+- Rerun by Osvaldo Martin in Dec, 2024
 
 +++
 

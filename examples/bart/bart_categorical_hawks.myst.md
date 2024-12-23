@@ -14,7 +14,7 @@ myst:
     pip_dependencies: pymc-bart
 ---
 
-+++ {"editable": true, "slideshow": {"slide_type": ""}}
++++ {"slideshow": {"slide_type": ""}}
 
 (bart_categorical)=
 # Categorical regression
@@ -136,11 +136,11 @@ It may be that some of the input variables are not informative for classifying b
 
 ```{code-cell} ipython3
 ---
-editable: true
 slideshow:
   slide_type: ''
 ---
-pmb.plot_variable_importance(idata, μ, x_0, method="VI", random_seed=RANDOM_SEED);
+vi_results = pmb.compute_variable_importance(idata, μ, x_0, method="VI", random_seed=RANDOM_SEED)
+pmb.plot_variable_importance(vi_results);
 ```
 
 It can be observed that with the covariables `Hallux`, `Culmen`, and `Wing` we achieve the same R$^2$ value that we obtained with all the covariables, this is that the last two covariables contribute less than the other three to the classification. One thing we have to take into account in this is that the HDI is quite wide, which gives us less precision on the results, later we are going to see a way to reduce this.    
@@ -152,7 +152,7 @@ It can be observed that with the covariables `Hallux`, `Culmen`, and `Wing` we a
 Let's check the behavior of each covariable for each species with `pmb.plot_pdp()`, which shows the marginal effect a covariate has on the predicted variable, while we average over all the other covariates.  
 
 ```{code-cell} ipython3
-pmb.plot_pdp(μ, X=x_0, Y=y_0, grid=(5, 3), figsize=(6, 9));
+pmb.plot_pdp(μ, X=x_0, Y=y_0, grid=(5, 3), figsize=(12, 7));
 ```
 
 The pdp plot, together with the Variable Importance plot, confirms that `Tail` is the covariable with the smaller effect over the predicted variable. In the Variable Importance plot `Tail` is the last covariable to be added and does not improve the result, in the pdp plot `Tail` has the flattest response. For the rest of the covariables in this plot, it's hard to see which of them have more effect over the predicted variable, because they have great variability, showed in the HDI wide, same as before later we are going to see a way to reduce this variability. Finally, some variability depends on the amount of data for each species, which we can see  in the `counts` from one of the covariables using Pandas `.describe()` and grouping the data from "Species" with `.groupby("Species")`.  
@@ -215,11 +215,14 @@ with pm.Model(coords=coords) as model_t:
 Now we are going to reproduce the same analyses as before.  
 
 ```{code-cell} ipython3
-pmb.plot_variable_importance(idata_t, μ_t, x_0, method="VI", random_seed=RANDOM_SEED);
+vi_results = pmb.compute_variable_importance(
+    idata_t, μ_t, x_0, method="VI", random_seed=RANDOM_SEED
+)
+pmb.plot_variable_importance(vi_results);
 ```
 
 ```{code-cell} ipython3
-pmb.plot_pdp(μ_t, X=x_0, Y=y_0, grid=(5, 3), figsize=(6, 9));
+pmb.plot_pdp(μ_t, X=x_0, Y=y_0, grid=(5, 3), figsize=(12, 7));
 ```
 
 Comparing these two plots with the previous ones shows a marked reduction in the variance for each one. In the case of `pmb.plot_variable_importance()` there are smallers error bands with an R$^{2}$ value more close to 1. And for `pm.plot_pdp()` we can see thinner bands and a reduction in the limits on the y-axis, this is a representation of the reduction of the uncertainty due to adjusting the trees separately. Another benefit of this is that is more visible the behavior of each covariable for each one of the species.   
@@ -254,7 +257,8 @@ all
 ```
 
 ## Authors
-- Authored by [Pablo Garay](https://github.com/PabloGGaray) and [Osvaldo Martin](https://aloctavodia.github.io/) in May, 2024  
+- Authored by [Pablo Garay](https://github.com/PabloGGaray) and [Osvaldo Martin](https://aloctavodia.github.io/) in May, 2024
+- Updated by Osvaldo Martin in Dec, 2024
 
 +++
 
