@@ -41,6 +41,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/azure-storage-common-cpp-12.7.0-h10ac4d7_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/azure-storage-files-datalake-cpp-12.11.0-h325d260_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/babel-2.14.0-pyhd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/bambi-0.15.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/beautifulsoup4-4.12.3-pyha770c72_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/binutils_impl_linux-64-2.40-ha1999f0_7.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/binutils_linux-64-2.40-hb3c18ed_2.conda
@@ -92,6 +93,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/fonts-conda-ecosystem-1-0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/fonts-conda-forge-1-0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/fonttools-4.53.1-py312h66e93f0_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/formulae-0.5.4-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/fqdn-1.5.1-pyhd8ed1ab_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/freetype-2.12.1-h267a509_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/fribidi-1.0.10-h36c2ea0_0.tar.bz2
@@ -869,6 +871,25 @@ packages:
   - pkg:pypi/babel?source=hash-mapping
   size: 7609750
   timestamp: 1702422720584
+- conda: https://conda.anaconda.org/conda-forge/noarch/bambi-0.15.0-pyhd8ed1ab_0.conda
+  sha256: 4739559782aeeff15e990b2be0a662d60b9947e163d290ce30110c061d621a84
+  md5: 46301e2722f2cd1f17f51588fff5c2a6
+  depends:
+  - arviz >=0.12.0
+  - formulae >=0.5.3
+  - numpy >1.22
+  - pandas >=1.0.0
+  - pymc >=5.18.0
+  - pytensor >=2.12.3
+  - python >=3.10
+  - python-graphviz
+  - scipy >=1.7.0
+  - setuptools >47.1.0
+  license: MIT
+  purls:
+  - pkg:pypi/bambi?source=hash-mapping
+  size: 86615
+  timestamp: 1734959534579
 - conda: https://conda.anaconda.org/conda-forge/noarch/beautifulsoup4-4.12.3-pyha770c72_0.conda
   sha256: 7b05b2d0669029326c623b9df7a29fa49d1982a9e7e31b2fea34b4c9a4a72317
   md5: 332493000404d8411859539a5a630865
@@ -1511,6 +1532,20 @@ packages:
   - pkg:pypi/fonttools?source=hash-mapping
   size: 2797458
   timestamp: 1725391437161
+- conda: https://conda.anaconda.org/conda-forge/noarch/formulae-0.5.4-pyhd8ed1ab_0.conda
+  sha256: 8ce4b368ebee782e8e523ab809fa290182f9c250939e4645f7183a0c92290d7f
+  md5: 9d2391ea036348d2ef66c508d9c85958
+  depends:
+  - numpy >=1.16
+  - pandas >=1.0.0
+  - python >=3.7
+  - scipy >=1.5.4
+  license: MIT
+  license_family: MIT
+  purls:
+  - pkg:pypi/formulae?source=hash-mapping
+  size: 46840
+  timestamp: 1721646979527
 - conda: https://conda.anaconda.org/conda-forge/noarch/fqdn-1.5.1-pyhd8ed1ab_0.tar.bz2
   sha256: 6cfd1f9bcd2358a69fb571f4b3af049b630d52647d906822dbedac03e84e4f63
   md5: 642d35437078749ef23a5dca2c9bb1f3

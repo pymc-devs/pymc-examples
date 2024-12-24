@@ -27,6 +27,7 @@ nutpie = ">=0.13.2,<0.14"
 numba = ">=0.60.0,<0.61"
 scikit-learn = ">=1.5.2,<2"
 blackjax = ">=1.2.3,<2"
+bambi = ">=0.15.0,<0.16"
 
 [pypi-dependencies]
 pymc-experimental = ">=0.1.2, <0.2"
