@@ -609,6 +609,7 @@ spiegelhalter2002bayesian
 * Re-executed by Alex Andorra and Michael Osthege on June, 2020 ([pymc#3955](https://github.com/pymc-devs/pymc/pull/3955))
 * Updated by Raul Maldonado on March, 2021 ([pymc-examples#24](https://github.com/pymc-devs/pymc-examples/pull/24))
 * Updated by Abhipsha Das and Oriol Abril on June, 2021 ([pymc-examples#173](https://github.com/pymc-devs/pymc-examples/pull/173))
+* Updated by Chris Fonnesbeck on December, 2024 ([pymc-examples#761](https://github.com/pymc-devs/pymc-examples/pull/761))
 
 +++
 
