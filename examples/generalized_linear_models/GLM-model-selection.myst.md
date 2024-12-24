@@ -622,7 +622,3 @@ spiegelhalter2002bayesian
 
 :::{include} ../page_footer.md
 :::
-
-```{code-cell} ipython3
-
-```
