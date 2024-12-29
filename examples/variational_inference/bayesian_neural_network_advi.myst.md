@@ -34,7 +34,7 @@ Unfortunately, when it comes to traditional ML problems like classification or (
 
 ### Deep Learning
 
-Now in its third renaissance, neural networks have been making headlines repeatedly by dominating almost any object recognition benchmark, kicking ass at Atari games {cite:p}`mnih2013playing`, and beating the world-champion Lee Sedol at Go {cite:p}`silver2016masteringgo`. From a statistical point, Neural Networks are extremely good non-linear function approximators and representation learners. While mostly known for classification, they have been extended to unsupervised learning with AutoEncoders {cite:p}`kingma2014autoencoding` and in all sorts of other interesting ways (e.g. [Recurrent Networks](https://en.wikipedia.org/wiki/Recurrent_neural_network), or [MDNs](http://cbonnett.github.io/MDN_EDWARD_KERAS_TF.html) to estimate multimodal distributions). Why do they work so well? No one really knows as the statistical properties are still not fully understood.
+Now in its third renaissance, neural networks have been making headlines repeatadly by dominating almost any object recognition benchmark, kicking ass at Atari games {cite:p}`mnih2013playing`, and beating the world-champion Lee Sedol at Go {cite:p}`silver2016masteringgo`. From a statistical point, Neural Networks are extremely good non-linear function approximators and representation learners. While mostly known for classification, they have been extended to unsupervised learning with AutoEncoders {cite:p}`kingma2014autoencoding` and in all sorts of other interesting ways (e.g. [Recurrent Networks](https://en.wikipedia.org/wiki/Recurrent_neural_network), or [MDNs](http://cbonnett.github.io/MDN_EDWARD_KERAS_TF.html) to estimate multimodal distributions). Why do they work so well? No one really knows as the statistical properties are still not fully understood.
 
 A large part of the innoviation in deep learning is the ability to train these extremely complex models. This rests on several pillars:
 * Speed: facilitating the GPU allowed for much faster processing.
@@ -64,11 +64,12 @@ While this would allow Probabilistic Programming to be applied to a much wider s
 First, lets generate some toy data -- a simple binary classification problem that's not linearly separable.
 
 ```{code-cell} ipython3
+import aesara
+import aesara.tensor as at
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
-import pytensor
 import seaborn as sns
 
 from sklearn.datasets import make_moons
@@ -78,7 +79,7 @@ from sklearn.preprocessing import scale
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
-floatX = pytensor.config.floatX
+floatX = aesara.config.floatX
 RANDOM_SEED = 9927
 rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
@@ -126,7 +127,7 @@ def construct_nn():
         "hidden_layer_1": np.arange(n_hidden),
         "hidden_layer_2": np.arange(n_hidden),
         "train_cols": np.arange(X_train.shape[1]),
-        "obs_id": np.arange(X_train.shape[0]),
+        # "obs_id": np.arange(X_train.shape[0]),
     }
 
     with pm.Model(coords=coords) as neural_network:
@@ -228,7 +229,7 @@ ax.set(title="Predicted labels in testing set", xlabel="X1", ylabel="X2");
 ```
 
 ```{code-cell} ipython3
-print(f"Accuracy = {(Y_test == pred.values).mean() * 100:.2f}%")
+print(f"Accuracy = {(Y_test == pred.values).mean() * 100}%")
 ```
 
 Hey, our neural network did all right!
@@ -254,13 +255,8 @@ dummy_out = np.ones(grid_2d.shape[0], dtype=np.int8)
 jupyter:
   outputs_hidden: true
 ---
-coords_eval = {
-    "train_cols": np.arange(grid_2d.shape[1]),
-    "obs_id": np.arange(grid_2d.shape[0]),
-}
-
 with neural_network:
-    pm.set_data(new_data={"ann_input": grid_2d, "ann_output": dummy_out}, coords=coords_eval)
+    pm.set_data(new_data={"ann_input": grid_2d, "ann_output": dummy_out})
     ppc = pm.sample_posterior_predictive(trace)
 ```
 
@@ -351,7 +347,6 @@ You might argue that the above network isn't really deep, but note that we could
 
 - This notebook was originally authored as a [blog post](https://twiecki.github.io/blog/2016/06/01/bayesian-deep-learning/) by Thomas Wiecki in 2016
 - Updated by Chris Fonnesbeck for PyMC v4 in 2022
-- Updated by Oriol Abril-Pla and Earl Bellinger in 2023
 
 ## Watermark
 
