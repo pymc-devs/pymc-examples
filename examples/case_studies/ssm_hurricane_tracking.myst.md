@@ -90,7 +90,7 @@ import xarray as xr
 import plotly.graph_objects as go
 import plotly.io as pio
 
-pio.renderers.default = "jupyterlab"
+pio.renderers.default = "notebook"
 
 # Required Extra Dependencies
 import polars as pl
