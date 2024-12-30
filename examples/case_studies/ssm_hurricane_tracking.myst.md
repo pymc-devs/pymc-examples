@@ -88,6 +88,9 @@ import xarray as xr
 
 ```{code-cell} ipython3
 import plotly.graph_objects as go
+import plotly.io as pio
+
+pio.renderers.default = "notebook_connected"
 
 # Required Extra Dependencies
 import polars as pl
