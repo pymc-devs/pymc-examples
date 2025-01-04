@@ -1,0 +1,36 @@
+figure.figsize: 7.2, 4.8
+figure.dpi: 100.0
+figure.facecolor: white
+figure.constrained_layout.use: True
+text.color: .15
+axes.labelcolor: .15
+legend.frameon: True
+legend.numpoints: 1
+legend.scatterpoints: 1
+xtick.direction: out
+ytick.direction: out
+xtick.color: .15
+ytick.color: .15
+axes.axisbelow: True
+grid.linestyle: -
+lines.solid_capstyle: round
+
+axes.labelsize: 14
+axes.titlesize: 16
+xtick.labelsize: 14
+ytick.labelsize: 14
+legend.fontsize: 12
+
+axes.grid: True
+axes.facecolor: white
+axes.edgecolor: black
+axes.linewidth: 0
+grid.color: eeeeee
+image.cmap: viridis
+xtick.major.size: 0
+ytick.major.size: 0
+xtick.minor.size: 0
+ytick.minor.size: 0
+
+
+axes.prop_cycle: cycler('color', ['d11149', '1a8fe3', '1ccd6a', 'e6c229', '6610f2', 'f17105',  '65e5f3', 'bd8ad5', 'b16b57'])
