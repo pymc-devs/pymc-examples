@@ -249,6 +249,17 @@ az.plot_ppc(trace)
 :filter: docname in docnames
 :::
 
+## Authors
+- Authored by @maedoc in July 2016
+- Updated to PyMC v5 by @fonnesbeck in September 2024
+
++++
+
+## References
+:::{bibliography}
+:filter: docname in docnames
+:::
+
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w
