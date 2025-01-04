@@ -216,7 +216,7 @@ def main(app):
                     )
                 )
 
-        nb_paths = glob(f"{folder}/*.ipynb")
+        nb_paths = sorted(glob(f"{folder}/*.ipynb"))
         for nb_path in nb_paths:
             nbg = NotebookGenerator(nb_path, "..", folder)
             nbg.gen_previews()
