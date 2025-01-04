@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: default
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 myst:
@@ -75,7 +75,7 @@ There are two ways to specify the same model. One where the choice of mixture is
 ```{code-cell} ipython3
 mu = pt.as_tensor([-2.0, 2.0])
 
-with pmx.MarginalModel() as explicit_mixture:
+with pm.Model() as explicit_mixture:
     idx = pm.Bernoulli("idx", 0.7)
     y = pm.Normal("y", mu=mu[idx], sigma=1.0)
 ```
@@ -112,8 +112,9 @@ az.summary(idata)
 We can immediately see that the marginalized model has a higher ESS. Let's now marginalize out the choice and see what it changes in our model.
 
 ```{code-cell} ipython3
-explicit_mixture.marginalize(["idx"])
-with explicit_mixture:
+explicit_mixture_marginalized = pmx.marginalize(explicit_mixture, ["idx"])
+
+with explicit_mixture_marginalized:
     idata = pm.sample(draws=2000, chains=4, random_seed=rng)
 
 az.summary(idata)
@@ -124,7 +125,7 @@ As we can see, the `idx` variable is gone now. We also were able to use the NUTS
 But {class}`MarginalModel <pymc_extras.MarginalModel>` has a distinct advantage. It still knows about the discrete variables that were marginalized out, and we can obtain estimates for the posterior of `idx` given the other variables. We do this using the {meth}`recover_marginals <pymc_extras.MarginalModel.recover_marginals>` method.
 
 ```{code-cell} ipython3
-explicit_mixture.recover_marginals(idata, random_seed=rng);
+idata = pmx.recover_marginals(explicit_mixture_marginalized, idata, random_seed=rng);
 ```
 
 ```{code-cell} ipython3
@@ -179,10 +180,10 @@ disaster_data = pd.Series(
 # fmt: on
 years = np.arange(1851, 1962)
 
-with pmx.MarginalModel() as disaster_model:
+with pm.Model() as disaster_model:
     switchpoint = pm.DiscreteUniform("switchpoint", lower=years.min(), upper=years.max())
-    early_rate = pm.Exponential("early_rate", 1.0, initval=3)
-    late_rate = pm.Exponential("late_rate", 1.0, initval=1)
+    early_rate = pm.Exponential("early_rate", 1.0)
+    late_rate = pm.Exponential("late_rate", 1.0)
     rate = pm.math.switch(switchpoint >= years, early_rate, late_rate)
     disasters = pm.Poisson("disasters", rate, observed=disaster_data)
 ```
@@ -193,9 +194,9 @@ We will sample the model both before and after we marginalize out the `switchpoi
 with disaster_model:
     before_marg = pm.sample(chains=2, random_seed=rng)
 
-disaster_model.marginalize(["switchpoint"])
+disaster_model_marginalized = pmx.marginalize(disaster_model, ["switchpoint"])
 
-with disaster_model:
+with disaster_model_marginalized:
     after_marg = pm.sample(chains=2, random_seed=rng)
 ```
 
@@ -214,7 +215,7 @@ As before, the ESS improved massively
 Finally, let us recover the `switchpoint` variable
 
 ```{code-cell} ipython3
-disaster_model.recover_marginals(after_marg);
+after_marg = pmx.recover_marginals(disaster_model_marginalized, after_marg);
 ```
 
 ```{code-cell} ipython3
