@@ -199,14 +199,15 @@ Finally, like with other regression methods, we should be careful that the effec
 
 ### Variable importance
 
-As we saw in the previous section a partial dependence plot can visualize and give us an idea of how much each covariable contributes to the predicted outcome. Moreover, PyMC-BART provides a novel method to assess the importance of each variable in the model. You can see an example in the following figure. 
+As we saw in the previous section a partial dependence plot can visualize give us an idea of how much each covariable contributes to the predicted outcome. Moreover, PyMC-BART provides a novel method to assess the importance of each variable in the model. You can see an example in the following figure. 
 
 On the x-axis we have the number of covariables and on the y-axis R² (the the square of the Pearson correlation coefficient) between the predictions made for the full model (all variables included) and the restricted models, those with only a subset of the variables. 
 
 In this example, the most important variable is `hour`, then `temperature`, `humidity`, and finally `workingday`.  Notice that the first value of R², is the value of a model that only includes the variable `hour`, the second R² is for a model with two variables, `hour` and  `temperature`, and so on. Besides this ranking, we can see that even a model with a single component, `hour`, is very close to the full model. Even more, the model with two components `hour`, and `temperature` is on average indistinguishable from the full model. The error bars represent the 94 \% HDI from the posterior predictive distribution. This means that we should expect a model with only `hour` and `temperature` to have a similar predictice performance than a model with the four variables, `hour`,  `temperature`, `humidity`, and `workingday`.
 
 ```{code-cell} ipython3
-pmb.plot_variable_importance(idata_bikes, μ, X);
+vi_results = pmb.compute_variable_importance(idata_bikes, μ, X)
+pmb.plot_variable_importance(vi_results);
 ```
 
 `plot_variable_importance` is fast because it makes two assumptions:
@@ -405,6 +406,7 @@ This plot helps us understand the reason behind the bad performance on the test 
 * Juan Orduz added out-of-sample section in Jan, 2023
 * Updated by Osvaldo Martin in Mar, 2023
 * Updated by Osvaldo Martin in Nov, 2023
+* Updated by Osvaldo Martin in Dec, 2024
 
 +++
 
