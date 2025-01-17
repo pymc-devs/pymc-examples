@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_env
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -13,7 +13,7 @@ kernelspec:
 (time_series_generative_graph)=
 # Time Series Models Derived From a Generative Graph
 
-:::{post} July, 2024
+:::{post} January, 2025
 :tags: time-series, 
 :category: intermediate, reference
 :author: Jesse Grabowski, Juan Orduz and Ricardo Vieira
@@ -109,7 +109,7 @@ def ar_step(x_tm2, x_tm1, rho, sigma):
 
 # Here we actually "loop" over the time series.
 def ar_dist(ar_init, rho, sigma, size):
-    ar_innov, _ = pytensor.scan(
+    ar_steps, _ = pytensor.scan(
         fn=ar_step,
         outputs_info=[{"initial": ar_init, "taps": range(-lags, 0)}],
         non_sequences=[rho, sigma],
@@ -117,7 +117,7 @@ def ar_dist(ar_init, rho, sigma, size):
         strict=True,
     )
 
-    return ar_innov
+    return ar_steps
 ```
 
 ## Generate AR(2) Graph
@@ -136,8 +136,8 @@ with pm.Model(coords=coords, check_bounds=False) as model:
 
     ar_init = pm.Normal(name="ar_init", sigma=0.5, dims=("lags",))
 
-    ar_innov = pm.CustomDist(
-        "ar_dist",
+    ar_steps = pm.CustomDist(
+        "ar_steps",
         ar_init,
         rho,
         sigma,
@@ -146,7 +146,7 @@ with pm.Model(coords=coords, check_bounds=False) as model:
     )
 
     ar = pm.Deterministic(
-        name="ar", var=pt.concatenate([ar_init, ar_innov], axis=-1), dims=("timeseries_length",)
+        name="ar", var=pt.concatenate([ar_init, ar_steps], axis=-1), dims=("timeseries_length",)
     )
 
 
@@ -208,9 +208,9 @@ Next, we want to condition the AR(2) model on some observed data so that we can 
 ```{code-cell} ipython3
 # select a random draw from the prior
 prior_draw = prior.prior.isel(chain=0, draw=chosen_draw)
-test_data = prior_draw["ar_dist"].to_numpy()
+test_data = prior_draw["ar_steps"].to_numpy()
 
-with pm.observe(model, {"ar_dist": test_data}) as observed_model:
+with pm.observe(model, {"ar_steps": test_data}) as observed_model:
     trace = pm.sample(chains=4, random_seed=rng)
 ```
 
@@ -321,7 +321,7 @@ Let's see how to do this in PyMC! The key observation is that we need to pass th
 ```{code-cell} ipython3
 def conditional_ar_dist(y_data, rho, sigma, size):
     # Here we condition on the observed data by passing it through the `sequences` argument.
-    ar_innov, _ = pytensor.scan(
+    ar_steps, _ = pytensor.scan(
         fn=ar_step,
         sequences=[{"input": y_data, "taps": list(range(-lags, 0))}],
         non_sequences=[rho, sigma],
@@ -329,7 +329,7 @@ def conditional_ar_dist(y_data, rho, sigma, size):
         strict=True,
     )
 
-    return ar_innov
+    return ar_steps
 ```
 
 Then we can simply generate samples from the posterior predictive distribution. Observe we need to "rewrite" the generative graph to include the conditioned transition step. When you call {meth}`~pm.sample_posterior_predictive`,PyMC will attempt to match the names of random variables in the active model context to names in the provided `idata.posterior`. If a match is found, the specified model prior is ignored, and replaced with draws from the posterior. This means we can put any prior we want on these parameters, because it will be ignored. We choose {class}`~pymc.distributions.continuous.Flat` because you cannot sample from it. This way, if PyMC does not find a match for one of our priors, we will get an error to let us know something isn't right. For a detailed explanation on these type of cross model predictions, see the great blog post [Out of model predictions with PyMC](https://www.pymc-labs.com/blog-posts/out-of-model-predictions-with-pymc/).
@@ -351,8 +351,8 @@ with pm.Model(coords=coords, check_bounds=False) as conditional_model:
     rho = pm.Flat(name="rho", dims=("lags",))
     sigma = pm.Flat(name="sigma")
 
-    ar_innov = pm.CustomDist(
-        "ar_dist",
+    ar_steps = pm.CustomDist(
+        "ar_steps",
         y_data,
         rho,
         sigma,
@@ -361,7 +361,7 @@ with pm.Model(coords=coords, check_bounds=False) as conditional_model:
     )
 
     ar = pm.Deterministic(
-        name="ar", var=pt.concatenate([ar_init, ar_innov], axis=-1), dims=("timeseries_length",)
+        name="ar", var=pt.concatenate([ar_init, ar_steps], axis=-1), dims=("timeseries_length",)
     )
 
     post_pred_conditional = pm.sample_posterior_predictive(trace, var_names=["ar"], random_seed=rng)
@@ -447,17 +447,17 @@ with pm.Model(coords=coords, check_bounds=False) as forecasting_model:
     sigma = pm.Flat(name="sigma")
 
     def ar_dist_forecasting(forecast_initial_state, rho, sigma, size):
-        ar_innov, _ = pytensor.scan(
+        ar_steps, _ = pytensor.scan(
             fn=ar_step,
             outputs_info=[{"initial": forecast_initial_state, "taps": range(-lags, 0)}],
             non_sequences=[rho, sigma],
             n_steps=forecast_steps,
             strict=True,
         )
-        return ar_innov
+        return ar_steps
 
-    ar_innov = pm.CustomDist(
-        "ar_dist",
+    ar_steps = pm.CustomDist(
+        "ar_steps",
         forecast_initial_state,
         rho,
         sigma,
@@ -466,14 +466,14 @@ with pm.Model(coords=coords, check_bounds=False) as forecasting_model:
     )
 
     post_pred_forecast = pm.sample_posterior_predictive(
-        trace, var_names=["ar_dist"], random_seed=rng
+        trace, var_names=["ar_steps"], random_seed=rng
     )
 ```
 
 We can visualize the out-of-sample predictions and compare thee results wth the one from  `statsmodels`.
 
 ```{code-cell} ipython3
-forecast_post_pred_ar = post_pred_forecast.posterior_predictive["ar_dist"]
+forecast_post_pred_ar = post_pred_forecast.posterior_predictive["ar_steps"]
 
 _, ax = plt.subplots()
 for i, hdi_prob in enumerate((0.94, 0.64), 1):
@@ -497,7 +497,7 @@ ax.plot(
 )
 
 for i, hdi_prob in enumerate((0.94, 0.64), 1):
-    hdi = az.hdi(forecast_post_pred_ar, hdi_prob=hdi_prob)["ar_dist"]
+    hdi = az.hdi(forecast_post_pred_ar, hdi_prob=hdi_prob)["ar_steps"]
     lower = hdi.sel(hdi="lower")
     upper = hdi.sel(hdi="higher")
     ax.fill_between(
