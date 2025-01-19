@@ -202,7 +202,7 @@ where $\Phi$ is the cumulative distribution function of the standard normal dist
 
 $$w_i\ |\ x = v_i\ |\ x \cdot \prod_{j = 1}^{i - 1} (1 - v_j\ |\ x).$$
 
-For the LIDAR data set, we use independent normal priors $\alpha_i \sim N(0, 5^2)$ and $\beta_i \sim N(0, 5^2)$.  We now express this this model for the conditional mixture weights using `PyMC`.
+For the LIDAR data set, we use independent normal priors $\alpha_i \sim N(0, 5^2)$ and $\beta_i \sim N(0, 5^2)$.  We now express this model for the conditional mixture weights using `PyMC`.
 
 ```{code-cell} ipython3
 :id: 5EgbxpkUg8LE
