@@ -8,3 +8,6 @@ build
 jupyter_execute
 _thumbnails
 examples/gallery.rst
+# pixi environments
+.pixi
+*.egg-info
