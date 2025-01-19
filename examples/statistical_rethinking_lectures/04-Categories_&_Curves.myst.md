@@ -40,8 +40,9 @@ from scipy import stats as stats
 
 warnings.filterwarnings("ignore")
 
-style.use("fivethirtyeight")
-az.style.use("arviz-darkgrid")
+# Set matplotlib style
+STYLE = "statistical-rethinking-2023.mplstyle"
+style.use(STYLE)
 
 %config InlineBackend.figure_format = 'retina'
 %load_ext autoreload
