@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_spatial
+  display_name: pymc
   language: python
   name: python3
 myst:
@@ -87,24 +87,24 @@ import xarray as xr
 :::
 
 ```{code-cell} ipython3
+# Required Extra Dependencies
 import plotly.graph_objects as go
 import plotly.io as pio
-
-pio.renderers.default = "notebook"
-
-# Required Extra Dependencies
 import polars as pl
 
-from pymc_experimental.statespace.core.statespace import PyMCStateSpace
-from pymc_experimental.statespace.models.utilities import make_default_coords
-from pymc_experimental.statespace.utils.constants import (
+from pymc_extras.statespace.core.statespace import PyMCStateSpace
+from pymc_extras.statespace.models.utilities import make_default_coords
+from pymc_extras.statespace.utils.constants import (
     ALL_STATE_AUX_DIM,
     ALL_STATE_DIM,
     OBS_STATE_AUX_DIM,
     OBS_STATE_DIM,
     SHOCK_AUX_DIM,
     SHOCK_DIM,
+    TIME_DIM,
 )
+
+pio.renderers.default = "notebook"
 ```
 
 # Helper Functions
@@ -283,7 +283,12 @@ df_clean.head()
 +++
 
 ## Hurricane Originations
-Let's plot the origination points of the hurricanes in our dataset. These are important because hurricanes curve differently due to the coriolis effect depending on where they are located. For example, hurricanes in the northern hemisphere curve to the right. Whereas, in the southern hemisphere they curve to the left. In addition, the origination point influences the strength of the hurricane and its likelihood of making landfall. For example, Hurricanes that originat in the Gulf of Mexico have little time to gather energy but are surrounded by land making it more likely for landfall. 
+Let's plot the origination points of the hurricanes in our dataset. There are a few different origination definitions when looking at the tropical cyclones within the HURDAT dataset:
+- A tropical depression when the maximum sustained surface wind is $\le$ 33.89 knots
+- A tropical cyclone when the maximum sustained surface wind is $\gt$ 33.89 knots
+- A Hurricane when the maximum sustained surface wind is $\ge$ 64.30 knots
+
+We are going to define the first instance of tracking data per hurricane as our origin. These are important because hurricanes curve differently, due to the coriolis effect, depending on where they are located. For example, hurricanes in the northern hemisphere curve to the right. Whereas, in the southern hemisphere they curve to the left. In addition, the origination point influences the strength of the hurricane and its likelihood of making landfall. For example, Hurricanes that originate in the Gulf of Mexico have little time to gather energy but are surrounded by land making it more likely for landfall. 
 
 ```{code-cell} ipython3
 origin_plot = df_clean.select(
@@ -368,7 +373,7 @@ fig
 ```
 
 ## Tracking Hurricane Fiona using a State Space Model
-The simplest state space model for tracking an object in 2-dimensional space is one in which we define the kinematics using Newtonian equations of motion. In this example we assume constant acceleration (In order to keep our system of equations linear). Other assumptions that we will make is that we will fix (i.e. not estimate) the observation/measurement noise $H$ to a small value. In such a case we are confident in the measurements collected. We will also assume that the states in the x/longitude direction do not affect the states in the y/latitude direction. This means knowing the position/velocity/acceleration in x/longitude gives us no information on the position/velocity/acceleration in y/latitude
+The simplest state space model for tracking an object in 2-dimensional space is one in which we define the kinematics using Newtonian equations of motion. In this example we assume constant acceleration (In order to keep our system of equations linear). Other assumptions that we will make is that we will fix (i.e. not estimate) the observation/measurement noise $H$ to a small value. This implies that we are confident in the measurements collected. We will also assume that the states in the x/longitude direction do not affect the states in the y/latitude direction. This means knowing the position/velocity/acceleration in x/longitude gives us no information on the position/velocity/acceleration in y/latitude
 
 Let us begin by defining our matrices/vectors.
 
@@ -407,7 +412,7 @@ This is the Newtonian motion equation of position. Where the new position is the
 
 The process/state covariance matrix $Q$ is just the variane (diagonals) covariance (off-diagonals) of the Newtonian equations. For example, the variance of the longitudinal position entry is: $$Var(longitude_{t}) = Var(longitude_{t} + longitude\_velocity_{t}\Delta t + \frac{longitude\_acceleration_{t}\Delta t^{2}}{2}) = Var(\frac{longitude\_acceleration_{t}\Delta t^{2}}{2}) $$ $$= \frac{\Delta t^{4}}{4}Var(longitude\_acceleration_{t}) = \frac{\Delta t^{4}}{4}\sigma_{a}^{2} $$
 
-Where in this case we assume the acceleration noise is in both dimensions. You can derive the rest of the entries in $Q$ by taking the variance or covariance of the Newtonian equations.
+Where in this case we assume the same acceleration noise is in both dimensions. You can derive the rest of the entries in $Q$ by taking the variance or covariance of the Newtonian equations.
 
 ```{code-cell} ipython3
 # Pull out Hurricane Fiona from the larger dataset
@@ -416,12 +421,12 @@ fiona_df = df_clean.filter(pl.col("storm_id") == "AL072022").with_row_index(
 )
 ```
 
-We are going to use the `PyMC` `StateSpace` module in the `pymc-experimentals` package to code up the state space model we defined above. In This model we are going to set up 3 variables:
+We are going to use the `PyMC` `StateSpace` module in the `pymc-extras` package to code up the state space model we defined above. In This model we are going to set up 3 variables:
 - $x_{0|0}$ The initial state vector (for initializing the estimation steps described earlier)
 - $P_{0|0}$ The initial state/process covariance matrix (again for initializing the recursive estimator)
 - $\sigma_{a}^{2}$ The acceleration noise (this is useful for when the acceleration is not actually constant as we have assumed in the kinematics of the model)
 
-We will set deterministic values for both the initial values $x_{0}$ and $P{0}$. Therefore, in this simplest model, we will only estimate 1 parameter $\sigma_{a}^{2}$
+We will set deterministic values for both the initial values $x_{0}$ and $P_{0}$. Therefore, in this simplest model, we will only estimate one parameter $\sigma_{a}^{2}$
 
 ```{code-cell} ipython3
 class SimpleSSM(PyMCStateSpace):
@@ -502,7 +507,7 @@ class SimpleSSM(PyMCStateSpace):
     @property
     def param_dims(self):
         # There are special standardized names to use here. You can import them from
-        # pymc_experimental.statespace.utils.constants
+        # pymc_extras.statespace.utils.constants
 
         return {
             "x0": (ALL_STATE_DIM,),
@@ -583,7 +588,7 @@ predicted_covs = idata.posterior["predicted_covariance"].mean(("chain", "draw"))
 post_mean = idata.posterior["predicted_observed_state"].mean(("chain", "draw"))
 ```
 
-Not bad for a model with only 1 parameter. We can see that the forecast gets wonky in the middle where the trajectory of the Hurricane changes directions over short time periods. Again, it is important to keep in mind that what we are plotting are the one-step/period ahead forecast. In our case our periods are 6 hours apart. Unfortunately, a 6-hour ahead hurricane forecast is not very practical. Let's see what we get when we generate a 4-period (24 hours) ahead forecast.
+Not bad for a model with only one parameter. We can see that the forecast gets wonky in the middle where the trajectory of the Hurricane changes directions over short time periods. Again, it is important to keep in mind that what we are plotting are the one-step/period ahead forecast. In our case, our periods are six hours apart. Unfortunately, a 6-hour ahead hurricane forecast is not very practical. Let's see what we get when we generate a 4-period (24 hours) ahead forecast.
 
 ```{code-cell} ipython3
 fig = go.Figure()
@@ -656,12 +661,17 @@ fig.show(config={"displayModeBar": False})
 four_period_forecasts = []
 for i in np.arange(0, idata.constant_data.time.shape[0], 4):
     start = i
-    f = s_ssm.forecast(idata, start=start, periods=4, filter_output="predicted", progressbar=False)
+    f = s_ssm.forecast(idata, start=start, periods=4, filter_output="smoothed", progressbar=False)
     four_period_forecasts.append(f)
 ```
 
 ```{code-cell} ipython3
 forecasts = xr.combine_by_coords(four_period_forecasts, combine_attrs="drop_conflicts")
+```
+
+```{code-cell} ipython3
+# Only look at in-sample forecasts
+forecasts = forecasts.sel(time=range(1, len(fiona_df)))
 ```
 
 ```{code-cell} ipython3
@@ -702,15 +712,16 @@ for i in range(cppc_covs.shape[0]):
 cppc_vcov = np.concatenate(covs_list, axis=0)
 ```
 
-Ummm, yeah that's not good.
+# Note TO SELF
+Okay, using the `smoothed filter` output produces better forecasts. I need to make sure that under-the-hood the `forecast` method does not use data outside the specified period, which it doesn't look like it does otherwise I would expect a much closer fit.
 
 ```{code-cell} ipython3
 fig = go.Figure()
 for i in range(cppc_vcov.shape[0]):
-    if (
-        i < 10
-    ):  # First handful of ellipses are huge because of little data in the iterative nature of the Kalman filter
-        continue
+    # if (
+    #     i > 10
+    # ):  # First handful of ellipses are huge because of little data in the iterative nature of the Kalman filter
+    #     continue
     r_ellipse = ellipse_covariance(cppc_vcov[i, :2, :2])
     means = f_mean[i]
     fig.add_trace(
@@ -734,11 +745,11 @@ fig.add_traces(
             name="predictions",
             mode="lines+markers",
             line=dict(color="lightblue"),
-            # hovertemplate=[
-            # f"""<b>Period:</b> {i+1}<br><b>Longitude:</b> {posterior[0]:.1f}<br><b>Latitude:</b> {posterior[1]:.1f}<extra></extra>
-            # """
-            # for i, posterior in enumerate(post_mean)
-            # ]
+            hovertemplate=[
+                f"""<b>Period:</b> {i+2}<br><b>Longitude:</b> {posterior[0]:.1f}<br><b>Latitude:</b> {posterior[1]:.1f}<extra></extra>
+            """
+                for i, posterior in enumerate(post_mean)
+            ],
         ),
         go.Scattermap(
             lon=fiona_df["longitude"],
@@ -767,6 +778,256 @@ fig.update_layout(
     },
 )
 fig.show(config={"displayModeBar": False})
+```
+
+# Adding Deterministic Covariates/Exogenous Variables
+In our dataset we have variables that aren't a part of the Newtonian system process, but still carry information that we can leverage to better track the path of the hurricane. We have two options when introducing these exogenous variables into our model. We can add them in as time invariant or time-varying variables. In our case, we are going to add to the model the exogenous variable `max_wind` as time invariant. Our aim then is to model our observations as:
+$$\hat{y}_{longitude_{t+1}} = longitude_{t} + longitude\_velocity_{t}\Delta t + \frac{longitude\_acceleration_{t}\Delta t^{2}}{2} + \beta_{wind_{longitude}} wind$$
+
+$$\hat{y}_{latitude_{t+1}} = latitude_{t} + latitude\_velocity_{t}\Delta t + \frac{latitude\_acceleration_{t}\Delta t^{2}}{2} + \beta_{wind_{latitude}} wind$$ 
+
+The `max_wind` variable measures the maximum sustained surface wind at 10 meter elevations and is a uni-dimensional measure (i.e not measured in terms of longitude and latitude). Therefore, we are going to use the same data to estimate two-parameters $\beta_{wind_{longitude}}$ and $\beta_{wind_{latitude}}$. This is less than ideal but demonstrates how to add exogenous variables to a `StateSpace` model.
+
+In order to put this in matrix form, we are going to add the newly added $\beta$ parameters to our state vector and we will add the corresponding measured `wind_speed` data into the design matrix. So our new state vector will be: $$x_{t} = \begin{bmatrix}longitude_{t} \\ latitude_{t} \\ longitude\_velocity_{t} \\ latitude\_velocity_{t} \\ longitude\_acceleration_{t} \\ latitude\_acceleration_{t} \\ \beta_{wind_{longitude}} \\ \beta_{wind_{latitude}} \end{bmatrix} $$
+
+and our design matrix will be: $$ Z' = \begin{bmatrix} Z & X_{wind} \end{bmatrix} $$ Where $Z$ is our previously defined design matrix and $X_{wind}$ is the measured `wind_speed` exogenous data.
+
+We also need to make adjustments to our $A$ state transition matrix and $R$ selection matrix.
+
+$$T = \begin{bmatrix}1&0&\Delta t&0&\frac{\Delta t^{2}}{2}&0&1&0 \\ 0&1&0&\Delta t&0&\frac{\Delta t^{2}}{2}&0&1  \\ 0&0&1&0&\Delta t&0&0&0 \\ 0&0&0&1&0&\Delta t&0&0 \\ 0&0&0&0&1&0&0&0 \\ 0&0&0&0&0&1&0&0 \\ 0&0&0&0&0&0&1&0 \\ 0&0&0&0&0&0&0&1 \end{bmatrix}$$
+
+The last 2 columns we added indicates what states our exogenous variable affects, and the last 2 rows indicates that the processes of our exogenous parameters are constant.
+
+$$R = \begin{bmatrix} 1&0&0&0&0&0&0&0 \\ 
+                      0&1&0&0&0&0&0&0 \\
+                      0&0&1&0&0&0&0&0 \\
+                      0&0&0&1&0&0&0&0 \\
+                      0&0&0&0&1&0&0&0 \\ 
+                      0&0&0&0&0&1&0&0 \\
+                      0&0&0&0&0&0&0&0 \\
+                      0&0&0&0&0&0&0&0
+       \end{bmatrix}$$
+
+The addition to the R matrix imply that the exogenous parameters do not exhibit any process noise.
+
++++
+
+# NOTE TO SELF 
+put this in an info box
+Note that the maximum sustained wind (`max_wind `) of a hurricane is not informative to the path or travel speed of the hurricane.
+None-the-less we will add it for the sake of showing how to add exogenous variables to the model using the `StateSpace` module. 
+Note that $X_{wind}$ is of shape (number of observations, 2) where we have duplicated the data to be distributed over both the longitude and latitude dimensions. 
+
+```{code-cell} ipython3
+class ExogenousSSM(PyMCStateSpace):
+    def __init__(self, k_exog: int = None):
+        k_states = 6 + k_exog  # number of states (x, y, vx, vy, ax, ay)
+        k_posdef = 6  # number of shocks (size of the process noise covariance matrix Q)
+        k_endog = 2  # number of observed states (we only observe x and y)
+        self.k_exog = k_exog
+
+        super().__init__(k_endog=k_endog, k_states=k_states, k_posdef=k_posdef)
+
+    def make_symbolic_graph(self):
+        # Add exogenous variables to the model
+        exogenous_data = self.make_and_register_data("exogenous_data", shape=(None, self.k_exog))
+        beta_wind = self.make_and_register_variable("beta_wind", shape=(self.k_exog,))
+        n_obs = exogenous_data.shape[0]
+
+        delta_t = 6.0  # The amount of time between observations 6 hours in our case
+        # these variables wil be estimated in our model
+        x0 = self.make_and_register_variable(
+            "x0", shape=(6,)
+        )  # initial state vector (x, y, vx, vy, ax, ay)
+        P0 = self.make_and_register_variable(
+            "P0", shape=(self.k_states, self.k_states)
+        )  # initial process covariance matrix
+        acceleration_noise = self.make_and_register_variable("acceleration_noise", shape=(1,))
+
+        self.ssm["transition", :, :] = np.array(
+            [
+                [1, 0, delta_t, 0, (delta_t**2) / 2, 0, 0, 0],
+                [0, 1, 0, delta_t, 0, (delta_t**2) / 2, 0, 0],
+                [0, 0, 1, 0, delta_t, 0, 0, 0],
+                [0, 0, 0, 1, 0, delta_t, 0, 0],
+                [0, 0, 0, 0, 1, 0, 0, 0],
+                [0, 0, 0, 0, 0, 1, 0, 0],
+                [0, 0, 0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 0, 0, 1],
+            ]
+        )
+
+        self.ssm["selection", :, :] = np.array(
+            [
+                [1, 0, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0, 0],
+                [0, 0, 1, 0, 0, 0],
+                [0, 0, 0, 1, 0, 0],
+                [0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 1],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+            ]
+        )
+
+        Z = pt.as_tensor([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]])
+        exog_reshape = pt.repeat(
+            exogenous_data, self.k_exog, axis=0
+        )  # We need to reshape the data to fit the proper dimensions
+        exog_reshape = pt.set_subtensor(
+            exog_reshape[1::2, :], exog_reshape[1::2, ::-1]
+        )  # We need to reshape the data to fit the proper dimensions
+        exog_reshape = exog_reshape.reshape((n_obs, self.k_endog, self.k_exog))
+
+        self.ssm["design"] = pt.concatenate((pt.tile(Z, (n_obs, 1, 1)), exog_reshape), axis=2)
+
+        self.ssm["initial_state", :] = pt.concatenate((x0, beta_wind), axis=0)
+        self.ssm["initial_state_cov", :, :] = P0
+
+        self.ssm["state_cov", :, :] = acceleration_noise**2 * np.array(
+            [
+                [(delta_t**4) / 4, 0, (delta_t**3) / 2, 0, (delta_t**2) / 2, 0],
+                [0, (delta_t**4) / 4, 0, (delta_t**3) / 2, 0, (delta_t**2) / 2],
+                [(delta_t**3) / 2, 0, (delta_t**2), 0, delta_t, 0],
+                [0, (delta_t**3) / 2, 0, (delta_t**2), 0, delta_t],
+                [(delta_t**2) / 2, 0, delta_t, 0, 1, 0],
+                [0, (delta_t**2) / 2, 0, delta_t, 0, 1],
+            ]
+        )
+        self.ssm["obs_cov", :, :] = np.eye(2) * 0.1
+
+    @property
+    def data_names(self) -> list[str]:
+        """
+        Names of data variables expected by the model.
+
+        This does not include the observed data series, which is automatically handled by PyMC. This property only
+        needs to be implemented for models that expect exogenous data.
+        """
+        return ["exogenous_data"]
+
+    @property
+    def data_info(self):
+        """
+        Information about Data variables that need to be declared in the PyMC model block.
+
+        Returns a dictionary of data_name: dictionary of property-name:property description pairs. The return value is
+        used by the ``_print_data_requirements`` method, to print a message telling users how to define the necessary
+        data for the model. Each dictionary should have the following key-value pairs:
+            * key: "shape", value: a tuple of integers
+            * key: "dims", value: tuple of strings
+        """
+        return {"exogenous_data": {"shape": (None, self.k_exog), "dims": (TIME_DIM, "exog_states")}}
+
+    @property
+    def param_names(self):
+        return ["x0", "P0", "acceleration_noise", "beta_wind"]
+
+    @property
+    def state_names(self):
+        return ["x", "y", "vx", "vy", "ax", "ay", "beta_wind_x", "beta_wind_y"]
+
+    @property
+    def shock_names(self):
+        return [
+            "x_innovations",
+            "y_innovations",
+            "vx_innovations",
+            "vy_innovations",
+            "ax_innovations",
+            "ay_innovations",
+        ]
+
+    @property
+    def observed_states(self):
+        return ["x", "y"]
+
+    @property
+    def param_dims(self):
+        # There are special standardized names to use here. You can import them from
+        # pymc_extras.statespace.utils.constants
+
+        return {
+            "x0": (ALL_STATE_DIM,),
+            "P0": (ALL_STATE_DIM, ALL_STATE_AUX_DIM),
+            "acceleration_noise": (1,),
+            "beta_wind": ("wind_dims",),
+        }
+
+    @property
+    def coords(self):
+        # This function puts coords on all those statespace matrices (x0, P0, c, d, T, Z, R, H, Q)
+        # and also on the different filter outputs so you don't have to worry about it. You only need to set
+        # the coords for the dims unique to your model.
+        coords = make_default_coords(self)
+        coords.update({"wind_dims": ["Longitude", "Latitude"]})
+        return coords
+
+    @property
+    def param_info(self):
+        # This needs to return a dictionary where the keys are the parameter names, and the values are a
+        # dictionary. The value dictionary should have the following keys: "shape", "constraints", and "dims".
+
+        info = {
+            "x0": {
+                "shape": (self.k_states - self.k_exog,),
+                "constraints": "None",
+            },
+            "P0": {
+                "shape": (self.k_states, self.k_states),
+                "constraints": "Positive Semi-definite",
+            },
+            "acceleration_noise": {
+                "shape": (1,),
+                "constraints": "Positive",
+            },
+            "beta_wind": {
+                "shape": (self.k_exog,),
+                "constraints": "None",
+            },
+        }
+
+        # Lazy way to add the dims without making any typos
+        for name in self.param_names:
+            info[name]["dims"] = self.param_dims[name]
+
+        return info
+```
+
+```{code-cell} ipython3
+X_wind = fiona_df.with_columns(zeros=pl.lit(0.0)).select(
+    pl.col("max_wind").cast(pl.Float64).alias("max_wind_x"),
+    pl.col("zeros").cast(pl.Float64).alias("max_wind_y"),
+)
+```
+
+```{code-cell} ipython3
+exog_ssm = ExogenousSSM(k_exog=X_wind.shape[1])
+```
+
+```{code-cell} ipython3
+with pm.Model(coords=exog_ssm.coords) as exogenous:
+    exogenous_data = pm.Data("exogenous_data", X_wind.to_numpy(), dims=["time", "wind_dims"])
+    beta_wind = pm.Normal("beta_wind", 0, 1, dims=["wind_dims"])
+
+    x0 = pm.Deterministic("x0", pt.as_tensor([-49, 16, 0.0, 0.0, 0.0, 0.0]))
+    P0 = pt.eye(8) * 1
+    P0 = pm.Deterministic("P0", P0, dims=("state", "state_aux"))
+
+    acceleration_noise = pm.Gamma("acceleration_noise", 0.1, 5, shape=(1,))
+
+    exog_ssm.build_statespace_graph(
+        data=fiona_df.select("longitude", "latitude").to_numpy(),
+        mode="JAX",
+        save_kalman_filter_outputs_in_idata=True,
+    )
+    idata = pm.sample(nuts_sampler="numpyro", target_accept=0.95)
+```
+
+As we suspected, the maximum sustained wind does not add any information to our model concerning the path or the speed that the hurricane travels. We confirm our hypothesis by looking at our beta parameter distributions; which are centered at zero.
+
+```{code-cell} ipython3
+az.plot_trace(idata, var_names=["beta_wind"], compact=False);
 ```
 
 # Authors
