@@ -631,10 +631,10 @@ $$
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as distance_population_model:
 
-    population = pm.MutableData("log_population", KLINE.logpop.values.astype(float))
-    CULTURE_ID_ = pm.MutableData("CULTURE_ID", CULTURE_ID)
+    population = pm.Data("log_population", KLINE.logpop.values.astype(float))
+    CULTURE_ID_ = pm.Data("CULTURE_ID", CULTURE_ID)
 
-    # Priors
+    # Priorsdistancesdistances
     alpha_bar = pm.Exponential("alpha_bar", 1)
     gamma = pm.Exponential("gamma", 1)
     beta = pm.Exponential("beta", 1)
@@ -701,7 +701,7 @@ ETA = 5.1  # Exponential hyperparmeter taken from Lecture 10 notes
 with pm.Model() as population_model:
 
     # Note: raw population here, not log/standardized
-    population = pm.MutableData("population", KLINE.logpop.values)
+    population = pm.Data("population", KLINE.logpop.values)
 
     # Priors
     # innovation rate

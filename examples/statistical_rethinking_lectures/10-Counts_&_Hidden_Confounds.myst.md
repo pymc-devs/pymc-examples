@@ -716,8 +716,8 @@ OBS_ID = np.arange(N_CULTURES).astype(int)
 with pm.Model(coords={"contact": CONTACT}) as interaction_model:
 
     # Set up mutable data for predictions
-    std_log_population = pm.MutableData("population", STD_LOG_POPULATION, dims="obs_id")
-    contact_level = pm.MutableData("contact_level", CONTACT_LEVEL, dims="obs_id")
+    std_log_population = pm.Data("population", STD_LOG_POPULATION, dims="obs_id")
+    contact_level = pm.Data("contact_level", CONTACT_LEVEL, dims="obs_id")
 
     # Priors
     alpha = pm.Normal("alpha", 3, 0.5, dims="contact")  # intercept
@@ -981,8 +981,8 @@ ETA = 4
 with pm.Model(coords={"contact": CONTACT}) as innovation_loss_model:
 
     # Note: raw population here, not log/standardized
-    population = pm.MutableData("population", POPULATION, dims="obs_id")
-    contact_level = pm.MutableData("contact_level", CONTACT_LEVEL, dims="obs_id")
+    population = pm.Data("population", POPULATION, dims="obs_id")
+    contact_level = pm.Data("contact_level", CONTACT_LEVEL, dims="obs_id")
 
     # Priors -- we use Exponential for all.
     # Note that in the lecture: McElreath uses a Normal for alpha
@@ -1150,8 +1150,8 @@ plt.title("Probabilities");
 # Unstratified model
 with pm.Model() as unstratified_model:
 
-    # MutableData for PPDs
-    x = pm.MutableData("X", X)
+    # Data for PPDs
+    x = pm.Data("X", X)
 
     # Global params
     alpha = pm.Normal("alpha", 0, 1)
@@ -1173,8 +1173,8 @@ pm.model_to_graphviz(unstratified_model)
 with pm.Model() as partially_stratified_model:
 
     # Mutable data for PPDs
-    x = pm.MutableData("X", X)
-    z = pm.MutableData("Z", Z)
+    x = pm.Data("X", X)
+    z = pm.Data("Z", Z)
 
     alpha = pm.Normal("alpha", 0, 1)
     beta = pm.Normal("beta", 0, 1, shape=2)
@@ -1278,8 +1278,8 @@ Include a separate intercept for each group
 # Fully statified Model
 with pm.Model() as fully_stratified_model:
 
-    x = pm.MutableData("X", X)
-    z = pm.MutableData("Z", Z)
+    x = pm.Data("X", X)
+    z = pm.Data("Z", Z)
 
     # Stratify intercept by Z as well
     alpha = pm.Normal("alpha", 0, 1, shape=2)

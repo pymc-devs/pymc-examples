@@ -400,8 +400,8 @@ with pm.Model() as biased_model:
     H0 = plants.H0.values
     H1 = plants.H1.values
 
-    T = pm.MutableData("T", treatment.astype(float))
-    F = pm.MutableData("F", fungus.astype(float))
+    T = pm.Data("T", treatment.astype(float))
+    F = pm.Data("F", fungus.astype(float))
 
     # proportional amount of growth
     g = alpha + beta_T * T + beta_F * F
@@ -439,8 +439,8 @@ with pm.Model() as unbiased_model:
     H0 = plants.H0.values
     H1 = plants.H1.values
 
-    T = pm.MutableData("T", treatment.astype(float))
-    F = pm.MutableData("F", fungus.astype(float))
+    T = pm.Data("T", treatment.astype(float))
+    F = pm.Data("F", fungus.astype(float))
 
     # proportional amount of growth
     g = alpha + beta_T * T

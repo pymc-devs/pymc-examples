@@ -375,7 +375,7 @@ def fit_total_effect_model(data):
 
     with pm.Model(coords={"SEX": SEX}) as model:
         # Data
-        S = pm.MutableData("S", SEX_ID)
+        S = pm.Data("S", SEX_ID)
 
         # Priors
         sigma = pm.Uniform("sigma", 0, 10)
@@ -633,9 +633,9 @@ def fit_direct_effect_weight_model(data):
 
     with pm.Model(coords={"SEX": SEX}) as model:
         # Data
-        S = pm.MutableData("S", SEX_ID, dims="obs_ids")
-        H = pm.MutableData("H", data["height"].values, dims="obs_ids")
-        Hbar = pm.MutableData("Hbar", data["height"].mean())
+        S = pm.Data("S", SEX_ID, dims="obs_ids")
+        H = pm.Data("H", data["height"].values, dims="obs_ids")
+        Hbar = pm.Data("Hbar", data["height"].mean())
 
         # Priors
         sigma = pm.Uniform("sigma", 0, 10)
@@ -848,7 +848,7 @@ for n_samples in [0, 2, 4, 8, 16, 32, 64]:
 def fit_nth_order_polynomial(data, n=3):
     with pm.Model() as model:
         # Data
-        H_std = pm.MutableData("H", utils.standardize(data.height.values), dims="obs_ids")
+        H_std = pm.Data("H", utils.standardize(data.height.values), dims="obs_ids")
 
         # Priors
         sigma = pm.Uniform("sigma", 0, 10)
@@ -1115,9 +1115,9 @@ SEX_ID, SEX = pd.factorize(["M" if s else "F" for s in ADULT_HOWELL["male"].valu
 with pm.Model(coords={"SEX": SEX}) as flb_model:
 
     # Data
-    S = pm.MutableData("S", SEX_ID)
-    H = pm.MutableData("H", ADULT_HOWELL.height.values)
-    Hbar = pm.MutableData("Hbar", ADULT_HOWELL.height.mean())
+    S = pm.Data("S", SEX_ID)
+    H = pm.Data("H", ADULT_HOWELL.height.values)
+    Hbar = pm.Data("Hbar", ADULT_HOWELL.height.mean())
 
     # Height Model
     ## Height priors

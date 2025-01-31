@@ -416,7 +416,7 @@ for sample_size in sample_sizes:
     with pm.Model() as model:
 
         # Mutable data for posterior predictive visualization
-        H_ = pm.MutableData("H", H[:sample_size], dims="obs_id")
+        H_ = pm.Data("H", H[:sample_size], dims="obs_id")
 
         # Priors
         alpha = pm.Normal("alpha", 0, 10)  # Intercept
@@ -507,7 +507,7 @@ for ii, (sample_size, model, inference) in enumerate(
 with pm.Model() as howell_model:
 
     # Mutable data for posterior predictive / visualization
-    H_ = pm.MutableData("H", ADULT_HOWELL.height.values, dims="obs_ids")
+    H_ = pm.Data("H", ADULT_HOWELL.height.values, dims="obs_ids")
 
     # priors
     alpha = pm.Normal("alpha", 0, 10)  # Intercept

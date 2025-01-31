@@ -451,7 +451,7 @@ URBAN_CODED, URBAN = pd.factorize(FERTILITY.urban, sort=True)
 with pm.Model(coords={"district": DISTRICT}) as district_urban_model:
 
     # Mutable data
-    urban = pm.MutableData("urban", URBAN_CODED)
+    urban = pm.Data("urban", URBAN_CODED)
 
     # Priors
     # District offset

@@ -236,7 +236,7 @@ plt.title("prior predictive simulation");
 
 ```{code-cell} ipython3
 with pm.Model() as cylinder_model:
-    H = pm.MutableData("H", HOWELL.height_scaled, dims="obs_id")
+    H = pm.Data("H", HOWELL.height_scaled, dims="obs_id")
     W = HOWELL.weight_scaled
     PI = 3.141593
 
@@ -342,7 +342,7 @@ $$
 
 ```{code-cell} ipython3
 with pm.Model() as dimensionless_cylinder_model:
-    H = pm.MutableData("H", HOWELL.height_scaled, dims="obs_id")
+    H = pm.Data("H", HOWELL.height_scaled, dims="obs_id")
     W = HOWELL.weight_scaled
 
     sigma = pm.Exponential("sigma", 1)

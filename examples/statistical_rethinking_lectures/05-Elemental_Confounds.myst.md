@@ -553,8 +553,8 @@ def fit_marriage_divorce_model(data):
     with pm.Model() as divorce_model:
 
         # Observed Data
-        age = pm.MutableData("age", data["MedianAgeMarriage"].values, dims="obs_ids")
-        marriage_rate = pm.MutableData("marriage_rate", data["Marriage"].values, dims="obs_ids")
+        age = pm.Data("age", data["MedianAgeMarriage"].values, dims="obs_ids")
+        marriage_rate = pm.Data("marriage_rate", data["Marriage"].values, dims="obs_ids")
         divorce_rate = data["Divorce"].values
 
         sigma = pm.Exponential("sigma", 1)
@@ -878,7 +878,7 @@ def fit_age_divorce_model(data):
     with pm.Model() as divorce_model:
 
         # Observed Data
-        age = pm.MutableData("age", data["MedianAgeMarriage"].values, dims="obs_ids")
+        age = pm.Data("age", data["MedianAgeMarriage"].values, dims="obs_ids")
 
         alpha = pm.Normal("alpha", 0, 0.2)
         beta_age = pm.Normal("beta_age", 0, 1)

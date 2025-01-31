@@ -165,7 +165,7 @@ URBAN_ID, URBAN = pd.factorize(FERTILITY.urban, sort=True)
 with pm.Model(coords={"district": DISTRICT}) as uncorrelated_model:
 
     # Mutable data
-    urban = pm.MutableData("urban", URBAN_ID)
+    urban = pm.Data("urban", URBAN_ID)
 
     # Priors -- priors for $\alpha$ and $\beta$ are separate, independent Normal distributions
     # District offset
@@ -411,7 +411,7 @@ ETA = 4
 with pm.Model(coords={"district": DISTRICT}) as correlated_model:
 
     # Mutable data for posterior predictions
-    urban = pm.MutableData("urban", URBAN_ID)
+    urban = pm.Data("urban", URBAN_ID)
 
     # Priors
     # Feature correlation

@@ -395,10 +395,10 @@ CUTPOINTS = np.arange(1, N_RESPONSE_CLASSES).astype(int)
 coords = {"CUTPOINTS": CUTPOINTS}
 with pm.Model(coords=coords) as basic_ordered_logistic_model:
 
-    # MutableData for posetior predictions
-    action = pm.MutableData("action", TROLLEY.action.astype(float))
-    intent = pm.MutableData("intent", TROLLEY.intention.astype(float))
-    contact = pm.MutableData("contact", TROLLEY.contact.astype(float))
+    # Data for posetior predictions
+    action = pm.Data("action", TROLLEY.action.astype(float))
+    intent = pm.Data("intent", TROLLEY.intention.astype(float))
+    contact = pm.Data("contact", TROLLEY.contact.astype(float))
 
     # Priors
     beta_action = pm.Normal("beta_action", 0, 0.5)
@@ -550,11 +550,11 @@ GENDER_ID, GENDER = pd.factorize(["M" if m else "F" for m in TROLLEY.male.values
 coords = {"GENDER": GENDER, "CUTPOINTS": CUTPOINTS}
 with pm.Model(coords=coords) as total_effect_gender_model:
 
-    # MutableData for posetior predictions
-    action = pm.MutableData("action", TROLLEY.action.astype(float))
-    intent = pm.MutableData("intent", TROLLEY.intention.astype(float))
-    contact = pm.MutableData("contact", TROLLEY.contact.astype(float))
-    gender = pm.MutableData("gender", GENDER_ID)
+    # Data for posetior predictions
+    action = pm.Data("action", TROLLEY.action.astype(float))
+    intent = pm.Data("intent", TROLLEY.intention.astype(float))
+    contact = pm.Data("contact", TROLLEY.contact.astype(float))
+    gender = pm.Data("gender", GENDER_ID)
 
     # Priors
     beta_action = pm.Normal("beta_action", 0, 0.5, dims="GENDER")
@@ -830,13 +830,13 @@ coords = coords = {
 
 with pm.Model(coords=coords) as direct_effect_education_model:
 
-    # MutableData for posterior predictions
-    action = pm.MutableData("action", TROLLEY.action.astype(float))
-    intent = pm.MutableData("intent", TROLLEY.intention.astype(float))
-    contact = pm.MutableData("contact", TROLLEY.contact.astype(float))
-    gender = pm.MutableData("gender", GENDER_ID)
-    age = pm.MutableData("age", AGE)
-    education_level = pm.MutableData("education_level", EDUCATION_LEVEL_ID)
+    # Data for posterior predictions
+    action = pm.Data("action", TROLLEY.action.astype(float))
+    intent = pm.Data("intent", TROLLEY.intention.astype(float))
+    contact = pm.Data("contact", TROLLEY.contact.astype(float))
+    gender = pm.Data("gender", GENDER_ID)
+    age = pm.Data("age", AGE)
+    education_level = pm.Data("education_level", EDUCATION_LEVEL_ID)
 
     # Priors (all gender-level parameters)
     beta_action = pm.Normal("beta_action", 0, 0.5, dims="GENDER")

@@ -664,7 +664,7 @@ def fit_total_effect_model_admissions(data):
     with pm.Model(coords={"gender": gender}) as total_effect_model:
 
         # Mutable data for running any gender-based counterfactuals
-        gender_coded = pm.MutableData("gender", gender_coded, dims="obs_ids")
+        gender_coded = pm.Data("gender", gender_coded, dims="obs_ids")
 
         alpha = pm.Normal("alpha", 0, 1, dims="gender")
 
@@ -782,9 +782,9 @@ def fit_direct_effect_model_admissions(data):
     with pm.Model(coords={"gender": gender, "department": department}) as direct_effect_model:
 
         # Mutable data for running any gender-based or department-based counterfactuals
-        gender_coded = pm.MutableData("gender", gender_coded, dims="obs_ids")
-        department_coded = pm.MutableData("department", department_coded, dims="obs_ids")
-        n_applications = pm.MutableData("n_applications", n_applications, dims="obs_ids")
+        gender_coded = pm.Data("gender", gender_coded, dims="obs_ids")
+        department_coded = pm.Data("department", department_coded, dims="obs_ids")
+        n_applications = pm.Data("n_applications", n_applications, dims="obs_ids")
 
         alpha = pm.Normal("alpha", 0, 1, dims=["department", "gender"])
 
