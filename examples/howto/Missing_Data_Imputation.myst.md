@@ -247,7 +247,7 @@ pd.DataFrame(mle_sample.corr(), columns=data.columns, index=data.columns)
 
 ### Bootstrapping Sensitivity Analysis
 
-We may also want to validate the estimated parameters against bootstrapped samples under different speficiations of missing-ness. 
+We may also want to validate the estimated parameters against bootstrapped samples under different specifications of missing-ness. 
 
 ```{code-cell} ipython3
 data_200 = df_employee[["worksat", "empower", "lmx"]].dropna().sample(200)
@@ -534,7 +534,7 @@ az.plot_ppc(idata_normal)
 
 ### Process the Posterior Predictive Distribution
 
-Above we estimated a number of likelihood terms in a single PyMC model context. These likelihoods constrained the hyper-parameters which determined the imputation values of the missing terms in the variables used as predictors in our focal regression equation for `empower`. But we could also perform a more manual sequential imputation, where we model each of the subordinate regression equations seperately and extract the imputed values for each variable in turn and then run a simple regression on the imputed values for the focal regression equation. 
+Above we estimated a number of likelihood terms in a single PyMC model context. These likelihoods constrained the hyper-parameters which determined the imputation values of the missing terms in the variables used as predictors in our focal regression equation for `empower`. But we could also perform a more manual sequential imputation, where we model each of the subordinate regression equations separately and extract the imputed values for each variable in turn and then run a simple regression on the imputed values for the focal regression equation. 
 
 We show here how to extract the imputed values for each of the regression equations and augment the observed data.
 

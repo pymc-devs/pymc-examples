@@ -75,7 +75,7 @@ preference or summarizing a metric value, and is particularly common in insuranc
 + As a totally subjective opinion which can be different between observations (e.g. `["bad", "medium", "good", "better",
   "way better", "best", "actually the best"]`)  - these are difficult to work with and a symptom of poor data design
 + On a subjective but standardized scale (e.g. `["strongly disagree", "disagree", "agree", "strongly agree"]`) 
-  this is the approach of the familar [Likert scale](https://en.wikipedia.org/wiki/Likert_scale)
+  this is the approach of the familiar [Likert scale](https://en.wikipedia.org/wiki/Likert_scale)
 + As a summary binning of a real objective value on a metric scale (e.g. binning ages into age-groups 
   `["<30", "30 to 60", "60+"]`), or a subjective value that's been mapped to a metric scale (e.g. medical health
   self-scoring `["0-10%", ..., "90-100%"]`) - these are typically a misuse of the metric because the data has been
@@ -93,7 +93,7 @@ These properties can unfortunately encourage modellers to incorporate ordinal fe
 infinite degrees of freedom - so we lose ordering / rank information), or as a numeric coefficient (which ignores the 
 unequal spacing, non-linear response). Both are poor choices and have subtly negative effects on the model performance.
 
-A final nuance is that we might not see the occurence of all valid categorial ordinal levels in the training dataset. 
+A final nuance is that we might not see the occurrence of all valid categorial ordinal levels in the training dataset. 
 For example we might know a range is measured `["c0", "c1", "c2", "c3"]` but only see `["c0", "c1", "c3"]`. This is a 
 missing data problem which could further encourage the misuse of a numeric coefficient to average or "interpolate" a
 value. What we should do is incorporate our knowledge of the data domain into the model structure to autoimpute a
@@ -218,7 +218,7 @@ missing data problem which could further encourage the misuse of a numeric coeff
 value. What we should do is incorporate our knowledge of the data domain into the model structure to auto-impute a
 coefficient value. This means that our model can make predictions on new data where a `d450=4` value might be seen.
 
-** _Just for completness (but not needed for this notebook) that study is reported in 
+** _Just for completeness (but not needed for this notebook) that study is reported in 
 Gertheiss, J., Hogger, S., Oberhauser, C., & Tutz, G. (2011). Selection of ordinally
 784 scaled independent variables with applications to international classification of functioning
 785 core sets. Journal of the Royal Statistical Society: Series C (Applied Statistics), 60 (3),
@@ -234,7 +234,7 @@ more generally useful
 
 +++ {"id": "pwNFAyKzJagB"}
 
-Annoyingly but not suprisingly for an R project, despite being a small, simple table, the dataset is only available in 
+Annoyingly but not surprisingly for an R project, despite being a small, simple table, the dataset is only available in 
 an obscure R binary format, and tarred, so we'll download, unpack and store locally as a normal CSV file.
 This uses the rather helpful [`pyreadr`](https://github.com/ofajardo/pyreadr) package.
 
@@ -446,7 +446,7 @@ _ = f.tight_layout()
 
 **Observe:**
 
-+ `phcs` is a subjective scored measure of physical healt, see {cite:p}`burkner2018` for details
++ `phcs` is a subjective scored measure of physical health, see {cite:p}`burkner2018` for details
 + Seems well-behaved, unimodal, smooth
 
 +++ {"id": "p43qjcvJJagH"}
@@ -966,7 +966,7 @@ f = plot_posterior(ida, "posterior", rvs=RVS_SIMPLE_COMMON, mdlname="mdla", n=5,
 +++ {"id": "yrrzYjmhJagK"}
 
 Just for completeness, just compare to Figure 3 in the Bürkner paper and Rochford's
-blogpost. Those plots summarize to a mean though, which seems unneccesary - let's
+blogpost. Those plots summarize to a mean though, which seems unnecessary - let's
 improve it a little with full sample posteriors
 
 +++ {"id": "X4XB1eiwJagK"}
@@ -1114,7 +1114,7 @@ where:
 + Notably:
     + $\mathbb{x}_{i,d450}$ is treated as an ordinal feature and used to index $\nu_{d450}[x_{i,d450}]$
     + $\mathbb{x}_{i,d455}$ is treated as an ordinal feature and used to index $\nu_{d455}[x_{i,d455}]$
-+ NOTE: The above spec is not particuarly optimised / vectorised / DRY to aid explanation
++ NOTE: The above spec is not particularly optimised / vectorised / DRY to aid explanation
 
 +++ {"id": "F47aQhT2JagK"}
 
@@ -1145,7 +1145,7 @@ id: ZyP0P29AJagK
 outputId: 2f5e3717-7549-43d0-a334-7875b3871dcd
 ---
 with pm.Model(coords=COORDS) as mdlb:
-    # NOTE: Spec not particuarly optimised / vectorised / DRY to aid explanation
+    # NOTE: Spec not particularly optimised / vectorised / DRY to aid explanation
 
     # 0. create (Mutable)Data containers for obs (Y, X)
     y = pm.Data("y", dfx[ft_y].values, dims="oid")  # (i, )
@@ -1159,7 +1159,7 @@ with pm.Model(coords=COORDS) as mdlb:
 
     # 2. define nu
     def _get_nu(nm, dim):
-        """Partition continous prior into ordinal chunks"""
+        """Partition continuous prior into ordinal chunks"""
         b0 = pm.Normal(f"beta_{nm}", mu=0, sigma=b_s)  # (1, )
         c0 = pm.Dirichlet(f"chi_{nm}", a=np.ones(len(COORDS[dim])), dims=dim)  # (lvls, )
         return pm.Deterministic(f"nu_{nm}", b0 * c0.cumsum(), dims=dim)  # (lvls, )
@@ -1528,7 +1528,7 @@ Here we see the same patterns in more detail, in particular:
 Just for completeness, just compare to Figure 3 in the Bürkner paper and Rochford's
 blogpost.
 
-Those plots summarize to a mean though, which seems unneccesary - let's improve it a little.
+Those plots summarize to a mean though, which seems unnecessary - let's improve it a little.
 
 +++ {"id": "b09YNkSkJagM"}
 

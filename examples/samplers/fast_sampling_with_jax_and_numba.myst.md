@@ -33,7 +33,7 @@ However, by compiling to other backends, we can use samplers written in other la
 
 For the JAX backend there is the NumPyro and BlackJAX NUTS sampler available. To use these samplers, you have to install `numpyro` and `blackjax`. Both of them are available through conda/mamba: `mamba install -c conda-forge numpyro blackjax`.
 
-For the Numba backend, there is the [Nutpie sampler](https://github.com/pymc-devs/nutpie) writte in Rust. To use this sampler you need `nutpie` installed: `mamba install -c conda-forge nutpie`. 
+For the Numba backend, there is the [Nutpie sampler](https://github.com/pymc-devs/nutpie) written in Rust. To use this sampler you need `nutpie` installed: `mamba install -c conda-forge nutpie`. 
 
 ```{code-cell} ipython3
 import arviz as az

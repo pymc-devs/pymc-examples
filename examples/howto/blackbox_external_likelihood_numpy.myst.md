@@ -389,7 +389,7 @@ class LogLikeGrad(Op):
         outputs[1][0] = grad_wrt_c
 
 
-# Initalize the Ops
+# Initialize the Ops
 loglikewithgrad_op = LogLikeWithGrad()
 loglikegrad_op = LogLikeGrad()
 ```

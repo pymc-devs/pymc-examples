@@ -131,7 +131,7 @@ long_heating_df[long_heating_df["idcase"] == 1][columns]
 
 ## The Basic Model
 
-We will show here how to incorporate the utility specifications in PyMC. PyMC is a nice interface for this kind of modelling because it can express the model quite cleanly following the natural mathematical expression for this system of equations. You can see in this simple model how we go about constructing equations for the utility measure of each alternative seperately, and then stacking them together to create the input matrix for our softmax transform. 
+We will show here how to incorporate the utility specifications in PyMC. PyMC is a nice interface for this kind of modelling because it can express the model quite cleanly following the natural mathematical expression for this system of equations. You can see in this simple model how we go about constructing equations for the utility measure of each alternative separately, and then stacking them together to create the input matrix for our softmax transform. 
 
 ```{code-cell} ipython3
 N = wide_heating_df.shape[0]
@@ -497,7 +497,7 @@ Here we can, as expected, see that a rise in the operating costs of the electric
 
 ### Compare Models
 
-We'll now evaluate all three model fits on their predictive performance. Predictive performance on the original data is a good benchmark that the model has appropriately captured the data generating process. But it is not (as we've seen) the only feature of interest in these models. These models are sensetive to our theoretical beliefs about the agents making the decisions, the view of the decision process and the elements of the choice scenario.
+We'll now evaluate all three model fits on their predictive performance. Predictive performance on the original data is a good benchmark that the model has appropriately captured the data generating process. But it is not (as we've seen) the only feature of interest in these models. These models are sensitive to our theoretical beliefs about the agents making the decisions, the view of the decision process and the elements of the choice scenario.
 
 ```{code-cell} ipython3
 compare = az.compare({"m1": idata_m1, "m2": idata_m2, "m3": idata_m3})

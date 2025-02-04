@@ -470,7 +470,7 @@ with pm.Model(coords=coords, check_bounds=False) as forecasting_model:
     )
 ```
 
-We can visualize the out-of-sample predictions and compare thee results wth the one from  `statsmodels`.
+We can visualize the out-of-sample predictions and compare thee results with the one from  `statsmodels`.
 
 ```{code-cell} ipython3
 forecast_post_pred_ar = post_pred_forecast.posterior_predictive["ar_steps"]

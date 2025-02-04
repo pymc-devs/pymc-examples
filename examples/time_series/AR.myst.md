@@ -120,7 +120,7 @@ $$
  y_t = \rho_0 + \rho_1 y_{t-1} + \rho_2 y_{t-2} + \epsilon_t.
 $$
 
-The `AR` distribution infers the order of the process thanks to the size the of `rho` argmument passed to `AR` (including the mean). 
+The `AR` distribution infers the order of the process thanks to the size the of `rho` argument passed to `AR` (including the mean). 
 
 We will also use the standard deviation of the innovations (rather than the precision) to parameterize the distribution.
 
