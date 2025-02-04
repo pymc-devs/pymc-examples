@@ -17,7 +17,7 @@ myst:
 # Frailty and Survival Regression Models
 
 :::{post} November, 2023
-:tags: frailty models, survival analysis, competing risks, model comparison
+:tags: frailty model, survival analysis, competing risks, model comparison
 :category: intermediate, reference
 :author: Nathaniel Forde
 :::

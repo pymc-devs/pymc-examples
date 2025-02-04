@@ -14,7 +14,7 @@ kernelspec:
 # Gaussian Processes: HSGP Advanced Usage
 
 :::{post} June 28, 2024
-:tags: gaussian processes
+:tags: gaussian process
 :category: reference, intermediate
 :author: Bill Engels, Alexandre Andorra, Maxim Kochurov
 :::

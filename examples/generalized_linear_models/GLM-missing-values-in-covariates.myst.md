@@ -14,7 +14,7 @@ kernelspec:
 # GLM-missing-values-in-covariates
 
 :::{post} Nov 09, 2024
-:tags: missing-covariate-values, missing-values, auto-imputation, linear-regression, bayesian-workflow
+:tags: missing covariate values, missing values, auto-imputation, linear regression, bayesian workflow
 :category: intermediate, reference
 :author: Jonathan Sedar
 :::

@@ -14,7 +14,7 @@ kernelspec:
 # Bayesian Non-parametric Causal Inference
 
 :::{post} January, 2024
-:tags: bart, propensity scores, debiased machine learning, mediation
+:tags: BART, propensity scores, debiased machine learning, mediation
 :category: advanced, reference
 :author: Nathaniel Forde
 :::

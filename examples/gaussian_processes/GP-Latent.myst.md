@@ -17,7 +17,7 @@ myst:
 # Gaussian Processes: Latent Variable Implementation
 
 :::{post} June 6, 2023
-:tags: gaussian processes, time series
+:tags: gaussian process, time series
 :category: reference, intermediate
 :author: Bill Engels
 :::

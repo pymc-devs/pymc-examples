@@ -14,7 +14,7 @@ kernelspec:
 # Longitudinal Models of Change
 
 :::{post} April, 2023
-:tags: hierarchical, longitudinal, time series
+:tags: hierarchical model, longitudinal data, time series
 :category: advanced, reference
 :author: Nathaniel Forde
 :::

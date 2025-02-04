@@ -14,7 +14,7 @@ kernelspec:
 # Time Series Models Derived From a Generative Graph
 
 :::{post} January, 2025
-:tags: time-series, 
+:tags: time series, 
 :category: intermediate, reference
 :author: Jesse Grabowski, Juan Orduz and Ricardo Vieira
 :::

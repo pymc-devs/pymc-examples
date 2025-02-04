@@ -16,7 +16,7 @@ kernelspec:
 # GLM-ordinal-features
 
 :::{post} Oct 27, 2024
-:tags: ordinal-features, ordinal-regression, glm, bayesian-workflow, r-datasets
+:tags: ordinal features, ordinal regression, generalized linear model, bayesian workflow, r-datasets
 :category: intermediate, reference
 :author: Jonathan Sedar
 :::

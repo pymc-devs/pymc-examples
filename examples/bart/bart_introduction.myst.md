@@ -14,7 +14,7 @@ kernelspec:
 (BART_introduction)=
 # Bayesian Additive Regression Trees: Introduction
 :::{post} Dec 21, 2021
-:tags: BART, non-parametric, regression 
+:tags: BART, nonparametric, regression 
 :category: intermediate, explanation
 :author: Osvaldo Martin
 :::

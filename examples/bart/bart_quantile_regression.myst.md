@@ -14,7 +14,7 @@ kernelspec:
 (BART_quantile)=
 # Quantile Regression with BART
 :::{post} Jan 25, 2023
-:tags: BART, non-parametric, quantile, regression 
+:tags: BART, nonparametric, quantile, regression 
 :category: intermediate, explanation
 :author: Osvaldo Martin
 :::
