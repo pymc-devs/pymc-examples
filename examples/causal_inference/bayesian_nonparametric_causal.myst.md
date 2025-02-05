@@ -14,7 +14,7 @@ kernelspec:
 # Bayesian Non-parametric Causal Inference
 
 :::{post} January, 2024
-:tags: bart, propensity scores, debiased machine learning, mediation
+:tags: BART, propensity scores, debiased machine learning, mediation
 :category: advanced, reference
 :author: Nathaniel Forde
 :::
@@ -83,9 +83,9 @@ With observational data we cannot re-run the assignment mechanism but we can est
 
 Firstly, and somewhat superficially, the propensity score is a dimension reduction technique. We take a complex covariate profile $X_{i}$ representing an individual's measured attributes and reduce it to a scalar $p^{i}_{T}(X)$. It is also a tool for thinking about the potential outcomes of an individual under different treatment regimes. In a policy evaluation context it can help partial out the degree of incentives for policy adoption across strata of the population. What drives adoption or assignment in each niche of the population? How can different demographic strata be induced towards or away from adoption of the policy? Understanding these dynamics is crucial to gauge why selection bias might emerge in any sample data. Paul Goldsmith-Pinkham's [lectures](https://www.youtube.com/watch?v=8gWctYvRzk4&list=PLWWcL1M3lLlojLTSVf2gGYQ_9TlPyPbiJ&index=3) are particularly clear on this last point, and why this perspective is appealing to structural econometricians.
 
-The pivotal idea when thinking about propensity scores is that we cannot license causal claims unless (i) the treatment assignment is independent of the covariate profiles i.e $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ are similarly conditionally independent of the treatement $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ given $X$. This is also occasionally noted as the __unconfoundedness__ or __exchangeability__ assumption. For each strata of the population defined by the covariate profile $X$, we require that, after controlling for $X$, it's as good as random which treatment status an individual adopts. This means that after controlling for $X$, any differences in outcomes between the treated and untreated groups can be attributed to the treatment itself rather than confounding variables.
+The pivotal idea when thinking about propensity scores is that we cannot license causal claims unless (i) the treatment assignment is independent of the covariate profiles i.e $T     \perp\!\!\!\perp X$  and (ii) the outcomes $Y(0)$, and $Y(1)$ are similarly conditionally independent of the treatment $T | X$. If these conditions hold, then we say that $T$ is __strongly ignorable__ given $X$. This is also occasionally noted as the __unconfoundedness__ or __exchangeability__ assumption. For each strata of the population defined by the covariate profile $X$, we require that, after controlling for $X$, it's as good as random which treatment status an individual adopts. This means that after controlling for $X$, any differences in outcomes between the treated and untreated groups can be attributed to the treatment itself rather than confounding variables.
 
-It is a theorem that if $T$ is strongly ignorable given $X$, then (i) and (ii) hold given $p_{T}(X)$ too. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. This is useful because some of the strata of a complex covariate profile may be sparsely populated so substituting a propensity score enables us to avoid the risks of high dimensional missing data.  Causal inference is unconfounded when we have controlled for enough of drivers for policy adoption, that selection effects within each covariate profiles $X$ seem essentially random. The insight this suggests is that when you want to estimate a causal effect you are only required to control for the covariates which impact the probability of treatement assignment. More concretely, if it's easier to model the assignment mechanism than the outcome mechanism this can be substituted in the case of causal inference with observed data.
+It is a theorem that if $T$ is strongly ignorable given $X$, then (i) and (ii) hold given $p_{T}(X)$ too. So valid statistical inference proceeds in a lower dimensional space using the propensity score as a proxy for the higher dimensional data. This is useful because some of the strata of a complex covariate profile may be sparsely populated so substituting a propensity score enables us to avoid the risks of high dimensional missing data.  Causal inference is unconfounded when we have controlled for enough of drivers for policy adoption, that selection effects within each covariate profiles $X$ seem essentially random. The insight this suggests is that when you want to estimate a causal effect you are only required to control for the covariates which impact the probability of treatment assignment. More concretely, if it's easier to model the assignment mechanism than the outcome mechanism this can be substituted in the case of causal inference with observed data.
 
 Given the assumption that we are measuring the right covariate profiles to induce __strong ignorability__, then propensity scores can be used thoughtfully to underwrite causal claims.
 
@@ -138,7 +138,7 @@ This is a useful perspective on the assumption of __strong ignorability__ becaus
 
 If our treatment status is such that individuals will more or less actively select themselves into the status, then a naive comparisons of differences between treatment groups and control groups will be misleading to the degree that we have over-represented types of individual (covariate profiles) in the population.Randomisation solves this by balancing the covariate profiles across treatment and control groups and ensuring the outcomes are independent of the treatment assignment. But we can't always randomise. Propensity scores are useful because they can help emulate _as-if_ random assignment of treatment status in the sample data through a specific transformation of the observed data. 
 
-This type of assumption and ensuing tests of balance based on propensity scores is often substituted for elaboration of the structural DAG that systematically determine the treatment assignment. The idea being that if we can achieve balance across covariates conditional on a propensity score we have emulated an as-if random allocation we can avoid the hassle of specifying too much structure and remain agnostic about the strucuture of the mechanism. This can often be a useful strategy but, as we will see, elides the specificity of the causal question and the data generating process. 
+This type of assumption and ensuing tests of balance based on propensity scores is often substituted for elaboration of the structural DAG that systematically determine the treatment assignment. The idea being that if we can achieve balance across covariates conditional on a propensity score we have emulated an as-if random allocation we can avoid the hassle of specifying too much structure and remain agnostic about the structure of the mechanism. This can often be a useful strategy but, as we will see, elides the specificity of the causal question and the data generating process. 
 
 +++
 
@@ -543,7 +543,7 @@ def make_doubly_robust_adjustment(X, t, y):
     m1_pred = m1.predict(X)
     X["trt"] = t
     X["y"] = y
-    ## Compromise between outcome and treatement assignment model
+    ## Compromise between outcome and treatment assignment model
     weighted_outcome0 = (1 - X["trt"]) * (X["y"] - m0_pred) / (1 - X["ps"]) + m0_pred
     weighted_outcome1 = X["trt"] * (X["y"] - m1_pred) / X["ps"] + m1_pred
 
@@ -804,7 +804,7 @@ Note the tighter variance of the measures using the doubly robust method. This i
 
 ### Considerations when choosing between models
 
-It is one thing to evalute change in average over the population, but we might want to allow for the idea of effect heterogenity across the population and as such the BART model is generally better at ensuring accurate predictions across the deeper strata of our data. But the flexibility of machine learning models for prediction tasks do not guarantee that the propensity scores attributed across the sample are well calibrated to recover the true-treatment effects when used in causal effect estimation. We have to be careful in how we use the flexibility of non-parametric models in the causal context. 
+It is one thing to evaluate change in average over the population, but we might want to allow for the idea of effect heterogenity across the population and as such the BART model is generally better at ensuring accurate predictions across the deeper strata of our data. But the flexibility of machine learning models for prediction tasks do not guarantee that the propensity scores attributed across the sample are well calibrated to recover the true-treatment effects when used in causal effect estimation. We have to be careful in how we use the flexibility of non-parametric models in the causal context. 
 
 First observe the hetereogenous accuracy induced by the BART model across increasingly narrow strata of our sample. 
 
@@ -838,7 +838,7 @@ axs[7].set_title("Race/Gender/Active Specific PPC - BART")
 plt.suptitle("Posterior Predictive Checks - Heterogenous Effects", fontsize=20);
 ```
 
-Observations like this go a long way to motivating the use of flexible machine learning methods in causal inference. The model used to capture the outcome distribution or the propensity score distribution ought to be sensitive to variation across extremities of the data. We can see above that the predictive power of the simpler logistic regression model deterioriates as we progress down the partitions of the data. We will see an example below where the flexibility of machine learning models such as BART becomes a problem. We'll also see and how it can be fixed. Paradoxical as it sounds, a more perfect model of the propensity scores will cleanly seperate the treatment classes making re-balancing harder to achieve. In this way, flexible models like BART (which are prone to overfit) need to be used with care in the case of inverse propensity weighting schemes. 
+Observations like this go a long way to motivating the use of flexible machine learning methods in causal inference. The model used to capture the outcome distribution or the propensity score distribution ought to be sensitive to variation across extremities of the data. We can see above that the predictive power of the simpler logistic regression model deterioriates as we progress down the partitions of the data. We will see an example below where the flexibility of machine learning models such as BART becomes a problem. We'll also see and how it can be fixed. Paradoxical as it sounds, a more perfect model of the propensity scores will cleanly separate the treatment classes making re-balancing harder to achieve. In this way, flexible models like BART (which are prone to overfit) need to be used with care in the case of inverse propensity weighting schemes. 
 
 +++
 
@@ -848,7 +848,7 @@ Another perhaps more direct method of causal inference is to just use regression
 
 ```{code-cell} ipython3
 def make_prop_reg_model(X, t, y, idata_ps, covariates=None, samples=1000):
-    ### Note the simplication for specifying the mean estimate in the regression
+    ### Note the simplification for specifying the mean estimate in the regression
     ### rather than post-processing the whole posterior
     ps = idata_ps["posterior"]["p"].mean(dim=("chain", "draw")).values
     X_temp = pd.DataFrame({"ps": ps, "trt": t, "trt*ps": t * ps})
@@ -1276,7 +1276,7 @@ plot_balance(temp, "bmi", t)
 
 ### How does Regression Help?
 
-We've just seen an example of how a mis-specfied machine learning model can wildly bias the causal estimates in a study. We've seen one means of fixing it, but how would things work out if we just tried simpler exploratory regression modelling? Regression automatically weights the data points by their extremity of their covariate profile and their prevalence in the sample. So in this sense adjusts for the outlier propensity scores in a way that the inverse weighting approach cannot.
+We've just seen an example of how a mis-specified machine learning model can wildly bias the causal estimates in a study. We've seen one means of fixing it, but how would things work out if we just tried simpler exploratory regression modelling? Regression automatically weights the data points by their extremity of their covariate profile and their prevalence in the sample. So in this sense adjusts for the outlier propensity scores in a way that the inverse weighting approach cannot.
 
 ```{code-cell} ipython3
 model_ps_reg_expend, idata_ps_reg_expend = make_prop_reg_model(X, t, y, idata_expend_bart)
@@ -1302,7 +1302,7 @@ model_ps_reg_expend_h, idata_ps_reg_expend_h = make_prop_reg_model(
 az.summary(idata_ps_reg_expend_h, var_names=["b"])
 ```
 
-This is much better and we can see that modelling the propensity score feature in conjunction with the health factors leads to a more sensible treatement effect estimate. This kind of finding echoes the lesson reported in Angrist and Pischke that:
+This is much better and we can see that modelling the propensity score feature in conjunction with the health factors leads to a more sensible treatment effect estimate. This kind of finding echoes the lesson reported in Angrist and Pischke that:
 
 > "Regression control for the right covariates does a reasonable job of eliminating selection effects..." pg 91 _Mostly Harmless Econometrics_ {cite:t}`angrist2008harmless`
 
@@ -1314,18 +1314,18 @@ So we're back to the question of the right controls. There is a no real way to a
 
 To recap - we've seen two examples of causal inference with inverse probability weighted adjustments. We've seen when it works when the propensity score model is well-calibrated. We've seen when it fails and how the failure can be fixed. These are tools in our tool belt - apt for different problems, but come with the requirement that we think carefully about the data generating process and the type of appropriate covariates. 
 
-In the case where the simple propensity modelling approach failed, we saw a data set in which our treatment assignment did not distinguish an average treatment effect. We also saw how if we augment our propensity based estimator we can improve the identification properties of the technique. Here we'll show another example of how propensity models can be combined with an insight from regression based modelling to take advantage of the flexible modelling possibilities offered by machine learning approaches to causal inference. In this secrion we draw heavily on the work of Matheus Facure, especially his book _Causal Inference in Python_ {cite:t}`facure2023causal` but the original ideas are to be found in {cite:t}`ChernozhukovDoubleML`
+In the case where the simple propensity modelling approach failed, we saw a data set in which our treatment assignment did not distinguish an average treatment effect. We also saw how if we augment our propensity based estimator we can improve the identification properties of the technique. Here we'll show another example of how propensity models can be combined with an insight from regression based modelling to take advantage of the flexible modelling possibilities offered by machine learning approaches to causal inference. In this section we draw heavily on the work of Matheus Facure, especially his book _Causal Inference in Python_ {cite:t}`facure2023causal` but the original ideas are to be found in {cite:t}`ChernozhukovDoubleML`
 
 ### The Frisch-Waugh-Lovell Theorem
 
-The idea of the theorem is that for any OLS fitted linear model with a focal parameter $\beta_{1}$ and the auxilary parameters $\gamma_{i}$ 
+The idea of the theorem is that for any OLS fitted linear model with a focal parameter $\beta_{1}$ and the auxiliary parameters $\gamma_{i}$ 
 
 $$\hat{Y} = \beta_{0} + \beta_{1}D_{1} + \gamma_{1}Z_{1} + ... + \gamma_{n}Z_{n}  $$
 
 We can retrieve the same values $\beta_{i}, \gamma_{i}$ in a two step procedure: 
 
-- Regress $Y$ on the auxilary covariates i.e. $\hat{Y} = \gamma_{1}Z_{1} + ... + \gamma_{n}Z_{n} $
-- Regress $D_{1}$ on the same auxilary terms i.e. $\hat{D_{1}} =  \gamma_{1}Z_{1} + ... + \gamma_{n}Z_{n}$
+- Regress $Y$ on the auxiliary covariates i.e. $\hat{Y} = \gamma_{1}Z_{1} + ... + \gamma_{n}Z_{n} $
+- Regress $D_{1}$ on the same auxiliary terms i.e. $\hat{D_{1}} =  \gamma_{1}Z_{1} + ... + \gamma_{n}Z_{n}$
 - Take the residuals $r(D) = D_{1} - \hat{D_{1}}$ and $r(Y) = Y - \hat{Y}$
 - Fit the regression $r(Y) = \beta_{0} + \beta_{1}r(D)$ to find $\beta_{1}$
 
@@ -1435,7 +1435,7 @@ for i in range(4):
         m0 = sm.OLS(y_resid[j, :].values, covariates).fit()
         t_effects.append(m0.params["t_resid"])
     model_fits[i] = [m0, t_effects]
-    print(f"Estimated Treament Effect in K-fold {i}: {np.mean(t_effects)}")
+    print(f"Estimated Treatment Effect in K-fold {i}: {np.mean(t_effects)}")
 ```
 
 ```{code-cell} ipython3

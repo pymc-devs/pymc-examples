@@ -17,7 +17,7 @@ myst:
 # Frailty and Survival Regression Models
 
 :::{post} November, 2023
-:tags: frailty models, survival analysis, competing risks, model comparison
+:tags: frailty model, survival analysis, competing risks, model comparison
 :category: intermediate, reference
 :author: Nathaniel Forde
 :::
@@ -57,7 +57,7 @@ We will demonstrate how the concepts of survival based regression analysis, trad
 
 ### Survival Regression Models
 
-The emphasis here is on the generality of the framework. We are describing the trajectory of state-transitions within time. Anywhere speed or efficiency matters, it is important to understand the inputs to time-to-event trajectories. This is the benefit of survival analysis - clearly articulated models which quantify the impact of demographic characteristics and treatment effects (in terms of speed) on the probability of state-transition. Movement between life and death, hired and fired, ill and cured, subscribed to churned. These state transitions are all tranparently and compellingly modelled using survival regression models. 
+The emphasis here is on the generality of the framework. We are describing the trajectory of state-transitions within time. Anywhere speed or efficiency matters, it is important to understand the inputs to time-to-event trajectories. This is the benefit of survival analysis - clearly articulated models which quantify the impact of demographic characteristics and treatment effects (in terms of speed) on the probability of state-transition. Movement between life and death, hired and fired, ill and cured, subscribed to churned. These state transitions are all transparently and compellingly modelled using survival regression models. 
 
 We will see two varieties of regression modelling with respect to time-to-event data: (1) Cox's Proportional Hazard approach and (2) the Accelerated Failure time models. Both models enable the analyst to combine and assess the impacts of different covariates on the survival time outcomes, but each does so in a slightly different manner. 
 
@@ -157,7 +157,7 @@ Here we've used the Kaplan Meier non-parametric estimate of the survival curve w
 
 +++
 
-## Data Preperation for Survival Regression
+## Data Preparation for Survival Regression
 
 The idea behind Cox Proportional Hazard regression models is, put crudely, to treat the temporal component of risk seriously. We imagine a latent baseline hazard of occurrence over the time-interval. Michael Betancourt [asks](https://betanalpha.github.io/assets/case_studies/survival_modeling.html) that we think of the hazard as "the accumulation of some stimulating resource" that precedes the occurrence of an event. In failure modelling it can be imagined as sporadic increasing wear and tear. In the context of HR dyanamics it could be imagined as increasing frustration is the work-environment. In philosophy it could viewed as an articulation of the sorites paradox; how do chances change over time, as sand is piled higher, for us to identify a collection of individual grains as a heap?. This term is often denoted:
 
@@ -318,7 +318,7 @@ Each individual model coefficient records an estimate of the impact on the log h
 - If $exp(\beta)$ < 1: An increase in X is associated with a decreased hazard (lower risk) of the event occurring.
 - If $exp(\beta)$ = 1: X has no effect on the hazard rate.
 
-So our case we can see that having an occupation in  the fields of Finance or Health would seem to induce a roughly 25% increase in the hazard risk of the event occuring over the baseline hazard. Interestingly we can see that the inclusion of the `intention` predictor seems to be important as a unit increase of the `intention` metric moves the dial similarly - and intention is a 0-10 scale. 
+So our case we can see that having an occupation in  the fields of Finance or Health would seem to induce a roughly 25% increase in the hazard risk of the event occurring over the baseline hazard. Interestingly we can see that the inclusion of the `intention` predictor seems to be important as a unit increase of the `intention` metric moves the dial similarly - and intention is a 0-10 scale. 
 
 These are not time-varying - they enter __once__ into the weighted sum that modifies the baseline hazard. This is the proportional hazard assumption - that while the baseline hazard can change over time the difference in hazard induced by different levels in the covariates remains constant over time. The Cox model is popular because it allows us to estimate a changing hazard at each time-point and incorporates the impact of the demographic predictors multiplicatively across the period. The proportional hazards assumption does not always hold, and we'll see some adjustments below that can help deal with violations of the proportional hazards assumption. 
 
@@ -476,7 +476,7 @@ Focus here on the plot on the right. The baseline cumulative hazard is represent
 
 ### The Sentiment Model
 
-If we submit the same test to a model unable to account for intention most of the weight falls on the differences specified between the sentiment recorded by the survey participant. Here we also see a seperation in the survival curves, but the effect is much less pronounced. 
+If we submit the same test to a model unable to account for intention most of the weight falls on the differences specified between the sentiment recorded by the survey participant. Here we also see a separation in the survival curves, but the effect is much less pronounced. 
 
 ```{code-cell} ipython3
 plot_individuals(test_df, base_idata, [0, 1, 2], intention=False)
@@ -598,11 +598,11 @@ $$ log (T_{i}) = \mu + \alpha_{i}x_{i} + \alpha_{2}x_{2} ... \alpha_{p}x_{p} + \
 
 where we have the baseline survival function $S_{0} = P(exp(\mu + \sigma\epsilon_{i}) \geq t)$ modified by additional covariates. The details are largely important for the estimation strategies, but they show how the impact of risk can be decomposed here just as in the CoxPH model. The effects of the covariates are additive on the log-scale towards the acceleration factor induced by the individual's risk profile.
 
-Below we'll estimate two AFT models: the weibull model and the Log-Logistic model. Ultimately we're just fitting a censored parametric distribution but we've allowed that that one of the parameters of each distribution is specified as a linear function of the explainatory variables. So the log likelihood term is just: 
+Below we'll estimate two AFT models: the weibull model and the Log-Logistic model. Ultimately we're just fitting a censored parametric distribution but we've allowed that that one of the parameters of each distribution is specified as a linear function of the explanatory variables. So the log likelihood term is just: 
 
 $$ log(L) = \sum_{i}^{n} \Big[ c_{i}log(f(t)) + (1-c_{i})log(S(t))) \Big]  $$ 
 
-where $f$ is the distribution pdf function , $S$ is the survival fucntion and $c$ is an indicator function for whether the observation is censored - meaning it takes a value in $\{0, 1\}$ depending on whether the individual is censored. Both $f$, $S$ are parameterised by some vector of parameters $\mathbf{\theta}$.  In the case of the Log-Logistic model we estimate it by transforming our time variable to a log-scale and fitting a logistic likelihood with parameters $\mu, s$. The resulting parameter fits can be adapted to recover the log-logistic survival function as we'll show below. In the case of the Weibull model the parameters are denote $\alpha, \beta$ respectively.
+where $f$ is the distribution pdf function , $S$ is the survival function and $c$ is an indicator function for whether the observation is censored - meaning it takes a value in $\{0, 1\}$ depending on whether the individual is censored. Both $f$, $S$ are parameterised by some vector of parameters $\mathbf{\theta}$.  In the case of the Log-Logistic model we estimate it by transforming our time variable to a log-scale and fitting a logistic likelihood with parameters $\mu, s$. The resulting parameter fits can be adapted to recover the log-logistic survival function as we'll show below. In the case of the Weibull model the parameters are denote $\alpha, \beta$ respectively.
 
 ```{code-cell} ipython3
 coords = {
@@ -792,7 +792,7 @@ loglogistic_predicted_surv = pd.DataFrame(
 loglogistic_predicted_surv
 ```
 
-Both models fit comparable estimates for these two individuals. We'll see now how the marginal survival function compares across our entire sample of indivduals. 
+Both models fit comparable estimates for these two individuals. We'll see now how the marginal survival function compares across our entire sample of individuals. 
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(20, 7))
@@ -1265,7 +1265,7 @@ In this example we've seen how to model time-to-attrition in a employee lifecycl
 
 There are roughly two perspectives to be balanced: (i) the "actuarial" need to understand expected losses over the lifecycle, and (ii) the "diagnostic" needs to understand the causative factors that extend or reduce the lifecycle. Both are ultimately complementary as we need to "price in" differential flavours of risk that impact the expected bottom line whenever we plan for the future. Survival regression analysis neatly combines both these perspectives enabling the analyst to understand and take preventative action to offset periods of increased risk.
 
-We've seen above a number of distinct regression modelling strategies for time-to-event data, but there are more flavours to explore: joint longitidunal models with a survival component, survival models with time-varying covariates, cure-rate models. The Bayesian perspective on these survival models is useful because we often have detailed results from prior years or experiments where our priors add useful perspective on the problem - allowing us to numerically encode that information to help regularise model fits for complex survival modelling. In the case of frailty models like the ones above - we've seen how priors can be added to the frailty terms to describe the influence of unobserved covariates which influence individual trajectories. Similarly the stratified approach to modelling baseline hazards allows us to carefully express trajectories of individual risk.  This can be especially important in the human centric disciplines where we seek to understand repeat measurments of the same individual time and again - accounting for the degree to which we can explain individual effects. Which is to say that while the framework of survival analysis suits a wide range of domains and problems, it nevertheless allows us to model, predict and infer aspects of specific and individual risk. 
+We've seen above a number of distinct regression modelling strategies for time-to-event data, but there are more flavours to explore: joint longitidunal models with a survival component, survival models with time-varying covariates, cure-rate models. The Bayesian perspective on these survival models is useful because we often have detailed results from prior years or experiments where our priors add useful perspective on the problem - allowing us to numerically encode that information to help regularise model fits for complex survival modelling. In the case of frailty models like the ones above - we've seen how priors can be added to the frailty terms to describe the influence of unobserved covariates which influence individual trajectories. Similarly the stratified approach to modelling baseline hazards allows us to carefully express trajectories of individual risk.  This can be especially important in the human centric disciplines where we seek to understand repeat measurements of the same individual time and again - accounting for the degree to which we can explain individual effects. Which is to say that while the framework of survival analysis suits a wide range of domains and problems, it nevertheless allows us to model, predict and infer aspects of specific and individual risk. 
 
 +++
 

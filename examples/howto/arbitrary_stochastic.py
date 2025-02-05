@@ -4,7 +4,7 @@ import theano.tensor as tt
 import pymc3 as pm
 
 
-# custom log-liklihood
+# custom log-likelihood
 def logp(failure, lam, value):
     return tt.sum(failure * tt.log(lam) - lam * value)
 

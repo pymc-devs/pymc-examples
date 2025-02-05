@@ -528,7 +528,7 @@ results_df[cols[~cols.isin(["Trace", "Run"])]].round(2).style.set_caption(
 plot_comparison_bars(results_df)
 ```
 
-The efficiency advantage for `NUTS` over `DEMetropolisZ` over `DEMetropolis` is more pronounced in higher dimensions.  $\hat{R}$ is also large for `DEMetropolis` for this sample size and number of chains.  For `DEMetropolis`, a smaller number of chains ($2N$) with a larger number of samples performed better than more chains with fewer samples.  Counter-intuitively, the `NUTS` sampler yeilds $ESS$ values greater than the number of samples, which can occur as discussed [here](https://discourse.pymc.io/t/effective-sample-size-larger-than-number-of-samples-for-nuts/6275).
+The efficiency advantage for `NUTS` over `DEMetropolisZ` over `DEMetropolis` is more pronounced in higher dimensions.  $\hat{R}$ is also large for `DEMetropolis` for this sample size and number of chains.  For `DEMetropolis`, a smaller number of chains ($2N$) with a larger number of samples performed better than more chains with fewer samples.  Counter-intuitively, the `NUTS` sampler yields $ESS$ values greater than the number of samples, which can occur as discussed [here](https://discourse.pymc.io/t/effective-sample-size-larger-than-number-of-samples-for-nuts/6275).
 
 ```{code-cell} ipython3
 plot_forest_compare_analytical(results_df)

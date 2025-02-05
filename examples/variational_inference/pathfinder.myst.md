@@ -15,7 +15,7 @@ kernelspec:
 # Pathfinder Variational Inference
 
 :::{post} Feb 5, 2023 
-:tags: variational inference, jax 
+:tags: variational inference, JAX
 :category: advanced, how-to
 :author: Thomas Wiecki
 :::

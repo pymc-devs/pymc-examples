@@ -14,7 +14,7 @@ kernelspec:
 # Gaussian Processes: HSGP Reference & First Steps
 
 :::{post} June 10, 2024
-:tags: gaussian processes
+:tags: gaussian process
 :category: reference, intermediate
 :author: Bill Engels, Alexandre Andorra
 :::

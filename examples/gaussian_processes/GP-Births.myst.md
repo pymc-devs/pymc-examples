@@ -18,7 +18,7 @@ myst:
 # Baby Births Modelling with HSGPs
 
 :::{post} January, 2024
-:tags: gaussian processes, hilbert space approximation,
+:tags: gaussian process, hilbert space approximation,
 :category: intermediate, how-to
 :author: [Juan Orduz](https://juanitorduz.github.io/)
 :::

@@ -14,7 +14,7 @@ kernelspec:
 # Marginal Likelihood Implementation
 
 :::{post} June 4, 2023
-:tags: gaussian processes, time series
+:tags: gaussian process, time series
 :category: reference, intermediate
 :author: Bill Engels, Chris Fonnesbeck
 :::
