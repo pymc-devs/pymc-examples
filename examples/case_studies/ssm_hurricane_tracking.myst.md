@@ -76,11 +76,15 @@ The following equations define the process:
 # Import libraries
 import re
 
+from typing import Optional
+
 import arviz as az
 import numpy as np
 import pymc as pm
 import pytensor.tensor as pt
 import xarray as xr
+
+from patsy import dmatrix
 ```
 
 :::{include} ../extra_installs.md
@@ -97,10 +101,6 @@ from pymc_extras.statespace.models.utilities import make_default_coords
 from pymc_extras.statespace.utils.constants import (
     ALL_STATE_AUX_DIM,
     ALL_STATE_DIM,
-    OBS_STATE_AUX_DIM,
-    OBS_STATE_DIM,
-    SHOCK_AUX_DIM,
-    SHOCK_DIM,
     TIME_DIM,
 )
 
@@ -133,6 +133,181 @@ def ellipse_covariance(covariance: np.ndarray) -> np.ndarray:
     ellipse_y_r = b * np.sin(theta_grid)
     R = np.array([[np.cos(phi), np.sin(phi)], [-np.sin(phi), np.cos(phi)]])
     return np.array([ellipse_x_r, ellipse_y_r]).T @ R
+```
+
+```{code-cell} ipython3
+def plot_hurricane_path(
+    data: pl.DataFrame,
+    posterior_mean: np.ndarray,
+    predicted_covariance: np.ndarray,
+    uncertainty_index: int = 3,
+) -> go.Figure:
+    """
+    Compares actual vs predicted Hurricane path
+    ---
+    Params:
+        data: dataframe containing the actual values
+        posterior_mean: The posterior mean of the estimated distributions
+        predicted_covariance: The predicted covariance matrices at each time point
+        uncertainty_index: When to start drawing the uncertainty on the map (due to huge uncertainty in the begining of the process)
+    """
+    fig = go.Figure()
+    for i in range(predicted_covariance.shape[0]):
+        if uncertainty_index and (
+            i < uncertainty_index
+        ):  # First handful of ellipses are huge because of little data in the iterative nature of the Kalman filter
+            continue
+        r_ellipse = ellipse_covariance(predicted_covariance[i, :2, :2])
+        means = posterior_mean[i]
+        fig.add_trace(
+            go.Scattermap(
+                lon=r_ellipse[:, 0].astype(float) + means[0].values,
+                lat=r_ellipse[:, 1].astype(float) + means[1].values,
+                mode="lines",
+                fill="toself",
+                showlegend=True if i == uncertainty_index else False,
+                legendgroup="HDI",
+                hoverinfo="skip",
+                marker_color="blue",
+                name="95% CI",
+            )
+        )
+    fig.add_traces(
+        [
+            go.Scattermap(
+                lon=posterior_mean[:, 0],
+                lat=posterior_mean[:, 1],
+                name="predictions",
+                mode="lines+markers",
+                line=dict(color="lightblue"),
+                hovertemplate=[
+                    f"""<b>Period:</b> {i+1}<br><b>Longitude:</b> {posterior[0]:.1f}<br><b>Latitude:</b> {posterior[1]:.1f}<extra></extra>
+                """
+                    for i, posterior in enumerate(posterior_mean)
+                ],
+            ),
+            go.Scattermap(
+                lon=data["longitude"],
+                lat=data["latitude"],
+                name="actuals",
+                mode="lines+markers",
+                line=dict(color="black"),
+                hovertemplate=[
+                    f"""<b>Period:</b> {row['discrete_time']}<br><b>Longitude:</b> {row['longitude']:.1f}<br><b>Latitude:</b> {row['latitude']:.1f}<extra></extra>
+                """
+                    for row in data.iter_rows(named=True)
+                ],
+            ),
+        ]
+    )
+
+    fig.update_layout(
+        margin=dict(b=0, t=0, l=0, r=0),
+        map={
+            "bearing": 0,
+            "center": go.layout.map.Center(
+                lat=data["latitude"].mean() + 15.0, lon=data["longitude"].mean()
+            ),
+            "pitch": 0,
+            "zoom": 2.0,
+        },
+    )
+    return fig
+```
+
+```{code-cell} ipython3
+def generate_period_forecasts(
+    ssm_model: PyMCStateSpace,
+    inference_data: az.InferenceData,
+    data: pl.DataFrame,
+    exogenous_data_name: Optional[str] = None,
+    padded_exogenous_data: Optional[pl.DataFrame | np.ndarray] = None,
+    periods: int = 4,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    produces n period ahead forecasts
+    ---
+    Params
+        ssm_model: The statespace model you want to forecast with
+        inference_data: The fitted model trace
+        data: the actual data used for fitting
+        exogenous_data_name: The key/name you used to define your exogenous data
+        padded_exogenous_data: The exogenous data padded for the number of forecasts you expect to make
+        periods: The number of periods to forecast
+    """
+    if padded_exogenous_data is not None:
+        # Hack that should be fixed in StateSpace soon
+        try:
+            del ssm_model._exog_data_info[exogenous_data_name][
+                "dims"
+            ]  # Be careful if you copy this function the keys may change in your case
+        except KeyError as error:
+            print(f"Key not found: {error}")
+
+        period_forecasts = []
+        if isinstance(padded_exogenous_data, pl.DataFrame):
+            for start in np.arange(0, inference_data.constant_data.time.shape[0], periods):
+                f = ssm_model.forecast(
+                    inference_data,
+                    start=start,
+                    periods=periods,
+                    filter_output="smoothed",
+                    progressbar=False,
+                    scenario={
+                        exogenous_data_name: padded_exogenous_data.slice(start, periods).to_numpy()
+                    },
+                )
+                period_forecasts.append(f)
+        else:
+            for start in np.arange(0, inference_data.constant_data.time.shape[0], periods):
+                f = ssm_model.forecast(
+                    inference_data,
+                    start=start,
+                    periods=periods,
+                    filter_output="smoothed",
+                    progressbar=False,
+                    scenario={exogenous_data_name: padded_exogenous_data[start : start + periods]},
+                )
+                period_forecasts.append(f)
+    else:
+        period_forecasts = []
+        for start in np.arange(0, inference_data.constant_data.time.shape[0], periods):
+            f = ssm_model.forecast(
+                inference_data,
+                start=start,
+                periods=periods,
+                filter_output="smoothed",
+                progressbar=False,
+            )
+            period_forecasts.append(f)
+
+    # Combine forecasts
+    forecasts = xr.combine_by_coords(period_forecasts, combine_attrs="drop_conflicts")
+
+    # Only look at in-sample forecasts
+    forecasts = forecasts.sel(time=range(1, len(data)))
+
+    f_mean = forecasts["forecast_observed"].mean(("chain", "draw"))
+    longitude_cppc = az.extract(forecasts["forecast_observed"].sel(observed_state="x"))
+    latitude_cppc = az.extract(forecasts["forecast_observed"].sel(observed_state="y"))
+    cppc_var = forecasts["forecast_observed"].var(("chain", "draw"))
+    cppc_covs = xr.cov(
+        latitude_cppc["forecast_observed"], longitude_cppc["forecast_observed"], dim="sample"
+    )
+    covs_list = []
+    for i in range(cppc_covs.shape[0]):
+        covs_list.append(
+            np.array(
+                [
+                    [
+                        [cppc_var[i].values[0], cppc_covs[i].values.item()],
+                        [cppc_covs[i].values.item(), cppc_var[i].values[1]],
+                    ]
+                ]
+            )
+        )
+    cppc_vcov = np.concatenate(covs_list, axis=0)
+    return f_mean, cppc_vcov
 ```
 
 # Load and Process the Dataset
@@ -398,7 +573,7 @@ $$\epsilon_{t} \sim N(0, Q)$$
 $$\eta_{t} \sim N(0, H)$$
 
 In this example we fix our observation/measurement error to a small value (0.1) reflecting our confidence in the measurements.
-$$H = \begin{bmatrix} 0.1&0 \\ 0&0.1\end{bmatrix}$$
+$$H = \begin{bmatrix} 0.5&0 \\ 0&0.5\end{bmatrix}$$
 
 and finally, the state/process covariance matrix that is derived from using Newtonian motion is as follows:
 
@@ -521,7 +696,6 @@ class SimpleSSM(PyMCStateSpace):
         # and also on the different filter outputs so you don't have to worry about it. You only need to set
         # the coords for the dims unique to your model.
         coords = make_default_coords(self)
-        # coords.update({"delta_params": ["lat_velocity", "lon_velocity"]})
         return coords
 
     @property
@@ -568,233 +742,70 @@ with pm.Model(coords=s_ssm.coords) as simple:
         mode="JAX",
         save_kalman_filter_outputs_in_idata=True,
     )
-    idata = pm.sample(nuts_sampler="numpyro", target_accept=0.95)
+    simple_idata = pm.sample(nuts_sampler="numpyro", target_accept=0.95)
 ```
 
 ```{code-cell} ipython3
-az.summary(idata, var_names="acceleration_noise", kind="stats")
+az.summary(simple_idata, var_names="acceleration_noise", kind="stats")
 ```
 
 ```{code-cell} ipython3
-predicted_covs = idata.posterior["predicted_covariance"].mean(("chain", "draw"))
+predicted_covs = simple_idata.posterior["predicted_covariance"].mean(("chain", "draw"))
 ```
 
 ```{code-cell} ipython3
-# cond_post = s_ssm.sample_conditional_posterior(idata)
-# post_mean = cond_post['predicted_posterior_observed'].mean(('chain', 'draw'))
+post_mean = simple_idata.posterior["predicted_observed_state"].mean(("chain", "draw"))
 ```
 
-```{code-cell} ipython3
-post_mean = idata.posterior["predicted_observed_state"].mean(("chain", "draw"))
-```
-
-Not bad for a model with only one parameter. We can see that the forecast gets wonky in the middle where the trajectory of the Hurricane changes directions over short time periods. Again, it is important to keep in mind that what we are plotting are the one-step/period ahead forecast. In our case, our periods are six hours apart. Unfortunately, a 6-hour ahead hurricane forecast is not very practical. Let's see what we get when we generate a 4-period (24 hours) ahead forecast.
+Not bad for a model with only one parameter. We can see that the forecast gets wonky in the middle where the trajectory of the Hurricane changes directions over short time periods. Again, it is important to keep in mind that what we are plotting are the one-step/period ahead forecast. In our case, our periods are six hours apart. Unfortunately, a 6-hour ahead hurricane forecast is not very practical. Let's see what we get when we generate a 4-period (24-hour) ahead forecast.
 
 ```{code-cell} ipython3
-fig = go.Figure()
-for i in range(predicted_covs.shape[0]):
-    if (
-        i < 3
-    ):  # First handful of ellipses are huge because of little data in the iterative nature of the Kalman filter
-        continue
-    r_ellipse = ellipse_covariance(predicted_covs[i, :2, :2])
-    means = post_mean[i]
-    fig.add_trace(
-        go.Scattermap(
-            lon=r_ellipse[:, 0].astype(float) + means[0].values,
-            lat=r_ellipse[:, 1].astype(float) + means[1].values,
-            mode="lines",
-            fill="toself",
-            showlegend=True if i == 3 else False,
-            legendgroup="HDI",
-            hoverinfo="skip",
-            marker_color="blue",
-            name="95% CI",
-        )
-    )
-fig.add_traces(
-    [
-        go.Scattermap(
-            lon=post_mean[:, 0],
-            lat=post_mean[:, 1],
-            name="predictions",
-            mode="lines+markers",
-            line=dict(color="lightblue"),
-            hovertemplate=[
-                f"""<b>Period:</b> {i+1}<br><b>Longitude:</b> {posterior[0]:.1f}<br><b>Latitude:</b> {posterior[1]:.1f}<extra></extra>
-            """
-                for i, posterior in enumerate(post_mean)
-            ],
-        ),
-        go.Scattermap(
-            lon=fiona_df["longitude"],
-            lat=fiona_df["latitude"],
-            name="actuals",
-            mode="lines+markers",
-            line=dict(color="black"),
-            hovertemplate=[
-                f"""<b>Period:</b> {row['discrete_time']}<br><b>Longitude:</b> {row['longitude']:.1f}<br><b>Latitude:</b> {row['latitude']:.1f}<extra></extra>
-            """
-                for row in fiona_df.iter_rows(named=True)
-            ],
-        ),
-    ]
-)
-
-fig.update_layout(
-    margin=dict(b=0, t=0, l=0, r=0),
-    map={
-        "bearing": 0,
-        "center": go.layout.map.Center(
-            lat=fiona_df["latitude"].mean() + 15.0, lon=fiona_df["longitude"].mean()
-        ),
-        "pitch": 0,
-        "zoom": 2.0,
-    },
+fig = plot_hurricane_path(
+    data=fiona_df,
+    posterior_mean=post_mean,
+    predicted_covariance=predicted_covs,
+    uncertainty_index=3,
 )
 fig.show(config={"displayModeBar": False})
 ```
 
-# Work In Progress Past this Point
+# Generate 24-hour forecasts with our simple model
 
 ```{code-cell} ipython3
-four_period_forecasts = []
-for i in np.arange(0, idata.constant_data.time.shape[0], 4):
-    start = i
-    f = s_ssm.forecast(idata, start=start, periods=4, filter_output="smoothed", progressbar=False)
-    four_period_forecasts.append(f)
-```
-
-```{code-cell} ipython3
-forecasts = xr.combine_by_coords(four_period_forecasts, combine_attrs="drop_conflicts")
-```
-
-```{code-cell} ipython3
-# Only look at in-sample forecasts
-forecasts = forecasts.sel(time=range(1, len(fiona_df)))
-```
-
-```{code-cell} ipython3
-f_mean = forecasts["forecast_observed"].mean(("chain", "draw"))
-```
-
-```{code-cell} ipython3
-longitude_cppc = az.extract(forecasts["forecast_observed"].sel(observed_state="x"))
-latitude_cppc = az.extract(forecasts["forecast_observed"].sel(observed_state="y"))
-```
-
-```{code-cell} ipython3
-cppc_var = forecasts["forecast_observed"].var(("chain", "draw"))
-```
-
-```{code-cell} ipython3
-cppc_covs = xr.cov(
-    latitude_cppc["forecast_observed"], longitude_cppc["forecast_observed"], dim="sample"
+f_mean, cppc_vcov = generate_period_forecasts(
+    ssm_model=s_ssm, inference_data=simple_idata, data=fiona_df, periods=4
 )
 ```
 
-```{code-cell} ipython3
-covs_list = []
-for i in range(cppc_covs.shape[0]):
-    covs_list.append(
-        np.array(
-            [
-                [
-                    [cppc_var[i].values[0], cppc_covs[i].values.item()],
-                    [cppc_covs[i].values.item(), cppc_var[i].values[1]],
-                ]
-            ]
-        )
-    )
-```
-
-```{code-cell} ipython3
-cppc_vcov = np.concatenate(covs_list, axis=0)
-```
-
-# Note TO SELF
+# Still need to confirm this
 Okay, using the `smoothed filter` output produces better forecasts. I need to make sure that under-the-hood the `forecast` method does not use data outside the specified period, which it doesn't look like it does otherwise I would expect a much closer fit.
 
 ```{code-cell} ipython3
-fig = go.Figure()
-for i in range(cppc_vcov.shape[0]):
-    # if (
-    #     i > 10
-    # ):  # First handful of ellipses are huge because of little data in the iterative nature of the Kalman filter
-    #     continue
-    r_ellipse = ellipse_covariance(cppc_vcov[i, :2, :2])
-    means = f_mean[i]
-    fig.add_trace(
-        go.Scattermap(
-            lon=r_ellipse[:, 0].astype(float) + means[0].values,
-            lat=r_ellipse[:, 1].astype(float) + means[1].values,
-            mode="lines",
-            fill="toself",
-            showlegend=True if i == 3 else False,
-            legendgroup="HDI",
-            hoverinfo="skip",
-            marker_color="blue",
-            name="95% CI",
-        )
-    )
-fig.add_traces(
-    [
-        go.Scattermap(
-            lon=f_mean[:, 0],
-            lat=f_mean[:, 1],
-            name="predictions",
-            mode="lines+markers",
-            line=dict(color="lightblue"),
-            hovertemplate=[
-                f"""<b>Period:</b> {i+2}<br><b>Longitude:</b> {posterior[0]:.1f}<br><b>Latitude:</b> {posterior[1]:.1f}<extra></extra>
-            """
-                for i, posterior in enumerate(post_mean)
-            ],
-        ),
-        go.Scattermap(
-            lon=fiona_df["longitude"],
-            lat=fiona_df["latitude"],
-            name="actuals",
-            mode="lines+markers",
-            line=dict(color="black"),
-            hovertemplate=[
-                f"""<b>Period:</b> {row['discrete_time']}<br><b>Longitude:</b> {row['longitude']:.1f}<br><b>Latitude:</b> {row['latitude']:.1f}<extra></extra>
-            """
-                for row in fiona_df.iter_rows(named=True)
-            ],
-        ),
-    ]
-)
-
-fig.update_layout(
-    margin=dict(b=0, t=0, l=0, r=0),
-    map={
-        "bearing": 0,
-        "center": go.layout.map.Center(
-            lat=fiona_df["latitude"].mean() + 15.0, lon=fiona_df["longitude"].mean()
-        ),
-        "pitch": 0,
-        "zoom": 2.0,
-    },
+fig = plot_hurricane_path(
+    data=fiona_df, posterior_mean=f_mean, predicted_covariance=cppc_vcov, uncertainty_index=None
 )
 fig.show(config={"displayModeBar": False})
 ```
 
 # Adding Deterministic Covariates/Exogenous Variables
-In our dataset we have variables that aren't a part of the Newtonian system process, but still carry information that we can leverage to better track the path of the hurricane. We have two options when introducing these exogenous variables into our model. We can add them in as time invariant or time-varying variables. In our case, we are going to add to the model the exogenous variable `max_wind` as time invariant. Our aim then is to model our observations as:
-$$\hat{y}_{longitude_{t+1}} = longitude_{t} + longitude\_velocity_{t}\Delta t + \frac{longitude\_acceleration_{t}\Delta t^{2}}{2} + \beta_{wind_{longitude}} wind$$
+In our dataset we have variables that aren't a part of the Newtonian system process, but still carry information that we can leverage to better track the path of the hurricane. We have two options when introducing these exogenous variables into our model. We can add them in as time invariant or time-varying variables. In our case, we are going to add exogenous variables as time invariant. Our aim then is to model our observations as:
+$$\hat{y}_{longitude_{t+1}} = longitude_{t} + longitude\_velocity_{t}\Delta t + \frac{longitude\_acceleration_{t}\Delta t^{2}}{2} + \beta_{exogenous_{longitude}} exogenous\_data$$
 
-$$\hat{y}_{latitude_{t+1}} = latitude_{t} + latitude\_velocity_{t}\Delta t + \frac{latitude\_acceleration_{t}\Delta t^{2}}{2} + \beta_{wind_{latitude}} wind$$ 
+$$\hat{y}_{latitude_{t+1}} = latitude_{t} + latitude\_velocity_{t}\Delta t + \frac{latitude\_acceleration_{t}\Delta t^{2}}{2} + \beta_{exogenous_{latitude}} exogenous\_data$$ 
 
 The `max_wind` variable measures the maximum sustained surface wind at 10 meter elevations and is a uni-dimensional measure (i.e not measured in terms of longitude and latitude). Therefore, we are going to use the same data to estimate two-parameters $\beta_{wind_{longitude}}$ and $\beta_{wind_{latitude}}$. This is less than ideal but demonstrates how to add exogenous variables to a `StateSpace` model.
 
-In order to put this in matrix form, we are going to add the newly added $\beta$ parameters to our state vector and we will add the corresponding measured `wind_speed` data into the design matrix. So our new state vector will be: $$x_{t} = \begin{bmatrix}longitude_{t} \\ latitude_{t} \\ longitude\_velocity_{t} \\ latitude\_velocity_{t} \\ longitude\_acceleration_{t} \\ latitude\_acceleration_{t} \\ \beta_{wind_{longitude}} \\ \beta_{wind_{latitude}} \end{bmatrix} $$
+The `min_pressure` variable measures the minumum central pressure. The lower the central pressure, typically, the more intense the hurricane. This variable again is only measured in one dimension, so we will handle that the same way we are handling it for `max_wind`.
 
-and our design matrix will be: $$ Z' = \begin{bmatrix} Z & X_{wind} \end{bmatrix} $$ Where $Z$ is our previously defined design matrix and $X_{wind}$ is the measured `wind_speed` exogenous data.
+Finally, we will also include the interaction between the maximum sustained surface wind and the minimum central pressure.
+
+In order to put this in matrix form, we are going to add the newly added $\beta$ parameters to our state vector and we will add the corresponding measured `wind_speed`, `min_pressure`, and `interaction_wind_pressure` data into the design matrix. So our new state vector will be: $$x_{t} = \begin{bmatrix}longitude_{t} \\ latitude_{t} \\ longitude\_velocity_{t} \\ latitude\_velocity_{t} \\ longitude\_acceleration_{t} \\ latitude\_acceleration_{t} \\ \beta_{wind_{longitude}} \\ \beta_{wind_{latitude}} \\ \beta_{pressure_{longitude}} \\ \beta_{pressure_{latitude}} \\ \beta_{wind\_pressure_{longitude}} \\ \beta_{wind\_pressure_{latitude}} \end{bmatrix} $$
+
+and our design matrix will be: $$ Z' = \begin{bmatrix} Z & X_{exogenous\_data} \end{bmatrix} $$ Where $Z$ is our previously defined design matrix and $X_{exogenous}$ is the measured `wind_speed`, `minimum_pressure`, and `interaction_wind_pressure` exogenous data.
 
 We also need to make adjustments to our $A$ state transition matrix and $R$ selection matrix.
 
-$$T = \begin{bmatrix}1&0&\Delta t&0&\frac{\Delta t^{2}}{2}&0&1&0 \\ 0&1&0&\Delta t&0&\frac{\Delta t^{2}}{2}&0&1  \\ 0&0&1&0&\Delta t&0&0&0 \\ 0&0&0&1&0&\Delta t&0&0 \\ 0&0&0&0&1&0&0&0 \\ 0&0&0&0&0&1&0&0 \\ 0&0&0&0&0&0&1&0 \\ 0&0&0&0&0&0&0&1 \end{bmatrix}$$
+$$T = \begin{bmatrix}1&0&\Delta t&0&\frac{\Delta t^{2}}{2}&0&1&0&1&0&1&0 \\ 0&1&0&\Delta t&0&\frac{\Delta t^{2}}{2}&0&1&0&1&0&1  \\ 0&0&1&0&\Delta t&0&0&0&0&0&0&0 \\ 0&0&0&1&0&\Delta t&0&0&0&0&0&0 \\ 0&0&0&0&1&0&0&0&0&0&0&0 \\ 0&0&0&0&0&1&0&0&0&0&0&0 \\ 0&0&0&0&0&0&1&0&0&0&0&0 \\ 0&0&0&0&0&0&0&1&0&0&0&0 \\ 0&0&0&0&0&0&0&0&1&0&0&0 \\ 0&0&0&0&0&0&0&0&0&1&0&0 \\ 0&0&0&0&0&0&0&0&0&0&1&0 \\ 0&0&0&0&0&0&0&0&0&0&0&1 \end{bmatrix}$$
 
 The last 2 columns we added indicates what states our exogenous variable affects, and the last 2 rows indicates that the processes of our exogenous parameters are constant.
 
@@ -805,18 +816,14 @@ $$R = \begin{bmatrix} 1&0&0&0&0&0 \\
                       0&0&0&0&1&0 \\ 
                       0&0&0&0&0&1 \\
                       0&0&0&0&0&0 \\
-                      0&0&0&0&0&0
+                      0&0&0&0&0&0 \\
+                      0&0&0&0&0&0 \\
+                      0&0&0&0&0&0 \\
+                      0&0&0&0&0&0 \\
+                      0&0&0&0&0&0 
        \end{bmatrix}$$
 
 The addition to the R matrix imply that the exogenous parameters do not exhibit any process noise.
-
-+++
-
-# NOTE TO SELF 
-put this in an info box
-Note that the maximum sustained wind (`max_wind `) of a hurricane is not informative to the path or travel speed of the hurricane.
-None-the-less we will add it for the sake of showing how to add exogenous variables to the model using the `StateSpace` module. 
-Note that $X_{wind}$ is of shape (number of observations, 2) where we have duplicated the data to be distributed over both the longitude and latitude dimensions. 
 
 ```{code-cell} ipython3
 class ExogenousSSM(PyMCStateSpace):
@@ -831,7 +838,7 @@ class ExogenousSSM(PyMCStateSpace):
     def make_symbolic_graph(self):
         # Add exogenous variables to the model
         exogenous_data = self.make_and_register_data("exogenous_data", shape=(None, self.k_exog))
-        beta_wind = self.make_and_register_variable("beta_wind", shape=(self.k_exog,))
+        beta_exog = self.make_and_register_variable("beta_exog", shape=(self.k_exog,))
         n_obs = exogenous_data.shape[0]
 
         delta_t = 6.0  # The amount of time between observations 6 hours in our case
@@ -844,20 +851,25 @@ class ExogenousSSM(PyMCStateSpace):
         )  # initial process covariance matrix
         acceleration_noise = self.make_and_register_variable("acceleration_noise", shape=(1,))
 
-        self.ssm["transition", :, :] = np.array(
+        T = np.array(
             [
-                [1, 0, delta_t, 0, (delta_t**2) / 2, 0, 0, 0],
-                [0, 1, 0, delta_t, 0, (delta_t**2) / 2, 0, 0],
-                [0, 0, 1, 0, delta_t, 0, 0, 0],
-                [0, 0, 0, 1, 0, delta_t, 0, 0],
-                [0, 0, 0, 0, 1, 0, 0, 0],
-                [0, 0, 0, 0, 0, 1, 0, 0],
-                [0, 0, 0, 0, 0, 0, 1, 0],
-                [0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, delta_t, 0, (delta_t**2) / 2, 0],
+                [0, 1, 0, delta_t, 0, (delta_t**2) / 2],
+                [0, 0, 1, 0, delta_t, 0],
+                [0, 0, 0, 1, 0, delta_t],
+                [0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 1],
             ]
         )
 
-        self.ssm["selection", :, :] = np.array(
+        self.ssm["transition", :, :] = np.vstack(
+            (
+                np.hstack((T, np.zeros(shape=(self.k_states - self.k_exog, self.k_exog)))),
+                np.eye(self.k_states)[-self.k_exog :],
+            )
+        )
+
+        R = np.array(
             [
                 [1, 0, 0, 0, 0, 0],
                 [0, 1, 0, 0, 0, 0],
@@ -865,23 +877,25 @@ class ExogenousSSM(PyMCStateSpace):
                 [0, 0, 0, 1, 0, 0],
                 [0, 0, 0, 0, 1, 0],
                 [0, 0, 0, 0, 0, 1],
-                [0, 0, 0, 0, 0, 0],
-                [0, 0, 0, 0, 0, 0],
             ]
+        )
+
+        self.ssm["selection", :, :] = np.vstack(
+            (R, np.zeros(shape=(self.k_exog, self.k_states - self.k_exog)))
         )
 
         Z = pt.as_tensor([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]])
         exog_reshape = pt.repeat(
-            exogenous_data, self.k_exog, axis=0
+            exogenous_data, self.k_endog, axis=0
         )  # We need to reshape the data to fit the proper dimensions
         exog_reshape = pt.set_subtensor(
-            exog_reshape[1::2, :], exog_reshape[1::2, ::-1]
+            exog_reshape[1::2, :], pt.roll(exog_reshape[1::2, :], 1)
         )  # We need to reshape the data to fit the proper dimensions
         exog_reshape = exog_reshape.reshape((n_obs, self.k_endog, self.k_exog))
 
         self.ssm["design"] = pt.concatenate((pt.tile(Z, (n_obs, 1, 1)), exog_reshape), axis=2)
 
-        self.ssm["initial_state", :] = pt.concatenate((x0, beta_wind), axis=0)
+        self.ssm["initial_state", :] = pt.concatenate((x0, beta_exog), axis=0)
         self.ssm["initial_state_cov", :, :] = P0
 
         self.ssm["state_cov", :, :] = acceleration_noise**2 * np.array(
@@ -917,15 +931,28 @@ class ExogenousSSM(PyMCStateSpace):
             * key: "shape", value: a tuple of integers
             * key: "dims", value: tuple of strings
         """
-        return {"exogenous_data": {"shape": (None, self.k_exog), "dims": (TIME_DIM, "wind_dims")}}
+        return {"exogenous_data": {"shape": (None, self.k_exog), "dims": (TIME_DIM, "exog_dims")}}
 
     @property
     def param_names(self):
-        return ["x0", "P0", "acceleration_noise", "beta_wind"]
+        return ["x0", "P0", "acceleration_noise", "beta_exog"]
 
     @property
     def state_names(self):
-        return ["x", "y", "vx", "vy", "ax", "ay", "beta_wind_x", "beta_wind_y"]
+        return [
+            "x",
+            "y",
+            "vx",
+            "vy",
+            "ax",
+            "ay",
+            "beta_wind_x",
+            "beta_wind_y",
+            "beta_pressure_x",
+            "beta_pressure_y",
+            "interaction_wind_pressure_x",
+            "interaction_wind_pressure_y",
+        ]
 
     @property
     def shock_names(self):
@@ -951,7 +978,7 @@ class ExogenousSSM(PyMCStateSpace):
             "x0": (self.k_states - self.k_exog,),
             "P0": (ALL_STATE_DIM, ALL_STATE_AUX_DIM),
             "acceleration_noise": (1,),
-            "beta_wind": ("wind_dims",),
+            "beta_exog": ("exog_dims",),
         }
 
     @property
@@ -960,7 +987,18 @@ class ExogenousSSM(PyMCStateSpace):
         # and also on the different filter outputs so you don't have to worry about it. You only need to set
         # the coords for the dims unique to your model.
         coords = make_default_coords(self)
-        coords.update({"wind_dims": ["Longitude", "Latitude"]})
+        coords.update(
+            {
+                "exog_dims": [
+                    "Wind_Longitude",
+                    "Wind_Latitude",
+                    "Pressure_Longitude",
+                    "Pressure_Latitude",
+                    "Interaction_Wind_Pressure_Longitude",
+                    "Interaction_Wind_Pressure_Latitude",
+                ]
+            }
+        )
         return coords
 
     @property
@@ -981,7 +1019,474 @@ class ExogenousSSM(PyMCStateSpace):
                 "shape": (1,),
                 "constraints": "Positive",
             },
-            "beta_wind": {
+            "beta_exog": {
+                "shape": (self.k_exog,),
+                "constraints": "None",
+            },
+        }
+
+        # Lazy way to add the dims without making any typos
+        for name in self.param_names:
+            info[name]["dims"] = self.param_dims[name]
+
+        return info
+```
+
+Note that because our variables are uni-dimensional we duplicate and mirror the data to apply each variable in two dimensions. The mirroring occurs in the model definition of the design matrix.
+
+```{code-cell} ipython3
+X_exog = (
+    fiona_df.with_columns(
+        pl.lit(0.0).alias("zeros"),
+        ((pl.col("max_wind") - pl.col("max_wind").mean()) / pl.col("max_wind").std()).alias(
+            "max_wind"
+        ),
+        (
+            (pl.col("min_pressure") - pl.col("min_pressure").mean()) / pl.col("min_pressure").std()
+        ).alias("min_pressure"),
+    )
+    .with_columns((pl.col("max_wind") * pl.col("min_pressure")).alias("interaction_wind_pressure"))
+    .select(
+        pl.col("max_wind").cast(pl.Float64).alias("max_wind_x"),
+        pl.col("zeros").cast(pl.Float64).alias("max_wind_y"),
+        pl.col("min_pressure").cast(pl.Float64).alias("min_pressure_x"),
+        pl.col("zeros").cast(pl.Float64).alias("min_pressure_y"),
+        pl.col("interaction_wind_pressure").cast(pl.Float64).alias("interaction_wind_pressure_x"),
+        pl.col("zeros").cast(pl.Float64).alias("interaction_wind_pressure_y"),
+    )
+)
+```
+
+```{code-cell} ipython3
+exog_ssm = ExogenousSSM(k_exog=X_exog.shape[1])
+```
+
+```{code-cell} ipython3
+with pm.Model(coords=exog_ssm.coords) as exogenous:
+    exogenous_data = pm.Data("exogenous_data", X_exog.to_numpy(), dims=["time", "exog_dims"])
+    beta_exog = pm.Normal("beta_exog", 0, 10, dims=["exog_dims"])
+
+    x0 = pm.Deterministic("x0", pt.as_tensor([-49, 16, 0.0, 0.0, 0.0, 0.0]))
+    P0 = pt.eye(12) * 1
+    P0 = pm.Deterministic("P0", P0, dims=("state", "state_aux"))
+
+    acceleration_noise = pm.Gamma("acceleration_noise", 0.1, 5, shape=(1,))
+
+    exog_ssm.build_statespace_graph(
+        data=fiona_df.select("longitude", "latitude").to_numpy(),
+        mode="JAX",
+        save_kalman_filter_outputs_in_idata=True,
+    )
+    exogenous_idata = pm.sample(nuts_sampler="numpyro", target_accept=0.95)
+```
+
+Typically, the surface wind speed and the central pressure of a hurricane carry little information on the path the hurricane will take. The path of a hurricane is, generally, influenced by surrounding atmospheric conditions like pressure gradients. Knowing this, it makes sense to see that many of our beta parameters are plausibly close to zero indicating little to no influence on the path by our exogenous variables.
+
+```{code-cell} ipython3
+az.plot_trace(exogenous_idata, var_names="acceleration_noise");
+```
+
+```{code-cell} ipython3
+az.plot_trace(exogenous_idata, var_names=["beta_exog"], compact=False, figsize=(16, 28));
+```
+
+# Make in-sample forecasts with new exogenous model
+
+```{code-cell} ipython3
+predicted_covs = exogenous_idata.posterior["predicted_covariance"].mean(("chain", "draw"))
+post_mean = exogenous_idata.posterior["predicted_observed_state"].mean(("chain", "draw"))
+```
+
+Our one-period ahead forecasts seem to be better in some areas, such as the middle section, and worse in others like the beginning and end. In the beginning we see an increase in the uncertainty in the model and at the end we see that our trajectory is erroneously more north rather than north-east. 
+
+```{code-cell} ipython3
+fig = plot_hurricane_path(
+    data=fiona_df,
+    posterior_mean=post_mean,
+    predicted_covariance=predicted_covs,
+    uncertainty_index=4,
+)
+fig.show(config={"displayModeBar": False})
+```
+
+# Generate 24-hour forecasts with our Exogenous SSM
+
+```{code-cell} ipython3
+# our last i will equal 60 so we need to pad our exogenous data to len 64
+X_exog_padded = pl.concat(
+    (X_exog, X_exog.tail(1).select(pl.all().repeat_by(3).flatten()))  # duplicate last entry 3 times
+)
+```
+
+```{code-cell} ipython3
+f_mean, cppc_vcov = generate_period_forecasts(
+    ssm_model=exog_ssm,
+    inference_data=exogenous_idata,
+    data=fiona_df,
+    periods=4,
+    exogenous_data_name="exogenous_data",
+    padded_exogenous_data=X_exog_padded,
+)
+```
+
+Compared to the previous 24-hour forecast, it looks like the uncertainty of the model has decreased, generally. We can also see that the mid-section and even the mid-to-end section have slightly improved. However, it still seems that our finally trajectory is more north than north-east, but is less north than our one-period ahead forecast.
+
+```{code-cell} ipython3
+fig = plot_hurricane_path(
+    data=fiona_df, posterior_mean=f_mean, predicted_covariance=cppc_vcov, uncertainty_index=None
+)
+fig.show(config={"displayModeBar": False})
+```
+
+# Add B-Splines
+Still need to add text to this section
+
+```{code-cell} ipython3
+num_knots = 15
+longitude_knot_list = np.quantile(fiona_df["longitude"], np.linspace(0, 1, num_knots))
+latitude_knot_list = np.quantile(fiona_df["latitude"], np.linspace(0, 1, num_knots))
+```
+
+```{code-cell} ipython3
+fig = go.Figure()
+fig.add_traces(
+    [
+        go.Scatter(
+            x=fiona_df["longitude"],
+            y=fiona_df["latitude"],
+            name="actuals",
+            mode="lines+markers",
+            line=dict(color="black"),
+            hovertemplate=[
+                f"""<b>Period:</b> {row['discrete_time']}<br><b>Longitude:</b> {row['longitude']:.1f}<br><b>Latitude:</b> {row['latitude']:.1f}<extra></extra>
+            """
+                for row in fiona_df.iter_rows(named=True)
+            ],
+        )
+    ]
+)
+
+for i, knot in enumerate(longitude_knot_list):
+    if i == len(longitude_knot_list) - 1:
+        showlegend = True
+    else:
+        showlegend = False
+    fig.add_shape(
+        type="line",
+        x0=knot,
+        x1=knot,
+        y0=0,
+        y1=100,
+        line_dash="dash",
+        line_color="rgba(0, 0, 255, 0.2)",
+        showlegend=showlegend,
+        legendgroup="longitude_group",
+        name="Longitude Knots",
+        legendrank=1,
+    )
+
+for i, knot in enumerate(latitude_knot_list):
+    if i == len(latitude_knot_list) - 1:
+        showlegend = True
+    else:
+        showlegend = False
+    fig.add_shape(
+        type="line",
+        x0=-75,
+        x1=-45,
+        y0=knot,
+        y1=knot,
+        line_dash="dash",
+        line_color="rgba(255, 0, 0, 0.2)",
+        showlegend=showlegend,
+        legendgroup="latitude_group",
+        name="Latitude Knots",
+        legendrank=2,
+    )
+fig.update_layout(
+    xaxis=dict(title="Longitude", ticksuffix="&#176;", range=(-72, -47.5)),
+    yaxis=dict(title="Latitude", ticksuffix="&#176;", range=(14, 65)),
+    title=dict(text="B-Spline Knot Locations"),
+)
+fig.show(config={"displayModeBar": False})
+```
+
+```{code-cell} ipython3
+B_longitude = dmatrix(
+    "bs(longitude, knots=longitude_knots, degree=3, include_intercept=True) - 1",
+    {"longitude": fiona_df["longitude"], "longitude_knots": longitude_knot_list[1:-1]},
+)
+
+B_latitude = dmatrix(
+    "bs(latitude, knots=latitude_knots, degree=3, include_intercept=True) - 1",
+    {"latitude": fiona_df["latitude"], "latitude_knots": latitude_knot_list[1:-1]},
+)
+```
+
+```{code-cell} ipython3
+exog_data = np.column_stack((np.asarray(B_longitude, order="F"), np.asarray(B_latitude, order="F")))
+```
+
+```{code-cell} ipython3
+class SplineSSM(PyMCStateSpace):
+    def __init__(self, k_exog: int = None):
+        k_states = 6 + k_exog  # number of states (x, y, vx, vy, ax, ay)
+        k_posdef = 6  # number of shocks (size of the process noise covariance matrix Q)
+        k_endog = 2  # number of observed states (we only observe x and y)
+        self.k_exog = k_exog
+
+        super().__init__(k_endog=k_endog, k_states=k_states, k_posdef=k_posdef)
+
+    def make_symbolic_graph(self):
+        # Add exogenous variables to the model
+        exogenous_data = self.make_and_register_data("exogenous_data", shape=(None, self.k_exog))
+        beta_exog = self.make_and_register_variable("beta_exog", shape=(self.k_exog,))
+        n_obs = exogenous_data.shape[0]
+
+        delta_t = 6.0  # The amount of time between observations 6 hours in our case
+        # these variables wil be estimated in our model
+        x0 = self.make_and_register_variable(
+            "x0", shape=(6,)
+        )  # initial state vector (x, y, vx, vy, ax, ay)
+        P0 = self.make_and_register_variable(
+            "P0", shape=(self.k_states, self.k_states)
+        )  # initial process covariance matrix
+        acceleration_noise = self.make_and_register_variable("acceleration_noise", shape=(1,))
+
+        T = np.array(
+            [
+                [1, 0, delta_t, 0, (delta_t**2) / 2, 0],
+                [0, 1, 0, delta_t, 0, (delta_t**2) / 2],
+                [0, 0, 1, 0, delta_t, 0],
+                [0, 0, 0, 1, 0, delta_t],
+                [0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 1],
+            ]
+        )
+
+        self.ssm["transition", :, :] = np.vstack(
+            (
+                np.hstack((T, np.zeros(shape=(self.k_states - self.k_exog, self.k_exog)))),
+                np.eye(self.k_states)[-self.k_exog :],
+            )
+        )
+
+        R = np.array(
+            [
+                [1, 0, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0, 0],
+                [0, 0, 1, 0, 0, 0],
+                [0, 0, 0, 1, 0, 0],
+                [0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 1],
+            ]
+        )
+
+        self.ssm["selection", :, :] = np.vstack(
+            (R, np.zeros(shape=(self.k_exog, self.k_states - self.k_exog)))
+        )
+
+        Z = pt.as_tensor([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]])
+        exog_reshape = pt.horizontal_stack(
+            pt.concatenate(
+                (
+                    exogenous_data[:, : int(self.k_exog / 2)],
+                    pt.zeros((n_obs, int(self.k_exog / 2))),
+                ),
+                axis=1,
+            ),
+            pt.concatenate(
+                (
+                    pt.zeros((n_obs, int(self.k_exog / 2))),
+                    exogenous_data[:, int(self.k_exog / 2) :],
+                ),
+                axis=1,
+            ),
+        ).reshape((n_obs, self.k_endog, self.k_exog))
+
+        self.ssm["design"] = pt.concatenate((pt.tile(Z, (n_obs, 1, 1)), exog_reshape), axis=2)
+
+        self.ssm["initial_state", :] = pt.concatenate((x0, beta_exog), axis=0)
+        self.ssm["initial_state_cov", :, :] = P0
+
+        self.ssm["state_cov", :, :] = acceleration_noise**2 * np.array(
+            [
+                [(delta_t**4) / 4, 0, (delta_t**3) / 2, 0, (delta_t**2) / 2, 0],
+                [0, (delta_t**4) / 4, 0, (delta_t**3) / 2, 0, (delta_t**2) / 2],
+                [(delta_t**3) / 2, 0, (delta_t**2), 0, delta_t, 0],
+                [0, (delta_t**3) / 2, 0, (delta_t**2), 0, delta_t],
+                [(delta_t**2) / 2, 0, delta_t, 0, 1, 0],
+                [0, (delta_t**2) / 2, 0, delta_t, 0, 1],
+            ]
+        )
+        self.ssm["obs_cov", :, :] = np.eye(2) * 0.5
+
+    @property
+    def data_names(self) -> list[str]:
+        """
+        Names of data variables expected by the model.
+
+        This does not include the observed data series, which is automatically handled by PyMC. This property only
+        needs to be implemented for models that expect exogenous data.
+        """
+        return ["exogenous_data"]
+
+    @property
+    def data_info(self):
+        """
+        Information about Data variables that need to be declared in the PyMC model block.
+
+        Returns a dictionary of data_name: dictionary of property-name:property description pairs. The return value is
+        used by the ``_print_data_requirements`` method, to print a message telling users how to define the necessary
+        data for the model. Each dictionary should have the following key-value pairs:
+            * key: "shape", value: a tuple of integers
+            * key: "dims", value: tuple of strings
+        """
+        return {"exogenous_data": {"shape": (None, self.k_exog), "dims": (TIME_DIM, "exog_dims")}}
+
+    @property
+    def param_names(self):
+        return ["x0", "P0", "acceleration_noise", "beta_exog"]
+
+    @property
+    def state_names(self):
+        return [
+            "x",
+            "y",
+            "vx",
+            "vy",
+            "ax",
+            "ay",
+            "longitude_spline_1",
+            "longitude_spline_2",
+            "longitude_spline_3",
+            "longitude_spline_4",
+            "longitude_spline_5",
+            "longitude_spline_6",
+            "longitude_spline_7",
+            "longitude_spline_8",
+            "longitude_spline_9",
+            "longitude_spline_10",
+            "longitude_spline_11",
+            "longitude_spline_12",
+            "longitude_spline_13",
+            "longitude_spline_14",
+            "longitude_spline_15",
+            "longitude_spline_16",
+            "longitude_spline_17",
+            "latitude_spline_1",
+            "latitude_spline_2",
+            "latitude_spline_3",
+            "latitude_spline_4",
+            "latitude_spline_5",
+            "latitude_spline_6",
+            "latitude_spline_7",
+            "latitude_spline_8",
+            "latitude_spline_9",
+            "latitude_spline_10",
+            "latitude_spline_11",
+            "latitude_spline_12",
+            "latitude_spline_13",
+            "latitude_spline_14",
+            "latitude_spline_15",
+            "latitude_spline_16",
+            "latitude_spline_17",
+        ]
+
+    @property
+    def shock_names(self):
+        return [
+            "x_innovations",
+            "y_innovations",
+            "vx_innovations",
+            "vy_innovations",
+            "ax_innovations",
+            "ay_innovations",
+        ]
+
+    @property
+    def observed_states(self):
+        return ["x", "y"]
+
+    @property
+    def param_dims(self):
+        # There are special standardized names to use here. You can import them from
+        # pymc_extras.statespace.utils.constants
+
+        return {
+            "x0": (self.k_states - self.k_exog,),
+            "P0": (ALL_STATE_DIM, ALL_STATE_AUX_DIM),
+            "acceleration_noise": (1,),
+            "beta_exog": ("exog_dims",),
+        }
+
+    @property
+    def coords(self):
+        # This function puts coords on all those statespace matrices (x0, P0, c, d, T, Z, R, H, Q)
+        # and also on the different filter outputs so you don't have to worry about it. You only need to set
+        # the coords for the dims unique to your model.
+        coords = make_default_coords(self)
+        coords.update(
+            {
+                "exog_dims": [
+                    "longitude_spline_1",
+                    "longitude_spline_2",
+                    "longitude_spline_3",
+                    "longitude_spline_4",
+                    "longitude_spline_5",
+                    "longitude_spline_6",
+                    "longitude_spline_7",
+                    "longitude_spline_8",
+                    "longitude_spline_9",
+                    "longitude_spline_10",
+                    "longitude_spline_11",
+                    "longitude_spline_12",
+                    "longitude_spline_13",
+                    "longitude_spline_14",
+                    "longitude_spline_15",
+                    "longitude_spline_16",
+                    "longitude_spline_17",
+                    "latitude_spline_1",
+                    "latitude_spline_2",
+                    "latitude_spline_3",
+                    "latitude_spline_4",
+                    "latitude_spline_5",
+                    "latitude_spline_6",
+                    "latitude_spline_7",
+                    "latitude_spline_8",
+                    "latitude_spline_9",
+                    "latitude_spline_10",
+                    "latitude_spline_11",
+                    "latitude_spline_12",
+                    "latitude_spline_13",
+                    "latitude_spline_14",
+                    "latitude_spline_15",
+                    "latitude_spline_16",
+                    "latitude_spline_17",
+                ]
+            }
+        )
+        return coords
+
+    @property
+    def param_info(self):
+        # This needs to return a dictionary where the keys are the parameter names, and the values are a
+        # dictionary. The value dictionary should have the following keys: "shape", "constraints", and "dims".
+
+        info = {
+            "x0": {
+                "shape": (self.k_states - self.k_exog,),
+                "constraints": "None",
+            },
+            "P0": {
+                "shape": (self.k_states, self.k_states),
+                "constraints": "Positive Semi-definite",
+            },
+            "acceleration_noise": {
+                "shape": (1,),
+                "constraints": "Positive",
+            },
+            "beta_exog": {
                 "shape": (self.k_exog,),
                 "constraints": "None",
             },
@@ -995,258 +1500,76 @@ class ExogenousSSM(PyMCStateSpace):
 ```
 
 ```{code-cell} ipython3
-X_wind = fiona_df.with_columns(zeros=pl.lit(0.0)).select(
-    pl.col("max_wind").cast(pl.Float64).alias("max_wind_x"),
-    pl.col("zeros").cast(pl.Float64).alias("max_wind_y"),
-)
+spline_ssm = SplineSSM(k_exog=exog_data.shape[1])
 ```
 
 ```{code-cell} ipython3
-exog_ssm = ExogenousSSM(k_exog=X_wind.shape[1])
-```
-
-```{code-cell} ipython3
-with pm.Model(coords=exog_ssm.coords) as exogenous:
-    exogenous_data = pm.Data("exogenous_data", X_wind.to_numpy(), dims=["time", "wind_dims"])
-    beta_wind = pm.Normal("beta_wind", 0, 1, dims=["wind_dims"])
+with pm.Model(coords=spline_ssm.coords) as spline_model:
+    exogenous_data = pm.Data("exogenous_data", exog_data, dims=["time", "exog_dims"])
+    beta_exog = pm.Normal("beta_exog", 0, 1, dims=["exog_dims"])
 
     x0 = pm.Deterministic("x0", pt.as_tensor([-49, 16, 0.0, 0.0, 0.0, 0.0]))
-    P0 = pt.eye(8) * 1
+    P0 = pt.eye(40) * 1
     P0 = pm.Deterministic("P0", P0, dims=("state", "state_aux"))
 
     acceleration_noise = pm.Gamma("acceleration_noise", 0.1, 5, shape=(1,))
 
-    exog_ssm.build_statespace_graph(
+    spline_ssm.build_statespace_graph(
         data=fiona_df.select("longitude", "latitude").to_numpy(),
         mode="JAX",
         save_kalman_filter_outputs_in_idata=True,
     )
-    idata = pm.sample(nuts_sampler="numpyro", target_accept=0.95)
+    spline_idata = pm.sample(nuts_sampler="numpyro", target_accept=0.95)
 ```
 
-As we suspected, the maximum sustained wind does not add any information to our model concerning the path or the speed that the hurricane travels. We confirm our hypothesis by looking at our beta parameter distributions; which are centered at zero.
-
 ```{code-cell} ipython3
-az.plot_trace(idata, var_names=["beta_wind"], compact=False, figsize=(16, 8));
+az.plot_trace(spline_idata, var_names="acceleration_noise");
 ```
 
-# Make in-sample forecasts with new exogenous model
-
 ```{code-cell} ipython3
-predicted_covs = idata.posterior["predicted_covariance"].mean(("chain", "draw"))
-post_mean = idata.posterior["predicted_observed_state"].mean(("chain", "draw"))
+az.plot_trace(spline_idata, var_names=["beta_exog"], compact=True, figsize=(20, 8));
 ```
 
-It seems that adding the exogenous data to our model has increased the uncertainty around our forecasts.
+# Make in-sample forecasts with new spline model
 
 ```{code-cell} ipython3
-fig = go.Figure()
-for i in range(predicted_covs.shape[0]):
-    if (
-        i < 3
-    ):  # First handful of ellipses are huge because of little data in the iterative nature of the Kalman filter
-        continue
-    r_ellipse = ellipse_covariance(predicted_covs[i, :2, :2])
-    means = post_mean[i]
-    fig.add_trace(
-        go.Scattermap(
-            lon=r_ellipse[:, 0].astype(float) + means[0].values,
-            lat=r_ellipse[:, 1].astype(float) + means[1].values,
-            mode="lines",
-            fill="toself",
-            showlegend=True if i == 3 else False,
-            legendgroup="HDI",
-            hoverinfo="skip",
-            marker_color="blue",
-            name="95% CI",
-        )
-    )
-fig.add_traces(
-    [
-        go.Scattermap(
-            lon=post_mean[:, 0],
-            lat=post_mean[:, 1],
-            name="predictions",
-            mode="lines+markers",
-            line=dict(color="lightblue"),
-            hovertemplate=[
-                f"""<b>Period:</b> {i+1}<br><b>Longitude:</b> {posterior[0]:.1f}<br><b>Latitude:</b> {posterior[1]:.1f}<extra></extra>
-            """
-                for i, posterior in enumerate(post_mean)
-            ],
-        ),
-        go.Scattermap(
-            lon=fiona_df["longitude"],
-            lat=fiona_df["latitude"],
-            name="actuals",
-            mode="lines+markers",
-            line=dict(color="black"),
-            hovertemplate=[
-                f"""<b>Period:</b> {row['discrete_time']}<br><b>Longitude:</b> {row['longitude']:.1f}<br><b>Latitude:</b> {row['latitude']:.1f}<extra></extra>
-            """
-                for row in fiona_df.iter_rows(named=True)
-            ],
-        ),
-    ]
-)
+predicted_covs = spline_idata.posterior["predicted_covariance"].mean(("chain", "draw"))
+post_mean = spline_idata.posterior["predicted_observed_state"].mean(("chain", "draw"))
+```
 
-fig.update_layout(
-    margin=dict(b=0, t=0, l=0, r=0),
-    map={
-        "bearing": 0,
-        "center": go.layout.map.Center(
-            lat=fiona_df["latitude"].mean() + 15.0, lon=fiona_df["longitude"].mean()
-        ),
-        "pitch": 0,
-        "zoom": 2.0,
-    },
+```{code-cell} ipython3
+fig = plot_hurricane_path(
+    data=fiona_df,
+    posterior_mean=post_mean,
+    predicted_covariance=predicted_covs,
+    uncertainty_index=4,
 )
 fig.show(config={"displayModeBar": False})
-```
-
-```{code-cell} ipython3
-# Hack that should be fixed in StateSpace soon
-del exog_ssm._exog_data_info["exogenous_data"]["dims"]
 ```
 
 ```{code-cell} ipython3
 # our last i will equal 60 so we need to pad our exogenous data to len 64
-X_wind_padded = pl.concat(
-    (X_wind, X_wind.tail(1).select(pl.all().repeat_by(3).flatten()))  # duplicate last entry 3 times
-)
-
-four_period_forecasts = []
-for i in np.arange(0, idata.constant_data.time.shape[0], 4):
-    start = i
-    f = exog_ssm.forecast(
-        idata,
-        start=start,
-        periods=4,
-        filter_output="smoothed",
-        progressbar=False,
-        scenario={"exogenous_data": X_wind_padded.slice(i, 4).to_numpy()},
-    )
-    four_period_forecasts.append(f)
-```
-
-```{code-cell} ipython3
-forecasts = xr.combine_by_coords(four_period_forecasts, combine_attrs="drop_conflicts")
-```
-
-```{code-cell} ipython3
-# Only look at in-sample forecasts
-forecasts = forecasts.sel(time=range(1, len(fiona_df)))
-```
-
-```{code-cell} ipython3
-f_mean = forecasts["forecast_observed"].mean(("chain", "draw"))
-```
-
-```{code-cell} ipython3
-longitude_cppc = az.extract(forecasts["forecast_observed"].sel(observed_state="x"))
-latitude_cppc = az.extract(forecasts["forecast_observed"].sel(observed_state="y"))
-```
-
-```{code-cell} ipython3
-cppc_var = forecasts["forecast_observed"].var(("chain", "draw"))
-```
-
-```{code-cell} ipython3
-cppc_covs = xr.cov(
-    latitude_cppc["forecast_observed"], longitude_cppc["forecast_observed"], dim="sample"
+exog_data_padded = np.concatenate(
+    (exog_data, np.tile(exog_data[60], (3, 1))), axis=0  # duplicate last entry 3 times
 )
 ```
 
 ```{code-cell} ipython3
-covs_list = []
-for i in range(cppc_covs.shape[0]):
-    covs_list.append(
-        np.array(
-            [
-                [
-                    [cppc_var[i].values[0], cppc_covs[i].values.item()],
-                    [cppc_covs[i].values.item(), cppc_var[i].values[1]],
-                ]
-            ]
-        )
-    )
-```
-
-```{code-cell} ipython3
-cppc_vcov = np.concatenate(covs_list, axis=0)
-```
-
-Again, we don't expect any change here because the maximum sustained wind speed is not an informative variable with respect to the hurricane's path.
-
-```{code-cell} ipython3
-fig = go.Figure()
-for i in range(cppc_vcov.shape[0]):
-    # if (
-    #     i > 10
-    # ):  # First handful of ellipses are huge because of little data in the iterative nature of the Kalman filter
-    #     continue
-    r_ellipse = ellipse_covariance(cppc_vcov[i, :2, :2])
-    means = f_mean[i]
-    fig.add_trace(
-        go.Scattermap(
-            lon=r_ellipse[:, 0].astype(float) + means[0].values,
-            lat=r_ellipse[:, 1].astype(float) + means[1].values,
-            mode="lines",
-            fill="toself",
-            showlegend=True if i == 3 else False,
-            legendgroup="HDI",
-            hoverinfo="skip",
-            marker_color="blue",
-            name="95% CI",
-        )
-    )
-fig.add_traces(
-    [
-        go.Scattermap(
-            lon=f_mean[:, 0],
-            lat=f_mean[:, 1],
-            name="predictions",
-            mode="lines+markers",
-            line=dict(color="lightblue"),
-            hovertemplate=[
-                f"""<b>Period:</b> {i+2}<br><b>Longitude:</b> {posterior[0]:.1f}<br><b>Latitude:</b> {posterior[1]:.1f}<extra></extra>
-            """
-                for i, posterior in enumerate(post_mean)
-            ],
-        ),
-        go.Scattermap(
-            lon=fiona_df["longitude"],
-            lat=fiona_df["latitude"],
-            name="actuals",
-            mode="lines+markers",
-            line=dict(color="black"),
-            hovertemplate=[
-                f"""<b>Period:</b> {row['discrete_time']}<br><b>Longitude:</b> {row['longitude']:.1f}<br><b>Latitude:</b> {row['latitude']:.1f}<extra></extra>
-            """
-                for row in fiona_df.iter_rows(named=True)
-            ],
-        ),
-    ]
+f_mean, cppc_vcov = generate_period_forecasts(
+    ssm_model=spline_ssm,
+    inference_data=spline_idata,
+    data=fiona_df,
+    periods=4,
+    exogenous_data_name="exogenous_data",
+    padded_exogenous_data=exog_data_padded,
 )
+```
 
-fig.update_layout(
-    margin=dict(b=0, t=0, l=0, r=0),
-    map={
-        "bearing": 0,
-        "center": go.layout.map.Center(
-            lat=fiona_df["latitude"].mean() + 15.0, lon=fiona_df["longitude"].mean()
-        ),
-        "pitch": 0,
-        "zoom": 2.0,
-    },
+```{code-cell} ipython3
+fig = plot_hurricane_path(
+    data=fiona_df, posterior_mean=f_mean, predicted_covariance=cppc_vcov, uncertainty_index=None
 )
 fig.show(config={"displayModeBar": False})
-```
-
-# Add non-linear gaussian process
-
-```{code-cell} ipython3
-
 ```
 
 # Authors
