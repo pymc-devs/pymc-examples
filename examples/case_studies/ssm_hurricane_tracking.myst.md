@@ -1129,7 +1129,7 @@ f_mean, cppc_vcov = generate_period_forecasts(
 )
 ```
 
-Compared to the previous 24-hour forecast, it looks like the uncertainty of the model has decreased, generally. We can also see that the mid-section and even the mid-to-end section have slightly improved. However, it still seems that our finally trajectory is more north than north-east, but is less north than our one-period ahead forecast.
+Compared to the previous 24-hour forecast, it looks like the uncertainty of the model has decreased, generally. We can also see that the mid-section and even the mid-to-end section have slightly improved. However, it still seems that our finally trajectory is more north than north-east, but is less north than our last one-period ahead forecast.
 
 ```{code-cell} ipython3
 fig = plot_hurricane_path(
@@ -1139,7 +1139,11 @@ fig.show(config={"displayModeBar": False})
 ```
 
 # Add B-Splines
-Still need to add text to this section
+In the previous section, we tried adding an interaction term between the maximum sustained surface wind speed and the minumum central pressure. However, our estimated parameters were not too far off from zero. In this section we are going to attempt to model the non-linear complexities of the path, particularyly in the mid-section, using cubic B-splines.
+
+To do this we first need to define what variables we are going to model as a smooth function. In our case, we are going to model the longitude values as a smooth function of the latitude values and vice versa. 
+
+To keep things simple, we are going to define a constant number of knots that are equal in both variables (same #knots for both longitude and latitude) and we are going to place the knots using a quantile function over the variable space. You can see the knots plotted out below for each variable.
 
 ```{code-cell} ipython3
 num_knots = 15
@@ -1154,7 +1158,7 @@ fig.add_traces(
         go.Scatter(
             x=fiona_df["longitude"],
             y=fiona_df["latitude"],
-            name="actuals",
+            name="Actuals",
             mode="lines+markers",
             line=dict(color="black"),
             hovertemplate=[
@@ -1211,6 +1215,8 @@ fig.update_layout(
 fig.show(config={"displayModeBar": False})
 ```
 
+Next we need to create the basis functions over the defined variable space knot locations for each variable
+
 ```{code-cell} ipython3
 B_longitude = dmatrix(
     "bs(longitude, knots=longitude_knots, degree=3, include_intercept=True) - 1",
@@ -1226,6 +1232,25 @@ B_latitude = dmatrix(
 ```{code-cell} ipython3
 exog_data = np.column_stack((np.asarray(B_longitude, order="F"), np.asarray(B_latitude, order="F")))
 ```
+
+Our new models' structure is going to be similar to our last model that had exogenous variables. However, in this case our data are going to be the basis functions we created earlier. These will be inserted into our design matrix ($Z$) and the beta parameters corresponding to each spline will be added to our  state vector ($x_{t}$). Again, these parameters will be constant (non-time varying). We will also have to re-adjust our transition matrix ($T$) and selection matrix ($R$) similar to how we did previously. We will now have:
+
+$$\hat{y}_{longitude_{t+1}} = longitude_{t} + longitude\_velocity_{t}\Delta t + \frac{longitude\_acceleration_{t}\Delta t^{2}}{2} + \beta_{spline\_params_{longitude}} longitude\_spline\_basis\_functions$$
+
+$$\hat{y}_{latitude_{t+1}} = latitude_{t} + latitude\_velocity_{t}\Delta t + \frac{latitude\_acceleration_{t}\Delta t^{2}}{2} + \beta_{spline\_params_{latitude}} latitude\_spline\_basis\_functions$$ 
+
+our design matrix will be: $$ Z' = \begin{bmatrix} Z & X_{basis\_functions} \end{bmatrix} $$ Where $Z$ is our previously defined design matrix and $X_{exogenous}$ are the basis functions we defined earlier.
+
+Our transition matrix will be $$T' = \begin{bmatrix} T & F \\ 0 & I_{n\_spline\_params} \end{bmatrix} $$
+
+Where $T$ is the transition matrix defined for the Newtonian kinematics (the top-left 6x6 block in our previous model)
+and $$ F =  \begin{bmatrix} 1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0 \\ 0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1 \\ 0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0 \\ 0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0 \\ 0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0 \\ 0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0 \end{bmatrix} $$ 
+and the 0 in the matrix above is a matrix of 0s of shape (number of spline parameters by number of spline parameters)
+
+Finally, we have $$R' = \begin{bmatrix} R \\ 0 \end{bmatrix} $$
+
+Where R is the selectiom matrix over our endogenous states (identity matrix of shape (number of states))
+and again the 0 in the matrix is a matrix of 0s with shape (number of spline parameters by number of states)
 
 ```{code-cell} ipython3
 class SplineSSM(PyMCStateSpace):
@@ -1522,6 +1547,8 @@ with pm.Model(coords=spline_ssm.coords) as spline_model:
     spline_idata = pm.sample(nuts_sampler="numpyro", target_accept=0.95)
 ```
 
+Most of our spline parameters are around zero, with a handful of exceptions. Let's take a look at how these effect our forecasts.
+
 ```{code-cell} ipython3
 az.plot_trace(spline_idata, var_names="acceleration_noise");
 ```
@@ -1531,6 +1558,10 @@ az.plot_trace(spline_idata, var_names=["beta_exog"], compact=True, figsize=(20, 
 ```
 
 # Make in-sample forecasts with new spline model
+
++++
+
+Our one-period ahead forecasts, look better than the ones we generated from the Exogenous covariates model, but worse than the original model that purely follows Newtonian kinematics.
 
 ```{code-cell} ipython3
 predicted_covs = spline_idata.posterior["predicted_covariance"].mean(("chain", "draw"))
@@ -1546,6 +1577,8 @@ fig = plot_hurricane_path(
 )
 fig.show(config={"displayModeBar": False})
 ```
+
+Our 24-hour (4-period) forecasts, look pretty good. So far, this follows the true trajectory during the mid-section the best. 
 
 ```{code-cell} ipython3
 # our last i will equal 60 so we need to pad our exogenous data to len 64
@@ -1572,6 +1605,11 @@ fig = plot_hurricane_path(
 fig.show(config={"displayModeBar": False})
 ```
 
+# Closing Remarks
+In this case study we looked at how we can track a hurricane in two-dimensional space using a state space representation of Newtonian kinematics. We proceeded to expand on the pure Newtonian model and added exogenous variables that may hold information pertintent to the Hurricane's track. We then expanded our model by modeling our variables as smooth functions using cubic B-splines. Throughout, the case study we saw that the pure Newtonian kinematics model's one-period ahead forecast performed the best. However, adding exogenous variables allowed our 24-hour (four-period) ahead forecasts to produce better forecasts compared to the pure Newtonian model. A possible explanation is that for a short period forecast the Newtonian kinematics contain all the information needed to produce the best next forecast. However, for longer periods the Newtonian kinematics are too deterministic whereaas the exogenous variables may act to regularize the output from the Newtonian kinematics. In turn producing better longer period forecasts.
+
++++
+
 # Authors
 
 +++
@@ -1580,6 +1618,8 @@ fig.show(config={"displayModeBar": False})
 
 :::{bibliography}
 :filter: docname in docnames 
+
+becker2023kalman
 :::
 
 +++
