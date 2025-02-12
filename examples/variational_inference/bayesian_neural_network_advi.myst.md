@@ -205,7 +205,7 @@ trace = approx.sample(draws=5000)
 
 Now that we trained our model, lets predict on the hold-out set using a posterior predictive check (PPC). We can use {func}`pymc.sample_posterior_predictive` to generate new data (in this case class predictions) from the posterior (sampled from the variational estimation).
 
-To make this work with our mutable {class}`Data` objects, we need to create a new model object that removes the minibatches, and predicts on the whole data set. Notice that we are using our fitted `trace` to sample from the posterior predictive distribution, using the posterior estimates from the original model. The {class}`Flat` distribution is just a placeholder to make the model work; the actual values are sampled from the posterior.
+To predict on the entire test set (and not just the minibatches) we need to create a new model object that removes the minibatches, and predicts on the whole data set. Notice that we are using our fitted `trace` to sample from the posterior predictive distribution, using the posterior estimates from the original model. The {class}`Flat` distribution is just a placeholder to make the model work; the actual values are sampled from the posterior.
 
 ```{code-cell} ipython3
 def sample_posterior_predictive(X_test, Y_test, trace, n_hidden=5):
