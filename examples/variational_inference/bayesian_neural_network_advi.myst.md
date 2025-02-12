@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: default
   language: python
   name: python3
 ---
@@ -114,7 +114,7 @@ A neural network is quite simple. The basic unit is a [perceptron](https://en.wi
 jupyter:
   outputs_hidden: true
 ---
-def construct_nn():
+def construct_nn(batch_size=50):
     n_hidden = 5
 
     # Initialize random weights between each layer
@@ -130,12 +130,13 @@ def construct_nn():
     }
 
     with pm.Model(coords=coords) as neural_network:
-        # Define minibatch variables
-        minibatch_x, minibatch_y = pm.Minibatch(X_train, Y_train, batch_size=50)
 
         # Define data variables using minibatches
-        ann_input = pm.Data("ann_input", minibatch_x, mutable=True, dims=("obs_id", "train_cols"))
-        ann_output = pm.Data("ann_output", minibatch_y, mutable=True, dims="obs_id")
+        X_data = pm.Data("X_data", X_train, dims=("obs_id", "train_cols"))
+        Y_data = pm.Data("Y_data", Y_train, dims="obs_id")
+
+        # Define minibatch variables
+        ann_input, ann_output = pm.Minibatch(X_data, Y_data, batch_size=batch_size)
 
         # Weights from input to hidden layer
         weights_in_1 = pm.Normal(
@@ -161,7 +162,6 @@ def construct_nn():
             act_out,
             observed=ann_output,
             total_size=X_train.shape[0],  # IMPORTANT for minibatches
-            dims="obs_id",
         )
     return neural_network
 
@@ -174,11 +174,15 @@ That's not so bad. The `Normal` priors help regularize the weights. Usually we w
 
 +++
 
-### Variational Inference: Scaling model complexity
+## Variational Inference: Scaling model complexity
 
 We could now just run a MCMC sampler like {class}`pymc.NUTS` which works pretty well in this case, but was already mentioned, this will become very slow as we scale our model up to deeper architectures with more layers.
 
 Instead, we will use the {class}`pymc.ADVI` variational inference algorithm. This is much faster and will scale better. Note, that this is a mean-field approximation so we ignore correlations in the posterior.
+
+### Mini-batch ADVI
+
+While this simulated dataset is small enough to fit all at once, it would not scale to something big like ImageNet. In the model above, we have set up minibatches that will allow for scaling to larger data sets. Moreover, training on mini-batches of data (stochastic gradient descent) avoids local minima and can lead to faster convergence.
 
 ```{code-cell} ipython3
 %%time
@@ -199,17 +203,38 @@ plt.xlabel("iteration");
 trace = approx.sample(draws=5000)
 ```
 
-Now that we trained our model, lets predict on the hold-out set using a posterior predictive check (PPC). We can use {func}`~pymc.sample_posterior_predictive` to generate new data (in this case class predictions) from the posterior (sampled from the variational estimation).
+Now that we trained our model, lets predict on the hold-out set using a posterior predictive check (PPC). We can use {func}`pymc.sample_posterior_predictive` to generate new data (in this case class predictions) from the posterior (sampled from the variational estimation).
+
+To predict on the entire test set (and not just the minibatches) we need to create a new model object that removes the minibatches. Notice that we are using our fitted `trace` to sample from the posterior predictive distribution, using the posterior estimates from the original model. There is no new inference here, we are just using the same model and the same posterior estimates to generate predictions. The {class}`Flat` distribution is just a placeholder to make the model work; the actual values are sampled from the posterior.
 
 ```{code-cell} ipython3
----
-jupyter:
-  outputs_hidden: true
----
-with neural_network:
-    pm.set_data(new_data={"ann_input": X_test})
-    ppc = pm.sample_posterior_predictive(trace)
-    trace.extend(ppc)
+def sample_posterior_predictive(X_test, Y_test, trace, n_hidden=5):
+    coords = {
+        "hidden_layer_1": np.arange(n_hidden),
+        "hidden_layer_2": np.arange(n_hidden),
+        "train_cols": np.arange(X_test.shape[1]),
+        "obs_id": np.arange(X_test.shape[0]),
+    }
+    with pm.Model(coords=coords):
+
+        ann_input = X_test
+        ann_output = Y_test
+
+        weights_in_1 = pm.Flat("w_in_1", dims=("train_cols", "hidden_layer_1"))
+        weights_1_2 = pm.Flat("w_1_2", dims=("hidden_layer_1", "hidden_layer_2"))
+        weights_2_out = pm.Flat("w_2_out", dims="hidden_layer_2")
+
+        # Build neural-network using tanh activation function
+        act_1 = pm.math.tanh(pm.math.dot(ann_input, weights_in_1))
+        act_2 = pm.math.tanh(pm.math.dot(act_1, weights_1_2))
+        act_out = pm.math.sigmoid(pm.math.dot(act_2, weights_2_out))
+
+        # Binary classification -> Bernoulli likelihood
+        out = pm.Bernoulli("out", act_out, observed=ann_output)
+        return pm.sample_posterior_predictive(trace)
+
+
+ppc = sample_posterior_predictive(X_test, Y_test, trace)
 ```
 
 We can average the predictions for each observation to estimate the underlying probability of class 1.
@@ -250,18 +275,7 @@ dummy_out = np.ones(grid_2d.shape[0], dtype=np.int8)
 ```
 
 ```{code-cell} ipython3
----
-jupyter:
-  outputs_hidden: true
----
-coords_eval = {
-    "train_cols": np.arange(grid_2d.shape[1]),
-    "obs_id": np.arange(grid_2d.shape[0]),
-}
-
-with neural_network:
-    pm.set_data(new_data={"ann_input": grid_2d, "ann_output": dummy_out}, coords=coords_eval)
-    ppc = pm.sample_posterior_predictive(trace)
+ppc = sample_posterior_predictive(grid_2d, dummy_out, trace)
 ```
 
 ```{code-cell} ipython3
@@ -304,27 +318,6 @@ We can see that very close to the decision boundary, our uncertainty as to which
 
 +++
 
-## Mini-batch ADVI
-
-So far, we have trained our model on all data at once. Obviously this won't scale to something like ImageNet. Moreover, training on mini-batches of data (stochastic gradient descent) avoids local minima and can lead to faster convergence.
-
-Fortunately, ADVI can be run on mini-batches as well. It just requires some setting up:
-
-```{code-cell} ipython3
-minibatch_x, minibatch_y = pm.Minibatch(X_train, Y_train, batch_size=50)
-neural_network_minibatch = construct_nn(minibatch_x, minibatch_y)
-with neural_network_minibatch:
-    approx = pm.fit(40000, method=pm.ADVI())
-```
-
-```{code-cell} ipython3
-plt.plot(approx.hist)
-plt.ylabel("ELBO")
-plt.xlabel("iteration");
-```
-
-As you can see, mini-batch ADVI's running time is much lower. It also seems to converge faster.
-
 For fun, we can also look at the trace. The point is that we also get uncertainty of our Neural Network weights.
 
 ```{code-cell} ipython3
@@ -352,6 +345,7 @@ You might argue that the above network isn't really deep, but note that we could
 - This notebook was originally authored as a [blog post](https://twiecki.github.io/blog/2016/06/01/bayesian-deep-learning/) by Thomas Wiecki in 2016
 - Updated by Chris Fonnesbeck for PyMC v4 in 2022
 - Updated by Oriol Abril-Pla and Earl Bellinger in 2023
+- Updated by Chris Fonnesbeck in 2024
 
 ## Watermark
 
