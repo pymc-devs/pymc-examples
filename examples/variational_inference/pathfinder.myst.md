@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: python-3.10
   language: python
   name: python3
 ---
@@ -59,21 +59,37 @@ with pm.Model() as model:
     tau = pm.HalfCauchy("tau", 5.0)
 
     z = pm.Normal("z", mu=0, sigma=1, shape=J)
-    theta = mu + tau * z
+    theta = pm.Deterministic("theta", mu + tau * z)
     obs = pm.Normal("obs", mu=theta, sigma=sigma, shape=J, observed=y)
 ```
 
 Next, we call `pmx.fit()` and pass in the algorithm we want it to use.
 
 ```{code-cell} ipython3
+rng = np.random.default_rng(123)
 with model:
-    idata = pmx.fit(method="pathfinder", num_samples=1000)
+    idata_ref = pm.sample(target_accept=0.9, random_seed=rng)
+    idata_path = pmx.fit(
+        method="pathfinder",
+        jitter=12,
+        num_draws=1000,
+        random_seed=123,
+    )
 ```
 
 Just like `pymc.sample()`, this returns an idata with samples from the posterior. Note that because these samples do not come from an MCMC chain, convergence can not be assessed in the regular way.
 
 ```{code-cell} ipython3
-az.plot_trace(idata)
+az.plot_forest(
+    [idata_ref, idata_path],
+    var_names=["~z"],
+    model_names=["ref", "path"],
+    combined=True,
+);
+```
+
+```{code-cell} ipython3
+az.plot_trace(idata_path)
 plt.tight_layout();
 ```
 
