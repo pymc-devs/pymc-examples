@@ -52,11 +52,6 @@ RANDOM_SEED = 8457
 az.style.use("arviz-darkgrid")
 ```
 
-```{code-cell} ipython3
-%load_ext autoreload
-%autoreload 2
-```
-
 ## Hawks dataset  
 
 Here we will use a dataset that contains information about 3 species of hawks (*CH*=Cooper's, *RT*=Red-tailed, *SS*=Sharp-Shinned). This dataset has information for 908 individuals in total, each one containing 16 variables, in addition to the species. To simplify the example, we will use the following 5 covariables:  
