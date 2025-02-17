@@ -43,6 +43,8 @@ import pymc as pm
 import pymc_bart as pmb
 import seaborn as sns
 
+from scipy.special import softmax
+
 warnings.simplefilter(action="ignore", category=FutureWarning)
 ```
 
@@ -158,10 +160,10 @@ for ax, cat in zip(axes, np.repeat(species, len(vi_results["labels"]))):
 
 ### Partial Dependence Plot
 
-Let's check the behavior of each covariable for each species with `pmb.plot_pdp()`, which shows the marginal effect a covariate has on the predicted variable, while we average over all the other covariates. Since our response variable is categorical, we use the `softmax_link=True` parameter to get the partial dependence plot in the probability space.
+Let's check the behavior of each covariable for each species with `pmb.plot_pdp()`, which shows the marginal effect a covariate has on the predicted variable, while we average over all the other covariates. Since our response variable is categorical, we'll pass `softmax` as the inverse link function to `plot_pdp`.
 
 ```{code-cell} ipython3
-axes = pmb.plot_pdp(μ, X=x_0, Y=y_0, grid=(5, 3), figsize=(12, 12), softmax_link=True)
+axes = pmb.plot_pdp(μ, X=x_0, Y=y_0, grid=(5, 3), figsize=(12, 12), func=softmax)
 plt.suptitle("Partial Dependence Plots\n", fontsize=18)
 for (i, ax), cat in zip(enumerate(axes), np.tile(species, len(vi_results["labels"]))):
     ax.set(title=f"Species {cat}")
@@ -240,7 +242,7 @@ pmb.plot_variable_importance(vi_results);
 ```
 
 ```{code-cell} ipython3
-axes = pmb.plot_pdp(μ_t, X=x_0, Y=y_0, grid=(5, 3), figsize=(12, 12), softmax_link=True)
+axes = pmb.plot_pdp(μ_t, X=x_0, Y=y_0, grid=(5, 3), figsize=(12, 12), func=softmax)
 plt.suptitle("Partial Dependence Plots\n", fontsize=18)
 for (i, ax), cat in zip(enumerate(axes), np.tile(species, len(vi_results["labels"]))):
     ax.set(title=f"Species {cat}")
