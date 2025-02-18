@@ -59,7 +59,7 @@ This notebook explains why and how to deploy the Besag-York-Mollie (BYM) model i
 
 BYM also scales well with large datasets. A common problem with spatial models is that their computational cost grows rapidly as the size of the dataset increases. This is the case, for example, with PyMC's {ref}`CAR model <conditional_autoregressive_priors>`. With the BYM model, the growth in computational cost is nearly linear.
 
-The BYM model works with *areal* data, such as neighboring states, counties, or census tracks. For problems involving spatial points or continuous measures of distance, consider using a {ref}`Gaussian Proccess <log-gaussian-cox-process>` instead.
+The BYM model works with *areal* data, such as neighboring states, counties, or census tracks. For problems involving spatial points or continuous measures of distance, consider using a {ref}`Gaussian Process <log-gaussian-cox-process>` instead.
 
 +++
 
@@ -96,7 +96,7 @@ So, for example, imagine that the intensity of the color represents the value of
 
 In this way, ICAR encodes the core assumption of spatial statistics - *nearby areas should be more similar to each other than distant areas*. The most likely outcome is a graph where every node has the same value. In this case, the square distance between neighbors is always zero. The more a graph experiences abrupt changes between neighboring areas, the lower the log density.
 
-ICAR has a few other special features: it is contrained so all the $\phi$'s add up to zero. This also implies the mean of the $\phi$'s is zero. It can be helpful to think of ICAR values as similar to z-scores. They represent relative deviations centered around 0. ICAR is also typically only used as a sub-component of a larger model. Other parts of the model typically adjust the scale (with a variance parameter) or the location (with an intercept parameter). An accessible discussion of the math behind ICAR and its relationship to CAR can be found [here](https://mc-stan.org/users/documentation/case-studies/icar_stan.html) or in the academic paper version {cite:p}`morris2021bym`.
+ICAR has a few other special features: it is constrained so all the $\phi$'s add up to zero. This also implies the mean of the $\phi$'s is zero. It can be helpful to think of ICAR values as similar to z-scores. They represent relative deviations centered around 0. ICAR is also typically only used as a sub-component of a larger model. Other parts of the model typically adjust the scale (with a variance parameter) or the location (with an intercept parameter). An accessible discussion of the math behind ICAR and its relationship to CAR can be found [here](https://mc-stan.org/users/documentation/case-studies/icar_stan.html) or in the academic paper version {cite:p}`morris2021bym`.
 
 +++
 
@@ -228,7 +228,7 @@ scaling_factor = scaling_factor_sp(W_nyc)
 scaling_factor
 ```
 
-The first `.csv` file just has the spatial structure bits. The rest of the data comes seperately - here we'll pull in the number of accidents `y` and the population size of the census track, `E`. We'll use the population size as an offset - we should expect that more populated areas will have more accidents for trivial reasons. What is more interesting is something like the excess risk associated with an area.
+The first `.csv` file just has the spatial structure bits. The rest of the data comes separately - here we'll pull in the number of accidents `y` and the population size of the census track, `E`. We'll use the population size as an offset - we should expect that more populated areas will have more accidents for trivial reasons. What is more interesting is something like the excess risk associated with an area.
 
 Finally, we'll also explore one predictor variable, the social fragmentation index. The index is built out of measures of the number of vacant housing units, people living alone, renters and people who have moved within the previous year. These communities tend to be less integrated and have weaker social support systems. The social epidemiology community is interested in how ecological variables can trickle down into various facets of public health. So we'll see if social fragmentation can explain the pattern of traffic accidents. The measure is standardized to have a mean of zero and standard deviation of 1.
 
@@ -315,7 +315,7 @@ nx.draw_networkx(
 
 All the parameters of the BYM were already introduced in {ref}`section 1 <bym-components>`. Now it's just a matter of assigning some priors. The priors on $\theta$ are picky - we need to assign a mean of 0 and a standard deviation 1 so that we can interpret it as comparable with $\phi$. Otherwise, the priors distributions afford the opportunity to incorporate domain expertise. In this problem, I'll pick some weakly informative priors.
 
-Lastly, we'll use a Poisson outcome distribution. The number of traffic accidents is a count outcome and the maximium possible value is very large. To ensure our predictions remain positive, we'll exponentiate the linear model before passing it to the Poisson distribution.
+Lastly, we'll use a Poisson outcome distribution. The number of traffic accidents is a count outcome and the maximum possible value is very large. To ensure our predictions remain positive, we'll exponentiate the linear model before passing it to the Poisson distribution.
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as BYM_model:
@@ -528,7 +528,7 @@ The goal of the BYM model is that we mix together two different types of random 
 
 The scaling factor is the trick that ensures the variance of $\phi$ roughly equals one. When the variance implied by the spatial structure is quite small, say, less than one, dividing $\rho$ by the scaling factor will give some number greater than one. In other words, we expand the variance of $\phi$ until it equals one. Now all the other parameters will behave properly. $\rho$ represents a mixture between two similar things and $\sigma$ represents the joint variance from random effects.
 
-A final way to understand the purpose of the scaling factor is to imagine what would happen if we didn't include it. Suppose the graph implied very large variance, like the first preferential attachment graph above. In this case, the mixture parameter, $\rho$, might pull in more of $\phi$ because the data has a lot of variance and the model is searching for variance wherever it can find to explain it. But that makes the intepretation of the results challenging. Did $\rho$ gravitate towards $\phi$ because there is actually a strong spatial structure? Or because it had higher variance than $\theta$? We cannot tell unless we rescale the $\phi$.
+A final way to understand the purpose of the scaling factor is to imagine what would happen if we didn't include it. Suppose the graph implied very large variance, like the first preferential attachment graph above. In this case, the mixture parameter, $\rho$, might pull in more of $\phi$ because the data has a lot of variance and the model is searching for variance wherever it can find to explain it. But that makes the interpretation of the results challenging. Did $\rho$ gravitate towards $\phi$ because there is actually a strong spatial structure? Or because it had higher variance than $\theta$? We cannot tell unless we rescale the $\phi$.
 
 +++
 

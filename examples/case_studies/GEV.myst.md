@@ -85,7 +85,7 @@ Consider then, the 10-year return period, for which $p = 1/10$:
 p = 1 / 10
 ```
 
-And now set up the model using priors estimated from a quick review of the historgram above:
+And now set up the model using priors estimated from a quick review of the histogram above:
 
 - $\mu$: there is no real basis for considering anything other than a `Normal` distribution with a standard deviation limiting negative outcomes;
 - $\sigma$: this must be positive, and has a small value, so use `HalfNormal` with a unit standard deviation;

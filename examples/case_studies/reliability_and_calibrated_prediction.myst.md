@@ -232,7 +232,7 @@ def make_actuarial_table(actuarial_table):
     actuarial_table["CI_95_ub"] = np.where(
         actuarial_table["CI_95_ub"] > 1, 1, actuarial_table["CI_95_ub"]
     )
-    actuarial_table["ploting_position"] = actuarial_table["F_hat"].rolling(1).median()
+    actuarial_table["plotting_position"] = actuarial_table["F_hat"].rolling(1).median()
     actuarial_table = logit_transform_interval(actuarial_table)
     return actuarial_table
 
@@ -743,7 +743,7 @@ ax.plot(
 )
 ax.scatter(
     np.log(actuarial_table_bearings["t"]),
-    norm.ppf(actuarial_table_bearings["ploting_position"]),
+    norm.ppf(actuarial_table_bearings["plotting_position"]),
     label="Non-Parametric CDF",
     color="black",
 )
@@ -806,7 +806,7 @@ ax2.plot(
 )
 ax2.scatter(
     np.log(actuarial_table_bearings["t"]),
-    sev_ppf(actuarial_table_bearings["ploting_position"]),
+    sev_ppf(actuarial_table_bearings["plotting_position"]),
     label="Non-Parametric CDF",
     color="black",
 )
@@ -866,12 +866,12 @@ We can see here how neither MLE fit covers the range of observed data.
 
 We've now seen how to model and visualise the parametric model fits to sparse reliability using a frequentist or MLE framework. We want to now show how the same style of inferences can be achieved in the Bayesian paradigm. 
 
-As in the MLE paradigm we need to model the censored liklihood. For most log-location distributions we've seen above the likelihood is expressed as a function of a combination of the distribution pdf $\phi$ and cdf $\Phi$ applied as appropriately depending on whether or not the data point was fully observed in the time window or censored. 
+As in the MLE paradigm we need to model the censored likelihood. For most log-location distributions we've seen above the likelihood is expressed as a function of a combination of the distribution pdf $\phi$ and cdf $\Phi$ applied as appropriately depending on whether or not the data point was fully observed in the time window or censored. 
 
 
 $$ L(\mu, \sigma) =  \prod_{i = 1}^{n} \Bigg(\dfrac{1}{\sigma t_{i}} \phi\Bigg[ \dfrac{log(t_{i}) - \mu}{\sigma}  \Bigg] \Bigg)^{\delta_{i}} \cdot \Bigg(1 - \Phi \Bigg[ \dfrac{log(t_{i}) - \mu}{\sigma} \Bigg]   \Bigg)^{1-\delta}$$
 
-where $\delta_{i}$ is an indicator for whether the observation is a faiure or a right censored observation. More complicated types of censoring can be included with similar modifications of the CDF depending on the nature of the censored observations.
+where $\delta_{i}$ is an indicator for whether the observation is a failure or a right censored observation. More complicated types of censoring can be included with similar modifications of the CDF depending on the nature of the censored observations.
 
 +++
 

@@ -14,7 +14,7 @@ kernelspec:
 # Student-t Process
 
 :::{post} August 2017
-:tags: t-process, gaussian process, bayesian non-parametrics
+:tags: t-process, gaussian process, nonparametric
 :category: intermediate
 :author: Bill Engels
 :::

@@ -14,7 +14,7 @@ kernelspec:
 # Gaussian Processes: HSGP Advanced Usage
 
 :::{post} June 28, 2024
-:tags: gaussian processes
+:tags: gaussian process
 :category: reference, intermediate
 :author: Bill Engels, Alexandre Andorra, Maxim Kochurov
 :::
@@ -410,7 +410,7 @@ pm.gp.hsgp_approx.set_boundary(Xs, 4.0)
 
 Bingo!
 
-One last thing we also talked about in the first turorial: increasing `c` requires increasing `m` to compensate for the loss of fidelity at smaller lengthscales. So let's err on the side of safety and choose:
+One last thing we also talked about in the first tutorial: increasing `c` requires increasing `m` to compensate for the loss of fidelity at smaller lengthscales. So let's err on the side of safety and choose:
 
 ```{code-cell} ipython3
 m, c = 100, 4.0
@@ -825,7 +825,7 @@ Phew, that's a lot of information! Let's see what we can make of this:
 
 - As data become sparse, the **long-term trend is reverting back to the overall GP mean** (i.e 0), but hasn't reached it yet, because the length scale on the trend is bigger than the testing period of 5 (`ell_mu_trend_true = 10`).
 - The **short-term variation on the mean GP isn't obvious** because it's small relative to the trend. But it _is_ noticeable: it creates the small wiggles in the orange HDI, and makes this HDI wider in comparison to the individual GPs (the blue ones).
-- The **individual GPs revert faster to the mean GP** (orange enveloppe) **than to the GP mean** (i.e 0), which is the behavior we want from the hierarchical structure.
+- The **individual GPs revert faster to the mean GP** (orange envelope) **than to the GP mean** (i.e 0), which is the behavior we want from the hierarchical structure.
 
 +++
 

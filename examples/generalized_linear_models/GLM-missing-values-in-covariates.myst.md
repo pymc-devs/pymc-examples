@@ -14,7 +14,7 @@ kernelspec:
 # GLM-missing-values-in-covariates
 
 :::{post} Nov 09, 2024
-:tags: missing-covariate-values, missing-values, auto-imputation, linear-regression, bayesian-workflow
+:tags: missing covariate values, missing values, auto-imputation, linear regression, bayesian workflow
 :category: intermediate, reference
 :author: Jonathan Sedar
 :::
@@ -367,7 +367,7 @@ _ = g.fig.tight_layout()
 
 + We have full control over how many observations we create in `df`, so the ratio of this split doesn't really matter,
   and we'll arrange to have `10` observations in the holdout set
-+ Eyeball the `count` of non-nulls in the below tabels to ensure we have missing values in both features `c`, `d` in 
++ Eyeball the `count` of non-nulls in the below tables to ensure we have missing values in both features `c`, `d` in 
   both datasets `train` and `holdout`
 
 ```{code-cell} ipython3
@@ -459,7 +459,7 @@ where:
 
 +++
 
-This is a lightly simplifed copy of the same logic / workflow in $\S0.3$ above. We won't take up any more space here 
+This is a lightly simplified copy of the same logic / workflow in $\S0.3$ above. We won't take up any more space here 
 with EDA, the only difference is `c` and `d` are now complete
 
 +++
@@ -1371,7 +1371,7 @@ mdla_h.debug(fn="random", verbose=True)
 
 **NOTE** 
 
-+ Avoid changing `ida`, instead take a deepcopy `ida_h` , remove uneccessary groups, and we'll use that
++ Avoid changing `ida`, instead take a deepcopy `ida_h` , remove unnecessary groups, and we'll use that
 + We won't create a bare `az.InferenceData` then add groups, because we have to add all sorts of additional subtle 
   info to the object. Easier to copy and remove groups
 + The `xarray` indexing in `posterior` will be wrong (set according to `dfx_train`, rather than `dfx_holdout`),
@@ -1517,7 +1517,7 @@ _ = plot_xkhat_vs_xk(df_h_xk_unobs, mdlnm="mdla", in_samp=False)
   conditional on anything else, so we get pretty much all the same predicted value
 + This should drive home the understanding that while technically this model **can** handle new missing values,
   and **does** auto-impute values for missing data in an out-of-sample dataset (here `dfx_holdout`), these auto-imputed
-  values for `xk_unobserved` **can't** be any more informative than the posterior distribution of the hierachical 
+  values for `xk_unobserved` **can't** be any more informative than the posterior distribution of the hierarchical 
   prior `xk_mu`.
 
 +++
