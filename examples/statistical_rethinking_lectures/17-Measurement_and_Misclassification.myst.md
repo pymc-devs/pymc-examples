@@ -1006,7 +1006,7 @@ def log_sum_exp(a, b):
     Ironically, using `pm.math.logsumexp` for this implementation was
     providing numerically results.
 
-    It looks like the PyMC5 implementation uses vanilla `exp`, `sum`,
+    It looks like the PyMC implementation uses vanilla `exp`, `sum`,
     and `log` operators, which likely isn't numerically stable:.
     """
     c = pm.math.maximum(a, b)

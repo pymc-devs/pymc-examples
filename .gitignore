@@ -8,3 +8,5 @@ build
 jupyter_execute
 _thumbnails
 examples/gallery.rst
+
+pixi.lock

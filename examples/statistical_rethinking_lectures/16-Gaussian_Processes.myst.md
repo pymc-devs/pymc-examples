@@ -1155,7 +1155,7 @@ D = PRIMATES_DISTANCE_MATRIX / PRIMATES_DISTANCE_MATRIX.max()
 assert D.max() == 1
 ```
 
-#### PyMC5 Implementation
+#### PyMC Implementation
 
 Below is an implementation that uses PyMC's Gaussian process module.
 
