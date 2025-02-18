@@ -62,8 +62,8 @@ style.use(STYLE)
   - Taller humans have more volume that shorter humans
   - Thus taller humans weight more (I know this is super-basic, that's the point)
 - Thus the weight of a human falls back on simple physics: **the shape of a human determines their mass, and thus their weight**
-- We can model the **shape** of a human in lots, of ways, but the simplest (albeit cartoonish) is probabily as a cylindar.
-  - rare that people are wider than they are tall -- we can model radius of cylindar as proportion of height
+- We can model the **shape** of a human in lots, of ways, but the simplest (albeit cartoonish) is probabily as a cylinder.
+  - rare that people are wider than they are tall -- we can model radius of cylinder as proportion of height
   - push statistical estimation as far down the analysis pipeline as possible
 
 ### Cartoonish Scientific model
@@ -73,7 +73,7 @@ style.use(STYLE)
 
 $$
 \begin{align*}
-V &= \pi r^2 h &\text{Volume of cylindar} \\
+V &= \pi r^2 h &\text{Volume of cylinder} \\
 V &= \pi (ph)^2 h &\text{radius as proportion of height, } p \\
 W &= kV = k\pi (ph)^2 h &\text{converting volume to weight} \\
 W &= k\pi p^2 h^3 \\
@@ -276,7 +276,7 @@ plot_cylinder_model_posterior(cylinder_model, cylinder_inference);
 ```
 
 ### Insightful errors
-- not bad for a cylindar
+- not bad for a cylinder
 - poor fit for children
 - in scientific model, errors are informative
   - likely $p$ is different for children
@@ -330,7 +330,7 @@ Thus the parameter $\theta = k p^2$ is just a constant, $1/\pi$, so **there are 
 
 +++
 
-### Fit the dimensionless cylindar model
+### Fit the dimensionless cylinder model
 
 $$
 \begin{align*}
