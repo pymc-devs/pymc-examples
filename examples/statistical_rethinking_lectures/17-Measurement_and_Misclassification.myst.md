@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: default
   language: python
   name: python3
 ---
@@ -30,6 +30,7 @@ import arviz as az
 import numpy as np
 import pandas as pd
 import pymc as pm
+import pytensor.tensor as pt
 import statsmodels.formula.api as smf
 import utils as utils
 import xarray as xr
@@ -998,29 +999,6 @@ pm.math.log(FALSE_POSITIVE_RATE).astype("float32").eval()
 ```
 
 ```{code-cell} ipython3
-# Helper functions
-def log_sum_exp(a, b):
-    """
-    Simple, numerically-stable logsumexp implementation for two inputs.
-
-    Ironically, using `pm.math.logsumexp` for this implementation was
-    providing numerically results.
-
-    It looks like the PyMC implementation uses vanilla `exp`, `sum`,
-    and `log` operators, which likely isn't numerically stable:.
-    """
-    c = pm.math.maximum(a, b)
-    return c + pm.math.log(pm.math.exp(a - c) + pm.math.exp(b - c))
-
-
-def log1p(x):
-    return pm.math.log(1 + x)
-
-
-def log1m(x):
-    return log1p(-x)
-
-
 MOM_ID = PATERNITY.mother_id
 
 with pm.Model() as paternity_measurement_lse_model:
@@ -1040,10 +1018,11 @@ with pm.Model() as paternity_measurement_lse_model:
     # custom_log_p_x0 = pm.math.log((1 - p) * (1 - f))
 
     # Custom logp using log-space reparameterization
-    custom_log_p_x1 = log_sum_exp(
-        pm.math.log(p), log1m(p) + pm.math.log(f)
+    custom_log_p_x1 = pm.math.logsumexp(
+        [pm.math.log(p), pt.math.log1p(-p) + pm.math.log(f)], axis=0
     )  # this line is problematic
-    custom_log_p_x0 = log1m(p) + log1m(f)
+    # First compute (1-p)*f in log space, then combine with p
+    custom_log_p_x0 = pt.math.log1p(-p) + pt.math.log1p(-f)
 
     pm.Potential("X*=1", custom_log_p_x1)
     pm.Potential("X*=0", custom_log_p_x0)
