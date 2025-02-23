@@ -160,10 +160,19 @@ for ax, cat in zip(axes, np.repeat(species, len(vi_results["labels"]))):
 
 ### Partial Dependence Plot
 
-Let's check the behavior of each covariable for each species with `pmb.plot_pdp()`, which shows the marginal effect a covariate has on the predicted variable, while we average over all the other covariates. Since our response variable is categorical, we'll pass `softmax` as the inverse link function to `plot_pdp`.
+Let's check the behavior of each covariable for each species with `pmb.plot_pdp()`, which shows the marginal effect a covariate has on the predicted variable, while we average over all the other covariates. Since our response variable is categorical, we'll pass `softmax` as the inverse link function to `plot_pdp`. 
+
+You can see we have to be careful with the `softmax` function, because it's not vectorized: it considers relationships between elements, so the specific axis along which we apply it matters. By default, scipy applies to all axes, but we want to apply it to the last axis, since that's where the categories are. To make sure of that, we use `np.apply_along_axis` and pass it in a lambda function.
 
 ```{code-cell} ipython3
-axes = pmb.plot_pdp(μ, X=x_0, Y=y_0, grid=(5, 3), figsize=(12, 12), func=softmax)
+axes = pmb.plot_pdp(
+    μ,
+    X=x_0,
+    Y=y_0,
+    grid=(5, 3),
+    figsize=(12, 12),
+    func=lambda x: np.apply_along_axis(softmax, axis=-1, arr=x),
+)
 plt.suptitle("Partial Dependence Plots\n", fontsize=18)
 for (i, ax), cat in zip(enumerate(axes), np.tile(species, len(vi_results["labels"]))):
     ax.set(title=f"Species {cat}")
@@ -242,7 +251,14 @@ pmb.plot_variable_importance(vi_results);
 ```
 
 ```{code-cell} ipython3
-axes = pmb.plot_pdp(μ_t, X=x_0, Y=y_0, grid=(5, 3), figsize=(12, 12), func=softmax)
+axes = pmb.plot_pdp(
+    μ_t,
+    X=x_0,
+    Y=y_0,
+    grid=(5, 3),
+    figsize=(12, 12),
+    func=lambda x: np.apply_along_axis(softmax, axis=-1, arr=x),
+)
 plt.suptitle("Partial Dependence Plots\n", fontsize=18)
 for (i, ax), cat in zip(enumerate(axes), np.tile(species, len(vi_results["labels"]))):
     ax.set(title=f"Species {cat}")
