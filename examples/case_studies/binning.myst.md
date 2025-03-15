@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python [conda env:pymc_env]
+  display_name: pymc_5.11
   language: python
-  name: conda-env-pymc_env-py
+  name: python3
 ---
 
 (awkward_binning)=
@@ -233,7 +233,7 @@ pm.model_to_graphviz(model1)
 
 ```{code-cell} ipython3
 with model1:
-    trace1 = pm.sample()
+    trace1 = pm.sample(random_seed=rng)
 ```
 
 ### Checks on model
@@ -244,7 +244,7 @@ we should be able to generate observations that look close to what we observed.
 
 ```{code-cell} ipython3
 with model1:
-    ppc = pm.sample_posterior_predictive(trace1)
+    ppc = pm.sample_posterior_predictive(trace1, random_seed=rng)
 ```
 
 We can do this graphically.
@@ -254,7 +254,7 @@ fig, ax = plt.subplots(figsize=(12, 4))
 # Plot observed bin counts
 c1.plot(kind="bar", ax=ax, alpha=0.5)
 # Plot posterior predictive
-ppc.posterior_predictive.plot.scatter(x="counts1_dim_0", y="counts1", color="k", alpha=0.2)
+ppc.posterior_predictive.plot.scatter(x="counts1_dim_2", y="counts1", color="k", alpha=0.2)
 # Formatting
 ax.set_xticklabels([f"bin {n}" for n in range(len(c1))])
 ax.set_title("Six bin discretization of N(-2, 2)")
@@ -322,7 +322,7 @@ with pm.Model() as model2:
 
 ```{code-cell} ipython3
 with model2:
-    trace2 = pm.sample()
+    trace2 = pm.sample(random_seed=rng)
 ```
 
 ```{code-cell} ipython3
@@ -335,7 +335,7 @@ Let's run a PPC check to ensure we are generating data that are similar to what 
 
 ```{code-cell} ipython3
 with model2:
-    ppc = pm.sample_posterior_predictive(trace2)
+    ppc = pm.sample_posterior_predictive(trace2, random_seed=rng)
 ```
 
 We calculate the mean bin posterior predictive bin counts, averaged over samples.
@@ -355,7 +355,7 @@ fig, ax = plt.subplots(figsize=(12, 4))
 # Plot observed bin counts
 c2.plot(kind="bar", ax=ax, alpha=0.5)
 # Plot posterior predictive
-ppc.posterior_predictive.plot.scatter(x="counts2_dim_0", y="counts2", color="k", alpha=0.2)
+ppc.posterior_predictive.plot.scatter(x="counts2_dim_2", y="counts2", color="k", alpha=0.2)
 # Formatting
 ax.set_xticklabels([f"bin {n}" for n in range(len(c2))])
 ax.set_title("Seven bin discretization of N(-2, 2)")
@@ -412,7 +412,7 @@ pm.model_to_graphviz(model3)
 
 ```{code-cell} ipython3
 with model3:
-    trace3 = pm.sample()
+    trace3 = pm.sample(random_seed=rng)
 ```
 
 ```{code-cell} ipython3
@@ -423,7 +423,7 @@ az.plot_pair(trace3, var_names=["mu", "sigma"], divergences=True);
 
 ```{code-cell} ipython3
 with model3:
-    ppc = pm.sample_posterior_predictive(trace3)
+    ppc = pm.sample_posterior_predictive(trace3, random_seed=rng)
 ```
 
 ```{code-cell} ipython3
@@ -434,7 +434,7 @@ fig, ax = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
 c1.plot(kind="bar", ax=ax[0], alpha=0.5)
 # Plot posterior predictive
 ppc.posterior_predictive.plot.scatter(
-    x="counts1_dim_0", y="counts1", color="k", alpha=0.2, ax=ax[0]
+    x="counts1_dim_2", y="counts1", color="k", alpha=0.2, ax=ax[0]
 )
 # Formatting
 ax[0].set_xticklabels([f"bin {n}" for n in range(len(c1))])
@@ -445,7 +445,7 @@ ax[0].set_title("Six bin discretization of N(-2, 2)")
 c2.plot(kind="bar", ax=ax[1], alpha=0.5)
 # Plot posterior predictive
 ppc.posterior_predictive.plot.scatter(
-    x="counts2_dim_0", y="counts2", color="k", alpha=0.2, ax=ax[1]
+    x="counts2_dim_2", y="counts2", color="k", alpha=0.2, ax=ax[1]
 )
 # Formatting
 ax[1].set_xticklabels([f"bin {n}" for n in range(len(c2))])
@@ -493,14 +493,14 @@ pm.model_to_graphviz(model4)
 
 ```{code-cell} ipython3
 with model4:
-    trace4 = pm.sample()
+    trace4 = pm.sample(random_seed=rng)
 ```
 
 ### Posterior predictive checks
 
 ```{code-cell} ipython3
 with model4:
-    ppc = pm.sample_posterior_predictive(trace4)
+    ppc = pm.sample_posterior_predictive(trace4, random_seed=rng)
 ```
 
 ```{code-cell} ipython3
@@ -509,9 +509,9 @@ fig, ax = plt.subplots(1, 2, figsize=(12, 4))
 # Study 1 ----------------------------------------------------------------
 # Plot observed bin counts
 c1.plot(kind="bar", ax=ax[0], alpha=0.5)
-# Plot posterior predictive
-ppc.posterior_predictive.plot.scatter(
-    x="counts1_dim_0", y="counts1", color="k", alpha=0.2, ax=ax[0]
+# Plot posterior predictive (subsampling to speed up plotting)
+ppc.posterior_predictive.sel(y_dim_2=slice(10)).plot.scatter(
+    x="counts1_dim_2", y="counts1", color="k", alpha=0.2, ax=ax[0]
 )
 # Formatting
 ax[0].set_xticklabels([f"bin {n}" for n in range(len(c1))])
@@ -625,14 +625,18 @@ pm.model_to_graphviz(model5)
 
 ```{code-cell} ipython3
 with model5:
-    trace5 = pm.sample(tune=2000, target_accept=0.99)
+    trace5 = pm.sample(tune=2000, target_accept=0.98, random_seed=rng)
 ```
 
-We can see that despite our efforts, we still get some divergences. Plotting the samples and highlighting the divergences suggests (from the top left subplot) that our model is suffering from the funnel problem
+We can see that despite our efforts, we still get one divergence. Plotting the samples suggests (top left subplot) that our model is suffering from the funnel problem
 
 ```{code-cell} ipython3
+trace5.posterior["log(mu_pop_variance)"] = np.log(trace5.posterior["mu_pop_variance"])
 az.plot_pair(
-    trace5, var_names=["mu_pop_mean", "mu_pop_variance", "sigma"], coords=coords, divergences=True
+    trace5,
+    var_names=["mu_pop_mean", "log(mu_pop_variance)", "sigma"],
+    coords=coords,
+    divergences=True,
 );
 ```
 
@@ -640,7 +644,7 @@ az.plot_pair(
 
 ```{code-cell} ipython3
 with model5:
-    ppc = pm.sample_posterior_predictive(trace5)
+    ppc = pm.sample_posterior_predictive(trace5, random_seed=rng)
 ```
 
 ```{code-cell} ipython3
@@ -766,8 +770,8 @@ true_mu, true_beta = 20, 4
 BMI = pm.Gumbel.dist(mu=true_mu, beta=true_beta)
 
 # Generate two different sets of random samples from the same Gaussian.
-x1 = pm.draw(BMI, 800)
-x2 = pm.draw(BMI, 1200)
+x1 = pm.draw(BMI, 800, random_seed=rng)
+x2 = pm.draw(BMI, 1200, random_seed=rng)
 
 # Calculate bin counts
 c1 = data_to_bincounts(x1, d1)
@@ -833,14 +837,14 @@ pm.model_to_graphviz(model6)
 
 ```{code-cell} ipython3
 with model6:
-    trace6 = pm.sample()
+    trace6 = pm.sample(random_seed=rng)
 ```
 
 ### Posterior predictive checks
 
 ```{code-cell} ipython3
 with model6:
-    ppc = pm.sample_posterior_predictive(trace6)
+    ppc = pm.sample_posterior_predictive(trace6, random_seed=rng)
 ```
 
 ```{code-cell} ipython3
@@ -851,7 +855,7 @@ fig, ax = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
 c1.plot(kind="bar", ax=ax[0], alpha=0.5)
 # Plot posterior predictive
 ppc.posterior_predictive.plot.scatter(
-    x="counts1_dim_0", y="counts1", color="k", alpha=0.2, ax=ax[0]
+    x="counts1_dim_2", y="counts1", color="k", alpha=0.2, ax=ax[0]
 )
 # Formatting
 ax[0].set_xticklabels([f"bin {n}" for n in range(len(c1))])
@@ -862,7 +866,7 @@ ax[0].set_title("Study 1")
 c2.plot(kind="bar", ax=ax[1], alpha=0.5)
 # Plot posterior predictive
 ppc.posterior_predictive.plot.scatter(
-    x="counts2_dim_0", y="counts2", color="k", alpha=0.2, ax=ax[1]
+    x="counts2_dim_2", y="counts2", color="k", alpha=0.2, ax=ax[1]
 )
 # Formatting
 ax[1].set_xticklabels([f"bin {n}" for n in range(len(c2))])
