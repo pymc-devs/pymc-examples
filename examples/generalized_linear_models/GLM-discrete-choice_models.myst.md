@@ -98,7 +98,7 @@ This assumption proves to be mathematically convenient because the difference be
 
 $$ \text{softmax}(u)_{j} = \frac{\exp(u_{j})}{\sum_{q=1}^{J}\exp(u_{q})} $$
 
-The model then assumes that decision maker chooses the option that maximises their subjective utility. The individual utility functions can be richly parameterised. The model is identified just when the utility measures of the alternatives are benchmarked against the fixed utility of the "outside good." The last quantity is fixed at 0. 
+The model then assumes that decision maker chooses the option that maximises their subjective utility. The individual utility functions can be richly parameterised. The model is identified just when the utility measures of the alternatives are benchmarked against the fixed utility of the "outside good." The last quantity is often fixed at 0 to aid parameter identification on alternative-specific parameters as we'll see below.
 
 $$\begin{pmatrix}
 u_{gc}   \\
@@ -131,7 +131,7 @@ long_heating_df[long_heating_df["idcase"] == 1][columns]
 
 ## The Basic Model
 
-We will show here how to incorporate the utility specifications in PyMC. PyMC is a nice interface for this kind of modelling because it can express the model quite cleanly following the natural mathematical expression for this system of equations. You can see in this simple model how we go about constructing equations for the utility measure of each alternative separately, and then stacking them together to create the input matrix for our softmax transform. 
+We will show here how to incorporate the utility specifications in PyMC. PyMC is a nice interface for this kind of modelling because it can express the model quite cleanly following the natural mathematical expression for this system of equations. You can see in this simple model how we go about constructing equations for the utility measure of each alternative seperately, and then stacking them together to create the input matrix for our softmax transform. 
 
 ```{code-cell} ipython3
 N = wide_heating_df.shape[0]
@@ -150,7 +150,7 @@ with pm.Model(coords=coords) as model_1:
     u1 = beta_ic * wide_heating_df["ic.er"] + beta_oc * wide_heating_df["oc.er"]
     u2 = beta_ic * wide_heating_df["ic.gc"] + beta_oc * wide_heating_df["oc.gc"]
     u3 = beta_ic * wide_heating_df["ic.gr"] + beta_oc * wide_heating_df["oc.gr"]
-    u4 = np.zeros(N)  # Outside Good
+    u4 = beta_ic * wide_heating_df["ic.hp"] + beta_oc * wide_heating_df["oc.hp"]
     s = pm.math.stack([u0, u1, u2, u3, u4]).T
 
     ## Apply Softmax Transform
@@ -210,7 +210,7 @@ ax.hist(
 ax.set_title("Uncertainty in Marginal Rate of Substitution \n Operating Costs / Installation Costs");
 ```
 
-which suggests that there is almost twice the value accorded to the a unit reduction in recurring operating costs over the one-off installation costs. Whether this is remotely plausible is almost beside the point since the model does not even closely capture the data generating process. But it's worth repeating that the native scale of utility is not straightforwardly meaningful, but the ratio of the coefficients in the utility equations can be directly interpreted.  
+which suggests that there is around .7 of the value accorded to the a unit reduction in recurring operating costs over the one-off installation costs. Whether this is remotely plausible is almost beside the point since the model does not even closely capture the data generating process. But it's worth repeating that the native scale of utility is not straightforwardly meaningful, but the ratio of the coefficients in the utility equations can be directly interpreted.  
 
 To assess overall model adequacy we can rely on the posterior predictive checks to see if the model can recover an approximation to the data generating process.
 
@@ -272,7 +272,7 @@ with pm.Model(coords=coords) as model_2:
     u1 = alphas[1] + beta_ic * wide_heating_df["ic.er"] + beta_oc * wide_heating_df["oc.er"]
     u2 = alphas[2] + beta_ic * wide_heating_df["ic.gc"] + beta_oc * wide_heating_df["oc.gc"]
     u3 = alphas[3] + beta_ic * wide_heating_df["ic.gr"] + beta_oc * wide_heating_df["oc.gr"]
-    u4 = np.zeros(N)  # Outside Good
+    u4 = 0 + beta_ic * wide_heating_df["ic.hp"] + beta_oc * wide_heating_df["oc.hp"]
     s = pm.math.stack([u0, u1, u2, u3, u4]).T
 
     ## Apply Softmax Transform
@@ -291,8 +291,10 @@ with pm.Model(coords=coords) as model_2:
 pm.model_to_graphviz(model_2)
 ```
 
+We have deliberately 0'd out the intercept parameter for the `hp` alternative to ensure parameter identification is feasible. 
+
 ```{code-cell} ipython3
-az.summary(idata_m2, var_names=["beta_ic", "beta_oc", "alpha"])
+az.summary(idata_m2, var_names=["beta_ic", "beta_oc", "alpha"], round_to=4)
 ```
 
 We can see now how this model performs much better in capturing aspects of the data generating process. 
@@ -348,27 +350,18 @@ with pm.Model(coords=coords) as model_3:
 
     beta_ic = pm.Normal("beta_ic", 0, 1)
     beta_oc = pm.Normal("beta_oc", 0, 1)
-    beta_income = pm.Normal("beta_income", 0, 1, dims="alts_intercepts")
     chol, corr, stds = pm.LKJCholeskyCov(
-        "chol", n=4, eta=2.0, sd_dist=pm.Exponential.dist(1.0, shape=4)
+        "chol", n=5, eta=2.0, sd_dist=pm.Exponential.dist(1.0, shape=5)
     )
-    alphas = pm.MvNormal("alpha", mu=0, chol=chol, dims="alts_intercepts")
+    alphas = pm.MvNormal("alpha", mu=0, chol=chol, dims="alts_probs")
 
-    u0 = alphas[0] + beta_ic * ic_ec + beta_oc * oc_ec + beta_income[0] * wide_heating_df["income"]
-    u1 = alphas[1] + beta_ic * ic_er + beta_oc * oc_er + beta_income[1] * wide_heating_df["income"]
-    u2 = (
-        alphas[2]
-        + beta_ic * wide_heating_df["ic.gc"]
-        + beta_oc * wide_heating_df["oc.gc"]
-        + beta_income[2] * wide_heating_df["income"]
-    )
-    u3 = (
-        alphas[3]
-        + beta_ic * wide_heating_df["ic.gr"]
-        + beta_oc * wide_heating_df["oc.gr"]
-        + beta_income[3] * wide_heating_df["income"]
-    )
-    u4 = np.zeros(N)  # pivot
+    u0 = alphas[0] + beta_ic * ic_ec + beta_oc * oc_ec
+    u1 = alphas[1] + beta_ic * ic_er + beta_oc * oc_er
+    u2 = alphas[2] + beta_ic * wide_heating_df["ic.gc"] + beta_oc * wide_heating_df["oc.gc"]
+    u3 = alphas[3] + beta_ic * wide_heating_df["ic.gr"] + beta_oc * wide_heating_df["oc.gr"]
+    u4 = (
+        alphas[4] + beta_ic * wide_heating_df["ic.hp"] + beta_oc * wide_heating_df["oc.hp"]
+    )  # pivot)
     s = pm.math.stack([u0, u1, u2, u3, u4]).T
 
     p_ = pm.Deterministic("p", pm.math.softmax(s, axis=1), dims=("obs", "alts_probs"))
@@ -417,9 +410,7 @@ ax.set_ylabel("Heating System");
 That extra complexity can be informative, and the degree of relationship amongst the alternative products will inform the substitution patterns under policy changes. Also, note how under this model specification the parameter for `beta_ic` has a expected value of 0. Suggestive perhaps of a resignation towards the reality of installation costs that doesn't change the  utility metric one way or other after a decision to purchase.
 
 ```{code-cell} ipython3
-az.summary(
-    idata_m3, var_names=["beta_income", "beta_ic", "beta_oc", "alpha", "chol_corr"], round_to=4
-)
+az.summary(idata_m3, var_names=["beta_ic", "beta_oc", "alpha", "chol_corr"], round_to=4)
 ```
 
 In this model we see that the marginal rate of substitution shows that an increase of one dollar for the operating costs is almost 17 times more impactful on the utility calculus than a similar increase in installation costs. Which makes sense in so far as we can expect the installation costs to be a one-off expense we're pretty resigned to. 
@@ -454,7 +445,19 @@ idata_new_policy
 ```
 
 ```{code-cell} ipython3
-idata_new_policy["predictions"]["p"].mean(dim=["chain", "draw", "obs"])
+# Old Policy Expectations
+old = idata_m3["posterior"]["p"].mean(dim=["chain", "draw", "obs"])
+old
+```
+
+```{code-cell} ipython3
+# New Policy Expectations
+new = idata_new_policy["predictions"]["p"].mean(dim=["chain", "draw", "obs"])
+new
+```
+
+```{code-cell} ipython3
+new - old
 ```
 
 ```{code-cell} ipython3
@@ -497,7 +500,7 @@ Here we can, as expected, see that a rise in the operating costs of the electric
 
 ### Compare Models
 
-We'll now evaluate all three model fits on their predictive performance. Predictive performance on the original data is a good benchmark that the model has appropriately captured the data generating process. But it is not (as we've seen) the only feature of interest in these models. These models are sensitive to our theoretical beliefs about the agents making the decisions, the view of the decision process and the elements of the choice scenario.
+We'll now evaluate all three model fits on their predictive performance. Predictive performance on the original data is a good benchmark that the model has appropriately captured the data generating process. But it is not (as we've seen) the only feature of interest in these models. These models are sensetive to our theoretical beliefs about the agents making the decisions, the view of the decision process and the elements of the choice scenario.
 
 ```{code-cell} ipython3
 compare = az.compare({"m1": idata_m1, "m2": idata_m2, "m3": idata_m3})
@@ -505,7 +508,7 @@ compare
 ```
 
 ```{code-cell} ipython3
-az.plot_compare(compare)
+az.plot_compare(compare);
 ```
 
 ## Choosing Crackers over Repeated Choices: Mixed Logit Model
@@ -573,7 +576,7 @@ observed = pd.Categorical(c_df["choice"]).codes
 person_indx, uniques = pd.factorize(c_df["personId"])
 
 coords = {
-    "alts_intercepts": ["sunshine", "keebler", "nabisco"],
+    "alts_intercepts": ["sunshine", "keebler", "nabisco", "private"],
     "alts_probs": ["sunshine", "keebler", "nabisco", "private"],
     "individuals": uniques,
     "obs": range(N),
@@ -604,7 +607,12 @@ with pm.Model(coords=coords) as model_4:
         + beta_feat * c_df["feat.nabisco"]
         + beta_price * c_df["price.nabisco"]
     )
-    u3 = np.zeros(N)  # Outside Good
+    u3 = (
+        (alphas[3] + beta_individual[person_indx, 2])
+        + beta_disp * c_df["disp.private"]
+        + beta_feat * c_df["feat.private"]
+        + beta_price * c_df["price.private"]
+    )
     s = pm.math.stack([u0, u1, u2, u3]).T
     # Reconstruct the total data
 
