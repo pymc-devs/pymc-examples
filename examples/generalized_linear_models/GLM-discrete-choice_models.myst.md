@@ -573,8 +573,14 @@ axs[1].legend(lines, labels);
 We'll model now how individual taste enters into discrete choice problems, but ignore the complexities of the time-dimension or the endogenity of price in the system. There are adaptions of the basic discrete choice model that are designed to address each of these complications. We'll leave the temporal dynamics as a suggested exercise for the reader. 
 
 ```{code-cell} ipython3
+pd.Categorical(c_df["choice"])
+```
+
+```{code-cell} ipython3
 N = c_df.shape[0]
-observed = pd.Categorical(c_df["choice"]).codes
+map = {"sunshine": 0, "keebler": 1, "nabisco": 2, "private": 3}
+c_df["choice_encoded"] = c_df["choice"].map(map)
+observed = c_df["choice_encoded"].values
 person_indx, uniques = pd.factorize(c_df["personId"])
 
 coords = {
@@ -584,12 +590,12 @@ coords = {
     "obs": range(N),
 }
 with pm.Model(coords=coords) as model_4:
-    beta_feat = pm.TruncatedNormal("beta_feat", 0, 1, upper=10, lower=0)
-    beta_disp = pm.TruncatedNormal("beta_disp", 0, 1, upper=10, lower=0)
-    ## Stronger Prior on Price to ensure an increase in price negatively impacts utility
-    beta_price = pm.TruncatedNormal("beta_price", 0, 1, upper=0, lower=-10)
+    beta_feat = pm.Normal("beta_feat", 0, 1)
+    beta_disp = pm.Normal("beta_disp", 0, 1)
+    beta_price = pm.Normal("beta_price", 0, 1)
     alphas = pm.Normal("alpha", 0, 1, dims="alts_intercepts")
-    beta_individual = pm.Normal("beta_individual", 0, 0.05, dims=("individuals", "alts_intercepts"))
+    ## Hierarchical parameters for individual taste
+    beta_individual = pm.Normal("beta_individual", 0, 0.1, dims=("individuals", "alts_intercepts"))
 
     u0 = (
         (alphas[0] + beta_individual[person_indx, 0])
@@ -610,13 +616,12 @@ with pm.Model(coords=coords) as model_4:
         + beta_price * c_df["price.nabisco"]
     )
     u3 = (
-        (alphas[3] + beta_individual[person_indx, 2])
+        (0 + beta_individual[person_indx, 2])
         + beta_disp * c_df["disp.private"]
         + beta_feat * c_df["feat.private"]
         + beta_price * c_df["price.private"]
     )
     s = pm.math.stack([u0, u1, u2, u3]).T
-    # Reconstruct the total data
 
     ## Apply Softmax Transform
     p_ = pm.Deterministic("p", pm.math.softmax(s, axis=1), dims=("obs", "alts_probs"))
@@ -635,7 +640,7 @@ pm.model_to_graphviz(model_4)
 ```
 
 ```{code-cell} ipython3
-az.summary(idata_m4, var_names=["beta_disp", "beta_feat", "beta_price", "alpha", "beta_individual"])
+az.summary(idata_m4, var_names=["beta_disp", "beta_feat", "beta_price", "alpha"]).head(6)
 ```
 
 What have we learned? We've imposed a negative slope on the price coefficient but given it a wide prior. We can see that the data is sufficient to have narrowed the likely range of the coefficient considerably. 
@@ -644,7 +649,7 @@ What have we learned? We've imposed a negative slope on the price coefficient bu
 az.plot_dist_comparison(idata_m4, var_names=["beta_price"]);
 ```
 
-We have explicitly set a negative prior on price and recovered a parameter specification more in line with the basic theory of rational choice. The effect of price should have a negative impact on utility. The flexibility of priors here is key for incorporating theoretical knowledge about the process involved in choice. Priors are important for building a better picture of the decision making process and we'd be foolish to ignore their value in this setting. 
+We have recovered a strongly negative estimate on the price effect in line with the basic theory of rational choice. The effect of price should have a negative impact on utility. The flexibility of priors here is key for incorporating theoretical knowledge about the process involved in choice. Priors are important for building a better picture of the decision making process and we'd be foolish to ignore their value in this setting. 
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(1, 2, figsize=(20, 10))
@@ -665,13 +670,14 @@ ax.scatter(
 )
 ax.scatter(
     predicted_shares,
-    labels,
+    predicted_shares["alts_probs"].values,
     label="Predicted Mean",
     color="green",
-    s=100,
+    s=200,
+    alpha=0.5,
 )
 ax.hlines(
-    labels,
+    predicted_shares["alts_probs"].values,
     ci_lb,
     ci_ub,
     label="Predicted 95% Interval",
