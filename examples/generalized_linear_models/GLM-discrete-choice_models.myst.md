@@ -573,10 +573,6 @@ axs[1].legend(lines, labels);
 We'll model now how individual taste enters into discrete choice problems, but ignore the complexities of the time-dimension or the endogenity of price in the system. There are adaptions of the basic discrete choice model that are designed to address each of these complications. We'll leave the temporal dynamics as a suggested exercise for the reader. 
 
 ```{code-cell} ipython3
-pd.Categorical(c_df["choice"])
-```
-
-```{code-cell} ipython3
 N = c_df.shape[0]
 map = {"sunshine": 0, "keebler": 1, "nabisco": 2, "private": 3}
 c_df["choice_encoded"] = c_df["choice"].map(map)
