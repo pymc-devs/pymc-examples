@@ -168,6 +168,8 @@ with pm.Model(coords=coords) as model_1:
 pm.model_to_graphviz(model_1)
 ```
 
+Note that you need to be careful with the encoding of the outcome variable. The categorical ordering should reflect the ordering of the utilities as they are stacked into the softmax transform and then fed into the likelihood term. 
+
 ```{code-cell} ipython3
 idata_m1
 ```
