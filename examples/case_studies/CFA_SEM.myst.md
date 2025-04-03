@@ -722,7 +722,7 @@ drivers = [
 ]
 
 
-def make_indirect_sem(priors):
+def make_indirect_sem(priors, advi=False):
 
     coords = {
         "obs": list(range(len(df))),
@@ -741,7 +741,7 @@ def make_indirect_sem(priors):
     obs_idx = list(range(len(df)))
     with pm.Model(coords=coords) as model:
 
-        Psi = pm.InverseGamma("Psi", 5, 10, dims="indicators")
+        Psi = pm.Gamma("Psi", priors["gamma"], 0.5, dims="indicators")
         lambdas_ = pm.Normal(
             "lambdas_1", priors["lambda"][0], priors["lambda"][1], dims=("indicators_1")
         )
@@ -772,9 +772,8 @@ def make_indirect_sem(priors):
         lambdas_5 = pm.Deterministic(
             "lambdas5", pt.set_subtensor(lambdas_[0], 1), dims=("indicators_5")
         )
-        tau = pm.Normal("tau", 3, 0.5, dims="indicators")
         kappa = 0
-        sd_dist = pm.Exponential.dist(1.0, shape=2)
+        sd_dist = pm.Gamma.dist(priors["gamma"], 0.5, shape=2)
         chol, _, _ = pm.LKJCholeskyCov(
             "chol_cov", n=2, eta=priors["eta"], sd_dist=sd_dist, compute_corr=True
         )
@@ -784,25 +783,25 @@ def make_indirect_sem(priors):
         # Regression Components
         beta_r = pm.Normal("beta_r", 0, priors["beta_r"], dims="latent_regression")
         beta_r2 = pm.Normal("beta_r2", 0, priors["beta_r2"], dims="regression")
-        sd_dist1 = pm.Exponential.dist(1.0, shape=2)
+        sd_dist1 = pm.Gamma.dist(1, 0.5, shape=2)
         resid_chol, _, _ = pm.LKJCholeskyCov(
             "resid_chol", n=2, eta=3, sd_dist=sd_dist1, compute_corr=True
         )
-        _ = pm.Deterministic("resid_cov", chol.dot(chol.T))
-        sigmas_resid = pm.MvNormal("sigmas_resid", kappa, chol=resid_chol)
+        _ = pm.Deterministic("resid_cov", resid_chol.dot(resid_chol.T))
+        sigmas_resid = pm.MvNormal("sigmas_resid", 1, chol=resid_chol)
+        sigma_regr = pm.HalfNormal("sigma_regr", 1)
 
         # SE_ACAD ~ SUP_FRIENDS + SUP_PARENTS
         regression_se_acad = pm.Normal(
             "regr_se_acad",
             beta_r[0] * ksi[obs_idx, 0] + beta_r[1] * ksi[obs_idx, 1],
-            sigmas_resid[0],
+            pm.math.abs(sigmas_resid[0]),  # ensuring positivity
         )
         # SE_SOCIAL ~ SUP_FRIENDS + SUP_PARENTS
-
         regression_se_social = pm.Normal(
             "regr_se_social",
             beta_r[2] * ksi[obs_idx, 0] + beta_r[3] * ksi[obs_idx, 1],
-            sigmas_resid[1],
+            pm.math.abs(sigmas_resid[1]),  # ensuring positivity
         )
 
         # LS ~ SE_ACAD + SE_SOCIAL + SUP_FRIEND + SUP_PARENTS
@@ -812,9 +811,10 @@ def make_indirect_sem(priors):
             + beta_r2[1] * regression_se_social
             + beta_r2[2] * ksi[obs_idx, 0]
             + beta_r2[3] * ksi[obs_idx, 1],
-            1,
+            sigma_regr,
         )
 
+        tau = pm.Normal("tau", 3, 0.5, dims="indicators")
         m0 = tau[0] + regression_se_acad * lambdas_1[0]
         m1 = tau[1] + regression_se_acad * lambdas_1[1]
         m2 = tau[2] + regression_se_acad * lambdas_1[2]
@@ -834,16 +834,22 @@ def make_indirect_sem(priors):
         mu = pm.Deterministic(
             "mu", pm.math.stack([m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14]).T
         )
+        # independent_residuals_cov = pm.Deterministic('cov_residuals', pt.diag(Psi))
+        # _ = pm.MvNormal('likelihood', mu, independent_residuals_cov, observed=df[drivers].values)
         _ = pm.Normal("likelihood", mu, Psi, observed=df[drivers].values)
 
-        idata = pm.sample(
-            10_000,
-            chains=4,
-            nuts_sampler="numpyro",
-            target_accept=0.99,
-            tune=2000,
-            idata_kwargs={"log_likelihood": True},
-            random_seed=110,
+        idata = pm.sample_prior_predictive()
+        idata.extend(
+            pm.sample(
+                2000,
+                chains=4,
+                nuts_sampler="numpyro",
+                target_accept=0.99,
+                tune=1000,
+                idata_kwargs={"log_likelihood": True},
+                nuts_sampler_kwargs={"chain_method": "vectorized"},
+                random_seed=110,
+            )
         )
         idata.extend(pm.sample_posterior_predictive(idata))
 
@@ -851,13 +857,13 @@ def make_indirect_sem(priors):
 
 
 model_sem0, idata_sem0 = make_indirect_sem(
-    priors={"eta": 2, "lambda": [1, 1], "beta_r": 0.1, "beta_r2": 0.1}
+    priors={"eta": 1, "lambda": [1, 2], "beta_r": 3, "beta_r2": 3, "gamma": 1},
 )
 model_sem1, idata_sem1 = make_indirect_sem(
-    priors={"eta": 2, "lambda": [1, 1], "beta_r": 0.2, "beta_r2": 0.2}
+    priors={"eta": 3, "lambda": [1, 2], "beta_r": 2, "beta_r2": 2, "gamma": 2}
 )
 model_sem2, idata_sem2 = make_indirect_sem(
-    priors={"eta": 2, "lambda": [1, 1], "beta_r": 0.5, "beta_r2": 0.5}
+    priors={"eta": 1, "lambda": [1, 2], "beta_r": 10, "beta_r2": 10, "gamma": 3}
 )
 ```
 
@@ -880,11 +886,15 @@ Residual covariances
 SE_Academic ~~ SE_Social
 ```
 
++++
+
+Often you will see SEM models with a multivariate normal likelihood term, but here we've specified independent Normal distributions as the model doesn't call for a richly structured covariance matrix on the residuals terms. More complicated models are possible, but it's always a question of how much structure is needed?
+
 ```{code-cell} ipython3
 pm.model_to_graphviz(model_sem0)
 ```
 
-It's worth pausing to examine the nature of the dependencies sketched in this diagram. We can see here how we've replaced the simpler measurement model structure and added three regression functions that replace the draws from the multivariate normal $Ksi$. In other words we've expressed a dependency as a series of regressions all within the one model. Next we'll see how the parameter estimates change across our prior specifications for the model. Notice the relative stability of the factor loadings compared to the regression coefficients. 
+It's worth pausing to examine the nature of the dependencies sketched in this diagram. We can see here how we've replaced the simpler measurement model structure and added three regression functions that replace the draws from the multivariate normal $Ksi$. In other words we've expressed a dependency as a series of regressions all within the one model. Next we'll see how the parameter estimates change across our prior specifications for the model. Notice the relative stability of the factor loadings and regression coefficients indicating a robustness in these parameter estimates.
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(15, 15))
@@ -949,7 +959,7 @@ Similar diagnostic results hold for the other models. We now continue to assess 
 
 ### Indirect and Direct Effects
 
-We now turn the additional regression structures that we've encoded into the model graph. First we pull out the regression coefficients 
+We now turn to the additional regression structures that we've encoded into the model graph. First we pull out the regression coefficients 
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(1, 2, figsize=(20, 8))
@@ -961,7 +971,7 @@ axs[1].axvline(0, color="red", label="zero-effect")
 axs[1].legend();
 ```
 
-The coefficients indicate a smaller relative weight accorded to the effects of peer support than we see with parental support. This is borne out as we trace out the cumulative causal effects (direct and indirect) through our DAG or chain of regression coefficients. 
+The coefficients indicate a strong effect of social self-efficacy on life satisfaction, and smaller relative weight accorded to the effects of peer support than we see with parental support. This is borne out as we trace out the cumulative causal effects (direct and indirect) through our DAG or chain of regression coefficients. 
 
 ```{code-cell} ipython3
 def calculate_effects(idata, var="SUP_P"):
@@ -996,7 +1006,7 @@ def calculate_effects(idata, var="SUP_P"):
     )
 ```
 
-Importantly we see here the effect of priors on the implied relationships. As we pull our priors closer to 0 the total effects of parental support is pulled downwards away from .5, while the peer support remains relatively stable ~.10. However it remains clear that the impact of parental support dwarfs the effects due to peer support. 
+It remains clear that the impact of parental support dwarfs the effects due to peer support. 
 
 ```{code-cell} ipython3
 summary_p = pd.concat(
@@ -1007,7 +1017,7 @@ summary_p.index = ["SEM0", "SEM1", "SEM2"]
 summary_p
 ```
 
-The sensitivity of the estimated impact due to parental support varies strongly as a function of our prior on the variances. Here is a substantive example of the role of theory choice in model design. How strongly should believe that parental and peer effects have 0 effect on life-satisfaction? I'm inclined to believe we're too conservative if we try and shrink the effect toward zero and should prefer a less conservative model. However, the example here is not to dispute the issue, but demonstrate the importance of sensitivity checks. 
+The sensitivity of the estimated impact due to parental support does not vary strongly as a function of our prior on the variances. However, the example here is not to dispute the issue at hand, but highlight the importance of sensitivity checks. We will not always find consistency of parameter identification across model specifications. 
 
 ```{code-cell} ipython3
 summary_f = pd.concat(
