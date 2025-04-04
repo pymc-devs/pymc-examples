@@ -722,7 +722,7 @@ drivers = [
 ]
 
 
-def make_indirect_sem(priors, advi=False):
+def make_indirect_sem(priors):
 
     coords = {
         "obs": list(range(len(df))),
