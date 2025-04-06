@@ -23,7 +23,7 @@ kernelspec:
 
 > "Evidently, the notions of relevance and dependence are far more basic to human reasoning than the numerical values attached to probability judgments...the language used for representing probabilistic information should allow assertions about dependency relationships to be expressed qualitatively, directly, and explicitly" - Pearl in _Probabilistic Reasoning in Intelligent Systems_ {cite:t}`pearl1985prob`
 
-Measurement data is psychometrics is often derived from a strategically constructed survey aimed at a particular target phenomena. Some intuited, but not yet measured, concept that arguably plays a determining role in human action, motivation or sentiment. The relative “fuzziness” of the subject matter in psychometrics has had a catalyzing effect on the methodological rigour sought in the science. 
+Measurement data in psychometrics is often derived from a strategically constructed survey aimed at a particular target phenomena. Some intuited, but not yet measured, concept that arguably plays a determining role in human action, motivation or sentiment. The relative “fuzziness” of the subject matter in psychometrics has had a catalyzing effect on the methodological rigour sought in the science. 
 
 Survey designs are agonized over for correct tone and rhythm of sentence structure. Measurement scales are doubly checked for reliability and correctness. The literature is consulted and questions are refined. Analysis steps are justified and tested under a wealth of modelling routines. Model architectures are defined and refined to better express the hypothesized structures in the data-generating process. We will see how such due diligence leads to powerful and expressive models that grant us tractability on thorny questions of human affect. 
 
@@ -96,7 +96,7 @@ A measurement model is a key component within the more general structural equati
 
 We'll start by fitting a "simple" CFA model in `PyMC` to demonstrate how the pieces fit together, we'll then expand our focus. Here we ignore the majority of our indicator variables and focus on the idea that there are two latent constructs: (1) Social Self-efficacy and (2) Life Satisfaction. 
 
-We're aiming to articulate a mathematical structure where our indicator variables $x_{ij}$ are determined by a latent factor $\text{Ksi}_{j}$ through an estimated factor loading $\lambda_{ij}$.  Functionally we have a set of equations with error terms $\psi_i$ for each individual.
+We're aiming to articulate a mathematical structure where our indicator variables $x_{ij}$ are determined by a latent factor $\text{Ksi}_{j}$ through an estimated factor loading $\lambda_{ij}$. We keep close to the notation used in Levy and Mislevy's Bayesian Psychometric Modelling. Functionally we have a set of equations with error terms $\psi_i$ for each individual.
 
 $$ x_{1} = \tau_{1}  + \lambda_{11}\text{Ksi}_{1} + \psi_{1}  \\ 
 x_{2} = \tau_{2}  + \lambda_{21}\text{Ksi}_{1} + \psi_{2} \\
@@ -108,7 +108,7 @@ or more compactly
 
 $$ \mathbf{x} = \tau + \Lambda\text{Ksi} + \Psi $$
 
-The goal is to articulate the relationship between the different factors in terms of the covariances between these latent terms and estimate the relationships each latent factor has with the manifest indicator variables. At a high level, we're saying the joint distribution of the observed data can be represented through conditionalisation in the following schema.
+We have greek letters to highlight traditional model parameters and use $\text{Ksi}$ to highlight latent constructs as a distinct kind of parameter. The goal is to articulate the relationship between the different factors in terms of the covariances between these latent terms and estimate the relationships each latent factor has with the manifest indicator variables. At a high level, we're saying the joint distribution of the observed data can be represented through conditionalisation in the following schema.
 
 $$p(\mathbf{x_{i}}^{T}.....\mathbf{x_{q}}^{T} | \text{Ksi}, \Psi, \tau, \Lambda) \sim Normal(\tau + \Lambda\cdot \text{Ksi}, \Psi) $$
 
@@ -190,7 +190,7 @@ We can now see how the covariance structure among the latent constructs is integ
 az.summary(idata, var_names=["lambdas1", "lambdas2"])
 ```
 
-These factor loadings are generally important to interpret in terms of construct validity. Because we've specified one of the indicator variables to be fixed at 1, the other indicators which load on that factor should have a loading coefficient in broadly the same scale as the fixed point indicator that defines the construct scale. We're looking for consistency among the loadings to assess whether the indicators are reliable measures of the construct i.e. if the indicator loadings deviates too far from unit 1 then there is an argument to be made that these indicators don't belong in the same factor construct. 
+These factor loadings are generally important to interpret in terms of construct validity. Because we've specified one of the indicator variables to be fixed at 1, the other indicators which load on that factor should have a loading coefficient in broadly the same scale as the fixed point indicator that defines the construct scale. We're looking for consistency among the loadings to assess whether the indicators are reliable measures of the construct i.e. if the indicator loadings deviates too far from unit 1 then there is an argument to be made that these indicators don't belong in the same factor construct. The closer the factor loading parameters within a construct are to 1 the better. 
 
 ```{code-cell} ipython3
 idata
@@ -200,6 +200,18 @@ Let's plot the trace diagnostics to validate the sampler has converged well to t
 
 ```{code-cell} ipython3
 az.plot_trace(idata, var_names=["lambdas1", "lambdas2", "tau", "Psi", "ksi"]);
+```
+
+We also examine the energy plot to assess sampling diagnostics. This looks quite healthy. 
+
+```{code-cell} ipython3
+fig, axs = plt.subplots(1, 2, figsize=(20, 7))
+axs = axs.flatten()
+az.plot_energy(idata, ax=axs[0])
+az.plot_forest(idata, var_names=["lambdas1", "lambdas2"], combined=True, ax=axs[1])
+axs[1].set_title("Factor Loading Estimates")
+axs[0].set_title("Energy Plot")
+axs[1].axvline(1, color="black");
 ```
 
 ### Sampling the Latent Constructs
@@ -282,7 +294,7 @@ Which shows a relatively sound recovery of the observed data.
 
 ### Intermediate Cross-Loading Model
 
-The idea of a measurement model is maybe a little opaque when we only see models that fit well. Instead we want to briefly show how an in-apt measurement model gets reflected in the estimated parameters for the factor loadings. Here we specify a measurement model which attempts to couple the `se_social` and `sup_parents` indicators and bundle them into the same factor. 
+The idea of a measurement model is maybe a little opaque when we only see models that fit well. Instead we want to briefly show how an inappropriate measurement model gets reflected in the estimated parameters for the factor loadings. Here we specify a measurement model which attempts to couple the `se_social` and `sup_parents` indicators and bundle them into the same factor. 
 
 ```{code-cell} ipython3
 coords = {
@@ -387,7 +399,10 @@ This is similarly reflected in the diagnostic energy plots here too.
 fig, axs = plt.subplots(1, 2, figsize=(20, 9))
 axs = axs.flatten()
 az.plot_energy(idata, ax=axs[0])
-az.plot_forest(idata, var_names=["lambdas1"], combined=True, ax=axs[1]);
+az.plot_forest(idata, var_names=["lambdas1", "lambdas2"], combined=True, ax=axs[1])
+axs[1].axvline(1, color="black")
+axs[1].set_title("Factor Loadings Estimates")
+axs[0].set_title("Energy Plot");
 ```
 
 This hints at a variety of measurement model misspecification and should force us back to the drawing board. An appropriate measurement model maps the indicator variables to a consistently defined latent construct that plausibly reflects aspects of the realised indicator metrics. 
