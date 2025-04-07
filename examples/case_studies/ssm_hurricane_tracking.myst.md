@@ -5,18 +5,18 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: pymc_examples_dev
   language: python
   name: python3
 myst:
   substitutions:
-    extra_dependencies: polars plotly pymc-experimental
+    extra_dependencies: patsy polars plotly pymc-extras
 ---
 
 (Forecasting Hurricane Trajectories with State Space Models)=
 # Forecasting Hurricane Trajectories with State Space Models
 
-:::{post} Dec 30, 2024 
+:::{post} April 6, 2025 
 :tags: state space model
 :category: intermediate, tutorial
 :author: Jonathan Dekermanjian
@@ -25,48 +25,52 @@ myst:
 +++
 
 # Introduction
-In this case-study we are going to forecast the paths of hurricanes by applying several State Space Models (SSM). We will start off simply with a two-dimensional tracking with constant acceleration where we only have 1-parameter to estimate and we will add complexity and more parameters to estimate as we build more layers to our model. 
+In this case study we are going to forecast the paths of hurricanes by applying several State Space Models (SSM). We will begin with a simple two-dimensional constant acceleration tracking model, where we only have one parameter to estimate. Subsequently, we will progressively add complexity and parameters as we develop up our model. 
 
-As a brief introduction to SSMs the general idea is that we have two equations that define our system.<br> 
-The state equation [1] and the observation equation [2]. $$x_{t+1} = A_{t}x_{t} + c_{t} + R_{t}\epsilon_{t} [1]$$ $$y_{t} = Z_{t}x_{t} + d_{t} + \eta_{t} [2]$$
+As a brief introduction to SSMs, the general idea is that we define our system using two equations.<br> 
+The state equation [1] and the observation equation [2]. $$x_{t+1} = A_{t}x_{t} + c_{t} + R_{t}\epsilon_{t} \quad [1]$$ $$y_{t} = Z_{t}x_{t} + d_{t} + \eta_{t} \quad [2] $$
 
-The process/state covariance is given by $\epsilon_{t} \sim N(0, Q_{t})$ where $Q_{t}$ is the process/state noise and the observation/measurement covariance is given by $\eta_{t} \sim N(0, H_{t})$ where $H_{t}$ describe the noise in the measurement device or procedure. 
+The process/state covariance is given by $\epsilon_{t} \sim N(0, Q_{t})$ where $Q_{t}$ is the process/state innovations and the observation/measurement covariance is given by $\eta_{t} \sim N(0, H_{t})$ where $H_{t}$ describes the uncertainty in the measurement device or measurement procedure. 
 
 We have the following matrices:
 |State Equation variables|Definition|
 | --- | --- |
-| $A_{t}$ | The state transition matrix at time $_{t}$ defines the kinematics of the process generating the series.
-| $x_{t}$ | The state vector at time $_{t}$ describes the current state of the system.
-| $c_{t}$ | Intercept vector at time $_{t}$ can include covariates/control/exogenous variables that are deterministically measured.
-| $R_{t}$ | Selection matrix at time $_{t}$ selects which process noise is allowed to affect the next state.
-| $\epsilon_{t}$ | State/Process noise at time $_{t}$ defines the random noise influencing the change in the state matrix.
+| $A_{t}$ | The state transition matrix at time $t$ defines the kinematics of the process generating the series.
+| $x_{t}$ | The state vector at time $t$ describes the current state of the system.
+| $c_{t}$ | Intercept vector at time $t$ can include covariates/control/exogenous variables that are deterministically measured.
+| $R_{t}$ | Selection matrix at time $t$ selects which process innovations are allowed to affect the next state.
+| $\epsilon_{t}$ | State/Process innovations at time $t$ defines the shocks influencing the changes in the state matrix.
 
 <br>
 
 |Observation Equation variables|Definition|
 | --- | --- |
-| $Z_{t}$ | The design matrix at time $_{t}$ defines which states directly influence the observed variables.
-| $x_{t}$ | The state vector at time $_{t}$ describes the current state of the system.
-| $d_{t}$ | Intercept vector at time $_{t}$ can include covariates/control/exogenous variables that are deterministically measured.
-| $\eta_{t}$ | observation/measurement error at time $_{t}$ defines the uncertainty in the observation.
+| $Z_{t}$ | The design matrix at time $t$ defines which states directly influence the observed variables.
+| $x_{t}$ | The state vector at time $t$ describes the current state of the system.
+| $d_{t}$ | Intercept vector at time $t$ can include covariates/control/exogenous variables that are deterministically measured.
+| $\eta_{t}$ | observation/measurement error at time $t$ defines the uncertainty in the observation.
 
 Estimation occurs in an iterative fashion (after an initialization step). In which the following steps are repeated:
 1. Predict the next state vector $x_{t+1|t}$ and the next state/process covariance matrix $P_{t+1|t}$
 2. Compute the Kalman gain
 3. Estimate the current state vector and the current state/process covariance matrix
 
-Where $P_{t}$ is the uncertainty in the state predictions at time $_{t}$.
+Where $P_{t}$ is the uncertainty in the state predictions at time $t$.
 
 The general idea is that we make predictions based on our current state vector and state/process covariance (uncertainty) then we correct these predictions once we have our observations.
 
 The following equations define the process:
 |Description|Equation|
 | --- | --- |
-|Predict the next state vector| $\hat{x}_{t+1\|t} = A_{t}\hat{x}_{t\|t}$ [3]|
-|Predict the next state/process covariance| $P_{t+1\|t} = A_{t}P_{t+1\|t}A_{t}^{T} + Q$ [4]|
-|Compute Kalman Gain | $K_{t} = P_{t\|t-1}Z^{T}(ZP_{t\|t-1}Z^{T} + H_{t})^{-1}$ [5]|
-|Estimate current state vector| $\hat{x}_{t\|t} = \hat{x}_{t\|t-1} + K_{t}(y_{t} - Z\hat{x}_{t\|t-1})$ [6]|
-|Estimate current state/process covariance| $P_{t\|t} = (I - K_{t}Z_{t})P_{t\|t-1}(I - K_{t}Z_{t})^{T} + K_{t}H_{t}K_{t}^{T}$ [7]|
+|Predict the next state vector| $\hat{x}_{t+1\|t} = A_{t}\hat{x}_{t\|t} \quad [3]$ |
+|Predict the next state/process covariance| $P_{t+1\|t} = A_{t}P_{t+1\|t}A_{t}^{T} + Q \quad [4]$ |
+|Compute Kalman Gain | $K_{t} = P_{t\|t-1}Z^{T}(ZP_{t\|t-1}Z^{T} + H_{t})^{-1} \quad [5]$ |
+|Estimate current state vector| $\hat{x}_{t\|t} = \hat{x}_{t\|t-1} + K_{t}(y_{t} - Z\hat{x}_{t\|t-1}) \quad [6]$ |
+|Estimate current state/process covariance| $P_{t\|t} = (I - K_{t}Z_{t})P_{t\|t-1}(I - K_{t}Z_{t})^{T} + K_{t}H_{t}K_{t}^{T} \quad [7]$ |
+
+:::{note}
+We wrote the equation for $P_{t\|t}$ above using Joseph form, which is more numerically stable but also wordier. In different texts you may encounter this equation written in "standard" form.
+:::
 
 +++
 
@@ -79,12 +83,11 @@ import re
 from typing import Optional
 
 import arviz as az
+import arviz.labels as azl
 import numpy as np
 import pymc as pm
 import pytensor.tensor as pt
 import xarray as xr
-
-from patsy import dmatrix
 ```
 
 :::{include} ../extra_installs.md
@@ -96,6 +99,7 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import polars as pl
 
+from patsy import dmatrix
 from pymc_extras.statespace.core.statespace import PyMCStateSpace
 from pymc_extras.statespace.models.utilities import make_default_coords
 from pymc_extras.statespace.utils.constants import (
@@ -112,10 +116,17 @@ pio.renderers.default = "notebook"
 ```{code-cell} ipython3
 def ellipse_covariance(covariance: np.ndarray) -> np.ndarray:
     """
-    Generates a 95% CI ellipse via a chi-square multivariate normal approximation
-    ---
-        Params:
-            covariance: The estimated covariance matrix
+    Generates a 95% CI ellipse via a chi-square multivariate normal approximation.
+
+    Parameters
+    ----------
+        covariance : ndarray
+            The estimated covariance matrix
+
+    Returns
+    -------
+    ndarray
+        matrix of ellipse points
     """
     evals, evects = np.linalg.eig(covariance)
     largest_evect = evects[np.argmax(evals)]
@@ -143,19 +154,29 @@ def plot_hurricane_path(
     uncertainty_index: int = 3,
 ) -> go.Figure:
     """
-    Compares actual vs predicted Hurricane path
-    ---
-    Params:
-        data: dataframe containing the actual values
-        posterior_mean: The posterior mean of the estimated distributions
-        predicted_covariance: The predicted covariance matrices at each time point
-        uncertainty_index: When to start drawing the uncertainty on the map (due to huge uncertainty in the begining of the process)
+    Plots actual vs predicted Hurricane path.
+
+    Parameters
+    ----------
+        data : DataFrame
+            dataframe containing the actual values
+        posterior_mean : ndarray
+            The posterior mean of the estimated distributions
+        predicted_covariance : ndarray
+            The predicted covariance matrices at each time point
+        uncertainty_index : int
+            When to start drawing the uncertainty on the map (due to huge uncertainty in the begining of the process)
+
+    Returns
+    -------
+    Figure
+        Plotly Hurricane Figure
     """
     fig = go.Figure()
     for i in range(predicted_covariance.shape[0]):
         if uncertainty_index and (
             i < uncertainty_index
-        ):  # First handful of ellipses are huge because of little data in the iterative nature of the Kalman filter
+        ):  # The uncertainty can be quite large depending on how you initialze P0
             continue
         r_ellipse = ellipse_covariance(predicted_covariance[i, :2, :2])
         means = posterior_mean[i]
@@ -225,15 +246,30 @@ def generate_period_forecasts(
     periods: int = 4,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
-    produces n period ahead forecasts
-    ---
-    Params
-        ssm_model: The statespace model you want to forecast with
-        inference_data: The fitted model trace
-        data: the actual data used for fitting
-        exogenous_data_name: The key/name you used to define your exogenous data
-        padded_exogenous_data: The exogenous data padded for the number of forecasts you expect to make
-        periods: The number of periods to forecast
+    Produces an n-period ahead forecast.
+
+    Parameters
+    ----------
+        ssm_model : PyMCStateSpace
+            The statespace model you want to forecast with
+        inference_data : InferenceData
+            The fitted model trace
+        data : DataFrame
+            The actual data used for fitting
+        exogenous_data_name : str | None
+            The key/name you used to define your exogenous data
+        padded_exogenous_data : DataFrame | ndarray | None
+            The exogenous data padded for the number of forecasts you expect to make
+        periods : int
+            The number of periods to forecast
+
+    Returns
+    -------
+    f_mean : ndarray
+        posterior predictive mean of the forecasts
+    cppc_vcov : ndarray
+        posterior predictive variance-covariance matrix
+
     """
     if padded_exogenous_data is not None:
         # Hack that should be fixed in StateSpace soon
@@ -308,6 +344,112 @@ def generate_period_forecasts(
         )
     cppc_vcov = np.concatenate(covs_list, axis=0)
     return f_mean, cppc_vcov
+```
+
+```{code-cell} ipython3
+def evaluate_haversine(
+    actuals: np.ndarray, predictions: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Calculate the distance between two cartesian points using the Haversine formula.
+
+    Parameters
+    -----------
+    actuals : ndarray
+        Longitude and Latitude points of the actual hurricane path
+    predictions : ndarray
+        Longitude and Latitude points of the predicted hurricane path
+
+    Returns
+    --------
+    errors : ndarray
+        Distance between actual and predicted points in miles
+    cumulative_errors : ndarray
+        Cumulative mean of the errors
+    mean_error : ndarray
+        Mean of the errors
+    """
+    R = 3958.8  # Radius of our planet in miles
+
+    actuals_radians = np.radians(actuals)
+    predictions_radians = np.radians(predictions)
+
+    differences = actuals_radians - predictions_radians
+
+    a = (
+        np.sin(differences[:, 1] / 2) ** 2
+        + np.cos(actuals_radians[:, 1])
+        * np.cos(predictions_radians[:, 1])
+        * np.sin(differences[:, 0] / 2) ** 2
+    )
+    c = 2 * np.arcsin(np.sqrt(a))
+
+    errors = R * c
+    cumulative_errors = np.cumsum(errors) / (np.arange(len(errors)) + 1)
+    mean_error = np.mean(errors)
+    return errors, cumulative_errors, mean_error
+```
+
+```{code-cell} ipython3
+def plot_model_evaluations(
+    errors: np.ndarray,
+    cumulative_errors: np.ndarray,
+    mean_error: np.ndarray | float,
+    main_title: str,
+) -> go.Figure:
+    """
+    Plots model errors.
+
+    Parameters
+    ----------
+    errors : ndarray
+        The distances between the predicted and forecasted points
+    cumulative_errors : ndarray
+        The cumulative mean of the errors
+    mean_error : ndarray | float
+        The overall mean error of the errors
+
+    Returns
+    -------
+    Figure
+        Plotly Figure
+    """
+    fig = go.Figure()
+    fig.add_traces(
+        [
+            go.Scatter(
+                x=np.arange(len(errors)) + 1,
+                y=errors,
+                mode="markers+lines",
+                name="Distance from Actual",
+                hovertemplate="<b>Period</b>: %{x}<br><b>Miles Away</b>: %{y}",
+            ),
+            go.Scatter(
+                x=np.arange(len(cumulative_errors)) + 1,
+                y=cumulative_errors,
+                name="Cumulative Average Error",
+                hovertemplate="<b>Period</b>: %{x}<br><b>Miles Away</b>: %{y}",
+            ),
+        ]
+    )
+    fig.add_shape(
+        type="line",
+        y0=mean_error,
+        y1=mean_error,
+        x0=0,
+        x1=errors.shape[0],
+        line_dash="dash",
+        line_color="black",
+        name="Overall Mean Error",
+        label=dict(text=f"Mean: {mean_error:.2f}", textposition="start"),
+        showlegend=True,
+    )
+    fig.update_layout(
+        title=f"{main_title} Model Evaluation",
+        xaxis=dict(title="Time Period"),
+        yaxis=dict(title="Miles Away from Actual"),
+    )
+    return fig
 ```
 
 # Load and Process the Dataset
@@ -473,19 +615,22 @@ origin_plot = df_clean.select(
 ```
 
 ```{code-cell} ipython3
-fig = go.Figure(
-    go.Scattermap(
-        lat=origin_plot["latitude"],
-        lon=origin_plot["longitude"],
-        mode="markers",
-        hovertemplate=[
-            f"""<b>Storm Name:</b> {row['storm_name']}<br><b>Datetime:</b> {row['datetime']}<br><b>Longitude:</b> {row['longitude']:.1f}<br><b>Latitude:</b> {row['latitude']:.1f}<br><b>Maximum Wind Speed:</b> {row['max_wind']:.0f}<br><b>Minimum Pressure:</b> {row['min_pressure']:.0f}<br><b>Record Identifier:</b> {row['record_identifier']}<br><b>Category:</b> {row['max_category']:.0f}<extra></extra>
-            """
-            for row in origin_plot.iter_rows(named=True)
-        ],
-        marker=go.scattermap.Marker(size=14, opacity=0.5, color=origin_plot["max_category"]),
+fig = go.Figure()
+for cat in origin_plot["max_category"].unique():
+    fig.add_trace(
+        go.Scattermap(
+            lat=origin_plot.filter(pl.col("max_category") == cat)["latitude"],
+            lon=origin_plot.filter(pl.col("max_category") == cat)["longitude"],
+            mode="markers",
+            hovertemplate=[
+                f"""<b>Storm Name:</b> {row['storm_name']}<br><b>Datetime:</b> {row['datetime']}<br><b>Longitude:</b> {row['longitude']:.1f}<br><b>Latitude:</b> {row['latitude']:.1f}<br><b>Maximum Wind Speed:</b> {row['max_wind']:.0f}<br><b>Minimum Pressure:</b> {row['min_pressure']:.0f}<br><b>Record Identifier:</b> {row['record_identifier']}<br><b>Category:</b> {row['max_category']:.0f}<extra></extra>
+                """
+                for row in origin_plot.filter(pl.col("max_category") == cat).iter_rows(named=True)
+            ],
+            marker=go.scattermap.Marker(size=14, opacity=0.5),
+            name=f"category {int(cat)}",
+        )
     )
-)
 fig.update_layout(
     margin=dict(b=0, t=0, l=0, r=0),
     map={
@@ -548,14 +693,14 @@ fig
 ```
 
 ## Tracking Hurricane Fiona using a State Space Model
-The simplest state space model for tracking an object in 2-dimensional space is one in which we define the kinematics using Newtonian equations of motion. In this example we assume constant acceleration (In order to keep our system of equations linear). Other assumptions that we will make is that we will fix (i.e. not estimate) the observation/measurement noise $H$ to a small value. This implies that we are confident in the measurements collected. We will also assume that the states in the x/longitude direction do not affect the states in the y/latitude direction. This means knowing the position/velocity/acceleration in x/longitude gives us no information on the position/velocity/acceleration in y/latitude
+The simplest state space model for tracking an object in 2-dimensional space is one in which we define the kinematics using Newtonian equations of motion. In this example we assume constant acceleration but place a stochastic innovation $\sigma_{a}^{2}$ to account for unmodeled angular acceleration. Furthermore, we fix the observation/measurement noise, $H$, to a small value, reflecting our confidence in the collected data. We will also assume that the states in the x/longitude direction do not affect the states in the y/latitude direction. This means knowing the position/velocity/acceleration in x/longitude gives us no information on the position/velocity/acceleration in y/latitude
 
 Let us begin by defining our matrices/vectors.
 
 As a reminder the observation equation and the state equation define our linear system.
 $$y_{t} = Z_{t}x_{t} + d_{t} + \eta_{t}$$
 $$x_{t+1} = T_{t}x_{t} + c_{t} + R_{t}\epsilon_{t}$$
-In this case we are assuming there is no state or observation intercepts ($c_{t} = 0$, $d_{t} = 0$). I will also drop the $_{t}$ subscript over matrices that are fixed (do not change over time).
+In this case we are assuming there is no state or observation intercepts ($c_{t} = 0$, $d_{t} = 0$). I will also drop the $t$ subscript over matrices that are fixed (do not change over time).
 
 Our states are the following components derived from the Newtonian equations of motion.
 $$x_{t} = \begin{bmatrix}longitude_{t} \\ latitude_{t} \\ longitude\_velocity_{t} \\ latitude\_velocity_{t} \\ longitude\_acceleration_{t} \\ latitude\_acceleration_{t} \end{bmatrix}$$
@@ -572,7 +717,7 @@ Where
 $$\epsilon_{t} \sim N(0, Q)$$ 
 $$\eta_{t} \sim N(0, H)$$
 
-In this example we fix our observation/measurement error to a small value (0.1) reflecting our confidence in the measurements.
+In this example we fix our observation/measurement error to a small value (0.5) reflecting our confidence in the measurements. Here we are assuming that our measuring instrument is fairly accurate and that it may be off by $\sqrt{0.5} \approx 0.7$ degrees.
 $$H = \begin{bmatrix} 0.5&0 \\ 0&0.5\end{bmatrix}$$
 
 and finally, the state/process covariance matrix that is derived from using Newtonian motion is as follows:
@@ -585,9 +730,24 @@ The $A$ transition matrix is built such that when we expand the observation mode
 $$\hat{y}_{longitude_{t+1}} = longitude_{t} + longitude\_velocity_{t}\Delta t + \frac{longitude\_acceleration_{t}\Delta t^{2}}{2} $$ 
 This is the Newtonian motion equation of position. Where the new position is the old position plus the change in velocity plus the change in acceleration. The rest of the equations can be derived by completing all the entries of the matrix vector multiplication of the observation equation.
 
-The process/state covariance matrix $Q$ is just the variane (diagonals) covariance (off-diagonals) of the Newtonian equations. For example, the variance of the longitudinal position entry is: $$Var(longitude_{t}) = Var(longitude_{t} + longitude\_velocity_{t}\Delta t + \frac{longitude\_acceleration_{t}\Delta t^{2}}{2}) = Var(\frac{longitude\_acceleration_{t}\Delta t^{2}}{2}) $$ $$= \frac{\Delta t^{4}}{4}Var(longitude\_acceleration_{t}) = \frac{\Delta t^{4}}{4}\sigma_{a}^{2} $$
+The process/state covariance matrix $Q$ is just the variance (diagonals) covariance (off-diagonals) of the Newtonian equations. For example, the variance of the longitudinal position entry is: $$Var(longitude_{t}) = Var(longitude_{t} + longitude\_velocity_{t}\Delta t + \frac{longitude\_acceleration_{t}\Delta t^{2}}{2}) = Var(\frac{longitude\_acceleration_{t}\Delta t^{2}}{2}) $$ $$= \frac{\Delta t^{4}}{4}Var(longitude\_acceleration_{t}) = \frac{\Delta t^{4}}{4}\sigma_{a}^{2} $$
 
-Where in this case we assume the same acceleration noise is in both dimensions. You can derive the rest of the entries in $Q$ by taking the variance or covariance of the Newtonian equations.
+Where in this case we assume the same stochastic innovations on the acceleration term in both dimensions. You can derive the rest of the entries in $Q$ by taking the variance or covariance of the Newtonian equations.
+
+# Optional Material
+We can also derive the Newtonian equations of motion from a system of ordinary differntial equations (ODE)s. Here we have a system that consists of:
+
+1. $\dot{p}(t) = v(t)$
+2. $\dot{v}(t) = a(t)$
+3. $\dot{a}(t) = 0$
+
+our state vector (in one dimension) $$x_{t} = \begin{bmatrix}p(t) \\ v(t) \\ a(t)  \end{bmatrix} $$ and our ODE system becomes $$\frac{d}{dt} \begin{bmatrix}p(t) \\ v(t) \\a(t)  \end{bmatrix} = \begin{bmatrix}v(t) \\ a(t) \\ 0  \end{bmatrix} $$
+
+Now we integrate our system over $\Delta{t}$ and we have $$p(t + \Delta{t}) = p(t) + \int_{t}^{t + \Delta{t}}v(t')dt'$$ assuming that the change in time is small and that the change in velocity is negligible we can approximate the integrals using the forward Euler method and get $$p(t + \Delta{t}) \approx p(t) + v(t)\Delta{t} $$ integrating the rest of our system equations using the same methodology we find that $$ v(t + \Delta{t}) \approx v(t) + a(t)\Delta{t} $$ $$ a(t + \Delta{t}) = a(t) $$
+
+We can now express our system of equations over a time interval $\Delta{t}$ as $$ \begin{bmatrix}p(t + \Delta{t}) \\ v(t + \Delta{t}) \\ a(t + \Delta{t})  \end{bmatrix} = \begin{bmatrix}p(t) \\ v(t) \\ a(t)  \end{bmatrix} + \Delta{t} \begin{bmatrix}v(t) \\ a(t) \\ 0  \end{bmatrix} $$
+
+Which when you write out the matrix vector multiplications will yield the Newtonian equations of motion.
 
 ```{code-cell} ipython3
 # Pull out Hurricane Fiona from the larger dataset
@@ -599,7 +759,7 @@ fiona_df = df_clean.filter(pl.col("storm_id") == "AL072022").with_row_index(
 We are going to use the `PyMC` `StateSpace` module in the `pymc-extras` package to code up the state space model we defined above. In This model we are going to set up 3 variables:
 - $x_{0|0}$ The initial state vector (for initializing the estimation steps described earlier)
 - $P_{0|0}$ The initial state/process covariance matrix (again for initializing the recursive estimator)
-- $\sigma_{a}^{2}$ The acceleration noise (this is useful for when the acceleration is not actually constant as we have assumed in the kinematics of the model)
+- $\sigma_{a}^{2}$ The acceleration innovations (this is useful for when the acceleration is not actually constant as we have assumed in the kinematics of the model)
 
 We will set deterministic values for both the initial values $x_{0}$ and $P_{0}$. Therefore, in this simplest model, we will only estimate one parameter $\sigma_{a}^{2}$
 
@@ -607,7 +767,7 @@ We will set deterministic values for both the initial values $x_{0}$ and $P_{0}$
 class SimpleSSM(PyMCStateSpace):
     def __init__(self):
         k_states = 6  # number of states (x, y, vx, vy, ax, ay)
-        k_posdef = 6  # number of shocks (size of the process noise covariance matrix Q)
+        k_posdef = 6  # number of shocks (size of the process innovations covariance matrix Q)
         k_endog = 2  # number of observed states (we only observe x and y)
 
         super().__init__(k_endog=k_endog, k_states=k_states, k_posdef=k_posdef)
@@ -621,7 +781,9 @@ class SimpleSSM(PyMCStateSpace):
         P0 = self.make_and_register_variable(
             "P0", shape=(6, 6)
         )  # initial process covariance matrix
-        acceleration_noise = self.make_and_register_variable("acceleration_noise", shape=(1,))
+        acceleration_innovations = self.make_and_register_variable(
+            "acceleration_innovations", shape=(1,)
+        )
 
         self.ssm["transition", :, :] = np.array(
             [
@@ -640,7 +802,7 @@ class SimpleSSM(PyMCStateSpace):
         self.ssm["initial_state", :] = x0
         self.ssm["initial_state_cov", :, :] = P0
 
-        self.ssm["state_cov", :, :] = acceleration_noise**2 * np.array(
+        self.ssm["state_cov", :, :] = acceleration_innovations**2 * np.array(
             [
                 [(delta_t**4) / 4, 0, (delta_t**3) / 2, 0, (delta_t**2) / 2, 0],
                 [0, (delta_t**4) / 4, 0, (delta_t**3) / 2, 0, (delta_t**2) / 2],
@@ -657,7 +819,7 @@ class SimpleSSM(PyMCStateSpace):
         return [
             "x0",
             "P0",
-            "acceleration_noise",
+            "acceleration_innovations",
         ]
 
     @property
@@ -687,7 +849,7 @@ class SimpleSSM(PyMCStateSpace):
         return {
             "x0": (ALL_STATE_DIM,),
             "P0": (ALL_STATE_DIM, ALL_STATE_AUX_DIM),
-            "acceleration_noise": (1,),
+            "acceleration_innovations": (1,),
         }
 
     @property
@@ -712,7 +874,7 @@ class SimpleSSM(PyMCStateSpace):
                 "shape": (self.k_states, self.k_states),
                 "constraints": "Positive Semi-definite",
             },
-            "acceleration_noise": {
+            "acceleration_innovations": {
                 "shape": (1,),
                 "constraints": "Positive",
             },
@@ -732,21 +894,23 @@ s_ssm = SimpleSSM()
 ```{code-cell} ipython3
 with pm.Model(coords=s_ssm.coords) as simple:
     x0 = pm.Deterministic("x0", pt.as_tensor([-49, 16, 0.0, 0.0, 0.0, 0.0]), dims="state")
-    P0 = pt.eye(6) * 1
+    P0 = pt.eye(6) * 1e-3
     P0 = pm.Deterministic("P0", P0, dims=("state", "state_aux"))
 
-    acceleration_noise = pm.Gamma("acceleration_noise", 0.1, 5, shape=(1,))
+    acceleration_innovations = pm.Gamma("acceleration_innovations", 0.1, 5, shape=(1,))
 
     s_ssm.build_statespace_graph(
         data=fiona_df.select("longitude", "latitude").to_numpy(),
         mode="JAX",
         save_kalman_filter_outputs_in_idata=True,
     )
-    simple_idata = pm.sample(nuts_sampler="numpyro", target_accept=0.95)
+    simple_idata = pm.sample(
+        nuts_sampler="nutpie", nuts_sampler_kwargs={"backend": "jax", "gradient_backend": "jax"}
+    )
 ```
 
 ```{code-cell} ipython3
-az.summary(simple_idata, var_names="acceleration_noise", kind="stats")
+az.summary(simple_idata, var_names="acceleration_innovations", kind="stats")
 ```
 
 ```{code-cell} ipython3
@@ -764,31 +928,48 @@ fig = plot_hurricane_path(
     data=fiona_df,
     posterior_mean=post_mean,
     predicted_covariance=predicted_covs,
-    uncertainty_index=3,
+    uncertainty_index=0,
 )
 fig.show(config={"displayModeBar": False})
+```
+
+```{code-cell} ipython3
+plot_model_evaluations(
+    *evaluate_haversine(fiona_df.select("longitude", "latitude").to_numpy(), post_mean.values),
+    main_title="Simple"
+)
 ```
 
 # Generate 24-hour forecasts with our simple model
 
 ```{code-cell} ipython3
+:tags: [hide-output]
+
 f_mean, cppc_vcov = generate_period_forecasts(
     ssm_model=s_ssm, inference_data=simple_idata, data=fiona_df, periods=4
 )
 ```
 
-# Still need to confirm this
-Okay, using the `smoothed filter` output produces better forecasts. I need to make sure that under-the-hood the `forecast` method does not use data outside the specified period, which it doesn't look like it does otherwise I would expect a much closer fit.
+The 4-period (24-hour) forecasts exhibit a smaller error compared to the one-step ahead forecast. This result is due to the smoothing effect that occurs when we forecast out longer time periods.
 
 ```{code-cell} ipython3
 fig = plot_hurricane_path(
-    data=fiona_df, posterior_mean=f_mean, predicted_covariance=cppc_vcov, uncertainty_index=None
+    data=fiona_df, posterior_mean=f_mean, predicted_covariance=cppc_vcov, uncertainty_index=0
 )
 fig.show(config={"displayModeBar": False})
 ```
 
+```{code-cell} ipython3
+simple_errors, simple_cum_error, simple_mean_error = evaluate_haversine(
+    fiona_df.select("longitude", "latitude").to_numpy()[1:], f_mean.values
+)
+plot_model_evaluations(
+    simple_errors, simple_cum_error, simple_mean_error, main_title="24-hour Simple"
+)
+```
+
 # Adding Deterministic Covariates/Exogenous Variables
-In our dataset we have variables that aren't a part of the Newtonian system process, but still carry information that we can leverage to better track the path of the hurricane. We have two options when introducing these exogenous variables into our model. We can add them in as time invariant or time-varying variables. In our case, we are going to add exogenous variables as time invariant. Our aim then is to model our observations as:
+In our dataset we have variables that aren't a part of the Newtonian system process, but may carry information that we can leverage to better track the path of the hurricane. We have two options when introducing these exogenous variables into our model. We can add them in as time invariant or time-varying variables. In our case, we are going to add exogenous variables as time invariant. Our aim then is to model our observations as:
 $$\hat{y}_{longitude_{t+1}} = longitude_{t} + longitude\_velocity_{t}\Delta t + \frac{longitude\_acceleration_{t}\Delta t^{2}}{2} + \beta_{exogenous_{longitude}} exogenous\_data$$
 
 $$\hat{y}_{latitude_{t+1}} = latitude_{t} + latitude\_velocity_{t}\Delta t + \frac{latitude\_acceleration_{t}\Delta t^{2}}{2} + \beta_{exogenous_{latitude}} exogenous\_data$$ 
@@ -807,7 +988,7 @@ We also need to make adjustments to our $A$ state transition matrix and $R$ sele
 
 $$T = \begin{bmatrix}1&0&\Delta t&0&\frac{\Delta t^{2}}{2}&0&1&0&1&0&1&0 \\ 0&1&0&\Delta t&0&\frac{\Delta t^{2}}{2}&0&1&0&1&0&1  \\ 0&0&1&0&\Delta t&0&0&0&0&0&0&0 \\ 0&0&0&1&0&\Delta t&0&0&0&0&0&0 \\ 0&0&0&0&1&0&0&0&0&0&0&0 \\ 0&0&0&0&0&1&0&0&0&0&0&0 \\ 0&0&0&0&0&0&1&0&0&0&0&0 \\ 0&0&0&0&0&0&0&1&0&0&0&0 \\ 0&0&0&0&0&0&0&0&1&0&0&0 \\ 0&0&0&0&0&0&0&0&0&1&0&0 \\ 0&0&0&0&0&0&0&0&0&0&1&0 \\ 0&0&0&0&0&0&0&0&0&0&0&1 \end{bmatrix}$$
 
-The last 2 columns we added indicates what states our exogenous variable affects, and the last 2 rows indicates that the processes of our exogenous parameters are constant.
+The last 2 columns we added indicates what states our exogenous variables affect, and the last 2 rows indicate that the processes of our exogenous parameters are constant.
 
 $$R = \begin{bmatrix} 1&0&0&0&0&0 \\ 
                       0&1&0&0&0&0 \\
@@ -823,13 +1004,13 @@ $$R = \begin{bmatrix} 1&0&0&0&0&0 \\
                       0&0&0&0&0&0 
        \end{bmatrix}$$
 
-The addition to the R matrix imply that the exogenous parameters do not exhibit any process noise.
+The additions to the R matrix imply that the exogenous parameters do not exhibit any process innovations.
 
 ```{code-cell} ipython3
 class ExogenousSSM(PyMCStateSpace):
     def __init__(self, k_exog: int = None):
         k_states = 6 + k_exog  # number of states (x, y, vx, vy, ax, ay)
-        k_posdef = 6  # number of shocks (size of the process noise covariance matrix Q)
+        k_posdef = 6  # number of shocks (size of the process innovations covariance matrix Q)
         k_endog = 2  # number of observed states (we only observe x and y)
         self.k_exog = k_exog
 
@@ -849,7 +1030,9 @@ class ExogenousSSM(PyMCStateSpace):
         P0 = self.make_and_register_variable(
             "P0", shape=(self.k_states, self.k_states)
         )  # initial process covariance matrix
-        acceleration_noise = self.make_and_register_variable("acceleration_noise", shape=(1,))
+        acceleration_innovations = self.make_and_register_variable(
+            "acceleration_innovations", shape=(1,)
+        )
 
         T = np.array(
             [
@@ -898,7 +1081,7 @@ class ExogenousSSM(PyMCStateSpace):
         self.ssm["initial_state", :] = pt.concatenate((x0, beta_exog), axis=0)
         self.ssm["initial_state_cov", :, :] = P0
 
-        self.ssm["state_cov", :, :] = acceleration_noise**2 * np.array(
+        self.ssm["state_cov", :, :] = acceleration_innovations**2 * np.array(
             [
                 [(delta_t**4) / 4, 0, (delta_t**3) / 2, 0, (delta_t**2) / 2, 0],
                 [0, (delta_t**4) / 4, 0, (delta_t**3) / 2, 0, (delta_t**2) / 2],
@@ -935,7 +1118,7 @@ class ExogenousSSM(PyMCStateSpace):
 
     @property
     def param_names(self):
-        return ["x0", "P0", "acceleration_noise", "beta_exog"]
+        return ["x0", "P0", "acceleration_innovations", "beta_exog"]
 
     @property
     def state_names(self):
@@ -977,7 +1160,7 @@ class ExogenousSSM(PyMCStateSpace):
         return {
             "x0": (self.k_states - self.k_exog,),
             "P0": (ALL_STATE_DIM, ALL_STATE_AUX_DIM),
-            "acceleration_noise": (1,),
+            "acceleration_innovations": (1,),
             "beta_exog": ("exog_dims",),
         }
 
@@ -1015,7 +1198,7 @@ class ExogenousSSM(PyMCStateSpace):
                 "shape": (self.k_states, self.k_states),
                 "constraints": "Positive Semi-definite",
             },
-            "acceleration_noise": {
+            "acceleration_innovations": {
                 "shape": (1,),
                 "constraints": "Positive",
             },
@@ -1064,30 +1247,34 @@ exog_ssm = ExogenousSSM(k_exog=X_exog.shape[1])
 ```{code-cell} ipython3
 with pm.Model(coords=exog_ssm.coords) as exogenous:
     exogenous_data = pm.Data("exogenous_data", X_exog.to_numpy(), dims=["time", "exog_dims"])
-    beta_exog = pm.Normal("beta_exog", 0, 10, dims=["exog_dims"])
+    beta_exog = pm.Normal("beta_exog", 0, 1, dims=["exog_dims"])
 
     x0 = pm.Deterministic("x0", pt.as_tensor([-49, 16, 0.0, 0.0, 0.0, 0.0]))
-    P0 = pt.eye(12) * 1
+    P0 = pt.eye(12) * 1e-3
     P0 = pm.Deterministic("P0", P0, dims=("state", "state_aux"))
 
-    acceleration_noise = pm.Gamma("acceleration_noise", 0.1, 5, shape=(1,))
+    acceleration_innovations = pm.Gamma("acceleration_innovations", 0.1, 5, shape=(1,))
 
     exog_ssm.build_statespace_graph(
         data=fiona_df.select("longitude", "latitude").to_numpy(),
         mode="JAX",
         save_kalman_filter_outputs_in_idata=True,
     )
-    exogenous_idata = pm.sample(nuts_sampler="numpyro", target_accept=0.95)
+    exogenous_idata = pm.sample(
+        nuts_sampler="nutpie", nuts_sampler_kwargs={"backend": "jax", "gradient_backend": "jax"}
+    )
 ```
 
-Typically, the surface wind speed and the central pressure of a hurricane carry little information on the path the hurricane will take. The path of a hurricane is, generally, influenced by surrounding atmospheric conditions like pressure gradients. Knowing this, it makes sense to see that many of our beta parameters are plausibly close to zero indicating little to no influence on the path by our exogenous variables.
+Typically, the surface wind speed and the central pressure of a hurricane carry little information on the path the hurricane will take. The path of a hurricane is, generally, influenced by surrounding atmospheric conditions like pressure gradients. Knowing this, it makes sense to see that many of our beta parameters are close to zero, indicating little to no influence on the hurricanes' path.
 
 ```{code-cell} ipython3
-az.plot_trace(exogenous_idata, var_names="acceleration_noise");
+az.plot_trace(exogenous_idata, var_names="acceleration_innovations");
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(exogenous_idata, var_names=["beta_exog"], compact=False, figsize=(16, 28));
+az.plot_forest(
+    exogenous_idata, var_names=["beta_exog"], combined=True, labeller=azl.NoVarLabeller()
+);
 ```
 
 # Make in-sample forecasts with new exogenous model
@@ -1097,28 +1284,49 @@ predicted_covs = exogenous_idata.posterior["predicted_covariance"].mean(("chain"
 post_mean = exogenous_idata.posterior["predicted_observed_state"].mean(("chain", "draw"))
 ```
 
-Our one-period ahead forecasts seem to be better in some areas, such as the middle section, and worse in others like the beginning and end. In the beginning we see an increase in the uncertainty in the model and at the end we see that our trajectory is erroneously more north rather than north-east. 
+Our one-period ahead forecasts seem to be slightly worse than our simple model. You will notice that at the end of the forecast we see that our trajectory is erroneously more north rather than north-east. Since the exogenous variables we added to the model don't carry additional information with respect to the hurricane's trajectory, this results are expected.
 
 ```{code-cell} ipython3
 fig = plot_hurricane_path(
     data=fiona_df,
     posterior_mean=post_mean,
     predicted_covariance=predicted_covs,
-    uncertainty_index=4,
+    uncertainty_index=0,
 )
 fig.show(config={"displayModeBar": False})
 ```
 
+```{code-cell} ipython3
+plot_model_evaluations(
+    *evaluate_haversine(fiona_df.select("longitude", "latitude").to_numpy(), post_mean.values),
+    main_title="Exogenous"
+)
+```
+
 # Generate 24-hour forecasts with our Exogenous SSM
 
++++
+
+We need to be careful here because we must ensure that we don't allow our model to peak into the future by supplying it with exogenous data that we would not have seen at the time of generating our forecasts. To ensure good and fair forecasts, we will be carrying forward the last exogenous data points from our prior period.  
+
 ```{code-cell} ipython3
+# Carry forward last observation
+X_exog_scenario = X_exog.gather_every(n=4, offset=4).select(pl.all().repeat_by(4).flatten())
+
 # our last i will equal 60 so we need to pad our exogenous data to len 64
 X_exog_padded = pl.concat(
-    (X_exog, X_exog.tail(1).select(pl.all().repeat_by(3).flatten()))  # duplicate last entry 3 times
+    (
+        X_exog_scenario,
+        X_exog_scenario.tail(1).select(
+            pl.all().repeat_by(4).flatten()
+        ),  # duplicate last entry 4 times
+    )
 )
 ```
 
 ```{code-cell} ipython3
+:tags: [hide-output]
+
 f_mean, cppc_vcov = generate_period_forecasts(
     ssm_model=exog_ssm,
     inference_data=exogenous_idata,
@@ -1129,21 +1337,28 @@ f_mean, cppc_vcov = generate_period_forecasts(
 )
 ```
 
-Compared to the previous 24-hour forecast, it looks like the uncertainty of the model has decreased, generally. We can also see that the mid-section and even the mid-to-end section have slightly improved. However, it still seems that our finally trajectory is more north than north-east, but is less north than our last one-period ahead forecast.
+Similaryly, our 24-hour forecasts are also slightly worse off compared to those produced by the simple model.
 
 ```{code-cell} ipython3
 fig = plot_hurricane_path(
-    data=fiona_df, posterior_mean=f_mean, predicted_covariance=cppc_vcov, uncertainty_index=None
+    data=fiona_df, posterior_mean=f_mean, predicted_covariance=cppc_vcov, uncertainty_index=0
 )
 fig.show(config={"displayModeBar": False})
 ```
 
+```{code-cell} ipython3
+exog_errors, exog_cum_error, exog_mean_error = evaluate_haversine(
+    fiona_df.select("longitude", "latitude").to_numpy()[1:], f_mean.values
+)
+plot_model_evaluations(exog_errors, exog_cum_error, exog_mean_error, main_title="24-hour Exogenous")
+```
+
 # Add B-Splines
-In the previous section, we tried adding an interaction term between the maximum sustained surface wind speed and the minumum central pressure. However, our estimated parameters were not too far off from zero. In this section we are going to attempt to model the non-linear complexities of the path, particularyly in the mid-section, using cubic B-splines.
+In the previous section, we tried adding an interaction term between the maximum sustained surface wind speed and the minumum central pressure. However, our estimated parameters were not too far off from zero. In this section we are going to attempt to model the non-linear complexities of the path, particularly in the mid-section, using cubic B-splines.
 
-To do this we first need to define what variables we are going to model as a smooth function. In our case, we are going to model the longitude values as a smooth function of the latitude values and vice versa. 
+We first need to define what variables we are going to model as a smooth function. In our case, we are going to model the longitude values as a smooth function of the latitude values and vice versa. 
 
-To keep things simple, we are going to define a constant number of knots that are equal in both variables (same #knots for both longitude and latitude) and we are going to place the knots using a quantile function over the variable space. You can see the knots plotted out below for each variable.
+To keep things simple, we are going to define a constant number of knots that are equal in both variables (same number of knots for both longitude and latitude) and we are going to place the knots using a quantile function over the variable space. You can see the knots plotted out below for each variable.
 
 ```{code-cell} ipython3
 num_knots = 15
@@ -1215,7 +1430,7 @@ fig.update_layout(
 fig.show(config={"displayModeBar": False})
 ```
 
-Next we need to create the basis functions over the defined variable space knot locations for each variable
+Next, we need to create the basis functions over the defined variable space knot locations for each variable.
 
 ```{code-cell} ipython3
 B_longitude = dmatrix(
@@ -1233,7 +1448,7 @@ B_latitude = dmatrix(
 exog_data = np.column_stack((np.asarray(B_longitude, order="F"), np.asarray(B_latitude, order="F")))
 ```
 
-Our new models' structure is going to be similar to our last model that had exogenous variables. However, in this case our data are going to be the basis functions we created earlier. These will be inserted into our design matrix ($Z$) and the beta parameters corresponding to each spline will be added to our  state vector ($x_{t}$). Again, these parameters will be constant (non-time varying). We will also have to re-adjust our transition matrix ($T$) and selection matrix ($R$) similar to how we did previously. We will now have:
+Our new models' structure is going to be similar to our last model that had exogenous variables. However, in this case our data are going to be the basis functions we created earlier. These will be inserted into our design matrix ($Z$) and the beta parameters corresponding to each spline will be added to our  state vector ($x_{t}$). Again, these parameters will be constant (non-time varying). We will also have to adjust our transition matrix ($T$) and selection matrix ($R$) similar to how we did previously. We will now have:
 
 $$\hat{y}_{longitude_{t+1}} = longitude_{t} + longitude\_velocity_{t}\Delta t + \frac{longitude\_acceleration_{t}\Delta t^{2}}{2} + \beta_{spline\_params_{longitude}} longitude\_spline\_basis\_functions$$
 
@@ -1249,14 +1464,14 @@ and the 0 in the matrix above is a matrix of 0s of shape (number of spline param
 
 Finally, we have $$R' = \begin{bmatrix} R \\ 0 \end{bmatrix} $$
 
-Where R is the selectiom matrix over our endogenous states (identity matrix of shape (number of states))
+Where R is the selection matrix over our endogenous states (identity matrix of shape (number of states))
 and again the 0 in the matrix is a matrix of 0s with shape (number of spline parameters by number of states)
 
 ```{code-cell} ipython3
 class SplineSSM(PyMCStateSpace):
     def __init__(self, k_exog: int = None):
         k_states = 6 + k_exog  # number of states (x, y, vx, vy, ax, ay)
-        k_posdef = 6  # number of shocks (size of the process noise covariance matrix Q)
+        k_posdef = 6  # number of shocks (size of the process innovations covariance matrix Q)
         k_endog = 2  # number of observed states (we only observe x and y)
         self.k_exog = k_exog
 
@@ -1276,7 +1491,9 @@ class SplineSSM(PyMCStateSpace):
         P0 = self.make_and_register_variable(
             "P0", shape=(self.k_states, self.k_states)
         )  # initial process covariance matrix
-        acceleration_noise = self.make_and_register_variable("acceleration_noise", shape=(1,))
+        acceleration_innovations = self.make_and_register_variable(
+            "acceleration_innovations", shape=(1,)
+        )
 
         T = np.array(
             [
@@ -1334,7 +1551,7 @@ class SplineSSM(PyMCStateSpace):
         self.ssm["initial_state", :] = pt.concatenate((x0, beta_exog), axis=0)
         self.ssm["initial_state_cov", :, :] = P0
 
-        self.ssm["state_cov", :, :] = acceleration_noise**2 * np.array(
+        self.ssm["state_cov", :, :] = acceleration_innovations**2 * np.array(
             [
                 [(delta_t**4) / 4, 0, (delta_t**3) / 2, 0, (delta_t**2) / 2, 0],
                 [0, (delta_t**4) / 4, 0, (delta_t**3) / 2, 0, (delta_t**2) / 2],
@@ -1371,52 +1588,22 @@ class SplineSSM(PyMCStateSpace):
 
     @property
     def param_names(self):
-        return ["x0", "P0", "acceleration_noise", "beta_exog"]
+        return ["x0", "P0", "acceleration_innovations", "beta_exog"]
 
     @property
     def state_names(self):
-        return [
-            "x",
-            "y",
-            "vx",
-            "vy",
-            "ax",
-            "ay",
-            "longitude_spline_1",
-            "longitude_spline_2",
-            "longitude_spline_3",
-            "longitude_spline_4",
-            "longitude_spline_5",
-            "longitude_spline_6",
-            "longitude_spline_7",
-            "longitude_spline_8",
-            "longitude_spline_9",
-            "longitude_spline_10",
-            "longitude_spline_11",
-            "longitude_spline_12",
-            "longitude_spline_13",
-            "longitude_spline_14",
-            "longitude_spline_15",
-            "longitude_spline_16",
-            "longitude_spline_17",
-            "latitude_spline_1",
-            "latitude_spline_2",
-            "latitude_spline_3",
-            "latitude_spline_4",
-            "latitude_spline_5",
-            "latitude_spline_6",
-            "latitude_spline_7",
-            "latitude_spline_8",
-            "latitude_spline_9",
-            "latitude_spline_10",
-            "latitude_spline_11",
-            "latitude_spline_12",
-            "latitude_spline_13",
-            "latitude_spline_14",
-            "latitude_spline_15",
-            "latitude_spline_16",
-            "latitude_spline_17",
-        ]
+        return (
+            [
+                "x",
+                "y",
+                "vx",
+                "vy",
+                "ax",
+                "ay",
+            ]
+            + [f"longitude_spline_{i + 1}" for i in range(B_longitude.shape[1])]
+            + [f"latitude_spline_{i + 1}" for i in range(B_latitude.shape[1])]
+        )
 
     @property
     def shock_names(self):
@@ -1441,7 +1628,7 @@ class SplineSSM(PyMCStateSpace):
         return {
             "x0": (self.k_states - self.k_exog,),
             "P0": (ALL_STATE_DIM, ALL_STATE_AUX_DIM),
-            "acceleration_noise": (1,),
+            "acceleration_innovations": (1,),
             "beta_exog": ("exog_dims",),
         }
 
@@ -1453,42 +1640,8 @@ class SplineSSM(PyMCStateSpace):
         coords = make_default_coords(self)
         coords.update(
             {
-                "exog_dims": [
-                    "longitude_spline_1",
-                    "longitude_spline_2",
-                    "longitude_spline_3",
-                    "longitude_spline_4",
-                    "longitude_spline_5",
-                    "longitude_spline_6",
-                    "longitude_spline_7",
-                    "longitude_spline_8",
-                    "longitude_spline_9",
-                    "longitude_spline_10",
-                    "longitude_spline_11",
-                    "longitude_spline_12",
-                    "longitude_spline_13",
-                    "longitude_spline_14",
-                    "longitude_spline_15",
-                    "longitude_spline_16",
-                    "longitude_spline_17",
-                    "latitude_spline_1",
-                    "latitude_spline_2",
-                    "latitude_spline_3",
-                    "latitude_spline_4",
-                    "latitude_spline_5",
-                    "latitude_spline_6",
-                    "latitude_spline_7",
-                    "latitude_spline_8",
-                    "latitude_spline_9",
-                    "latitude_spline_10",
-                    "latitude_spline_11",
-                    "latitude_spline_12",
-                    "latitude_spline_13",
-                    "latitude_spline_14",
-                    "latitude_spline_15",
-                    "latitude_spline_16",
-                    "latitude_spline_17",
-                ]
+                "exog_dims": [f"longitude_spline_{i + 1}" for i in range(B_longitude.shape[1])]
+                + [f"latitude_spline_{i + 1}" for i in range(B_latitude.shape[1])]
             }
         )
         return coords
@@ -1507,7 +1660,7 @@ class SplineSSM(PyMCStateSpace):
                 "shape": (self.k_states, self.k_states),
                 "constraints": "Positive Semi-definite",
             },
-            "acceleration_noise": {
+            "acceleration_innovations": {
                 "shape": (1,),
                 "constraints": "Positive",
             },
@@ -1531,26 +1684,28 @@ spline_ssm = SplineSSM(k_exog=exog_data.shape[1])
 ```{code-cell} ipython3
 with pm.Model(coords=spline_ssm.coords) as spline_model:
     exogenous_data = pm.Data("exogenous_data", exog_data, dims=["time", "exog_dims"])
-    beta_exog = pm.Normal("beta_exog", 0, 1, dims=["exog_dims"])
+    beta_exog = pm.Normal("beta_exog", 0, 2, dims=["exog_dims"])
 
     x0 = pm.Deterministic("x0", pt.as_tensor([-49, 16, 0.0, 0.0, 0.0, 0.0]))
-    P0 = pt.eye(40) * 1
+    P0 = pt.eye(40) * 1e-3
     P0 = pm.Deterministic("P0", P0, dims=("state", "state_aux"))
 
-    acceleration_noise = pm.Gamma("acceleration_noise", 0.1, 5, shape=(1,))
+    acceleration_innovations = pm.Gamma("acceleration_innovations", 0.1, 5, shape=(1,))
 
     spline_ssm.build_statespace_graph(
         data=fiona_df.select("longitude", "latitude").to_numpy(),
         mode="JAX",
         save_kalman_filter_outputs_in_idata=True,
     )
-    spline_idata = pm.sample(nuts_sampler="numpyro", target_accept=0.95)
+    spline_idata = pm.sample(
+        nuts_sampler="nutpie", nuts_sampler_kwargs={"backend": "jax", "gradient_backend": "jax"}
+    )
 ```
 
 Most of our spline parameters are around zero, with a handful of exceptions. Let's take a look at how these effect our forecasts.
 
 ```{code-cell} ipython3
-az.plot_trace(spline_idata, var_names="acceleration_noise");
+az.plot_trace(spline_idata, var_names="acceleration_innovations");
 ```
 
 ```{code-cell} ipython3
@@ -1573,9 +1728,16 @@ fig = plot_hurricane_path(
     data=fiona_df,
     posterior_mean=post_mean,
     predicted_covariance=predicted_covs,
-    uncertainty_index=4,
+    uncertainty_index=0,
 )
 fig.show(config={"displayModeBar": False})
+```
+
+```{code-cell} ipython3
+plot_model_evaluations(
+    *evaluate_haversine(fiona_df.select("longitude", "latitude").to_numpy(), post_mean.values),
+    main_title="B-Spline"
+)
 ```
 
 Our 24-hour (4-period) forecasts, look pretty good. So far, this follows the true trajectory during the mid-section the best. 
@@ -1588,6 +1750,8 @@ exog_data_padded = np.concatenate(
 ```
 
 ```{code-cell} ipython3
+:tags: [hide-output]
+
 f_mean, cppc_vcov = generate_period_forecasts(
     ssm_model=spline_ssm,
     inference_data=spline_idata,
@@ -1600,17 +1764,67 @@ f_mean, cppc_vcov = generate_period_forecasts(
 
 ```{code-cell} ipython3
 fig = plot_hurricane_path(
-    data=fiona_df, posterior_mean=f_mean, predicted_covariance=cppc_vcov, uncertainty_index=None
+    data=fiona_df, posterior_mean=f_mean, predicted_covariance=cppc_vcov, uncertainty_index=0
 )
 fig.show(config={"displayModeBar": False})
 ```
 
+```{code-cell} ipython3
+spline_errors, spline_cum_error, spline_mean_error = evaluate_haversine(
+    fiona_df.select("longitude", "latitude").to_numpy()[1:], f_mean.values
+)
+plot_model_evaluations(
+    spline_errors, spline_cum_error, spline_mean_error, main_title="24-hour B-Spline"
+)
+```
+
 # Closing Remarks
-In this case study we looked at how we can track a hurricane in two-dimensional space using a state space representation of Newtonian kinematics. We proceeded to expand on the pure Newtonian model and added exogenous variables that may hold information pertintent to the Hurricane's track. We then expanded our model by modeling our variables as smooth functions using cubic B-splines. Throughout, the case study we saw that the pure Newtonian kinematics model's one-period ahead forecast performed the best. However, adding exogenous variables allowed our 24-hour (four-period) ahead forecasts to produce better forecasts compared to the pure Newtonian model. A possible explanation is that for a short period forecast the Newtonian kinematics contain all the information needed to produce the best next forecast. However, for longer periods the Newtonian kinematics are too deterministic whereaas the exogenous variables may act to regularize the output from the Newtonian kinematics. In turn producing better longer period forecasts.
+In this case study we looked at how we can track a hurricane in two-dimensional space using a state space representation of Newtonian kinematics. We proceeded to expand on the pure Newtonian model and added exogenous variables that may hold information pertintent to the Hurricane's track. We then expanded our model by modeling our variables as smooth functions using cubic B-splines. 
+
+Throughout, the case study we have been evaluating our 24-hour forecasts and our overall mean error is smallest with our first simple model. Below you will find the errors from all three models plotting against one another. It seems that (as expected) the exogenous information we included in the exogenous model was not informative with respect to the hurricances' trajectory. However, it is worth noting that in the period (around 40 through 56) where the hurricane manuevers we obtain less spikes in error in that section with our cubic B-spline model. This implies that the model could benefit from some non-linear specification to handle the angular acceleration. Hopefully, someday the `StateSpace` module in `pymc-extras` may support non-linear state space specifications with either the Extended Kalman Filter or with the Unscented Kalman Filter. Until then you can learn more about how to build your own custom state space models with the `StateSpace` module here {ref}`Making a Custom Statespace Model <>`.
+
+```{code-cell} ipython3
+fig = go.Figure()
+fig.add_traces(
+    [
+        go.Scatter(
+            x=np.arange(len(simple_errors)) + 1,
+            y=simple_errors,
+            mode="markers+lines",
+            name="Simple Model Errors",
+            hovertemplate="<b>Period</b>: %{x}<br><b>Miles Away</b>: %{y}",
+        ),
+        go.Scatter(
+            x=np.arange(len(exog_errors)) + 1,
+            y=exog_errors,
+            mode="markers+lines",
+            name="Exogenous Model Errors",
+            hovertemplate="<b>Period</b>: %{x}<br><b>Miles Away</b>: %{y}",
+        ),
+        go.Scatter(
+            x=np.arange(len(spline_errors)) + 1,
+            y=spline_errors,
+            mode="markers+lines",
+            name="B-Spline Model Errors",
+            hovertemplate="<b>Period</b>: %{x}<br><b>Miles Away</b>: %{y}",
+        ),
+    ]
+)
+fig.update_layout(
+    title=f"24-hour Forecast Model Comparisons",
+    xaxis=dict(title="Time Period"),
+    yaxis=dict(title="Miles Away from Actual"),
+)
+```
+
+# Authors
+* Authored by Jonathan Dekermanjian in April, 2025 
 
 +++
 
-# Authors
+# Acknowledgements
+* Chris Fonnesbeck who reviewed and provided valueable feedback that improved the text
+* Jesse Grabowski reviewed and provided valueable feedback that improved the text and content, and suggested additional content that improve the overall quality of the work.
 
 +++
 
