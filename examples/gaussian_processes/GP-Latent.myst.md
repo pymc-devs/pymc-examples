@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-examples
+  display_name: ptdev
   language: python
-  name: pymc-examples
+  name: python3
 myst:
   substitutions:
     extra_dependencies: jax numpyro
@@ -119,7 +119,9 @@ cov_func = eta_true**2 * pm.gp.cov.ExpQuad(1, ell_true)
 mean_func = pm.gp.mean.Zero()
 
 # The latent function values are one sample from a multivariate normal
-f_true = pm.draw(pm.MvNormal.dist(mu=mean_func(X), cov=cov_func(X)), 1, random_seed=rng)
+f_true = pm.draw(
+    pm.MvNormal.dist(mu=mean_func(X), cov=cov_func(X), method="svd"), 1, random_seed=rng
+)
 
 # The observed data is the latent function plus a small amount of T distributed noise
 # The standard deviation of the noise is `sigma`, and the degrees of freedom is `nu`
@@ -163,7 +165,7 @@ with pm.Model() as model:
     )  # add one because student t is undefined for degrees of freedom less than one
     y_ = pm.StudentT("y", mu=f, lam=1.0 / sigma, nu=nu, observed=y)
 
-    idata = pm.sample(nuts_sampler="numpyro")
+    idata = pm.sample()
 ```
 
 ```{code-cell} ipython3
@@ -313,7 +315,7 @@ K = cov_func(x[:, None]).eval()
 mean = np.zeros(n)
 
 # sample from the gp prior
-f_true = pm.draw(pm.MvNormal.dist(mu=mean, cov=K), 1, random_seed=rng)
+f_true = pm.draw(pm.MvNormal.dist(mu=mean, cov=K, method="svd"), 1, random_seed=rng)
 
 # Sample the GP through the likelihood
 y = pm.Bernoulli.dist(p=pm.math.invlogit(f_true)).eval()
@@ -354,7 +356,7 @@ with pm.Model() as model:
     p = pm.Deterministic("p", pm.math.invlogit(f))
     y_ = pm.Bernoulli("y", p=p, observed=y)
 
-    idata = pm.sample(1000, chains=2, cores=2, nuts_sampler="numpyro")
+    idata = pm.sample(1000, chains=2, cores=2)
 ```
 
 ```{code-cell} ipython3
@@ -442,7 +444,7 @@ plt.legend(loc=(0.32, 0.65), frameon=True);
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p pytensor,aeppl,xarray
+%watermark -n -u -v -iv -w -p pytensor,xarray
 ```
 
 :::{include} ../page_footer.md
