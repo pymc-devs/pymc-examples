@@ -28,6 +28,7 @@ numba = ">=0.60.0,<0.61"
 scikit-learn = ">=1.5.2,<2"
 blackjax = ">=1.2.3,<2"
 networkx = ">=3.4.2,<4"
+bokeh = ">=3.7.2,<4"
 
 [pypi-dependencies]
 pymc-experimental = ">=0.1.2, <0.2"
