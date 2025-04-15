@@ -26,18 +26,6 @@ This notebook shows how to implement the **Intrinsic Coregionalization Model** (
 The advantage of Multi-output Gaussian Processes is their capacity to simultaneously learn and infer many outputs which have the same source of uncertainty from inputs. In this example, we model the average spin rates of several pitchers in different games from a baseball dataset.
 
 ```{code-cell} ipython3
-import os
-
-
-def set_omp_num_threads():
-    """Sets the OMP_NUM_THREADS environment variable to 1."""
-    os.environ["OMP_NUM_THREADS"] = "1"
-
-
-set_omp_num_threads()
-```
-
-```{code-cell} ipython3
 import warnings
 
 import arviz as az
