@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3
+  display_name: default
   language: python
   name: python3
 myst:
@@ -58,7 +58,7 @@ Let's load in the data, tidy it up, and have a look.  The [raw data set is locat
 ```{code-cell} ipython3
 import numpy as np
 import pandas as pd
-import pymc3 as pm
+import pymc as pm
 
 from bokeh.io import output_notebook
 from bokeh.models import BoxAnnotation, Label, Legend, Span
@@ -66,6 +66,10 @@ from bokeh.palettes import brewer
 from bokeh.plotting import figure, show
 
 output_notebook()
+
+import warnings
+
+warnings.simplefilter(action="ignore", category=FutureWarning)
 ```
 
 ```{code-cell} ipython3
@@ -135,7 +139,7 @@ data_monthly = data_monthly.assign(t=t)
 data_monthly = data_monthly.assign(y_n=y_n)
 ```
 
-This data might be familiar to you, since it was used as an example in the [Gaussian Processes for Machine Learning](http://www.gaussianprocess.org/gpml/) book by {cite:t}`rasmussen2003gaussian`.  The version of the data set they use starts in the late 1950's, but stops at the end of 2003.  So that our PyMC3 example is somewhat comparable to their example, we use the stretch of data from before 2004 as the "training" set.  The data from 2004 to 2022 we'll use to test our predictions.
+This data might be familiar to you, since it was used as an example in the [Gaussian Processes for Machine Learning](http://www.gaussianprocess.org/gpml/) book by {cite:t}`rasmussen2003gaussian`.  The version of the data set they use starts in the late 1950's, but stops at the end of 2003.  So that our PyMC example is somewhat comparable to their example, we use the stretch of data from before 2004 as the "training" set.  The data from 2004 to 2022 we'll use to test our predictions.
 
 ```{code-cell} ipython3
 # split into training and test set
@@ -149,8 +153,8 @@ data_later = data_monthly.iloc[sep_idx:, :]
 p = figure(
     x_axis_type="datetime",
     title="Monthly CO2 Readings from Mauna Loa",
-    plot_width=550,
-    plot_height=350,
+    width=550,
+    height=350,
 )
 p.yaxis.axis_label = "CO2 [ppm]"
 p.xaxis.axis_label = "Date"
@@ -162,7 +166,11 @@ ppm400 = Span(location=400, dimension="width", line_color="red", line_dash="dash
 p.add_layout(ppm400)
 
 p.line(data_monthly.index, data_monthly["CO2"], line_width=2, line_color="black", alpha=0.5)
-p.circle(data_monthly.index, data_monthly["CO2"], line_color="black", alpha=0.1, size=2)
+# p.circle(data_monthly.index, data_monthly["CO2"], line_color="black", alpha=0.1, size=2)
+p.scatter(
+    data_monthly.index, data_monthly["CO2"], marker="circle", line_color="black", alpha=0.1, size=2
+)
+
 
 train_label = Label(
     x=100,
@@ -170,7 +178,6 @@ train_label = Label(
     x_units="screen",
     y_units="screen",
     text="Training Set",
-    render_mode="css",
     border_line_alpha=0.0,
     background_fill_alpha=0.0,
 )
@@ -180,7 +187,6 @@ test_label = Label(
     x_units="screen",
     y_units="screen",
     text="Test Set",
-    render_mode="css",
     border_line_alpha=0.0,
     background_fill_alpha=0.0,
 )
@@ -235,8 +241,8 @@ colors = brewer["Paired"][7]
 
 p = figure(
     title="Lengthscale and period priors",
-    plot_width=550,
-    plot_height=350,
+    width=550,
+    height=350,
     x_range=(-1, 8),
     y_range=(0, 2),
 )
@@ -246,7 +252,7 @@ p.xaxis.axis_label = "Years"
 for i, prior in enumerate(priors):
     p.line(
         x,
-        np.exp(prior[1].logp(x).eval()),
+        np.exp(pm.logp(prior[1], x).eval()),
         legend_label=prior[0],
         line_width=3,
         line_color=colors[i],
@@ -287,14 +293,14 @@ priors = [
 
 colors = brewer["Paired"][5]
 
-p = figure(title="Scale priors", plot_width=550, plot_height=350)
+p = figure(title="Scale priors", width=550, height=350)
 p.yaxis.axis_label = "Probability"
 p.xaxis.axis_label = "Years"
 
 for i, prior in enumerate(priors):
     p.line(
         x,
-        np.exp(prior[1].logp(x).eval()),
+        np.exp(pm.logp(prior[1], x).eval()),
         legend_label=prior[0],
         line_width=3,
         line_color=colors[i],
@@ -312,7 +318,7 @@ For all of the scale priors we use distributions that shrink the scale towards z
 
 +++
 
-## The model in PyMC3
+## The model in PyMC
 
 Below is the actual model.  Each of the three component GPs is constructed separately.  Since we are doing MAP, we use `Marginal` GPs and lastly call the `.marginal_likelihood` method to specify the marginal posterior.
 
@@ -325,7 +331,7 @@ y = data_early["y_n"].values
 ```{code-cell} ipython3
 with pm.Model() as model:
     # yearly periodic component x long term trend
-    η_per = pm.HalfCauchy("η_per", beta=2, testval=1.0)
+    η_per = pm.HalfCauchy("η_per", beta=2, initval=1.0)
     ℓ_pdecay = pm.Gamma("ℓ_pdecay", alpha=10, beta=0.075)
     period = pm.Normal("period", mu=1, sigma=0.05)
     ℓ_psmooth = pm.Gamma("ℓ_psmooth ", alpha=4, beta=3)
@@ -335,22 +341,22 @@ with pm.Model() as model:
     gp_seasonal = pm.gp.Marginal(cov_func=cov_seasonal)
 
     # small/medium term irregularities
-    η_med = pm.HalfCauchy("η_med", beta=0.5, testval=0.1)
+    η_med = pm.HalfCauchy("η_med", beta=0.5, initval=0.1)
     ℓ_med = pm.Gamma("ℓ_med", alpha=2, beta=0.75)
     α = pm.Gamma("α", alpha=5, beta=2)
     cov_medium = η_med**2 * pm.gp.cov.RatQuad(1, ℓ_med, α)
     gp_medium = pm.gp.Marginal(cov_func=cov_medium)
 
     # long term trend
-    η_trend = pm.HalfCauchy("η_trend", beta=2, testval=2.0)
+    η_trend = pm.HalfCauchy("η_trend", beta=2, initval=2.0)
     ℓ_trend = pm.Gamma("ℓ_trend", alpha=4, beta=0.1)
     cov_trend = η_trend**2 * pm.gp.cov.ExpQuad(1, ℓ_trend)
     gp_trend = pm.gp.Marginal(cov_func=cov_trend)
 
     # noise model
-    η_noise = pm.HalfNormal("η_noise", sigma=0.5, testval=0.05)
+    η_noise = pm.HalfNormal("η_noise", sigma=0.5, initval=0.05)
     ℓ_noise = pm.Gamma("ℓ_noise", alpha=2, beta=4)
-    σ = pm.HalfNormal("σ", sigma=0.25, testval=0.05)
+    σ = pm.HalfNormal("σ", sigma=0.25, initval=0.05)
     cov_noise = η_noise**2 * pm.gp.cov.Matern32(1, ℓ_noise) + pm.gp.cov.WhiteNoise(σ)
 
     # The Gaussian process is a sum of these three components
@@ -382,7 +388,8 @@ dates = pd.date_range(start="3/15/1958", end="12/15/2003", freq="15D")
 tnew = dates_to_idx(dates)[:, None]
 
 print("Predicting with gp ...")
-mu, var = gp.predict(tnew, point=mp, diag=True)
+with model:
+    mu, var = gp.predict(tnew, point=mp, diag=True)
 mean_pred = mu * std_co2 + first_co2
 var_pred = var * std_co2**2
 
@@ -393,21 +400,25 @@ fit = pd.DataFrame(
 )
 
 print("Predicting with gp_trend ...")
-mu, var = gp_trend.predict(
-    tnew, point=mp, given={"gp": gp, "X": t, "y": y, "noise": cov_noise}, diag=True
-)
+with model:
+    mu, var = gp_trend.predict(
+        tnew, point=mp, given={"gp": gp, "X": t, "y": y, "noise": cov_noise}, diag=True
+    )
 fit = fit.assign(mu_trend=mu * std_co2 + first_co2, sd_trend=np.sqrt(var * std_co2**2))
 
 print("Predicting with gp_medium ...")
-mu, var = gp_medium.predict(
-    tnew, point=mp, given={"gp": gp, "X": t, "y": y, "noise": cov_noise}, diag=True
-)
+with model:
+    mu, var = gp_medium.predict(
+        tnew, point=mp, given={"gp": gp, "X": t, "y": y, "noise": cov_noise}, diag=True
+    )
 fit = fit.assign(mu_medium=mu * std_co2 + first_co2, sd_medium=np.sqrt(var * std_co2**2))
 
 print("Predicting with gp_seasonal ...")
-mu, var = gp_seasonal.predict(
-    tnew, point=mp, given={"gp": gp, "X": t, "y": y, "noise": cov_noise}, diag=True
-)
+with model:
+    # predict at a 15 day granularity
+    mu, var = gp_seasonal.predict(
+        tnew, point=mp, given={"gp": gp, "X": t, "y": y, "noise": cov_noise}, diag=True
+    )
 fit = fit.assign(mu_seasonal=mu * std_co2 + first_co2, sd_seasonal=np.sqrt(var * std_co2**2))
 print("Done")
 ```
@@ -417,8 +428,8 @@ print("Done")
 p = figure(
     title="Decomposition of the Mauna Loa Data",
     x_axis_type="datetime",
-    plot_width=550,
-    plot_height=350,
+    width=550,
+    height=350,
 )
 p.yaxis.axis_label = "CO2 [ppm]"
 p.xaxis.axis_label = "Date"
@@ -467,7 +478,16 @@ p.line(
 )
 
 # true value
-p.circle(data_early.index, data_early["CO2"], color="black", legend_label="Observed data")
+p.scatter(
+    data_monthly.index,
+    data_monthly["CO2"],
+    marker="circle",
+    line_color="black",
+    alpha=0.1,
+    size=5,
+    legend_label="Observed data",
+)
+
 p.legend.location = "top_left"
 show(p)
 ```
@@ -477,7 +497,7 @@ The fit matches the observed data very well.  The trend, seasonality, and short/
 ```{code-cell} ipython3
 # plot several years
 
-p = figure(title="Several years of the seasonal component", plot_width=550, plot_height=350)
+p = figure(title="Several years of the seasonal component", width=550, height=350)
 p.yaxis.axis_label = "Δ CO2 [ppm]"
 p.xaxis.axis_label = "Month"
 
@@ -489,9 +509,10 @@ for i, year in enumerate(years):
     tnew = dates_to_idx(dates)[:, None]
 
     print("Predicting year", year)
-    mu, var = gp_seasonal.predict(
-        tnew, point=mp, diag=True, given={"gp": gp, "X": t, "y": y, "noise": cov_noise}
-    )
+    with model:
+        mu, var = gp_seasonal.predict(
+            tnew, point=mp, diag=True, given={"gp": gp, "X": t, "y": y, "noise": cov_noise}
+        )
     mu_pred = mu * std_co2
 
     # plot mean
@@ -517,17 +538,18 @@ dates = pd.date_range(start="11/15/2003", end="12/15/2022", freq="10D")
 tnew = dates_to_idx(dates)[:, None]
 
 print("Sampling gp predictions ...")
-mu_pred, cov_pred = gp.predict(tnew, point=mp)
+with model:
+    mu_pred, cov_pred = gp.predict(tnew, point=mp)
 
 # draw samples, and rescale
 n_samples = 2000
-samples = pm.MvNormal.dist(mu=mu_pred, cov=cov_pred, shape=(n_samples, len(tnew))).random()
+samples = pm.draw(pm.MvNormal.dist(mu=mu_pred, cov=cov_pred), draws=n_samples)
 samples = samples * std_co2 + first_co2
 ```
 
 ```{code-cell} ipython3
 # make plot
-p = figure(x_axis_type="datetime", plot_width=700, plot_height=300)
+p = figure(x_axis_type="datetime", width=700, height=300)
 p.yaxis.axis_label = "CO2 [ppm]"
 p.xaxis.axis_label = "Date"
 
@@ -555,7 +577,16 @@ p.multi_line(
 )
 
 # true value
-p.circle(data_later.index, data_later["CO2"], color="black", legend_label="Observed data")
+# p.circle(data_later.index, data_later["CO2"], color="black", legend_label="Observed data")
+p.scatter(
+    data_monthly.index,
+    data_monthly["CO2"],
+    marker="circle",
+    line_color="black",
+    alpha=0.1,
+    size=5,
+    legend_label="Observed data",
+)
 
 ppm400 = Span(
     location=400,
@@ -579,7 +610,7 @@ Having a zero mean GP prior is causing the prediction to be pretty far off.  Som
 
 Also, using only historical CO$_2$ data may not be the best predictor.  In addition to looking at the underlying behavior of what determines CO$_2$ levels using a GP fit, we could also incorporate other information, such as the amount of CO$_2$ that is released by fossil fuel burning.   
 
-Next, we'll see about using PyMC3's GP functionality to improve the model, look at full posteriors, and incorporate other sources of data on drivers of CO$_2$ levels.
+Next, we'll see about using PyMC's GP functionality to improve the model, look at full posteriors, and incorporate other sources of data on drivers of CO$_2$ levels.
 
 +++
 
@@ -587,6 +618,7 @@ Next, we'll see about using PyMC3's GP functionality to improve the model, look 
 * Authored by Bill Engels in September, 2017 ([pymc#2444](https://github.com/pymc-devs/pymc/pull/2444))
 * Updated by Chris Fonnesbeck in December, 2020
 * Re-executed by Danh Phan in May, 2022 ([pymc-examples#316](https://github.com/pymc-devs/pymc-examples/pull/316))
+* Updated to PyMC 5 by Chris Fonnesbeck in April, 2025
 
 +++
 
