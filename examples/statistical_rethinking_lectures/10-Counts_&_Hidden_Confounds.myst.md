@@ -11,7 +11,7 @@ kernelspec:
 ---
 
 (lecture_10)=
-# The Garden of Forking Data
+# Counts and Hidden Confounds
 :::{post} Jan 7, 2024
 :tags: statistical rethinking, bayesian inference, probability
 :category: intermediate
