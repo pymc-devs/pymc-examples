@@ -3,7 +3,7 @@ matplotlib
 myst-nb
 sphinx-codeautolink
 sphinx>=5
-pymc-sphinx-theme
+pymc-sphinx-theme>=0.16
 sphinx-copybutton
 sphinx-design
 sphinx-notfound-page

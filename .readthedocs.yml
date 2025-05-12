@@ -11,3 +11,24 @@ build:
 python:
    install:
    - requirements: requirements-docs.txt
+
+search:
+  ranking:
+    _sources/*: -10
+    genindex.html: -9
+    blog/tag/*: -2
+    blog/category/*: -3
+    blog/author/*: -5
+    blog/20[0-9].html: -5
+    blog/archive.html: -5
+    blog/author.html: -5
+    blog/category.html: -5
+    blog/drafts.html: -5
+    blog/tag.html: -5
+    blog.html: -5
+    object_index/*: -1
+
+  ignore:
+    - 404.html
+    - search.html
+    - index.html
