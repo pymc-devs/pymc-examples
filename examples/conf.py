@@ -83,6 +83,14 @@ html_theme_options = {
     "article_header_end": ["nb-badges"],
     "show_prev_next": True,
     "article_footer_items": ["rendered_citation.html"],
+    "search_bar_text": "Search within the PyMC example gallery...",
+    "icon_links": [
+        {
+            "url": "https://github.com/pymc-devs/pymc-examples",
+            "icon": "fa-brands fa-github",
+            "name": "GitHub",
+        },
+    ],
 }
 version = version if "." in rtd_version else "main"
 doi_code = os.environ.get("DOI_READTHEDOCS", "10.5281/zenodo.5654871")
