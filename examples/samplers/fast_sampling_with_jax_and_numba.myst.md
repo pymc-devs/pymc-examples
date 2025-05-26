@@ -30,7 +30,7 @@ PyMC offers multiple sampling backends that can dramatically improve performance
 pm.sample()
 ```
 
-The default PyMC sampler uses a Python-based NUTS implementation that provides maximum compatibility with all PyMC features. This sampler is always used when working with models that contain discrete variables, as it's the only option that supports non-gradient based samplers like Slice and Metropolis. While this sampler can compile the underlying model to different backends (C, Numba, or JAX) using the `compile_kwargs` parameter, it still maintains Python overhead that can limit performance for large models.
+The default PyMC sampler uses a Python-based NUTS implementation that provides maximum compatibility with all PyMC features. This sampler is required when working with models that contain discrete variables, as it's the only option that supports non-gradient based samplers like Slice and Metropolis. While this sampler can compile the underlying model to different backends (C, Numba, or JAX) using PyTensor's compilation system via the `compile_kwargs` parameter, it maintains Python overhead that can limit performance for large models.
 
 ### Nutpie Sampler
 
@@ -40,7 +40,7 @@ pm.sample(nuts_sampler="nutpie", nuts_sampler_kwargs={"backend": "jax"})
 pm.sample(nuts_sampler="nutpie", nuts_sampler_kwargs={"backend": "jax", "gradient_backend": "pytensor"})
 ```
 
-Nutpie is on the cutting-edge of PyMC sampling performance. Written in Rust, it eliminates most Python overhead and provides exceptional performance for continuous models. The Numba backend typically offers the highest performance for most use cases, while the JAX backend excels with very large models and provides GPU acceleration capabilities. Nutpie is particularly well-suited for production workflows where sampling speed is critical.
+Nutpie is PyMC's cutting-edge performance sampler. Written in Rust, it eliminates Python overhead and provides exceptional performance for continuous models. The Numba backend typically offers the highest performance for most use cases, while the JAX backend excels with very large models and provides GPU acceleration capabilities. Nutpie is particularly well-suited for production workflows where sampling speed is critical.
 
 ### NumPyro Sampler
 
@@ -50,7 +50,7 @@ pm.sample(nuts_sampler="numpyro", nuts_sampler_kwargs={"chain_method": "parallel
 pm.sample(nuts_sampler="numpyro", nuts_sampler_kwargs={"chain_method": "vectorized"})
 ```
 
-NumPyro provides a mature JAX-based sampling implementation that integrates seamlessly with the broader JAX ecosystem. This sampler typically performs best with small to medium-sized models and offers excellent GPU support. NumPyro benefits from years of development within the JAX community and provides reliable performance characteristics, though it may have compilation overhead for very large models.
+NumPyro provides a mature JAX-based sampling implementation that integrates seamlessly with the broader JAX ecosystem. This sampler benefits from years of development within the JAX community and provides reliable performance characteristics, with excellent GPU support for accelerated computation.
 
 ### BlackJAX Sampler
 
@@ -58,31 +58,32 @@ NumPyro provides a mature JAX-based sampling implementation that integrates seam
 pm.sample(nuts_sampler="blackjax")
 ```
 
-BlackJAX offers another JAX-based sampling implementation focused on flexibility and research applications. While it provides similar capabilities to NumPyro, it's less commonly used in production environments. BlackJAX can be valuable for experimental workflows or when specific JAX-based features are required that aren't available in other samplers.
+BlackJAX offers another JAX-based sampling implementation focused on flexibility and research applications. While it provides similar capabilities to NumPyro, it's less commonly used in production environments. BlackJAX can be valuable for experimental workflows or when specific JAX-based features are required.
+
++++
 
 ## Performance Guidelines
 
 Understanding when to use each sampler depends on several key factors including model size, variable types, and computational requirements.
 
-**Model Size Considerations**
+For **small models**, NumPyro typically provides the best balance of performance and reliability. The compilation overhead is minimal, and its mature JAX implementation handles these models efficiently. **Large models** generally perform best with Nutpie's Numba backend for consistent CPU performance or Nutpie's JAX backend when GPU acceleration is needed or memory efficiency is critical.
 
-For small models, NumPyro typically provides the best balance of performance and reliability. The compilation overhead is minimal, and the mature JAX implementation handles these models efficiently. Larger models often benefit from Nutpie with the Numba backend, which provides excellent performance without the memory overhead sometimes associated with JAX compilation.
+Models containing **discrete variables** must use PyMC's built-in sampler, as it's the only implementation that supports compatible (*i.e.*, non-gradient based) sampling algorithms. For purely continuous models, all sampling backends are available, making performance the primary consideration.
 
-Large models generally perform best with either Nutpie's JAX backend or Nutpie's Numba backend. The choice between these depends on whether GPU acceleration is needed and how the model's computational graph interacts with each backend's optimization strategies.
-
-**Variable Type Requirements**
-
-Models containing discrete variables have no choice but to use PyMC's built-in sampler, as it's the only implementation that supports the necessary Slice and Metropolis sampling algorithms. For purely continuous models, all sampling backends are available, making performance the primary consideration.
-
-**Computational Backend Selection**
-
-Numba excels at CPU optimization and provides consistent performance across different model types. It's particularly effective for models with complex mathematical operations that benefit from just-in-time compilation. JAX offers superior performance for very large models and provides natural GPU acceleration, making it ideal when computational resources are a limiting factor. The traditional C backend serves as a reliable fallback option with broad compatibility but typically offers lower performance than the alternatives.
+**Numba** excels at CPU optimization and provides consistent performance across different model types. It's particularly effective for models with complex mathematical operations that benefit from just-in-time compilation. **JAX** offers superior performance for very large models and provides natural GPU acceleration, making it ideal when computational resources are a limiting factor. The **C** backend serves as a reliable fallback option with broad compatibility but typically offers lower performance than the alternatives.
 
 ```{code-cell} ipython3
+import platform
+
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
+
+if platform.system() == "linux":
+    import multiprocessing
+
+    multiprocessing.set_start_method("spawn", force=True)
 
 rng = np.random.default_rng(seed=42)
 print(f"Running on PyMC v{pm.__version__}")
@@ -143,7 +144,7 @@ Now let's compare the performance of different sampling backends on our PPCA mod
 ```{code-cell} ipython3
 %%time
 with PPCA:
-    idata_pymc = pm.sample()
+    idata_pymc = pm.sample(progressbar=False)
 ```
 
 ### 2. Nutpie with Numba Backend
@@ -190,13 +191,13 @@ The following examples demonstrate how to use PyMC's built-in sampler with diffe
 
 ```{code-cell} ipython3
 with PPCA:
-    idata_c = pm.sample(nuts_sampler="pymc", compile_kwargs={"mode": "fast_run"})
+    idata_c = pm.sample(nuts_sampler="pymc", compile_kwargs={"mode": "fast_run"}, progressbar=False)
 
 # with PPCA:
-#     idata_pymc_numba = pm.sample(nuts_sampler="pymc", compile_kwargs={"mode": "numba"})
+#     idata_pymc_numba = pm.sample(nuts_sampler="pymc", compile_kwargs={"mode": "numba"}, progressbar=False)
 
 # with PPCA:
-#     idata_pymc_jax = pm.sample(nuts_sampler="pymc", compile_kwargs={"mode": "jax"})
+#     idata_pymc_jax = pm.sample(nuts_sampler="pymc", compile_kwargs={"mode": "jax"}, progressbar=False)
 ```
 
 The above examples are commented out to avoid redundant sampling in this demonstration notebook. In practice, you would uncomment and run the configuration that matches your model's requirements. These compilation modes allow you to access faster computational backends even when you must use PyMC's Python-based sampler for compatibility reasons.
@@ -214,7 +215,7 @@ with pm.Model() as discrete_model:
     sigma = pm.HalfNormal("sigma", 1, shape=2)
     obs = pm.Normal("obs", mu=mu[cluster], sigma=sigma[cluster], observed=rng.normal(0, 1, 100))
 
-    trace_discrete = pm.sample()
+    trace_discrete = pm.sample(progressbar=False)
 ```
 
 ## Authors
@@ -224,7 +225,7 @@ with pm.Model() as discrete_model:
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p pytensor,aeppl,xarray
+%watermark -n -u -v -iv -w -p pytensor,arviz,pymc,numpyro,blackjax,nutpie
 ```
 
 :::{include} ../page_footer.md
