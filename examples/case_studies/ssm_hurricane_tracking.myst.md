@@ -930,7 +930,7 @@ fig.show(config={"displayModeBar": False})
 plot_model_evaluations(
     *evaluate_haversine(fiona_df.select("longitude", "latitude").to_numpy(), post_mean.values),
     main_title="Simple"
-)
+).show(width=1000, renderer="svg")
 ```
 
 # Generate 24-hour forecasts with our simple model
@@ -958,7 +958,7 @@ simple_errors, simple_cum_error, simple_mean_error = evaluate_haversine(
 )
 plot_model_evaluations(
     simple_errors, simple_cum_error, simple_mean_error, main_title="24-hour Simple"
-)
+).show(width=1000, renderer="svg")
 ```
 
 # Adding Deterministic Covariates/Exogenous Variables
@@ -1293,7 +1293,7 @@ fig.show(config={"displayModeBar": False})
 plot_model_evaluations(
     *evaluate_haversine(fiona_df.select("longitude", "latitude").to_numpy(), post_mean.values),
     main_title="Exogenous"
-)
+).show(width=1000, renderer="svg")
 ```
 
 # Generate 24-hour forecasts with our Exogenous SSM
@@ -1343,7 +1343,9 @@ fig.show(config={"displayModeBar": False})
 exog_errors, exog_cum_error, exog_mean_error = evaluate_haversine(
     fiona_df.select("longitude", "latitude").to_numpy()[1:], f_mean.values
 )
-plot_model_evaluations(exog_errors, exog_cum_error, exog_mean_error, main_title="24-hour Exogenous")
+plot_model_evaluations(
+    exog_errors, exog_cum_error, exog_mean_error, main_title="24-hour Exogenous"
+).show(width=1000, renderer="svg")
 ```
 
 # Add B-Splines
@@ -1420,7 +1422,7 @@ fig.update_layout(
     yaxis=dict(title="Latitude", ticksuffix="&#176;", range=(14, 65)),
     title=dict(text="B-Spline Knot Locations"),
 )
-fig.show(config={"displayModeBar": False})
+fig.show(width=1000, renderer="svg")
 ```
 
 Next, we need to create the basis functions over the defined variable space knot locations for each variable.
@@ -1730,7 +1732,7 @@ fig.show(config={"displayModeBar": False})
 plot_model_evaluations(
     *evaluate_haversine(fiona_df.select("longitude", "latitude").to_numpy(), post_mean.values),
     main_title="B-Spline"
-)
+).show(width=1000, renderer="svg")
 ```
 
 Our 24-hour (4-period) forecasts, look pretty good. So far, this follows the true trajectory during the mid-section the best. 
@@ -1768,7 +1770,7 @@ spline_errors, spline_cum_error, spline_mean_error = evaluate_haversine(
 )
 plot_model_evaluations(
     spline_errors, spline_cum_error, spline_mean_error, main_title="24-hour B-Spline"
-)
+).show(width=1000, renderer="svg")
 ```
 
 # Closing Remarks
@@ -1807,7 +1809,9 @@ fig.update_layout(
     title=f"24-hour Forecast Model Comparisons",
     xaxis=dict(title="Time Period"),
     yaxis=dict(title="Miles Away from Actual"),
+    width=1000,
 )
+fig.show(renderer="svg")
 ```
 
 # Authors
