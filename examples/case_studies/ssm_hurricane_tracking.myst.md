@@ -272,13 +272,6 @@ def generate_period_forecasts(
 
     """
     if padded_exogenous_data is not None:
-        # Hack that should be fixed in StateSpace soon
-        try:
-            del ssm_model._exog_data_info[exogenous_data_name][
-                "dims"
-            ]  # Be careful if you copy this function the keys may change in your case
-        except KeyError as error:
-            print(f"Key not found: {error}")
 
         period_forecasts = []
         if isinstance(padded_exogenous_data, pl.DataFrame):
@@ -1337,7 +1330,7 @@ f_mean, cppc_vcov = generate_period_forecasts(
 )
 ```
 
-Similaryly, our 24-hour forecasts are also slightly worse off compared to those produced by the simple model.
+Similarly, our 24-hour forecasts are also slightly worse off compared to those produced by the simple model.
 
 ```{code-cell} ipython3
 fig = plot_hurricane_path(
