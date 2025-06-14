@@ -79,8 +79,9 @@ We wrote the equation for $P_{t\|t}$ above using Joseph form, which is more nume
 ```{code-cell} ipython3
 # Import libraries
 import re
+import warnings
 
-from typing import Optional
+warnings.filterwarnings("ignore", message="The RandomType SharedVariables", category=UserWarning)
 
 import arviz as az
 import arviz.labels as azl
@@ -120,8 +121,8 @@ def ellipse_covariance(covariance: np.ndarray) -> np.ndarray:
 
     Parameters
     ----------
-        covariance : ndarray
-            The estimated covariance matrix
+    covariance : ndarray
+        The estimated covariance matrix
 
     Returns
     -------
@@ -158,14 +159,14 @@ def plot_hurricane_path(
 
     Parameters
     ----------
-        data : DataFrame
-            dataframe containing the actual values
-        posterior_mean : ndarray
-            The posterior mean of the estimated distributions
-        predicted_covariance : ndarray
-            The predicted covariance matrices at each time point
-        uncertainty_index : int
-            When to start drawing the uncertainty on the map (due to huge uncertainty in the begining of the process)
+    data : DataFrame
+        dataframe containing the actual values
+    posterior_mean : ndarray
+        The posterior mean of the estimated distributions
+    predicted_covariance : ndarray
+        The predicted covariance matrices at each time point
+    uncertainty_index : int
+        When to start drawing the uncertainty on the map (due to huge uncertainty in the begining of the process)
 
     Returns
     -------
@@ -241,8 +242,8 @@ def generate_period_forecasts(
     ssm_model: PyMCStateSpace,
     inference_data: az.InferenceData,
     data: pl.DataFrame,
-    exogenous_data_name: Optional[str] = None,
-    padded_exogenous_data: Optional[pl.DataFrame | np.ndarray] = None,
+    exogenous_data_name: str | None = None,
+    padded_exogenous_data: pl.DataFrame | np.ndarray | None = None,
     periods: int = 4,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
@@ -250,18 +251,18 @@ def generate_period_forecasts(
 
     Parameters
     ----------
-        ssm_model : PyMCStateSpace
-            The statespace model you want to forecast with
-        inference_data : InferenceData
-            The fitted model trace
-        data : DataFrame
-            The actual data used for fitting
-        exogenous_data_name : str | None
-            The key/name you used to define your exogenous data
-        padded_exogenous_data : DataFrame | ndarray | None
-            The exogenous data padded for the number of forecasts you expect to make
-        periods : int
-            The number of periods to forecast
+    ssm_model : PyMCStateSpace
+        The statespace model you want to forecast with
+    inference_data : InferenceData
+        The fitted model trace
+    data : DataFrame
+        The actual data used for fitting
+    exogenous_data_name : str | None
+        The key/name you used to define your exogenous data
+    padded_exogenous_data : DataFrame | ndarray | None
+        The exogenous data padded for the number of forecasts you expect to make
+    periods : int
+        The number of periods to forecast
 
     Returns
     -------
@@ -271,44 +272,27 @@ def generate_period_forecasts(
         posterior predictive variance-covariance matrix
 
     """
-    if padded_exogenous_data is not None:
+    n_t = inference_data.constant_data.time.shape[0]
+    time_steps = np.arange(0, n_t, periods)
+    period_forecasts = []
 
-        period_forecasts = []
-        if isinstance(padded_exogenous_data, pl.DataFrame):
-            for start in np.arange(0, inference_data.constant_data.time.shape[0], periods):
-                f = ssm_model.forecast(
-                    inference_data,
-                    start=start,
-                    periods=periods,
-                    filter_output="smoothed",
-                    progressbar=False,
-                    scenario={
-                        exogenous_data_name: padded_exogenous_data.slice(start, periods).to_numpy()
-                    },
-                )
-                period_forecasts.append(f)
-        else:
-            for start in np.arange(0, inference_data.constant_data.time.shape[0], periods):
-                f = ssm_model.forecast(
-                    inference_data,
-                    start=start,
-                    periods=periods,
-                    filter_output="smoothed",
-                    progressbar=False,
-                    scenario={exogenous_data_name: padded_exogenous_data[start : start + periods]},
-                )
-                period_forecasts.append(f)
-    else:
-        period_forecasts = []
-        for start in np.arange(0, inference_data.constant_data.time.shape[0], periods):
-            f = ssm_model.forecast(
-                inference_data,
-                start=start,
-                periods=periods,
-                filter_output="smoothed",
-                progressbar=False,
-            )
-            period_forecasts.append(f)
+    for start in time_steps:
+        scenario = None
+        if padded_exogenous_data is not None:
+            if isinstance(padded_exogenous_data, pl.DataFrame):
+                exog_slice = padded_exogenous_data.slice(start, periods).to_numpy()
+            else:
+                exog_slice = padded_exogenous_data[start : start + periods]
+            scenario = {exogenous_data_name: exog_slice}
+        f = ssm_model.forecast(
+            inference_data,
+            start=start,
+            periods=periods,
+            filter_output="smoothed",
+            progressbar=False,
+            scenario=scenario,
+        )
+        period_forecasts.append(f)
 
     # Combine forecasts
     forecasts = xr.combine_by_coords(period_forecasts, combine_attrs="drop_conflicts")
@@ -757,13 +741,14 @@ We are going to use the `PyMC` `StateSpace` module in the `pymc-extras` package 
 We will set deterministic values for both the initial values $x_{0}$ and $P_{0}$. Therefore, in this simplest model, we will only estimate one parameter $\sigma_{a}^{2}$
 
 ```{code-cell} ipython3
-class SimpleSSM(PyMCStateSpace):
-    def __init__(self):
+class NewtonianSSM(PyMCStateSpace):
+    def __init__(self, mode=None):
         k_states = 6  # number of states (x, y, vx, vy, ax, ay)
         k_posdef = 6  # number of shocks (size of the process innovations covariance matrix Q)
         k_endog = 2  # number of observed states (we only observe x and y)
+        mode = mode
 
-        super().__init__(k_endog=k_endog, k_states=k_states, k_posdef=k_posdef)
+        super().__init__(k_endog=k_endog, k_states=k_states, k_posdef=k_posdef, mode=mode)
 
     def make_symbolic_graph(self):
         delta_t = 6.0  # The amount of time between observations 6 hours in our case
@@ -881,40 +866,45 @@ class SimpleSSM(PyMCStateSpace):
 ```
 
 ```{code-cell} ipython3
-s_ssm = SimpleSSM()
+n_ssm = NewtonianSSM(mode="JAX")
 ```
 
 ```{code-cell} ipython3
-with pm.Model(coords=s_ssm.coords) as simple:
+with pm.Model(coords=n_ssm.coords) as newtonian:
     x0 = pm.Deterministic("x0", pt.as_tensor([-49, 16, 0.0, 0.0, 0.0, 0.0]), dims="state")
     P0 = pt.eye(6) * 1e-3
     P0 = pm.Deterministic("P0", P0, dims=("state", "state_aux"))
 
     acceleration_innovations = pm.Gamma("acceleration_innovations", 0.1, 5, shape=(1,))
 
-    s_ssm.build_statespace_graph(
+    n_ssm.build_statespace_graph(
         data=fiona_df.select("longitude", "latitude").to_numpy(),
-        mode="JAX",
         save_kalman_filter_outputs_in_idata=True,
     )
-    simple_idata = pm.sample(
+    newtonian_idata = pm.sample(
         nuts_sampler="nutpie", nuts_sampler_kwargs={"backend": "jax", "gradient_backend": "jax"}
     )
 ```
 
 ```{code-cell} ipython3
-az.summary(simple_idata, var_names="acceleration_innovations", kind="stats")
+az.summary(newtonian_idata, var_names="acceleration_innovations", kind="stats")
 ```
 
 ```{code-cell} ipython3
-predicted_covs = simple_idata.posterior["predicted_covariance"].mean(("chain", "draw"))
+predicted_covs = newtonian_idata.posterior["predicted_covariance"].mean(("chain", "draw"))
 ```
 
 ```{code-cell} ipython3
-post_mean = simple_idata.posterior["predicted_observed_state"].mean(("chain", "draw"))
+post_mean = newtonian_idata.posterior["predicted_observed_state"].mean(("chain", "draw"))
 ```
 
 Not bad for a model with only one parameter. We can see that the forecast gets wonky in the middle where the trajectory of the Hurricane changes directions over short time periods. Again, it is important to keep in mind that what we are plotting are the one-step/period ahead forecast. In our case, our periods are six hours apart. Unfortunately, a 6-hour ahead hurricane forecast is not very practical. Let's see what we get when we generate a 4-period (24-hour) ahead forecast.
+
+:::{note}
+
+More often than not we build parametric models that are quite flexible in adapting to the data. In such cases, we have multiple parameters that give the model it's flexibility in fitting the data. In this particular case, we impose a rigid structure on the data by insisting that the data generating process adhere to the laws of Newtonian physics. In doing so, the model is much less flexible with only one parameter that accounts for the unmodeled angular acceleration.
+
+:::
 
 ```{code-cell} ipython3
 fig = plot_hurricane_path(
@@ -929,17 +919,17 @@ fig.show(config={"displayModeBar": False})
 ```{code-cell} ipython3
 plot_model_evaluations(
     *evaluate_haversine(fiona_df.select("longitude", "latitude").to_numpy(), post_mean.values),
-    main_title="Simple"
+    main_title="Newtonian"
 ).show(width=1000, renderer="svg")
 ```
 
-# Generate 24-hour forecasts with our simple model
+# Generate 24-hour forecasts with our Newtonian model
 
 ```{code-cell} ipython3
 :tags: [hide-output]
 
 f_mean, cppc_vcov = generate_period_forecasts(
-    ssm_model=s_ssm, inference_data=simple_idata, data=fiona_df, periods=4
+    ssm_model=n_ssm, inference_data=newtonian_idata, data=fiona_df, periods=4
 )
 ```
 
@@ -953,11 +943,11 @@ fig.show(config={"displayModeBar": False})
 ```
 
 ```{code-cell} ipython3
-simple_errors, simple_cum_error, simple_mean_error = evaluate_haversine(
+newtonian_errors, newtonian_cum_error, newtonian_mean_error = evaluate_haversine(
     fiona_df.select("longitude", "latitude").to_numpy()[1:], f_mean.values
 )
 plot_model_evaluations(
-    simple_errors, simple_cum_error, simple_mean_error, main_title="24-hour Simple"
+    newtonian_errors, newtonian_cum_error, newtonian_mean_error, main_title="24-hour Newtonian"
 ).show(width=1000, renderer="svg")
 ```
 
@@ -1001,13 +991,14 @@ The additions to the R matrix imply that the exogenous parameters do not exhibit
 
 ```{code-cell} ipython3
 class ExogenousSSM(PyMCStateSpace):
-    def __init__(self, k_exog: int = None):
+    def __init__(self, k_exog: int = None, mode: str | None = None):
         k_states = 6 + k_exog  # number of states (x, y, vx, vy, ax, ay)
         k_posdef = 6  # number of shocks (size of the process innovations covariance matrix Q)
         k_endog = 2  # number of observed states (we only observe x and y)
         self.k_exog = k_exog
+        mode = mode
 
-        super().__init__(k_endog=k_endog, k_states=k_states, k_posdef=k_posdef)
+        super().__init__(k_endog=k_endog, k_states=k_states, k_posdef=k_posdef, mode=mode)
 
     def make_symbolic_graph(self):
         # Add exogenous variables to the model
@@ -1063,10 +1054,10 @@ class ExogenousSSM(PyMCStateSpace):
         Z = pt.as_tensor([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]])
         exog_reshape = pt.repeat(
             exogenous_data, self.k_endog, axis=0
-        )  # We need to reshape the data to fit the proper dimensions
+        )  # We need to reshape the data to fit the proper dimensions. This step duplicates the data
         exog_reshape = pt.set_subtensor(
             exog_reshape[1::2, :], pt.roll(exog_reshape[1::2, :], 1)
-        )  # We need to reshape the data to fit the proper dimensions
+        )  # We need to reshape the data to fit the proper dimensions. This step mirrors the data
         exog_reshape = exog_reshape.reshape((n_obs, self.k_endog, self.k_exog))
 
         self.ssm["design"] = pt.concatenate((pt.tile(Z, (n_obs, 1, 1)), exog_reshape), axis=2)
@@ -1208,7 +1199,7 @@ class ExogenousSSM(PyMCStateSpace):
         return info
 ```
 
-Note that because our variables are uni-dimensional we duplicate and mirror the data to apply each variable in two dimensions. The mirroring occurs in the model definition of the design matrix.
+Note that because our variables are uni-dimensional we duplicate and mirror the data to apply each variable in two dimensions. The mirroring occurs in the model definition of the design matrix. This is necessary to ensure that the correct data is associated with the proper state during matrix multiplication. Take a look at how the states are defined above. In order to have a univariate variable apply to both the longitude and latitude positions (our observed states) we must duplicate our exogenous data for each observed stated and mirror the data so that when we are multiplying the exogenous data with the longitudinal states the data is non-zero on the longitudinal state but is zero for the latitudinal states and vice versa.
 
 ```{code-cell} ipython3
 X_exog = (
@@ -1234,7 +1225,7 @@ X_exog = (
 ```
 
 ```{code-cell} ipython3
-exog_ssm = ExogenousSSM(k_exog=X_exog.shape[1])
+exog_ssm = ExogenousSSM(k_exog=X_exog.shape[1], mode="JAX")
 ```
 
 ```{code-cell} ipython3
@@ -1250,7 +1241,6 @@ with pm.Model(coords=exog_ssm.coords) as exogenous:
 
     exog_ssm.build_statespace_graph(
         data=fiona_df.select("longitude", "latitude").to_numpy(),
-        mode="JAX",
         save_kalman_filter_outputs_in_idata=True,
     )
     exogenous_idata = pm.sample(
@@ -1277,7 +1267,7 @@ predicted_covs = exogenous_idata.posterior["predicted_covariance"].mean(("chain"
 post_mean = exogenous_idata.posterior["predicted_observed_state"].mean(("chain", "draw"))
 ```
 
-Our one-period ahead forecasts seem to be slightly worse than our simple model. You will notice that at the end of the forecast we see that our trajectory is erroneously more north rather than north-east. Since the exogenous variables we added to the model don't carry additional information with respect to the hurricane's trajectory, this results are expected.
+Our one-period ahead forecasts seem to be slightly worse than our Newtonian model. You will notice that at the end of the forecast we see that our trajectory is erroneously more north rather than north-east. Since the exogenous variables we added to the model don't carry additional information with respect to the hurricane's trajectory, this results are expected.
 
 ```{code-cell} ipython3
 fig = plot_hurricane_path(
@@ -1464,13 +1454,14 @@ and again the 0 in the matrix is a matrix of 0s with shape (number of spline par
 
 ```{code-cell} ipython3
 class SplineSSM(PyMCStateSpace):
-    def __init__(self, k_exog: int = None):
+    def __init__(self, k_exog: int = None, mode: str | None = None):
         k_states = 6 + k_exog  # number of states (x, y, vx, vy, ax, ay)
         k_posdef = 6  # number of shocks (size of the process innovations covariance matrix Q)
         k_endog = 2  # number of observed states (we only observe x and y)
         self.k_exog = k_exog
+        mode = mode
 
-        super().__init__(k_endog=k_endog, k_states=k_states, k_posdef=k_posdef)
+        super().__init__(k_endog=k_endog, k_states=k_states, k_posdef=k_posdef, mode=mode)
 
     def make_symbolic_graph(self):
         # Add exogenous variables to the model
@@ -1673,7 +1664,7 @@ class SplineSSM(PyMCStateSpace):
 ```
 
 ```{code-cell} ipython3
-spline_ssm = SplineSSM(k_exog=exog_data.shape[1])
+spline_ssm = SplineSSM(k_exog=exog_data.shape[1], mode="JAX")
 ```
 
 ```{code-cell} ipython3
@@ -1689,7 +1680,6 @@ with pm.Model(coords=spline_ssm.coords) as spline_model:
 
     spline_ssm.build_statespace_graph(
         data=fiona_df.select("longitude", "latitude").to_numpy(),
-        mode="JAX",
         save_kalman_filter_outputs_in_idata=True,
     )
     spline_idata = pm.sample(
@@ -1776,17 +1766,17 @@ plot_model_evaluations(
 # Closing Remarks
 In this case study we looked at how we can track a hurricane in two-dimensional space using a state space representation of Newtonian kinematics. We proceeded to expand on the pure Newtonian model and added exogenous variables that may hold information pertintent to the Hurricane's track. We then expanded our model by modeling our variables as smooth functions using cubic B-splines. 
 
-Throughout, the case study we have been evaluating our 24-hour forecasts and our overall mean error is smallest with our first simple model. Below you will find the errors from all three models plotting against one another. It seems that (as expected) the exogenous information we included in the exogenous model was not informative with respect to the hurricances' trajectory. However, it is worth noting that in the period (around 40 through 56) where the hurricane manuevers we obtain less spikes in error in that section with our cubic B-spline model. This implies that the model could benefit from some non-linear specification to handle the angular acceleration. Hopefully, someday the `StateSpace` module in `pymc-extras` may support non-linear state space specifications with either the Extended Kalman Filter or with the Unscented Kalman Filter. Until then you can learn more about how to build your own custom state space models with the `StateSpace` module here {ref}`Making a Custom Statespace Model <>`.
+Throughout, the case study we have been evaluating our 24-hour forecasts and our overall mean error is smallest with our first Newtonian model. Below you will find the errors from all three models plotting against one another. It seems that (as expected) the exogenous information we included in the exogenous model was not informative with respect to the hurricances' trajectory. However, it is worth noting that in the period (around 40 through 56) where the hurricane manuevers we obtain less spikes in error in that section with our cubic B-spline model. This implies that the model could benefit from some non-linear specification to handle the angular acceleration. Hopefully, someday the `StateSpace` module in `pymc-extras` may support non-linear state space specifications with either the Extended Kalman Filter or with the Unscented Kalman Filter. Until then you can learn more about how to build your own custom state space models with the `StateSpace` module here {ref}`Making a Custom Statespace Model <>`.
 
 ```{code-cell} ipython3
 fig = go.Figure()
 fig.add_traces(
     [
         go.Scatter(
-            x=np.arange(len(simple_errors)) + 1,
-            y=simple_errors,
+            x=np.arange(len(newtonian_errors)) + 1,
+            y=newtonian_errors,
             mode="markers+lines",
-            name="Simple Model Errors",
+            name="Newtonian Model Errors",
             hovertemplate="<b>Period</b>: %{x}<br><b>Miles Away</b>: %{y}",
         ),
         go.Scatter(
