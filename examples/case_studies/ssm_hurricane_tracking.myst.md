@@ -770,10 +770,22 @@ We can also derive the Newtonian equations of motion from a system of ordinary d
 our state vector (in one dimension) 
 
 $$
-x_{t} = \begin{bmatrix}p(t) \\ v(t) \\ a(t)  \end{bmatrix} $$ and our ODE system becomes $$\frac{d}{dt} \begin{bmatrix}p(t) \\ v(t) \\a(t)  \end{bmatrix} = \begin{bmatrix}v(t) \\ a(t) \\ 0  \end{bmatrix}
+x_{t} = \begin{bmatrix}p(t) \\ v(t) \\ a(t)  \end{bmatrix}
+$$ 
+
+and our ODE system becomes 
+
+$$
+\frac{d}{dt} \begin{bmatrix}p(t) \\ v(t) \\a(t)  \end{bmatrix} = \begin{bmatrix}v(t) \\ a(t) \\ 0  \end{bmatrix}
 $$
 
-Now we integrate our system over $\Delta{t}$ and we have $$p(t + \Delta{t}) = p(t) + \int_{t}^{t + \Delta{t}}v(t')dt'$$ assuming that the change in time is small and that the change in velocity is negligible we can approximate the integrals using the forward Euler method and get 
+Now we integrate our system over $\Delta{t}$ and we have 
+
+$$
+p(t + \Delta{t}) = p(t) + \int_{t}^{t + \Delta{t}}v(t')dt'
+$$ 
+
+assuming that the change in time is small and that the change in velocity is negligible we can approximate the integrals using the forward Euler method and get 
 
 $$
 p(t + \Delta{t}) \approx p(t) + v(t)\Delta{t}
