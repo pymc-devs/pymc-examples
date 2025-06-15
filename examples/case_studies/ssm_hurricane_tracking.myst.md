@@ -16,7 +16,7 @@ myst:
 (Forecasting Hurricane Trajectories with State Space Models)=
 # Forecasting Hurricane Trajectories with State Space Models
 
-:::{post} April 6, 2025 
+:::{post} June 15, 2025 
 :tags: state space model
 :category: intermediate, tutorial
 :author: Jonathan Dekermanjian
@@ -1363,7 +1363,7 @@ az.plot_forest(
 );
 ```
 
-## Make in-sample forecasts with new exogenous model
+### Make in-sample forecasts with new exogenous model
 
 ```{code-cell} ipython3
 predicted_covs = exogenous_idata.posterior["predicted_covariance"].mean(("chain", "draw"))
@@ -1931,7 +1931,7 @@ fig.show(renderer="svg")
 ```
 
 ## Authors
-* Authored by Jonathan Dekermanjian in April, 2025 
+* Authored by Jonathan Dekermanjian in June, 2025 
 
 +++
 
