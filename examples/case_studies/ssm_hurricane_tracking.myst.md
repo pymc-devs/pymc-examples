@@ -85,22 +85,6 @@ We wrote the equation for $P_{t\|t}$ above using Joseph form, which is more nume
 ## Imports
 
 ```{code-cell} ipython3
-# This allows both LaTeX and plotly figures to render
-from IPython.display import Javascript, display
-
-display(
-    Javascript(
-        """
-        window.PlotlyConfig = {
-        MathJaxConfig: 'local',
-        mathjax: null
-        };
-        """
-    )
-)
-```
-
-```{code-cell} ipython3
 # Import libraries
 import re
 import warnings
@@ -133,7 +117,7 @@ from pymc_extras.statespace.utils.constants import (
     TIME_DIM,
 )
 
-pio.renderers.default = "sphinx_gallery"
+pio.renderers.default = "iframe"
 ```
 
 ## Helper Functions
