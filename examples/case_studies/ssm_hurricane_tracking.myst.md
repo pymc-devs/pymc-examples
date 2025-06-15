@@ -120,6 +120,20 @@ from pymc_extras.statespace.utils.constants import (
 pio.renderers.default = "sphinx_gallery"
 ```
 
+```{code-cell} ipython3
+# This allows both LaTeX and plotly figures to render
+from IPython.display import Javascript, display
+
+display(
+    Javascript(
+        """
+window.PlotlyConfig = {MathJaxConfig: 'local'};
+console.log("PlotlyConfig set to use local MathJax.");
+"""
+    )
+)
+```
+
 ## Helper Functions
 
 ```{code-cell} ipython3
