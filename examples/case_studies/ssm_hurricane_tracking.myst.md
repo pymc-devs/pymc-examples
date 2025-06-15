@@ -24,7 +24,7 @@ myst:
 
 +++
 
-# Introduction
+## Introduction
 In this case study we are going to forecast the paths of hurricanes by applying several State Space Models (SSM). We will begin with a simple two-dimensional constant acceleration tracking model, where we only have one parameter to estimate. Subsequently, we will progressively add complexity and parameters as we develop up our model. 
 
 As a brief introduction to SSMs, the general idea is that we define our system using two equations.<br> 
@@ -82,7 +82,7 @@ We wrote the equation for $P_{t\|t}$ above using Joseph form, which is more nume
 
 +++
 
-# Imports
+## Imports
 
 ```{code-cell} ipython3
 # Import libraries
@@ -120,7 +120,7 @@ from pymc_extras.statespace.utils.constants import (
 pio.renderers.default = "notebook"
 ```
 
-# Helper Functions
+## Helper Functions
 
 ```{code-cell} ipython3
 def ellipse_covariance(covariance: np.ndarray) -> np.ndarray:
@@ -437,7 +437,7 @@ def plot_model_evaluations(
     return fig
 ```
 
-# Load and Process the Dataset
+## Load and Process the Dataset
 The data comes from the National Oceanic and Atmospheric Administration (NOAA) and is stored in an odd format (likely to save space). We need to wrangle it before we can proceed.
 
 ```{code-cell} ipython3
@@ -580,11 +580,11 @@ df_clean = (
 df_clean.head()
 ```
 
-# Generate visualizations
+## Generate visualizations
 
 +++
 
-## Hurricane Originations
+### Hurricane Originations
 Let's plot the origination points of the hurricanes in our dataset. There are a few different origination definitions when looking at the tropical cyclones within the HURDAT dataset:
 - A tropical depression when the maximum sustained surface wind is $\le$ 33.89 knots
 - A tropical cyclone when the maximum sustained surface wind is $\gt$ 33.89 knots
@@ -630,7 +630,7 @@ fig.update_layout(
 fig
 ```
 
-## Hurricane Fiona's Path
+### Hurricane Fiona's Path
 From here on out our task is to forecast the trajectory of Hurricane Fiona. Let's plot the path it took. We mark the origination point in blue and the last observed location of Fiona in red. We see that Fiona initially travels westward and curves to the right making its way northward. This trajectory is typical for Hurricanes that originate in the Northern Hemisphere of the Atlantic Ocean.
 
 ```{code-cell} ipython3
@@ -761,7 +761,7 @@ $$
 
 Where in this case we assume the same stochastic innovations on the acceleration term in both dimensions. You can derive the rest of the entries in $Q$ by taking the variance or covariance of the Newtonian equations.
 
-# Optional Material
+### Optional Material
 We can also derive the Newtonian equations of motion from a system of ordinary differntial equations (ODE)s. Here we have a system that consists of:
 
 1. $\dot{p}(t) = v(t)$
@@ -1007,7 +1007,7 @@ plot_model_evaluations(
 ).show(width=1000, renderer="svg")
 ```
 
-# Generate 24-hour forecasts with our Newtonian model
+### Generate 24-hour forecasts with our Newtonian model
 
 ```{code-cell} ipython3
 :tags: [hide-output]
@@ -1035,7 +1035,7 @@ plot_model_evaluations(
 ).show(width=1000, renderer="svg")
 ```
 
-# Adding Deterministic Covariates/Exogenous Variables
+## Adding Deterministic Covariates/Exogenous Variables
 In our dataset we have variables that aren't a part of the Newtonian system process, but may carry information that we can leverage to better track the path of the hurricane. We have two options when introducing these exogenous variables into our model. We can add them in as time invariant or time-varying variables. In our case, we are going to add exogenous variables as time invariant. Our aim then is to model our observations as:
 
 $$
@@ -1363,7 +1363,7 @@ az.plot_forest(
 );
 ```
 
-# Make in-sample forecasts with new exogenous model
+## Make in-sample forecasts with new exogenous model
 
 ```{code-cell} ipython3
 predicted_covs = exogenous_idata.posterior["predicted_covariance"].mean(("chain", "draw"))
@@ -1389,7 +1389,7 @@ plot_model_evaluations(
 ).show(width=1000, renderer="svg")
 ```
 
-# Generate 24-hour forecasts with our Exogenous SSM
+### Generate 24-hour forecasts with our Exogenous SSM
 
 +++
 
@@ -1441,7 +1441,7 @@ plot_model_evaluations(
 ).show(width=1000, renderer="svg")
 ```
 
-# Add B-Splines
+## Add B-Splines
 In the previous section, we tried adding an interaction term between the maximum sustained surface wind speed and the minumum central pressure. However, our estimated parameters were not too far off from zero. In this section we are going to attempt to model the non-linear complexities of the path, particularly in the mid-section, using cubic B-splines.
 
 We first need to define what variables we are going to model as a smooth function. In our case, we are going to model the longitude values as a smooth function of the latitude values and vice versa. 
@@ -1823,7 +1823,7 @@ az.plot_trace(spline_idata, var_names="acceleration_innovations");
 az.plot_trace(spline_idata, var_names=["beta_exog"], compact=True, figsize=(20, 8));
 ```
 
-# Make in-sample forecasts with new spline model
+### Make in-sample forecasts with new spline model
 
 +++
 
@@ -1889,7 +1889,7 @@ plot_model_evaluations(
 ).show(width=1000, renderer="svg")
 ```
 
-# Closing Remarks
+## Closing Remarks
 In this case study we looked at how we can track a hurricane in two-dimensional space using a state space representation of Newtonian kinematics. We proceeded to expand on the pure Newtonian model and added exogenous variables that may hold information pertintent to the Hurricane's track. We then expanded our model by modeling our variables as smooth functions using cubic B-splines. 
 
 Throughout, the case study we have been evaluating our 24-hour forecasts and our overall mean error is smallest with our first Newtonian model. Below you will find the errors from all three models plotting against one another. It seems that (as expected) the exogenous information we included in the exogenous model was not informative with respect to the hurricances' trajectory. However, it is worth noting that in the period (around 40 through 56) where the hurricane manuevers we obtain less spikes in error in that section with our cubic B-spline model. This implies that the model could benefit from some non-linear specification to handle the angular acceleration. Hopefully, someday the `StateSpace` module in `pymc-extras` may support non-linear state space specifications with either the Extended Kalman Filter or with the Unscented Kalman Filter. Until then you can learn more about how to build your own custom state space models with the `StateSpace` module on the `pymc-extras` official GitHub repository.
@@ -1930,18 +1930,18 @@ fig.update_layout(
 fig.show(renderer="svg")
 ```
 
-# Authors
+## Authors
 * Authored by Jonathan Dekermanjian in April, 2025 
 
 +++
 
-# Acknowledgements
+## Acknowledgements
 * Chris Fonnesbeck who reviewed and provided valueable feedback that improved the text
 * Jesse Grabowski reviewed and provided valueable feedback that improved the text and content, and suggested additional content that improve the overall quality of the work.
 
 +++
 
-# References 
+## References 
 
 :::{bibliography}
 :filter: docname in docnames 
@@ -1951,7 +1951,7 @@ becker2023kalman
 
 +++
 
-# Watermark
+## Watermark
 
 ```{code-cell} ipython3
 %load_ext watermark
