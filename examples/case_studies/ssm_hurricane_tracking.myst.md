@@ -117,7 +117,7 @@ from pymc_extras.statespace.utils.constants import (
     TIME_DIM,
 )
 
-pio.renderers.default = "notebook"
+pio.renderers.default = "plotly_mimetype"
 ```
 
 ## Helper Functions
