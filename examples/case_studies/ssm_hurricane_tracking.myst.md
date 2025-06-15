@@ -30,11 +30,11 @@ In this case study we are going to forecast the paths of hurricanes by applying 
 As a brief introduction to SSMs, the general idea is that we define our system using two equations.<br> 
 The state equation [1] and the observation equation [2]. 
 $$
-x_{t+1} = A_{t}x_{t} + c_{t} + R_{t}\epsilon_{t} \quad [1]
+x_{t+1} = A_{t}x_{t} + c_{t} + R_{t}\epsilon_{t} \quad (1)
 $$ 
 
 $$
-y_{t} = Z_{t}x_{t} + d_{t} + \eta_{t} \quad [2]
+y_{t} = Z_{t}x_{t} + d_{t} + \eta_{t} \quad (2)
 $$
 
 The process/state covariance is given by $\epsilon_{t} \sim N(0, Q_{t})$ where $Q_{t}$ is the process/state innovations and the observation/measurement covariance is given by $\eta_{t} \sim N(0, H_{t})$ where $H_{t}$ describes the uncertainty in the measurement device or measurement procedure. 
@@ -69,11 +69,11 @@ The general idea is that we make predictions based on our current state vector a
 The following equations define the process:
 |Description|Equation|
 | --- | --- |
-|Predict the next state vector| $\hat{x}_{t+1\|t} = A_{t}\hat{x}_{t\|t} \quad [3]$ |
-|Predict the next state/process covariance| $P_{t+1\|t} = A_{t}P_{t+1\|t}A_{t}^{T} + Q \quad [4]$ |
-|Compute Kalman Gain | $K_{t} = P_{t\|t-1}Z^{T}(ZP_{t\|t-1}Z^{T} + H_{t})^{-1} \quad [5]$ |
-|Estimate current state vector| $\hat{x}_{t\|t} = \hat{x}_{t\|t-1} + K_{t}(y_{t} - Z\hat{x}_{t\|t-1}) \quad [6]$ |
-|Estimate current state/process covariance| $P_{t\|t} = (I - K_{t}Z_{t})P_{t\|t-1}(I - K_{t}Z_{t})^{T} + K_{t}H_{t}K_{t}^{T} \quad [7]$ |
+|Predict the next state vector| $\hat{x}_{t+1\|t} = A_{t}\hat{x}_{t\|t} \quad (3)$ |
+|Predict the next state/process covariance| $P_{t+1\|t} = A_{t}P_{t+1\|t}A_{t}^{T} + Q \quad (4)$ |
+|Compute Kalman Gain | $K_{t} = P_{t\|t-1}Z^{T}(ZP_{t\|t-1}Z^{T} + H_{t})^{-1} \quad (5)$ |
+|Estimate current state vector| $\hat{x}_{t\|t} = \hat{x}_{t\|t-1} + K_{t}(y_{t} - Z\hat{x}_{t\|t-1}) \quad (6)$ |
+|Estimate current state/process covariance| $P_{t\|t} = (I - K_{t}Z_{t})P_{t\|t-1}(I - K_{t}Z_{t})^{T} + K_{t}H_{t}K_{t}^{T} \quad (7)$ |
 
 :::{note}
 We wrote the equation for $P_{t\|t}$ above using Joseph form, which is more numerically stable but also wordier. In different texts you may encounter this equation written in "standard" form.
