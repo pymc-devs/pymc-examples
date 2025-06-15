@@ -28,7 +28,14 @@ myst:
 In this case study we are going to forecast the paths of hurricanes by applying several State Space Models (SSM). We will begin with a simple two-dimensional constant acceleration tracking model, where we only have one parameter to estimate. Subsequently, we will progressively add complexity and parameters as we develop up our model. 
 
 As a brief introduction to SSMs, the general idea is that we define our system using two equations.<br> 
-The state equation [1] and the observation equation [2]. $$x_{t+1} = A_{t}x_{t} + c_{t} + R_{t}\epsilon_{t} \quad [1]$$ $$y_{t} = Z_{t}x_{t} + d_{t} + \eta_{t} \quad [2] $$
+The state equation [1] and the observation equation [2]. 
+$$
+x_{t+1} = A_{t}x_{t} + c_{t} + R_{t}\epsilon_{t} \quad [1]
+$$ 
+
+$$
+y_{t} = Z_{t}x_{t} + d_{t} + \eta_{t} \quad [2]
+$$
 
 The process/state covariance is given by $\epsilon_{t} \sim N(0, Q_{t})$ where $Q_{t}$ is the process/state innovations and the observation/measurement covariance is given by $\eta_{t} \sim N(0, H_{t})$ where $H_{t}$ describes the uncertainty in the measurement device or measurement procedure. 
 
@@ -675,39 +682,81 @@ The simplest state space model for tracking an object in 2-dimensional space is 
 Let us begin by defining our matrices/vectors.
 
 As a reminder the observation equation and the state equation define our linear system.
-$$y_{t} = Z_{t}x_{t} + d_{t} + \eta_{t}$$
-$$x_{t+1} = T_{t}x_{t} + c_{t} + R_{t}\epsilon_{t}$$
+$$
+y_{t} = Z_{t}x_{t} + d_{t} + \eta_{t}
+$$
+
+$$
+x_{t+1} = T_{t}x_{t} + c_{t} + R_{t}\epsilon_{t}
+$$
+
 In this case we are assuming there is no state or observation intercepts ($c_{t} = 0$, $d_{t} = 0$). I will also drop the $t$ subscript over matrices that are fixed (do not change over time).
 
 Our states are the following components derived from the Newtonian equations of motion.
-$$x_{t} = \begin{bmatrix}longitude_{t} \\ latitude_{t} \\ longitude\_velocity_{t} \\ latitude\_velocity_{t} \\ longitude\_acceleration_{t} \\ latitude\_acceleration_{t} \end{bmatrix}$$
+
+$$
+x_{t} = \begin{bmatrix}longitude_{t} \\ latitude_{t} \\ longitude\_velocity_{t} \\ latitude\_velocity_{t} \\ longitude\_acceleration_{t} \\ latitude\_acceleration_{t} \end{bmatrix}
+$$
 
 In order for our system to evolve in accordance with Newtonian motion our transitioin matrix is defined as:
-$$T = \begin{bmatrix}1&0&\Delta t&0&\frac{\Delta t^{2}}{2}&0 \\ 0&1&0&\Delta t&0&\frac{\Delta t^{2}}{2}  \\ 0&0&1&0&\Delta t&0 \\ 0&0&0&1&0&\Delta t \\ 0&0&0&0&1&0 \\ 0&0&0&0&0&1 \end{bmatrix}$$
+
+$$
+T = \begin{bmatrix}1&0&\Delta t&0&\frac{\Delta t^{2}}{2}&0 \\ 0&1&0&\Delta t&0&\frac{\Delta t^{2}}{2}  \\ 0&0&1&0&\Delta t&0 \\ 0&0&0&1&0&\Delta t \\ 0&0&0&0&1&0 \\ 0&0&0&0&0&1 \end{bmatrix}
+$$
 
 The following design matrix tells us that only the positions ($longitude_{t}$ and $latitude_{t}$) are observed states
-$$Z = \begin{bmatrix}1&0&0&0&0&0 \\ 0&1&0&0&0&0 \end{bmatrix}$$
+
+$$
+Z = \begin{bmatrix}1&0&0&0&0&0 \\ 0&1&0&0&0&0 \end{bmatrix}
+$$
 
 The selection matrix is defined as the identity allowing the process/state covariance to affect all of our states.
-$$R = I$$
+
+$$
+R = I
+$$
+
 Where
-$$\epsilon_{t} \sim N(0, Q)$$ 
-$$\eta_{t} \sim N(0, H)$$
+
+$$
+\epsilon_{t} \sim N(0, Q)
+$$ 
+
+$$
+\eta_{t} \sim N(0, H)
+$$
 
 In this example we fix our observation/measurement error to a small value (0.5) reflecting our confidence in the measurements. Here we are assuming that our measuring instrument is fairly accurate and that it may be off by $\sqrt{0.5} \approx 0.7$ degrees.
-$$H = \begin{bmatrix} 0.5&0 \\ 0&0.5\end{bmatrix}$$
+
+$$
+H = \begin{bmatrix} 0.5&0 \\ 0&0.5\end{bmatrix}
+$$
 
 and finally, the state/process covariance matrix that is derived from using Newtonian motion is as follows:
 
-$$Q = \sigma_{a}^{2}\begin{bmatrix} \frac{\Delta t^{4}}{4}&0&\frac{\Delta t^{3}}{2}&0&\frac{\Delta t^{2}}{2}&0 \\ 0&\frac{\Delta t^{4}}{4}&0&\frac{\Delta t^{3}}{2}&0&\frac{\Delta t^{2}}{2} \\ \frac{\Delta t^{3}}{2}&0&\Delta t^{2}&0&\Delta t&0 \\ 0&\frac{\Delta t^{3}}{2}&0&\Delta t^{2}&0&\Delta t \\ \frac{\Delta t^{2}}{2}&0&\Delta t&0&1&0 \\ 0&\frac{\Delta t^{2}}{2}&0&\Delta t&0&1  \end{bmatrix}$$
+$$
+Q = \sigma_{a}^{2}\begin{bmatrix} \frac{\Delta t^{4}}{4}&0&\frac{\Delta t^{3}}{2}&0&\frac{\Delta t^{2}}{2}&0 \\ 0&\frac{\Delta t^{4}}{4}&0&\frac{\Delta t^{3}}{2}&0&\frac{\Delta t^{2}}{2} \\ \frac{\Delta t^{3}}{2}&0&\Delta t^{2}&0&\Delta t&0 \\ 0&\frac{\Delta t^{3}}{2}&0&\Delta t^{2}&0&\Delta t \\ \frac{\Delta t^{2}}{2}&0&\Delta t&0&1&0 \\ 0&\frac{\Delta t^{2}}{2}&0&\Delta t&0&1  \end{bmatrix}
+$$
 
 Let's briefly go over how we came about our $A$ and $Q$ matrices.
 
 The $A$ transition matrix is built such that when we expand the observation model we end up with the Newtonian equations of motion. For example, if we expand the matrix vector multiplaction for the longitude (position) term we end up with:
-$$\hat{y}_{longitude_{t+1}} = longitude_{t} + longitude\_velocity_{t}\Delta t + \frac{longitude\_acceleration_{t}\Delta t^{2}}{2} $$ 
+
+$$
+\hat{y}_{longitude_{t+1}} = longitude_{t} + longitude\_velocity_{t}\Delta t + \frac{longitude\_acceleration_{t}\Delta t^{2}}{2}
+$$ 
+
 This is the Newtonian motion equation of position. Where the new position is the old position plus the change in velocity plus the change in acceleration. The rest of the equations can be derived by completing all the entries of the matrix vector multiplication of the observation equation.
 
-The process/state covariance matrix $Q$ is just the variance (diagonals) covariance (off-diagonals) of the Newtonian equations. For example, the variance of the longitudinal position entry is: $$Var(longitude_{t}) = Var(longitude_{t} + longitude\_velocity_{t}\Delta t + \frac{longitude\_acceleration_{t}\Delta t^{2}}{2}) = Var(\frac{longitude\_acceleration_{t}\Delta t^{2}}{2}) $$ $$= \frac{\Delta t^{4}}{4}Var(longitude\_acceleration_{t}) = \frac{\Delta t^{4}}{4}\sigma_{a}^{2} $$
+The process/state covariance matrix $Q$ is just the variance (diagonals) covariance (off-diagonals) of the Newtonian equations. For example, the variance of the longitudinal position entry is:
+
+$$
+Var(longitude_{t}) = Var(longitude_{t} + longitude\_velocity_{t}\Delta t + \frac{longitude\_acceleration_{t}\Delta t^{2}}{2}) = Var(\frac{longitude\_acceleration_{t}\Delta t^{2}}{2})
+$$
+
+$$
+= \frac{\Delta t^{4}}{4}Var(longitude\_acceleration_{t}) = \frac{\Delta t^{4}}{4}\sigma_{a}^{2}
+$$
 
 Where in this case we assume the same stochastic innovations on the acceleration term in both dimensions. You can derive the rest of the entries in $Q$ by taking the variance or covariance of the Newtonian equations.
 
@@ -718,11 +767,33 @@ We can also derive the Newtonian equations of motion from a system of ordinary d
 2. $\dot{v}(t) = a(t)$
 3. $\dot{a}(t) = 0$
 
-our state vector (in one dimension) $$x_{t} = \begin{bmatrix}p(t) \\ v(t) \\ a(t)  \end{bmatrix} $$ and our ODE system becomes $$\frac{d}{dt} \begin{bmatrix}p(t) \\ v(t) \\a(t)  \end{bmatrix} = \begin{bmatrix}v(t) \\ a(t) \\ 0  \end{bmatrix} $$
+our state vector (in one dimension) 
 
-Now we integrate our system over $\Delta{t}$ and we have $$p(t + \Delta{t}) = p(t) + \int_{t}^{t + \Delta{t}}v(t')dt'$$ assuming that the change in time is small and that the change in velocity is negligible we can approximate the integrals using the forward Euler method and get $$p(t + \Delta{t}) \approx p(t) + v(t)\Delta{t} $$ integrating the rest of our system equations using the same methodology we find that $$ v(t + \Delta{t}) \approx v(t) + a(t)\Delta{t} $$ $$ a(t + \Delta{t}) = a(t) $$
+$$
+x_{t} = \begin{bmatrix}p(t) \\ v(t) \\ a(t)  \end{bmatrix} $$ and our ODE system becomes $$\frac{d}{dt} \begin{bmatrix}p(t) \\ v(t) \\a(t)  \end{bmatrix} = \begin{bmatrix}v(t) \\ a(t) \\ 0  \end{bmatrix}
+$$
 
-We can now express our system of equations over a time interval $\Delta{t}$ as $$ \begin{bmatrix}p(t + \Delta{t}) \\ v(t + \Delta{t}) \\ a(t + \Delta{t})  \end{bmatrix} = \begin{bmatrix}p(t) \\ v(t) \\ a(t)  \end{bmatrix} + \Delta{t} \begin{bmatrix}v(t) \\ a(t) \\ 0  \end{bmatrix} $$
+Now we integrate our system over $\Delta{t}$ and we have $$p(t + \Delta{t}) = p(t) + \int_{t}^{t + \Delta{t}}v(t')dt'$$ assuming that the change in time is small and that the change in velocity is negligible we can approximate the integrals using the forward Euler method and get 
+
+$$
+p(t + \Delta{t}) \approx p(t) + v(t)\Delta{t}
+$$ 
+
+integrating the rest of our system equations using the same methodology we find that 
+
+$$
+v(t + \Delta{t}) \approx v(t) + a(t)\Delta{t}
+$$ 
+
+$$
+a(t + \Delta{t}) = a(t)
+$$
+
+We can now express our system of equations over a time interval $\Delta{t}$ as 
+
+$$
+\begin{bmatrix}p(t + \Delta{t}) \\ v(t + \Delta{t}) \\ a(t + \Delta{t})  \end{bmatrix} = \begin{bmatrix}p(t) \\ v(t) \\ a(t)  \end{bmatrix} + \Delta{t} \begin{bmatrix}v(t) \\ a(t) \\ 0  \end{bmatrix}
+$$
 
 Which when you write out the matrix vector multiplications will yield the Newtonian equations of motion.
 
@@ -953,9 +1024,14 @@ plot_model_evaluations(
 
 # Adding Deterministic Covariates/Exogenous Variables
 In our dataset we have variables that aren't a part of the Newtonian system process, but may carry information that we can leverage to better track the path of the hurricane. We have two options when introducing these exogenous variables into our model. We can add them in as time invariant or time-varying variables. In our case, we are going to add exogenous variables as time invariant. Our aim then is to model our observations as:
-$$\hat{y}_{longitude_{t+1}} = longitude_{t} + longitude\_velocity_{t}\Delta t + \frac{longitude\_acceleration_{t}\Delta t^{2}}{2} + \beta_{exogenous_{longitude}} exogenous\_data$$
 
-$$\hat{y}_{latitude_{t+1}} = latitude_{t} + latitude\_velocity_{t}\Delta t + \frac{latitude\_acceleration_{t}\Delta t^{2}}{2} + \beta_{exogenous_{latitude}} exogenous\_data$$ 
+$$
+\hat{y}_{longitude_{t+1}} = longitude_{t} + longitude\_velocity_{t}\Delta t + \frac{longitude\_acceleration_{t}\Delta t^{2}}{2} + \beta_{exogenous_{longitude}} exogenous\_data
+$$
+
+$$
+\hat{y}_{latitude_{t+1}} = latitude_{t} + latitude\_velocity_{t}\Delta t + \frac{latitude\_acceleration_{t}\Delta t^{2}}{2} + \beta_{exogenous_{latitude}} exogenous\_data
+$$ 
 
 The `max_wind` variable measures the maximum sustained surface wind at 10 meter elevations and is a uni-dimensional measure (i.e not measured in terms of longitude and latitude). Therefore, we are going to use the same data to estimate two-parameters $\beta_{wind_{longitude}}$ and $\beta_{wind_{latitude}}$. This is less than ideal but demonstrates how to add exogenous variables to a `StateSpace` model.
 
@@ -963,17 +1039,30 @@ The `min_pressure` variable measures the minumum central pressure. The lower the
 
 Finally, we will also include the interaction between the maximum sustained surface wind and the minimum central pressure.
 
-In order to put this in matrix form, we are going to add the newly added $\beta$ parameters to our state vector and we will add the corresponding measured `wind_speed`, `min_pressure`, and `interaction_wind_pressure` data into the design matrix. So our new state vector will be: $$x_{t} = \begin{bmatrix}longitude_{t} \\ latitude_{t} \\ longitude\_velocity_{t} \\ latitude\_velocity_{t} \\ longitude\_acceleration_{t} \\ latitude\_acceleration_{t} \\ \beta_{wind_{longitude}} \\ \beta_{wind_{latitude}} \\ \beta_{pressure_{longitude}} \\ \beta_{pressure_{latitude}} \\ \beta_{wind\_pressure_{longitude}} \\ \beta_{wind\_pressure_{latitude}} \end{bmatrix} $$
+In order to put this in matrix form, we are going to add the newly added $\beta$ parameters to our state vector and we will add the corresponding measured `wind_speed`, `min_pressure`, and `interaction_wind_pressure` data into the design matrix. So our new state vector will be: 
 
-and our design matrix will be: $$ Z' = \begin{bmatrix} Z & X_{exogenous\_data} \end{bmatrix} $$ Where $Z$ is our previously defined design matrix and $X_{exogenous}$ is the measured `wind_speed`, `minimum_pressure`, and `interaction_wind_pressure` exogenous data.
+$$
+x_{t} = \begin{bmatrix}longitude_{t} \\ latitude_{t} \\ longitude\_velocity_{t} \\ latitude\_velocity_{t} \\ longitude\_acceleration_{t} \\ latitude\_acceleration_{t} \\ \beta_{wind_{longitude}} \\ \beta_{wind_{latitude}} \\ \beta_{pressure_{longitude}} \\ \beta_{pressure_{latitude}} \\ \beta_{wind\_pressure_{longitude}} \\ \beta_{wind\_pressure_{latitude}} \end{bmatrix}
+$$
+
+and our design matrix will be: 
+
+$$
+Z' = \begin{bmatrix} Z & X_{exogenous\_data} \end{bmatrix}
+$$ 
+
+Where $Z$ is our previously defined design matrix and $X_{exogenous}$ is the measured `wind_speed`, `minimum_pressure`, and `interaction_wind_pressure` exogenous data.
 
 We also need to make adjustments to our $A$ state transition matrix and $R$ selection matrix.
 
-$$T = \begin{bmatrix}1&0&\Delta t&0&\frac{\Delta t^{2}}{2}&0&1&0&1&0&1&0 \\ 0&1&0&\Delta t&0&\frac{\Delta t^{2}}{2}&0&1&0&1&0&1  \\ 0&0&1&0&\Delta t&0&0&0&0&0&0&0 \\ 0&0&0&1&0&\Delta t&0&0&0&0&0&0 \\ 0&0&0&0&1&0&0&0&0&0&0&0 \\ 0&0&0&0&0&1&0&0&0&0&0&0 \\ 0&0&0&0&0&0&1&0&0&0&0&0 \\ 0&0&0&0&0&0&0&1&0&0&0&0 \\ 0&0&0&0&0&0&0&0&1&0&0&0 \\ 0&0&0&0&0&0&0&0&0&1&0&0 \\ 0&0&0&0&0&0&0&0&0&0&1&0 \\ 0&0&0&0&0&0&0&0&0&0&0&1 \end{bmatrix}$$
+$$
+T = \begin{bmatrix}1&0&\Delta t&0&\frac{\Delta t^{2}}{2}&0&1&0&1&0&1&0 \\ 0&1&0&\Delta t&0&\frac{\Delta t^{2}}{2}&0&1&0&1&0&1  \\ 0&0&1&0&\Delta t&0&0&0&0&0&0&0 \\ 0&0&0&1&0&\Delta t&0&0&0&0&0&0 \\ 0&0&0&0&1&0&0&0&0&0&0&0 \\ 0&0&0&0&0&1&0&0&0&0&0&0 \\ 0&0&0&0&0&0&1&0&0&0&0&0 \\ 0&0&0&0&0&0&0&1&0&0&0&0 \\ 0&0&0&0&0&0&0&0&1&0&0&0 \\ 0&0&0&0&0&0&0&0&0&1&0&0 \\ 0&0&0&0&0&0&0&0&0&0&1&0 \\ 0&0&0&0&0&0&0&0&0&0&0&1 \end{bmatrix}
+$$
 
 The last 2 columns we added indicates what states our exogenous variables affect, and the last 2 rows indicate that the processes of our exogenous parameters are constant.
 
-$$R = \begin{bmatrix} 1&0&0&0&0&0 \\ 
+$$
+R = \begin{bmatrix} 1&0&0&0&0&0 \\ 
                       0&1&0&0&0&0 \\
                       0&0&1&0&0&0 \\
                       0&0&0&1&0&0 \\
@@ -985,7 +1074,8 @@ $$R = \begin{bmatrix} 1&0&0&0&0&0 \\
                       0&0&0&0&0&0 \\
                       0&0&0&0&0&0 \\
                       0&0&0&0&0&0 
-       \end{bmatrix}$$
+       \end{bmatrix}
+$$
 
 The additions to the R matrix imply that the exogenous parameters do not exhibit any process innovations.
 
@@ -1435,19 +1525,42 @@ exog_data = np.column_stack((np.asarray(B_longitude, order="F"), np.asarray(B_la
 
 Our new models' structure is going to be similar to our last model that had exogenous variables. However, in this case our data are going to be the basis functions we created earlier. These will be inserted into our design matrix ($Z$) and the beta parameters corresponding to each spline will be added to our  state vector ($x_{t}$). Again, these parameters will be constant (non-time varying). We will also have to adjust our transition matrix ($T$) and selection matrix ($R$) similar to how we did previously. We will now have:
 
-$$\hat{y}_{longitude_{t+1}} = longitude_{t} + longitude\_velocity_{t}\Delta t + \frac{longitude\_acceleration_{t}\Delta t^{2}}{2} + \beta_{spline\_params_{longitude}} longitude\_spline\_basis\_functions$$
+$$
+\hat{y}_{longitude_{t+1}} = longitude_{t} + longitude\_velocity_{t}\Delta t + \frac{longitude\_acceleration_{t}\Delta t^{2}}{2} + \beta_{spline\_params_{longitude}} longitude\_spline\_basis\_functions
+$$
 
-$$\hat{y}_{latitude_{t+1}} = latitude_{t} + latitude\_velocity_{t}\Delta t + \frac{latitude\_acceleration_{t}\Delta t^{2}}{2} + \beta_{spline\_params_{latitude}} latitude\_spline\_basis\_functions$$ 
+$$
+\hat{y}_{latitude_{t+1}} = latitude_{t} + latitude\_velocity_{t}\Delta t + \frac{latitude\_acceleration_{t}\Delta t^{2}}{2} + \beta_{spline\_params_{latitude}} latitude\_spline\_basis\_functions
+$$ 
 
-our design matrix will be: $$ Z' = \begin{bmatrix} Z & X_{basis\_functions} \end{bmatrix} $$ Where $Z$ is our previously defined design matrix and $X_{exogenous}$ are the basis functions we defined earlier.
+our design matrix will be: 
 
-Our transition matrix will be $$T' = \begin{bmatrix} T & F \\ 0 & I_{n\_spline\_params} \end{bmatrix} $$
+$$
+Z' = \begin{bmatrix} Z & X_{basis\_functions} \end{bmatrix}
+$$ 
+
+Where $Z$ is our previously defined design matrix and $X_{exogenous}$ are the basis functions we defined earlier.
+
+Our transition matrix will be 
+
+$$
+T' = \begin{bmatrix} T & F \\ 0 & I_{n\_spline\_params} \end{bmatrix}
+$$
 
 Where $T$ is the transition matrix defined for the Newtonian kinematics (the top-left 6x6 block in our previous model)
-and $$ F =  \begin{bmatrix} 1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0 \\ 0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1 \\ 0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0 \\ 0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0 \\ 0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0 \\ 0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0 \end{bmatrix} $$ 
+and 
+
+$$
+F =  \begin{bmatrix} 1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0 \\ 0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1&0&1 \\ 0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0 \\ 0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0 \\ 0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0 \\ 0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0&0 \end{bmatrix}
+$$ 
+
 and the 0 in the matrix above is a matrix of 0s of shape (number of spline parameters by number of spline parameters)
 
-Finally, we have $$R' = \begin{bmatrix} R \\ 0 \end{bmatrix} $$
+Finally, we have 
+
+$$
+R' = \begin{bmatrix} R \\ 0 \end{bmatrix}
+$$
 
 Where R is the selection matrix over our endogenous states (identity matrix of shape (number of states))
 and again the 0 in the matrix is a matrix of 0s with shape (number of spline parameters by number of states)
