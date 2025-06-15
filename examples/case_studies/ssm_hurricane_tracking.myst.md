@@ -117,7 +117,8 @@ from pymc_extras.statespace.utils.constants import (
     TIME_DIM,
 )
 
-pio.renderers.default = "iframe"
+# make all plotly figures static
+pio.renderers.default = "svg"
 ```
 
 ## Helper Functions
@@ -627,7 +628,7 @@ fig.update_layout(
         "zoom": 2.5,
     },
 )
-fig
+fig.show(width=1000, config={"displayModeBar": False})
 ```
 
 ### Hurricane Fiona's Path
@@ -674,7 +675,7 @@ fig.update_layout(
         "zoom": 1.5,
     },
 )
-fig
+fig.show(width=1000, config={"displayModeBar": False})
 ```
 
 ## Tracking Hurricane Fiona using a State Space Model
@@ -997,7 +998,7 @@ fig = plot_hurricane_path(
     predicted_covariance=predicted_covs,
     uncertainty_index=0,
 )
-fig.show(config={"displayModeBar": False})
+fig.show(width=1000, config={"displayModeBar": False})
 ```
 
 ```{code-cell} ipython3
@@ -1023,7 +1024,7 @@ The 4-period (24-hour) forecasts exhibit a smaller error compared to the one-ste
 fig = plot_hurricane_path(
     data=fiona_df, posterior_mean=f_mean, predicted_covariance=cppc_vcov, uncertainty_index=0
 )
-fig.show(config={"displayModeBar": False})
+fig.show(width=1000, config={"displayModeBar": False})
 ```
 
 ```{code-cell} ipython3
@@ -1379,7 +1380,7 @@ fig = plot_hurricane_path(
     predicted_covariance=predicted_covs,
     uncertainty_index=0,
 )
-fig.show(config={"displayModeBar": False})
+fig.show(width=1000, config={"displayModeBar": False})
 ```
 
 ```{code-cell} ipython3
@@ -1429,7 +1430,7 @@ Similarly, our 24-hour forecasts are also slightly worse off compared to those p
 fig = plot_hurricane_path(
     data=fiona_df, posterior_mean=f_mean, predicted_covariance=cppc_vcov, uncertainty_index=0
 )
-fig.show(config={"displayModeBar": False})
+fig.show(width=1000, config={"displayModeBar": False})
 ```
 
 ```{code-cell} ipython3
@@ -1841,7 +1842,7 @@ fig = plot_hurricane_path(
     predicted_covariance=predicted_covs,
     uncertainty_index=0,
 )
-fig.show(config={"displayModeBar": False})
+fig.show(width=1000, config={"displayModeBar": False})
 ```
 
 ```{code-cell} ipython3
@@ -1877,7 +1878,7 @@ f_mean, cppc_vcov = generate_period_forecasts(
 fig = plot_hurricane_path(
     data=fiona_df, posterior_mean=f_mean, predicted_covariance=cppc_vcov, uncertainty_index=0
 )
-fig.show(config={"displayModeBar": False})
+fig.show(width=1000, config={"displayModeBar": False})
 ```
 
 ```{code-cell} ipython3
