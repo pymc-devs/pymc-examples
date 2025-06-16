@@ -1931,6 +1931,15 @@ fig.update_layout(
 fig.show(renderer="svg")
 ```
 
+```{code-cell} ipython3
+:tags: [remove-cell]
+
+fig = plot_hurricane_path(
+    data=fiona_df, posterior_mean=f_mean, predicted_covariance=cppc_vcov, uncertainty_index=0
+)
+fig.show(width=1000, renderer="png", config={"displayModeBar": False})
+```
+
 ## Authors
 * Authored by Jonathan Dekermanjian in June, 2025 
 
