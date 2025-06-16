@@ -11,3 +11,7 @@ examples/gallery.rst
 
 pixi.lock
 
+
+# pixi environments
+.pixi
+*.egg-info

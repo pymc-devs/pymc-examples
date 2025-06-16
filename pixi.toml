@@ -1,7 +1,6 @@
-[project]
+[workspace]
 authors = ["Chris Fonnesbeck <fonnesbeck@gmail.com>"]
 channels = ["conda-forge"]
-description = "Add a short description here"
 name = "pymc-examples"
 platforms = ["linux-64"]
 version = "0.1.0"
@@ -9,27 +8,17 @@ version = "0.1.0"
 [tasks]
 
 [dependencies]
-python = ">=3.12.5,<4"
-pymc = ">=5.16.2,<6"
-jupyter = ">=1.1.1,<2"
+pymc = ">=5.22.0,<6"
+nutpie = ">=0.14.3,<0.15"
+numpyro = ">=0.18.0,<0.19"
+numba = ">=0.61.2,<0.62"
+ipywidgets = ">=8.1.7,<9"
+arviz = ">=0.21.0,<0.22"
+matplotlib = ">=3.10.3,<4"
+python = ">=3.12.10,<3.13"
 ipykernel = ">=6.29.5,<7"
-ipywidgets = ">=8.1.5,<9"
-numpy = ">=1.26.4,<2"
-arviz = ">=0.19.0,<0.20"
-numpyro = ">=0.15.2,<0.16"
-seaborn = ">=0.13.2,<0.14"
-matplotlib = ">=3.9.2,<4"
-pandas = ">=2.2.2,<3"
-polars = ">=1.6.0,<2"
-esbonio = ">=0.16.4,<0.17"
+blackjax = ">=1.2.4,<2"
 watermark = ">=2.5.0,<3"
-nutpie = ">=0.13.2,<0.14"
-numba = ">=0.60.0,<0.61"
-scikit-learn = ">=1.5.2,<2"
-blackjax = ">=1.2.3,<2"
-networkx = ">=3.4.2,<4"
-bokeh = ">=3.7.2,<4"
-
-[pypi-dependencies]
-pymc-experimental = ">=0.1.2, <0.2"
-pymc-extras = ">=0.2.0, <0.3"
+polars = ">=1.30.0,<2"
+pytorch = ">=2.7.0,<3"
+openblas = ">=0.3.29,<0.4"
