@@ -31,7 +31,7 @@ As a brief introduction to SSMs, the general idea is that we define our system u
 The state equation and the observation equation. 
 
 $$
-x_{t+1} = A_{t}x_{t} + c_{t} + R_{t}\epsilon_{t}
+x_{t+1} = T_{t}x_{t} + c_{t} + R_{t}\epsilon_{t}
 $$ 
 
 $$
@@ -43,7 +43,7 @@ The process/state covariance is given by $\epsilon_{t} \sim N(0, Q_{t})$ where $
 We have the following matrices:
 |State Equation variables|Definition|
 | --- | --- |
-| $A_{t}$ | The state transition matrix at time $t$ defines the kinematics of the process generating the series.
+| $T_{t}$ | The state transition matrix at time $t$ defines the kinematics of the process generating the series.
 | $x_{t}$ | The state vector at time $t$ describes the current state of the system.
 | $c_{t}$ | Intercept vector at time $t$ can include covariates/control/exogenous variables that are deterministically measured.
 | $R_{t}$ | Selection matrix at time $t$ selects which process innovations are allowed to affect the next state.
@@ -70,8 +70,8 @@ The general idea is that we make predictions based on our current state vector a
 The following equations define the process:
 |Description|Equation|
 | --- | --- |
-|Predict the next state vector| $\hat{x}_{t+1\|t} = A_{t}\hat{x}_{t\|t}$ |
-|Predict the next state/process covariance| $P_{t+1\|t} = A_{t}P_{t+1\|t}A_{t}^{T} + Q$ |
+|Predict the next state vector| $\hat{x}_{t+1\|t} = T_{t}\hat{x}_{t\|t}$ |
+|Predict the next state/process covariance| $P_{t+1\|t} = T_{t}P_{t+1\|t}T_{t}^{T} + Q$ |
 |Compute Kalman Gain | $K_{t} = P_{t\|t-1}Z^{T}(ZP_{t\|t-1}Z^{T} + H_{t})^{-1}$ |
 |Estimate current state vector| $\hat{x}_{t\|t} = \hat{x}_{t\|t-1} + K_{t}(y_{t} - Z\hat{x}_{t\|t-1})$ |
 |Estimate current state/process covariance| $P_{t\|t} = (I - K_{t}Z_{t})P_{t\|t-1}(I - K_{t}Z_{t})^{T} + K_{t}H_{t}K_{t}^{T}$ |
@@ -740,9 +740,9 @@ $$
 Q = \sigma_{a}^{2}\begin{bmatrix} \frac{\Delta t^{4}}{4}&0&\frac{\Delta t^{3}}{2}&0&\frac{\Delta t^{2}}{2}&0 \\ 0&\frac{\Delta t^{4}}{4}&0&\frac{\Delta t^{3}}{2}&0&\frac{\Delta t^{2}}{2} \\ \frac{\Delta t^{3}}{2}&0&\Delta t^{2}&0&\Delta t&0 \\ 0&\frac{\Delta t^{3}}{2}&0&\Delta t^{2}&0&\Delta t \\ \frac{\Delta t^{2}}{2}&0&\Delta t&0&1&0 \\ 0&\frac{\Delta t^{2}}{2}&0&\Delta t&0&1  \end{bmatrix}
 $$
 
-Let's briefly go over how we came about our $A$ and $Q$ matrices.
+Let's briefly go over how we came about our $T$ and $Q$ matrices.
 
-The $A$ transition matrix is built such that when we expand the observation model we end up with the Newtonian equations of motion. For example, if we expand the matrix vector multiplaction for the longitude (position) term we end up with:
+The $T$ transition matrix is built such that when we expand the observation model we end up with the Newtonian equations of motion. For example, if we expand the matrix vector multiplaction for the longitude (position) term we end up with:
 
 $$
 \hat{y}_{longitude_{t+1}} = longitude_{t} + longitude\_velocity_{t}\Delta t + \frac{longitude\_acceleration_{t}\Delta t^{2}}{2}
@@ -1067,7 +1067,7 @@ $$
 
 Where $Z$ is our previously defined design matrix and $X_{exogenous}$ is the measured `wind_speed`, `minimum_pressure`, and `interaction_wind_pressure` exogenous data.
 
-We also need to make adjustments to our $A$ state transition matrix and $R$ selection matrix.
+We also need to make adjustments to our $T$ state transition matrix and $R$ selection matrix.
 
 $$
 T = \begin{bmatrix}1&0&\Delta t&0&\frac{\Delta t^{2}}{2}&0&1&0&1&0&1&0 \\ 0&1&0&\Delta t&0&\frac{\Delta t^{2}}{2}&0&1&0&1&0&1  \\ 0&0&1&0&\Delta t&0&0&0&0&0&0&0 \\ 0&0&0&1&0&\Delta t&0&0&0&0&0&0 \\ 0&0&0&0&1&0&0&0&0&0&0&0 \\ 0&0&0&0&0&1&0&0&0&0&0&0 \\ 0&0&0&0&0&0&1&0&0&0&0&0 \\ 0&0&0&0&0&0&0&1&0&0&0&0 \\ 0&0&0&0&0&0&0&0&1&0&0&0 \\ 0&0&0&0&0&0&0&0&0&1&0&0 \\ 0&0&0&0&0&0&0&0&0&0&1&0 \\ 0&0&0&0&0&0&0&0&0&0&0&1 \end{bmatrix}
