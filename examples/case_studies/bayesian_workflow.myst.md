@@ -44,9 +44,9 @@ import seaborn as sns
 warnings.simplefilter("ignore")
 
 sns.set_context("talk")
-# plt.style.use('seaborn-whitegrid')
 
-sampler_kwargs = {"chains": 4, "cores": 4, "tune": 2000}
+RANDOM_SEED = 8451997
+sampler_kwargs = {"chains": 4, "cores": 4, "tune": 2000, "random_seed": RANDOM_SEED}
 ```
 
 Strengths of Bayesian statistics that are critical here:
@@ -226,7 +226,7 @@ with pm.Model() as model_exp2:
 
 ```{code-cell} ipython3
 with model_exp2:
-    prior_pred = pm.sample_prior_predictive()
+    prior_pred = pm.sample_prior_predictive(random_seed=RANDOM_SEED)
 
 fig, ax = plt.subplots(figsize=(12, 8))
 ax.plot(prior_pred.prior_predictive["obs"].values.squeeze().T, color="0.5", alpha=0.1)
@@ -269,7 +269,7 @@ with pm.Model() as model_exp3:
     # Likelihood
     pm.NegativeBinomial("obs", growth, alpha=alpha, observed=confirmed)
 
-    prior_pred = pm.sample_prior_predictive()
+    prior_pred = pm.sample_prior_predictive(random_seed=RANDOM_SEED)
 ```
 
 ```{code-cell} ipython3
@@ -354,7 +354,7 @@ Similar to the prior predictive, we can also generate new data by repeatedly tak
 ```{code-cell} ipython3
 with model_exp3:
     # Draw sampels from posterior predictive
-    post_pred = pm.sample_posterior_predictive(trace_exp3.posterior)
+    post_pred = pm.sample_posterior_predictive(trace_exp3.posterior, random_seed=RANDOM_SEED)
 ```
 
 ```{code-cell} ipython3
@@ -426,7 +426,7 @@ with model_exp4:
     # the shape.
     pm.set_data({"t": np.arange(60), "confirmed": np.zeros(60, dtype="int")})
 
-    post_pred = pm.sample_posterior_predictive(trace_exp4.posterior)
+    post_pred = pm.sample_posterior_predictive(trace_exp4.posterior, random_seed=RANDOM_SEED)
 ```
 
 As we held data back before, we can now see how the predictions of the model
@@ -482,7 +482,7 @@ with pm.Model() as logistic_model:
         "obs", growth, alpha=pm.Gamma("alpha", mu=6, sigma=1), observed=confirmed_data
     )
 
-    prior_pred = pm.sample_prior_predictive()
+    prior_pred = pm.sample_prior_predictive(random_seed=RANDOM_SEED)
 ```
 
 ```{code-cell} ipython3
@@ -612,7 +612,9 @@ plt.tight_layout();
 
 ```{code-cell} ipython3
 with logistic_model:
-    pm.sample_posterior_predictive(trace_logistic_us, extend_inferencedata=True)
+    pm.sample_posterior_predictive(
+        trace_logistic_us, extend_inferencedata=True, random_seed=RANDOM_SEED
+    )
 ```
 
 ```{code-cell} ipython3
