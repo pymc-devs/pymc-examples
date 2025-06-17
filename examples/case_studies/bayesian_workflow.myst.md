@@ -645,8 +645,5 @@ As you can see, the model is not a great fit to this data. Why? What assumptions
 %watermark -n -u -v -iv -w
 ```
 
-```{code-cell} ipython3
-
 :::{include} ../page_footer.md
 :::
-```
