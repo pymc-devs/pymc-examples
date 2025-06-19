@@ -288,11 +288,6 @@ px.histogram(x=dist.rvs(1000), nbins=20, title="Gamma Distribution Samples")
 ```
 
 ```{code-cell} ipython3
-gamma_samples = pm.draw(pm.Gamma.dist(alpha=2, beta=0.2), 1000)
-px.histogram(x=gamma_samples, nbins=20, title="Gamma Distribution Samples")
-```
-
-```{code-cell} ipython3
 t = df_country.select("days_since_100").to_numpy().flatten()
 confirmed = df_country.select("confirmed").to_numpy().flatten()
 
@@ -338,7 +333,7 @@ fig.update_layout(
     yaxis=dict(range=[-100, 1000]),
     xaxis=dict(range=[0, 10]),
     template="plotly_white",
-)
+);
 ```
 
 :::{admonition} Progress!
@@ -451,7 +446,7 @@ Before trusting our results, we must verify that the sampler has converged prope
 :::
 
 ```{code-cell} ipython3
-az.plot_trace(trace_exp3, var_names=["a", "b", "alpha"])
+az.plot_trace(trace_exp3, var_names=["a", "b", "alpha"]);
 ```
 
 ```{code-cell} ipython3
@@ -459,7 +454,7 @@ az.summary(trace_exp3, var_names=["a", "b", "alpha"])
 ```
 
 ```{code-cell} ipython3
-az.plot_energy(trace_exp3)
+az.plot_energy(trace_exp3);
 ```
 
 :::{admonition} Convergence Checklist
@@ -558,7 +553,7 @@ for i, (name, trace) in enumerate(results.items()):
 ax.set_xlabel("Growth rate (b)")
 ax.set_ylabel("Density")
 ax.set_title("Sensitivity to Prior Choice")
-ax.legend()
+ax.legend();
 ```
 
 :::{admonition} Sensitivity Analysis Results
@@ -870,7 +865,7 @@ with logistic_model:
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace_logistic)
+az.plot_trace(trace_logistic);
 ```
 
 ```{code-cell} ipython3
@@ -967,7 +962,7 @@ with model_exp4:
 with logistic_model:
     pm.compute_log_likelihood(trace_logistic)
 
-az.plot_compare(az.compare({"exp4": trace_exp4_full, "logistic": trace_logistic}))
+az.plot_compare(az.compare({"exp4": trace_exp4_full, "logistic": trace_logistic}));
 ```
 
 As you can see, the logistic model provides a much better fit to the data. 
@@ -1031,7 +1026,7 @@ with logistic_model_us:
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace_logistic_us)
+az.plot_trace(trace_logistic_us);
 ```
 
 ```{code-cell} ipython3
