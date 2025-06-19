@@ -14,7 +14,7 @@ kernelspec:
 
 (bayesian_workflow)=
 
-# The Bayesian Workflow
+# The Bayesian Workflow: COVID-19 Outbreak Modeling
 
 :::{post} Jun 16, 2025
 :tags: workflow
@@ -22,7 +22,7 @@ kernelspec:
 :author: Thomas Wiecki, Chris Fonnesbeck
 :::
 
-Bayesian inference is a powerful tool for extracting inference from data using probability models. This involves an interplay among statistical models, subject matter knowledge, and computational techniques. In building Bayesian models, it is easy to get carried away with complex models from the outset, often leading to an unsatisfactory final result (or a dead end). To avoid common model development pitfalls, a structured approach is helpful. The *Bayesian workflow* (Gelman *et al.*) is a systematic approach to building, validating, and refining probabilistic models, ensuring that the models are robust, interpretable, and useful for decision-making. The workflow's iterative nature ensures that modeling assumptions are tested and refined as the model grows, leading to more reliable results.
+Bayesian modeling is a robust approach for drawing conclusions from data. Successful modeling involves an interplay among statistical models, subject matter knowledge, and computational techniques. In building Bayesian models, it is easy to get carried away with complex models from the outset, often leading to an unsatisfactory final result (or a dead end). To avoid common model development pitfalls, a structured approach is helpful. The *Bayesian workflow* (Gelman *et al.*) is a systematic approach to building, validating, and refining probabilistic models, ensuring that the models are robust, interpretable, and useful for decision-making. The workflow's iterative nature ensures that modeling assumptions are tested and refined as the model grows, leading to more reliable results.
 
 This workflow is particularly powerful in high-level probabilistic programming environments like PyMC, where the ability to rapidly prototype and iterate on complex statistical models enables practitioners to focus on the modeling process rather than the underlying computational details. The workflow invlolves moving from simple models--via prior checks, fitting, diagnostics, and refinement--through to a final product that satisfies the analytic goals, making sure that computational and conceptual issues are identified and addressed systematically as they are encountered.
 
@@ -270,8 +270,13 @@ We will also change the prior of the intercept to be centered at 100 and tighten
 The negative binomial distribution uses an overdispersion parameter, which we will describe using a gamma distribution. A companion package called `preliz`, a library for prior distribution elicitation, has a nice utility called `maxent` that will help us parameterize this prior, as the gamma distribution is not as intuitive to work with as the normal distribution.
 
 ```{code-cell} ipython3
-gamma_params = pz.maxent(pz.Gamma(), lower=0.1, upper=20, mass=0.95)
-gamma_params
+dist = pz.Gamma()
+
+pz.maxent(dist, lower=0.1, upper=20, mass=0.95);
+```
+
+```{code-cell} ipython3
+px.histogram(x=dist.rvs(1000), nbins=20, title="Gamma Distribution Samples")
 ```
 
 ```{code-cell} ipython3
@@ -294,7 +299,7 @@ with pm.Model() as model_exp2:
     # Exponential regression
     growth = a * (1 + b) ** t
 
-    alpha = pz.maxent(pz.Gamma(), lower=0.1, upper=20, mass=0.95, plot=False).to_pymc("alpha")
+    alpha = alpha = dist.to_pymc("alpha")
 
     # Likelihood
     pm.NegativeBinomial("obs", growth, alpha=alpha, observed=confirmed)
@@ -361,10 +366,8 @@ with pm.Model() as model_exp3:
     # Exponential regression
     growth = a * (1 + b) ** t
 
-    gamma_params = pm.find_constrained_prior(
-        pm.Gamma, lower=0.1, upper=20, init_guess={"alpha": 6, "beta": 1}, mass=0.95
-    )
-    alpha = pm.Gamma("alpha", **gamma_params)
+    # Overdispersion parameter
+    alpha = pz.maxent(pz.Gamma(), lower=0.1, upper=20, mass=0.95, plot=False).to_pymc("alpha")
 
     # Likelihood
     pm.NegativeBinomial("obs", growth, alpha=alpha, observed=confirmed)
@@ -373,23 +376,21 @@ with pm.Model() as model_exp3:
 ```
 
 ```{code-cell} ipython3
-fig = make_subplots(
+make_subplots(
     rows=1, cols=2, subplot_titles=("Prior for a (intercept)", "Prior for b (growth rate)")
-)
-
-fig.add_trace(
+).add_trace(
     go.Histogram(x=prior_pred3.prior["a"].values.flatten(), nbinsx=30, name="a"), row=1, col=1
-)
-
-fig.add_trace(
+).add_trace(
     go.Histogram(x=prior_pred3.prior["b"].values.flatten(), nbinsx=30, name="b"), row=1, col=2
+).update_xaxes(
+    title_text="Value", row=1, col=1
+).update_xaxes(
+    title_text="Value", row=1, col=2
+).update_yaxes(
+    title_text="Count", row=1, col=1
+).update_layout(
+    template="plotly_white", showlegend=False, height=350
 )
-
-fig.update_xaxes(title_text="Value", row=1, col=1)
-fig.update_xaxes(title_text="Value", row=1, col=2)
-fig.update_yaxes(title_text="Count", row=1, col=1)
-fig.update_layout(template="plotly_white", showlegend=False, height=350)
-fig.show()
 ```
 
 ```{code-cell} ipython3
@@ -433,7 +434,6 @@ Now we fit our model using MCMC. This is where the "Inference Button™" (`pm.sa
 
 ```{code-cell} ipython3
 with model_exp3:
-    # Inference button (TM)
     trace_exp3 = pm.sample(**sampler_kwargs)
 ```
 
@@ -447,7 +447,6 @@ Before trusting our results, we must verify that the sampler has converged prope
 
 ```{code-cell} ipython3
 az.plot_trace(trace_exp3, var_names=["a", "b", "alpha"])
-plt.tight_layout()
 ```
 
 ```{code-cell} ipython3
@@ -456,7 +455,6 @@ az.summary(trace_exp3, var_names=["a", "b", "alpha"])
 
 ```{code-cell} ipython3
 az.plot_energy(trace_exp3)
-plt.show()
 ```
 
 :::{admonition} Convergence Checklist
@@ -519,7 +517,7 @@ results = {}
 
 for config in prior_configs:
     with pm.Model() as model_sensitivity:
-        # Use first 30 days of Germany data
+
         t_sens = df_country.select("days_since_100").to_numpy().flatten()
         confirmed_sens = df_country.select("confirmed").to_numpy().flatten()
 
@@ -556,7 +554,6 @@ ax.set_xlabel("Growth rate (b)")
 ax.set_ylabel("Density")
 ax.set_title("Sensitivity to Prior Choice")
 ax.legend()
-plt.show()
 ```
 
 :::{admonition} Sensitivity Analysis Results
@@ -589,7 +586,6 @@ This allows us to assess whether our model can reproduce key features of the obs
 
 ```{code-cell} ipython3
 with model_exp3:
-    # Draw sampels from posterior predictive
     post_pred = pm.sample_posterior_predictive(trace_exp3.posterior, random_seed=RANDOM_SEED)
 ```
 
@@ -871,7 +867,6 @@ with logistic_model:
 
 ```{code-cell} ipython3
 az.plot_trace(trace_logistic)
-plt.tight_layout()
 ```
 
 ```{code-cell} ipython3
@@ -970,7 +965,6 @@ with logistic_model:
     pm.compute_log_likelihood(trace_logistic)
 
 az.plot_compare(az.compare({"exp4": trace_exp4_full, "logistic": trace_logistic}))
-plt.show()
 ```
 
 As you can see, the logistic model provides a much better fit to the data. 
@@ -1036,8 +1030,6 @@ with logistic_model_us:
 
 ```{code-cell} ipython3
 az.plot_trace(trace_logistic_us)
-plt.tight_layout()
-plt.show()
 ```
 
 ```{code-cell} ipython3
