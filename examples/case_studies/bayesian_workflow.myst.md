@@ -52,7 +52,13 @@ import pymc as pm
 
 from plotly.subplots import make_subplots
 
-pio.renderers.default = "sphinx_gallery"
+# Set renderer to generate static images
+pio.renderers.default = "png"
+
+# Configure image size and quality
+pio.kaleido.scope.default_width = 800
+pio.kaleido.scope.default_height = 600
+pio.kaleido.scope.default_scale = 2
 
 warnings.simplefilter("ignore")
 
@@ -151,6 +157,7 @@ fig = px.line(
     title=f"{country} - COVID-19 Cases",
     labels={"days_since_100": "Days since 100 cases", "confirmed": "Confirmed cases"},
 )
+fig.show()
 ```
 
 Look at the above plot and think about what type of model you would build to capture this pattern. What mathematical function might describe this growth?
@@ -619,7 +626,7 @@ fig.add_trace(
     yaxis_title="Confirmed cases (log scale)",
     yaxis_type="log",
     template="plotly_white",
-)
+).show()
 ```
 
 OK, that does not look terrible; the data essentially behaves like a random draw from the model.

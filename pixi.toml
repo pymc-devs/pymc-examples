@@ -33,3 +33,4 @@ plotly = ">=6.1.2,<7"
 
 [pypi-dependencies]
 pymc-extras = ">=0.2.0, <0.3"
+kaleido = ">=1.0.0, <2"
