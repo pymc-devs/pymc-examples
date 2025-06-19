@@ -45,11 +45,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import plotly.io as pio
 import polars as pl
 import preliz as pz
 import pymc as pm
 
 from plotly.subplots import make_subplots
+
+pio.renderers.default = "sphinx_gallery"
 
 warnings.simplefilter("ignore")
 
@@ -148,7 +151,6 @@ fig = px.line(
     title=f"{country} - COVID-19 Cases",
     labels={"days_since_100": "Days since 100 cases", "confirmed": "Confirmed cases"},
 )
-fig.show()
 ```
 
 Look at the above plot and think about what type of model you would build to capture this pattern. What mathematical function might describe this growth?
@@ -247,7 +249,6 @@ fig.update_layout(
     xaxis=dict(range=[0, 10]),
     template="plotly_white",
 )
-fig.show()
 ```
 
 :::{admonition} What's Wrong With This Model?
@@ -281,8 +282,7 @@ px.histogram(x=dist.rvs(1000), nbins=20, title="Gamma Distribution Samples")
 
 ```{code-cell} ipython3
 gamma_samples = pm.draw(pm.Gamma.dist(alpha=2, beta=0.2), 1000)
-fig = px.histogram(x=gamma_samples, nbins=20, title="Gamma Distribution Samples")
-fig.show()
+px.histogram(x=gamma_samples, nbins=20, title="Gamma Distribution Samples")
 ```
 
 ```{code-cell} ipython3
@@ -332,7 +332,6 @@ fig.update_layout(
     xaxis=dict(range=[0, 10]),
     template="plotly_white",
 )
-fig.show()
 ```
 
 :::{admonition} Progress!
@@ -417,7 +416,6 @@ fig.update_layout(
     xaxis=dict(range=[0, 10]),
     template="plotly_white",
 )
-fig.show()
 ```
 
 Note that even though the intercept parameter can not be below 100 now, we still see data generated at below hundred. Why? 
@@ -853,7 +851,6 @@ fig.update_layout(
     yaxis_type="log",
     template="plotly_white",
 )
-fig.show()
 ```
 
 ```{code-cell} ipython3
@@ -936,7 +933,6 @@ for i in range(min(100, resid_values.shape[1])):
     )
 
 fig.update_layout(title="Residuals", xaxis_title="Days since 100 cases", yaxis_title="Residual")
-fig.show()
 ```
 
 What is the difference between the residuals from before?
@@ -990,7 +986,6 @@ fig = px.line(
 )
 fig.update_traces(line=dict(color="#FF4136", width=3))
 fig.update_layout(template="plotly_white", height=400)
-fig.show()
 ```
 
 The US data looks quite different - there appear to be multiple waves. Let's see how our logistic model handles this:
