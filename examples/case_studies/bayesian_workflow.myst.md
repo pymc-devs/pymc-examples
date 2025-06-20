@@ -333,7 +333,7 @@ fig.update_layout(
     yaxis=dict(range=[-100, 1000]),
     xaxis=dict(range=[0, 10]),
     template="plotly_white",
-);
+)
 ```
 
 :::{admonition} Progress!
@@ -621,7 +621,7 @@ fig.add_trace(
     yaxis_title="Confirmed cases (log scale)",
     yaxis_type="log",
     template="plotly_white",
-).show()
+)
 ```
 
 OK, that does not look terrible; the data essentially behaves like a random draw from the model.
