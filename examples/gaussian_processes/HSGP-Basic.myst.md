@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: preliz
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -87,7 +87,8 @@ def simulate_1d(x, ell_true, eta_true, sigma_true):
     # Draw one sample from the underlying GP.
     n = len(x)
     cov_func = eta_true**2 * pm.gp.cov.Matern52(1, ell_true)
-    gp_true = pm.MvNormal.dist(mu=np.zeros(n), cov=cov_func(x[:, None]))
+    cov_mat_stabilized = pm.gp.util.stabilize(cov_func(x[:, None]))
+    gp_true = pm.MvNormal.dist(mu=np.zeros(n), cov=cov_mat_stabilized)
     f_true = pm.draw(gp_true, draws=1, random_seed=rng)
 
     # The observed data is the latent function plus a small amount
@@ -153,7 +154,7 @@ with pm.Model(coords={"basis_coeffs": np.arange(200), "obs_id": np.arange(len(y_
     sigma = pm.Exponential("sigma", scale=1.0)
     pm.Normal("y_obs", mu=f, sigma=sigma, observed=y_obs, dims="obs_id")
 
-    idata = pm.sample()
+    idata = pm.sample(chains=4)
     idata.extend(pm.sample_posterior_predictive(idata, random_seed=rng))
 ```
 
@@ -188,7 +189,7 @@ ax.scatter(x, y_obs, marker="o", color="grey", s=15, label="Observed data")
 ax.plot(x, f_true, color="#FBE64D", lw=2, label="True underlying GP 'f'")
 
 ax.set(title="The HSGP Fit", xlabel="x", ylabel="y")
-ax.legend(frameon=True, fontsize=11, ncol=2);
+ax.legend(frameon=True, fontsize=11, ncol=2, loc="lower left");
 ```
 
 The inferred underlying GP (in bordeaux) accurately matches the true underlying GP (in yellow). We also see that the posterior predictive samples (in light blue) fit the observed data really well.
@@ -360,7 +361,7 @@ def calculate_Kapprox(Xs, L, m):
 ```
 
 ```{code-cell} ipython3
-fig, axs = plt.subplots(2, 4, figsize=(14, 7), sharey=True)
+fig, axs = plt.subplots(2, 4, figsize=(14, 7), sharey=True, layout="tight")
 
 axs[0, 0].imshow(K, cmap="inferno", vmin=0, vmax=1)
 axs[0, 0].set(xlabel="x1", ylabel="x2", title=f"True Gram matrix\nTrue $\\ell$ = {chosen_ell}")
@@ -413,7 +414,6 @@ axs[1, 3].set_title(f"m = {m}, c = {c}")
 
 for ax in axs.flatten():
     ax.grid(False)
-plt.tight_layout();
 ```
 
 The plots above compare the approximate Gram matrices to the unapproximated Gram matrix in the top left panel.  The goal is to compare the approximated Gram matrices to the true one (upper left).  Qualitatively, **the more similar they look the better the approximation**.  Also, these results are **only relevant to the context of the particular domain defined by `X` and the chosen lengthscale**, $\ell = 3$ -- just because it looks good for $\ell = 3$ doesn't mean it will look good for, for instance, $\ell = 10$.  
@@ -499,7 +499,6 @@ y_tr, y_te = y_obs[ix_tr], y_obs[ix_te]
 
 ```{code-cell} ipython3
 fig = plt.figure(figsize=(13, 4))
-plt.subplots_adjust(wspace=0.02)
 
 ax1 = plt.subplot(131)
 ax1.scatter(X_tr[:, 0], X_tr[:, 1], c=mu[ix_tr] - f_true[ix_tr])
@@ -539,10 +538,9 @@ with pm.Model() as model:
 
     # Prior on the HSGP
     eta = pm.Exponential("eta", scale=2.0)
-    ell_params = pm.find_constrained_prior(
-        pm.Lognormal, lower=0.5, upper=5.0, mass=0.9, init_guess={"mu": 1.0, "sigma": 1.0}
-    )
-    ell = pm.Lognormal("ell", **ell_params)
+    ell_dist = pz.maxent(pz.LogNormal(), lower=0.5, upper=5.0, mass=0.9, plot=False)
+    ell = ell_dist.to_pymc("ell")
+
     cov_func = eta**2 * pm.gp.cov.Matern52(input_dim=2, ls=ell)
 
     # m and c control the fidelity of the approximation
@@ -608,7 +606,7 @@ Now, let's sample the model and quickly check the results:
 
 ```{code-cell} ipython3
 with model:
-    idata.extend(pm.sample(nuts_sampler="numpyro", random_seed=rng))
+    idata.extend(pm.sample(chains=4, nuts_sampler="numpyro", random_seed=rng))
 ```
 
 ```{code-cell} ipython3
@@ -654,7 +652,6 @@ pm.model_to_graphviz(model)
 
 ```{code-cell} ipython3
 fig = plt.figure(figsize=(13, 4))
-plt.subplots_adjust(wspace=0.02)
 
 ax1 = plt.subplot(131)
 ax1.scatter(X[:, 0], X[:, 1], c=f_true)
@@ -687,6 +684,7 @@ Sampling diagnostics all look good, and we can see that the underlying GP was in
 
 * Created by [Bill Engels](https://github.com/bwengals) and [Alexandre Andorra](https://github.com/AlexAndorra) in 2024 ([pymc-examples#647](https://github.com/pymc-devs/pymc-examples/pull/647))
 * Use `pz.maxent` instead of `pm.find_constrained_prior`, and add random seed. [Osvaldo Martin](https://aloctavodia.github.io/). August 2024
+* Use `pm.gp.util.stabilize` in `simulate_1d`. Use `pz.maxent` rather than `pm.find_constrained_prior` in linearized HSGP model. [Alexander Armstrong](https://github.com/Armatron44), July 2025.
 
 +++
 
