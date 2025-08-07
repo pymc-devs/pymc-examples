@@ -87,8 +87,8 @@ def simulate_1d(x, ell_true, eta_true, sigma_true):
     # Draw one sample from the underlying GP.
     n = len(x)
     cov_func = eta_true**2 * pm.gp.cov.Matern52(1, ell_true)
-    cov_mat_jitted = pm.gp.util.stabilize(cov_func(x[:, None]))
-    gp_true = pm.MvNormal.dist(mu=np.zeros(n), cov=cov_mat_jitted)
+    cov_mat_stabilized = pm.gp.util.stabilize(cov_func(x[:, None]))
+    gp_true = pm.MvNormal.dist(mu=np.zeros(n), cov=cov_mat_stabilized)
     f_true = pm.draw(gp_true, draws=1, random_seed=rng)
 
     # The observed data is the latent function plus a small amount
