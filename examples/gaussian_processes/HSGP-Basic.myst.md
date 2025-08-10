@@ -233,7 +233,7 @@ At the end of this section, we'll give the rules of thumb given in [Ruitort-Mayo
 
 +++
 
-Speaking non-technically, the HSGP approximates the GP prior as a linear combination of sinusoids.  The coefficients of the linear combination are IID normal random variables whose standard deviation depends on GP hyperparameters (which are an amplitude and lengthscale for the Matern family). 
+Speaking non-technically, the HSGP approximates the GP prior as a linear combination of sinusoids.  The coefficients of the linear combination are IID normal random variables whose standard deviation depends on GP hyperparameters (which are an amplitude and lengthscale for the Matern family).  Users are who are interested in further introductory details should see [this](https://juanitorduz.github.io/hsgp_intro/) fantastic blog post by Juan Ordiz. 
 
 To see this, we'll make a few plots of the $m=3$ and $m=5$ basis vectors and pay careful attention to how they behave at the boundaries of the domain.  Note that we have to center the `x` data first, and then choose `L` in relation to the centered data.  It's worth mentioning here that the basis vectors we're plotting do not depend on either the choice of the covariance kernel or on any unknown parameters the covariance function has.
 
@@ -309,15 +309,15 @@ In practice, you'll need to infer the lengthscale from the data, so the HSGP nee
 
 [Ruitort-Mayol et. al.](https://arxiv.org/abs/2004.11408) give some handy heuristics for the range of lengthscales that are accurately reproduced for given values of $m$ and $c$. Below, we provide a function that uses their heuristics to recommend minimum $m$ and $c$ value. Note that **these recommendations are based on a one-dimensional GP**.
 
-For example, if you're using the `Matern52` covariance and your data ranges from $x=-5$ to $x=95$, and the bulk of your lengthscale prior is between $\ell=1$ and $\ell=50$, then the smallest recommended values are $m=543$ and $c=3.7$, as you can see below:
+For example, if you're using the `Matern52` covariance and your data ranges from $x=-5$ to $x=95$, and the bulk of your lengthscale prior is between $\ell=1$ and $\ell=50$, then the smallest recommended values are $m=543$ and $c=4.1$, as you can see below:
 
 ```{code-cell} ipython3
-m, c = pm.gp.hsgp_approx.approx_hsgp_hyperparams(
+m52_m, m52_c = pm.gp.hsgp_approx.approx_hsgp_hyperparams(
     x_range=[-5, 95], lengthscale_range=[1, 50], cov_func="matern52"
 )
 
-print("Recommended smallest number of basis vectors (m):", m)
-print("Recommended smallest scaling factor (c):", np.round(c, 1))
+print("Recommended smallest number of basis vectors for Matern 5/2 (m):", m52_m)
+print("Recommended smallest scaling factor for Matern 5/2(c):", np.round(m52_c, 1))
 ```
 
 ### The HSGP approximate Gram matrix
@@ -428,6 +428,134 @@ We can make a few observations:
 For your particular situation, **you will need to experiment across your range of lengthscales and quantify how much approximation error is acceptable**. Often, when prototyping a model, you can use a lower fidelity HSGP approximation for faster sampling. Then, once you understand the range of relevant lengthscales, you can dial in the correct $m$ and $L$ (or $c$) values.  
 
 Be aware that it's also possible to encounter scenarios where a low fidelity HSGP approximation gives a more parsimonious fit than a high fidelity HSGP approximation. A low fidelity HSGP approximation is still a valid prior for some unknown function, if somewhat contrived. Whether that matters will depend on your context.
+
++++
+
+## Avoiding underflow issues
+As noted above, the diagonal matrix $\Delta$ used in the calculation of the approximate Gram matrix contains information on the power spectral density, $\mathcal{S}$, of a given kernel. Thus, for the Gram matrix to be defined, $\mathcal{S} > 0$. Consequently, when picking HSGP hyperparameters $m$ and $L$ it is important to check $\mathcal{S} > 0$ for the suggested $m$ and $L$ values. The code in the next few cell compares the suitability of the suggested hyperparameters $m$ and $L$ for `matern52` to that of `ExpQuad` for the data spanning $x=-5$ to $x=95$, with the lengthscale prior between $\ell=1$ and $\ell=50$. As we shall see, the suggested hyperparameters for `ExpQuad` are for not suitable for $\ell=50$.
+
+### Matern $\nu=5/2$, `matern52`
+
+```{code-cell} ipython3
+m52_L = m52_c * 50  # c * s
+print(
+    f"""m52_m = {m52_m:.1f}, 
+m52_c = {m52_c:.1f}, 
+m52_s = {50:.1f}
+and m52_L = {m52_L:.1f}"""
+)
+
+m52_eigvals = pm.gp.hsgp_approx.calc_eigenvalues(m52_L, [m52_m])
+m52_omega = pt.sqrt(m52_eigvals)
+matern52_cov_ell_1 = pm.gp.cov.Matern52(1, ls=1)
+matern52_cov_ell_50 = pm.gp.cov.Matern52(1, ls=50)
+
+# check non have underflowed to zero.
+assert np.all(matern52_cov_ell_1.power_spectral_density(m52_omega).eval() > 0)
+assert np.all(matern52_cov_ell_50.power_spectral_density(m52_omega).eval() > 0)
+```
+
+### Squared exponential, `ExpQuad`
+
+```{code-cell} ipython3
+# get ExpQuad suggested hyperparams.
+
+epq_m, epq_c = pm.gp.hsgp_approx.approx_hsgp_hyperparams(
+    x_range=[-5, 95], lengthscale_range=[1, 50], cov_func="ExpQuad"
+)
+
+print("Recommended smallest number of basis vectors for ExpQuad (m):", epq_m)
+print("Recommended smallest scaling factor for ExpQuad (c):", np.round(epq_c, 1))
+```
+
+```{code-cell} ipython3
+epq_L = epq_c * 50  # c * s
+print(
+    f"""epq_m = {epq_m:.1f},
+epq_c = {epq_c:.1f},
+epq_s = {50:.1f}
+and epq_L = {epq_L:.1f}"""
+)
+
+epq_eigvals = pm.gp.hsgp_approx.calc_eigenvalues(epq_L, [epq_m])
+epq_omega = pt.sqrt(epq_eigvals)
+epq_cov_ell_1 = pm.gp.cov.ExpQuad(1, ls=1)
+epq_cov_ell_50 = pm.gp.cov.ExpQuad(1, ls=50)
+
+# repeat check as in the Matern52.
+assert np.all(epq_cov_ell_1.power_spectral_density(epq_omega).eval() > 0)
+assert np.all(
+    epq_cov_ell_50.power_spectral_density(epq_omega).eval() > 0
+)  # this will not pass assertion.
+```
+
+We see that not all values of $\mathcal{S}$ are defined for the squared exponential kernel when $\ell=50$.
+
+To see why, the covariance of the kernels considered are plotted below along with their power spectral densities in log space. The covariance plot shows that for a set $\ell$, the tails of `matern52` are heavier than `ExpQuad`, while a higher $\ell$ for a given kernel type gives rise to higher covariance. The power spectral density is inversely proportional to the covariance - essentially the flatter the shape of the covariance function, the narrower the bandwidth and the lower the power spectral density at higher values of $\omega$. As a result, we see that for `ExpQuad` with $\ell = 50$, $\mathcal{S}\left(\omega\right)$ rapidly decreases towards $0$ before the domain of $\omega$ is exhausted, and hence we reach values at which we underflow to $0$.
+
+```{code-cell} ipython3
+x = np.linspace(0, 10, 101)[:, None]
+fig, ax = plt.subplots(2, layout="tight", figsize=(10, 6))
+
+ax[0].set_title(f"Covariance")
+ax[0].plot(x, epq_cov_ell_1(x).eval()[0], label=r"ExpQuad, $\ell = 1$")
+ax[0].plot(x, epq_cov_ell_50(x).eval()[0], label=r"ExpQuad, $\ell = 50$")
+ax[0].plot(x, matern52_cov_ell_1(x).eval()[0], label=r"Matern 5/2, $\ell = 1$", linestyle="--")
+ax[0].plot(x, matern52_cov_ell_50(x).eval()[0], label=r"Matern 5/2, $\ell = 50$", linestyle="--")
+ax[0].set_xlabel(r"$x_\mathrm{p}-x_\mathrm{q}$")
+ax[0].set_ylabel(r"$k\left(x_\mathrm{p}-x_\mathrm{q}\right)$")
+ax[0].set_yscale("log")
+ax[0].set_ylim(1e-10, 1e1)
+ax[0].legend(frameon=False, loc="lower left")
+
+
+ax[1].plot(epq_omega.eval(), epq_cov_ell_1.power_spectral_density(epq_omega).eval())
+ax[1].plot(epq_omega.eval(), epq_cov_ell_50.power_spectral_density(epq_omega).eval())
+ax[1].plot(
+    m52_omega.eval(), matern52_cov_ell_1.power_spectral_density(m52_omega).eval(), linestyle="--"
+)
+ax[1].plot(
+    m52_omega.eval(), matern52_cov_ell_50.power_spectral_density(m52_omega).eval(), linestyle="--"
+)
+ax[1].set_title("Power Spectral Density")
+ax[1].set_xlabel(r"$\omega$")
+ax[1].set_ylabel(r"$\mathcal{S}\left(\omega\right)$")
+ax[1].set_yscale("log")
+ax[1].set_ylim(1e-10, 3e2)
+plt.show()
+```
+
+These underflow issues can arise when using a broad prior on $\ell$ as you need a $m$ large to cover small lengthscales, but these may cause underflow in $\mathcal{S}$ when $\ell$ is large. As the graphs above suggest, one can **consider a different kernel with heavier tails such as `matern52` or `matern32`**. 
+
+Alternatively, if you are certain you need a specific kernel, **you can use the linear form of HSGPs (see below) with a boolean mask**. In doing so, the sinusoids with vanishingly small coefficients in the linear combination are effectively screened out.  E.g:
+```python
+import pymc as pm
+import numpy as np
+
+x = np.sort(np.random.uniform(-1, 1, 10))
+
+large_m, large_l = pm.gp.hsgp_approx.approx_hsgp_hyperparams(
+    x_range=[-1, 1], lengthscale_range=[1E-2, 4], cov_func="ExpQuad"
+)
+
+print(large_m, large_l)
+# (2240, 12.8)
+
+with pm.Model() as model:
+    # some broad prior on the lengthscale.
+    ell = pm.HalfNormal('ell', sigma=1)
+    cov_func = pm.gp.cov.ExpQuad(input_dim=1, ls=ell)
+    # setup HSGP.
+    gp = pm.gp.HSGP(m=[large_m], L=[large_l], parametrization="noncentered", cov_func=cov_func)
+    phi, sqrt_psd = gp.prior_linearized(x[:, None])
+    basis_coeffs = pm.Normal("basis_coeffs", size=gp.n_basis_vectors)
+    # create mask that screens out frequencies with underflowing power spectral densities.
+    mask = sqrt_psd > 0
+    # now apply the mask over the m dimension & calculate HSGP function.
+    f = pm.Deterministic("f", phi[:, mask] @ (basis_coeffs[mask] * sqrt_psd[mask]))
+    # setup your observation model
+    ...
+```
 
 +++
 
@@ -684,7 +812,7 @@ Sampling diagnostics all look good, and we can see that the underlying GP was in
 
 * Created by [Bill Engels](https://github.com/bwengals) and [Alexandre Andorra](https://github.com/AlexAndorra) in 2024 ([pymc-examples#647](https://github.com/pymc-devs/pymc-examples/pull/647))
 * Use `pz.maxent` instead of `pm.find_constrained_prior`, and add random seed. [Osvaldo Martin](https://aloctavodia.github.io/). August 2024
-* Use `pm.gp.util.stabilize` in `simulate_1d`. Use `pz.maxent` rather than `pm.find_constrained_prior` in linearized HSGP model. [Alexander Armstrong](https://github.com/Armatron44), July 2025.
+* Use `pm.gp.util.stabilize` in `simulate_1d`. Use `pz.maxent` rather than `pm.find_constrained_prior` in linearized HSGP model. Added comparison between `matern52` and `ExpQuad` power spectral densities. [Alexander Armstrong](https://github.com/Armatron44), July-August 2025.
 
 +++
 
