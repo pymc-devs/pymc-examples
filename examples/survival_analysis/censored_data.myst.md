@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: Python [conda env:base] *
   language: python
-  name: python3
+  name: conda-base-py
 ---
 
 (censored_data)=
@@ -38,7 +38,7 @@ az.style.use("arviz-darkgrid")
 ```
 
 [This example notebook on Bayesian survival
-analysis](http://docs.pymc.io/notebooks/survival_analysis.html) touches on the
+analysis](https://www.pymc.io/projects/examples/en/latest/survival_analysis/survival_analysis.html) touches on the
 point of censored data. _Censoring_ is a form of missing-data problem, in which
 observations greater than a certain threshold are clipped down to that
 threshold, or observations less than a certain threshold are clipped up to that
