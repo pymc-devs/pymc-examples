@@ -964,7 +964,6 @@ with pm.Model(coords=n_ssm.coords) as newtonian:
 
     n_ssm.build_statespace_graph(
         data=fiona_df.select("longitude", "latitude").to_numpy(),
-        save_kalman_filter_outputs_in_idata=True,
     )
     newtonian_idata = pm.sample(
         nuts_sampler="nutpie", nuts_sampler_kwargs={"backend": "jax", "gradient_backend": "jax"}
@@ -976,11 +975,21 @@ az.summary(newtonian_idata, var_names="acceleration_innovations", kind="stats")
 ```
 
 ```{code-cell} ipython3
-predicted_covs = newtonian_idata.posterior["predicted_covariance"].mean(("chain", "draw"))
+n_ssm_filter_outputs = n_ssm.sample_filter_outputs(
+    newtonian_idata, filter_output_names=["predicted_covariances", "predicted_observed_states"]
+)
 ```
 
 ```{code-cell} ipython3
-post_mean = newtonian_idata.posterior["predicted_observed_state"].mean(("chain", "draw"))
+predicted_covs = n_ssm_filter_outputs.posterior_predictive["predicted_covariances"].mean(
+    ("chain", "draw")
+)
+```
+
+```{code-cell} ipython3
+post_mean = n_ssm_filter_outputs.posterior_predictive["predicted_observed_states"].mean(
+    ("chain", "draw")
+)
 ```
 
 Not bad for a model with only one parameter. We can see that the forecast gets wonky in the middle where the trajectory of the Hurricane changes directions over short time periods. Again, it is important to keep in mind that what we are plotting are the one-step/period ahead forecast. In our case, our periods are six hours apart. Unfortunately, a 6-hour ahead hurricane forecast is not very practical. Let's see what we get when we generate a 4-period (24-hour) ahead forecast.
@@ -1343,10 +1352,7 @@ with pm.Model(coords=exog_ssm.coords) as exogenous:
 
     acceleration_innovations = pm.Gamma("acceleration_innovations", 0.1, 5, shape=(1,))
 
-    exog_ssm.build_statespace_graph(
-        data=fiona_df.select("longitude", "latitude").to_numpy(),
-        save_kalman_filter_outputs_in_idata=True,
-    )
+    exog_ssm.build_statespace_graph(data=fiona_df.select("longitude", "latitude").to_numpy())
     exogenous_idata = pm.sample(
         nuts_sampler="nutpie", nuts_sampler_kwargs={"backend": "jax", "gradient_backend": "jax"}
     )
@@ -1367,8 +1373,18 @@ az.plot_forest(
 ### Make in-sample forecasts with new exogenous model
 
 ```{code-cell} ipython3
-predicted_covs = exogenous_idata.posterior["predicted_covariance"].mean(("chain", "draw"))
-post_mean = exogenous_idata.posterior["predicted_observed_state"].mean(("chain", "draw"))
+exog_ssm_filter_outputs = exog_ssm.sample_filter_outputs(
+    exogenous_idata, filter_output_names=["predicted_covariances", "predicted_observed_states"]
+)
+```
+
+```{code-cell} ipython3
+predicted_covs = exog_ssm_filter_outputs.posterior_predictive["predicted_covariances"].mean(
+    ("chain", "draw")
+)
+post_mean = exog_ssm_filter_outputs.posterior_predictive["predicted_observed_states"].mean(
+    ("chain", "draw")
+)
 ```
 
 Our one-period ahead forecasts seem to be slightly worse than our Newtonian model. You will notice that at the end of the forecast we see that our trajectory is erroneously more north rather than north-east. Since the exogenous variables we added to the model don't carry additional information with respect to the hurricane's trajectory, this results are expected.
@@ -1805,10 +1821,7 @@ with pm.Model(coords=spline_ssm.coords) as spline_model:
 
     acceleration_innovations = pm.Gamma("acceleration_innovations", 0.1, 5, shape=(1,))
 
-    spline_ssm.build_statespace_graph(
-        data=fiona_df.select("longitude", "latitude").to_numpy(),
-        save_kalman_filter_outputs_in_idata=True,
-    )
+    spline_ssm.build_statespace_graph(data=fiona_df.select("longitude", "latitude").to_numpy())
     spline_idata = pm.sample(
         nuts_sampler="nutpie", nuts_sampler_kwargs={"backend": "jax", "gradient_backend": "jax"}
     )
@@ -1831,8 +1844,18 @@ az.plot_trace(spline_idata, var_names=["beta_exog"], compact=True, figsize=(20, 
 Our one-period ahead forecasts, look better than the ones we generated from the Exogenous covariates model, but worse than the original model that purely follows Newtonian kinematics.
 
 ```{code-cell} ipython3
-predicted_covs = spline_idata.posterior["predicted_covariance"].mean(("chain", "draw"))
-post_mean = spline_idata.posterior["predicted_observed_state"].mean(("chain", "draw"))
+spline_ssm_filter_outputs = spline_ssm.sample_filter_outputs(
+    spline_idata, filter_output_names=["predicted_covariances", "predicted_observed_states"]
+)
+```
+
+```{code-cell} ipython3
+predicted_covs = spline_ssm_filter_outputs.posterior_predictive["predicted_covariances"].mean(
+    ("chain", "draw")
+)
+post_mean = spline_ssm_filter_outputs.posterior_predictive["predicted_observed_states"].mean(
+    ("chain", "draw")
+)
 ```
 
 ```{code-cell} ipython3
@@ -1941,6 +1964,7 @@ fig.show(width=1000, renderer="png", config={"displayModeBar": False})
 ```
 
 ## Authors
+* Updated by Jonathan Dekermanjian in August, 2025 to use the `sample_filter_outputs` method
 * Authored by Jonathan Dekermanjian in June, 2025 
 
 +++
