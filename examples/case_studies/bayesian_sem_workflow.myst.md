@@ -13,7 +13,7 @@ kernelspec:
 (template_notebook)=
 # Bayesian Workflow with SEMs 
 
-:::{post} Novemeber, 2025
+:::{post} September, 2025
 :tags: confirmatory factor analysis, structural equation models, 
 :category: advanced, reference
 :author: Nathaniel Forde
