@@ -466,6 +466,38 @@ def get_posterior_resids(idata, samples=100, metric="cov"):
     return residuals_posterior
 
 
+def plot_ppc_check(idata, indicators, fitted=False, dims=(4, 3), figsize=(20, 6)):
+    fig, axs = plt.subplots(dims[0], dims[1], figsize=figsize, sharex=False)
+    axs = axs.flatten()
+    for ax, i in zip(axs, indicators):
+        az.plot_ppc(
+            idata, var_names=["likelihood"], group="prior", coords={"indicators": [i]}, ax=ax
+        )
+        if fitted:
+            az.plot_ppc(
+                idata,
+                var_names=["likelihood"],
+                group="posterior",
+                coords={"indicators": [i]},
+                ax=ax,
+                colors=["darkorchid", "black", "cyan"],
+                num_pp_samples=300,
+            )
+        ax.set_title(f"PPC for {i}")
+    return fig
+
+
+def plot_diagnostics(idata, parameters):
+    fig, axs = plt.subplots(1, 2, figsize=(20, 10))
+    axs = axs.flatten()
+    az.plot_energy(idata, ax=axs[0])
+    az.summary(idata, var_names=parameters)["r_hat"].plot(kind="barh", alpha=0.5, ax=axs[1])
+    axs[1].axvline(1, color="black")
+    axs[0].set_title("Energy Plot \n Overlapping Distributions is Good")
+    axs[1].set_title("Rhat Plot \n Values <= 1.01 is Good")
+    return fig
+
+
 obs_idx = list(range(len(sample_df)))
 observed_data = sample_df[coords["indicators"]].values
 ```
@@ -515,7 +547,9 @@ with pm.Model(coords=coords) as cfa_model_v1:
 
     ## Error Terms
     Psi = pm.InverseGamma("Psi", 5, 10, dims="indicators")
-    _ = pm.Normal("likelihood", mu=mu, sigma=Psi, observed=observed_data)
+    _ = pm.Normal(
+        "likelihood", mu=mu, sigma=Psi, observed=observed_data, dims=("obs", "indicators")
+    )
 
 pm.model_to_graphviz(cfa_model_v1)
 ```
@@ -541,20 +575,7 @@ For each latent variable (satisfaction, well being, constructive, dysfunctional)
 Below these model checks we will plot some diagnostics for the sampler. These plots are aimed at checking whether the sampler has sufficiently explored the parameter space. 
 
 ```{code-cell} ipython3
-:tags: [hide-input]
-
-parameters = ["lambdas1_", "lambdas2_", "lambdas3_", "lambdas4_"]
-
-
-def plot_diagnostics(idata, parameters):
-    fig, axs = plt.subplots(1, 2, figsize=(20, 10))
-    axs = axs.flatten()
-    az.plot_energy(idata, ax=axs[0])
-    az.summary(idata, var_names=parameters)["r_hat"].plot(kind="barh", alpha=0.5, ax=axs[1])
-    axs[1].axvline(1, color="black")
-    axs[0].set_title("Energy Plot \n Overlapping Distributions is Good")
-    axs[1].set_title("Rhat Plot \n Values <= 1.01 is Good")
-    return fig
+plot_ppc_check(idata_cfa_model_v1, indicators=coords["indicators"][0:3], fitted=True, dims=(1, 3));
 ```
 
 ```{code-cell} ipython3
@@ -565,7 +586,7 @@ def plot_model_highlights(idata, model_name, parameters, sem=False):
                 EEEE
                 EEEE
                 FFFF"""
-    axs = plt.subplot_mosaic(mosaic, figsize=(30, 20))
+    axs = plt.subplot_mosaic(mosaic, figsize=(20, 25))
     axs = axs[1]
     latents = ["satisfaction", "well being", "dysfunctional", "constructive"]
 
@@ -645,13 +666,18 @@ def plot_model_highlights(idata, model_name, parameters, sem=False):
 model_name = "CFA"
 parameters = ["lambdas1", "lambdas2", "lambdas3", "lambdas4"]
 
-plot_model_highlights(idata_cfa_model_v1, "CFA", parameters)
-plot_diagnostics(idata_cfa_model_v1, parameters);
+plot_model_highlights(idata_cfa_model_v1, "CFA", parameters);
 ```
 
 These plots indicate a fairly promising modelling strategy. The estimated factor Loadings are all close to 1 which implies a conformity in the magnitude and scale of the indicator metrics within each of the four factors.The indicator(s) are strongly reflective of the latent factor although `UF1` and `FOR` seem to be moving in opposite directions. We will want to address this later when we specify covariance structures for the residuals. 
 
-The Posterior Predictive Residuals are close to 0 which suggests that model is well able to capture the latent covariance structure of the observed data. The latent factors move together in intuitive ways, with high Satisfaction ~~ high Well Being. The sampler diagnostics give no indication of trouble. This is a promising start. 
+The Posterior Predictive Residuals are close to 0 which suggests that model is well able to capture the latent covariance structure of the observed data. The latent factors move together in intuitive ways, with high Satisfaction ~~ high Well Being. 
+
+```{code-cell} ipython3
+plot_diagnostics(idata_cfa_model_v1, parameters);
+```
+
+The sampler diagnostics give no indication of trouble. This is a promising start. 
 
 +++
 
@@ -661,7 +687,7 @@ The next expansionary move in SEM modelling is to consider the relations between
 
 > As I have just explained, we cannot isolate a dependent variable from all influences but a single explanatory variable, so it is impossible to make definitive statements about causes. We replace perfect isolation with pseudo-isolation by assuming that the disturbance (i.e., the composite of all omitted determinants) is uncorrelated with the exogenous variables of an equation. - Bollen in _Structural Equations with Latent Variables_ pg45
 
-This is a claim of conditional independence which licenses the causal interpretation of the the arrows in the below plot. The fact that the latent relations operate a higher level of abstraction makes it easier to postulate these "clean" direct paths between constructs. The model makes an argument - to have proprely measured the latent constructs, and isolated their variation to support a causal claim. Criticisms of the model proceed by assessing how compelling these postulates are in the context of the fitted model.
+This is a claim of conditional independence which licenses the causal interpretation of the the arrows in the below plot. The fact that the latent relations operate a higher level of abstraction makes it easier to postulate these "clean" direct paths between constructs. The model makes an argument - to have proprely measured the latent constructs, and isolated their variation - to support the causal claim. Criticisms of the model proceed by assessing how compelling these postulates are in the context of the fitted model.
 
 ![](sem3_excalidraw.png)
 
@@ -701,7 +727,9 @@ with pm.Model(coords=coords) as sem_model_v1:
 
     ## Error Terms
     Psi = make_Psi("indicators")
-    _ = pm.MvNormal("likelihood", mu=mu, cov=Psi, observed=observed_data)
+    _ = pm.MvNormal(
+        "likelihood", mu=mu, cov=Psi, observed=observed_data, dims=("obs", "indicators")
+    )
 
 pm.model_to_graphviz(sem_model_v1)
 ```
@@ -722,6 +750,10 @@ idata_sem_model_v1["posterior"]["B_"].sel(chain=0, draw=0)
 ### Model Diagnostics and Assessment
 
 The modelling shows improvement in the posterior predictive checks on the model implied residuals. Additionally we now get insight into the implied paths and relationships between the latent constructs. These move in compelling ways. Dysfunctional thought processes have a probable negative impact on well being, and similarly for job satisfaction. Conversely constructive thought processes have a probable positive direct effect on well being and satisfaction. Although the latter appears slight. 
+
+```{code-cell} ipython3
+plot_ppc_check(idata_sem_model_v1, indicators=coords["indicators"][0:3], fitted=True, dims=(1, 3));
+```
 
 ```{code-cell} ipython3
 parameters = ["mu_betas", "lambdas1", "lambdas2", "lambdas3", "lambdas4"]
@@ -768,7 +800,9 @@ with pm.Model(coords=coords) as sem_model_v2:
     ## Eta is predicted not sampled!
     M = Psi_zeta @ inv_lhs @ Lambda.T @ pm.math.matrix_inverse(Sigma_y)
     eta_hat = pm.Deterministic("eta", (M @ (observed_data - 0).T).T, dims=("obs", "latent"))
-    _ = pm.MvNormal("likelihood", mu=0, cov=Sigma_y, observed=observed_data)
+    _ = pm.MvNormal(
+        "likelihood", mu=0, cov=Sigma_y, observed=observed_data, dims=("obs", "indicators")
+    )
 
 pm.model_to_graphviz(sem_model_v2)
 ```
@@ -778,6 +812,10 @@ idata_sem_model_v2 = sample_model(sem_model_v2, sampler_kwargs)
 ```
 
 ### Model Diagnostics and Assessment
+
+```{code-cell} ipython3
+plot_ppc_check(idata_sem_model_v2, indicators=coords["indicators"][0:3], fitted=True, dims=(1, 3));
+```
 
 ```{code-cell} ipython3
 parameters = ["mu_betas", "lambdas1", "lambdas2", "lambdas3", "lambdas4"]
@@ -826,7 +864,9 @@ with pm.Model(coords=coords) as sem_model_mean_structure:
     eta_hat = pm.Deterministic(
         "eta", alpha + (M @ (observed_data - mu_y).T).T, dims=("obs", "latent")
     )
-    _ = pm.MvNormal("likelihood", mu=mu_y, cov=Sigma_y, observed=observed_data)
+    _ = pm.MvNormal(
+        "likelihood", mu=mu_y, cov=Sigma_y, observed=observed_data, dims=("obs", "indicators")
+    )
 
 pm.model_to_graphviz(sem_model_mean_structure)
 ```
@@ -836,6 +876,10 @@ idata_sem_model_v3 = sample_model(sem_model_mean_structure, sampler_kwargs)
 ```
 
 ### Model Diagnostics and Assessment
+
+```{code-cell} ipython3
+plot_ppc_check(idata_sem_model_v3, indicators=coords["indicators"][0:3], fitted=True, dims=(1, 3));
+```
 
 ```{code-cell} ipython3
 parameters = ["mu_betas", "lambdas1", "lambdas2", "lambdas3", "lambdas4", "tau"]
@@ -883,6 +927,7 @@ ax[0].set_title("Comparing Factor Structures \n and Path Coefficients");
 ```{code-cell} ipython3
 grp_idx = np.random.binomial(1, 0.5, 500)
 coords["group"] = ["treatment", "control"]
+coords["obs"] = list(range(len(grp_idx)))
 coords.keys()
 ```
 
@@ -919,8 +964,11 @@ def make_hierarchical(priors, grp_idx):
         I = pt.eye(latent_dim)
 
         # invert (I - B_g) for each group
-        inv_I_minus_B = pt.stack(
-            [pt.slinalg.solve(I - B_[g] + 1e-8 * I, I) for g in range(len(coords["group"]))]
+        inv_I_minus_B = pm.Deterministic(
+            "inv_I_minus_B",
+            pt.stack(
+                [pt.slinalg.solve(I - B_[g] + 1e-8 * I, I) for g in range(len(coords["group"]))]
+            ),
         )
 
         # Mean Structure
@@ -928,8 +976,8 @@ def make_hierarchical(priors, grp_idx):
             "tau", mu=priors["tau"][0], sigma=priors["tau"][1], dims=("group", "indicators")
         )  # observed intercepts
         alpha = pm.Normal("alpha", mu=0, sigma=0.5, dims=("group", "latent"))  # latent means
-        M = pt.matmul(Lambda, inv_I_minus_B)
-        mu_latent = pt.matmul(alpha[:, None, :], M.transpose(0, 2, 1))[:, :, 0]
+        M = pm.Deterministic("M", pt.matmul(Lambda, inv_I_minus_B))
+        mu_latent = pt.matmul(alpha[:, None, :], M.transpose(0, 2, 1))[:, 0, :]
         mu_y = pm.Deterministic("mu_y", tau + mu_latent)
 
         Sigma_y = []
@@ -938,7 +986,9 @@ def make_hierarchical(priors, grp_idx):
             Sigma_y_g = Lambda @ inv_lhs @ Psi_zeta @ inv_lhs.T @ Lambda.T + Psi
             Sigma_y.append(Sigma_y_g)
         Sigma_y = pt.stack(Sigma_y)
-        _ = pm.MvNormal("likelihood", mu=mu_y[grp_idx], cov=Sigma_y[grp_idx])
+        _ = pm.MvNormal(
+            "likelihood", mu=mu_y[grp_idx], cov=Sigma_y[grp_idx], dims=("obs", "indicators")
+        )
 
     return sem_model_hierarchical
 
@@ -956,8 +1006,8 @@ pm.model_to_graphviz(sem_model_hierarchical_tight)
 ```{code-cell} ipython3
 # Generating data from model by fixing parameters
 fixed_parameters = {
-    "mu_betas_treatment": [0.1, 0.5, 2.3, 0.9, 0.6, 0.8],
-    "mu_betas_control": [0.3, 0.2, 0.7, 0.8, 0.6, 1.2],
+    "mu_betas_treatment": [0.1, 0.5, 2.3, 0.9, -2, 0.8],
+    "mu_betas_control": [3, 0.2, 0.7, 0.8, 0.6, 1.2],
     "tau": [
         [
             -0.822,
@@ -1079,9 +1129,11 @@ def make_discrete_choice_conditional(priors):
             priors["betas_choice"][1],
             dims=("alts", "latent"),
         )
+        betas_choice = pt.expand_dims(alphas_choice_, 1) * betas_choice_
         betas_choice = pm.Deterministic(
-            "betas_choice", pt.expand_dims(alphas_choice, 1) * betas_choice_
+            "betas_choice", pt.set_subtensor(betas_choice[-1, :], betas_choice_[-1, :])
         )
+
         utility_of_work = pm.Deterministic(
             "mu_choice", alphas_choice + pm.math.dot(eta, betas_choice.T)
         )
