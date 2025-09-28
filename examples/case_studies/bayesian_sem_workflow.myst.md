@@ -10,7 +10,7 @@ kernelspec:
   name: python3
 ---
 
-(template_notebook)=
+(sem_bayes_workflow)=
 # Bayesian Workflow with SEMs 
 
 :::{post} September, 2025
@@ -21,7 +21,39 @@ kernelspec:
 
 +++
 
-This is some introductory text. 
+This is case study builds on themes of {ref}`contemporary Bayesian workflow <bayesian_workflow>` and {ref}`Structural Equation Modelling <cfa_sem_notebook>`. Both are broad topics, already somewhat covered within the PyMC examples site, but here we wish to draw out some of the key points when applying the Bayesian workflow to Structural equation models. The iterative and expansionary strategies of model development for SEMs provide an independent motivation for the recommendations of {cite:p}`gelman2020bayesian` stemming from the SEM literature broadly but {cite:p}`kline2023principles` in particular. 
+
+A secondary motivation is to put SEM modelling with PyMC on firmer ground by detailing different sampling strategies for these complex models; we will cover both conditional and marginal formulations of a SEM model, allowing for the addition of mean-structures and hierarchical effects. These additional components highlight the expressive capacity of this modelling paradigm.  
+
+### The Bayesian Workflow
+
+- **Conceptual model building**: Translate domain knowledge into statistical assumptions
+- **Prior predictive simulation**: Check if priors generate reasonable data
+- **Computational implementation**: Code the model and ensure it runs
+- **Fitting and diagnostics**: Estimate parameters and check convergence
+- **Model evaluation**: Assess model fit using posterior predictive checks
+- **Model comparison**: Compare alternative models systematically
+- **Model expansion or simplification**: Iterate based on findings
+- **Decision analysis**: Use the model for predictions or decisions
+
+### The SEM Workflow
+- __Confirm the Factor Structure__ (CFA):
+  - Validate that our measurement model holds i.e. our initial conceptual modelling.
+  - Ensure latent constructs are reliably represented by observed indicators.
+
+- __Layer Structural Paths__:
+  - Add theoretically-motivated regressions between constructs.
+  - Assess whether hypothesized relationships improve model fit.
+
+- __Refine with Residual Covariances__:
+  - Account for specific shared variance not captured by factors.
+  - Keep structure transparent while improving realism.
+
+- __Iteratively Validate__:
+  - Each step asks: Does this addition honor theory? Improve fit?
+  - Workflow = constant negotiation between parsimony and fidelity.
+
+These approaches complement one another. We'll see how the iterative and expansionary approach to model development are crucial for understanding the subtleties of these models. Understanding their implications and arriving at a decisions about what to with those implications. 
 
 ```{code-cell} ipython3
 import warnings
@@ -49,8 +81,20 @@ rng = np.random.default_rng(42)
 
 ## Job Satisfaction and Bayesian Workflows
 
+The data we will examine for this case study is drawn from an example discussed by {cite:p}`vehkalahti2019multivariate` around the drivers of Job satisfaction. In particular the focus is on how Constructive thought strategies can impact job satisfaction. We have 12 related measures. 
+
+- Constructive Thought Strategies (CTS): Thought patterns that are positive or helpful, such as:
+  - __Self-Talk__ (positive internal dialogue): `ST`
+  - __Mental Imagery__ (visualizing successful performance or outcomes): `MI` 
+  - __Evaluating Beliefs & Assumptions__ (i.e. critically assessing one’s internal assumptions): `EBA`
+- Dysfunctional Thought Processes: (`DA1`–`DA3`)
+- Subjective Well Being: (`UF1`, `UF2`, `FOR`)
+- Job Satisfaction: (`JW1`–`JW3`)
+
+The idea is that the covariance structure of these variables can be properly discerned with a Structural equation modelling approach. In their book Vehkalahti and Everitt report the derived correlation and covariance structure. Here we will sample data from the multivariate normal distribution they described and proceed in steps to model each component of their SEM model. This will allow us to additively layer and motivate each part of the SEM model. 
+
 ```{code-cell} ipython3
-# | code-fold: true
+:tags: [hide-input]
 
 # Standard deviations
 stds = np.array(
@@ -183,10 +227,8 @@ def make_sample(cov_matrix, size, columns, missing_frac=0.0, impute=False):
 
 
 sample_df = make_sample(cov_matrix, 263, FEATURE_COLUMNS)
-sample_df.head(10)
-```
 
-```{code-cell} ipython3
+
 def header_style():
     return [
         "color: red; font-weight: bold;",
@@ -204,32 +246,31 @@ sample_df.head().style.set_properties(
 
 ## Mathematical Interlude
 
-Structural Equation Model (SEM): General Setup
-
-We have observed variables $y \in R^{p}$, here (p=12) and $\eta \in R^{m} latent factors where m=4 and the SEM consists of two parts:
+In the general set up of a Structural Equation Model 3e have observed variables $y \in R^{p}$, here (p=12) and $\eta \in R^{m}$ latent factors. The SEM consists of two parts the measurement model and the structural regressions. The Measurement Model - this is the factor structure we seek to _confirm_. In this kind of factor analysis we posit a factor structure of how each factor determines the observed metrics. 
 
 $$ y_i = \Lambda \eta_i + \varepsilon_i, 
 \quad \varepsilon_i \sim \mathcal N(0, \Psi).
 $$
 
-Measurement model
+where $\Lambda$ is a 12 x 4 matrix, and $\eta$ is an $n$ x 4 matrix, for $n$ observations i.e. the matrix of latent scores on each of the four factors for all individual responses. In the measurement model we're aiming to ensure that the observed metrics are well grouped under a single factor. That they "move" well together and response to changes in the factor. 
 
-Structural 
+On the other hand _the Structural model_ encodes the regression paths between the latent constructs. Mathematically this is achieved within a 4 X 4 matrix B, where the latent factors are specified as predictors of other latent factors as theory dictates i.e no latent factor predicts itself, but some may bear on others. In our case we're aiming to see how constructive thought strategies predicts job satisfaction as mediated through the other factors. 
 
 $$
 \eta_i = B \eta_i + \zeta_i, 
 \quad \zeta_i \sim \mathcal N(0, \Psi_{\zeta}).
 $$
 
-
 $$
 \eta_i = (I - B)^{-1} \zeta_i.
 $$
 
+In the structural model we specify how we believe the latent constructs relate to one another. The term $(I - B)^{-1}$  is sometimes called the total effects matrix because it can be expanded as $I + B + B^{2} + B^{3}...$ summing all possible chains of paths in the system. As we'll see the structural and mediating paths between these latent constructs can be additive. This observation allows us to very elegantly derive total, indirect and direct effects within the system. 
+
 ### Conditional Formulation
 
 $$
-\zeta_i \sim \mathcal N(0, \Psi_{\zeta}).
+\zeta_i \sim \mathcal N(0, \Psi_{\zeta}). 
 
 \\
 
@@ -241,7 +282,7 @@ $$
 
 \\
 
-y_i \mid \eta_i \sim \mathcal MvN(\mu_i, \Psi).
+y_i \mid \eta_i \sim \mathcal MvN(\mu_i, \Psi)
 
 $$
 
@@ -251,6 +292,20 @@ $$ p(y_i, \zeta_i) =
 \mathcal N\!\left(\zeta_i; 0, \Psi_{\zeta}\right) \cdot
 \mathcal N\!\left(y_i;\; \Lambda (I-B)^{-1}\zeta_i, \; \Psi\right).
 $$
+
+which is just to highlight that the conditional formulation samples the latent variables explicitly, which can be quite demanding for a sampler in the Bayesian setting. 
+
+### Marginal Formulation
+
+$$\Sigma_{\mathcal{y}} = \Psi + \Lambda(I - B)^{-1}\Psi_{\zeta}(I - B)^{T}\Lambda^{T} $$
+
+$$ \mathcal{y} \sim MvN(\mu, \Sigma_{y})$$
+
+This approach marginalises out the latent draws in the likelihood and avoids sampling the latent terms directly. Instead we can estimate a point estimate for each of the latent scores by regression approach calculating.
+
+$$ \hat{\eta} = \hat{\Psi}\hat{\Lambda^{T}}\hat{\Sigma^{-1}}(y - \hat{\mu})$$
+
+We'll introduce each of these components are additional steps as we layer over the basic factor model
 
 +++
 
@@ -318,7 +373,8 @@ def make_B(priors=[0, 0.5], group_suffix=""):
     zeros = pt.set_subtensor(zeros[2, 0], coefs[4])
     ## satisfaction ~ constructive
     coefs_ = pt.set_subtensor(zeros[3, 0], coefs[5])
-    return coefs_
+    B = pm.Deterministic(f"B_{group_suffix}", coefs_, dims=("latent", "latent1"))
+    return B
 
 
 def make_Psi(indicators, name="Psi_cov"):
@@ -425,7 +481,7 @@ with pm.Model(coords=coords) as cfa_model_v1:
     Lambda = pt.set_subtensor(Lambda[3:6, 1], lambdas_2)
     Lambda = pt.set_subtensor(Lambda[6:9, 2], lambdas_3)
     Lambda = pt.set_subtensor(Lambda[9:12, 3], lambdas_4)
-    Lambda = pm.Deterministic("Lambda", Lambda)
+    Lambda = pm.Deterministic("Lambda", Lambda, dims=("indicators", "latent"))
 
     sd_dist = pm.Exponential.dist(1.0, shape=4)
     chol, _, _ = pm.LKJCholeskyCov("chol_cov", n=4, eta=2, sd_dist=sd_dist, compute_corr=True)
@@ -444,6 +500,16 @@ pm.model_to_graphviz(cfa_model_v1)
 ```{code-cell} ipython3
 idata_cfa_model_v1 = sample_model(cfa_model_v1, sampler_kwargs=sampler_kwargs)
 ```
+
+#### A Sampled Lambda Matrix
+
+Note how each factor records three positive parameters, while the first of each parameters is fixed to 1. This is to ensure that the scale of the latent factor is well defined, indexed as it were to one of the observed metrics.
+
+```{code-cell} ipython3
+idata_cfa_model_v1["posterior"]["Lambda"].sel(chain=0, draw=0)
+```
+
+### Model Diagnostics and Assessment
 
 ```{code-cell} ipython3
 :tags: [hide-input]
@@ -594,6 +660,15 @@ pm.model_to_graphviz(sem_model_v1)
 idata_sem_model_v1 = sample_model(sem_model_v1, sampler_kwargs)
 ```
 
+#### A Sampled B Matrix
+
+
+```{code-cell} ipython3
+idata_sem_model_v1["posterior"]["B_"].sel(chain=0, draw=0)
+```
+
+### Model Diagnostics and Assessment
+
 ```{code-cell} ipython3
 parameters = ["mu_betas", "lambdas1", "lambdas2", "lambdas3", "lambdas4"]
 plot_model_highlights(idata_sem_model_v1, "SEM", parameters, sem=True);
@@ -631,9 +706,10 @@ with pm.Model(coords=coords) as sem_model_v2:
     )
 
     Sigma_y = pm.Deterministic(
-        "Sigma_y", Lambda.dot(inv_lhs).dot(Psi_zeta).dot(inv_lhs.T).dot(Lambda.T) + Psi
+        "Sigma_y",
+        Lambda.dot(inv_lhs).dot(Psi_zeta).dot(inv_lhs.T).dot(Lambda.T) + Psi,
     )
-    ## Eta is inferred not sampled!
+    ## Eta is predicted not sampled!
     M = Psi_zeta @ inv_lhs @ Lambda.T @ pm.math.matrix_inverse(Sigma_y)
     eta_hat = pm.Deterministic("eta", (M @ (observed_data - 0).T).T, dims=("obs", "latent"))
     _ = pm.MvNormal("likelihood", mu=0, cov=Sigma_y, observed=observed_data)
@@ -644,6 +720,8 @@ pm.model_to_graphviz(sem_model_v2)
 ```{code-cell} ipython3
 idata_sem_model_v2 = sample_model(sem_model_v2, sampler_kwargs)
 ```
+
+### Model Diagnostics and Assessment
 
 ```{code-cell} ipython3
 parameters = ["mu_betas", "lambdas1", "lambdas2", "lambdas3", "lambdas4"]
@@ -701,6 +779,8 @@ pm.model_to_graphviz(sem_model_mean_structure)
 idata_sem_model_v3 = sample_model(sem_model_mean_structure, sampler_kwargs)
 ```
 
+### Model Diagnostics and Assessment
+
 ```{code-cell} ipython3
 parameters = ["mu_betas", "lambdas1", "lambdas2", "lambdas3", "lambdas4", "tau"]
 plot_model_highlights(idata_sem_model_v3, "SEM_Marginal_Mean", parameters, sem=True);
@@ -709,6 +789,8 @@ plot_model_highlights(idata_sem_model_v3, "SEM_Marginal_Mean", parameters, sem=T
 ```{code-cell} ipython3
 plot_diagnostics(idata_sem_model_v3, parameters);
 ```
+
+## Comparing Models
 
 ```{code-cell} ipython3
 import seaborn as sns
@@ -724,6 +806,20 @@ for idata, model_name, ax in zip(idatas, model_names, axs):
     mask = np.triu(np.ones_like(residuals_posterior_corr, dtype=bool))
     sns.heatmap(residuals_posterior_corr, annot=True, cmap="bwr", mask=mask, ax=ax, vmin=-1, vmax=1)
     ax.set_title(f"Residuals for {model_name}", fontsize=25);
+```
+
+```{code-cell} ipython3
+ax = az.plot_forest(
+    [idata_cfa_model_v1, idata_sem_model_v1, idata_sem_model_v2, idata_sem_model_v3],
+    model_names=["CFA", "Conditional SEM", "Marginal SEM", "Mean Structure SEM"],
+    var_names=["lambdas1", "lambdas2", "lambdas3", "lambdas4", "mu_betas"],
+    combined=True,
+    figsize=(20, 10),
+)
+
+ax[0].axvline(0, linestyle="--", color="k")
+ax[0].axvline(1, linestyle="--", color="grey")
+ax[0].set_title("Comparing Factor Structures \n and Path Coefficients");
 ```
 
 ## Hierarchical Model on Structural Components
