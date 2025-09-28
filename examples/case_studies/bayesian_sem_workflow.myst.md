@@ -538,6 +538,8 @@ idata_cfa_model_v1["posterior"]["Lambda"].sel(chain=0, draw=0)
 
 For each latent variable (satisfaction, well being, constructive, dysfunctional), we will plot a forest/ridge plot of the posterior distributions of their factor scores `eta` as drawn. Each panel will have a vertical reference line at 0 (since latent scores are typically centered/scaled).These panels visualize the distribution of estimated latent scores across individuals, separated by latent factor. Then we will summarizes posterior estimates of model parameters (factor loadings, regression coefficients, variances, etc.), providing a quick check against identification constraints (like fixed loadings) and effect directions. Finally we will plot the upper-triangle of the residual correlation matrix with a blue–white–red colormap (−1 to +1). This visualizes residual correlations among observed indicators after the SEM structure is accounted for — helping detect model misfit or unexplained associations.
 
+Below these model checks we will plot some diagnostics for the sampler. These plots are aimed at checking whether the sampler has sufficiently explored the parameter space. 
+
 ```{code-cell} ipython3
 :tags: [hide-input]
 
@@ -647,9 +649,27 @@ plot_model_highlights(idata_cfa_model_v1, "CFA", parameters)
 plot_diagnostics(idata_cfa_model_v1, parameters);
 ```
 
+These plots indicate a fairly promising modelling strategy. The estimated factor Loadings are all close to 1 which implies a conformity in the magnitude and scale of the indicator metrics within each of the four factors.The indicator(s) are strongly reflective of the latent factor although `UF1` and `FOR` seem to be moving in opposite directions. We will want to address this later when we specify covariance structures for the residuals. 
+
+The Posterior Predictive Residuals are close to 0 which suggests that model is well able to capture the latent covariance structure of the observed data. The latent factors move together in intuitive ways, with high Satisfaction ~~ high Well Being. The sampler diagnostics give no indication of trouble. This is a promising start. 
+
++++
+
 ## Structuring the Latent Relations
 
+The next expansionary move in SEM modelling is to consider the relations between the latent constructs. These are generally intended to have a causal interpretation. The constructs are hard to measure precisely, but collectively as a function of multiple indicator variables, we argue they are exhaustively characterised. 
+
+> As I have just explained, we cannot isolate a dependent variable from all influences but a single explanatory variable, so it is impossible to make definitive statements about causes. We replace perfect isolation with pseudo-isolation by assuming that the disturbance (i.e., the composite of all omitted determinants) is uncorrelated with the exogenous variables of an equation. - Bollen in _Structural Equations with Latent Variables_ pg45
+
+This is a claim of conditional independence which licenses the causal interpretation of the the arrows in the below plot. The fact that the latent relations operate a higher level of abstraction makes it easier to postulate these "clean" direct paths between constructs. The model makes an argument - to have proprely measured the latent constructs, and isolated their variation to support a causal claim. Criticisms of the model proceed by assessing how compelling these postulates are in the context of the fitted model.
+
 ![](sem3_excalidraw.png)
+
++++
+
+The isolation or conditional independence of interest is encoded in the model with the sampling of the `gamma` variable. These are drawn from a process that is structuraly divorced from the influence of the exogenous variables. For instance if we have $\gamma_{cts} \perp\!\!\!\perp \eta_{dtp}$ then the $\beta_{cts -> dpt}$ coefficient is an unbiased estimate of the direct effect of `CTS` on `DTP` because the remaining variation in $\eta_{dtp}$ is noise by construction. 
+
+It is entirely optional how many arrows you want to add to your system. In our case we have structured the DAG following the discussion in {cite:p}`vehkalahti2019multivariate` which will allow us to unpick the direct and indirect effects below. 
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as sem_model_v1:
@@ -672,10 +692,11 @@ with pm.Model(coords=coords) as sem_model_v1:
 
     B = make_B()
     I = pt.eye(latent_dim)
+    ## Clean Causal Influence of Shocks
     eta = pm.Deterministic(
         "eta", pt.slinalg.solve(I - B + 1e-8 * I, gamma.T).T, dims=("obs", "latent")
     )
-
+    ## Influence of Exogenous indicator variables
     mu = pt.dot(eta, Lambda.T)
 
     ## Error Terms
@@ -684,6 +705,8 @@ with pm.Model(coords=coords) as sem_model_v1:
 
 pm.model_to_graphviz(sem_model_v1)
 ```
+
+We have also added the covariance structure on the residuals by supplying a multivariate normal likelihood with a precise covariance structure to add a correlation among the `UF1` and `FOR` indicators metrics. 
 
 ```{code-cell} ipython3
 idata_sem_model_v1 = sample_model(sem_model_v1, sampler_kwargs)
@@ -698,10 +721,14 @@ idata_sem_model_v1["posterior"]["B_"].sel(chain=0, draw=0)
 
 ### Model Diagnostics and Assessment
 
+The modelling shows improvement in the posterior predictive checks on the model implied residuals. Additionally we now get insight into the implied paths and relationships between the latent constructs. These move in compelling ways. Dysfunctional thought processes have a probable negative impact on well being, and similarly for job satisfaction. Conversely constructive thought processes have a probable positive direct effect on well being and satisfaction. Although the latter appears slight. 
+
 ```{code-cell} ipython3
 parameters = ["mu_betas", "lambdas1", "lambdas2", "lambdas3", "lambdas4"]
 plot_model_highlights(idata_sem_model_v1, "SEM", parameters, sem=True);
 ```
+
+However, the model diagnostics appear less robust. The sampler seemed to have difficulty with sampling the parameters for the path-coefficients `mu_betas`. 
 
 ```{code-cell} ipython3
 plot_diagnostics(idata_sem_model_v1, parameters);
