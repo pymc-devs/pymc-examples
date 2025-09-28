@@ -26,6 +26,10 @@ This is case study builds on themes of {ref}`contemporary Bayesian workflow <bay
 A secondary motivation is to put SEM modelling with PyMC on firmer ground by detailing different sampling strategies for these complex models; we will cover both conditional and marginal formulations of a SEM model, allowing for the addition of mean-structures and hierarchical effects. These additional components highlight the expressive capacity of this modelling paradigm.  
 
 ### The Bayesian Workflow
+Recall the stages of the Bayesian workflow.
+
+:::{admonition} The Bayesian Workflow Stages
+:class: tip
 
 - **Conceptual model building**: Translate domain knowledge into statistical assumptions
 - **Prior predictive simulation**: Check if priors generate reasonable data
@@ -35,6 +39,9 @@ A secondary motivation is to put SEM modelling with PyMC on firmer ground by det
 - **Model comparison**: Compare alternative models systematically
 - **Model expansion or simplification**: Iterate based on findings
 - **Decision analysis**: Use the model for predictions or decisions
+:::
+
+The Structural equation modelling workflow is similar. 
 
 ### The SEM Workflow
 - __Confirm the Factor Structure__ (CFA):
@@ -244,6 +251,10 @@ sample_df.head().style.set_properties(
 )
 ```
 
+Conveniently, the process of the Bayesian workflow itself involves the constructive thought strategies. At each juncture in model development we must ask ourselves: do i believe this? What assumptions have I made? Is there any visual evidence that my model is well specified? What can i do to improve the model specification? So we might hope that the end result of the Bayesian workflow is a general sense of satisfaction with a job well done!
+
++++
+
 ## Mathematical Interlude
 
 In the general set up of a Structural Equation Model 3e have observed variables $y \in R^{p}$, here (p=12) and $\eta \in R^{m}$ latent factors. The SEM consists of two parts the measurement model and the structural regressions. The Measurement Model - this is the factor structure we seek to _confirm_. In this kind of factor analysis we posit a factor structure of how each factor determines the observed metrics. 
@@ -309,7 +320,13 @@ We'll introduce each of these components are additional steps as we layer over t
 
 +++
 
-## Confirmatory Factor Analysis
+## Setting up Utility Functions
+
+For this exercise we will lean on a  range of utility functions to build and compare the expansionary sequence. This functions include repeated steps that will be required for any SEM model. 
+
+The most important cases are functions like `make_lambda` to sample and fix the scale of the covariates that contribute to each latent factor. Similarly, we have the `make_B` which samples the parameter values of the path coefficients between the latent constructs, while arranging them in a matrix that can be passed through matrix multiplication routines. Additionally, we have a `make_Psi` function which samples parameter values for particular covariances that gets deployed to encode aspects of the variance in our system not captured by the covariances among the latent factors. These three helper functions determine the structure of the SEM model and variants of each can be used to construct any SEM structure.
+
+We also save some plotting functions which will be used to compare models. 
 
 ```{code-cell} ipython3
 :tags: [hide-input]
@@ -465,7 +482,13 @@ def sample_model(model, sampler_kwargs):
     return idata
 ```
 
-## CFA v1
+## Confirming Factor Structure
+
+First we'll highlight the broad structure of a confirmatory factor model and the types of relations the model encodes. The red dotted arrows here denote covariance relationships among the latent factors. The black arrows denote the effect of the latent constructs on the observable indicator metrics. We've highlighted with red [1] that the first "factor loading" is always fixed to (a) define the scale of the factor and (b) allow identification of the other factor loadings within that factor. 
+
+![](cfa_excalidraw.png)
+
+In the model below we sample draws from the latent factors `eta` and relate them to the observables by the matrix computation `pt.dot(eta, Lambda.T)`. This computation reults in a "psuedo-observation" matrix which we then feed through our likelihood to calibrate the latent structures against the observed dats. This is the general pattern we'll see in all models below. 
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as cfa_model_v1:
@@ -497,6 +520,8 @@ with pm.Model(coords=coords) as cfa_model_v1:
 pm.model_to_graphviz(cfa_model_v1)
 ```
 
+The model diagram should emphasise how the sampling of the latent structure is fed-forward into the ultimate likelihood term. Note here how our likelihood term is specified as a independent Normals. This is a substantive assumption which is later revised. In a full SEM specification we will change the likelihood to use Multivariate normal distribution with specific covariance structures. 
+
 ```{code-cell} ipython3
 idata_cfa_model_v1 = sample_model(cfa_model_v1, sampler_kwargs=sampler_kwargs)
 ```
@@ -510,6 +535,8 @@ idata_cfa_model_v1["posterior"]["Lambda"].sel(chain=0, draw=0)
 ```
 
 ### Model Diagnostics and Assessment
+
+For each latent variable (satisfaction, well being, constructive, dysfunctional), we will plot a forest/ridge plot of the posterior distributions of their factor scores `eta` as drawn. Each panel will have a vertical reference line at 0 (since latent scores are typically centered/scaled).These panels visualize the distribution of estimated latent scores across individuals, separated by latent factor. Then we will summarizes posterior estimates of model parameters (factor loadings, regression coefficients, variances, etc.), providing a quick check against identification constraints (like fixed loadings) and effect directions. Finally we will plot the upper-triangle of the residual correlation matrix with a blue–white–red colormap (−1 to +1). This visualizes residual correlations among observed indicators after the SEM structure is accounted for — helping detect model misfit or unexplained associations.
 
 ```{code-cell} ipython3
 :tags: [hide-input]
@@ -620,7 +647,9 @@ plot_model_highlights(idata_cfa_model_v1, "CFA", parameters)
 plot_diagnostics(idata_cfa_model_v1, parameters);
 ```
 
-## SEM V1 Conditional Formulation
+## Structuring the Latent Relations
+
+![](sem3_excalidraw.png)
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as sem_model_v1:
