@@ -928,6 +928,8 @@ ax[0].set_title("Comparing Factor Structures \n and Path Coefficients");
 
 ## Hierarchical Model on Structural Components
 
+![](hierarchical_excalidraw.png)
+
 ```{code-cell} ipython3
 grp_idx = np.random.binomial(1, 0.5, 250)
 coords["group"] = ["treatment", "control"]
