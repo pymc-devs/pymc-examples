@@ -1230,12 +1230,13 @@ with pm.Model(coords=coords) as discrete_choice_model:
         priors["betas_choice"][1],
         dims=("alts", "latent"),
     )
-    # betas_choice = pt.expand_dims(alphas_choice_, 1) * betas_choice_
+
+    betas_choice = pt.expand_dims(alphas_choice, 1) * betas_choice_
     X = pm.Data(
         "X_data", df_latent[["satisfaction", "well_being", "dysfunctional", "constructive"]]
     )
     y = pm.Data("y_data", synthetic_c)
-    utility_of_work = pm.Deterministic("mu_choice", alphas_choice + pm.math.dot(X, betas_choice_.T))
+    utility_of_work = pm.Deterministic("mu_choice", alphas_choice + pm.math.dot(X, betas_choice.T))
     p = pm.Deterministic("p", pm.math.softmax(utility_of_work, axis=1))
     _ = pm.Categorical("likelihood_choice", p, observed=y)
 
