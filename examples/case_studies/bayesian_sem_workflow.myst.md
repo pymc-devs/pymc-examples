@@ -811,6 +811,10 @@ pm.model_to_graphviz(sem_model_v2)
 idata_sem_model_v2 = sample_model(sem_model_v2, sampler_kwargs)
 ```
 
+```{code-cell} ipython3
+az.summary(idata_sem_model_v2, var_names=["mu_betas"])["mean"]
+```
+
 ### Model Diagnostics and Assessment
 
 ```{code-cell} ipython3
@@ -925,7 +929,7 @@ ax[0].set_title("Comparing Factor Structures \n and Path Coefficients");
 ## Hierarchical Model on Structural Components
 
 ```{code-cell} ipython3
-grp_idx = np.random.binomial(1, 0.5, 500)
+grp_idx = np.random.binomial(1, 0.5, 250)
 coords["group"] = ["treatment", "control"]
 coords["obs"] = list(range(len(grp_idx)))
 coords.keys()
@@ -940,13 +944,7 @@ def make_hierarchical(priors, grp_idx):
         lambdas_2 = make_lambda("indicators_2", "lambdas2", priors=priors["lambdas"])
         lambdas_3 = make_lambda("indicators_3", "lambdas3", priors=priors["lambdas"])
         lambdas_4 = make_lambda("indicators_4", "lambdas4", priors=priors["lambdas"])
-
-        Lambda = pt.zeros((12, 4))
-        Lambda = pt.set_subtensor(Lambda[0:3, 0], lambdas_1)
-        Lambda = pt.set_subtensor(Lambda[3:6, 1], lambdas_2)
-        Lambda = pt.set_subtensor(Lambda[6:9, 2], lambdas_3)
-        Lambda = pt.set_subtensor(Lambda[9:12, 3], lambdas_4)
-        Lambda = pm.Deterministic("Lambda", Lambda)
+        Lambda = make_Lambda(lambdas_1, lambdas_2, lambdas_3, lambdas_4)
 
         sd_dist = pm.Exponential.dist(1.0, shape=4)
         chol, _, _ = pm.LKJCholeskyCov("chol_cov", n=4, eta=2, sd_dist=sd_dist, compute_corr=True)
@@ -971,31 +969,20 @@ def make_hierarchical(priors, grp_idx):
             ),
         )
 
-        # Mean Structure
-        tau = pm.Normal(
-            "tau", mu=priors["tau"][0], sigma=priors["tau"][1], dims=("group", "indicators")
-        )  # observed intercepts
-        alpha = pm.Normal("alpha", mu=0, sigma=0.5, dims=("group", "latent"))  # latent means
-        M = pm.Deterministic("M", pt.matmul(Lambda, inv_I_minus_B))
-        mu_latent = pt.matmul(alpha[:, None, :], M.transpose(0, 2, 1))[:, 0, :]
-        mu_y = pm.Deterministic("mu_y", tau + mu_latent)
-
         Sigma_y = []
         for g in range(len(coords["group"])):
             inv_lhs = inv_I_minus_B[g]
             Sigma_y_g = Lambda @ inv_lhs @ Psi_zeta @ inv_lhs.T @ Lambda.T + Psi
             Sigma_y.append(Sigma_y_g)
         Sigma_y = pt.stack(Sigma_y)
-        _ = pm.MvNormal(
-            "likelihood", mu=mu_y[grp_idx], cov=Sigma_y[grp_idx], dims=("obs", "indicators")
-        )
+        _ = pm.MvNormal("likelihood", mu=0, cov=Sigma_y[grp_idx], dims=("obs", "indicators"))
 
     return sem_model_hierarchical
 
 
 priors = {"lambdas": [1, 0.5], "eta": 2, "B": [0, 0.5], "tau": [0, 1]}
 
-priors_wide = {"lambdas": [1, 5], "eta": 2, "B": [0, 5], "tau": [0, 10]}
+priors_wide = {"lambdas": [1, 5], "eta": 2, "B": [0, 5], "tau": [0, 5]}
 
 sem_model_hierarchical_tight = make_hierarchical(priors, grp_idx)
 sem_model_hierarchical_wide = make_hierarchical(priors_wide, grp_idx)
@@ -1008,28 +995,10 @@ pm.model_to_graphviz(sem_model_hierarchical_tight)
 fixed_parameters = {
     "mu_betas_treatment": [0.1, 0.5, 2.3, 0.9, -2, 0.8],
     "mu_betas_control": [3, 0.2, 0.7, 0.8, 0.6, 1.2],
-    "tau": [
-        [
-            -0.822,
-            1.917,
-            -0.743,
-            -0.585,
-            -1.095,
-            2.207,
-            -0.898,
-            -0.99,
-            1.872,
-            -0.044,
-            -0.035,
-            -0.085,
-        ],
-        [-0.882, 1.816, -0.828, -1.319, 0.202, 1.267, -1.784, -2.112, 3.705, -0.769, 2.048, -1.064],
-    ],
     "lambdas1_": [1, 0.8, 0.9],
     "lambdas2_": [1, 0.9, 1.2],
     "lambdas3_": [1, 0.95, 0.8],
     "lambdas4_": [1, 1.4, 1.1],
-    "alpha": [[0.869, 0.242, 0.314, -0.175], [0.962, 1.036, 0.436, 0.166]],
     "chol_cov": [0.696, -0.096, 0.23, -0.3, -0.385, 0.398, -0.004, 0.043, -0.037, 0.422],
     "Psi_cov_": [0.559, 0.603, 0.666, 0.483, 0.53, 0.402, 0.35, 0.28, 0.498, 0.494, 0.976, 0.742],
     "Psi_cov_beta": [0.029],
@@ -1048,42 +1017,39 @@ synthetic_y
 ```{code-cell} ipython3
 # Infer parameters conditioned on observed data
 with pm.observe(sem_model_hierarchical_wide, {"likelihood": synthetic_y}) as inference_model:
-    idata = pm.sample(random_seed=100, nuts_sampler="numpyro", chains=4, draws=500)
+    idata_hierarchical = pm.sample_prior_predictive()
+    idata_hierarchical.extend(
+        pm.sample(random_seed=100, nuts_sampler="numpyro", chains=4, draws=500)
+    )
 ```
 
 ```{code-cell} ipython3
-idata
-```
-
-```{code-cell} ipython3
-az.plot_trace(idata, var_names=["mu_betas_treatment", "mu_betas_control", "tau"]);
+az.plot_trace(idata_hierarchical, var_names=["mu_betas_treatment", "mu_betas_control", "Lambda"]);
 ```
 
 ```{code-cell} ipython3
 az.plot_posterior(
-    idata, var_names=["alpha"], ref_val=[0.869, 0.242, 0.314, -0.175, 0.962, 1.036, 0.436, 0.166]
+    idata_hierarchical, var_names=["mu_betas_treatment"], ref_val=[0.1, 0.5, 2.3, 0.9, -2, 0.8]
 );
 ```
 
 ```{code-cell} ipython3
-az.plot_posterior(idata, var_names=["mu_betas_treatment"], ref_val=[0.1, 0.5, 2.3, 0.9, 0.6, 0.8]);
-```
-
-```{code-cell} ipython3
-az.plot_posterior(idata, var_names=["mu_betas_control"], ref_val=[0.3, 0.2, 0.7, 0.8, 0.6, 1.2]);
+az.plot_posterior(
+    idata_hierarchical, var_names=["mu_betas_control"], ref_val=[3, 0.2, 0.7, 0.8, 0.6, 1.2]
+);
 ```
 
 ## Add Discrete Choice Component
 
 ```{code-cell} ipython3
-observed_data_discrete = make_sample(cov_matrix, 1000, FEATURE_COLUMNS)
+observed_data_discrete = make_sample(cov_matrix, 250, FEATURE_COLUMNS)
 observed_data_discrete = observed_data_discrete.values
 coords["obs"] = range(len(observed_data_discrete))
 coords["alts"] = ["stay", "quit", "quiet quit"]
 ```
 
 ```{code-cell} ipython3
-def make_discrete_choice_conditional(priors):
+def make_discrete_choice_conditional(observed_data, priors, conditional=True):
     with pm.Model(coords=coords) as sem_model_discrete_choice:
 
         # --- Factor loadings ---
@@ -1092,12 +1058,7 @@ def make_discrete_choice_conditional(priors):
         lambdas_3 = make_lambda("indicators_3", "lambdas3", priors=priors["lambdas"])
         lambdas_4 = make_lambda("indicators_4", "lambdas4", priors=priors["lambdas"])
 
-        Lambda = pt.zeros((12, 4))
-        Lambda = pt.set_subtensor(Lambda[0:3, 0], lambdas_1)
-        Lambda = pt.set_subtensor(Lambda[3:6, 1], lambdas_2)
-        Lambda = pt.set_subtensor(Lambda[6:9, 2], lambdas_3)
-        Lambda = pt.set_subtensor(Lambda[9:12, 3], lambdas_4)
-        Lambda = pm.Deterministic("Lambda", Lambda)
+        Lambda = make_Lambda(lambdas_1, lambdas_2, lambdas_3, lambdas_4)
 
         sd_dist = pm.Exponential.dist(1.0, shape=4)
         chol, _, _ = pm.LKJCholeskyCov(
@@ -1106,33 +1067,46 @@ def make_discrete_choice_conditional(priors):
 
         Psi = make_Psi("indicators")
 
-        latent_dim = len(coords["latent"])
-        gamma = pm.MvNormal("gamma", 0, chol=chol, dims=("obs", "latent"))
-
         B = make_B()
-        I = pt.eye(latent_dim)
-        eta = pm.Deterministic(
-            "eta", pt.slinalg.solve(I - B + 1e-8 * I, gamma.T).T, dims=("obs", "latent")
-        )
+        if conditional:
+            latent_dim = len(coords["latent"])
+            gamma = pm.MvNormal("gamma", 0, chol=chol, dims=("obs", "latent"))
+            I = pt.eye(latent_dim)
+            eta = pm.Deterministic(
+                "eta", pt.slinalg.solve(I - B + 1e-8 * I, gamma.T).T, dims=("obs", "latent")
+            )
+            mu = pt.dot(eta, Lambda.T)
+            _ = pm.MvNormal("likelihood", mu=mu, cov=Psi)
+        else:
+            Psi_zeta = pm.Deterministic("Psi_zeta", chol.dot(chol.T))
+            latent_dim = len(coords["latent"])
+            I = pt.eye(latent_dim)
+            lhs = I - B + 1e-8 * pt.eye(latent_dim)  # (latent_dim, latent_dim)
+            inv_lhs = pm.Deterministic(
+                "solve_I-B", pt.slinalg.solve(lhs, pt.eye(latent_dim)), dims=("latent", "latent1")
+            )
 
-        mu = pt.dot(eta, Lambda.T)
-        ## Error Term
-        _ = pm.MvNormal("likelihood", mu=mu, cov=Psi)
+            Sigma_y = pm.Deterministic(
+                "Sigma_y",
+                Lambda.dot(inv_lhs).dot(Psi_zeta).dot(inv_lhs.T).dot(Lambda.T) + Psi,
+            )
+            ## Eta is predicted not sampled!
+            M = Psi_zeta @ inv_lhs @ Lambda.T @ pm.math.matrix_inverse(Sigma_y)
+            eta = pm.Deterministic("eta", (M @ (observed_data - 0).T).T, dims=("obs", "latent"))
+            _ = pm.MvNormal("likelihood", mu=0, cov=Sigma_y, dims=("obs", "indicators"))
 
         alphas_choice_ = pm.Normal(
             "alphas_choice_", priors["alphas_choice"][0], priors["alphas_choice"][1], dims=("alts",)
         )
         alphas_choice = pm.Deterministic("alphas_choice", pt.set_subtensor(alphas_choice_[-1], 0))
+
         betas_choice_ = pm.Normal(
             "betas_choice_",
             priors["betas_choice"][0],
             priors["betas_choice"][1],
             dims=("alts", "latent"),
         )
-        betas_choice = pt.expand_dims(alphas_choice_, 1) * betas_choice_
-        betas_choice = pm.Deterministic(
-            "betas_choice", pt.set_subtensor(betas_choice[-1, :], betas_choice_[-1, :])
-        )
+        betas_choice = pt.expand_dims(alphas_choice, 1) * betas_choice_
 
         utility_of_work = pm.Deterministic(
             "mu_choice", alphas_choice + pm.math.dot(eta, betas_choice.T)
@@ -1159,8 +1133,12 @@ priors_wide = {
     "alphas_choice": [0, 5],
 }
 
-sem_model_discrete_choice_tight = make_discrete_choice_conditional(priors)
-sem_model_discrete_choice_wide = make_discrete_choice_conditional(priors_wide)
+sem_model_discrete_choice_tight = make_discrete_choice_conditional(
+    observed_data_discrete, priors, conditional=True
+)
+sem_model_discrete_choice_wide = make_discrete_choice_conditional(
+    synthetic_y.values, priors_wide, conditional=True
+)
 
 pm.model_to_graphviz(sem_model_discrete_choice_tight)
 ```
@@ -1193,7 +1171,15 @@ with pm.observe(
     sem_model_discrete_choice_wide, {"likelihood": synthetic_y, "likelihood_choice": synthetic_c}
 ) as inference_model:
     idata = pm.sample_prior_predictive()
-    idata.extend(pm.sample(random_seed=100, chains=4, draws=500, target_accept=0.975))
+    idata.extend(pm.sample(random_seed=100, chains=4, tune=2000, draws=500))
+```
+
+```{code-cell} ipython3
+az.plot_posterior(idata, var_names=["lambdas2_"], ref_val=[1, 0.9, 1.2]);
+```
+
+```{code-cell} ipython3
+az.plot_posterior(idata, var_names=["lambdas4_"], ref_val=[1, 1.4, 1.1]);
 ```
 
 ```{code-cell} ipython3
@@ -1210,6 +1196,58 @@ az.plot_posterior(
 
 ```{code-cell} ipython3
 az.plot_posterior(idata, var_names=["alphas_choice_"], ref_val=[2, 4, 1]);
+```
+
+### Two Stage Inference
+
+```{code-cell} ipython3
+# df_latent = {idata['posterior']['eta']}
+
+post = az.extract(idata["posterior"])["eta"].mean(dim=("sample"))
+
+df_latent = pd.DataFrame(
+    {
+        "satisfaction": post.sel(latent="satisfaction").values,
+        "dysfunctional": post.sel(latent="dysfunctional").values,
+        "constructive": post.sel(latent="constructive").values,
+        "well_being": post.sel(latent="well being").values,
+        "choice": synthetic_c,
+    }
+)
+df_latent.columns
+```
+
+```{code-cell} ipython3
+with pm.Model(coords=coords) as discrete_choice_model:
+    alphas_choice_ = pm.Normal(
+        "alphas_choice_", priors["alphas_choice"][0], priors["alphas_choice"][1], dims=("alts")
+    )
+    alphas_choice = pm.Deterministic("alphas_choice", pt.set_subtensor(alphas_choice_[-1], 0))
+
+    betas_choice_ = pm.Normal(
+        "betas_choice_",
+        priors["betas_choice"][0],
+        priors["betas_choice"][1],
+        dims=("alts", "latent"),
+    )
+    # betas_choice = pt.expand_dims(alphas_choice_, 1) * betas_choice_
+    X = pm.Data(
+        "X_data", df_latent[["satisfaction", "well_being", "dysfunctional", "constructive"]]
+    )
+    y = pm.Data("y_data", synthetic_c)
+    utility_of_work = pm.Deterministic("mu_choice", alphas_choice + pm.math.dot(X, betas_choice_.T))
+    p = pm.Deterministic("p", pm.math.softmax(utility_of_work, axis=1))
+    _ = pm.Categorical("likelihood_choice", p, observed=y)
+
+    idata_dc = pm.sample(target_accept=0.95)
+```
+
+```{code-cell} ipython3
+az.plot_posterior(
+    idata_dc,
+    var_names=["betas_choice_"],
+    ref_val=[2.2, 1.2, -0.6, 1.5, -1.5, -2, 1.7, 0.5, -0.5, 2.5, -1.5, 1.7],
+);
 ```
 
 ## Authors
