@@ -1041,7 +1041,7 @@ az.plot_posterior(
 );
 ```
 
-## Add Discrete Choice Component
+## Discrete Choice Component
 
 ```{code-cell} ipython3
 observed_data_discrete = make_sample(cov_matrix, 250, FEATURE_COLUMNS)
@@ -1193,63 +1193,13 @@ az.plot_posterior(
     idata,
     var_names=["betas_choice_"],
     ref_val=[2.2, 1.2, -0.6, 1.5, -1.5, -2, 1.7, 0.5, -0.5, 2.5, -1.5, 1.7],
+    coords={"alts": ["stay", "quit"]},
 );
 ```
 
 ```{code-cell} ipython3
-az.plot_posterior(idata, var_names=["alphas_choice_"], ref_val=[2, 4, 1]);
-```
-
-### Two Stage Inference
-
-```{code-cell} ipython3
-# df_latent = {idata['posterior']['eta']}
-
-post = az.extract(idata["posterior"])["eta"].mean(dim=("sample"))
-
-df_latent = pd.DataFrame(
-    {
-        "satisfaction": post.sel(latent="satisfaction").values,
-        "dysfunctional": post.sel(latent="dysfunctional").values,
-        "constructive": post.sel(latent="constructive").values,
-        "well_being": post.sel(latent="well being").values,
-        "choice": synthetic_c,
-    }
-)
-df_latent.columns
-```
-
-```{code-cell} ipython3
-with pm.Model(coords=coords) as discrete_choice_model:
-    alphas_choice_ = pm.Normal(
-        "alphas_choice_", priors["alphas_choice"][0], priors["alphas_choice"][1], dims=("alts")
-    )
-    alphas_choice = pm.Deterministic("alphas_choice", pt.set_subtensor(alphas_choice_[-1], 0))
-
-    betas_choice_ = pm.Normal(
-        "betas_choice_",
-        priors["betas_choice"][0],
-        priors["betas_choice"][1],
-        dims=("alts", "latent"),
-    )
-
-    betas_choice = pt.expand_dims(alphas_choice, 1) * betas_choice_
-    X = pm.Data(
-        "X_data", df_latent[["satisfaction", "well_being", "dysfunctional", "constructive"]]
-    )
-    y = pm.Data("y_data", synthetic_c)
-    utility_of_work = pm.Deterministic("mu_choice", alphas_choice + pm.math.dot(X, betas_choice.T))
-    p = pm.Deterministic("p", pm.math.softmax(utility_of_work, axis=1))
-    _ = pm.Categorical("likelihood_choice", p, observed=y)
-
-    idata_dc = pm.sample(target_accept=0.95)
-```
-
-```{code-cell} ipython3
 az.plot_posterior(
-    idata_dc,
-    var_names=["betas_choice_"],
-    ref_val=[2.2, 1.2, -0.6, 1.5, -1.5, -2, 1.7, 0.5, -0.5, 2.5, -1.5, 1.7],
+    idata, var_names=["alphas_choice_"], ref_val=[2, 4, 1], coords={"alts": ["stay", "quit"]}
 );
 ```
 
