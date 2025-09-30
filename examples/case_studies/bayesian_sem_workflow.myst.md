@@ -74,8 +74,6 @@ import pytensor
 import pytensor.tensor as pt
 import seaborn as sns
 
-pytensor.config.cxx = "/usr/bin/clang++"
-
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 ```
@@ -110,87 +108,25 @@ stds = np.array(
 
 n = len(stds)
 
+# fmt: off
+
 # Lower triangular correlation values as a flat list
 corr_values = [
     1.000,
-    0.668,
-    1.000,
-    0.635,
-    0.599,
-    1.000,
-    0.263,
-    0.261,
-    0.164,
-    1.000,
-    0.290,
-    0.315,
-    0.247,
-    0.486,
-    1.000,
-    0.207,
-    0.245,
-    0.231,
-    0.251,
-    0.449,
-    1.000,
-    -0.206,
-    -0.182,
-    -0.195,
-    -0.309,
-    -0.266,
-    -0.142,
-    1.000,
-    -0.280,
-    -0.241,
-    -0.238,
-    -0.344,
-    -0.305,
-    -0.230,
-    0.753,
-    1.000,
-    -0.258,
-    -0.244,
-    -0.185,
-    -0.255,
-    -0.255,
-    -0.215,
-    0.554,
-    0.587,
-    1.000,
-    0.080,
-    0.096,
-    0.094,
-    -0.017,
-    0.151,
-    0.141,
-    -0.074,
-    -0.111,
-    0.016,
-    1.000,
-    0.061,
-    0.028,
-    -0.035,
-    -0.058,
-    -0.051,
-    -0.003,
-    -0.040,
-    -0.040,
-    -0.018,
-    0.284,
-    1.000,
-    0.113,
-    0.174,
-    0.059,
-    0.063,
-    0.138,
-    0.044,
-    -0.119,
-    -0.073,
-    -0.084,
-    0.563,
-    0.379,
-    1.000,
+    .668, 1.000,
+    .635, .599, 1.000,
+    .263, .261, .164, 1.000,
+    .290, .315, .247, .486, 1.000,
+    .207, .245, .231, .251, .449, 1.000,
+   -.206, -.182, -.195, -.309, -.266, -.142, 1.000,
+   -.280, -.241, -.238, -.344, -.305, -.230,  .753, 1.000,
+   -.258, -.244, -.185, -.255, -.255, -.215,  .554,  .587, 1.000,
+    .080,  .096,  .094, -.017,  .151,  .141, -.074, -.111,  .016, 1.000,
+    .061,  .028, -.035, -.058, -.051, -.003, -.040, -.040, -.018,  .284, 1.000,
+    .113,  .174,  .059,  .063,  .138,  .044, -.119, -.073, -.084,  .563,  .379, 1.000
 ]
+
+# fmt: on
 
 # Fill correlation matrix
 corr_matrix = np.zeros((n, n))
@@ -210,9 +146,13 @@ corr_df = pd.DataFrame(corr_matrix, columns=FEATURE_COLUMNS)
 cov_df = pd.DataFrame(cov_matrix, columns=FEATURE_COLUMNS)
 
 
-def make_sample(cov_matrix, size, columns, missing_frac=0.0, impute=False):
+def make_sample(cov_matrix, size, columns, missing_frac=0.0, impute=False, mean_structure=False):
+    if mean_structure:
+        mus = np.random.normal(0, 3, size=12)
+    else:
+        mus = [0] * 12
     sample_df = pd.DataFrame(
-        np.random.multivariate_normal([0] * 12, cov_matrix, size=size), columns=FEATURE_COLUMNS
+        np.random.multivariate_normal(mus, cov_matrix, size=size), columns=FEATURE_COLUMNS
     )
     if missing_frac > 0.0:
         total_values = sample_df.size
@@ -356,9 +296,9 @@ coords = {
 def make_lambda(indicators, name="lambdas1", priors=[1, 10]):
     """Takes an argument indicators which is a string in the coords dict"""
     temp_name = name + "_"
-    lambdas_ = pm.Normal(temp_name, priors[0], priors[1], dims=(indicators))
+    lambdas_ = pm.Normal(temp_name, priors[0], priors[1], dims=(indicators,))
     # Force a fixed scale on the factor loadings for factor 1
-    lambdas_1 = pm.Deterministic(name, pt.set_subtensor(lambdas_[0], 1), dims=(indicators))
+    lambdas_1 = pm.Deterministic(name, pt.set_subtensor(lambdas_[0], 1), dims=(indicators,))
     return lambdas_1
 
 
@@ -368,7 +308,7 @@ def make_Lambda(lambdas_1, lambdas_2, lambdas_3, lambdas_4):
     Lambda = pt.set_subtensor(Lambda[3:6, 1], lambdas_2)
     Lambda = pt.set_subtensor(Lambda[6:9, 2], lambdas_3)
     Lambda = pt.set_subtensor(Lambda[9:12, 3], lambdas_4)
-    Lambda = pm.Deterministic("Lambda", Lambda)
+    Lambda = pm.Deterministic("Lambda", Lambda, dims=("indicators", "latent"))
     return Lambda
 
 
@@ -488,13 +428,15 @@ def plot_ppc_check(idata, indicators, fitted=False, dims=(4, 3), figsize=(20, 6)
 
 
 def plot_diagnostics(idata, parameters):
-    fig, axs = plt.subplots(1, 2, figsize=(20, 10))
+    fig, axs = plt.subplots(1, 2, figsize=(20, 8))
     axs = axs.flatten()
     az.plot_energy(idata, ax=axs[0])
-    az.summary(idata, var_names=parameters)["r_hat"].plot(kind="barh", alpha=0.5, ax=axs[1])
+    summary = az.summary(idata, var_names=parameters)
+    total = summary["ess_bulk"] + summary["ess_tail"]
+    total.plot(kind="barh", alpha=0.5, ax=axs[1])
     axs[1].axvline(1, color="black")
     axs[0].set_title("Energy Plot \n Overlapping Distributions is Good")
-    axs[1].set_title("Rhat Plot \n Values <= 1.01 is Good")
+    axs[1].set_title("Effective Sample Size Plot \n More is Better")
     return fig
 
 
@@ -531,12 +473,7 @@ with pm.Model(coords=coords) as cfa_model_v1:
     lambdas_3 = make_lambda("indicators_3", "lambdas3", priors=[1, 0.5])
     lambdas_4 = make_lambda("indicators_4", "lambdas4", priors=[1, 0.5])
 
-    Lambda = pt.zeros((12, 4))
-    Lambda = pt.set_subtensor(Lambda[0:3, 0], lambdas_1)
-    Lambda = pt.set_subtensor(Lambda[3:6, 1], lambdas_2)
-    Lambda = pt.set_subtensor(Lambda[6:9, 2], lambdas_3)
-    Lambda = pt.set_subtensor(Lambda[9:12, 3], lambdas_4)
-    Lambda = pm.Deterministic("Lambda", Lambda, dims=("indicators", "latent"))
+    Lambda = make_Lambda(lambdas_1, lambdas_2, lambdas_3, lambdas_4)
 
     sd_dist = pm.Exponential.dist(1.0, shape=4)
     chol, _, _ = pm.LKJCholeskyCov("chol_cov", n=4, eta=2, sd_dist=sd_dist, compute_corr=True)
@@ -766,7 +703,7 @@ However, the model diagnostics appear less robust. The sampler seemed to have di
 plot_diagnostics(idata_sem_model_v1, parameters);
 ```
 
-## SEM V2 Marginal Formulation
+## Marginal Formulation of the Likelihood
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as sem_model_v2:
@@ -809,10 +746,6 @@ pm.model_to_graphviz(sem_model_v2)
 
 ```{code-cell} ipython3
 idata_sem_model_v2 = sample_model(sem_model_v2, sampler_kwargs)
-```
-
-```{code-cell} ipython3
-az.summary(idata_sem_model_v2, var_names=["mu_betas"])["mean"]
 ```
 
 ### Model Diagnostics and Assessment
@@ -946,6 +879,7 @@ def make_hierarchical(priors, grp_idx):
         lambdas_2 = make_lambda("indicators_2", "lambdas2", priors=priors["lambdas"])
         lambdas_3 = make_lambda("indicators_3", "lambdas3", priors=priors["lambdas"])
         lambdas_4 = make_lambda("indicators_4", "lambdas4", priors=priors["lambdas"])
+
         Lambda = make_Lambda(lambdas_1, lambdas_2, lambdas_3, lambdas_4)
 
         sd_dist = pm.Exponential.dist(1.0, shape=4)
@@ -995,19 +929,19 @@ pm.model_to_graphviz(sem_model_hierarchical_tight)
 ```{code-cell} ipython3
 # Generating data from model by fixing parameters
 fixed_parameters = {
-    "mu_betas_treatment": [0.1, 0.5, 2.3, 0.9, -2, 0.8],
+    "mu_betas_treatment": [0.1, 0.5, 2.3, 0.9, -2.0, 0.8],
     "mu_betas_control": [3, 0.2, 0.7, 0.8, 0.6, 1.2],
-    "lambdas1_": [1, 0.8, 0.9],
-    "lambdas2_": [1, 0.9, 1.2],
-    "lambdas3_": [1, 0.95, 0.8],
-    "lambdas4_": [1, 1.4, 1.1],
+    "lambdas1_": [1.0, 0.8, 0.9],
+    "lambdas2_": [1.0, 0.9, 1.2],
+    "lambdas3_": [1.0, 0.95, 0.8],
+    "lambdas4_": [1.0, 1.4, 1.1],
     "chol_cov": [0.696, -0.096, 0.23, -0.3, -0.385, 0.398, -0.004, 0.043, -0.037, 0.422],
     "Psi_cov_": [0.559, 0.603, 0.666, 0.483, 0.53, 0.402, 0.35, 0.28, 0.498, 0.494, 0.976, 0.742],
     "Psi_cov_beta": [0.029],
 }
 with pm.do(sem_model_hierarchical_tight, fixed_parameters) as synthetic_model:
     idata = pm.sample_prior_predictive(
-        random_seed=1000
+        random_seed=1000,
     )  # Sample from prior predictive distribution.
     synthetic_y = idata["prior"]["likelihood"].sel(draw=0, chain=0)
 ```
