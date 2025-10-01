@@ -679,18 +679,29 @@ idata_sem_model_v1 = sample_model(sem_model_v1, sampler_kwargs)
 
 #### A Sampled B Matrix
 
+Now we can sample the B matrix and observe is structure. It's best to see the matrix as encoding target variables in the columns and predictor variables inn the rows. Here we have the set up our matrix so that `satisfaction` is predicted by three variables, but not itself. The values in the first column are sampled coefficient values in the regression: 
+
+$$ \eta_{sat} \sim B_{1, 0}\eta_{well} + B_{2, 0}\eta_{dys} +  B_{3, 0}\eta_{con}$$
+
+where we've used pythonic indexing of the matrix. Note how values of $\eta$ appear on both sides of the equation. We are solving a system of equations simultaneously i.e. we need to solve for $\eta = B\eta $ where values of $\eta_{i}$ appear on both sides. Solving the matrix untangles the mess of simultaneous equations, but also allows us to derive to total, direct and indirect effects of each latent factor across all the pathways of the system. 
 
 ```{code-cell} ipython3
 idata_sem_model_v1["posterior"]["B_"].sel(chain=0, draw=0)
 ```
 
+This compact representation of three separate regressions equations is used to artificially sort out the mutual influences, interactions and distortion our habits have on our job satisfaction. The relationships between these latent constructs need not be simplistic just because we are using a regresssion framework. There may be messy non-linear relationships between satisfaction and well being, but we are a deliberately abstracting some of that away in favour of a tractable, quantifiable measure of effect.  
+
++++
+
 ### Model Diagnostics and Assessment
 
-The modelling shows improvement in the posterior predictive checks on the model implied residuals. Additionally we now get insight into the implied paths and relationships between the latent constructs. These move in compelling ways. Dysfunctional thought processes have a probable negative impact on well being, and similarly for job satisfaction. Conversely constructive thought processes have a probable positive direct effect on well being and satisfaction. Although the latter appears slight. 
+The posterior predictive distributions retain a healthy appearence, the prior allowed for a wide-realisation of values and the posterior has a shrunk the range considerable closer to the standardised 0-mean data. 
 
 ```{code-cell} ipython3
 plot_ppc_check(idata_sem_model_v1, indicators=coords["indicators"][0:3], fitted=True, dims=(1, 3));
 ```
+
+The modelling shows improvement on the model implied residuals. Additionally we now get insight into the implied paths and relationships between the latent constructs. These move in compelling ways. Dysfunctional thought processes have a probable negative impact on well being, and similarly for job satisfaction. Conversely constructive thought processes have a probable positive direct effect on well being and satisfaction. Although the latter appears slight. 
 
 ```{code-cell} ipython3
 parameters = ["mu_betas", "lambdas1", "lambdas2", "lambdas3", "lambdas4"]
@@ -703,7 +714,13 @@ However, the model diagnostics appear less robust. The sampler seemed to have di
 plot_diagnostics(idata_sem_model_v1, parameters);
 ```
 
+The sampler diagnostics suggest that the model is having trouble samplng from the B matrix. This is a little concern because arguably the structural relations are the primary parameters of interest in the SEM setting. Anything which undercuts our confidence in their estimation, undermines the whole modelling exercise.
+
++++
+
 ## Marginal Formulation of the Likelihood
+
+In the nex model we focus on the covariance matrix implied by the model rather than conditional regressions. We still use the B matrix, but the role it plays differs slightly. This approach cuts down on the burden for the sampler, by remove the need to parameterise $\eta$ directly. Instead B is used to generate the system's covariance structure and regression like effects are derived as a result. 
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as sem_model_v2:
@@ -750,14 +767,20 @@ idata_sem_model_v2 = sample_model(sem_model_v2, sampler_kwargs)
 
 ### Model Diagnostics and Assessment
 
+Note here how the prior range supasses the previous posterior predictive checks. The model is exploring a much wider potential outcome space, but still neatly resolves to a 0-mean system after updating the posterior.
+
 ```{code-cell} ipython3
 plot_ppc_check(idata_sem_model_v2, indicators=coords["indicators"][0:3], fitted=True, dims=(1, 3));
 ```
+
+The parameter estimates and other model health metrics seem in line with the covariance structure observed in the confirmatory factor model which suggests that even with our extra parameterisation we retain fidelty to the data generating process. 
 
 ```{code-cell} ipython3
 parameters = ["mu_betas", "lambdas1", "lambdas2", "lambdas3", "lambdas4"]
 plot_model_highlights(idata_sem_model_v2, "SEM", parameters, sem=True);
 ```
+
+However, now the sampler health looks much, much better. Marginalising the likelihood seems to have considerable improved the sampling diagnostics. 
 
 ```{code-cell} ipython3
 plot_diagnostics(idata_sem_model_v2, parameters);
@@ -765,7 +788,20 @@ plot_diagnostics(idata_sem_model_v2, parameters);
 
 ## Mean Structure SEM
 
++++
+
+Let's add a bit more structure and push this sampling strategy. Here we've allowed the the mean realisation of the the indicator variables can vary. The $\mu$ parameter of our likelihood needs to reflect this assumption to better capture the structure of the data. This is useful when believe there are baseline differences across groups in the data or you want to compare the mean-differences across two populations.
+
 ```{code-cell} ipython3
+sample_df_mean = make_sample(cov_matrix, 263, FEATURE_COLUMNS, mean_structure=True)
+pd.DataFrame(sample_df_mean.mean()).T
+```
+
+```{code-cell} ipython3
+obs_idx = list(range(len(sample_df_mean)))
+observed_data = sample_df_mean[coords["indicators"]].values
+coords["obs"] = range(len(sample_df_mean))
+
 with pm.Model(coords=coords) as sem_model_mean_structure:
 
     # --- Factor loadings ---
@@ -790,7 +826,7 @@ with pm.Model(coords=coords) as sem_model_mean_structure:
     )
 
     # Mean Structure
-    tau = pm.Normal("tau", mu=0, sigma=0.5, dims="indicators")  # observed intercepts
+    tau = pm.Normal("tau", mu=0, sigma=5, dims="indicators")  # observed intercepts
     alpha = pm.Normal("alpha", mu=0, sigma=0.5, dims="latent")  # latent means
     mu_y = pm.Deterministic("mu_y", tau + pt.dot(Lambda, pt.dot(inv_lhs, alpha)))
 
@@ -809,25 +845,40 @@ pm.model_to_graphviz(sem_model_mean_structure)
 ```
 
 ```{code-cell} ipython3
+sampler_kwargs = {"tune": 2000, "draws": 1000, "nuts_sampler": "numpyro"}
 idata_sem_model_v3 = sample_model(sem_model_mean_structure, sampler_kwargs)
 ```
 
 ### Model Diagnostics and Assessment
 
++++
+
+We can now see how the prior draws vary more explicitly around 0 seeking the mean realisation of each outcome variable. We've asked the model to learn "more" structure and it naturally explores more of the parameter space to evaluate comparable likelihoods. 
+
 ```{code-cell} ipython3
 plot_ppc_check(idata_sem_model_v3, indicators=coords["indicators"][0:3], fitted=True, dims=(1, 3));
 ```
+
+We can now assess the `tau` parameters to see where the model locates the mean realisation of each indicator variable. 
 
 ```{code-cell} ipython3
 parameters = ["mu_betas", "lambdas1", "lambdas2", "lambdas3", "lambdas4", "tau"]
 plot_model_highlights(idata_sem_model_v3, "SEM_Marginal_Mean", parameters, sem=True);
 ```
 
+The posterior predictive distribution of the model implied residuals seems comparable to the cases above, but this time we've also isolated the mean structure. 
+
 ```{code-cell} ipython3
 plot_diagnostics(idata_sem_model_v3, parameters);
 ```
 
+The sampler diagnostics also seem healthy. 
+
++++
+
 ## Comparing Models
+
+Just for clarity, we'll pull together the residual plots. 
 
 ```{code-cell} ipython3
 import seaborn as sns
@@ -845,6 +896,8 @@ for idata, model_name, ax in zip(idatas, model_names, axs):
     ax.set_title(f"Residuals for {model_name}", fontsize=25);
 ```
 
+and align the parameter estimates. Here we can see that the models are substantially similar in key dimensions; the magnitude and direction of the implied effects are similar across each model. This is an important observation. It is this kind of robustness to model specification that we want to see in this kind of iterative modelling. This should give us confidence that the model is well specified and picking up on the actual relationships between these latent constructs. 
+
 ```{code-cell} ipython3
 ax = az.plot_forest(
     [idata_cfa_model_v1, idata_sem_model_v1, idata_sem_model_v2, idata_sem_model_v3],
@@ -859,9 +912,17 @@ ax[0].axvline(1, linestyle="--", color="grey")
 ax[0].set_title("Comparing Factor Structures \n and Path Coefficients");
 ```
 
+But sensitivity analysis is one approach, we can be even more clinical in our assessment of these models. We can perform parameter recovery exercises to properly validate that our model specification can identify the structural parameters of our complex SEM architecture. 
+
++++
+
 ## Hierarchical Model on Structural Components
 
+The mean-structure model above offers us an interesting way to implement hierarchical Bayesian SEMs. We can simply add a hierarchical component to the `tau` parameter and aim to infer how the baseline expectation for each indicator variable, shifts across groups. However, a more interesting and complex route is to assess if hierarchical structure holds across the `B` matrix estimates. Or putting it another way - can we determine if the relationships between these latent factors have a different causal structure as we vary the group of interest. 
+
 ![](hierarchical_excalidraw.png)
+
+Let's assume we are aiming to assess a causal difference between treatment and control groups.
 
 ```{code-cell} ipython3
 grp_idx = np.random.binomial(1, 0.5, 250)
@@ -869,6 +930,8 @@ coords["group"] = ["treatment", "control"]
 coords["obs"] = list(range(len(grp_idx)))
 coords.keys()
 ```
+
+We're now going to add hierarchical structure to the `B` coefficients and feed these through the likelihood term to infer how the structural coefficients respond to group differences. 
 
 ```{code-cell} ipython3
 def make_hierarchical(priors, grp_idx):
@@ -926,6 +989,8 @@ sem_model_hierarchical_wide = make_hierarchical(priors_wide, grp_idx)
 pm.model_to_graphviz(sem_model_hierarchical_tight)
 ```
 
+Note how we have not passed through any data into this model. This is deliberate. We want now to simulate data from the model with forward pass through the system. We have initialised two versions of the model: (1) with wide parameters and (2) with tight parameters on the data generating condition. We are going to sample from the tight parameters model to draw out indicator data that conforms with the parameter setting we do now. 
+
 ```{code-cell} ipython3
 # Generating data from model by fixing parameters
 fixed_parameters = {
@@ -946,9 +1011,13 @@ with pm.do(sem_model_hierarchical_tight, fixed_parameters) as synthetic_model:
     synthetic_y = idata["prior"]["likelihood"].sel(draw=0, chain=0)
 ```
 
+This has generated synthetic observations spawned from the SEM system we have just set up.
+
 ```{code-cell} ipython3
 synthetic_y
 ```
+
+We now want to see if we can infer the parameters used to generate the data from the `synthetic_y`. To do so, we use the wide-parameterisation of the model, this is more realistic in that we likely don't know the true range of the priors when we come to real world data.
 
 ```{code-cell} ipython3
 # Infer parameters conditioned on observed data
@@ -959,19 +1028,27 @@ with pm.observe(sem_model_hierarchical_wide, {"likelihood": synthetic_y}) as inf
     )
 ```
 
+The model samples well and gives good evidence of distinct posterior distributions across the parameters suggesting the model is capable of identification. 
+
 ```{code-cell} ipython3
 az.plot_trace(idata_hierarchical, var_names=["mu_betas_treatment", "mu_betas_control", "Lambda"]);
 ```
 
+#### Parameter Recovery Plots
+
+But we can actually assess the degree of parameter recovery because we know the true values
+
 ```{code-cell} ipython3
 az.plot_posterior(
-    idata_hierarchical, var_names=["mu_betas_treatment"], ref_val=[0.1, 0.5, 2.3, 0.9, -2, 0.8]
+    idata_hierarchical,
+    var_names=["mu_betas_treatment"],
+    ref_val=fixed_parameters["mu_betas_treatment"],
 );
 ```
 
 ```{code-cell} ipython3
 az.plot_posterior(
-    idata_hierarchical, var_names=["mu_betas_control"], ref_val=[3, 0.2, 0.7, 0.8, 0.6, 1.2]
+    idata_hierarchical, var_names=["mu_betas_control"], ref_val=fixed_parameters["mu_betas_control"]
 );
 ```
 
@@ -1136,6 +1213,12 @@ az.plot_posterior(
     idata, var_names=["alphas_choice_"], ref_val=[2, 4, 1], coords={"alts": ["stay", "quit"]}
 );
 ```
+
+## Latent Factors and Observed Outcomes
+
+![](dcm_sem.png)
+
++++
 
 ## Authors
 - Authored by [Nathaniel Forde](https://nathanielf.github.io/) in November 2025 
