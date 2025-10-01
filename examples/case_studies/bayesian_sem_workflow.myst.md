@@ -493,6 +493,26 @@ pm.model_to_graphviz(cfa_model_v1)
 
 The model diagram should emphasise how the sampling of the latent structure is fed-forward into the ultimate likelihood term. Note here how our likelihood term is specified as a independent Normals. This is a substantive assumption which is later revised. In a full SEM specification we will change the likelihood to use Multivariate normal distribution with specific covariance structures. 
 
+In Lavaan notation this is the model we are aiming at: 
+
+```
+# measurement part
+CTS =~ EBA + ST + MI
+DTP =~ DA1 + DA2 + DA3
+SWB =~ UF1 + UF2 + FOR
+JS =~ JW1 + JW2 + JW3
+
+# error covariance
+UF1 ~~ FOR
+
+# structural part
+DTP ~ CTS
+SWB ~ CTS + DTP
+JS  ~ CTS + DTP + SWB 
+
+```
+Our first focus will be adding the measurment part i.e. the simple factor structure.
+
 ```{code-cell} ipython3
 idata_cfa_model_v1 = sample_model(cfa_model_v1, sampler_kwargs=sampler_kwargs)
 ```
@@ -872,7 +892,113 @@ The posterior predictive distribution of the model implied residuals seems compa
 plot_diagnostics(idata_sem_model_v3, parameters);
 ```
 
-The sampler diagnostics also seem healthy. 
+The sampler diagnostics also seem healthy. We can also pull out the indirect and direct effects. This is one of the biggest pay-offs for SEM modelling. We've done the work of assessing measurement error and building an abstraction layer of __what-we-care-about__ over the observed indicators. We've considered various structures of the inferential relationships and isolated those direct effects from undue confounding influences. Now we can pull out the impact of mediation and moderation.
+
+```{code-cell} ipython3
+:tags: [hide-input]
+
+def plot_heatmap(
+    data,
+    title="Correlation Matrix",
+    vmin=-0.2,
+    vmax=0.2,
+    ax=None,
+    figsize=(10, 6),
+    colorbar=True,
+    cmap="magma",
+):
+    data_matrix = data.values
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    im = ax.imshow(data, cmap=cmap, vmin=vmin, vmax=vmax)
+
+    for i in range(data_matrix.shape[0]):
+        for j in range(data_matrix.shape[1]):
+            text = ax.text(
+                j,
+                i,  # x, y coordinates
+                f"{data_matrix[i, j]:.2f}",  # text to display
+                ha="center",
+                va="center",  # center alignment
+                color="white" if data_matrix[i, j] < 0.5 else "black",  # contrast color
+            )
+
+    ax.set_title(title)
+    ax.set_xticklabels(data.columns)
+    ax.set_xticks(np.arange(data.shape[1]))
+    ax.set_yticklabels(data.index)
+    ax.set_yticks(np.arange(data.shape[0]))
+    if colorbar:
+        plt.colorbar(im)
+
+
+def plot_total_effects(idata):
+    fig, axs = plt.subplots(1, 3, figsize=(20, 8))
+    axs = axs.flatten()
+
+    total_effect = az.summary(idata, var_names=["solve_I-B"])["mean"].values.reshape((4, 4))
+
+    direct_effect = az.summary(idata, var_names=["B_"])["mean"].values.reshape((4, 4))
+
+    i, j = np.triu_indices(total_effect.reshape((4, 4)).shape[0])
+    total_effect[i, j] = np.nan
+    direct_effect[i, j] = np.nan
+
+    indirect_effect = total_effect - direct_effect
+
+    plot_heatmap(
+        pd.DataFrame(direct_effect, columns=coords["latent"], index=coords["latent"]),
+        ax=axs[0],
+        vmax=1,
+        vmin=-1,
+        colorbar=False,
+        title="Direct Effects",
+        cmap="viridis",
+    )
+    plt.tight_layout()
+    axs[0].set_xticklabels(axs[0].get_xticklabels(), rotation=65)
+    axs[0].set_xlabel("Target Variable")
+    axs[0].set_ylabel("Regression Predictor")
+
+    plot_heatmap(
+        pd.DataFrame(indirect_effect, columns=coords["latent"], index=coords["latent"]),
+        ax=axs[1],
+        vmax=1,
+        vmin=-1,
+        colorbar=False,
+        title="In-Direct Effects",
+        cmap="viridis",
+    )
+    plt.tight_layout()
+    axs[1].set_yticklabels([])
+    axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=65)
+    axs[1].set_xlabel("Target Variable")
+
+    plot_heatmap(
+        pd.DataFrame(
+            total_effect.reshape((4, 4)), columns=coords["latent"], index=coords["latent"]
+        ),
+        ax=axs[2],
+        vmax=1,
+        vmin=-1,
+        colorbar=False,
+        title="Total Effects",
+        cmap="viridis",
+    )
+    plt.tight_layout()
+    axs[2].set_yticklabels([])
+    axs[2].set_xticklabels(axs[2].get_xticklabels(), rotation=65)
+    axs[2].set_xlabel("Target Variable")
+
+    axs[0].grid(False)
+    axs[1].grid(False)
+    axs[2].grid(False)
+
+
+plot_total_effects(idata_sem_model_v3)
+```
+
+Even though constructive thought processes have a directly positive effect on job satisfaction, we can see that when they are paired with dysfunctional thought processes the positive effects are moderated. __Note to all employers__: well-being and general welfare is seen as the most substantively positive predictor of job satisfaction. Fix your process certainly, improve your workflows, encourage constructive practices and dialogues, but it's hard to beat a secure welfare and fair compensation when aiming to improve work satisfaction. 
 
 +++
 
