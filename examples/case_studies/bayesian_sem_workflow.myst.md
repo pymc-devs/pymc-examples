@@ -917,7 +917,11 @@ The posterior predictive distribution of the model implied residuals seems compa
 plot_diagnostics(idata_sem_model_v3, parameters);
 ```
 
-The sampler diagnostics also seem healthy. We can also pull out the indirect and direct effects. This is one of the biggest pay-offs for SEM modelling. We've done the work of assessing measurement error and building an abstraction layer of __what-we-care-about__ over the observed indicators. We've considered various structures of the inferential relationships and isolated those direct effects from undue confounding influences. Now we can pull out the impact of mediation and moderation.
+The sampler diagnostics also seem healthy. We can also pull out the indirect and direct effects. This is one of the biggest pay-offs for SEM modelling. We've done the work of assessing measurement error and building an abstraction layer of __what-we-care-about__ over the observed indicators. We've considered various structures of the inferential relationships and isolated those direct effects from undue confounding influences. 
+
+## Comparing Models
+
+Now we can pull out the impact of mediation and moderation.
 
 ```{code-cell} ipython3
 :tags: [hide-input]
@@ -957,7 +961,7 @@ def plot_heatmap(
         plt.colorbar(im)
 
 
-def plot_total_effects(idata):
+def plot_total_effects(idata, title):
     fig, axs = plt.subplots(1, 3, figsize=(20, 8))
     axs = axs.flatten()
 
@@ -1018,16 +1022,19 @@ def plot_total_effects(idata):
     axs[0].grid(False)
     axs[1].grid(False)
     axs[2].grid(False)
+    plt.suptitle(title, fontsize=15, fontweight="bold")
 
 
-plot_total_effects(idata_sem_model_v3)
+plot_total_effects(idata_sem_model_v2, "Marginal SEM v2")
+
+plot_total_effects(idata_sem_model_v3, "Mean Structure SEM v3")
 ```
 
 Even though constructive thought processes have a directly positive effect on job satisfaction, we can see that when they are paired with dysfunctional thought processes the positive effects are moderated. __Note to all employers__: well-being and general welfare is seen as the most substantively positive predictor of job satisfaction. Fix your process certainly, improve your workflows, encourage constructive practices and dialogues, but it's hard to beat a secure welfare and fair compensation when aiming to improve work satisfaction. 
 
 +++
 
-## Comparing Models
+
 
 Just for clarity, we'll pull together the residual plots. 
 
@@ -1207,7 +1214,7 @@ Here we see how the posterior distributions “recover” the true values within
 
 > "Here, in short, is what i want to tell you. Know what each sentence says, What it doesn't say, And what it implies. Of these, the hardest is know what each sentence actually says" - V. Klinkenborg
 
-This advice transfers exactly to the art of statistical modelling. To know what our model says, we need to say it aloud. We need to feel how it lands with an audience. We need to understand is implications and limitations. The Bayesian workflow explores the depths of meaning achieved by our statistical approximations. It traces out the effects of interlocking components and the layered interactions of structural regressions. In each articulation we're testing which the flavours of reality resonate in the telling. What shape the posterior? How plausible the range of values? How faithful are our predictions to reality? On these questions we weigh each model just as the writer weighs each sentence for their effects. 
+This advice transfers exactly to the art of statistical modelling. To know what our model says, we need to say it aloud. We need to feel how it lands with an audience. We need to understand is implications and limitations. The Bayesian workflow explores the depths of meaning achieved by our statistical approximations. It traces out the effects of interlocking components and the layered interactions of structural regressions. In each articulation we're testing which flavours of reality resonate in the telling. What shape the posterior? How plausible the range of values? How faithful are our predictions to reality? On these questions we weigh each model just as the writer weighs each sentence for their effects. 
 
 +++
 
@@ -1229,11 +1236,21 @@ plt.suptitle(
 
 In an applied setting it's these kinds of implications that are crucially important to surface and understand. From a workflow point of view we want to ensure that our modelling drives clarity on these precise points and avoids adding noise generally. 
 
-Another way, we might interrogate the implications of a model is to see how well it can predict "downstream" outcomes of the implied model. In the job-satisfaction setting we might wonder about how job-satisfaction relates to attrition risk?
+Another way we might interrogate the implications of a model is to see how well it can predict "downstream" outcomes of the implied model. In the job-satisfaction setting we might wonder about how job-satisfaction relates to attrition risk?
 
 +++
 
 ## Discrete Choice Component
+
+Let's consider how to combine SEM structures with Discrete choice models. HR managers everywhere need to monitor attrition decisions. Often, they conceptualise the rationale for these decisions as being driven by abstract notions of job satisfaction. We now have tools to measure the latent constructs, so we might naturally wonder if we can predict attrition outcomes from these latent predictors? 
+
+Let's see how to include a discrete choice into the SEM model context, where we aim to additionally predict a categorical decision about whether the employee `quits/stays/quiet-quits`. 
+
+![](dcm_sem.png)
+
++++
+
+The discrete choice setting is natural here because we model another latent construct of utility which is conceptualised to determine the choice outcome.
 
 ```{code-cell} ipython3
 observed_data_discrete = make_sample(cov_matrix, 250, FEATURE_COLUMNS)
@@ -1241,6 +1258,8 @@ observed_data_discrete = observed_data_discrete.values
 coords["obs"] = range(len(observed_data_discrete))
 coords["alts"] = ["stay", "quit", "quiet quit"]
 ```
+
+The modelling is similar to the basic SEM set up, but we've additionally included a multinomial softmax for each of the available alternatives. Note however, that we have no alternative specific covariates since the draws of the latent constructs are fixed predictors for each of the three outcomes. As such we need to constrain one of the alternatives to 0 so it acts as the reference class and allows identification of the coefficient weights for the other alternatives. 
 
 ```{code-cell} ipython3
 def make_discrete_choice_conditional(observed_data, priors, conditional=True):
@@ -1405,9 +1424,53 @@ az.plot_posterior(
 
 ## Latent Factors and Observed Outcomes
 
-![](dcm_sem.png)
 
-+++
+```{code-cell} ipython3
+utility_df = (
+    az.extract(idata["posterior"])["mu_choice"]
+    .mean(dim=("sample"))
+    .to_dataframe()
+    .reset_index()
+    .pivot(index="mu_choice_dim_0", columns="mu_choice_dim_1", values="mu_choice")
+    .rename({0: "stay", 1: "quit", 2: "quiet_quit"}, axis=1)
+)
+
+latent_df = (
+    az.extract(idata)["eta"]
+    .mean(dim="sample")
+    .to_dataframe()
+    .reset_index()
+    .pivot(index="obs", columns="latent", values="eta")
+)
+
+full_df = pd.concat([utility_df.reset_index(), latent_df.reset_index()])
+
+fig, axs = plt.subplots(1, 2, figsize=(20, 6))
+axs[0].hist(utility_df["stay"], ec="black", alpha=0.4, color="darkgreen", label="Utility of Stay")
+axs[0].hist(utility_df["quit"], ec="black", alpha=0.4, color="slateblue", label="Utility of Quit")
+
+sns.scatterplot(
+    full_df,
+    x="satisfaction",
+    y="stay",
+    ax=axs[1],
+    color="darkgreen",
+    label="utility_stay ~ satisfaction",
+)
+sns.scatterplot(
+    full_df,
+    x="satisfaction",
+    y="quit",
+    ax=axs[1],
+    color="slateblue",
+    label="utility_quit ~ satisfaction",
+)
+axs[1].set_ylabel("Utility of Outcome")
+axs[1].set_title("Utility ~ Satisfaction")
+axs[0].set_title("Distribution of Utility")
+axs[0].legend()
+axs[1].legend();
+```
 
 ## Authors
 - Authored by [Nathaniel Forde](https://nathanielf.github.io/) in November 2025 
