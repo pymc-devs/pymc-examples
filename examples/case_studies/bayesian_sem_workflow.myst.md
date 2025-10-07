@@ -21,7 +21,7 @@ kernelspec:
 
 +++
 
-This is case study builds on themes of {ref}`contemporary Bayesian workflow <bayesian_workflow>` and {ref}`Structural Equation Modelling <cfa_sem_notebook>`. Both are broad topics, already somewhat covered within the PyMC examples site, but here we wish to draw out some of the key points when applying the Bayesian workflow to Structural equation models. The iterative and expansionary strategies of model development for SEMs provide an independent motivation for the recommendations of {cite:p}`gelman2020bayesian` stemming from the SEM literature broadly but {cite:p}`kline2023principles` in particular. 
+This case study builds on themes of {ref}`contemporary Bayesian workflow <bayesian_workflow>` and {ref}`Structural Equation Modelling <cfa_sem_notebook>`. Both are broad topics, already somewhat covered within the PyMC examples site, but here we wish to draw out some of the key points when applying the Bayesian workflow to Structural equation models. The iterative and expansionary strategies of model development for SEMs provide an independent motivation for the recommendations of {cite:p}`gelman2020bayesian` stemming from the SEM literature broadly but {cite:p}`kline2023principles` in particular. 
 
 A secondary motivation is to put SEM modelling with PyMC on firmer ground by detailing different sampling strategies for these complex models; we will cover both conditional and marginal formulations of a SEM model, allowing for the addition of mean-structures and hierarchical effects. These additional components highlight the expressive capacity of this modelling paradigm.  
 
@@ -197,13 +197,13 @@ Conveniently, the process of the Bayesian workflow itself involves the construct
 
 ## Mathematical Interlude
 
-In the general set up of a Structural Equation Model 3e have observed variables $y \in R^{p}$, here (p=12) and $\eta \in R^{m}$ latent factors. The SEM consists of two parts the measurement model and the structural regressions. The Measurement Model - this is the factor structure we seek to _confirm_. In this kind of factor analysis we posit a factor structure of how each factor determines the observed metrics. 
+In the general set up of a Structural Equation Model we have observed variables $y \in R^{p}$, here (p=12) and $\eta \in R^{m}$ latent factors. The basic SEM consists of two parts - the measurement model and the structural regressions. _The Measurement Model_ is the factor-structure we seek to _confirm_ in our analysis. It is called a measurement model because we view the observable metrics as indicators of the thing we actually want to measure. The observable metrics are grouped under "a factor" or construct, based on the idea that each of the indicators are imprecise gauges of the latent factor. The hope is that collectively they provide a better gauge of this hard to measure quantity e.g. satisfaction and well-being. In this kind of factor analysis we posit a factor-structure and estimate how each latent factor determines the observed metrics. 
 
-$$ y_i = \Lambda \eta_i + \varepsilon_i, 
+$$ \overbrace{y_i}^{indicators} = \overbrace{\Lambda \eta_i}^{factors} + \varepsilon_i, 
 \quad \varepsilon_i \sim \mathcal N(0, \Psi).
 $$
 
-where $\Lambda$ is a 12 x 4 matrix, and $\eta$ is an $n$ x 4 matrix, for $n$ observations i.e. the matrix of latent scores on each of the four factors for all individual responses. In the measurement model we're aiming to ensure that the observed metrics are well grouped under a single factor. That they "move" well together and response to changes in the factor. 
+where $\Lambda$ is a 12 x 4 matrix, and $\eta$ is an $N$ x 4 matrix, for $N$ observations i.e. the matrix of latent scores on each of the four factors for all individual responses. In the measurement model we're aiming to ensure that the observed metrics are well grouped under a single factor. That they "move" well together and respond to changes in the factor. 
 
 On the other hand _the Structural model_ encodes the regression paths between the latent constructs. Mathematically this is achieved within a 4 X 4 matrix B, where the latent factors are specified as predictors of other latent factors as theory dictates i.e no latent factor predicts itself, but some may bear on others. In our case we're aiming to see how constructive thought strategies predicts job satisfaction as mediated through the other factors. 
 
@@ -502,14 +502,6 @@ DTP =~ DA1 + DA2 + DA3
 SWB =~ UF1 + UF2 + FOR
 JS =~ JW1 + JW2 + JW3
 
-# error covariance
-UF1 ~~ FOR
-
-# structural part
-DTP ~ CTS
-SWB ~ CTS + DTP
-JS  ~ CTS + DTP + SWB 
-
 ```
 Our first focus will be adding the measurment part i.e. the simple factor structure.
 
@@ -527,13 +519,13 @@ idata_cfa_model_v1["posterior"]["Lambda"].sel(chain=0, draw=0)
 
 ### Model Diagnostics and Assessment
 
-For each latent variable (satisfaction, well being, constructive, dysfunctional), we will plot a forest/ridge plot of the posterior distributions of their factor scores `eta` as drawn. Each panel will have a vertical reference line at 0 (since latent scores are typically centered/scaled).These panels visualize the distribution of estimated latent scores across individuals, separated by latent factor. Then we will summarizes posterior estimates of model parameters (factor loadings, regression coefficients, variances, etc.), providing a quick check against identification constraints (like fixed loadings) and effect directions. Finally we will plot the upper-triangle of the residual correlation matrix with a blue–white–red colormap (−1 to +1). This visualizes residual correlations among observed indicators after the SEM structure is accounted for — helping detect model misfit or unexplained associations.
-
-Below these model checks we will plot some diagnostics for the sampler. These plots are aimed at checking whether the sampler has sufficiently explored the parameter space. 
+Below these model checks we will plot some diagnostics for the sampler. These plots are aimed at checking whether the sampler has sufficiently explored the parameter space. The difference between the spread of the prior and tightness of the posterior says something of what the model has learned through the process of Bayesian updating. Here both the prior and posterior are centred on 0, and so the learnings can appear "undramatic", but it is often sensible to standardise and scale the the variables before fitting the model. This makes it easier to learn the factor-structure without having to worry about the mean structure since all variables are transformed to centre on 0. 
 
 ```{code-cell} ipython3
 plot_ppc_check(idata_cfa_model_v1, indicators=coords["indicators"][0:3], fitted=True, dims=(1, 3));
 ```
+
+Now for each latent variable (satisfaction, well being, constructive, dysfunctional), we will plot a forest/ridge plot of the posterior distributions of their factor scores `eta` as drawn. Each panel will have a vertical reference line at 0 (since latent scores are typically centered/scaled).These panels visualize the distribution of estimated latent scores across individuals, separated by latent factor. Then we will summarizes posterior estimates of model parameters (factor loadings, regression coefficients, variances, etc.), providing a quick check against identification constraints (like fixed loadings) and effect directions. Finally we will plot the upper-triangle of the residual correlation matrix with a blue–white–red colormap (−1 to +1). This visualizes residual correlations among observed indicators after the SEM structure is accounted for — helping detect model misfit or unexplained associations.
 
 ```{code-cell} ipython3
 :tags: [hide-input]
@@ -652,7 +644,21 @@ This is a claim of conditional independence which licenses the causal interpreta
 
 The isolation or conditional independence of interest is encoded in the model with the sampling of the `gamma` variable. These are drawn from a process that is structuraly divorced from the influence of the exogenous variables. For instance if we have $\gamma_{cts} \perp\!\!\!\perp \eta_{dtp}$ then the $\beta_{cts -> dpt}$ coefficient is an unbiased estimate of the direct effect of `CTS` on `DTP` because the remaining variation in $\eta_{dtp}$ is noise by construction. 
 
-It is entirely optional how many arrows you want to add to your system. In our case we have structured the DAG following the discussion in {cite:p}`vehkalahti2019multivariate` which will allow us to unpick the direct and indirect effects below. 
+It is entirely optional how many arrows you want to add to your system. In our case we have structured the DAG following the discussion in {cite:p}`vehkalahti2019multivariate` which will allow us to unpick the direct and indirect effects below. In Lavaan syntax the model we want to specify is: 
+
+```
+# measurement part
+CTS =~ EBA + ST + MI
+DTP =~ DA1 + DA2 + DA3
+SWB =~ UF1 + UF2 + FOR
+JS =~ JW1 + JW2 + JW3
+
+# structural part
+DTP ~ CTS
+SWB ~ CTS + DTP
+JS  ~ CTS + DTP + SWB 
+
+```
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as sem_model_v1:
@@ -683,7 +689,8 @@ with pm.Model(coords=coords) as sem_model_v1:
     mu = pt.dot(eta, Lambda.T)
 
     ## Error Terms
-    Psi = make_Psi("indicators")
+    sds = pm.HalfNormal("sds", sigma=1.0, shape=n)
+    Psi = pt.diag(sds**2)
     _ = pm.MvNormal(
         "likelihood", mu=mu, cov=Psi, observed=observed_data, dims=("obs", "indicators")
     )
@@ -691,7 +698,7 @@ with pm.Model(coords=coords) as sem_model_v1:
 pm.model_to_graphviz(sem_model_v1)
 ```
 
-We have also added the covariance structure on the residuals by supplying a multivariate normal likelihood with a precise covariance structure to add a correlation among the `UF1` and `FOR` indicators metrics. 
+We have also added the covariance structure on the residuals by supplying a multivariate normal likelihood with a diagonal covariance structure.
 
 ```{code-cell} ipython3
 idata_sem_model_v1 = sample_model(sem_model_v1, sampler_kwargs)
@@ -740,7 +747,25 @@ The sampler diagnostics suggest that the model is having trouble samplng from th
 
 ## Marginal Formulation of the Likelihood
 
-In the nex model we focus on the covariance matrix implied by the model rather than conditional regressions. We still use the B matrix, but the role it plays differs slightly. This approach cuts down on the burden for the sampler, by remove the need to parameterise $\eta$ directly. Instead B is used to generate the system's covariance structure and regression like effects are derived as a result. 
+In the next model we focus on the covariance matrix implied by the model rather than conditional regressions. We still use the B matrix, but the role it plays differs slightly. This approach cuts down on the burden for the sampler, by removing the need to parameterise $\eta$ directly. Instead B is used to generate the system's covariance structure and regression like effects are derived as a result. Additionally, we add specific covariance structure to the residuals. In the Lavaan Syntax we have: 
+
+```
+# measurement part
+CTS =~ EBA + ST + MI
+DTP =~ DA1 + DA2 + DA3
+SWB =~ UF1 + UF2 + FOR
+JS =~ JW1 + JW2 + JW3
+
+# error covariance
+UF1 ~~ FOR
+
+# structural part
+DTP ~ CTS
+SWB ~ CTS + DTP
+JS  ~ CTS + DTP + SWB 
+
+```
+
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as sem_model_v2:
@@ -1178,6 +1203,20 @@ az.plot_posterior(
 );
 ```
 
+### Hypothesis Evaluation: How does group membership change direct effects?
+
+```{code-cell} ipython3
+diff = (
+    idata_hierarchical["posterior"]["mu_betas_control"]
+    - idata_hierarchical["posterior"]["mu_betas_treatment"]
+)
+
+axs = az.plot_posterior(diff)
+plt.suptitle(
+    "Change in Direct Effect Estimates \n Due to Treatment", fontsize=20, fontweight="bold"
+);
+```
+
 ## Discrete Choice Component
 
 ```{code-cell} ipython3
@@ -1276,7 +1315,7 @@ sem_model_discrete_choice_tight = make_discrete_choice_conditional(
     observed_data_discrete, priors, conditional=True
 )
 sem_model_discrete_choice_wide = make_discrete_choice_conditional(
-    synthetic_y.values, priors_wide, conditional=True
+    observed_data_discrete, priors_wide, conditional=True
 )
 
 pm.model_to_graphviz(sem_model_discrete_choice_tight)
@@ -1314,29 +1353,37 @@ with pm.observe(
 ```
 
 ```{code-cell} ipython3
-az.plot_posterior(idata, var_names=["lambdas2_"], ref_val=[1, 0.9, 1.2]);
+az.plot_posterior(idata, var_names=["lambdas2_"], ref_val=fixed_parameters["lambdas2_"]);
 ```
 
 ```{code-cell} ipython3
-az.plot_posterior(idata, var_names=["lambdas4_"], ref_val=[1, 1.4, 1.1]);
+az.plot_posterior(idata, var_names=["lambdas4_"], ref_val=fixed_parameters["lambdas4_"]);
 ```
 
 ```{code-cell} ipython3
-az.plot_posterior(idata, var_names=["mu_betas"], ref_val=[-0.9, -0.3, 0.5, 0.9, -0.5, 2.7]);
+az.plot_posterior(idata, var_names=["mu_betas"], ref_val=fixed_parameters["mu_betas"]);
 ```
 
 ```{code-cell} ipython3
+ref = (
+    fixed_parameters["betas_choice_"][0]
+    + fixed_parameters["betas_choice_"][1]
+    + fixed_parameters["betas_choice_"][2]
+)
 az.plot_posterior(
     idata,
     var_names=["betas_choice_"],
-    ref_val=[2.2, 1.2, -0.6, 1.5, -1.5, -2, 1.7, 0.5, -0.5, 2.5, -1.5, 1.7],
+    ref_val=ref,
     coords={"alts": ["stay", "quit"]},
 );
 ```
 
 ```{code-cell} ipython3
 az.plot_posterior(
-    idata, var_names=["alphas_choice_"], ref_val=[2, 4, 1], coords={"alts": ["stay", "quit"]}
+    idata,
+    var_names=["alphas_choice_"],
+    ref_val=fixed_parameters["alphas_choice_"],
+    coords={"alts": ["stay", "quit"]},
 );
 ```
 
