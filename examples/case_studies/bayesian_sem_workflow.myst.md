@@ -1185,9 +1185,9 @@ The model samples well and gives good evidence of distinct posterior distributio
 az.plot_trace(idata_hierarchical, var_names=["mu_betas_treatment", "mu_betas_control", "Lambda"]);
 ```
 
-#### Parameter Recovery Plots
+#### The Parameter Recovery Process
 
-But we can actually assess the degree of parameter recovery because we know the true values
+But we can actually assess the degree of parameter recovery because we know the true values. This is a pivotal part of the model building process, akin to how writer's read aloud their own work to test it for assonance, cogency and flow. In simulation based probabilistic modelling we should be able generate data from models with known parameters, and recover the latent parameter values through the inferential workflow. 
 
 ```{code-cell} ipython3
 az.plot_posterior(
@@ -1203,7 +1203,17 @@ az.plot_posterior(
 );
 ```
 
+Here we see how the posterior distributions “recover” the true values within uncertainty ensuring the model is faithful to the data generating process. Were the effort at parameter recover to fail, we would equally have learned something about our model. Parameter recovery exercises helps discover issues of mis-specification or unidentified parameters. Put another way, they tell us how informative our data is with respect to our data generating model. Verlyn Klinkenborg starts his justly famous book _Several short sentences about writing_ with the following advice: 
+
+> "Here, in short, is what i want to tell you. Know what each sentence says, What it doesn't say, And what it implies. Of these, the hardest is know what each sentence actually says" - V. Klinkenborg
+
+This advice transfers exactly to the art of statistical modelling. To know what our model says, we need to say it aloud. We need to feel how it lands with an audience. We need to understand is implications and limitations. The Bayesian workflow explores the depths of meaning achieved by our statistical approximations. It traces out the effects of interlocking components and the layered interactions of structural regressions. In each articulation we're testing which the flavours of reality resonate in the telling. What shape the posterior? How plausible the range of values? How faithful are our predictions to reality? On these questions we weigh each model just as the writer weighs each sentence for their effects. 
+
++++
+
 ### Hypothesis Evaluation: How does group membership change direct effects?
+
+In this case we've encoded a differnce in the regression effects for each of the two groups. These effects are easily recovered with quantifiable measures of uncertainty around the treatment effects.
 
 ```{code-cell} ipython3
 diff = (
@@ -1216,6 +1226,12 @@ plt.suptitle(
     "Change in Direct Effect Estimates \n Due to Treatment", fontsize=20, fontweight="bold"
 );
 ```
+
+In an applied setting it's these kinds of implications that are crucially important to surface and understand. From a workflow point of view we want to ensure that our modelling drives clarity on these precise points and avoids adding noise generally. 
+
+Another way, we might interrogate the implications of a model is to see how well it can predict "downstream" outcomes of the implied model. In the job-satisfaction setting we might wonder about how job-satisfaction relates to attrition risk?
+
++++
 
 ## Discrete Choice Component
 
