@@ -1182,7 +1182,7 @@ We now want to see if we can infer the parameters used to generate the data from
 with pm.observe(sem_model_hierarchical_wide, {"likelihood": synthetic_y}) as inference_model:
     idata_hierarchical = pm.sample_prior_predictive()
     idata_hierarchical.extend(
-        pm.sample(random_seed=100, nuts_sampler="numpyro", chains=4, draws=500)
+        pm.sample(random_seed=100, nuts_sampler="numpyro", chains=4, draws=500, tune=2000)
     )
 ```
 
@@ -1210,7 +1210,7 @@ az.plot_posterior(
 );
 ```
 
-Here we see how the posterior distributions “recover” the true values within uncertainty ensuring the model is faithful to the data generating process. Were the effort at parameter recover to fail, we would equally have learned something about our model. Parameter recovery exercises helps discover issues of mis-specification or unidentified parameters. Put another way, they tell us how informative our data is with respect to our data generating model. Verlyn Klinkenborg starts his justly famous book _Several short sentences about writing_ with the following advice: 
+Here we see how the posterior distributions can “recover” the true values within uncertainty ensuring the model is faithful to the data generating process. Were the effort at parameter recover to fail, we would equally have learned something about our model. Parameter recovery exercises helps discover issues of mis-specification or unidentified parameters. Put another way, they tell us how informative our data is with respect to our data generating model. Verlyn Klinkenborg starts his justly famous book _Several short sentences about writing_ with the following advice: 
 
 > "Here, in short, is what i want to tell you. Know what each sentence says, What it doesn't say, And what it implies. Of these, the hardest is know what each sentence actually says" - V. Klinkenborg
 
@@ -1234,23 +1234,23 @@ plt.suptitle(
 );
 ```
 
-In an applied setting it's these kinds of implications that are crucially important to surface and understand. From a workflow point of view we want to ensure that our modelling drives clarity on these precise points and avoids adding noise generally. 
+In an applied setting it's these kinds of implications that are crucially important to surface and understand. From a workflow point of view we want to ensure that our modelling drives clarity on these precise points and avoids adding noise generally. This is where parameter recovery exercises can lend assurances and bolster confidence in the findings of empirical work.
 
-Another way we might interrogate the implications of a model is to see how well it can predict "downstream" outcomes of the implied model. In the job-satisfaction setting we might wonder about how job-satisfaction relates to attrition risk?
+Another way we might interrogate the implications of a model is to see how well it can predict "downstream" outcomes of the implied model. How does job-satisfaction relate to attrition risk?
 
 +++
 
 ## Discrete Choice Component
 
-Let's consider how to combine SEM structures with Discrete choice models. HR managers everywhere need to monitor attrition decisions. Often, they conceptualise the rationale for these decisions as being driven by abstract notions of job satisfaction. We now have tools to measure the latent constructs, so we might naturally wonder if we can predict attrition outcomes from these latent predictors? 
+Combining SEM structures with Discrete choice models involves simply adding a an extra likelihood term dependent on the latent factors. HR managers everywhere need to monitor attrition decisions. Often, they conceptualise the rationale for these decisions as being driven by abstract notions of job satisfaction. We now have tools to measure the latent constructs, but can we predict attrition outcomes from these latent predictors? 
 
-Let's see how to include a discrete choice into the SEM model context, where we aim to additionally predict a categorical decision about whether the employee `quits/stays/quiet-quits`. 
+Let's include a discrete choice scenario into the SEM model context. We're aiming to predict a categorical decision about whether the employee `quits/stays/quiet-quits` as the result of their job satisfaction, and their view of the utility of work. Again, we'll see this up as a parameter recovery exercise. 
 
 ![](dcm_sem.png)
 
 +++
 
-The discrete choice setting is natural here because we model another latent construct of utility which is conceptualised to determine the choice outcome.
+The discrete choice setting is intuitive in this context because we can model the individual's subjective utility of work. This is conceptualised (in rational-choice theory) to determine the choice outcome.
 
 ```{code-cell} ipython3
 observed_data_discrete = make_sample(cov_matrix, 250, FEATURE_COLUMNS)
@@ -1259,7 +1259,7 @@ coords["obs"] = range(len(observed_data_discrete))
 coords["alts"] = ["stay", "quit", "quiet quit"]
 ```
 
-The modelling is similar to the basic SEM set up, but we've additionally included a multinomial softmax for each of the available alternatives. Note however, that we have no alternative specific covariates since the draws of the latent constructs are fixed predictors for each of the three outcomes. As such we need to constrain one of the alternatives to 0 so it acts as the reference class and allows identification of the coefficient weights for the other alternatives. 
+The modelling is similar to the basic SEM set up, but we've additionally included a multinomial outcome for each of the available alternatives. Note however, that we have no alternative-specific covariates (i.e. price of the choice) since the draws of the latent constructs are fixed predictors for each of the three outcomes. As such we need to constrain one of the alternatives to 0 so it acts as the reference class and allows identification of the coefficient weights for the other alternatives. This is a basic implementation of a discrete choice model where we allow alternative-specific intercept terms to interact with the beta coefficient for each latent construct. In this way we infer how e.g. job satisfaction drives career choice.
 
 ```{code-cell} ipython3
 def make_discrete_choice_conditional(observed_data, priors, conditional=True):
@@ -1356,6 +1356,8 @@ sem_model_discrete_choice_wide = make_discrete_choice_conditional(
 pm.model_to_graphviz(sem_model_discrete_choice_tight)
 ```
 
+We can see here how our model structure now has two likelihood terms that are both based on the latent constructs `eta`. To demonstrate parameter recovery we need to sample from both outcome simultaneously. 
+
 ```{code-cell} ipython3
 fixed_parameters = {
     "lambdas1_": [1, 0.8, 0.9],
@@ -1378,6 +1380,8 @@ with pm.do(sem_model_discrete_choice_tight, fixed_parameters) as synthetic_model
     synthetic_c = idata["prior"]["likelihood_choice"].sel(draw=0, chain=0)
 ```
 
+Now we see how much we can infer from these two sampled outcomes. 
+
 ```{code-cell} ipython3
 # Infer parameters conditioned on observed data
 with pm.observe(
@@ -1387,6 +1391,8 @@ with pm.observe(
     idata.extend(pm.sample(random_seed=100, chains=4, tune=2000, draws=500))
 ```
 
+The factor structures are nicely recovered. 
+
 ```{code-cell} ipython3
 az.plot_posterior(idata, var_names=["lambdas2_"], ref_val=fixed_parameters["lambdas2_"]);
 ```
@@ -1395,9 +1401,13 @@ az.plot_posterior(idata, var_names=["lambdas2_"], ref_val=fixed_parameters["lamb
 az.plot_posterior(idata, var_names=["lambdas4_"], ref_val=fixed_parameters["lambdas4_"]);
 ```
 
+The `B` parameters seem to be approximately well identified. 
+
 ```{code-cell} ipython3
 az.plot_posterior(idata, var_names=["mu_betas"], ref_val=fixed_parameters["mu_betas"]);
 ```
+
+Now we look at the beta coefficients from the discrete choice setting, noting that the model can recover sensible values. 
 
 ```{code-cell} ipython3
 ref = (
@@ -1413,6 +1423,8 @@ az.plot_posterior(
 );
 ```
 
+Similarly, the intercept terms are properly recovered.
+
 ```{code-cell} ipython3
 az.plot_posterior(
     idata,
@@ -1422,7 +1434,7 @@ az.plot_posterior(
 );
 ```
 
-## Latent Factors and Observed Outcomes
+But what does the model say about the relationships between our latent constructs? 
 
 
 ```{code-cell} ipython3
@@ -1471,6 +1483,20 @@ axs[0].set_title("Distribution of Utility")
 axs[0].legend()
 axs[1].legend();
 ```
+
+We can recover the inverse relationship we encoded in the outcomes between job-satisfaction and the choice to stay. This is encouraging. 
+
+The "action" in human decision making is often understood to be driven by these hard-to-quantify constructs that determine motivation. SEM with a discrete component offers us a way to model these processes allowing for measurement error between the observables and the latent drivers of choice. Secondly, we are triangulating the values of the system between two sources of observable data. On the one hand, we measure latent constructs in the SEM with a range of survey measures (`JW1`, `JW2`, ... ) but then calibrate the consequences of that measurement against revealed choice data. This is a powerful technique for abstracting over the expressed attitudes of rational agents, and deriving an interpretable representation of the latent attitude in their expressions. These representations can be further calibrated against the observed choices made by the agent. This two-step of information compression and prediction serves to concisely quantify and evaluate the idiosyncratic attitudes of a complex agent. As we iteratively layer-in these constructs in our model development, we come to understand their baseline and interactive effects. This perspective helps us gauge the coherence between attitudes and actions of the agents under study. 
+
++++
+
+## Conclusion: Workflow and Craft in Statistical Modelling
+
+We have now seen how to articulate Structural Equation models and their variants in PyMC. The SEM workflow is, at heart, Bayesian in temperament: construct then check. Check then refine. Refine then expand. Both disciplines reject the checklist mentality of “fit once, report, move on.” Instead, they cultivate a slow, deliberate practice. Each discipline forces an apprenticeship in how assumptions shape understanding and how the world resists impositions of false structure. Each iteration is a dialogue between theory and evidence. At each juncture we ask whether this model speaks true? Whether this structure reflects the facts to hand. 
+
+In the end, the value of craft in statistical modeling lies not in improving benchmark metrics, but in the depth of understanding we cultivate through care. The Bayesian workflow reminds us that modeling is not the automation of insight but its deliberate construction. Our workflow is process of listening, revising, and re-articulating until the model speaks clearly. Like any craft, its worth is measured not by throughput but by fidelity: how honestly our structure reflects the world it seeks to describe. Each diagnostic, each posterior check, each refinement of a latent path is a form of attention — a small act of resistance against the flattening logic of metrics and checklists. To practice modeling as craft is to reclaim pride in knowing what our models say, what they do not say, and what they imply. To find, in that attention, the quiet satisfaction of meaningful work.
+
++++
 
 ## Authors
 - Authored by [Nathaniel Forde](https://nathanielf.github.io/) in November 2025 
