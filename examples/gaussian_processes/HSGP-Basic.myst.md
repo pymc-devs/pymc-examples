@@ -317,7 +317,7 @@ m52_m, m52_c = pm.gp.hsgp_approx.approx_hsgp_hyperparams(
 )
 
 print("Recommended smallest number of basis vectors for Matern 5/2 (m):", m52_m)
-print("Recommended smallest scaling factor for Matern 5/2(c):", np.round(m52_c, 1))
+print("Recommended smallest scaling factor for Matern 5/2 (c):", np.round(m52_c, 1))
 ```
 
 ### The HSGP approximate Gram matrix
@@ -429,135 +429,144 @@ For your particular situation, **you will need to experiment across your range o
 
 Be aware that it's also possible to encounter scenarios where a low fidelity HSGP approximation gives a more parsimonious fit than a high fidelity HSGP approximation. A low fidelity HSGP approximation is still a valid prior for some unknown function, if somewhat contrived. Whether that matters will depend on your context.
 
-+++
++++ {"editable": true, "slideshow": {"slide_type": ""}}
 
-## Avoiding underflow issues
-As noted above, the diagonal matrix $\Delta$ used in the calculation of the approximate Gram matrix contains information on the power spectral density, $\mathcal{S}$, of a given kernel. Thus, for the Gram matrix to be defined, $\mathcal{S} > 0$. Consequently, when picking HSGP hyperparameters $m$ and $L$ it is important to check $\mathcal{S} > 0$ for the suggested $m$ and $L$ values. The code in the next few cell compares the suitability of the suggested hyperparameters $m$ and $L$ for `matern52` to that of `ExpQuad` for the data spanning $x=-5$ to $x=95$, with the lengthscale prior between $\ell=1$ and $\ell=50$. As we shall see, the suggested hyperparameters for `ExpQuad` are for not suitable for $\ell=50$.
+:::{dropdown} Avoiding underflow issues
+:icon: alert-fill
+:color: info
+As noted above, the diagonal matrix $\Delta$ used in the calculation of the approximate Gram matrix contains information on the power spectral density, $\mathcal{S}$, of a given kernel. Thus, for the Gram matrix to be defined, $\mathcal{S} > 0$. Consequently, when picking HSGP hyperparameters $m$ and $L$ it is important to check $\mathcal{S} > 0$ for the suggested $m$ and $L$ values. The code in the next few cell compares the suitability of the suggested hyperparameters $m$ and $L$ for `matern52` to that of `ExpQuad` for the data spanning $x=-5$ to $x=95$, with the lengthscale prior between $\ell=1$ and $\ell=50$. As we shall see, the suggested hyperparameters for `ExpQuad` are for not suitable for $\ell=50$. <br> <br>
+**Matern $\mathbf{\nu = 5/2}$**
+```pycon
+>>> m52_L = m52_c * 50  # c * s, s is the half-range of the data i.e 0.5*(95 - -5).
+>>> print(
+... f"""m52_m = {m52_m:.1f}, 
+... m52_c = {m52_c:.1f}, 
+... m52_s = {50:.1f}
+... and m52_L = {m52_L:.1f}"""
+... )
+m52_m = 543.0, 
+m52_c = 4.1, 
+m52_s = 50.0
+and m52_L = 205.0
 
-### Matern $\nu=5/2$, `matern52`
+>>> m52_eigvals = pm.gp.hsgp_approx.calc_eigenvalues(m52_L, [m52_m])
+>>> m52_omega = pt.sqrt(m52_eigvals)
+>>> matern52_cov_ell_1 = pm.gp.cov.Matern52(1, ls=1)
+>>> matern52_cov_ell_50 = pm.gp.cov.Matern52(1, ls=50)
 
-```{code-cell} ipython3
-m52_L = m52_c * 50  # c * s
-print(
-    f"""m52_m = {m52_m:.1f}, 
-m52_c = {m52_c:.1f}, 
-m52_s = {50:.1f}
-and m52_L = {m52_L:.1f}"""
-)
-
-m52_eigvals = pm.gp.hsgp_approx.calc_eigenvalues(m52_L, [m52_m])
-m52_omega = pt.sqrt(m52_eigvals)
-matern52_cov_ell_1 = pm.gp.cov.Matern52(1, ls=1)
-matern52_cov_ell_50 = pm.gp.cov.Matern52(1, ls=50)
-
-# check non have underflowed to zero.
-assert np.all(matern52_cov_ell_1.power_spectral_density(m52_omega).eval() > 0)
-assert np.all(matern52_cov_ell_50.power_spectral_density(m52_omega).eval() > 0)
+>>> # check none have underflowed to zero.
+>>> assert np.all(matern52_cov_ell_1.power_spectral_density(m52_omega).eval() > 0)
+>>> assert np.all(matern52_cov_ell_50.power_spectral_density(m52_omega).eval() > 0)
 ```
 
-### Squared exponential, `ExpQuad`
+**Squared exponential**
+```pycon
+>>> # get ExpQuad suggested hyperparams.
+>>> epq_m, epq_c = pm.gp.hsgp_approx.approx_hsgp_hyperparams(
+...    x_range=[-5, 95], lengthscale_range=[1, 50], cov_func="ExpQuad"
+... )
 
-```{code-cell} ipython3
-# get ExpQuad suggested hyperparams.
+>>> print("Recommended smallest number of basis vectors for ExpQuad (m):", epq_m)
+Recommended smallest number of basis vectors for ExpQuad (m): 280
+>>> print("Recommended smallest scaling factor for ExpQuad (c):", np.round(epq_c, 1))
+Recommended smallest scaling factor for ExpQuad (c): 3.2
 
-epq_m, epq_c = pm.gp.hsgp_approx.approx_hsgp_hyperparams(
-    x_range=[-5, 95], lengthscale_range=[1, 50], cov_func="ExpQuad"
-)
+>>> epq_L = epq_c * 50  # c * s
+>>> print(
+... f"""epq_m = {epq_m:.1f},
+... epq_c = {epq_c:.1f},
+... epq_s = {50:.1f},
+... and epq_L = {epq_L:.1f}"""
+... )
+m52_m = 543.0, 
+m52_c = 4.1, 
+m52_s = 50.0,
+and m52_L = 205.0
 
-print("Recommended smallest number of basis vectors for ExpQuad (m):", epq_m)
-print("Recommended smallest scaling factor for ExpQuad (c):", np.round(epq_c, 1))
-```
+>>> epq_eigvals = pm.gp.hsgp_approx.calc_eigenvalues(epq_L, [epq_m])
+>>> epq_omega = pt.sqrt(epq_eigvals)
+>>> epq_cov_ell_1 = pm.gp.cov.ExpQuad(1, ls=1)
+>>> epq_cov_ell_50 = pm.gp.cov.ExpQuad(1, ls=50)
 
-```{code-cell} ipython3
-epq_L = epq_c * 50  # c * s
-print(
-    f"""epq_m = {epq_m:.1f},
-epq_c = {epq_c:.1f},
-epq_s = {50:.1f}
-and epq_L = {epq_L:.1f}"""
-)
-
-epq_eigvals = pm.gp.hsgp_approx.calc_eigenvalues(epq_L, [epq_m])
-epq_omega = pt.sqrt(epq_eigvals)
-epq_cov_ell_1 = pm.gp.cov.ExpQuad(1, ls=1)
-epq_cov_ell_50 = pm.gp.cov.ExpQuad(1, ls=50)
-
-# repeat check as in the Matern52.
-assert np.all(epq_cov_ell_1.power_spectral_density(epq_omega).eval() > 0)
-assert np.all(
-    epq_cov_ell_50.power_spectral_density(epq_omega).eval() > 0
-)  # this will not pass assertion.
+>>> # repeat check as in the Matern52.
+>>> assert np.all(epq_cov_ell_1.power_spectral_density(epq_omega).eval() > 0)
+>>> assert np.all(
+...     epq_cov_ell_50.power_spectral_density(epq_omega).eval() > 0,
+...     "Power spectral density underflows when ls = 50.",
+... )  # this will not pass assertion.
 ```
 
 We see that not all values of $\mathcal{S}$ are defined for the squared exponential kernel when $\ell=50$.
 
 To see why, the covariance of the kernels considered are plotted below along with their power spectral densities in log space. The covariance plot shows that for a set $\ell$, the tails of `matern52` are heavier than `ExpQuad`, while a higher $\ell$ for a given kernel type gives rise to higher covariance. The power spectral density is inversely proportional to the covariance - essentially the flatter the shape of the covariance function, the narrower the bandwidth and the lower the power spectral density at higher values of $\omega$. As a result, we see that for `ExpQuad` with $\ell = 50$, $\mathcal{S}\left(\omega\right)$ rapidly decreases towards $0$ before the domain of $\omega$ is exhausted, and hence we reach values at which we underflow to $0$.
 
-```{code-cell} ipython3
-x = np.linspace(0, 10, 101)[:, None]
-fig, ax = plt.subplots(2, layout="tight", figsize=(10, 6))
+```python
+>>> x = np.linspace(0, 10, 101)[:, None]
+>>> fig, ax = plt.subplots(2, layout="tight", figsize=(10, 6))
 
-ax[0].set_title(f"Covariance")
-ax[0].plot(x, epq_cov_ell_1(x).eval()[0], label=r"ExpQuad, $\ell = 1$")
-ax[0].plot(x, epq_cov_ell_50(x).eval()[0], label=r"ExpQuad, $\ell = 50$")
-ax[0].plot(x, matern52_cov_ell_1(x).eval()[0], label=r"Matern 5/2, $\ell = 1$", linestyle="--")
-ax[0].plot(x, matern52_cov_ell_50(x).eval()[0], label=r"Matern 5/2, $\ell = 50$", linestyle="--")
-ax[0].set_xlabel(r"$x_\mathrm{p}-x_\mathrm{q}$")
-ax[0].set_ylabel(r"$k\left(x_\mathrm{p}-x_\mathrm{q}\right)$")
-ax[0].set_yscale("log")
-ax[0].set_ylim(1e-10, 1e1)
-ax[0].legend(frameon=False, loc="lower left")
+>>> ax[0].set_title(f"Covariance")
+>>> ax[0].plot(x, epq_cov_ell_1(x).eval()[0], label=r"ExpQuad, $\ell = 1$")
+>>> ax[0].plot(x, epq_cov_ell_50(x).eval()[0], label=r"ExpQuad, $\ell = 50$")
+>>> ax[0].plot(x, matern52_cov_ell_1(x).eval()[0], label=r"Matern 5/2, $\ell = 1$", linestyle="--")
+>>> ax[0].plot(x, matern52_cov_ell_50(x).eval()[0], label=r"Matern 5/2, $\ell = 50$", linestyle="--")
+>>> ax[0].set_xlabel(r"$x_\mathrm{p}-x_\mathrm{q}$")
+>>> ax[0].set_ylabel(r"$k\left(x_\mathrm{p}-x_\mathrm{q}\right)$")
+>>> ax[0].set_yscale("log")
+>>> ax[0].set_ylim(1e-10, 1e1)
+>>> ax[0].legend(frameon=False, loc="lower left")
 
 
-ax[1].plot(epq_omega.eval(), epq_cov_ell_1.power_spectral_density(epq_omega).eval())
-ax[1].plot(epq_omega.eval(), epq_cov_ell_50.power_spectral_density(epq_omega).eval())
-ax[1].plot(
-    m52_omega.eval(), matern52_cov_ell_1.power_spectral_density(m52_omega).eval(), linestyle="--"
-)
-ax[1].plot(
-    m52_omega.eval(), matern52_cov_ell_50.power_spectral_density(m52_omega).eval(), linestyle="--"
-)
-ax[1].set_title("Power Spectral Density")
-ax[1].set_xlabel(r"$\omega$")
-ax[1].set_ylabel(r"$\mathcal{S}\left(\omega\right)$")
-ax[1].set_yscale("log")
-ax[1].set_ylim(1e-10, 3e2)
-plt.show()
+>>> ax[1].plot(epq_omega.eval(), epq_cov_ell_1.power_spectral_density(epq_omega).eval())
+>>> ax[1].plot(epq_omega.eval(), epq_cov_ell_50.power_spectral_density(epq_omega).eval())
+>>> ax[1].plot(
+...     m52_omega.eval(), matern52_cov_ell_1.power_spectral_density(m52_omega).eval(), linestyle="--"
+... )
+>>> ax[1].plot(
+...     m52_omega.eval(), matern52_cov_ell_50.power_spectral_density(m52_omega).eval(), linestyle="--"
+... )
+>>> ax[1].set_title("Power Spectral Density")
+>>> ax[1].set_xlabel(r"$\omega$")
+>>> ax[1].set_ylabel(r"$\mathcal{S}\left(\omega\right)$")
+>>> ax[1].set_yscale("log")
+>>> ax[1].set_ylim(1e-10, 3e2)
+>>> plt.show()
 ```
-
-These underflow issues can arise when using a broad prior on $\ell$ as you need a $m$ large to cover small lengthscales, but these may cause underflow in $\mathcal{S}$ when $\ell$ is large. As the graphs above suggest, one can **consider a different kernel with heavier tails such as `matern52` or `matern32`**. 
+![alt text](ExpQuad_vs_Matern52_psd.png)
+These underflow issues can arise when using a broad prior on $\ell$ as you need an $m$ large enough to cover small lengthscales, but these may cause underflow in $\mathcal{S}$ when $\ell$ is large. As the graphs above suggest, one can **consider a different kernel with heavier tails such as `matern52` or `matern32`**.
 
 Alternatively, if you are certain you need a specific kernel, **you can use the linear form of HSGPs (see below) with a boolean mask**. In doing so, the sinusoids with vanishingly small coefficients in the linear combination are effectively screened out.  E.g:
-```python
-import pymc as pm
-import numpy as np
 
-x = np.sort(np.random.uniform(-1, 1, 10))
+```pycon
+>>> import pymc as pm
+>>> import numpy as np
 
-large_m, large_l = pm.gp.hsgp_approx.approx_hsgp_hyperparams(
-    x_range=[-1, 1], lengthscale_range=[1E-2, 4], cov_func="ExpQuad"
-)
+>>> x = np.sort(np.random.uniform(-1, 1, 10))
 
-print(large_m, large_l)
-# (2240, 12.8)
+>>> large_m, large_l = pm.gp.hsgp_approx.approx_hsgp_hyperparams(
+...    x_range=[-1, 1], lengthscale_range=[1E-2, 4], cov_func="ExpQuad"
+... )
 
-with pm.Model() as model:
-    # some broad prior on the lengthscale.
-    ell = pm.HalfNormal('ell', sigma=1)
-    cov_func = pm.gp.cov.ExpQuad(input_dim=1, ls=ell)
-    # setup HSGP.
-    gp = pm.gp.HSGP(m=[large_m], L=[large_l], parametrization="noncentered", cov_func=cov_func)
-    phi, sqrt_psd = gp.prior_linearized(x[:, None])
-    basis_coeffs = pm.Normal("basis_coeffs", size=gp.n_basis_vectors)
-    # create mask that screens out frequencies with underflowing power spectral densities.
-    mask = sqrt_psd > 0
-    # now apply the mask over the m dimension & calculate HSGP function.
-    f = pm.Deterministic("f", phi[:, mask] @ (basis_coeffs[mask] * sqrt_psd[mask]))
-    # setup your observation model
-    ...
+>>> print(large_m, large_l)
+2240, 12.8
+
+>>> with pm.Model() as model:
+...     # some broad prior on the lengthscale.
+...     ell = pm.HalfNormal('ell', sigma=1)
+...     cov_func = pm.gp.cov.ExpQuad(input_dim=1, ls=ell)
+...     # setup HSGP.
+...     gp = pm.gp.HSGP(m=[large_m], L=[large_l], parametrization="noncentered", cov_func=cov_func)
+...     phi, sqrt_psd = gp.prior_linearized(x[:, None])
+...     basis_coeffs = pm.Normal("basis_coeffs", size=gp.n_basis_vectors)
+...     # create mask that screens out frequencies with underflowing power spectral densities.
+...     mask = sqrt_psd > 0
+...     # now apply the mask over the m dimension & calculate HSGP function.
+...     f = pm.Deterministic("f", phi[:, mask] @ (basis_coeffs[mask] * sqrt_psd[mask]))
+...     # setup your observation model
+...     ...
 ```
+:::
 
-+++
++++ {"editable": true, "slideshow": {"slide_type": ""}}
 
 ## Example 2: Working with HSGPs as a parametric, linear model
 
