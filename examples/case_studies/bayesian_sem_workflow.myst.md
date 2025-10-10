@@ -1234,15 +1234,15 @@ plt.suptitle(
 );
 ```
 
-In an applied setting it's these kinds of implications that are crucially important to surface and understand. From a workflow point of view we want to ensure that our modelling drives clarity on these precise points and avoids adding noise generally. This is where parameter recovery exercises can lend assurances and bolster confidence in the findings of empirical work.
+In an applied setting it's these kinds of implications that are crucially important to surface and understand. From a workflow point of view we want to ensure that our modelling drives clarity on these precise points and avoids adding noise generally. If we're assessing a particular hypothesis or aiming to estimate a concrete quantity, the model specification should be robust enough to support those inferences. This is where parameter recovery exercises can lend assurances and bolster confidence in the findings of empirical work. Here we've shown that our model specification will support inferences about about a class of particular causal contrasts i.e. how treatment changes the direct effects of one latent construct on another.
 
-Another way we might interrogate the implications of a model is to see how well it can predict "downstream" outcomes of the implied model. How does job-satisfaction relate to attrition risk?
+Another way we might interrogate the implications of a model is to see how well it can predict "downstream" outcomes of the implied model. How does job-satisfaction relate to attrition risk and approaches to work?
 
 +++
 
 ## Discrete Choice Component
 
-Combining SEM structures with Discrete choice models involves simply adding a an extra likelihood term dependent on the latent factors. HR managers everywhere need to monitor attrition decisions. Often, they conceptualise the rationale for these decisions as being driven by abstract notions of job satisfaction. We now have tools to measure the latent constructs, but can we predict attrition outcomes from these latent predictors? 
+Combining SEM structures with Discrete choice models involves adding an extra likelihood term dependent on the latent factors. HR managers everywhere need to monitor attrition decisions. Often, they conceptualise the rationale for these decisions as being driven by abstract notions of job satisfaction. We now have tools to measure the latent constructs, but can we predict attrition outcomes from these latent predictors? 
 
 Let's include a discrete choice scenario into the SEM model context. We're aiming to predict a categorical decision about whether the employee `quits/stays/quiet-quits` as the result of their job satisfaction, and their view of the utility of work. Again, we'll see this up as a parameter recovery exercise. 
 
@@ -1250,7 +1250,7 @@ Let's include a discrete choice scenario into the SEM model context. We're aimin
 
 +++
 
-The discrete choice setting is intuitive in this context because we can model the individual's subjective utility of work. This is conceptualised (in rational-choice theory) to determine the choice outcome.
+The discrete choice setting is intuitive in this context because we can model the individual's subjective utility of work as a function of their job satisfaction. This utility measure is conceptualised (in rational-choice theory) to determine the choice outcome.
 
 ```{code-cell} ipython3
 observed_data_discrete = make_sample(cov_matrix, 250, FEATURE_COLUMNS)
@@ -1259,7 +1259,7 @@ coords["obs"] = range(len(observed_data_discrete))
 coords["alts"] = ["stay", "quit", "quiet quit"]
 ```
 
-The modelling is similar to the basic SEM set up, but we've additionally included a multinomial outcome for each of the available alternatives. Note however, that we have no alternative-specific covariates (i.e. price of the choice) since the draws of the latent constructs are fixed predictors for each of the three outcomes. As such we need to constrain one of the alternatives to 0 so it acts as the reference class and allows identification of the coefficient weights for the other alternatives. This is a basic implementation of a discrete choice model where we allow alternative-specific intercept terms to interact with the beta coefficient for each latent construct. In this way we infer how e.g. job satisfaction drives career choice.
+The modelling is similar to the basic SEM set up, but we've additionally included a multinomial outcome for each of the available alternatives. Note however, that we have no alternative-specific covariates (i.e. price of the choice) since the draws of the latent constructs are fixed predictors for each of the three outcomes. As such we need to constrain one of the alternatives to 0 so it acts as the reference class and allows identification of the coefficient weights for the other alternatives. This is a basic implementation of a discrete choice model where we allow alternative-specific intercept terms to interact with the beta coefficient for each latent construct. Other variants are possible, but this example will allow us to infer how job satisfaction drives choices about work.
 
 ```{code-cell} ipython3
 def make_discrete_choice_conditional(observed_data, priors, conditional=True):
@@ -1486,7 +1486,9 @@ axs[1].legend();
 
 We can recover the inverse relationship we encoded in the outcomes between job-satisfaction and the choice to stay. This is encouraging. 
 
-The "action" in human decision making is often understood to be driven by these hard-to-quantify constructs that determine motivation. SEM with a discrete component offers us a way to model these processes allowing for measurement error between the observables and the latent drivers of choice. Secondly, we are triangulating the values of the system between two sources of observable data. On the one hand, we measure latent constructs in the SEM with a range of survey measures (`JW1`, `JW2`, ... ) but then calibrate the consequences of that measurement against revealed choice data. This is a powerful technique for abstracting over the expressed attitudes of rational agents, and deriving an interpretable representation of the latent attitude in their expressions. These representations can be further calibrated against the observed choices made by the agent. This two-step of information compression and prediction serves to concisely quantify and evaluate the idiosyncratic attitudes of a complex agent. As we iteratively layer-in these constructs in our model development, we come to understand their baseline and interactive effects. This perspective helps us gauge the coherence between attitudes and actions of the agents under study. 
+The "action" in human decision making is often understood to be driven by these hard-to-quantify constructs that determine motivation. SEM with a discrete choice component offers us a way to model these processes, while allowing for measurement error between the observables and the latent drivers of choice. Secondly, we are triangulating the values of the system between two sources of observable data. On the one hand, we measure latent constructs in the SEM with a range of survey measures (`JW1`, `JW2`, ... ) but then calibrate the consequences of that measurement against revealed choice data. This is a powerful technique for abstracting over the expressed attitudes of rational agents, and deriving an interpretable representation of the latent attitude in their expressions. These representations are then further calibrated against the observed choices made by the agent. 
+
+This two-step of information compression and prediction serves to concisely quantify and evaluate the idiosyncratic attitudes of a complex agent. As we iteratively layer-in these constructs in our model development, we come to understand their baseline and interactive effects. This perspective helps us gauge the coherence between attitudes and actions of the agents under study. 
 
 +++
 
