@@ -1080,6 +1080,8 @@ for idata, model_name, ax in zip(idatas, model_names, axs):
 Here we can see that the models are substantially similar in key dimensions; the magnitude and direction of the implied effects are similar across each model. This is an important observation. It is this kind of robustness to model specification that we want to see in this kind of iterative modelling. This should give us confidence that the model is well specified and picking up on the actual relationships between these latent constructs. 
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 ax = az.plot_forest(
     [idata_cfa_model_v1, idata_sem_model_v1, idata_sem_model_v2, idata_sem_model_v3],
     model_names=["CFA", "Conditional SEM", "Marginal SEM", "Mean Structure SEM"],
@@ -1093,7 +1095,7 @@ ax[0].axvline(1, linestyle="--", color="grey")
 ax[0].set_title("Comparing Factor Structures \n and Path Coefficients");
 ```
 
-This kind of sensitivity analysis is one approach to model validation, we can be even more clinical in our assessment of these models. We can perform parameter recovery exercises to properly validate that our model specification can identify the structural parameters of our complex SEM architecture. 
+This kind of sensitivity analysis is one approach to model validation, but we can be even more clinical in our assessment of these models. We can perform parameter recovery exercises to properly validate that our model specification can identify the structural parameters of our complex SEM architecture. 
 
 +++
 
@@ -1217,7 +1219,7 @@ az.plot_trace(idata_hierarchical, var_names=["mu_betas_treatment", "mu_betas_con
 
 #### The Parameter Recovery Process
 
-But we can actually assess the degree of parameter recovery because we know the true values. This is a pivotal part of the model building process, akin to how writer's read aloud their own work to test it for assonance, cogency and flow. In simulation based probabilistic modelling we should be able generate data from models with known parameters, and recover the latent parameter values through the inferential workflow. 
+With this set up we can actually assess the degree of parameter recovery because we know the true values. This is a pivotal part of the model building process, akin to how writer's read aloud their own work to test it for assonance, cogency and flow. In simulation based probabilistic modelling we are able generate data from models with known parameters, and recover the latent parameter values through the inferential workflow. We see how our model performs, much a like how a writer must test if their audience truly grasps their intended message.
 
 ```{code-cell} ipython3
 az.plot_posterior(
@@ -1233,7 +1235,7 @@ az.plot_posterior(
 );
 ```
 
-Here we see how the posterior distributions can “recover” the true values within uncertainty ensuring the model is faithful to the data generating process. Were the effort at parameter recover to fail, we would equally have learned something about our model. Parameter recovery exercises helps discover issues of mis-specification or unidentified parameters. Put another way, they tell us how informative our data is with respect to our data generating model. Verlyn Klinkenborg starts his justly famous book _Several short sentences about writing_ with the following advice: 
+The posterior estimates can “recover” the true values within uncertainty, ensuring the model is faithful to the data generating process. Were the effort at parameter recover to fail, we would equally have learned something about our model. Parameter recovery exercises helps discover issues of mis-specification or unidentified parameters. Put another way, they tell us how informative our data is with respect to our data generating model. Verlyn Klinkenborg starts his justly famous book _Several short sentences about writing_ with the following advice: 
 
 > "Here, in short, is what i want to tell you. Know what each sentence says, What it doesn't say, And what it implies. Of these, the hardest is know what each sentence actually says" - V. Klinkenborg
 
@@ -1243,7 +1245,7 @@ This advice transfers exactly to the art of statistical modelling. To know what 
 
 ### Hypothesis Evaluation: How does group membership change direct effects?
 
-In this case we've encoded a differnce in the regression effects for each of the two groups. These effects are easily recovered with quantifiable measures of uncertainty around the treatment effects.
+In this case we've encoded a difference in the regression effects for each of the two groups. These effects are easily recovered with quantifiable measures of uncertainty around the treatment effects.
 
 ```{code-cell} ipython3
 diff = (
@@ -1379,7 +1381,7 @@ sem_model_discrete_choice_wide = make_discrete_choice_conditional(
 pm.model_to_graphviz(sem_model_discrete_choice_tight)
 ```
 
-We can see here how our model structure now has two likelihood terms that are both based on the latent constructs `eta`. To demonstrate parameter recovery we need to sample from both outcome simultaneously. 
+We can see here how our model structure now has two likelihood terms that are both based on the latent constructs `eta`. To demonstrate parameter recovery we need to sample from both outcomes simultaneously. 
 
 ```{code-cell} ipython3
 fixed_parameters = {
@@ -1509,21 +1511,17 @@ axs[1].legend();
 
 We can recover the inverse relationship we encoded in the outcomes between job-satisfaction and the choice to stay. This is encouraging. 
 
-The "action" in human decision making is often understood to be driven by these hard-to-quantify constructs that determine motivation. SEM with a discrete choice component offers us a way to model these processes, while allowing for measurement error between the observables and the latent drivers of choice. Secondly, we are triangulating the values of the system between two sources of observable data. On the one hand, we measure latent constructs in the SEM with a range of survey measures (`JW1`, `JW2`, ... ) but then calibrate the consequences of that measurement against revealed choice data. This is a powerful technique for abstracting over the expressed attitudes of rational agents, and deriving an interpretable representation of the latent attitude in their expressions. These representations are then further calibrated against the observed choices made by the agent. 
+The "action" in human decision making is often understood to be driven by these hard-to-quantify constructs that determine motivation. SEM with a discrete choice component offers us a way to model these processes, while allowing for measurement error between the observables and the latent drivers of choice. Secondly, we are triangulating the values of the system between two sources of observable data. On the one hand, we measure latent constructs in the SEM with a range of survey measures (`JW1`, `JW2`, ... ) but then calibrate the consequences of that measurement against revealed choice data. This is a powerful technique for abstracting over the expressed attitudes of rational agents, and deriving an interpretable representation of the latent attitude in their expressions. These representations are then further calibrated against the observed choices made by the agents. 
 
-This two-step of information compression and prediction serves to concisely quantify and evaluate the idiosyncratic attitudes of a complex agent. As we iteratively layer-in these constructs in our model development, we come to understand their baseline and interactive effects. This perspective helps us gauge the coherence between attitudes and actions of the agents under study. 
+This two-step of information compression and prediction serves to concisely quantify and evaluate the idiosyncratic attitudes of a population of complex agents. As we iteratively layer-in these constructs in our model development, we come to understand their baseline and interactive effects. This perspective helps us gauge the coherence between attitudes and actions of the agents under study. 
 
 +++
 
 ## Conclusion: Workflow and Craft in Statistical Modelling
 
-We have now seen how to articulate Structural Equation models and their variants in PyMC. The SEM workflow is, at heart, Bayesian in temperament: construct then check. Check then refine. Refine then expand. Both disciplines reject the checklist mentality of “fit once, report, move on.” Instead, they cultivate a slow, deliberate practice. Each discipline forces an apprenticeship in how assumptions shape understanding and how the world resists impositions of false structure. Each iteration is a dialogue between theory and evidence. At each juncture we ask whether this model speaks true? Whether this structure reflects the facts to hand. 
+We have now seen how to articulate Structural Equation models and their variants in PyMC. The SEM workflow is, at heart, Bayesian in temperament: construct then check. Check then refine. Refine then expand. Both disciplines reject the checklist mentality of “fit once, report, move on.” Instead, they cultivate a focused, deliberate practice. Each discipline forces an apprenticeship where skill is developed. Skill to handle how assumptions shape understanding and how the world resists impositions of false structure. Skill to find the right structures. Each iteration is a dialogue between theory and evidence. At each juncture we ask whether this model speaks true? Whether this structure reflects the facts to hand. 
 
 In the end, the value of craft in statistical modeling lies not in improving benchmark metrics, but in the depth of understanding we cultivate through careful communication and justification. The Bayesian workflow reminds us that modeling is not the automation of insight but its deliberate construction. Our workflow is process of listening, revising, and re-articulating until the model speaks clearly. Like any craft, its worth is measured not by throughput but by fidelity: how honestly our structure reflects the world it seeks to describe. Each diagnostic, each posterior check, each refinement of a latent path is a form of attention — a small act of resistance against the flattening logic of metrics and checklists. These are the constructive thought processes that drive job-satisfaction. __To practice modeling as craft is to reclaim pride in knowing what our models say, what they do not say, and what they imply.__ To find, in that attention, the quiet satisfaction of meaningful work.
-
-+++
-
-
 
 +++
 
