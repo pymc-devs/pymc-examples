@@ -647,7 +647,7 @@ The next expansionary move in SEM modelling is to consider the relations between
 
 Bollen argues as follows:
 
-> As I have just explained, we cannot isolate a dependent variable from all influences but a single explanatory variable, so it is impossible to make definitive statements about causes. We replace perfect isolation with pseudo-isolation by assuming that the disturbance (i.e., the composite of all omitted determinants) is uncorrelated with the exogenous variables of an equation. - Bollen in _Structural Equations with Latent Variables_ pg45
+> [...], we cannot isolate a dependent variable from all influences but a single explanatory variable, so it is impossible to make definitive statements about causes. We replace perfect isolation with pseudo-isolation by assuming that the disturbance (i.e., the composite of all omitted determinants) is uncorrelated with the exogenous variables of an equation. - Bollen in _Structural Equations with Latent Variables_ pg45
 
 This is a claim of conditional independence which licenses the causal interpretation of the the arrows in the below plot. The fact that the latent relations operate a higher level of abstraction makes it easier to postulate these "clean" direct paths between constructs. The model makes an argument - to have proprely measured the latent constructs, and isolated their variation - to support the causal claim. Criticisms of the model proceed by assessing how compelling these postulates are in the context of the fitted model.
 
@@ -938,11 +938,13 @@ The posterior predictive distribution of the model implied residuals seems compa
 plot_diagnostics(idata_sem_model_v3, parameters);
 ```
 
-The sampler diagnostics also seem healthy. We can also pull out the indirect and direct effects. This is one of the biggest pay-offs for SEM modelling. We've done the work of assessing measurement error and building an abstraction layer of __what-we-care-about__ over the observed indicators. We've considered various structures of the inferential relationships and isolated those direct effects from undue confounding influences. 
+The sampler diagnostics also seem healthy.
+
+We can also pull out the indirect and direct effects. This is one of the biggest pay-offs for SEM modelling. We've done the work of assessing measurement error and building an abstraction layer of __what-we-care-about__ over the observed indicators. We've considered various structures of the inferential relationships and isolated those direct effects from undue confounding influences. Now we can pull out the impact of mediation and moderation.
 
 ## Comparing Models
 
-Now we can pull out the impact of mediation and moderation.
+Let's first compare the model implied total effects, and the degrees of moderation between constructive and dysfunctional habits of thought on the satisfaction outcome.
 
 ```{code-cell} ipython3
 :tags: [hide-input]
@@ -1057,7 +1059,7 @@ Even though constructive thought processes have a directly positive effect on jo
 
 
 
-Just for clarity, we'll pull together the residual plots. 
+We'll also pull together the model implied residuals on the correlation coefficients. This will help us see how whether our different model structures are consistently deriving similar stories about the data generating relationships. 
 
 ```{code-cell} ipython3
 import seaborn as sns
@@ -1075,7 +1077,7 @@ for idata, model_name, ax in zip(idatas, model_names, axs):
     ax.set_title(f"Residuals for {model_name}", fontsize=25);
 ```
 
-and align the parameter estimates. Here we can see that the models are substantially similar in key dimensions; the magnitude and direction of the implied effects are similar across each model. This is an important observation. It is this kind of robustness to model specification that we want to see in this kind of iterative modelling. This should give us confidence that the model is well specified and picking up on the actual relationships between these latent constructs. 
+Here we can see that the models are substantially similar in key dimensions; the magnitude and direction of the implied effects are similar across each model. This is an important observation. It is this kind of robustness to model specification that we want to see in this kind of iterative modelling. This should give us confidence that the model is well specified and picking up on the actual relationships between these latent constructs. 
 
 ```{code-cell} ipython3
 ax = az.plot_forest(
@@ -1091,7 +1093,7 @@ ax[0].axvline(1, linestyle="--", color="grey")
 ax[0].set_title("Comparing Factor Structures \n and Path Coefficients");
 ```
 
-But sensitivity analysis is one approach, we can be even more clinical in our assessment of these models. We can perform parameter recovery exercises to properly validate that our model specification can identify the structural parameters of our complex SEM architecture. 
+This kind of sensitivity analysis is one approach to model validation, we can be even more clinical in our assessment of these models. We can perform parameter recovery exercises to properly validate that our model specification can identify the structural parameters of our complex SEM architecture. 
 
 +++
 
