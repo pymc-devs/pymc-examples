@@ -1463,6 +1463,13 @@ But what does the model say about the relationships between our latent construct
 
 
 ```{code-cell} ipython3
+with inference_model:
+    idata.extend(pm.sample_posterior_predictive(idata))
+```
+
+```{code-cell} ipython3
+:tags: [hide-input]
+
 utility_df = (
     az.extract(idata["posterior"])["mu_choice"]
     .mean(dim=("sample"))
@@ -1482,7 +1489,7 @@ latent_df = (
 
 full_df = pd.concat([utility_df.reset_index(), latent_df.reset_index()])
 
-fig, axs = plt.subplots(1, 2, figsize=(20, 6))
+fig, axs = plt.subplots(1, 3, figsize=(20, 6))
 axs[0].hist(utility_df["stay"], ec="black", alpha=0.4, color="darkgreen", label="Utility of Stay")
 axs[0].hist(utility_df["quit"], ec="black", alpha=0.4, color="slateblue", label="Utility of Quit")
 
@@ -1490,7 +1497,7 @@ sns.scatterplot(
     full_df,
     x="satisfaction",
     y="stay",
-    ax=axs[1],
+    ax=axs[2],
     color="darkgreen",
     label="utility_stay ~ satisfaction",
 )
@@ -1498,12 +1505,14 @@ sns.scatterplot(
     full_df,
     x="satisfaction",
     y="quit",
-    ax=axs[1],
+    ax=axs[2],
     color="slateblue",
     label="utility_quit ~ satisfaction",
 )
-axs[1].set_ylabel("Utility of Outcome")
-axs[1].set_title("Utility ~ Satisfaction")
+az.plot_ppc(idata, var_names=["likelihood_choice"], ax=axs[1])
+axs[1].set_title("Posterior Predictive Checks \n On Discrete Choice Outcome")
+axs[2].set_ylabel("Utility of Outcome")
+axs[2].set_title("Utility ~ Satisfaction")
 axs[0].set_title("Distribution of Utility")
 axs[0].legend()
 axs[1].legend();
@@ -1519,9 +1528,9 @@ This two-step of information compression and prediction serves to concisely quan
 
 ## Conclusion: Workflow and Craft in Statistical Modelling
 
-We have now seen how to articulate Structural Equation models and their variants in PyMC. The SEM workflow is, at heart, Bayesian in temperament: construct then check. Check then refine. Refine then expand. Both disciplines reject the checklist mentality of “fit once, report, move on.” Instead, they cultivate a focused, deliberate practice. Each discipline forces an apprenticeship where skill is developed. Skill to handle how assumptions shape understanding and how the world resists impositions of false structure. Skill to find the right structures. Each iteration is a dialogue between theory and evidence. At each juncture we ask whether this model speaks true? Whether this structure reflects the facts to hand. 
+We have now seen how to articulate Structural Equation models and their variants in PyMC. The SEM workflow is, at heart, Bayesian in temperament: construct then check. Check then refine. Refine then expand. Hypothesise and estimate. Estimate and assess. Both disciplines reject the checklist mentality of “fit once, report, move on.” Instead, they cultivate a focused, deliberate practice. Each discipline forces an apprenticeship where skill is developed. Skill to handle how assumptions shape understanding and how the world resists impositions of false structure. Skill to find the right structures. Each iteration is a dialogue between theory and evidence. At each juncture we ask whether this model speaks true? Whether this structure reflects the facts to hand. 
 
-In the end, the value of craft in statistical modeling lies not in improving benchmark metrics, but in the depth of understanding we cultivate through careful communication and justification. The Bayesian workflow reminds us that modeling is not the automation of insight but its deliberate construction. Our workflow is a process of listening, revising, and re-articulating until the model speaks clearly. Like any craft, its worth is measured not by throughput but by fidelity: how honestly our structure reflects the world it seeks to describe. Each diagnostic, each posterior check, each refinement of a latent path is a form of attention — a small act of resistance against the flattening logic of metrics and checklists. These are the constructive thought processes that drive job-satisfaction. __To practice modeling as craft is to reclaim pride in knowing what our models say, what they do not say, and what they imply.__ To find, in that discipline and attention, the satisfaction of meaningful work.
+In the end, the value of craft in statistical modeling lies not in improving benchmark metrics, but in the depth of understanding we cultivate through careful communication and justification. The Bayesian workflow reminds us that modeling is not the automation of insight but its deliberate construction. Our workflow is a process of listening, revising, and re-articulating until the model speaks clearly. Like any craft, its worth is measured not by throughput but by fidelity: how honestly our structure reflects the world it seeks to describe. Each diagnostic, each posterior check, each refinement of a latent path is a form of attention — a small act of resistance against the flattening logic of metrics and checklists. These are the constructive thought processes that drive job-satisfaction. __To practice modeling as craft is to reclaim pride in knowing what our models say, what they do not say, and what they imply.__ To find, in that discipline and skilled attention, the satisfaction of meaningful work.
 
 +++
 
