@@ -745,7 +745,7 @@ However, the model diagnostics appear less robust. The sampler seemed to have di
 plot_diagnostics(idata_sem_model_v1, parameters);
 ```
 
-The sampler diagnostics suggest that the model is having trouble samplng from the B matrix. This is a little concern because arguably the structural relations are the primary parameters of interest in the SEM setting. Anything which undercuts our confidence in their estimation, undermines the whole modelling exercise.
+The sampler diagnostics suggest that the model is having trouble samplng from the B matrix. This is a little concerning because the structural relations are the primary parameters of interest in the SEM setting. Anything which undercuts our confidence in their estimation, undermines the whole modelling exercise.
 
 +++
 
@@ -770,6 +770,10 @@ JS  ~ CTS + DTP + SWB
 
 ```
 
+
++++
+
+where we have finally added structure to the residuals of the multivariate normal outcome by imposing a non-zero covariance relation between `UF1` and `FOR`.
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as sem_model_v2:
