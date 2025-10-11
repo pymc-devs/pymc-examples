@@ -1518,7 +1518,7 @@ axs[0].legend()
 axs[1].legend();
 ```
 
-We can recover the inverse relationship we encoded in the outcomes between job-satisfaction and the choice to stay. This is encouraging. 
+We can recover the inverse relationship we encoded in the outcomes between job-satisfaction and the choice to stay. Similarly, this posterior predictive checks look sound. This is encouraging. 
 
 The "action" in human decision making is often understood to be driven by these hard-to-quantify constructs that determine motivation. SEM with a discrete choice component offers us a way to model these processes, while allowing for measurement error between the observables and the latent drivers of choice. Secondly, we are triangulating the values of the system between two sources of observable data. On the one hand, we measure latent constructs in the SEM with a range of survey measures (`JW1`, `JW2`, ... ) but then calibrate the consequences of that measurement against revealed choice data. This is a powerful technique for abstracting over the expressed attitudes of rational agents, and deriving an interpretable representation of the latent attitude in their expressions. These representations are then further calibrated against the observed choices made by the agents. 
 
