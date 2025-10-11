@@ -61,7 +61,7 @@ The structure of the SEM workflow mirrors the Bayesian workflow closely. Each st
   - Each step asks: Does this addition honor theory? Improve fit?
   - Workflow = constant negotiation between parsimony and fidelity.
 
-These approaches complement one another. We'll see how the iterative and expansionary approach to model development is crucial for understanding the subtleties of SEM models. How our understanding grows as we track their implications across increasingly expressive candidate structures.
+These approaches complement one another. We'll see how the iterative and expansionary approach to model development is crucial for understanding the subtleties of SEM models. How our understanding grows as we track their implications across increasingly expressive candidate model structures.
 
 ```{code-cell} ipython3
 import warnings
@@ -204,7 +204,7 @@ In our set up of a Structural Equation Model we have observed variables $y \in R
 
 _The Measurement Model_ is the factor-structure we seek to _confirm_ in our analysis. It is called a measurement model because we view the observable metrics as indicators of the thing we actually want to measure. The observable metrics are grouped under a unifying "factor" or construct. The idea that each of the indicators are imprecise gauges of the latent factor. The hope is that collectively they provide a better gauge of this hard to measure quantity e.g. satisfaction and well-being. This can be thought of as a data-reduction technique, where we reduce the complex multivariate data set to a smaller collection of inferred features. However, in most SEM applications the factors themselves are of independent interest, not merely a modelling convenience.
 
-In factor analysis we posit a factor-structure and estimate how each latent factor determines the observed metrics. The assumed data generating structure says that the factors cause the observed metrics.The inferential task works backwards, we want to infer the shape of the latent factors conditional on the observed metrics.
+In factor analysis we posit a factor-structure and estimate how each latent factor determines the observed metrics. The assumed data generating structure says that the factors cause the observed metrics. The inferential task works backwards, we want to infer the shape of the latent factors conditional on the observed metrics.
 
 $$ \overbrace{y_i}^{indicators} = \overbrace{\Lambda \eta_i}^{factors} + \varepsilon_i, 
 \quad \varepsilon_i \sim \mathcal N(0, \Psi).
@@ -534,7 +534,7 @@ Now for each latent variable (satisfaction, well being, constructive, dysfunctio
 
 Then we summarizes posterior estimates of model parameters (e.g factor loadings, regression coefficients, variances, etc.), providing a quick check against identification constraints (like fixed loadings) and effect directions. 
 
-Finally we will plot the upper-triangle of the residual correlation matrix with a blue–white–red colormap (−1 to +1). This visualizes residual correlations among observed indicators after the SEM structure is accounted for — helping detect model misfit or unexplained associations.
+Finally we will plot the lower-triangle of the residual correlation matrix with a blue–white–red colormap (−1 to +1). This visualizes residuals of the model implied versus true correlations among observed indicators after the SEM structure is accounted for — helping detect model misfit or unexplained associations.
 
 ```{code-cell} ipython3
 :tags: [hide-input]
