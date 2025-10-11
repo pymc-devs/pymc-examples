@@ -21,9 +21,10 @@ kernelspec:
 
 +++
 
-This case study builds on themes of {ref}`contemporary Bayesian workflow <bayesian_workflow>` and {ref}`Structural Equation Modelling <cfa_sem_notebook>`. Both are broad topics, already somewhat covered within the PyMC examples site, but here we wish to draw out some of the key points when applying the Bayesian workflow to Structural equation models. The iterative and expansionary strategies of model development for SEMs provide an independent motivation for the recommendations of {cite:p}`gelman2020bayesian` stemming from the SEM literature broadly but {cite:p}`kline2023principles` in particular. 
+This case study extends the themes of {ref}`contemporary Bayesian workflow <bayesian_workflow>` and {ref}`Structural Equation Modelling <cfa_sem_notebook>`.
+While both topics are well represented in the PyMC examples library, our goal here is to show how the principles of the Bayesian workflow can be applied concretely to structural equation models (SEMs). The iterative and expansionary strategies of model development for SEMs provide an independent motivation for the recommendations of {cite:p}`gelman2020bayesian` stemming from the SEM literature broadly but {cite:p}`kline2023principles` in particular. 
 
-A secondary motivation is to put SEM modelling with PyMC on firmer ground by detailing different sampling strategies for these complex models; we will cover both conditional and marginal formulations of a SEM model, allowing for the addition of mean-structures and hierarchical effects. These additional components highlight the expressive capacity of this modelling paradigm.  
+A further goal is to strengthen the foundation for SEM modeling in PyMC. We demonstrate how to use different sampling strategies, both conditional and marginal formulations, to accommodate mean structures and hierarchical effects. These extensions showcase the flexibility and expressive power of Bayesian SEMs.
 
 ### The Bayesian Workflow
 Recall the stages of the Bayesian workflow.
@@ -41,7 +42,7 @@ Recall the stages of the Bayesian workflow.
 - **Decision analysis**: Use the model for predictions or decisions
 :::
 
-The Structural equation modelling workflow is similar. 
+The structure of the SEM workflow mirrors the Bayesian workflow closely. Each step—from specifying measurement models to refining residual covariances—reflects the same cycle of hypothesis formulation, model testing, and iterative improvement.
 
 ### The SEM Workflow
 - __Confirm the Factor Structure__ (CFA):
@@ -191,11 +192,13 @@ sample_df.head().style.set_properties(
 )
 ```
 
-Conveniently, the process of the Bayesian workflow itself involves the constructive thought strategies. At each juncture in model development we must ask ourselves: do i believe this? What assumptions have I made? Is there any visual evidence that my model is well specified? What can i do to improve the model specification? You will see that the end result of the Bayesian workflow is a robust, defensible array of findings. These findings have been derived with care and craft. The process, as the data suggests, leads to sense of satisfaction with a job well done! 
+Interestingly, the Bayesian workflow embodies the same constructive strategies it studies. At each stage, we ask: _Do I believe this model? What assumptions am I making? Is the evidence consistent with my expectations?_ This reflective process , mirroring the “evaluating beliefs and assumptions” mindset, builds models that are not only statistically robust but conceptually grounded. By the end, we arrive at a set of defensible findings which, fittingly, support a genuine sense of satisfaction with a job well done.
 
 +++
 
 ## Mathematical Interlude
+
+Before we turn to implementation, let’s formalize the model mathematically.
 
 In our set up of a Structural Equation Model we have observed variables $y \in R^{p}$, here (p=12) and $\eta \in R^{m}$ latent factors (m=4). The basic structural equation model (SEM) consists of two parts - the measurement model and the structural regressions. 
 
@@ -222,7 +225,10 @@ $$
 
 In the structural model we specify how we believe the latent constructs relate to one another. The term $(I - B)^{-1}$  is sometimes called the total effects matrix because it can be expanded as $I + B + B^{2} + B^{3}...$ summing all possible chains of paths in the system. As we'll see the structural and mediating paths between these latent constructs can be additive. This observation allows us to very elegantly derive total, indirect and direct effects within the system. 
 
+We can express the SEM in either a conditional or marginal formulation. The conditional form explicitly samples the latent variables, while the marginal form integrates them out of the likelihood.
+
 ### Conditional Formulation
+This formulation treats the latent variables as parameters to be sampled directly. This is conceptually straightforward but often computationally demanding for Bayesian samplers.
 
 $$
 \zeta_i \sim \mathcal N(0, \Psi_{\zeta}). 
@@ -241,9 +247,10 @@ y_i \mid \eta_i \sim \mathcal MvN(\mu_i, \Psi)
 
 $$
 
-which is just to highlight that the conditional formulation samples the latent variables explicitly, which can be quite demanding for a sampler in the Bayesian setting. 
+which highlights that the conditional formulation samples the latent variables explicitly. 
 
 ### Marginal Formulation
+Here the focus is on deriving the covariance matrix. 
 
 $$\Sigma_{\mathcal{y}} = \Psi + \Lambda(I - B)^{-1}\Psi_{\zeta}(I - B)^{T}\Lambda^{T} $$
 
@@ -259,7 +266,7 @@ We'll introduce each of these components are additional steps as we layer over t
 
 ## Setting up Utility Functions
 
-For this exercise we will lean on a  range of utility functions to build and compare the expansionary sequence. This functions include repeated steps that will be required for any SEM model. 
+For this exercise we will lean on a  range of utility functions to build and compare the expansionary sequence. These functions include repeated steps that will be required for any SEM model. These functions modularize the model-building process and make it easier to compare successive model expansions.
 
 The most important cases are functions like `make_lambda` to sample and fix the scale of the covariates that contribute to each latent factor. Similarly, we have the `make_B` which samples the parameter values of the path coefficients between the latent constructs, while arranging them in a matrix that can be passed through matrix multiplication routines. Additionally, we have a `make_Psi` function which samples parameter values for particular covariances that gets deployed to encode aspects of the variance in our system not captured by the covariances among the latent factors. These three helper functions determine the structure of the SEM model and variants of each can be used to construct any SEM structure.
 
@@ -455,11 +462,11 @@ def sample_model(model, sampler_kwargs):
 
 ## Confirming Factor Structure
 
-First we'll highlight the broad structure of a confirmatory factor model and the types of relations the model encodes. The red dotted arrows here denote covariance relationships among the latent factors. The black arrows denote the effect of the latent constructs on the observable indicator metrics. We've highlighted with red [1] that the first "factor loading" is always fixed to 1, so to (a) define the scale of the factor and (b) allow identification of the other factor loadings within that factor. 
+In this section, we translate the theoretical structure of a confirmatory factor model (CFA) into a concrete implementation. The diagram below distinguishes between covariance relationships among latent factors (red dotted arrows) and factor loadings linking latent constructs to observed indicators (black arrows). We've highlighted with red [1] that the first "factor loading" is always fixed to 1, so to (a) define the scale of the factor and (b) allow identification of the other factor loadings within that factor. 
 
 ![](cfa_excalidraw.png)
 
-In the model below we sample draws from the latent factors `eta` and relate them to the observables by the matrix computation `pt.dot(eta, Lambda.T)`. This computation reults in a "psuedo-observation" matrix which we then feed through our likelihood to calibrate the latent structures against the observed dats. This is the general pattern we'll see in all models below. The covariances (i.e. red arrows) among the latent factors is determined with `chol`.
+In the model below we sample draws from the latent factors `eta` and relate them to the observables by the matrix computation `pt.dot(eta, Lambda.T)`. This computation results in a "psuedo-observation" matrix which we then feed through our likelihood to calibrate the latent structures against the observed dats. This is the general pattern we'll see in all models below. The covariances (i.e. red arrows) among the latent factors is determined with `chol`.
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as cfa_model_v1:
@@ -523,7 +530,11 @@ The difference between the spread of the prior and tightness of the posterior sa
 plot_ppc_check(idata_cfa_model_v1, indicators=coords["indicators"][0:3], fitted=True, dims=(1, 3));
 ```
 
-Now for each latent variable (satisfaction, well being, constructive, dysfunctional), we will plot a forest/ridge plot of the posterior distributions of their factor scores `eta` as drawn. Each panel will have a vertical reference line at 0 (since latent scores are typically centered/scaled).These panels visualize the distribution of estimated latent scores across individuals, separated by latent factor. Then we will summarizes posterior estimates of model parameters (factor loadings, regression coefficients, variances, etc.), providing a quick check against identification constraints (like fixed loadings) and effect directions. Finally we will plot the upper-triangle of the residual correlation matrix with a blue–white–red colormap (−1 to +1). This visualizes residual correlations among observed indicators after the SEM structure is accounted for — helping detect model misfit or unexplained associations.
+Now for each latent variable (satisfaction, well being, constructive, dysfunctional), we will plot a forest/ridge plot of the posterior distributions of their factor scores `eta` as drawn. Each panel will have a vertical reference line at 0 (since latent scores are typically centered/scaled).These panels visualize the distribution of estimated latent scores across individuals. 
+
+Then we summarizes posterior estimates of model parameters (e.g factor loadings, regression coefficients, variances, etc.), providing a quick check against identification constraints (like fixed loadings) and effect directions. 
+
+Finally we will plot the upper-triangle of the residual correlation matrix with a blue–white–red colormap (−1 to +1). This visualizes residual correlations among observed indicators after the SEM structure is accounted for — helping detect model misfit or unexplained associations.
 
 ```{code-cell} ipython3
 :tags: [hide-input]
@@ -632,7 +643,9 @@ The sampler diagnostics give no indication of trouble. This is a promising start
 
 ## Structuring the Latent Relations
 
-The next expansionary move in SEM modelling is to consider the relations between the latent constructs. These are generally intended to have a causal interpretation. The constructs are hard to measure precisely but collectively (as a function of multiple indicator variables) we argue they are exhaustively characterised. This is key argument implict in SEM design. Bollen argues as follows:
+The next expansionary move in SEM modelling is to consider the relations between the latent constructs. These are generally intended to have a causal interpretation. The constructs are hard to measure precisely but collectively (as a function of multiple indicator variables) we argue they are exhaustively characterised. Although each construct is imprecisely measured, together their indicators are assumed to capture the construct’s essential variation. This assumption underpins the causal interpretation of structural paths. 
+
+Bollen argues as follows:
 
 > As I have just explained, we cannot isolate a dependent variable from all influences but a single explanatory variable, so it is impossible to make definitive statements about causes. We replace perfect isolation with pseudo-isolation by assuming that the disturbance (i.e., the composite of all omitted determinants) is uncorrelated with the exogenous variables of an equation. - Bollen in _Structural Equations with Latent Variables_ pg45
 
@@ -644,7 +657,7 @@ This is a claim of conditional independence which licenses the causal interpreta
 
 The isolation or conditional independence of interest is encoded in the model with the sampling of the `gamma` variable. These are drawn from a process that is structuraly divorced from the influence of the exogenous variables. For instance if we have $\gamma_{cts} \perp\!\!\!\perp \eta_{dtp}$ then the $\beta_{cts -> dpt}$ coefficient is an unbiased estimate of the direct effect of `CTS` on `DTP` because the remaining variation in $\eta_{dtp}$ is noise by construction. 
 
-It is a substantive imposition of theory as you impose the various arrows you want to add to your system. You are making claims of causal influence. Arrows should be added in line with plausible theory, while parameter identification is well supported. In our case we have structured the DAG following the discussion in {cite:p}`vehkalahti2019multivariate` which will allow us to unpick the direct and indirect effects below. In Lavaan syntax the model we want to specify is: 
+Each additional arrow in the structural model thus encodes a substantive theoretical claim about causal influence. You are making claims of causal influence. Arrows should be added in line with plausible theory, while parameter identification is well supported. In our case we have structured the DAG following the discussion in {cite:p}`vehkalahti2019multivariate` which will allow us to unpick the direct and indirect effects below. In Lavaan syntax the model we want to specify is: 
 
 ```
 # measurement part
@@ -708,7 +721,7 @@ idata_sem_model_v1 = sample_model(sem_model_v1, sampler_kwargs)
 
 #### A Sampled B Matrix
 
-Now we can sample the B matrix and observe is structure. 
+Now we can sample the B matrix and observe is structure. The sampled $B$ matrix compactly represents the system of regression relationships among latent constructs 
 
 It's best to see the matrix as encoding target variables in the columns and predictor variables inn the rows. Here we have the set up our matrix so that `satisfaction` is predicted by three variables, but not itself. The values in the first column are sampled coefficient values in the regression: 
 
@@ -720,13 +733,13 @@ where we've used pythonic indexing of the matrix. Note how values of $\eta$ appe
 idata_sem_model_v1["posterior"]["B_"].sel(chain=0, draw=0)
 ```
 
-This compact representation of three separate regressions equations is used to sort out the mutual influences, interactions and distortion our habits of thought have on our job satisfaction. It's true that the relationships between these latent constructs need not be linear and simplistic. There may be messy non-linear relationships between satisfaction and well being, but we are a deliberately abstracting some of that away in favour of a tractable, quantifiable measure of linear effect. This is often a simplification, but parsimony is also a goal of the modelling process.   
+This compact representation of three separate regressions equations is used to sort out the mutual influences, interactions and distortions our habits of thought have on our job satisfaction. It's true that the relationships between these latent constructs need not be linear and simplistic. There may be messy non-linear relationships between satisfaction and well being, but we are a deliberately abstracting some of that away in favour of a tractable, quantifiable measure of linear effect. This is often a simplification, but parsimony is also a goal of the modelling process.   
 
 +++
 
 ### Model Diagnostics and Assessment
 
-Let's examine our model sense checks. The posterior predictive distributions retain a healthy appearence, the prior allowed for a wide-realisation of values and the posterior has a shrunk the range considerable closer to the standardised 0-mean data. 
+Let's examine our model sense checks. The posterior predictive distributions retain a healthy appearence. Our prior allowed for a wide-realisation of values, and yet the posterior has a shrunk the range considerably closer to the standardised 0-mean data. 
 
 ```{code-cell} ipython3
 plot_ppc_check(idata_sem_model_v1, indicators=coords["indicators"][0:3], fitted=True, dims=(1, 3));
@@ -1505,6 +1518,10 @@ This two-step of information compression and prediction serves to concisely quan
 We have now seen how to articulate Structural Equation models and their variants in PyMC. The SEM workflow is, at heart, Bayesian in temperament: construct then check. Check then refine. Refine then expand. Both disciplines reject the checklist mentality of “fit once, report, move on.” Instead, they cultivate a slow, deliberate practice. Each discipline forces an apprenticeship in how assumptions shape understanding and how the world resists impositions of false structure. Each iteration is a dialogue between theory and evidence. At each juncture we ask whether this model speaks true? Whether this structure reflects the facts to hand. 
 
 In the end, the value of craft in statistical modeling lies not in improving benchmark metrics, but in the depth of understanding we cultivate through careful communication and justification. The Bayesian workflow reminds us that modeling is not the automation of insight but its deliberate construction. Our workflow is process of listening, revising, and re-articulating until the model speaks clearly. Like any craft, its worth is measured not by throughput but by fidelity: how honestly our structure reflects the world it seeks to describe. Each diagnostic, each posterior check, each refinement of a latent path is a form of attention — a small act of resistance against the flattening logic of metrics and checklists. These are the constructive thought processes that drive job-satisfaction. __To practice modeling as craft is to reclaim pride in knowing what our models say, what they do not say, and what they imply.__ To find, in that attention, the quiet satisfaction of meaningful work.
+
++++
+
+
 
 +++
 
