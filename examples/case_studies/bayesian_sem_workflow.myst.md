@@ -485,7 +485,7 @@ In this section, we translate the theoretical structure of a confirmatory factor
 
 ![](cfa_excalidraw.png)
 
-In the model below we sample draws from the latent factors `eta` and relate them to the observables by the matrix computation `pt.dot(eta, Lambda.T)`. This computation results in a "psuedo-observation" matrix which we then feed through our likelihood to calibrate the latent structures against the observed dats. The covariances (i.e. red arrows) among the latent factors is determined with `chol`. These are the general patterns we'll see in all models below, but we add complexity as we go.
+In the model below we sample draws from the latent factors `eta` and relate them to the observables by the matrix computation `pt.dot(eta, Lambda.T)`. This computation results in a "pseudo-observation" matrix which we then feed through our likelihood to calibrate the latent structures against the observed dats. The covariances (i.e. red arrows) among the latent factors is determined with `chol`. These are the general patterns we'll see in all models below, but we add complexity as we go.
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as cfa_model_v1:
@@ -656,7 +656,7 @@ Below these model checks we will now plot some diagnostics for the sampler. The 
 plot_diagnostics(idata_cfa_model_v1, parameters);
 ```
 
-The sampler diagnostics give no indication of trouble. This is a promising start. 
+The sampler diagnostics give no indication of trouble. This is a promising start. We now shift the SEM setting to layer in Structural regressions. These relations are ussually the focus of an analysis. 
 
 +++
 
@@ -674,7 +674,7 @@ This is a claim of conditional independence which licenses the causal interpreta
 
 +++
 
-The isolation or conditional independence of interest is encoded in the model with the sampling of the `gamma` variable. These are drawn from a process that is structuraly divorced from the influence of the exogenous variables. For instance if we have $\gamma_{cts} \perp\!\!\!\perp \eta_{dtp}$ then the $\beta_{cts -> dpt}$ coefficient is an unbiased estimate of the direct effect of `CTS` on `DTP` because the remaining variation in $\eta_{dtp}$ is noise by construction. 
+The isolation or conditional independence of interest is encoded in the model with the sampling of the `gamma` variable. These are drawn from a process that is structurally divorced from the influence of the exogenous variables. For instance if we have $\gamma_{cts} \perp\!\!\!\perp \eta_{dtp}$ then the $\beta_{cts -> dpt}$ coefficient is an unbiased estimate of the direct effect of `CTS` on `DTP` because the remaining variation in $\eta_{dtp}$ is noise by construction. 
 
 Each additional arrow in the structural model thus encodes a substantive theoretical claim about causal influence. You are making claims of causal influence. Arrows should be added in line with plausible theory, while parameter identification is well supported. In our case we have structured the DAG following the discussion in {cite:p}`vehkalahti2019multivariate` which will allow us to unpick the direct and indirect effects below. In Lavaan syntax the model we want to specify is: 
 
@@ -777,7 +777,7 @@ However, the model diagnostics appear less robust. The sampler seemed to have di
 plot_diagnostics(idata_sem_model_v1, parameters);
 ```
 
-The sampler diagnostics suggest that the model is having trouble samplng from the B matrix. This is a little concerning because the structural relations are the primary parameters of interest in the SEM setting. Anything which undercuts our confidence in their estimation, undermines the whole modelling exercise.
+The sampler diagnostics suggest that the model is having trouble samplng from the B matrix. This is a little concerning because the structural relations are the primary parameters of interest in the SEM setting. Anything which undercuts our confidence in their estimation, undermines the whole modelling exercise. Because the conditional SEM showed sampler challenges on `mu_betas`, we now try a marginal formulation.
 
 +++
 
@@ -1121,7 +1121,7 @@ This kind of sensitivity analysis is one approach to model validation, but we ca
 
 ## Hierarchical Model on Structural Components
 
-The mean-structure model above offers us an interesting way to implement hierarchical Bayesian SEMs. We can simply add a hierarchical component to the `tau` parameter and aim to infer how the baseline expectation for each indicator variable, shifts across groups. However, a more interesting and complex route is to assess if hierarchical structure holds across the `B` matrix estimates. Or putting it another way - can we determine if the relationships between these latent factors have a different causal structure as we vary the group of interest. 
+The mean-structure SEM provides a baseline description of how latent factors generate observed indicators. In real applications, however, we often expect these relationships to differ across groups or conditions. A hierarchical extension allows us to model those differences directly—testing whether the structural paths encoded in `B` are invariant across groups. For example, employees differ by team, firm, or treatment condition. The next natural question in a Bayesian workflow is therefore not just “What are the structural relations?” but “How stable are they across contexts?” This represents a key step in the Bayesian workflow: expanding the model’s expressive power while checking how robust its assumptions remain.
 
 ![](hierarchical_excalidraw.png)
 
