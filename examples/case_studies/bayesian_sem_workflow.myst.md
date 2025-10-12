@@ -26,6 +26,22 @@ While both topics are well represented in the PyMC examples library, our goal he
 
 A further goal is to strengthen the foundation for SEM modeling in PyMC. We demonstrate how to use different sampling strategies, both conditional and marginal formulations, to accommodate mean structures and hierarchical effects. These extensions showcase the flexibility and expressive power of Bayesian SEMs.
 
+#### Structure of the Presentation
+
+- Workflow: Bayesian and SEM
+  - Job Satisfaction Data
+  - Mathematical Specification
+- Modelling
+  - CFA
+  - SEM Conditional Formulation
+  - SEM Marginal Formulation
+  - SEM Mean Structure Formulation
+- Parameter Recovery Models
+  - SEM Hierarchical Formulation
+  - SEM + Discrete Choice
+- Conclusion: Statistical Modelling and Craft
+
+
 ### The Bayesian Workflow
 Recall the stages of the Bayesian workflow.
 
@@ -87,7 +103,7 @@ az.style.use("arviz-darkgrid")
 rng = np.random.default_rng(42)
 ```
 
-## Job Satisfaction and Bayesian Workflows
+### Job Satisfaction and Bayesian Workflows
 
 The data we will examine for this case study is drawn from an example discussed by {cite:p}`vehkalahti2019multivariate` around the drivers of Job satisfaction. In particular the focus is on how Constructive thought strategies can impact job satisfaction. We have 12 related measures. 
 
@@ -198,7 +214,7 @@ Interestingly, the Bayesian workflow embodies the same constructive strategies i
 
 +++
 
-## Mathematical Interlude
+### Mathematical Specification
 
 Before we turn to implementation, let’s formalize the model mathematically.
 
@@ -266,7 +282,7 @@ We'll introduce each of these components are additional steps as we layer over t
 
 +++
 
-## Setting up Utility Functions
+### Setting up Utility Functions
 
 For this exercise we will lean on a  range of utility functions to build and compare the expansionary sequence. These functions include repeated steps that will be required for any SEM model. These functions modularize the model-building process and make it easier to compare successive model expansions.
 
@@ -468,7 +484,7 @@ In this section, we translate the theoretical structure of a confirmatory factor
 
 ![](cfa_excalidraw.png)
 
-In the model below we sample draws from the latent factors `eta` and relate them to the observables by the matrix computation `pt.dot(eta, Lambda.T)`. This computation results in a "psuedo-observation" matrix which we then feed through our likelihood to calibrate the latent structures against the observed dats. This is the general pattern we'll see in all models below. The covariances (i.e. red arrows) among the latent factors is determined with `chol`.
+In the model below we sample draws from the latent factors `eta` and relate them to the observables by the matrix computation `pt.dot(eta, Lambda.T)`. This computation results in a "psuedo-observation" matrix which we then feed through our likelihood to calibrate the latent structures against the observed dats. The covariances (i.e. red arrows) among the latent factors is determined with `chol`. These are the general patterns we'll see in all models below, but we add complexity as we go.
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as cfa_model_v1:
