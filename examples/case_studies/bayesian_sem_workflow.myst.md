@@ -22,7 +22,7 @@ kernelspec:
 +++
 
 This case study extends the themes of {ref}`contemporary Bayesian workflow <bayesian_workflow>` and {ref}`Structural Equation Modelling <cfa_sem_notebook>`.
-While both topics are well represented in the PyMC examples library, our goal here is to show how the principles of the Bayesian workflow can be applied concretely to structural equation models (SEMs). The iterative and expansionary strategies of model development for SEMs provide an independent motivation for the recommendations of {cite:p}`gelman2020bayesian` stemming from the SEM literature broadly but {cite:p}`kline2023principles` in particular. 
+While both topics are well represented in the PyMC examples library, our goal here is to show how the principles of the Bayesian workflow can be applied concretely to structural equation models (SEMs). The iterative and expansionary strategies of model development for SEMs provide an independent motivation for the recommendations of {cite:p}`gelman2020bayesian` stemming from the SEM literature broadly. But {cite:p}`kline2023principles` in particular highlights the utility of a staggered approach to model development as a diagnostic for model mis-specification.  
 
 A further goal is to strengthen the foundation for SEM modeling in PyMC. We demonstrate how to use different sampling strategies, both conditional and marginal formulations, to accommodate mean structures and hierarchical effects. These extensions showcase the flexibility and expressive power of Bayesian SEMs.
 
