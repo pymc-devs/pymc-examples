@@ -1115,7 +1115,34 @@ ax[0].axvline(1, linestyle="--", color="grey")
 ax[0].set_title("Comparing Factor Structures \n and Path Coefficients");
 ```
 
-This kind of sensitivity analysis is one approach to model validation, but we can be even more clinical in our assessment of these models. We can perform parameter recovery exercises to properly validate that our model specification can identify the structural parameters of our complex SEM architecture. 
+We can also derive global estimates of model fit such as the leave-one-out cross validation (LOO) scores. These should be seen as additional data points along side the more local measures of model fit we can see in the residual plots. These scores highlight an interesting distinction between the marginal and conditional formulations of a SEM model. 
+
+```{code-cell} ipython3
+loo_df = pd.concat(
+    {
+        "CFA_CONDITIONAL": pd.DataFrame(az.loo(idata_cfa_model_v1)).T,
+        "SEM_CONDITIONAL": pd.DataFrame(az.loo(idata_sem_model_v1)).T,
+        "SEM_MARGINAL": pd.DataFrame(az.loo(idata_sem_model_v2)).T,
+        "SEM_MEAN_STRUCTURE_MARGINAL": pd.DataFrame(az.loo(idata_sem_model_v3)).T,
+    }
+)
+
+loo_df[["elpd_loo", "se", "p_loo", "n_samples", "n_data_points"]]
+```
+
+The conditional model formulas show a lower and therefore better performance. This is typical because the conditional formulation is forced to use a conditional calculation making use of the sampled `eta`. In short we're using a probability
+
+$$ p(y | \eta, \theta)$$
+
+whereas the marginal formulation does not make use of `eta` in the likelihood calculation. 
+
+$$ p(y | \theta)$$ 
+
+As such, we're comparing apples and oranges when we try and compare marginal and conditional SEMs on their LOO scores. The interpretive gloss here is that it's better to see the conditional performance metric as a score for reconstruction error. While the marginal scores can be seen as proper proxies for out-of-sample predictions error. They are both useful measures but represent slightly different performance measures. This is an easy detail to miss when you're naively chasing performance benchmarks. When selecting models with metric optimisation in mind, we need to understand what we're actually optimising.  
+
+In this case we can see that the SEM structure does seem to improve on the CFA model. But that the mean structure model doesn't improve on the baseline marginal structure. Coupled with the comparability of the Residual errors we can happy that the Marginal SEM model is our preferred model. It recovers the plausible posterior predictive statistics and does so with reasonably parsimony.
+
+These kinds of sensitivity analysis help with model validation, but we can be even more clinical in our assessment of these models. We can perform parameter recovery exercises to properly validate that our model specification can identify the structural parameters of our complex SEM architecture. 
 
 +++
 
