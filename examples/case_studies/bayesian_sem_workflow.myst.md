@@ -1077,7 +1077,6 @@ Even though constructive thought processes have a directly positive effect on jo
 +++
 
 
-
 We'll also pull together the model implied residuals on the correlation coefficients. This will help us see how whether our different model structures are consistently deriving similar stories about the data generating relationships. 
 
 ```{code-cell} ipython3
@@ -1096,7 +1095,9 @@ for idata, model_name, ax in zip(idatas, model_names, axs):
     ax.set_title(f"Residuals for {model_name}", fontsize=25);
 ```
 
-Here we can see that the models are substantially similar in key dimensions; the magnitude and direction of the implied effects are similar across each model. This is an important observation. It is this kind of robustness to model specification that we want to see in this kind of iterative modelling. This should give us confidence that the model is well specified and picking up on the actual relationships between these latent constructs. 
+We see similar residuals for all models except a degradation as the model tries to account for the novel mean-structured data. This could be attributed to the greater complexity of the parameter space with the same amount of data, or an idiosyncracy of the sampling process. 
+
+Below we can see that the models are substantially similar in key dimensions; the magnitude and direction of the implied effects are similar across each model. This is an important observation. It is this kind of robustness to model specification that we want to see in this kind of iterative modelling. This should give us confidence that the model is well specified and picking up on the actual relationships between these latent constructs. 
 
 ```{code-cell} ipython3
 :tags: [hide-input]
