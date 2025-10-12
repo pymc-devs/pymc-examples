@@ -36,6 +36,7 @@ A further goal is to strengthen the foundation for SEM modeling in PyMC. We demo
   - SEM Conditional Formulation
   - SEM Marginal Formulation
   - SEM Mean Structure Formulation
+  - Sensitivity Analysis: Comparing Model Fits
 - Parameter Recovery Models
   - SEM Hierarchical Formulation
   - SEM + Discrete Choice
@@ -245,7 +246,7 @@ In the structural model we specify how we believe the latent constructs relate t
 
 We can express the SEM in either a conditional or marginal formulation. The conditional form explicitly samples the latent variables, while the marginal form integrates them out of the likelihood.
 
-### Conditional Formulation
+#### Conditional Formulation
 This formulation treats the latent variables as parameters to be sampled directly. This is conceptually straightforward but often computationally demanding for Bayesian samplers.
 
 $$
@@ -267,7 +268,7 @@ $$
 
 which highlights that the conditional formulation samples the latent variables explicitly. 
 
-### Marginal Formulation
+#### Marginal Formulation
 Here the focus is on deriving the covariance matrix. 
 
 $$\Sigma_{\mathcal{y}} = \Psi + \Lambda(I - B)^{-1}\Psi_{\zeta}(I - B)^{T}\Lambda^{T} $$
@@ -282,7 +283,7 @@ We'll introduce each of these components are additional steps as we layer over t
 
 +++
 
-### Setting up Utility Functions
+#### Setting up Utility Functions
 
 For this exercise we will lean on a  range of utility functions to build and compare the expansionary sequence. These functions include repeated steps that will be required for any SEM model. These functions modularize the model-building process and make it easier to compare successive model expansions.
 
@@ -960,7 +961,7 @@ The sampler diagnostics also seem healthy.
 
 We can also pull out the indirect and direct effects. This is one of the biggest pay-offs for SEM modelling. We've done the work of assessing measurement error and building an abstraction layer of __what-we-care-about__ over the observed indicators. We've considered various structures of the inferential relationships and isolated those direct effects from undue confounding influences. Now we can pull out the impact of mediation and moderation.
 
-## Comparing Models
+## Sensitivity Analysis: Comparing Model Implications
 
 Let's first compare the model implied total effects, and the degrees of moderation between constructive and dysfunctional habits of thought on the satisfaction outcome.
 
@@ -1283,7 +1284,7 @@ Another way we might interrogate the implications of a model is to see how well 
 
 +++
 
-## Discrete Choice Component
+## SEM with Discrete Choice Component
 
 Combining SEM structures with Discrete choice models involves adding an extra likelihood term dependent on the latent factors. HR managers everywhere need to monitor attrition decisions. Often, they conceptualise the rationale for these decisions as being driven by abstract notions of job satisfaction. We now have tools to measure the latent constructs, but can we predict attrition outcomes from these latent predictors? 
 
@@ -1399,7 +1400,11 @@ sem_model_discrete_choice_wide = make_discrete_choice_conditional(
 pm.model_to_graphviz(sem_model_discrete_choice_tight)
 ```
 
-We can see here how our model structure now has two likelihood terms that are both based on the latent constructs `eta`. To demonstrate parameter recovery we need to sample from both outcomes simultaneously. 
+We can see here how our model structure now has two likelihood terms that are both based on the latent constructs `eta`. 
+
+#### The Parameter Recovery Process
+
+To demonstrate parameter recovery we need to sample from both outcomes simultaneously. 
 
 ```{code-cell} ipython3
 fixed_parameters = {
