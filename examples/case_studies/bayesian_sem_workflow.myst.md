@@ -1291,15 +1291,15 @@ Another way we might interrogate the implications of a model is to see how well 
 
 ## SEM with Discrete Choice Component
 
-Combining SEM structures with Discrete choice models involves adding an extra likelihood term dependent on the latent factors. HR managers everywhere need to monitor attrition decisions. Often, they conceptualise the rationale for these decisions as being driven by abstract notions of job satisfaction. We now have tools to measure the latent constructs, but can we predict attrition outcomes from these latent predictors? 
+Combining SEM structures with Discrete choice models involves adding an extra likelihood term dependent on the latent factors. HR managers, for instance, often monitor attrition decisions and conceptualize them as driven by abstract notions such as job satisfaction. We now have tools to measure these latent constructs — but can we predict attrition outcomes from them?
 
-Let's include a discrete choice scenario into the SEM model context. We're aiming to predict a categorical decision about whether the employee `quits/stays/quiet-quits` as the result of their job satisfaction, and their view of the utility of work. Again, we'll see this up as a parameter recovery exercise. 
+To explore this, we’ll embed a discrete choice scenario into the SEM framework. The goal is to predict a categorical outcome — whether an employee stays, quits, or quiet-quits — as a function of their job satisfaction and their perceived utility of work. Once again, we’ll frame this as a parameter recovery exercise.
 
 ![](dcm_sem.png)
 
 +++
 
-The discrete choice setting is intuitive in this context because we can model the individual's subjective utility of work as a function of their job satisfaction. This utility measure is conceptualised (in rational-choice theory) to determine the choice outcome.
+The discrete choice setting is intuitive in this context because we can model the individual's subjective utility of work as a function of their job satisfaction. Within rational-choice theory, this utility determines the decision outcome.
 
 ```{code-cell} ipython3
 observed_data_discrete = make_sample(cov_matrix, 250, FEATURE_COLUMNS)
@@ -1548,9 +1548,11 @@ axs[1].legend();
 
 We can recover the inverse relationship we encoded in the outcomes between job-satisfaction and the choice to stay. Similarly, this posterior predictive checks look sound. This is encouraging. 
 
-The "action" in human decision making is often understood to be driven by these hard-to-quantify constructs that determine motivation. SEM with a discrete choice component offers us a way to model these processes, while allowing for measurement error between the observables and the latent drivers of choice. Secondly, we are triangulating the values of the system between two sources of observable data. On the one hand, we measure latent constructs in the SEM with a range of survey measures (`JW1`, `JW2`, ... ) but then calibrate the consequences of that measurement against revealed choice data. This is a powerful technique for abstracting over the expressed attitudes of rational agents, and deriving an interpretable representation of the latent attitude in their expressions. These representations are then further calibrated against the observed choices made by the agents. 
+The "action" in human decision making is often understood to be driven by these hard-to-quantify constructs that determine motivation. SEM with a discrete choice component offers us a way to model these processes, while allowing for measurement error between the observables and the latent drivers of choice. Secondly, we are triangulating the values of the system between two sources of observable data. On the one hand, we measure latent constructs in the SEM with a range of survey measures (`JW1`, `JW2`, ... ) but then calibrate the consequences of that measurement against revealed choice data. This dual calibration offers a powerful approach to understanding how latent dispositions translate into observable actions.
 
-This two-step of information compression and prediction serves to concisely quantify and evaluate the idiosyncratic attitudes of a population of complex agents. As we iteratively layer-in these constructs in our model development, we come to understand their baseline and interactive effects. This perspective helps us gauge the coherence between attitudes and actions of the agents under study. 
+We abstract over the _expressed attitudes_ of rational agents, and deriving an interpretable representation of the latent attitude in their expressions. These representations are then further calibrated against the _observed choices_ made by the agents. This two-step of information compression and prediction serves to concisely quantify and evaluate the idiosyncratic attitudes of a population of complex agents. As we iteratively layer-in these constructs in our model development, we come to understand their baseline and interactive effects. This perspective helps us gauge the coherence between attitudes and actions of the agents under study. 
+
+The same workflow extends seamlessly to computational agents, where latent variables represent more opaque internal states or reward expectations. In both human and artificial systems, discrete choice modelling provides a common language for interpreting how such latent structure generates behavioral choices.
 
 +++
 
