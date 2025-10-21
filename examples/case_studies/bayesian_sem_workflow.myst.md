@@ -315,12 +315,18 @@ coords = {
     "corr_params": ["UF1 ~~ FOR"],
 }
 
+COLUMN_ORDER_LKUP = dict(zip(FEATURE_COLUMNS, range(len(FEATURE_COLUMNS))))
+LATENT_ORDER_LKUP = dict(zip(coords["latent"], range(len(coords["latent"]))))
+
 
 def make_lambda(indicators, name="lambdas1", priors=[1, 10]):
     """Takes an argument indicators which is a string in the coords dict"""
     temp_name = name + "_"
     lambdas_ = pm.Normal(temp_name, priors[0], priors[1], dims=(indicators,))
     # Force a fixed scale on the factor loadings for factor 1
+    # This is to ensure that the scale of the latent construct is well defined
+    # without this anchoring assumption, the magnitude of the latent factor could
+    # be anything
     lambdas_1 = pm.Deterministic(name, pt.set_subtensor(lambdas_[0], 1), dims=(indicators,))
     return lambdas_1
 
@@ -342,17 +348,29 @@ def make_B(priors=[0, 0.5], group_suffix=""):
 
     zeros = pt.zeros((4, 4))
     ## dysfunctional ~ constructive
-    zeros = pt.set_subtensor(zeros[3, 2], coefs[0])
+    zeros = pt.set_subtensor(
+        zeros[LATENT_ORDER_LKUP["constructive"], LATENT_ORDER_LKUP["dysfunctional"]], coefs[0]
+    )
     ## well being ~ dysfunctional
-    zeros = pt.set_subtensor(zeros[2, 1], coefs[1])
+    zeros = pt.set_subtensor(
+        zeros[LATENT_ORDER_LKUP["dysfunctional"], LATENT_ORDER_LKUP["well being"]], coefs[1]
+    )
     ## well being ~ constructive
-    zeros = pt.set_subtensor(zeros[3, 1], coefs[2])
+    zeros = pt.set_subtensor(
+        zeros[LATENT_ORDER_LKUP["constructive"], LATENT_ORDER_LKUP["well being"]], coefs[2]
+    )
     ## satisfaction ~ well being
-    zeros = pt.set_subtensor(zeros[1, 0], coefs[3])
+    zeros = pt.set_subtensor(
+        zeros[LATENT_ORDER_LKUP["well being"], LATENT_ORDER_LKUP["satisfaction"]], coefs[3]
+    )
     ## satisfaction ~ dysfunction
-    zeros = pt.set_subtensor(zeros[2, 0], coefs[4])
+    zeros = pt.set_subtensor(
+        zeros[LATENT_ORDER_LKUP["dysfunctional"], LATENT_ORDER_LKUP["satisfaction"]], coefs[4]
+    )
     ## satisfaction ~ constructive
-    coefs_ = pt.set_subtensor(zeros[3, 0], coefs[5])
+    coefs_ = pt.set_subtensor(
+        zeros[LATENT_ORDER_LKUP["constructive"], LATENT_ORDER_LKUP["satisfaction"]], coefs[5]
+    )
     B = pm.Deterministic(f"B_{group_suffix}", coefs_, dims=("latent", "latent1"))
     return B
 
@@ -367,7 +385,7 @@ def make_Psi(indicators, name="Psi_cov"):
     for i in range(len(coords[indicators])):
         r = pt.set_subtensor(r[i, i], 1)
     # UF1 ~~ FOR
-    r = pt.set_subtensor(r[3, 5], beta_params[0])
+    r = pt.set_subtensor(r[COLUMN_ORDER_LKUP["UF1"], COLUMN_ORDER_LKUP["FOR"]], beta_params[0])
     s = pt.diag(cov_params)
     cov = (s @ r) @ pt.transpose(s @ r)
     r = pm.Deterministic("Psi_corr", r)
@@ -485,7 +503,7 @@ In this section, we translate the theoretical structure of a confirmatory factor
 
 ![](cfa_excalidraw.png)
 
-In the model below we sample draws from the latent factors `eta` and relate them to the observables by the matrix computation `pt.dot(eta, Lambda.T)`. This computation results in a "pseudo-observation" matrix which we then feed through our likelihood to calibrate the latent structures against the observed dats. The covariances (i.e. red arrows) among the latent factors is determined with `chol`. These are the general patterns we'll see in all models below, but we add complexity as we go.
+In the model below we sample draws from the latent factors `eta` and relate them to the observables by the matrix computation `pt.dot(eta, Lambda.T)`. This computation results in a "pseudo-observation" matrix which we then feed through our likelihood to calibrate the latent structures against the observed data. This is the conditional mean of each observation. The covariances (i.e. red arrows) among the latent factors is determined with `chol`. These are the general patterns we'll see in all models below, but we add complexity as we go.
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as cfa_model_v1:
@@ -656,7 +674,7 @@ Below these model checks we will now plot some diagnostics for the sampler. The 
 plot_diagnostics(idata_cfa_model_v1, parameters);
 ```
 
-The sampler diagnostics give no indication of trouble. This is a promising start. We now shift the SEM setting to layer in Structural regressions. These relations are ussually the focus of an analysis. 
+The sampler diagnostics give no indication of trouble. This is a promising start. We now shift the SEM setting to layer in Structural regressions. These relations are usually the focus of an analysis. 
 
 +++
 
@@ -668,7 +686,7 @@ Bollen argues as follows:
 
 > [...], we cannot isolate a dependent variable from all influences but a single explanatory variable, so it is impossible to make definitive statements about causes. We replace perfect isolation with pseudo-isolation by assuming that the disturbance (i.e., the composite of all omitted determinants) is uncorrelated with the exogenous variables of an equation. - Bollen in _Structural Equations with Latent Variables_ pg45
 
-This is a claim of conditional independence which licenses the causal interpretation of the the arrows in the below plot. The fact that the latent relations operate a higher level of abstraction makes it easier to postulate these "clean" direct paths between constructs. The model makes an argument - to have proprely measured the latent constructs, and isolated their variation - to support the causal claim. Criticisms of the model proceed by assessing how compelling these postulates are in the context of the fitted model.
+This is a claim of conditional independence which licenses the causal interpretation of the the arrows in the below plot. The fact that the latent relations operate a higher level of abstraction makes it easier to postulate these "clean" direct paths between constructs. The model makes an argument - to have properly measured the latent constructs, and isolated their variation - to support the causal claim. Criticisms of the model proceed by assessing how compelling these postulates are in the context of the fitted model.
 
 ![](sem3_excalidraw.png)
 
@@ -723,8 +741,8 @@ with pm.Model(coords=coords) as sem_model_v1:
     mu = pt.dot(eta, Lambda.T)
 
     ## Error Terms
-    sds = pm.HalfNormal("sds", sigma=1.0, shape=n)
-    Psi = pt.diag(sds**2)
+    sds = pm.InverseGamma("Psi", 5, 10, dims="indicators")
+    Psi = pt.diag(sds)
     _ = pm.MvNormal(
         "likelihood", mu=mu, cov=Psi, observed=observed_data, dims=("obs", "indicators")
     )
@@ -740,9 +758,9 @@ idata_sem_model_v1 = sample_model(sem_model_v1, sampler_kwargs)
 
 #### A Sampled B Matrix
 
-Now we can sample the B matrix and observe is structure. The sampled $B$ matrix compactly represents the system of regression relationships among latent constructs 
+Now we can sample the B matrix and observe its structure. The sampled $B$ matrix compactly represents the system of regression relationships among latent constructs 
 
-It's best to see the matrix as encoding target variables in the columns and predictor variables inn the rows. Here we have the set up our matrix so that `satisfaction` is predicted by three variables, but not itself. The values in the first column are sampled coefficient values in the regression: 
+It's best to see the matrix as encoding target variables in the columns and predictor variables in the rows. Here we have the set up our matrix so that `satisfaction` is predicted by three variables, but not itself. The values in the first column are sampled coefficient values in the regression: 
 
 $$ \eta_{sat} \sim B_{1, 0}\eta_{well} + B_{2, 0}\eta_{dys} +  B_{3, 0}\eta_{con}$$
 
@@ -1140,7 +1158,7 @@ $$ p(y | \theta)$$
 
 As such, we're comparing apples and oranges when we try and compare marginal and conditional SEMs on their LOO scores. The interpretive gloss here is that it's better to see the conditional performance metric as a score for reconstruction error. While the marginal scores can be seen as proper proxies for out-of-sample predictions error. They are both useful measures but represent slightly different performance measures. This is an easy detail to miss when you're naively chasing performance benchmarks. When selecting models with metric optimisation in mind, we need to understand what we're actually optimising.  
 
-In this case we can see that the SEM structure does seem to improve on the CFA model. But that the mean structure model doesn't improve on the baseline marginal structure. Coupled with the comparability of the Residual errors we can happy that the Marginal SEM model is our preferred model. It recovers the plausible posterior predictive statistics and does so with reasonably parsimony.
+In this case we can see that the SEM structure does seem to improve on the CFA model. But that the mean structure model doesn't improve on the baseline marginal structure. Coupled with the comparability of the Residual errors, we can compellingly claim that the Marginal SEM model is the preferred model. It recovers the plausible posterior predictive statistics and does so with reasonably parsimony. It is coherent with insights from the other moodel but improves on them in a range of ways, from computational efficiency to preferable performance measures. 
 
 These kinds of sensitivity analysis help with model validation, but we can be even more clinical in our assessment of these models. We can perform parameter recovery exercises to properly validate that our model specification can identify the structural parameters of our complex SEM architecture. 
 
@@ -1387,6 +1405,9 @@ def make_discrete_choice_conditional(observed_data, priors, conditional=True):
         alphas_choice_ = pm.Normal(
             "alphas_choice_", priors["alphas_choice"][0], priors["alphas_choice"][1], dims=("alts",)
         )
+        ## This is an identifiability constraint similar to the Lambdas in a SEM
+        ## It helps define the magnitude and scale of the latent utility measure
+        ## where utility is relative among the choice to this reference choice.
         alphas_choice = pm.Deterministic("alphas_choice", pt.set_subtensor(alphas_choice_[-1], 0))
 
         betas_choice_ = pm.Normal(
@@ -1577,7 +1598,7 @@ We can recover the inverse relationship we encoded in the outcomes between job-s
 
 The "action" in human decision making is often understood to be driven by these hard-to-quantify constructs that determine motivation. SEM with a discrete choice component offers us a way to model these processes, while allowing for measurement error between the observables and the latent drivers of choice. Secondly, we are triangulating the values of the system between two sources of observable data. On the one hand, we measure latent constructs in the SEM with a range of survey measures (`JW1`, `JW2`, ... ) but then calibrate the consequences of that measurement against revealed choice data. This dual calibration offers a powerful approach to understanding how latent dispositions translate into observable actions.
 
-We abstract over the _expressed attitudes_ of rational agents, and deriving an interpretable representation of the latent attitude in their expressions. These representations are then further calibrated against the _observed choices_ made by the agents. This two-step of information compression and prediction serves to concisely quantify and evaluate the idiosyncratic attitudes of a population of complex agents. As we iteratively layer-in these constructs in our model development, we come to understand their baseline and interactive effects. This perspective helps us gauge the coherence between attitudes and actions of the agents under study. 
+We abstract over the _expressed attitudes_ of rational agents, deriving interpretable representations of latent attitudes from expressed opinions. These representations are then further calibrated against the _observed choices_ made by the agents. This two-step process of information compression and prediction serves to concisely quantify and evaluate the idiosyncratic attitudes of a population of complex agents. As we iteratively layer-in these constructs in our model development, we come to understand their baseline and interactive effects. This perspective helps us gauge the coherence between attitudes and actions of the agents under study. 
 
 The same workflow extends seamlessly to computational agents, where latent variables represent more opaque internal states or reward expectations. In both human and artificial systems, discrete choice modelling provides a common language for interpreting how such latent structure generates behavioral choices.
 
