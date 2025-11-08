@@ -159,7 +159,7 @@ ax.set_ylabel(r"$\log(\alpha+\beta)$", fontsize=16)
 ix_z, ix_x = np.unravel_index(np.argmax(surface, axis=None), surface.shape)
 ax.scatter([X[0, ix_x]], [Z[ix_z, 0]], color="red")
 
-text = r"$({a},{b})$".format(a=np.round(X[0, ix_x], 2), b=np.round(Z[ix_z, 0], 2))
+text = rf"$({np.round(X[0, ix_x], 2)},{np.round(Z[ix_z, 0], 2)})$"
 
 ax.annotate(
     text,

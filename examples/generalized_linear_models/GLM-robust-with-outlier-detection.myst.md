@@ -113,7 +113,7 @@ dfhogg = pd.DataFrame(
     columns=["id", "x", "y", "sigma_y", "sigma_x", "rho_xy"],
 )
 
-dfhogg["id"] = dfhogg["id"].apply(lambda x: "p{}".format(int(x)))
+dfhogg["id"] = dfhogg["id"].apply(lambda x: f"p{int(x)}")
 dfhogg.set_index("id", inplace=True)
 dfhogg.head()
 ```

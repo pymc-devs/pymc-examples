@@ -130,7 +130,7 @@ At this point, there are already several warnings regarding failed convergence c
 ```{code-cell} ipython3
 for i in trace.posterior.chain.values:
     samples = trace.posterior["W"].sel(chain=i, observed_columns=3, latent_columns=1)
-    plt.plot(samples, label="Chain {}".format(i + 1))
+    plt.plot(samples, label=f"Chain {i + 1}")
     plt.axhline(samples.mean(), color=f"C{i}")
 plt.legend(ncol=4, loc="upper center", fontsize=12, frameon=True), plt.xlabel("Sample");
 ```
@@ -198,7 +198,7 @@ with pm.Model(coords=coords) as PPCA_identified:
 
 for i in range(4):
     samples = trace.posterior["W"].sel(chain=i, observed_columns=3, latent_columns=1)
-    plt.plot(samples, label="Chain {}".format(i + 1))
+    plt.plot(samples, label=f"Chain {i + 1}")
 
 plt.legend(ncol=4, loc="lower center", fontsize=8), plt.xlabel("Sample");
 ```
@@ -253,7 +253,7 @@ col_selection = dict(observed_columns=3, latent_columns=1)
 
 ax = az.plot_kde(
     trace.posterior["W"].sel(**col_selection).values,
-    label="MCMC posterior for the explicit model".format(0),
+    label=f"MCMC posterior for the explicit model",
     plot_kwargs={"color": f"C{1}"},
 )
 
