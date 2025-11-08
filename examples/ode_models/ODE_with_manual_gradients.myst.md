@@ -78,7 +78,7 @@ class LotkaVolterraModel:
         self._y0 = y0
 
     def simulate(self, parameters, times):
-        alpha, beta, gamma, delta, Xt0, Yt0 = [x for x in parameters]
+        alpha, beta, gamma, delta, Xt0, Yt0 = (x for x in parameters)
 
         def rhs(y, t, p):
             X, Y = y
@@ -133,7 +133,7 @@ class LotkaVolterraModel:
         return self._simulate(parameters, times, True)
 
     def _simulate(self, parameters, times, sensitivities):
-        alpha, beta, gamma, delta, Xt0, Yt0 = [x for x in parameters]
+        alpha, beta, gamma, delta, Xt0, Yt0 = (x for x in parameters)
 
         def r(y, t, p):
             X, Y = y
@@ -453,7 +453,7 @@ class FitzhughNagumoModel:
         self._times = times
 
     def _simulate(self, parameters, times):
-        a, b, c = [float(x) for x in parameters]
+        a, b, c = (float(x) for x in parameters)
 
         def rhs(y, t, p):
             V, R = y
