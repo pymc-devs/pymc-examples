@@ -1,20 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="108" height="20" role="img" aria-label="🍃 open: in molab">
-    <linearGradient id="s" x2="0" y2="100%">
-        <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
-        <stop offset="1" stop-opacity=".1"/>
-    </linearGradient>
-    <clipPath id="r">
-        <rect width="108" height="20" rx="3" fill="#fff"/>
-    </clipPath>
-    <g clip-path="url(#r)">
-        <rect width="51" height="20" fill="#555"/>
-        <rect x="51" width="57" height="20" fill="#32cd32"/>
-        <rect width="108" height="20" fill="url(#s)"/>
-    </g>
-    <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110">
-        <text aria-hidden="true" x="265" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="410">🍃 open</text>
-        <text x="265" y="140" transform="scale(.1)" fill="#fff" textLength="410">🍃 open</text>
-        <text aria-hidden="true" x="785" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="470">in molab</text>
-        <text x="785" y="140" transform="scale(.1)" fill="#fff" textLength="470">in molab</text>
-    </g>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="117" height="20">
+	<linearGradient id="b" x2="0" y2="100%">
+		<stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
+		<stop offset="1" stop-opacity=".1"/>
+	</linearGradient>
+	<clipPath id="a">
+		<rect width="117" height="20" rx="3" fill="#fff"/>
+	</clipPath>
+	<g clip-path="url(#a)">
+		<path fill="#555" d="M0 0h30v20H0z"/>
+	<path fill="#2E8B57" d="M30 0h87v20H30z"/>
+	<path fill="url(#b)" d="M0 0h117v20H0z"/>
+	</g>
+	<g fill="#fff" text-anchor="middle" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="110">
+		<svg x="4px" y="0px" width="22px" height="20px" viewBox="-2 0 28 24" style="background-color: #fff;border-radius: 1px;">
+			<text xmlns="http://www.w3.org/2000/svg" x="80" y="115" transform="scale(.15)" fill="#fff" textLength="410">🍃</text>
+		</svg>
+		<text x="245" y="140" transform="scale(.1)" textLength="30"> </text>
+		<text x="725" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="770">Open in molab</text>
+		<text x="725" y="140" transform="scale(.1)" textLength="770">Open in molab</text>
+	</g> 
 </svg>
