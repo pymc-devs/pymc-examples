@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: default
   language: python
   name: python3
 ---
@@ -165,7 +165,7 @@ Here are the point estimates of the slope and intercept for the complete pooling
 
 ```{code-cell} ipython3
 with pm.Model() as pooled_model:
-    floor_ind = pm.MutableData("floor_ind", floor_measure, dims="obs_id")
+    floor_ind = pm.Data("floor_ind", floor_measure, dims="obs_id")
 
     alpha = pm.Normal("alpha", 0, sigma=10)
     beta = pm.Normal("beta", mu=0, sigma=10)
@@ -242,7 +242,7 @@ Let's now turn our attention to the unpooled model, and see how it fares in comp
 coords = {"county": mn_counties}
 
 with pm.Model(coords=coords) as unpooled_model:
-    floor_ind = pm.MutableData("floor_ind", floor_measure, dims="obs_id")
+    floor_ind = pm.Data("floor_ind", floor_measure, dims="obs_id")
 
     alpha = pm.Normal("alpha", 0, sigma=10, dims="county")
     beta = pm.Normal("beta", 0, sigma=10)
@@ -381,7 +381,7 @@ Let's start with the simplest model, which ignores the effect of floor vs. basem
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as partial_pooling:
-    county_idx = pm.MutableData("county_idx", county, dims="obs_id")
+    county_idx = pm.Data("county_idx", county, dims="obs_id")
 
     # Priors
     mu_a = pm.Normal("mu_a", mu=0.0, sigma=10)
@@ -470,8 +470,8 @@ As with the the “no-pooling” model, we set a separate intercept for each cou
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as varying_intercept:
-    floor_idx = pm.MutableData("floor_idx", floor_measure, dims="obs_id")
-    county_idx = pm.MutableData("county_idx", county, dims="obs_id")
+    floor_idx = pm.Data("floor_idx", floor_measure, dims="obs_id")
+    county_idx = pm.Data("county_idx", county, dims="obs_id")
 
     # Priors
     mu_a = pm.Normal("mu_a", mu=0.0, sigma=10.0)
@@ -587,8 +587,8 @@ $$y_i = \alpha_{j[i]} + \beta_{j[i]} x_{i} + \epsilon_i$$
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as varying_intercept_slope:
-    floor_idx = pm.MutableData("floor_idx", floor_measure, dims="obs_id")
-    county_idx = pm.MutableData("county_idx", county, dims="obs_id")
+    floor_idx = pm.Data("floor_idx", floor_measure, dims="obs_id")
+    county_idx = pm.Data("county_idx", county, dims="obs_id")
 
     # Priors
     mu_a = pm.Normal("mu_a", mu=0.0, sigma=10.0)
@@ -662,8 +662,8 @@ Now that we've spotted the problem, what can we do about it? The best way to dea
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as varying_intercept_slope_noncentered:
-    floor_idx = pm.MutableData("floor_idx", floor_measure, dims="obs_id")
-    county_idx = pm.MutableData("county_idx", county, dims="obs_id")
+    floor_idx = pm.Data("floor_idx", floor_measure, dims="obs_id")
+    county_idx = pm.Data("county_idx", county, dims="obs_id")
 
     # Priors
     mu_a = pm.Normal("mu_a", mu=0.0, sigma=10.0)
@@ -786,8 +786,8 @@ This translates quite easily in PyMC:
 coords["param"] = ["alpha", "beta"]
 coords["param_bis"] = ["alpha", "beta"]
 with pm.Model(coords=coords) as covariation_intercept_slope:
-    floor_idx = pm.MutableData("floor_idx", floor_measure, dims="obs_id")
-    county_idx = pm.MutableData("county_idx", county, dims="obs_id")
+    floor_idx = pm.Data("floor_idx", floor_measure, dims="obs_id")
+    county_idx = pm.Data("county_idx", county, dims="obs_id")
 
     # prior stddev in intercepts & slopes (variation across counties):
     sd_dist = pm.Exponential.dist(0.5, shape=(2,))
@@ -820,8 +820,8 @@ As you may expect, we also want to non-center the random effects here. This agai
 coords["param"] = ["alpha", "beta"]
 coords["param_bis"] = ["alpha", "beta"]
 with pm.Model(coords=coords) as covariation_intercept_slope:
-    floor_idx = pm.MutableData("floor_idx", floor_measure, dims="obs_id")
-    county_idx = pm.MutableData("county_idx", county, dims="obs_id")
+    floor_idx = pm.Data("floor_idx", floor_measure, dims="obs_id")
+    county_idx = pm.Data("county_idx", county, dims="obs_id")
 
     # prior stddev in intercepts & slopes (variation across counties):
     sd_dist = pm.Exponential.dist(0.5, shape=(2,))
@@ -1061,9 +1061,9 @@ avg_floor_data = srrs_mn.groupby("county")["floor"].mean().values
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as contextual_effect:
-    floor_idx = pm.Data("floor_idx", floor_measure, mutable=True)
-    county_idx = pm.Data("county_idx", county, mutable=True)
-    y = pm.Data("y", log_radon, mutable=True)
+    floor_idx = pm.Data("floor_idx", floor_measure)
+    county_idx = pm.Data("county_idx", county)
+    y = pm.Data("y", log_radon)
 
     # Priors
     sigma_a = pm.HalfCauchy("sigma_a", 5)
@@ -1144,6 +1144,48 @@ contextual_effect_trace.extend(stl_pred)
 az.plot_posterior(contextual_effect_trace, group="posterior_predictive");
 ```
 
+Prediction for a house within a new county is a little trickier. It is actually easier to create a new model to work with, **but use the trace from the original model for posterior predictive sampling**. 
+
+How can this work?
+
+First, consider how posterior predictive sampling works in PyMC: samples are drawn not from the distributions themselves, but from the set of samples in the trace. Therefore, we can take the trace from the original model, and use it to sample posterior predictions from a new model that has the same variables.
+
+The variables in the new model need only have the same name as the original -- to reinforce this, we will use `pm.Flat` variables as placeholders in this example. The only variables we actually need are the ones that need to be resampled for a new county.
+
+We don't even need `Data` here; we can use raw data, since we are just creating this model to get posterior predictions for houses in this notional new county.
+
+```{code-cell} ipython3
+with pm.Model() as new_county_house:
+
+    # New data
+    u_new = np.array([-0.2, 0.3])
+    xbar = np.array([0.5, 0.8])
+    floor_idx = np.array([1, 0])
+
+    # Placeholders for variables already in the trace
+    sigma_a = pm.Flat("sigma_a")
+    gamma = pm.Flat("gamma", shape=3)
+    beta = pm.Flat("beta")
+    sigma_y = pm.Flat("sigma_y")
+
+    # Calculate new county expected value
+    mu_a_new = pm.Deterministic("mu_a_new", gamma[0] + gamma[1] * u_new + gamma[2] * xbar)
+
+    # Sample from the county intercept distribution
+    mu_new = pm.Normal("mu_new", mu_a_new, sigma_a)
+
+    # Expected value for houses in new county
+    y_hat_new = mu_new + beta * floor_idx
+
+    y_new = pm.Normal("y_new", mu=y_hat_new, sigma=sigma_y)
+
+    pp_new = pm.sample_posterior_predictive(contextual_effect_trace, var_names=["y_new"])
+```
+
+```{code-cell} ipython3
+az.plot_posterior(pp_new, group="posterior_predictive");
+```
+
 ## Benefits of Multilevel Models
 
 - Accounting for natural hierarchical structure of observational data.
@@ -1176,6 +1218,7 @@ mcelreath2018statistical
 * Updated by Chris Fonnesbeck in Februry 2022 ([pymc-examples#285](https://github.com/pymc-devs/pymc-examples/pull/285))
 * Updated by Chris Fonnesbeck in November 2022 ([pymc-examples#468](https://github.com/pymc-devs/pymc-examples/pull/468))
 * Updated by Oriol Abril in November 2022 ([pymc-examples#473](https://github.com/pymc-devs/pymc-examples/pull/473))
+* Updated by Chris Fonnesbeck in November 2025
 
 +++
 
