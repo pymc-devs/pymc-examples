@@ -537,7 +537,7 @@ for name in baseline_methods:
     Method = baseline_methods[name]
     method = Method(train)
     baselines[name] = method.rmse(test)
-    print("{} RMSE:\t{:.5f}".format(method, baselines[name]))
+    print(f"{method} RMSE:\t{baselines[name]:.5f}")
 ```
 
 As expected: the uniform random baseline is the worst by far, the global mean baseline is next best, and the mean of means method is our best baseline. Now let's see how PMF stacks up.

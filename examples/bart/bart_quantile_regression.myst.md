@@ -14,7 +14,7 @@ kernelspec:
 (BART_quantile)=
 # Quantile Regression with BART
 :::{post} Jan 25, 2023
-:tags: BART, non-parametric, quantile, regression 
+:tags: BART, nonparametric, quantile, regression 
 :category: intermediate, explanation
 :author: Osvaldo Martin
 :::
@@ -141,7 +141,7 @@ plt.xlabel("Age")
 plt.ylabel("BMI");
 ```
 
-We can see that when we use a Normal likelihood, and from that fit we compute the quantiles, the quantiles  q=0.1 and q=0.9 are symetrical with respect to q=0.5, also the shape of the curves is essentially the same just shifted up or down. Additionally the Asymmetric Laplace family allows the model to account for the increased variability in BMI as the age increases, while for the Gaussian family that variability always stays the same.
+We can see that when we use a Normal likelihood, and from that fit we compute the quantiles, the quantiles  q=0.1 and q=0.9 are symmetrical with respect to q=0.5, also the shape of the curves is essentially the same just shifted up or down. Additionally the Asymmetric Laplace family allows the model to account for the increased variability in BMI as the age increases, while for the Gaussian family that variability always stays the same.
 
 +++
 
@@ -149,6 +149,7 @@ We can see that when we use a Normal likelihood, and from that fit we compute th
 * Authored by Osvaldo Martin in Jan, 2023
 * Rerun by Osvaldo Martin in Mar, 2023
 * Rerun by Osvaldo Martin in Nov, 2023
+* Rerun by Osvaldo Martin in Dec, 2024
 
 +++
 

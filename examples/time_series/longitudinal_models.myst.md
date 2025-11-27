@@ -14,7 +14,7 @@ kernelspec:
 # Longitudinal Models of Change
 
 :::{post} April, 2023
-:tags: hierarchical, longitudinal, time series
+:tags: hierarchical model, longitudinal data, time series
 :category: advanced, reference
 :author: Nathaniel Forde
 :::
@@ -66,7 +66,7 @@ df["peer_hi_lo"] = np.where(df["peer"] > df["peer"].mean(), 1, 0)
 df
 ```
 
-First we'll examine the consumption patterns of a subset of the chidren to see how their reported usage exhibits a range of different trajectories. All the trajectories can be plausibly modelled as a linear phenomena. 
+First we'll examine the consumption patterns of a subset of the children to see how their reported usage exhibits a range of different trajectories. All the trajectories can be plausibly modelled as a linear phenomena. 
 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(2, 4, figsize=(20, 8), sharey=True)
@@ -234,7 +234,7 @@ We see here the variation in the implied modification of the grand mean by each 
 
 ## Unconditional Growth Model                     
 
-Next we will more explictly model the individual contribution to the slope of a regression model where time is the key predictor. The structure of this model is worth pausing to consider. There are various instantiations of this kind of hierarchical model across different domains and disciplines. Economics, political science, psychometrics and ecology all have their own slightly varied vocabulary for naming the parts of the model: fixed effects, random effects, within-estimators, between estimators...etc, the list goes and the discourse is cursed. The terms are ambiguous and used divergingly. Wilett and Singer refer to the Level 1 and Level 2 sub-models, but the precise terminology is not important. 
+Next we will more explicitly model the individual contribution to the slope of a regression model where time is the key predictor. The structure of this model is worth pausing to consider. There are various instantiations of this kind of hierarchical model across different domains and disciplines. Economics, political science, psychometrics and ecology all have their own slightly varied vocabulary for naming the parts of the model: fixed effects, random effects, within-estimators, between estimators...etc, the list goes and the discourse is cursed. The terms are ambiguous and used divergingly. Wilett and Singer refer to the Level 1 and Level 2 sub-models, but the precise terminology is not important. 
 
 The important thing about these models is the *hierarchy*. There is a global phenomena and a subject specific instantiation of the phenomena. The model allows us to compose the global model with the individual contributions from each subject. This helps the model account for unobserved heterogeneity at the subject level.Resulting in varying slopes and intercepts for each subject where allowed by the model specification. It can't solve all forms of bias but it does help account for this source of skew in the model predictions.
 
@@ -653,7 +653,7 @@ model.predict(idata_bambi, kind="pps")
 idata_bambi
 ```
 
-The model is nicely specified and details the structure of hierarchical and subject level parameters. By default the Bambi model assigns priors and uses a non-centred parameterisation. The Bambi model definition uses the language of common and group level effects as opposed to the global and subject distinction we have beeen using in this example so far. Again, the important point to stress is just the hierarchy of levels, not the names.
+The model is nicely specified and details the structure of hierarchical and subject level parameters. By default the Bambi model assigns priors and uses a non-centred parameterisation. The Bambi model definition uses the language of common and group level effects as opposed to the global and subject distinction we have been using in this example so far. Again, the important point to stress is just the hierarchy of levels, not the names.
 
 ```{code-cell} ipython3
 model
@@ -703,7 +703,7 @@ az.plot_forest(
 );
 ```
 
-We can see here how the bambi model specification recovers the same parameterisation we derived with PyMC. In practice and in production you should use bambi when you can if you're using a Bayesian hierarchical model. It is flexible for many use-cases and you should likely only need PyMC for highly customised models, where the flexibility of the model specification cannot be accomodated with the constraints of the formula syntax.  
+We can see here how the bambi model specification recovers the same parameterisation we derived with PyMC. In practice and in production you should use bambi when you can if you're using a Bayesian hierarchical model. It is flexible for many use-cases and you should likely only need PyMC for highly customised models, where the flexibility of the model specification cannot be accommodated with the constraints of the formula syntax.  
 
 +++
 
@@ -798,7 +798,7 @@ ax.set_title("Distribution of Individual Modifications to the Grand Mean");
 
 ## Behaviour over time
 
-We now model the evolution of the behaviours over time in a hierarchical fashion. We start with a simple hierarhical linear regression with a focal predictor of grade. 
+We now model the evolution of the behaviours over time in a hierarchical fashion. We start with a simple hierarchical linear regression with a focal predictor of grade. 
 
 ```{code-cell} ipython3
 id_indx, unique_ids = pd.factorize(df_external["ID"])
@@ -978,7 +978,7 @@ Granting the model more flexibility allows it to ascribe more nuanced growth tra
 
 ## Comparing Trajectories across Gender
 
-We'll now allow the model greater flexibility and pull in the gender of the subject to analyse whether and to what degree the gender of the teenager influences their behaviorial changes. 
+We'll now allow the model greater flexibility and pull in the gender of the subject to analyse whether and to what degree the gender of the teenager influences their behavioral changes. 
 
 ```{code-cell} ipython3
 :tags: [hide-output]
@@ -1123,7 +1123,7 @@ compare
 az.plot_compare(compare, figsize=(10, 4));
 ```
 
-As perhaps expected our final gender based model is deemed to be best according the WAIC ranking. But somewhat suprisingly the Linear model with fixed trajectories is not far behind. 
+As perhaps expected our final gender based model is deemed to be best according the WAIC ranking. But somewhat surprisingly the Linear model with fixed trajectories is not far behind. 
 
 +++
 

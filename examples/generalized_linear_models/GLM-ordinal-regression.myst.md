@@ -168,7 +168,7 @@ and that the probability for belonging within a particular category $j$ is deter
 
 $$ P(Y = j) = \frac{exp(\alpha_{j} + \beta'x)}{1 + exp(\alpha_{j} + \beta'x)} - \frac{exp(\alpha_{j-1} + \beta'x)}{1 + exp(\alpha_{j-1} + \beta'x)} $$
 
-One nice feature of ordinal regressions specified in this fashion is that the interpretation of the coefficients on the beta terms remain the same across each interval on the latent space. The interpretaiton of the model parameters is typical: a unit increase in $x_{k}$ corresponds to an increase in $Y_{latent}$ of $\beta_{k}$ Similar interpretation holds for probit regression specification too. However we must be careful about comparing the interpretation of coefficients across different model specifications with different variables. The above coefficient interpretation makes sense as conditional interpretation based on holding fixed precisely the variables in the model. Adding or removing variables changes the conditionalisation which breaks the comparability of the models due the phenomena of non-collapsability. We'll show below how it's better to compare the models on their predictive implications using the posterior predictive distribution. 
+One nice feature of ordinal regressions specified in this fashion is that the interpretation of the coefficients on the beta terms remain the same across each interval on the latent space. The interpretations of the model parameters is typical: a unit increase in $x_{k}$ corresponds to an increase in $Y_{latent}$ of $\beta_{k}$ Similar interpretation holds for probit regression specification too. However we must be careful about comparing the interpretation of coefficients across different model specifications with different variables. The above coefficient interpretation makes sense as conditional interpretation based on holding fixed precisely the variables in the model. Adding or removing variables changes the conditionalisation which breaks the comparability of the models due the phenomena of non-collapsability. We'll show below how it's better to compare the models on their predictive implications using the posterior predictive distribution. 
 
 ### Bayesian Particularities 
 
@@ -192,7 +192,7 @@ def constrainedUniform(N, min=0, max=1):
     )
 ```
 
-The above function, (brainchild of Dr Ben Vincent and Adrian Seyboldt), looks a little indimidating, but it's just a convenience function to specify a prior over the cutpoints in our $Y_{latent}$. The Dirichlet distribution is special in that draws from the distribution must sum to one. The above function ensures that each draw from the prior distribution is a cumulative share of the maximum category greater than the minimum of our ordinal categorisation. 
+The above function, (brainchild of Dr Ben Vincent and Adrian Seyboldt), looks a little intimidating, but it's just a convenience function to specify a prior over the cutpoints in our $Y_{latent}$. The Dirichlet distribution is special in that draws from the distribution must sum to one. The above function ensures that each draw from the prior distribution is a cumulative share of the maximum category greater than the minimum of our ordinal categorisation. 
 
 ```{code-cell} ipython3
 :tags: [hide-output]
@@ -248,7 +248,7 @@ pm.model_to_graphviz(model3)
 
 ### Extracting Individual Probabilities 
 
-We can now for each individual manager's rating, look at the probability associated with each of the available categories. Across the posterior distributions of our cuts which section of the latent continous measure the employee is most likely to fall into.
+We can now for each individual manager's rating, look at the probability associated with each of the available categories. Across the posterior distributions of our cuts which section of the latent continuous measure the employee is most likely to fall into.
 
 ```{code-cell} ipython3
 implied_probs = az.extract(idata3, var_names=["y_probs"])
@@ -334,7 +334,7 @@ az.summary(idata3, var_names=["cutpoints", "beta", "sigma"])
 
 ## Compare Cutpoints: Normal versus Uniform Priors
 
-Note how the model with unconstrianed cutpoints allows the occurence of a threshold estimated to be below zero. This does not make much conceptual sense, but can lead to a plausible enough posterior predictive distribution.
+Note how the model with unconstrianed cutpoints allows the occurrence of a threshold estimated to be below zero. This does not make much conceptual sense, but can lead to a plausible enough posterior predictive distribution.
 
 ```{code-cell} ipython3
 def plot_fit(idata):

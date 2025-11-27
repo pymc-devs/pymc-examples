@@ -14,7 +14,7 @@ kernelspec:
 (BART_introduction)=
 # Bayesian Additive Regression Trees: Introduction
 :::{post} Dec 21, 2021
-:tags: BART, non-parametric, regression 
+:tags: BART, nonparametric, regression 
 :category: intermediate, explanation
 :author: Osvaldo Martin
 :::
@@ -98,7 +98,7 @@ with pm.Model() as model_coal:
     idata_coal = pm.sample(random_seed=RANDOM_SEED)
 ```
 
-Before checking the result, we need to discuss one more detail, the BART variable always samples over the real line, meaning that in principle we can get values that go from $-\infty$ to $\infty$. Thus, we may need to transform their values as we would do for standard Generalized Linear Models, for example in the `model_coal` we computed `pm.math.exp(μ_)` because the Poisson distribution is expecting values that go from 0 to $\infty$. This is business as usual, the novelty is that we may need to apply the inverse transformation to the values of `Y`, as we did in the previous model where we took $\log(Y)$. The main reason to do this is that the values of `Y` are used to get a reasonable initial value for the sum of trees and also the variance of the leaf nodes. Thus, applying the inverse transformation is a simple way to improve the efficiency and accuracy of the result. Should we do this for every possible likelihood? Well, no. If we are using BART for the location parameter of distributions like Normal, StudentT, or AssymetricLaplace, we don't need to do anything as the support of these parameters is also the real line. A nontrivial exception is the Bernoulli likelihood (or Binomial with n=1), in that case, we need to apply the logistic function to the BART variable, but there is no need to apply its inverse to transform `Y`, PyMC-BART already takes care of that particular case.
+Before checking the result, we need to discuss one more detail, the BART variable always samples over the real line, meaning that in principle we can get values that go from $-\infty$ to $\infty$. Thus, we may need to transform their values as we would do for standard Generalized Linear Models, for example in the `model_coal` we computed `pm.math.exp(μ_)` because the Poisson distribution is expecting values that go from 0 to $\infty$. This is business as usual, the novelty is that we may need to apply the inverse transformation to the values of `Y`, as we did in the previous model where we took $\log(Y)$. The main reason to do this is that the values of `Y` are used to get a reasonable initial value for the sum of trees and also the variance of the leaf nodes. Thus, applying the inverse transformation is a simple way to improve the efficiency and accuracy of the result. Should we do this for every possible likelihood? Well, no. If we are using BART for the location parameter of distributions like Normal, StudentT, or AsymmetricLaplace, we don't need to do anything as the support of these parameters is also the real line. A nontrivial exception is the Bernoulli likelihood (or Binomial with n=1), in that case, we need to apply the logistic function to the BART variable, but there is no need to apply its inverse to transform `Y`, PyMC-BART already takes care of that particular case.
 
 OK, now let's see the result of `model_coal`.
 
@@ -199,14 +199,15 @@ Finally, like with other regression methods, we should be careful that the effec
 
 ### Variable importance
 
-As we saw in the previous section a partial dependence plot can visualize and give us an idea of how much each covariable contributes to the predicted outcome. Moreover, PyMC-BART provides a novel method to assess the importance of each variable in the model. You can see an example in the following figure. 
+As we saw in the previous section a partial dependence plot can visualize give us an idea of how much each covariable contributes to the predicted outcome. Moreover, PyMC-BART provides a novel method to assess the importance of each variable in the model. You can see an example in the following figure. 
 
 On the x-axis we have the number of covariables and on the y-axis R² (the the square of the Pearson correlation coefficient) between the predictions made for the full model (all variables included) and the restricted models, those with only a subset of the variables. 
 
 In this example, the most important variable is `hour`, then `temperature`, `humidity`, and finally `workingday`.  Notice that the first value of R², is the value of a model that only includes the variable `hour`, the second R² is for a model with two variables, `hour` and  `temperature`, and so on. Besides this ranking, we can see that even a model with a single component, `hour`, is very close to the full model. Even more, the model with two components `hour`, and `temperature` is on average indistinguishable from the full model. The error bars represent the 94 \% HDI from the posterior predictive distribution. This means that we should expect a model with only `hour` and `temperature` to have a similar predictice performance than a model with the four variables, `hour`,  `temperature`, `humidity`, and `workingday`.
 
 ```{code-cell} ipython3
-pmb.plot_variable_importance(idata_bikes, μ, X);
+vi_results = pmb.compute_variable_importance(idata_bikes, μ, X)
+pmb.plot_variable_importance(vi_results);
 ```
 
 `plot_variable_importance` is fast because it makes two assumptions:
@@ -405,6 +406,7 @@ This plot helps us understand the reason behind the bad performance on the test 
 * Juan Orduz added out-of-sample section in Jan, 2023
 * Updated by Osvaldo Martin in Mar, 2023
 * Updated by Osvaldo Martin in Nov, 2023
+* Updated by Osvaldo Martin in Dec, 2024
 
 +++
 

@@ -510,7 +510,7 @@ with NonCentered_eight:
 az.summary(fit_ncp80).round(2)
 ```
 
-As shown above, the effective sample size per iteration has drastically improved, and the trace plots no longer show any "stickyness". However, we do still see the rare divergence. These infrequent divergences do not seem concentrate anywhere in parameter space, which is indicative of the divergences being false positives.
+As shown above, the effective sample size per iteration has drastically improved, and the trace plots no longer show any "stickiness". However, we do still see the rare divergence. These infrequent divergences do not seem concentrate anywhere in parameter space, which is indicative of the divergences being false positives.
 
 ```{code-cell} ipython3
 report_trace(fit_ncp80)

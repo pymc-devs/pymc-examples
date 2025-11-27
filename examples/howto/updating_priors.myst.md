@@ -191,14 +191,14 @@ What is interesting to note is that the posterior distributions for our paramete
 :class: warning
 Observe that, despite the fact that the iterations seems improving, some of them don't look so good, even sometimes it seems it regresses. In addition to reasons noted at the beginning of the notebook, there are a couple key steps in the process where randomness is involved. Thus, things should be expected to improve on average.
 
-1. New observations are random. If in the initial iterations we get values closer to the bulk of the distribuion and then we get several values in a row from the positive tail, the iterations where we have accumulated a couple draws from the tail will probably be biased and "look worse" than previous ones.
+1. New observations are random. If in the initial iterations we get values closer to the bulk of the distribution and then we get several values in a row from the positive tail, the iterations where we have accumulated a couple draws from the tail will probably be biased and "look worse" than previous ones.
 2. MCMC is random. Even when it converges, MCMC is a random process, so different calls to `pymc.sample` will return values centered around the exact posterior but not always the same; how large a variation we should expect can be checked with {func}`arviz.mcse`. KDEs also incorporate this often negligible yet present source of uncertainty in the posterior estimates, and so will the generated Interpolated distributions.
 
 +++
 
 ``````{admonition} An alternative approach
 :class: tip
-There is an alternative way in `pymc-experimental` trough the function {func}`~pymc_experimental.utils.prior.prior_from_idata` that does something similar. This function:
+There is an alternative way in `pymc-extras` trough the function {func}`~pymc_extras.utils.prior.prior_from_idata` that does something similar. This function:
 > Creates a prior from posterior using MvNormal approximation.
 > The approximation uses MvNormal distribution. Keep in mind that this function will only work well for unimodal
 > posteriors and will fail when complicated interactions happen. Moreover, if a retrieved variable is constrained, you

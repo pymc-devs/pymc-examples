@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: default
   language: python
   name: python3
 ---
@@ -26,6 +26,8 @@ This notebook shows how to implement the **Intrinsic Coregionalization Model** (
 The advantage of Multi-output Gaussian Processes is their capacity to simultaneously learn and infer many outputs which have the same source of uncertainty from inputs. In this example, we model the average spin rates of several pitchers in different games from a baseball dataset.
 
 ```{code-cell} ipython3
+import warnings
+
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
@@ -34,6 +36,8 @@ import pymc as pm
 import pytensor.tensor as pt
 
 from pymc.gp.util import plot_gp_dist
+
+warnings.filterwarnings("ignore", category=FutureWarning, module="pytensor.tensor.blas")
 ```
 
 ```{code-cell} ipython3
@@ -93,7 +97,7 @@ adf["avg_spin_rate"].describe()
 
 ```{code-cell} ipython3
 # There are 142 game dates from 01 Apr 2021 to 03 Oct 2021.
-adf.loc[:, "game_date"] = pd.to_datetime(adf.loc[:, "game_date"])
+adf["game_date"] = pd.to_datetime(adf["game_date"])
 game_dates = adf.loc[:, "game_date"]
 game_dates.min(), game_dates.max(), game_dates.nunique(), (game_dates.max() - game_dates.min())
 ```

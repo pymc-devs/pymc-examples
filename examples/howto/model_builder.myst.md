@@ -25,7 +25,7 @@ kernelspec:
 
 Many users face difficulty in deploying their PyMC models to production because deploying/saving/loading a user-created model is not well standardized. One of the reasons behind this is there is no direct way to save or load a model in PyMC like scikit-learn or TensorFlow. The new `ModelBuilder` class is aimed to improve this workflow by providing a scikit-learn inspired API to wrap your PyMC models.
 
-The new {class}`ModelBuilder <pymc_experimental.model_builder.ModelBuilder>` class allows users to use methods to `fit()`, `predict()`, `save()`, `load()`. Users can create any model they want, inherit the {class}`ModelBuilder <pymc_experimental.model_builder.ModelBuilder>` class, and use predefined methods.
+The new {class}`ModelBuilder <pymc_extras.model_builder.ModelBuilder>` class allows users to use methods to `fit()`, `predict()`, `save()`, `load()`. Users can create any model they want, inherit the {class}`ModelBuilder <pymc_extras.model_builder.ModelBuilder>` class, and use predefined methods.
 
 +++
 
@@ -90,7 +90,7 @@ How would we deploy this model? Save the fitted model, load it on an instance, a
 Let's import the `ModelBuilder` class.
 
 ```{code-cell} ipython3
-from pymc_experimental.model_builder import ModelBuilder
+from pymc_extras.model_builder import ModelBuilder
 ```
 
 To define our desired model we inherit from the `ModelBuilder` class. There are a couple of methods we need to define.

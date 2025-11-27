@@ -87,7 +87,7 @@ def get_ℓ_prior(points):
     return ℓ_μ, ℓ_σ
 
 
-ℓ_μ, ℓ_σ = [stat for stat in get_ℓ_prior(X_)]
+ℓ_μ, ℓ_σ = (stat for stat in get_ℓ_prior(X_))
 ```
 
 ```{code-cell} ipython3
@@ -388,7 +388,7 @@ def add_coreg_idx(x):
     return np.hstack([np.tile(x, (2, 1)), np.vstack([np.zeros(x.shape), np.ones(x.shape)])])
 
 
-Xu_c, X_obs_c, Xnew_c = [add_coreg_idx(x) for x in [Xu, X_obs, Xnew]]
+Xu_c, X_obs_c, Xnew_c = (add_coreg_idx(x) for x in [Xu, X_obs, Xnew])
 
 with pm.Model() as model_htsc:
     ℓ = pm.InverseGamma("ℓ", mu=ℓ_μ, sigma=ℓ_σ)

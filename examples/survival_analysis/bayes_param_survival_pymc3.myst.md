@@ -268,7 +268,7 @@ Below we plot posterior distributions of the parameters.
 az.plot_posterior(weibull_trace, lw=0, alpha=0.5);
 ```
 
-These are somewhat interesting (espescially the fact that the posterior of $\beta_1$ is fairly well-separated from zero), but the posterior predictive survival curves will be much more interpretable.
+These are somewhat interesting (especially the fact that the posterior of $\beta_1$ is fairly well-separated from zero), but the posterior predictive survival curves will be much more interpretable.
 
 The advantage of using [`theano.shared`](http://deeplearning.net/software/theano_versions/dev/library/compile/shared.html) variables is that we can now change their values to perform posterior predictive sampling.  For posterior prediction, we set $X$ to have two rows, one for a subject whose cancer had not metastized and one for a subject whose cancer had metastized.  Since we want to predict actual survival times, none of the posterior predictive rows are censored.
 

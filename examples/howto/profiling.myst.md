@@ -12,7 +12,7 @@ kernelspec:
 
 (profiling)=
 # Profiling
-Sometimes computing the likelihood is not as fast as we would like. Theano provides handy profiling tools which are wrapped in PyMC3 by {func}`model.profile <pymc.model.core.Model.profile>`. This function returns a `ProfileStats` object conveying information about the underlying Theano operations. Here we'll profile the likelihood and gradient for the stochastic volatility example.
+Sometimes computing the likelihood is not as fast as we would like. Theano provides handy profiling tools which are wrapped in PyMC by {func}`model.profile <pymc.model.core.Model.profile>`. This function returns a `ProfileStats` object conveying information about the underlying Theano operations. Here we'll profile the likelihood and gradient for the stochastic volatility example.
 
 First we build the model.
 
@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 import pymc as pm
 
-print(f"Running on PyMC3 v{pm.__version__}")
+print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3

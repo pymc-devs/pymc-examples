@@ -5,9 +5,12 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
+myst:
+  substitutions:
+    extra_dependencies: folium geopandas mapclassify pyproj rasterio
 ---
 
 (The prevalence of malaria in the Gambia)=
@@ -77,7 +80,7 @@ gambia_agg = (
 gambia_agg.head()
 ```
 
-We need to convert our dataframe into a geodataframe. In order to do this we need to know what coordinate reference system (CRS) either geographic coordinate system (GCS) or projected coordinate system (PCS) to use. GCS tells you where your data is on the earth, whereas PCS tells you how to draw your data on a two-dimensional plane. There are many different GCS/PCS because each GCS/PCS is a model of the earth's surface. However, the earth's surface is variable from one location to another. Therefore, different GCS/PCS versions will be more accurate depending on the geography your analysis is based in. Since our analysis is in the Gambia we will use PCS [EPSG 32628](https://epsg.io/32628) and GCS [EPSG 4326](https://epsg.io/4326) when plotting on a globe. Where EPSG stands for European Petroluem Survey Group, which is an organization that maintains geodetic parameters for coordinate systems.
+We need to convert our dataframe into a geodataframe. In order to do this we need to know what coordinate reference system (CRS) either geographic coordinate system (GCS) or projected coordinate system (PCS) to use. GCS tells you where your data is on the earth, whereas PCS tells you how to draw your data on a two-dimensional plane. There are many different GCS/PCS because each GCS/PCS is a model of the earth's surface. However, the earth's surface is variable from one location to another. Therefore, different GCS/PCS versions will be more accurate depending on the geography your analysis is based in. Since our analysis is in the Gambia we will use PCS [EPSG 32628](https://epsg.io/32628) and GCS [EPSG 4326](https://epsg.io/4326) when plotting on a globe. Where EPSG stands for European Petroleum Survey Group, which is an organization that maintains geodetic parameters for coordinate systems.
 
 ```{code-cell} ipython3
 # Create a GeoDataframe and set coordinate reference system to EPSG 4326
@@ -108,7 +111,7 @@ with rio.open(in_path) as src:
 
     img = src.read()
 
-    src_crs = src.crs["init"].upper()
+    src_crs = str(src.crs)
     min_lon, min_lat, max_lon, max_lat = src.bounds
     xs = gambia_gpdf_4326["geometry"].x
     ys = gambia_gpdf_4326["geometry"].y
@@ -218,7 +221,7 @@ We specify the following model:
 $$Y_{i} \sim Binomial(n_{i}, P(x_{i}))$$
 $$logit(P(x_{i})) = \beta_{0} + \beta_{1} \times Elevation + S(x_{i})$$
 
-Where $n_{i}$ represents an individual tested for malaria, $P(x_{i})$ is the prevalence of malaria at location $x_{i}$, $\beta_{0}$ is the intercept, $\beta_{1}$ is the coefficient for the elevation covariate and $S(x_{i})$ is a zero mean field guassian process with a Matérn covariance function with $\nu=\frac{3}{2}$ that we will approximate using a Hilbert Space Gaussian Process (HSGP)
+Where $n_{i}$ represents an individual tested for malaria, $P(x_{i})$ is the prevalence of malaria at location $x_{i}$, $\beta_{0}$ is the intercept, $\beta_{1}$ is the coefficient for the elevation covariate and $S(x_{i})$ is a zero mean field gaussian process with a Matérn covariance function with $\nu=\frac{3}{2}$ that we will approximate using a Hilbert Space Gaussian Process (HSGP)
 
 In order to approximate a Gaussian process using an HSGP we need to select the parameters `m` and `c`. To learn more about how to set these parameters please refer to this wonderful ([example](../gaussian_processes/HSGP-Basic.myst.md)) of how to set these parameters.
 
@@ -252,7 +255,7 @@ with hsgp_model:
     )
 ```
 
- The posterior mean of the length scale is 0.21 (shown below). Therefore, we can expect the gaussian mean to decay towards 0 (since we set a 0 mean function) as we move 0.21 degrees away from any sampled point on the map. While this is not a hard cut-off due to the lengthscale not being constrained by the observed data it is still useful to be able to intuit how the lengthscale effects the estimation.
+ The posterior mean of the length scale is 0.2 (shown below). Therefore, we can expect the gaussian mean to decay towards 0 (since we set a 0 mean function) as we move 0.2 degrees away from any sampled point on the map. While this is not a hard cut-off due to the lengthscale not being constrained by the observed data it is still useful to be able to intuit how the lengthscale effects the estimation.
 
 ```{code-cell} ipython3
 az.summary(hsgp_trace, var_names=["ls"], kind="stats")
@@ -339,7 +342,7 @@ with hsgp_model:
 posterior_predictive_prevalence = pp["posterior_predictive"]["p"]
 ```
 
-We can plot our out-of-sample posterior predictions to visualize the estimated prevalence of malaria across the Gambia. In figure below you'll notice that there is a smooth transition of prevalences surrounding the areas where we observed data in a way where nearer areas have more similar prevalences and as you move away you approach zero (the mean of the guassian process).
+We can plot our out-of-sample posterior predictions to visualize the estimated prevalence of malaria across the Gambia. In figure below you'll notice that there is a smooth transition of prevalences surrounding the areas where we observed data in a way where nearer areas have more similar prevalences and as you move away you approach zero (the mean of the gaussian process).
 
 ```{code-cell} ipython3
 fig = plt.figure(figsize=(16, 8))
@@ -385,12 +388,12 @@ plt.scatter(
 )
 plt.xlabel("Latitude")
 plt.ylabel("Longitude")
-plt.title("Probability of Malaria Prevelance greater than 20%")
+plt.title("Probability of Malaria Prevalence greater than 20%")
 plt.colorbar(label="Posterior mean");
 ```
 
 # Different Covariance Functions
-Before we conclude let's talk breifly about why we decided to use the Matérn family of covariance functions instead of the Exponential Quadratic. The Matérn family of covariances is a generalization of the Exponential Quadratic. When the smoothing parameter of the Matérn $\nu \to \infty$ then we have the Exponential Quadratic covariance function. As the smoothing parameter increases the function you are estimating becomes smoother. A few commonly used values for $\nu$ are $\frac{1}{2}$, $\frac{3}{2}$, and $\frac{5}{2}$. Typically, when estimating a measure that has a spatial dependence we don't want an overly smooth function because that will prevent our estimate to capture abrupt changes in the measurement we are estimating. Below we simulate some data to show how the Matérn is able to capture these abrupt changes, whereas the Exponential Quadratic is overly smooth. For simplicity's sake we will be working in one dimension but these concepts apply with two-dimensional data.
+Before we conclude let's talk briefly about why we decided to use the Matérn family of covariance functions instead of the Exponential Quadratic. The Matérn family of covariances is a generalization of the Exponential Quadratic. When the smoothing parameter of the Matérn $\nu \to \infty$ then we have the Exponential Quadratic covariance function. As the smoothing parameter increases the function you are estimating becomes smoother. A few commonly used values for $\nu$ are $\frac{1}{2}$, $\frac{3}{2}$, and $\frac{5}{2}$. Typically, when estimating a measure that has a spatial dependence we don't want an overly smooth function because that will prevent our estimate to capture abrupt changes in the measurement we are estimating. Below we simulate some data to show how the Matérn is able to capture these abrupt changes, whereas the Exponential Quadratic is overly smooth. For simplicity's sake we will be working in one dimension but these concepts apply with two-dimensional data.
 
 ```{code-cell} ipython3
 # simulate 1-dimensional data

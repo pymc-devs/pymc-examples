@@ -135,7 +135,7 @@ Let's look country by country.
 df_all["difference_non_abs"] = df_all["home_score"] - df_all["away_score"]
 ```
 
-Let us first loook at a Pivot table with a sum of this, broken down by year.
+Let us first look at a Pivot table with a sum of this, broken down by year.
 
 ```{code-cell} ipython3
 df_all.pivot_table("difference_non_abs", "home_team", "year")

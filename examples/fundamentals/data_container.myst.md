@@ -124,7 +124,7 @@ idata.constant_data
 
 Named dimensions are another powerful benefit of working with data containers. Data containers allow users to keep track of dimensions (like dates or cities) and coordinates (such as the actual date times or city names) of multi-dimensional data. Both allow you to specify the dimension names and coordinates of random variables, instead of specifying the shapes of those random variables as numbers. Notice that in the previous probabilistic graphs, all of the nodes `x_data`, `mu`, `obs` and `y_data` were in a box with the number 100. A natural question for a reader to ask is, "100 what?". Dimensions and coordinates help organize models, variables, and data by answering exactly this question.
 
-In the next example, we generate an artifical dataset of temperatures in 3 cities over 2 months. We will then use named dimensions and coordinates to improve the readability of the model code and the quality of the visualizations.
+In the next example, we generate an artificial dataset of temperatures in 3 cities over 2 months. We will then use named dimensions and coordinates to improve the readability of the model code and the quality of the visualizations.
 
 ```{code-cell} ipython3
 df_data = pd.DataFrame(columns=["date"]).set_index("date")
@@ -302,7 +302,7 @@ with pm.Model() as logistic_model:
 
     p = pm.Deterministic("p", pm.math.sigmoid(alpha + beta * x_data))
 
-    # Here is were we link the shapes of the inputs (x_data) and the observed varaiable
+    # Here is were we link the shapes of the inputs (x_data) and the observed variable
     # It will be the shape we tell it, rather than the (constant!) shape of y_data
     obs = pm.Bernoulli("obs", p=p, observed=y_data, shape=x_data.shape[0])
 
@@ -315,7 +315,7 @@ with pm.Model() as logistic_model:
     )
 ```
 
-A common post-estimation diagonstic is to look at a posterior predictive plot, using {func}`arviz.plot_ppc`. This shows the distribution of data sampled from your model along side the observed data. If they look similar, we have some evidence that the model isn't so bad.
+A common post-estimation diagnostic is to look at a posterior predictive plot, using {func}`arviz.plot_ppc`. This shows the distribution of data sampled from your model along side the observed data. If they look similar, we have some evidence that the model isn't so bad.
 
 In this case, however, it can be difficult to interpret a posterior predictive plot. Since we're doing a logistic regression, observed values can only be zero or one. As a result, the posterior predictive graph has this tetris-block shape. What are we to make of it? Evidently our model produces more 1's than 0's, and the mean proportion matches the data. But there's also a lot of uncertainty in that proportion. What else can we say about the model's performance?  
 
@@ -438,7 +438,7 @@ At the moment of writing Osvaldo's daughter is two weeks ($\approx 0.5$ months) 
 
 The only problem is that by default this function will return predictions for _Length_ for the observed values of _Month_, and $0.5$ months (the value Osvaldo cares about) has not been observed, -- all measures are reported for integer months. The easier way to get predictions for non-observed values of _Month_ is to pass new values to the `Data` container we defined above in our model. To do that, we need to use `pm.set_data` and then we just have to sample from the posterior predictve distribution. We will also have to set `coords` for these new observations, which we are allowed to do in the `pm.set_data` function because we have set the `obs_idx` coord as mutable. 
 
-Note that the actual value we pass for `obs_idx` is totally irrevelant *in this case*, so we give it a value of 0. What is important is that we update it to have the same length as the ages we want to do out-of-sample prediction for, and that each age has a unique index identifier.
+Note that the actual value we pass for `obs_idx` is totally irrelevant *in this case*, so we give it a value of 0. What is important is that we update it to have the same length as the ages we want to do out-of-sample prediction for, and that each age has a unique index identifier.
 
 ```{code-cell} ipython3
 ages_to_check = [0.5]
