@@ -1175,9 +1175,9 @@ with pm.Model() as new_county_house:
     mu_new = pm.Normal("mu_new", mu_a_new, sigma_a)
 
     # Expected value for houses in new county
-    y_hat_new = mu_new + beta * floor_idx
+    alpha_new = mu_new + beta * floor_idx
 
-    y_new = pm.Normal("y_new", mu=y_hat_new, sigma=sigma_y)
+    y_new = pm.Normal("y_new", mu=alpha_new, sigma=sigma_y)
 
     pp_new = pm.sample_posterior_predictive(contextual_effect_trace, var_names=["y_new"])
 ```
@@ -1218,7 +1218,7 @@ mcelreath2018statistical
 * Updated by Chris Fonnesbeck in Februry 2022 ([pymc-examples#285](https://github.com/pymc-devs/pymc-examples/pull/285))
 * Updated by Chris Fonnesbeck in November 2022 ([pymc-examples#468](https://github.com/pymc-devs/pymc-examples/pull/468))
 * Updated by Oriol Abril in November 2022 ([pymc-examples#473](https://github.com/pymc-devs/pymc-examples/pull/473))
-* Updated by Chris Fonnesbeck in November 2025
+* Updated by Chris Fonnesbeck in November 2025 ([pymc-examples#821](https://github.com/pymc-devs/pymc-examples/pull/821))
 
 +++
 
