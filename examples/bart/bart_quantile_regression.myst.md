@@ -6,7 +6,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc
   language: python
   name: python3
 ---
@@ -22,7 +22,7 @@ kernelspec:
 ```{code-cell} ipython3
 from pathlib import Path
 
-import arviz as az
+import arviz.preview as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -38,7 +38,7 @@ print(f"Running on PyMC v{pm.__version__}")
 %config InlineBackend.figure_format = "retina"
 RANDOM_SEED = 5781
 np.random.seed(RANDOM_SEED)
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 ```
 
 Usually when doing regression we model the conditional mean of some distribution. Common cases are a Normal distribution for continuous unbounded responses, a Poisson distribution for count data, etc.
@@ -150,6 +150,7 @@ We can see that when we use a Normal likelihood, and from that fit we compute th
 * Rerun by Osvaldo Martin in Mar, 2023
 * Rerun by Osvaldo Martin in Nov, 2023
 * Rerun by Osvaldo Martin in Dec, 2024
+* Rerun by Osvaldo Martin in Dec, 2025
 
 +++
 

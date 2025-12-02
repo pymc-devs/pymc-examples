@@ -6,7 +6,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc
   language: python
   name: python3
 ---
@@ -27,7 +27,7 @@ In this notebook we show how to use BART to model heteroscedasticity as describe
 ```{code-cell} ipython3
 import os
 
-import arviz as az
+import arviz.preview as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -37,7 +37,7 @@ import pymc_bart as pmb
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = "retina"
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 plt.rcParams["figure.figsize"] = [10, 6]
 rng = np.random.default_rng(42)
 ```
@@ -103,40 +103,26 @@ with model_marketing_full:
 We can now visualize the posterior predictive distribution of the mean and the likelihood.
 
 ```{code-cell} ipython3
-posterior_mean = idata_marketing_full.posterior["w"].mean(dim=("chain", "draw"))[0]
-
-w_hdi = az.hdi(ary=idata_marketing_full, group="posterior", var_names=["w"], hdi_prob=0.5)
-
-pps = az.extract(
-    posterior_predictive_marketing_full, group="posterior_predictive", var_names=["y"]
-).T
+posterior_predictive_marketing_full
 ```
 
 ```{code-cell} ipython3
-idx = np.argsort(X[:, 0])
-
-
-fig, ax = plt.subplots()
-az.plot_hdi(
-    x=X[:, 0],
-    y=pps,
-    ax=ax,
-    hdi_prob=0.90,
-    fill_kwargs={"alpha": 0.3, "label": r"Observations $90\%$ HDI"},
+dt_plot = az.from_dict(
+    {
+        "posterior_predictive": {
+            "y": posterior_predictive_marketing_full.posterior_predictive["y"]
+        },
+        "observed_data": {"y": df["sales"].values},
+        "constant_data": {"budget": X[:, 0]},
+    },
+    dims={
+        "mean": ["budget_dim"],
+        "y": ["budget_dim"],
+        "budget": ["budget_dim"],
+    },
 )
-az.plot_hdi(
-    x=X[:, 0],
-    hdi_data=np.exp(w_hdi["w"].sel(w_dim_0=0)),
-    ax=ax,
-    fill_kwargs={"alpha": 0.6, "label": r"Mean $50\%$ HDI"},
-)
-ax.plot(df["youtube"], df["sales"], "o", c="C0", label="Raw Data")
-ax.legend(loc="upper left")
-ax.set(
-    title="Sales as a function of Youtube budget - Posterior Predictive",
-    xlabel="budget",
-    ylabel="sales",
-);
+
+az.plot_lm(dt_plot, x="budget", y="y");
 ```
 
 The fit looks good! In fact, we see that the mean and variance increase as a function of the budget.
