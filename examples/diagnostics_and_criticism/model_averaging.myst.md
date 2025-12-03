@@ -53,7 +53,7 @@ az.style.use("arviz-variat")
 
 +++ {"papermill": {"duration": 0.068882, "end_time": "2020-11-29T12:13:08.020372", "exception": false, "start_time": "2020-11-29T12:13:07.951490", "status": "completed"}}
 
-When confronted with more than one model we have several options. One of them is to perform model selection as exemplified by the PyMC examples {ref}`pymc:model_comparison` and the {ref}`GLM-model-selection`, usually is a good idea to also include posterior predictive checks in order to decide which model to keep. Discarding all models except one is equivalent to affirm that, among the evaluated models, one is correct (under some criteria) with probability 1 and the rest are incorrect. In most cases this will be an overstatment that ignores the uncertainty we have in our models. This is somewhat similar to computing the full posterior and then just keeping a point-estimate like the posterior mean; we may become overconfident of what we really know. You can also browse the {doc}`blog/tag/model-comparison` tag to find related posts. 
+When confronted with more than one model we have several options. One of them is to perform model selection as exemplified by the PyMC examples {ref}`pymc:model_comparison` and the {ref}`GLM-model-selection`, usually is a good idea to also include posterior predictive checks in order to decide which model to keep. Discarding all models except one is equivalent to affirm that, among the evaluated models, one is correct (under some criteria) with probability 1 and the rest are incorrect. In most cases this will be an overstatement that ignores the uncertainty we have in our models. This is somewhat similar to computing the full posterior and then just keeping a point-estimate like the posterior mean; we may become overconfident of what we really know. You can also browse the {doc}`blog/tag/model-comparison` tag to find related posts. 
 
 An alternative to this dilemma is to perform model selection but to acknowledge the models we discarded. If the number of models are not that large this can be part of a technical discussion on a paper, presentation, thesis, and so on. If the audience is not technical enough, this may not be a good idea.
 
@@ -62,7 +62,7 @@ Yet another alternative, the topic of this example, is to perform model averagin
 
 ## Pseudo Bayesian model averaging
 
-Bayesian models can be weighted by their marginal likelihood, which is known as Bayesian Model Averaging. While this is theoretically appealing, it is problematic in practice: on the one hand the marginal likelihood is highly sensitive to the specification of the prior, in a way that parameter estimation is not, and on the other, computing the marginal likelihood is usually a challenging task. Additionally, Bayesian model averaging is ﬂawed in the $\mathcal{M}$-open setting in which the true data-generating process is not one of the candidate models being ﬁt {cite:t}`Yao_2018`. A more robust approach is to compute the  expected log pointwise predictive density (ELPD).
+Bayesian models can be weighted by their marginal likelihood, which is known as Bayesian Model Averaging. While this is theoretically appealing, it is problematic in practice: on the one hand the marginal likelihood is highly sensitive to the specification of the prior, in a way that parameter estimation is not, and on the other, computing the marginal likelihood is usually a challenging task. Additionally, Bayesian model averaging is ﬂawed in the $\mathcal{M}$-open setting in which the true data-generating process is not one of the candidate models being ﬁt {cite:t}`Yao_2018`. A more robust approach is to compute the expected log pointwise predictive density (ELPD).
 
 $$
 \sum_i^N \log \int \ p(y_i \mid \theta) \; p(\theta \mid y) d\theta
@@ -76,14 +76,9 @@ $$w_i = \frac {e^{dELPD_i}} {\sum_j^M e^{dELPD_i}}$$
 
 Where $dELPD_i$ is the difference between the model with the best ELPD and the i-th model.
 
-This approach is called pseudo Bayesian model averaging, or Akaike-like weighting and is an heuristic to compute the relative probability of each model (given a fixed set of models). Note that we exponetiate to "revert" the effect of the logarithm in the ELPD formula and the denominator is a normalization term to ensure that the weights sum up to one. With a pinch of salt, we can interpret these weights as the probability of each model explaining the data.
+This approach is called pseudo Bayesian model averaging, or Akaike-like weighting and is an heuristic to compute the relative probability of each model (given a fixed set of models). Note that we exponentiate to "revert" the effect of the logarithm in the ELPD formula and the denominator is a normalization term to ensure that the weights sum up to one. With a pinch of salt, we can interpret these weights as the probability of each model explaining the data.
 
-So far so good, but the ELPD is a theoretical quantity, and in practice we need to approximate it. To do so ArviZ offers two methods
-
-* WAIC, Widely Applicable Information Criterion
-* LOO, Pareto-Smooth-Leave-One-Out-Cross-Validation.
-
-Both require and InferenceData with the log-likelihood group and are equally fast to compute. We recommend using LOO because it has better practical properties, and better diagnostics (so we known when we are having issues with the ELPD estimation).
+So far so good, but the ELPD is a theoretical quantity, and in practice we need to approximate it. To do so ArviZ offers one efficient method Pareto-Smooth-Leave-One-Out-Cross-Validation, PSIS-LOO-CV {cite:t}`Vehtari_2017`. You can read more about it [here](https://arviz-devs.github.io/EABM/Chapters/Model_comparison.html).
 
 ## Pseudo Bayesian model averaging with Bayesian Bootstrapping
 
@@ -95,9 +90,9 @@ The third approach we will discuss is known as _stacking of predictive distribut
 
 $$\max_{w} \frac{1}{n} \sum_{i=1}^{n}log\sum_{k=1}^{K} w_k p(y_i \mid y_{-i}, M_k)$$
 
-Where $n$ is the number of data points and $K$ the number of models. To enforce a solution we constrain $w$ to be $w_k \ge 0$ and  $\sum_{k=1}^{K} w_k = 1$. 
+Where $n$ is the number of data points and $K$ the number of models. To enforce a solution we constrain $w$ to be $w_k \ge 0$ and $\sum_{k=1}^{K} w_k = 1$. 
 
-The quantity $p(y_i \mid y_{-i}, M_k)$ is the leave-one-out predictive distribution for the $M_k$ model. Computing it requires fitting each model $n$ times, each time leaving out one data point. Fortunately, this is exactly what LOO approximates in a very efficient way. So we can use LOO and stacking together. To be fair, we can also use WAIC, even when WAIC approximates the ELPD in a different way.
+The quantity $p(y_i \mid y_{-i}, M_k)$ is the leave-one-out predictive distribution for the $M_k$ model. Computing it requires fitting each model $n$ times, each time leaving out one data point. Fortunately, this is exactly what PSIS-LOO_CV approximates in a very efficient way. So we can use PSIS-LOO-CV and stacking together.
 
 ## Weighted posterior predictive samples
 
@@ -154,7 +149,7 @@ with pm.Model() as model_1:
     pm.sample_posterior_predictive(idata_1, extend_inferencedata=True, random_seed=rng)
 ```
 
-Before LOO (or WAIC) to compare and or average models we should check that we do not have sampling issues and posterior predictive checks are reasonable. For the sake of brevity we are going to skip these steps and instead jump to the model averaging.
+Before comparing and averaging models we should check that we do not have sampling issues and posterior predictive checks are reasonable. For the sake of brevity we are going to skip these steps and instead jump to the model averaging.
 
 First we need to call `az.compare` to compute the LOO values for each model and the weights using `stacking`. These are the default options, if you want to perform pseudo Bayesian model averaging you can use the `method='BB-pseudo-BMA'` that includes the Bayesian Bootstrap estimation of the uncertainty in the ELPD.
 
@@ -164,20 +159,7 @@ comp = az.compare(model_dict)
 comp
 ```
 
-```{code-cell} ipython3
-
-```
-
 We can see from the column `weight`, that `model_1` has a weight of $\approx 0.6$ and `model_2` has a weight $\approx 0.4$. To use this weights to generate posterior predictive samples we can use the `az.weighted_posterior` function. This function takes the InferenceData objects and the weights and returns a new InferenceData object.
-
-```{code-cell} ipython3
-import arviz as azl
-
-ppc_w = azl.weight_predictions(
-    [model_dict[name] for name in comp.index],
-    weights=comp.weight,
-)
-```
 
 ```{code-cell} ipython3
 ppc_w = az.weight_predictions(
