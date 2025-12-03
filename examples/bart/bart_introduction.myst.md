@@ -272,11 +272,13 @@ with model_oos_regression:
 Finally, we can compare the posterior predictive distribution with the observed data.
 
 ```{code-cell} ipython3
-az.plot_ppc_dist(posterior_predictive_oos_regression_train, kind="ecdf");
+pc = az.plot_ppc_dist(posterior_predictive_oos_regression_train, kind="ecdf")
+pc.get_viz("plot", "y").set_xlim(0, 1_000);
 ```
 
 ```{code-cell} ipython3
-az.plot_ppc_dist(posterior_predictive_oos_regression_test, kind="ecdf");
+pc = az.plot_ppc_dist(posterior_predictive_oos_regression_test, kind="ecdf")
+pc.get_viz("plot", "y").set_xlim(0, 1_000);
 ```
 
 Yay! The results look quite reasonable 🙂!

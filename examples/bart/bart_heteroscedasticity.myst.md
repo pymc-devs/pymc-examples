@@ -116,7 +116,6 @@ dt_plot = az.from_dict(
         "constant_data": {"budget": X[:, 0]},
     },
     dims={
-        "mean": ["budget_dim"],
         "y": ["budget_dim"],
         "budget": ["budget_dim"],
     },
