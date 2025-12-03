@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc
   language: python
   name: python3
 ---
@@ -30,8 +30,7 @@ papermill:
 ---
 import os
 
-import arviz as az
-import matplotlib.pyplot as plt
+import arviz.preview as az
 import numpy as np
 import pandas as pd
 import pymc as pm
@@ -49,7 +48,7 @@ papermill:
   status: completed
 ---
 rng = np.random.seed(2741)
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 ```
 
 +++ {"papermill": {"duration": 0.068882, "end_time": "2020-11-29T12:13:08.020372", "exception": false, "start_time": "2020-11-29T12:13:07.951490", "status": "completed"}}
@@ -165,34 +164,46 @@ comp = az.compare(model_dict)
 comp
 ```
 
+```{code-cell} ipython3
+
+```
+
 We can see from the column `weight`, that `model_1` has a weight of $\approx 0.6$ and `model_2` has a weight $\approx 0.4$. To use this weights to generate posterior predictive samples we can use the `az.weighted_posterior` function. This function takes the InferenceData objects and the weights and returns a new InferenceData object.
+
+```{code-cell} ipython3
+import arviz as azl
+
+ppc_w = azl.weight_predictions(
+    [model_dict[name] for name in comp.index],
+    weights=comp.weight,
+)
+```
 
 ```{code-cell} ipython3
 ppc_w = az.weight_predictions(
     [model_dict[name] for name in comp.index],
     weights=comp.weight,
 )
-ppc_w
 ```
 
 From the following plot we can see that the avearged model is a combination of the two models.
 
 ```{code-cell} ipython3
-az.plot_kde(
-    idata_0.posterior_predictive["siri"].values,
-    plot_kwargs={"color": "C0", "linestyle": "--"},
-    label="model_0",
+import xarray as xr
+
+models = {
+    "model_0": xr.Dataset({"siri": idata_0.posterior_predictive["siri"].mean(["chain", "draw"])}),
+    "model_1": xr.Dataset({"siri": idata_1.posterior_predictive["siri"].mean(["chain", "draw"])}),
+    "average_model": xr.Dataset({"siri": ppc_w.posterior_predictive["siri"].mean(["sample"])}),
+}
+
+pc = az.plot_dist(
+    models,
+    visuals={"dist": False, "point_estimate_text": False},
+    point_estimate="median",
+    sample_dims=["siri_dim_0"],
 )
-az.plot_kde(
-    idata_1.posterior_predictive["siri"].values,
-    plot_kwargs={"color": "C0", "linestyle": "--"},
-    label="model_1",
-)
-az.plot_kde(
-    ppc_w.posterior_predictive["siri"].values,
-    plot_kwargs={"color": "C1", "linewidth": 2},
-    label="average_model",
-);
+pc.add_legend("model");
 ```
 
 ## To do or not to do?
@@ -214,7 +225,8 @@ Hierarchical models are another example were we build a continuous version of a 
 * Updated by Raul Maldonado in February 2021 ([pymc#25](https://github.com/pymc-devs/pymc-examples/pull/25))
 * Updated Markdown and styling by @reshamas in August 2022, ([pymc-examples#414](https://github.com/pymc-devs/pymc-examples/pull/414))
 * Updated notebook to use pymc 5 by Adrien Porter in November 2023 
-* Updated by Osvaldo Martin in August 2024 
+* Updated by Osvaldo Martin in August 2024
+* Updated by Osvaldo Martin in Dec 2025
 
 +++
 
