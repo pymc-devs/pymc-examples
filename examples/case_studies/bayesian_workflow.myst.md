@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: default
+  display_name: pymc
   language: python
   name: python3
 ---
@@ -39,9 +39,8 @@ papermill:
 ---
 import warnings
 
-import arviz as az
+import arviz.preview as az
 import load_covid_data
-import matplotlib.pyplot as plt
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
@@ -54,18 +53,13 @@ from plotly.subplots import make_subplots
 
 # Set renderer to generate static images
 pio.renderers.default = "png"
-
-# Configure image size and quality
-pio.kaleido.scope.default_width = 800
-pio.kaleido.scope.default_height = 600
-pio.kaleido.scope.default_scale = 2
-
 warnings.simplefilter("ignore")
 
 RANDOM_SEED = 8451997
-sampler_kwargs = {"chains": 4, "cores": 4, "tune": 2000, "random_seed": RANDOM_SEED}
+sampler_kwargs = {"chains": 4, "cores": 4, "tune": 1000, "random_seed": RANDOM_SEED}
 
-az.style.use("arviz-doc")
+az.rcParams["plot.backend"] = "plotly"
+az.style.use("arviz-variat")
 ```
 
 Bayesian methods offer several fundamental strengths that make it particularly valuable for building robust statistical models. Its great **flexibility** allows practitioners to build remarkably complex models from simple building blocks. The framework provides a principled way of dealing with **uncertainty**, capturing not just the most likely outcome but the complete distribution of all possible outcomes. Critically, Bayesian methods allow **expert information** to guide model development through the use of informative priors, incorporating domain knowledge directly into the analysis.
@@ -254,7 +248,6 @@ fig.update_layout(
     yaxis_title="Positive cases",
     yaxis=dict(range=[-1000, 1000]),
     xaxis=dict(range=[0, 10]),
-    template="plotly_white",
 )
 ```
 
@@ -332,7 +325,6 @@ fig.update_layout(
     yaxis_title="Positive cases",
     yaxis=dict(range=[-100, 1000]),
     xaxis=dict(range=[0, 10]),
-    template="plotly_white",
 )
 ```
 
@@ -390,12 +382,12 @@ make_subplots(
 ).update_yaxes(
     title_text="Count", row=1, col=1
 ).update_layout(
-    template="plotly_white", showlegend=False, height=350
+    showlegend=False, height=350
 )
 ```
 
 ```{code-cell} ipython3
-obs_samples = az.extract(prior_pred3.prior_predictive)["obs"].values
+obs_samples = az.extract(prior_pred3.prior_predictive).values
 
 fig = go.Figure()
 for i in range(min(100, obs_samples.shape[1])):  # Show max 100 traces
@@ -416,7 +408,6 @@ fig.update_layout(
     yaxis_title="Positive cases",
     yaxis=dict(range=[0, 1000]),
     xaxis=dict(range=[0, 10]),
-    template="plotly_white",
 )
 ```
 
@@ -446,11 +437,11 @@ Before trusting our results, we must verify that the sampler has converged prope
 :::
 
 ```{code-cell} ipython3
-az.plot_trace(trace_exp3, var_names=["a", "b", "alpha"]);
+az.plot_rank_dist(trace_exp3, var_names=["a", "b", "alpha"]);
 ```
 
 ```{code-cell} ipython3
-az.summary(trace_exp3, var_names=["a", "b", "alpha"])
+az.summary(trace_exp3, var_names=["a", "b", "alpha"], kind="diagnostics")
 ```
 
 ```{code-cell} ipython3
@@ -462,7 +453,7 @@ az.plot_energy(trace_exp3);
 
 ✓ **R-hat values**: All close to 1.0 (< 1.01)  
 ✓ **Effective sample size**: Reasonable for all parameters  
-✓ **Trace plots**: Show good mixing with no trends  
+✓ **Rank plots**: Show relatively good mixing with no trends  
 ✓ **Energy plot**: Marginal and energy distributions overlap well  
 
 Our model has converged successfully!
@@ -538,22 +529,8 @@ for config in prior_configs:
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(8, 4))
-
-colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]
-
-for i, (name, trace) in enumerate(results.items()):
-    az.plot_kde(
-        trace.posterior["b"].values.flatten(),
-        label=name,
-        ax=ax,
-        plot_kwargs={"color": colors[i], "linewidth": 2},
-    )
-
-ax.set_xlabel("Growth rate (b)")
-ax.set_ylabel("Density")
-ax.set_title("Sensitivity to Prior Choice")
-ax.legend();
+pc = az.plot_dist(results, var_names=["b"])
+pc.add_legend("model");
 ```
 
 :::{admonition} Sensitivity Analysis Results
@@ -620,7 +597,6 @@ fig.add_trace(
     xaxis_title="Days since 100 cases",
     yaxis_title="Confirmed cases (log scale)",
     yaxis_type="log",
-    template="plotly_white",
 )
 ```
 
@@ -651,7 +627,6 @@ fig.update_layout(
     xaxis_title="Days since 100 cases",
     yaxis_title="Residual",
     yaxis=dict(range=[-50000, 200000]),
-    template="plotly_white",
 )
 ```
 
@@ -768,7 +743,6 @@ fig.update_layout(
     xaxis_title="Days since 100 cases",
     yaxis_title="Confirmed cases",
     yaxis_type="log",
-    template="plotly_white",
     height=400,
 )
 ```
@@ -851,7 +825,6 @@ fig.update_layout(
     xaxis_title="Days since 100 cases",
     yaxis_title="Positive cases",
     yaxis_type="log",
-    template="plotly_white",
 )
 ```
 
@@ -865,7 +838,7 @@ with logistic_model:
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace_logistic);
+az.plot_rank_dist(trace_logistic);
 ```
 
 ```{code-cell} ipython3
@@ -905,7 +878,6 @@ fig.add_trace(
     title="Logistic Model Fit - Germany",
     xaxis_title="Days since 100 cases",
     yaxis_title="Confirmed cases",
-    template="plotly_white",
     height=400,
 )
 ```
@@ -987,7 +959,7 @@ fig = px.line(
     labels={"days_since_100": "Days since 100 cases", "confirmed": "Confirmed cases"},
 )
 fig.update_traces(line=dict(color="#FF4136", width=3))
-fig.update_layout(template="plotly_white", height=400)
+fig.update_layout(height=400)
 ```
 
 The US data looks quite different - there appear to be multiple waves. Let's see how our logistic model handles this:
@@ -1026,7 +998,7 @@ with logistic_model_us:
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace_logistic_us);
+az.plot_rank_dist(trace_logistic_us);
 ```
 
 ```{code-cell} ipython3
@@ -1066,7 +1038,6 @@ fig.add_trace(
     title="Logistic Model Fit - US",
     xaxis_title="Days since 100 cases",
     yaxis_title="Confirmed cases",
-    template="plotly_white",
     height=400,
 )
 ```

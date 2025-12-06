@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-examples
+  display_name: pymc
   language: python
-  name: pymc-examples
+  name: python3
 myst:
   substitutions:
     conda_dependencies: pymc-bart
@@ -35,7 +35,7 @@ In this example, we will model outcomes with more than two categories.
 import os
 import warnings
 
-import arviz as az
+import arviz.preview as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -51,7 +51,7 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 ```{code-cell} ipython3
 # set formats
 RANDOM_SEED = 8457
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 ```
 
 ## Hawks dataset  
@@ -134,7 +134,11 @@ with model_hawks:
 
 ### Variable Importance  
 
-It may be that some of the input variables are not informative for classifying by species, so in the interest of parsimony and in reducing the computational cost of model estimation, it is useful to quantify the importance of each variable in the dataset. PyMC-BART provides the function {func}`~pymc_bart.plot_variable_importance()`, which generates a plot that shows on his x-axis the number of covariables and on the y-axis the R$^2$ (the square of the Pearson correlation coefficient) between the predictions made for the full model (all variables included) and the restricted models, those with only a subset of the variables. The error bars represent the 94 % HDI from the posterior predictive distribution. 
+It may be that some of the input variables are not informative for classifying by species, so in the interest of parsimony and in reducing the computational cost of model estimation, it is useful to quantify the importance of each variable in the dataset. PyMC-BART provides the function {func}`~pymc_bart.compute_variable_importance()` and {func}`~pymc_bart.plot_variable_importance()`, that work together to generate a plot that shows on his x-axis the number of covariables and on the y-axis the R$^2$ between the predictions made for the full model (all variables included) and the restricted models, those with only a subset of the variables. The error bars represent the 94 % HDI from the posterior predictive distribution.
+
+```{code-cell} ipython3
+idata.posterior_predictive
+```
 
 ```{code-cell} ipython3
 ---
@@ -190,37 +194,19 @@ Hawks.groupby("Species").count()
 
 ### Predicted vs Observed  
 
-Now we are going to compare the predicted data with the observed data to evaluate the fit of the model, we do this with the Arviz function `az.plot_ppc()`.  
+We are going to evaluate the model by comparing the predicted data against the observed data. This can be tricky to do with categorical data (and binary or ordinal data as well). For this reason we use PAV-adjusted calibration plots as described by {cite:t}`dimitriadis2021` and in a Bayesian context by {cite:t}`säilynoja2025`. 
+
+In these plots the observed events are replaced with conditional event probabilities (CEP), which is the probability that a certain event occurs given that the classifier has assigned a specific predicted probability. 
+
+We can esily generate this type of plots with the ArviZ's function `az.plot_ppc_pava()`, as this function also works for binary and ordinal data we need to specify `data_type="categorical"`.  You can read more about these plots [here](https://arviz-devs.github.io/EABM/Chapters/Prior_posterior_predictive_checks.html#posterior-predictive-checks-for-discrete-data).
 
 ```{code-cell} ipython3
-ax = az.plot_ppc(idata, kind="kde", num_pp_samples=200, random_seed=123)
-# plot aesthetics
-ax.set_ylim(0, 0.7)
-ax.set_yticks([0, 0.2, 0.4, 0.6])
-ax.set_ylabel("Probability")
-ax.set_xticks([0.5, 1.5, 2.5])
-ax.set_xticklabels(["CH", "RT", "SS"])
-ax.set_xlabel("Species");
+az.plot_ppc_pava(idata, data_type="categorical");
 ```
 
-We can see a good agreement between the observed data (black line) and those predicted by the model (blue and orange lines). As we mentioned before, the difference in the values between species is influenced by the amount of data for each one. Here there is no observed dispersion in the predicted data as we saw in the previous two plots.  
+Each subplot is a category vs the others. The ideal calibration plot is a diagonal line, represented by the gray dashed line, where the predicted probabilities are equal to the observed frequencies. If the line is above the diagonal, the model is underestimating the probabilities, and if the line is below the diagonal, the model is overestimating the probabilities.
 
 +++
-
-Below we see that the in-sample predictions provide very good agreement with the observations.  
-
-```{code-cell} ipython3
-np.mean((idata.posterior_predictive["y"] - y_0) == 0) * 100
-```
-
-```{code-cell} ipython3
-all = 0
-for i in range(3):
-    perct_per_class = np.mean(idata.posterior_predictive["y"].where(y_0 == i) == i) * 100
-    all += perct_per_class
-    print(perct_per_class)
-all
-```
 
 So far we have a very good result concerning the classification of the species based on the 5 covariables. However, if we want to select a subset of covariable to perform future classifications is not very clear which of them to select. Maybe something sure is that `Tail` could be eliminated. At the beginning when we plot the distribution of each covariable we said that the most important variables to make the classification could be `Wing`, `Weight` and, `Culmen`, nevertheless after running the model we saw that `Hallux`, `Culmen` and, `Wing`, proved to be the most important ones.
 
@@ -270,35 +256,17 @@ With all these together, we can select `Hallux`, `Culmen`, and, `Wing` as covari
 
 +++
 
-Concerning the comparison between observed and predicted data, we obtain the same good result with less uncertainty for the predicted values (blue lines). And the same counts for the in-sample comparison.  
+Concerning the comparison between observed and predicted data, we can see that the model shows better calibration, as the lines are closer to the diagonal and the bands are in general less wide.
 
 ```{code-cell} ipython3
-ax = az.plot_ppc(idata_t, kind="kde", num_pp_samples=100, random_seed=123)
-ax.set_ylim(0, 0.7)
-ax.set_yticks([0, 0.2, 0.4, 0.6])
-ax.set_ylabel("Probability")
-ax.set_xticks([0.5, 1.5, 2.5])
-ax.set_xticklabels(["CH", "RT", "SS"])
-ax.set_xlabel("Species");
-```
-
-```{code-cell} ipython3
-np.mean((idata_t.posterior_predictive["y"] - y_0) == 0) * 100
-```
-
-```{code-cell} ipython3
-all = 0
-for i in range(3):
-    perct_per_class = np.mean(idata_t.posterior_predictive["y"].where(y_0 == i) == i) * 100
-    all += perct_per_class
-    print(perct_per_class)
-all
+az.plot_ppc_pava(idata_t, data_type="categorical");
 ```
 
 ## Authors
 - Authored by [Pablo Garay](https://github.com/PabloGGaray) and [Osvaldo Martin](https://aloctavodia.github.io/) in May, 2024
 - Updated by Osvaldo Martin in Dec, 2024
 - Expanded by [Alex Andorra](https://github.com/AlexAndorra) in Feb, 2025
+- Updated by Osvaldo Martin in Dec, 2025
 
 +++
 
