@@ -349,27 +349,27 @@ def make_B(priors=[0, 0.5], group_suffix=""):
     zeros = pt.zeros((4, 4))
     ## dysfunctional ~ constructive
     zeros = pt.set_subtensor(
-        zeros[LATENT_ORDER_LKUP["constructive"], LATENT_ORDER_LKUP["dysfunctional"]], coefs[0]
+        zeros[LATENT_ORDER_LKUP["dysfunctional"], LATENT_ORDER_LKUP["constructive"]], coefs[0]
     )
     ## well being ~ dysfunctional
     zeros = pt.set_subtensor(
-        zeros[LATENT_ORDER_LKUP["dysfunctional"], LATENT_ORDER_LKUP["well being"]], coefs[1]
+        zeros[LATENT_ORDER_LKUP["well being"], LATENT_ORDER_LKUP["dysfunctional"]], coefs[1]
     )
     ## well being ~ constructive
     zeros = pt.set_subtensor(
-        zeros[LATENT_ORDER_LKUP["constructive"], LATENT_ORDER_LKUP["well being"]], coefs[2]
+        zeros[LATENT_ORDER_LKUP["well being"], LATENT_ORDER_LKUP["constructive"]], coefs[2]
     )
     ## satisfaction ~ well being
     zeros = pt.set_subtensor(
-        zeros[LATENT_ORDER_LKUP["well being"], LATENT_ORDER_LKUP["satisfaction"]], coefs[3]
+        zeros[LATENT_ORDER_LKUP["satisfaction"], LATENT_ORDER_LKUP["well being"]], coefs[3]
     )
     ## satisfaction ~ dysfunction
     zeros = pt.set_subtensor(
-        zeros[LATENT_ORDER_LKUP["dysfunctional"], LATENT_ORDER_LKUP["satisfaction"]], coefs[4]
+        zeros[LATENT_ORDER_LKUP["satisfaction"], LATENT_ORDER_LKUP["dysfunctional"]], coefs[4]
     )
     ## satisfaction ~ constructive
     coefs_ = pt.set_subtensor(
-        zeros[LATENT_ORDER_LKUP["constructive"], LATENT_ORDER_LKUP["satisfaction"]], coefs[5]
+        zeros[LATENT_ORDER_LKUP["satisfaction"], LATENT_ORDER_LKUP["constructive"]], coefs[5]
     )
     B = pm.Deterministic(f"B_{group_suffix}", coefs_, dims=("latent", "latent1"))
     return B
@@ -855,8 +855,17 @@ with pm.Model(coords=coords) as sem_model_v2:
         Lambda.dot(inv_lhs).dot(Psi_zeta).dot(inv_lhs.T).dot(Lambda.T) + Psi,
     )
     ## Eta is predicted not sampled!
-    M = Psi_zeta @ inv_lhs @ Lambda.T @ pm.math.matrix_inverse(Sigma_y)
-    eta_hat = pm.Deterministic("eta", (M @ (observed_data - 0).T).T, dims=("obs", "latent"))
+    Sigma_eta_y = pm.Deterministic(
+        "Sigma_eta_y", inv_lhs @ Psi_zeta @ inv_lhs.T @ Lambda.T, dims=("latent", "indicators")
+    )
+
+    # Inverse of Sigma_y
+    Sigma_y_inv = pm.math.matrix_inverse(Sigma_y)
+
+    # Posterior mean of eta (E[eta|y])
+    eta_hat = pm.Deterministic(
+        "eta", ((Sigma_eta_y @ Sigma_y_inv) @ (observed_data - 0).T).T, dims=("obs", "latent")
+    )
     _ = pm.MvNormal(
         "likelihood", mu=0, cov=Sigma_y, observed=observed_data, dims=("obs", "indicators")
     )
@@ -936,9 +945,16 @@ with pm.Model(coords=coords) as sem_model_mean_structure:
     Sigma_y = pm.Deterministic(
         "Sigma_y", Lambda.dot(inv_lhs).dot(Psi_zeta).dot(inv_lhs.T).dot(Lambda.T) + Psi
     )
-    M = Psi_zeta @ inv_lhs @ Lambda.T @ pm.math.matrix_inverse(Sigma_y)
+    Sigma_eta_y = pm.Deterministic(
+        "Sigma_eta_y", inv_lhs @ Psi_zeta @ inv_lhs.T @ Lambda.T, dims=("latent", "indicators")
+    )
+
+    # Inverse of Sigma_y
+    Sigma_y_inv = pm.math.matrix_inverse(Sigma_y)
+
+    # Posterior mean of eta (E[eta|y])
     eta_hat = pm.Deterministic(
-        "eta", alpha + (M @ (observed_data - mu_y).T).T, dims=("obs", "latent")
+        "eta", ((Sigma_eta_y @ Sigma_y_inv) @ (observed_data - mu_y).T).T, dims=("obs", "latent")
     )
     _ = pm.MvNormal(
         "likelihood", mu=mu_y, cov=Sigma_y, observed=observed_data, dims=("obs", "indicators")
@@ -1029,7 +1045,7 @@ def plot_total_effects(idata, title):
 
     direct_effect = az.summary(idata, var_names=["B_"])["mean"].values.reshape((4, 4))
 
-    i, j = np.triu_indices(total_effect.reshape((4, 4)).shape[0])
+    i, j = np.tril_indices(total_effect.reshape((4, 4)).shape[0])
     total_effect[i, j] = np.nan
     direct_effect[i, j] = np.nan
 
@@ -1046,8 +1062,8 @@ def plot_total_effects(idata, title):
     )
     plt.tight_layout()
     axs[0].set_xticklabels(axs[0].get_xticklabels(), rotation=65)
-    axs[0].set_xlabel("Target Variable")
-    axs[0].set_ylabel("Regression Predictor")
+    axs[0].set_xlabel("Regression Predictor")
+    axs[0].set_ylabel("Target Variable")
 
     plot_heatmap(
         pd.DataFrame(indirect_effect, columns=coords["latent"], index=coords["latent"]),
@@ -1061,7 +1077,7 @@ def plot_total_effects(idata, title):
     plt.tight_layout()
     axs[1].set_yticklabels([])
     axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=65)
-    axs[1].set_xlabel("Target Variable")
+    axs[1].set_xlabel("Regression Predictor")
 
     plot_heatmap(
         pd.DataFrame(
@@ -1077,7 +1093,7 @@ def plot_total_effects(idata, title):
     plt.tight_layout()
     axs[2].set_yticklabels([])
     axs[2].set_xticklabels(axs[2].get_xticklabels(), rotation=65)
-    axs[2].set_xlabel("Target Variable")
+    axs[2].set_xlabel("Regression Predictor")
 
     axs[0].grid(False)
     axs[1].grid(False)
@@ -1154,7 +1170,7 @@ $$ p(y | \eta, \theta)$$
 
 whereas the marginal formulation does not make use of `eta` in the likelihood calculation. 
 
-$$ p(y | \theta)$$ 
+$p(y | \theta)$ 
 
 As such, we're comparing apples and oranges when we try and compare marginal and conditional SEMs on their LOO scores. The interpretive gloss here is that it's better to see the conditional performance metric as a score for reconstruction error. While the marginal scores can be seen as proper proxies for out-of-sample predictions error. They are both useful measures but represent slightly different performance measures. This is an easy detail to miss when you're naively chasing performance benchmarks. When selecting models with metric optimisation in mind, we need to understand what we're actually optimising.  
 
@@ -1272,7 +1288,7 @@ We now want to see if we can infer the parameters used to generate the data from
 with pm.observe(sem_model_hierarchical_wide, {"likelihood": synthetic_y}) as inference_model:
     idata_hierarchical = pm.sample_prior_predictive()
     idata_hierarchical.extend(
-        pm.sample(random_seed=100, nuts_sampler="numpyro", chains=4, draws=500, tune=2000)
+        pm.sample(random_seed=100, nuts_sampler="numpyro", chains=4, draws=1000, tune=2000)
     )
 ```
 
@@ -1397,9 +1413,22 @@ def make_discrete_choice_conditional(observed_data, priors, conditional=True):
                 "Sigma_y",
                 Lambda.dot(inv_lhs).dot(Psi_zeta).dot(inv_lhs.T).dot(Lambda.T) + Psi,
             )
-            ## Eta is predicted not sampled!
-            M = Psi_zeta @ inv_lhs @ Lambda.T @ pm.math.matrix_inverse(Sigma_y)
-            eta = pm.Deterministic("eta", (M @ (observed_data - 0).T).T, dims=("obs", "latent"))
+            Sigma_eta_y = pm.Deterministic(
+                "Sigma_eta_y",
+                inv_lhs @ Psi_zeta @ inv_lhs.T @ Lambda.T,
+                dims=("latent", "indicators"),
+            )
+
+            # Inverse of Sigma_y
+            Sigma_y_inv = pm.math.matrix_inverse(Sigma_y)
+
+            # Posterior mean of eta (E[eta|y])
+            eta_hat = pm.Deterministic(
+                "eta",
+                ((Sigma_eta_y @ Sigma_y_inv) @ (observed_data - 0).T).T,
+                dims=("obs", "latent"),
+            )
+
             _ = pm.MvNormal("likelihood", mu=0, cov=Sigma_y, dims=("obs", "indicators"))
 
         alphas_choice_ = pm.Normal(
@@ -1419,7 +1448,7 @@ def make_discrete_choice_conditional(observed_data, priors, conditional=True):
         betas_choice = pt.expand_dims(alphas_choice, 1) * betas_choice_
 
         utility_of_work = pm.Deterministic(
-            "mu_choice", alphas_choice + pm.math.dot(eta, betas_choice.T)
+            "mu_choice", alphas_choice + pm.math.dot(eta_hat, betas_choice.T)
         )
         p = pm.Deterministic("p", pm.math.softmax(utility_of_work, axis=1))
         _ = pm.Categorical("likelihood_choice", p)
@@ -1444,10 +1473,10 @@ priors_wide = {
 }
 
 sem_model_discrete_choice_tight = make_discrete_choice_conditional(
-    observed_data_discrete, priors, conditional=True
+    observed_data_discrete, priors, conditional=False
 )
 sem_model_discrete_choice_wide = make_discrete_choice_conditional(
-    observed_data_discrete, priors_wide, conditional=True
+    observed_data_discrete, priors_wide, conditional=False
 )
 
 pm.model_to_graphviz(sem_model_discrete_choice_tight)
@@ -1489,7 +1518,7 @@ with pm.observe(
     sem_model_discrete_choice_wide, {"likelihood": synthetic_y, "likelihood_choice": synthetic_c}
 ) as inference_model:
     idata = pm.sample_prior_predictive()
-    idata.extend(pm.sample(random_seed=100, chains=4, tune=2000, draws=500))
+    idata.extend(pm.sample(random_seed=300, chains=4, tune=2000, draws=1000))
 ```
 
 The factor structures are nicely recovered. 
