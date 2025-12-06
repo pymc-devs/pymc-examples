@@ -370,9 +370,9 @@ hdi = az.hdi(post_idata.posterior_predictive.p)
 ax.scatter(x, y, facecolor="none", edgecolor="k", label="Observed Data")
 p_mean = post_idata.posterior_predictive.p.mean(dim=["chain", "draw"])
 ax.plot(x_grid, p_mean, color="tab:red", label="Mean Posterior Probability")
-ax.fill_between(x_grid, *hdi.values.T, color="tab:orange", alpha=0.25, label="94% HDI")
+ax.fill_between(x_grid, *hdi.values.T, color="tab:orange", alpha=0.25, label="89% ETI")
 ax.legend()
-ax.set(ylabel="Probability of $y=1$", xlabel="x value")
+ax.set(ylabel="Probability of $y=1$", xlabel="x value");
 ```
 
 The same concept applied to a more complex model can be seen in the notebook {ref}`bayesian_neural_network_advi`.
