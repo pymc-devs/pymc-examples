@@ -471,7 +471,7 @@ plt.bar(
 plt.bar(ppd_unique, ppd_counts, width=0.2, color="C1", label="posterior predictive")
 plt.xlabel(r"$\hat n_W$")
 plt.ylabel("count")
-plt.title(f"number of W samples predicted $\hat n_W$ from {N_draws_for_prediction} globe flips")
+plt.title(rf"number of W samples predicted $\hat n_W$ from {N_draws_for_prediction} globe flips")
 plt.legend();
 ```
 

@@ -904,7 +904,7 @@ def plot_polynomial_model_posterior_predictive(model, inference, data, order):
         fill_kwargs=dict(alpha=1),
     )
     terms = "+".join([f"\\beta_{o} H_i^{o}" for o in range(1, order + 1)])
-    plt.title(f"$\mu_i = \\alpha + {terms}$")
+    plt.title(f"$\\mu_i = \\alpha + {terms}$")
 
 
 for order in [2, 4, 6]:
