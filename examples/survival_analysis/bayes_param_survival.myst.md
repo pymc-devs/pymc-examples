@@ -401,11 +401,3 @@ This post has been a short introduction to implementing parametric survival regr
 %load_ext watermark
 %watermark -n -u -v -iv -w
 ```
-
-```{code-cell} ipython3
-pp_weibull_dt = az.convert_to_datatree(pp_weibull_trace)
-```
-
-```{code-cell} ipython3
-pp_weibull_dt.posterior_predictive
-```
