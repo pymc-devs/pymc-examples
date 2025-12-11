@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: default
+  display_name: pymc
   language: python
   name: python3
 ---
@@ -17,12 +17,12 @@ kernelspec:
 ```{code-cell} ipython3
 import warnings
 
-import arviz as az
+import arviz.preview as az
 import numpy as np
 import pymc as pm
 import pytensor.tensor as pt
 import scipy as sp
-import seaborn as sns
+import xarray as xr
 
 from matplotlib import pyplot as plt
 from matplotlib.ticker import StrMethodFormatter
@@ -33,7 +33,7 @@ print(f"Running on PyMC v{pm.__version__}")
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 warnings.filterwarnings("ignore")
 ```
 
@@ -45,9 +45,6 @@ This post illustrates a parametric approach to Bayesian survival analysis in PyM
 We will analyze the [mastectomy data](https://vincentarelbundock.github.io/Rdatasets/doc/HSAUR/mastectomy.html) from `R`'s [`HSAUR`](https://cran.r-project.org/web/packages/HSAUR/index.html) package. 
 
 ```{code-cell} ipython3
-sns.set()
-blue, green, red, purple, gold, teal = sns.color_palette(n_colors=6)
-
 pct_formatter = StrMethodFormatter("{x:.1%}")
 ```
 
@@ -228,19 +225,19 @@ with weibull_model:
 The energy plot and Bayesian fraction of missing information give no cause for concern about poor mixing in NUTS.
 
 ```{code-cell} ipython3
-az.plot_energy(weibull_trace, fill_color=("C0", "C1"));
+az.plot_energy(weibull_trace);
 ```
 
 The $\hat{R}$ statistics also indicate convergence.
 
 ```{code-cell} ipython3
-max(np.max(gr_stats) for gr_stats in az.rhat(weibull_trace).values())
+az.rhat(weibull_trace).to_array().max()
 ```
 
 Below we plot posterior distributions of the parameters.
 
 ```{code-cell} ipython3
-az.plot_forest(weibull_trace, figsize=(10, 4));
+az.plot_forest(weibull_trace);
 ```
 
 These are somewhat interesting (especially the fact that the posterior of $\beta_1$ is fairly well-separated from zero), but the posterior predictive survival curves will be much more interpretable.
@@ -268,34 +265,32 @@ with weibull_model:
 The posterior predictive survival times show that, on average, patients whose cancer had not metastized survived longer than those whose cancer had metastized.
 
 ```{code-cell} ipython3
-t_plot = np.linspace(0, 230, 100)
+t_plot = xr.DataArray(np.linspace(0, 230, 100), dims=["time"])
+pp_samples = az.extract(pp_weibull_trace.posterior_predictive["events"])
 
-weibull_pp_surv = np.greater_equal.outer(
-    np.exp(
-        y.mean()
-        + y.std() * az.extract(pp_weibull_trace.posterior_predictive["events"])["events"].values
-    ),
-    t_plot,
-)
-weibull_pp_surv_mean = weibull_pp_surv.mean(axis=1)
+linear_pred = y.mean() + y.std() * pp_samples
+
+weibull_pp_surv = np.exp(linear_pred) >= t_plot
+
+weibull_pp_surv_mean = weibull_pp_surv.mean(dim="sample")
 ```
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(8, 6))
 
 
-ax.plot(t_plot, weibull_pp_surv_mean[0], c=blue, label="Not metastized")
-ax.plot(t_plot, weibull_pp_surv_mean[1], c=red, label="Metastized")
+ax.plot(t_plot, weibull_pp_surv_mean[0], label="Not metastized")
+ax.plot(t_plot, weibull_pp_surv_mean[1], label="Metastized")
 
-ax.set_xlim(0, 230)
-ax.set_xlabel("Weeks since mastectomy")
-
-ax.set_ylim(top=1)
+ax.set(
+    xlabel="Weeks since mastectomy",
+    ylabel="Survival probability",
+    title="Weibull survival regression model",
+    xlim=(0, 230),
+    ylim=(0, 1),
+)
+ax.legend()
 ax.yaxis.set_major_formatter(pct_formatter)
-ax.set_ylabel("Survival probability")
-
-ax.legend(loc=1)
-ax.set_title("Weibull survival regression model");
 ```
 
 ### Log-logistic survival regression
@@ -342,11 +337,11 @@ with log_logistic_model:
 All of the sampling diagnostics look good for this model.
 
 ```{code-cell} ipython3
-az.plot_energy(log_logistic_trace, fill_color=("C0", "C1"));
+az.plot_energy(log_logistic_trace);
 ```
 
 ```{code-cell} ipython3
-max(np.max(gr_stats) for gr_stats in az.rhat(log_logistic_trace).values())
+az.rhat(log_logistic_trace).to_array().max()
 ```
 
 Again, we calculate the posterior expected survival functions for this model.
@@ -360,35 +355,35 @@ with log_logistic_model:
 ```
 
 ```{code-cell} ipython3
-log_logistic_pp_surv = np.greater_equal.outer(
-    np.exp(
-        y.mean()
-        + y.std()
-        * az.extract(pp_log_logistic_trace.posterior_predictive["events"])["events"].values
-    ),
-    t_plot,
-)
-log_logistic_pp_surv_mean = log_logistic_pp_surv.mean(axis=1)
+pp_samples = az.extract(pp_log_logistic_trace.posterior_predictive["events"])
+
+linear_pred = y.mean() + y.std() * pp_samples
+
+log_logistic_pp_surv = np.exp(linear_pred) >= t_plot
+
+log_logistic_pp_surv_mean = log_logistic_pp_surv.mean(dim="sample")
 ```
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(8, 6))
 
-ax.plot(t_plot, weibull_pp_surv_mean[0], c=blue, label="Weibull, not metastized")
-ax.plot(t_plot, weibull_pp_surv_mean[1], c=red, label="Weibull, metastized")
+ax.plot(t_plot, weibull_pp_surv_mean[0], c="C0", label="Weibull, not metastized")
+ax.plot(t_plot, weibull_pp_surv_mean[1], c="C1", label="Weibull, metastized")
 
-ax.plot(t_plot, log_logistic_pp_surv_mean[0], "--", c=blue, label="Log-logistic, not metastized")
-ax.plot(t_plot, log_logistic_pp_surv_mean[1], "--", c=red, label="Log-logistic, metastized")
+ax.plot(t_plot, log_logistic_pp_surv_mean[0], "--", c="C0", label="Log-logistic, not metastized")
+ax.plot(t_plot, log_logistic_pp_surv_mean[1], "--", c="C1", label="Log-logistic, metastized")
 
-ax.set_xlim(0, 230)
-ax.set_xlabel("Weeks since mastectomy")
 
-ax.set_ylim(top=1)
+ax.set(
+    xlabel="Weeks since mastectomy",
+    ylabel="Survival probability",
+    title="Weibull and log-logistic\nsurvival regression models",
+    xlim=(0, 230),
+    ylim=(0, 1),
+)
+
+ax.legend()
 ax.yaxis.set_major_formatter(pct_formatter)
-ax.set_ylabel("Survival probability")
-
-ax.legend(loc=1)
-ax.set_title("Weibull and log-logistic\nsurvival regression models");
 ```
 
 This post has been a short introduction to implementing parametric survival regression models in PyMC with a fairly simple data set.  The modular nature of probabilistic programming with PyMC should make it straightforward to generalize these techniques to more complex and interesting data set.
@@ -400,8 +395,17 @@ This post has been a short introduction to implementing parametric survival regr
 - Originally authored as a blog post by [Austin Rochford](https://austinrochford.com/posts/2017-10-02-bayes-param-survival.html) on October 2, 2017.
 - Updated by [George Ho](https://eigenfoo.xyz/) on July 18, 2018.
 - Updated by @fonnesbeck on September 11, 2024.
+- Updated by Osvaldo Martin on December 2025.
 
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w
+```
+
+```{code-cell} ipython3
+pp_weibull_dt = az.convert_to_datatree(pp_weibull_trace)
+```
+
+```{code-cell} ipython3
+pp_weibull_dt.posterior_predictive
 ```
