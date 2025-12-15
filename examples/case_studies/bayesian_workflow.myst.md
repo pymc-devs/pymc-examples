@@ -53,13 +53,17 @@ from plotly.subplots import make_subplots
 
 # Set renderer to generate static images
 pio.renderers.default = "png"
-warnings.simplefilter("ignore")
+pio.defaults.default_width = 1000
+pio.defaults.default_height = 300
 
 RANDOM_SEED = 8451997
 sampler_kwargs = {"chains": 4, "cores": 4, "tune": 1000, "random_seed": RANDOM_SEED}
 
+
 az.rcParams["plot.backend"] = "plotly"
 az.style.use("arviz-variat")
+
+colors = pio.templates["arviz-variat"].layout.colorway
 ```
 
 Bayesian methods offer several fundamental strengths that make it particularly valuable for building robust statistical models. Its great **flexibility** allows practitioners to build remarkably complex models from simple building blocks. The framework provides a principled way of dealing with **uncertainty**, capturing not just the most likely outcome but the complete distribution of all possible outcomes. Critically, Bayesian methods allow **expert information** to guide model development through the use of informative priors, incorporating domain knowledge directly into the analysis.
@@ -236,7 +240,7 @@ for i in range(min(100, prior_obs.shape[1])):  # Show max 100 traces
             x=list(range(len(prior_obs[:, i]))),
             y=prior_obs[:, i],
             mode="lines",
-            line=dict(color="steelblue", width=0.5),
+            line=dict(color=colors[0], width=0.5),
             opacity=0.4,
             showlegend=False,
         )
@@ -273,7 +277,7 @@ The negative binomial distribution uses an overdispersion parameter, which we wi
 ```{code-cell} ipython3
 dist = pz.Gamma()
 
-pz.maxent(dist, lower=0.1, upper=20, mass=0.95);
+pz.maxent(dist, lower=0.1, upper=20, mass=0.95, plot_kwargs={"figsize": (8, 3)});
 ```
 
 ```{code-cell} ipython3
@@ -313,7 +317,7 @@ for i in range(min(100, prior_obs.shape[1])):  # Show max 100 traces
             x=list(range(len(prior_obs[:, i]))),
             y=prior_obs[:, i],
             mode="lines",
-            line=dict(color="steelblue", width=0.5),
+            line=dict(color=colors[0], width=0.5),
             opacity=0.4,
             showlegend=False,
         )
@@ -396,7 +400,7 @@ for i in range(min(100, obs_samples.shape[1])):  # Show max 100 traces
             x=list(range(len(obs_samples[:, i]))),
             y=obs_samples[:, i],
             mode="lines",
-            line=dict(color="steelblue", width=0.5),
+            line=dict(color=colors[0], width=0.5),
             opacity=0.4,
             showlegend=False,
         )
@@ -437,7 +441,7 @@ Before trusting our results, we must verify that the sampler has converged prope
 :::
 
 ```{code-cell} ipython3
-az.plot_rank_dist(trace_exp3, var_names=["a", "b", "alpha"]);
+az.plot_rank(trace_exp3, var_names=["a", "b", "alpha"]).show()
 ```
 
 ```{code-cell} ipython3
@@ -445,7 +449,7 @@ az.summary(trace_exp3, var_names=["a", "b", "alpha"], kind="diagnostics")
 ```
 
 ```{code-cell} ipython3
-az.plot_energy(trace_exp3);
+pc = az.plot_energy(trace_exp3).show()
 ```
 
 :::{admonition} Convergence Checklist
@@ -479,7 +483,7 @@ Now we can use the ArviZ `compare` function:
 
 ```{code-cell} ipython3
 comparison = az.compare({"exp2": trace_exp2, "exp3": trace_exp3})
-az.plot_compare(comparison);
+az.plot_compare(comparison).show()
 ```
 
 It seems like bounding the priors did not result in better fit. This is not unexpected because our change in prior was very small. We will still continue with `model_exp3` because we have prior information that these parameters are bounded in this way.
@@ -530,7 +534,8 @@ for config in prior_configs:
 
 ```{code-cell} ipython3
 pc = az.plot_dist(results, var_names=["b"])
-pc.add_legend("model");
+pc.add_legend("model")
+pc.show()
 ```
 
 :::{admonition} Sensitivity Analysis Results
@@ -578,7 +583,7 @@ for i in range(min(100, post_pred_samples.shape[1])):
             x=list(range(len(post_pred_samples[:, i]))),
             y=post_pred_samples[:, i],
             mode="lines",
-            line=dict(color="steelblue", width=0.5),
+            line=dict(color=colors[0], width=0.5),
             opacity=0.4,
             showlegend=False,
         )
@@ -589,7 +594,7 @@ fig.add_trace(
         x=list(range(len(confirmed_values))),
         y=confirmed_values,
         mode="lines+markers",
-        line=dict(color="red", width=2),
+        line=dict(color=colors[1], width=2),
         name="Data",
     )
 ).update_layout(
@@ -616,7 +621,7 @@ for i in range(min(100, resid_values.shape[1])):
             x=list(range(len(resid_values[:, i]))),
             y=resid_values[:, i],
             mode="lines",
-            line=dict(color="steelblue", width=0.5),
+            line=dict(color=colors[0], width=0.5),
             opacity=0.4,
             showlegend=False,
         )
@@ -709,8 +714,8 @@ for i in range(min(100, post_pred_samples.shape[1])):
             x=list(range(60)),
             y=post_pred_samples[:, i],
             mode="lines",
-            line=dict(color="lightblue", width=0.5),
-            opacity=0.2,
+            line=dict(color=colors[2], width=0.5),
+            opacity=0.3,
             showlegend=False,
         )
     )
@@ -720,7 +725,7 @@ fig.add_trace(
         x=list(range(30)),
         y=confirmed,
         mode="lines+markers",
-        line=dict(color="red", width=3),
+        line=dict(color=colors[1], width=3),
         marker=dict(size=6),
         name="Training data",
     )
@@ -732,7 +737,7 @@ if len(full_confirmed) > 30:
             x=list(range(30, min(60, len(full_confirmed)))),
             y=full_confirmed[30:60],
             mode="lines+markers",
-            line=dict(color="darkblue", width=3),
+            line=dict(color=colors[0], width=3),
             marker=dict(size=6),
             name="Actual (holdout)",
         )
@@ -814,7 +819,7 @@ for i in range(min(100, prior_obs.shape[1])):
             x=list(range(len(prior_obs[:, i]))),
             y=prior_obs[:, i],
             mode="lines",
-            line=dict(color="steelblue", width=0.5),
+            line=dict(color=colors[0], width=0.5),
             opacity=0.4,
             showlegend=False,
         )
@@ -838,7 +843,7 @@ with logistic_model:
 ```
 
 ```{code-cell} ipython3
-az.plot_rank_dist(trace_logistic);
+az.plot_rank(trace_logistic).show()
 ```
 
 ```{code-cell} ipython3
@@ -859,8 +864,8 @@ for i in range(min(100, post_pred_samples.shape[1])):
             x=list(range(len(post_pred_samples[:, i]))),
             y=post_pred_samples[:, i],
             mode="lines",
-            line=dict(color="lightblue", width=0.5),
-            opacity=0.2,
+            line=dict(color=colors[0], width=0.5),
+            opacity=0.3,
             showlegend=False,
         )
     )
@@ -870,7 +875,7 @@ fig.add_trace(
         x=list(range(len(full_confirmed))),
         y=full_confirmed,
         mode="lines+markers",
-        line=dict(color="red", width=3),
+        line=dict(color=colors[1], width=3),
         marker=dict(size=4),
         name="Observed data",
     )
@@ -900,7 +905,7 @@ for i in range(min(100, resid_values.shape[1])):
             x=list(range(len(resid_values[:, i]))),
             y=resid_values[:, i],
             mode="lines",
-            line=dict(color="steelblue", width=0.5),
+            line=dict(color=colors[0], width=0.5),
             opacity=0.2,
             showlegend=False,
         )
@@ -958,7 +963,7 @@ fig = px.line(
     title=f"{country} - COVID-19 Cases",
     labels={"days_since_100": "Days since 100 cases", "confirmed": "Confirmed cases"},
 )
-fig.update_traces(line=dict(color="#FF4136", width=3))
+fig.update_traces(line=dict(color=colors[1], width=3))
 fig.update_layout(height=400)
 ```
 
@@ -998,7 +1003,7 @@ with logistic_model_us:
 ```
 
 ```{code-cell} ipython3
-az.plot_rank_dist(trace_logistic_us);
+az.plot_rank(trace_logistic_us).show()
 ```
 
 ```{code-cell} ipython3
@@ -1019,8 +1024,8 @@ for i in range(min(100, post_pred_samples.shape[1])):
             x=list(range(len(post_pred_samples[:, i]))),
             y=post_pred_samples[:, i],
             mode="lines",
-            line=dict(color="lightblue", width=0.5),
-            opacity=0.2,
+            line=dict(color=colors[0], width=0.5),
+            opacity=0.3,
             showlegend=False,
         )
     )
@@ -1030,7 +1035,7 @@ fig.add_trace(
         x=list(range(len(us_confirmed))),
         y=us_confirmed,
         mode="lines+markers",
-        line=dict(color="red", width=3),
+        line=dict(color=colors[1], width=3),
         marker=dict(size=4),
         name="Observed data",
     )

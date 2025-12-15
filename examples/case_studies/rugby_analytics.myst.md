@@ -497,6 +497,7 @@ Nevertheless this is a good method to get some insight into how the variables ar
 * Adapted [Daniel Weitzenfeld's](http://danielweitzenfeld.github.io/passtheroc/blog/2014/10/28/bayes-premier-league/) blog post by [Peadar Coyle](). The original blog post was based on the work of {cite:p}`baio2010bayesian`
 * Updated by Meenal Jhajharia to use ArviZ and xarray
 * Updated by Oriol Abril-Pla to use PyMC v4 and xarray-einstats
+* Updated by Osvaldo Martin Dec 2025
 
 +++
 
