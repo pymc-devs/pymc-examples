@@ -128,13 +128,13 @@ p(\text{success}) = \operatorname{logit}^{-1}(a \cdot \text{distance} + b) \\
 \text{num. successes} \sim \operatorname{Binomial}(\text{tries}, p(\text{success}))
 $$
 
-Here is how to write that model in PyMC. We use underscore appendices in our model variables to avoid polluting the namespace. We also use {class}`pymc.MutableData` to let us swap out the data later, when we will work with a newer data set.
+Here is how to write that model in PyMC. We use underscore appendices in our model variables to avoid polluting the namespace. We also use {class}`pymc.Data` to let us swap out the data later, when we will work with a newer data set.
 
 ```{code-cell} ipython3
 with pm.Model() as logit_model:
-    distance_ = pm.MutableData("distance", golf_data["distance"], dims="obs_id")
-    tries_ = pm.MutableData("tries", golf_data["tries"], dims="obs_id")
-    successes_ = pm.MutableData("successes", golf_data["successes"], dims="obs_id")
+    distance_ = pm.Data("distance", golf_data["distance"], dims="obs_id")
+    tries_ = pm.Data("tries", golf_data["tries"], dims="obs_id")
+    successes_ = pm.Data("successes", golf_data["successes"], dims="obs_id")
 
     a_ = pm.Normal("a")
     b_ = pm.Normal("b")
@@ -271,9 +271,9 @@ def phi(x):
 
 
 with pm.Model() as angle_model:
-    distance_ = pm.MutableData("distance", golf_data["distance"], dims="obs_id")
-    tries_ = pm.MutableData("tries", golf_data["tries"], dims="obs_id")
-    successes_ = pm.MutableData("successes", golf_data["successes"], dims="obs_id")
+    distance_ = pm.Data("distance", golf_data["distance"], dims="obs_id")
+    tries_ = pm.Data("tries", golf_data["tries"], dims="obs_id")
+    successes_ = pm.Data("successes", golf_data["successes"], dims="obs_id")
 
     variance_of_shot = pm.HalfNormal("variance_of_shot")
     p_goes_in = pm.Deterministic(
@@ -512,9 +512,9 @@ DISTANCE_TOLERANCE = 3.0
 
 
 with pm.Model() as distance_angle_model:
-    distance_ = pm.MutableData("distance", new_golf_data["distance"], dims="obs_id")
-    tries_ = pm.MutableData("tries", new_golf_data["tries"], dims="obs_id")
-    successes_ = pm.MutableData("successes", new_golf_data["successes"], dims="obs_id")
+    distance_ = pm.Data("distance", new_golf_data["distance"], dims="obs_id")
+    tries_ = pm.Data("tries", new_golf_data["tries"], dims="obs_id")
+    successes_ = pm.Data("successes", new_golf_data["successes"], dims="obs_id")
 
     variance_of_shot = pm.HalfNormal("variance_of_shot")
     variance_of_distance = pm.HalfNormal("variance_of_distance")
@@ -619,10 +619,10 @@ We follow approach 3, as in the Stan case study, and leave 1 as an exercise.
 
 ```{code-cell} ipython3
 with pm.Model() as disp_distance_angle_model:
-    distance_ = pm.MutableData("distance", new_golf_data["distance"], dims="obs_id")
-    tries_ = pm.MutableData("tries", new_golf_data["tries"], dims="obs_id")
-    successes_ = pm.MutableData("successes", new_golf_data["successes"], dims="obs_id")
-    obs_prop_ = pm.MutableData(
+    distance_ = pm.Data("distance", new_golf_data["distance"], dims="obs_id")
+    tries_ = pm.Data("tries", new_golf_data["tries"], dims="obs_id")
+    successes_ = pm.Data("successes", new_golf_data["successes"], dims="obs_id")
+    obs_prop_ = pm.Data(
         "obs_prop", new_golf_data["successes"] / new_golf_data["tries"], dims="obs_id"
     )
 
