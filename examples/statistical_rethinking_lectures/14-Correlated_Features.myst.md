@@ -708,7 +708,7 @@ for ii, sigma_v in enumerate(sigma_vs):
     utils.plot_2d_function(xs, ys, prior, colors="gray", ax=axs[ii])
     plt.xlabel("x")
     plt.ylabel("v")
-    plt.title(f"$v \sim Normal(0, {sigma_v})$\n# Divergences: {n_divergences}")
+    plt.title(f"$v \\sim Normal(0, {sigma_v})$\n# Divergences: {n_divergences}")
 ```
 
 ## What to do?
@@ -754,7 +754,7 @@ for ii, sigma_v in enumerate(sigma_vs):
     utils.plot_2d_function(xs, ys, prior, colors="gray", ax=axs[ii])
     plt.xlabel("z")
     plt.ylabel("v")
-    plt.title(f"$v \sim$ Normal(0, {sigma_v})\n# Divergences: {n_divergences}")
+    plt.title(f"$v \\sim$ Normal(0, {sigma_v})\n# Divergences: {n_divergences}")
 ```
 
 - By reparameterizing, we get to sample multi-dimensional Normal distributions, which are smoother parabolas in the log space.
