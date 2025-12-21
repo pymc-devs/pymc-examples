@@ -31,8 +31,6 @@ This notebook will work through several approaches to heteroskedastic modeling w
 
 ## Data
 
-+++
-
 ```{code-cell} ipython3
 import arviz as az
 import matplotlib.pyplot as plt
@@ -45,15 +43,11 @@ from scipy.spatial.distance import pdist
 %config InlineBackend.figure_format ='retina'
 ```
 
-+++
-
 ```{code-cell} ipython3
 SEED = 2020
 rng = np.random.default_rng(SEED)
 az.style.use("arviz-darkgrid")
 ```
-
-+++
 
 ```{code-cell} ipython3
 def signal(x):
@@ -85,11 +79,7 @@ plt.plot(X, y, "C0o")
 plt.errorbar(X_, y, y_err, color="C0")
 ```
 
-+++
-
 ## Helper and plotting functions
-
-+++
 
 ```{code-cell} ipython3
 def get_ℓ_prior(points):
@@ -105,8 +95,6 @@ def get_ℓ_prior(points):
 
 ℓ_μ, ℓ_σ = (stat for stat in get_ℓ_prior(X_))
 ```
-
-+++
 
 ```{code-cell} ipython3
 def plot_inducing_points(ax):
@@ -193,15 +181,11 @@ def plot_total(ax, mean_samples, var_samples=None, bootstrap=True, n_boots=100):
     ax.legend(loc="upper left")
 ```
 
-+++
-
 ## Homoskedastic GP
 
 +++
 
 First, let's fit a standard homoskedastic GP using PyMC's `Marginal Likelihood` implementation. Here and throughout this notebook we'll use an informative prior for length scale as suggested by [Michael Betancourt](https://betanalpha.github.io/assets/case_studies/gp_part3/part3.html#4_adding_an_informative_prior_for_the_length_scale). We could use `pm.find_MAP()` and `.predict` for even faster inference and prediction, with similar results, but for direct comparison to the other models we'll use NUTS and `.conditional` instead, which run fast enough.
-
-+++
 
 ```{code-cell} ipython3
 with pm.Model() as model_hm:
@@ -223,8 +207,6 @@ with model_hm:
     samples_hm = pm.sample_posterior_predictive(trace_hm, var_names=["mu_pred_hm", "noisy_pred_hm"])
 ```
 
-+++
-
 ```{code-cell} ipython3
 _, axs = plt.subplots(1, 3, figsize=(18, 4))
 mu_samples = samples_hm.posterior_predictive["mu_pred_hm"].values.reshape(-1, len(Xnew))
@@ -233,8 +215,6 @@ plot_mean(axs[0], mu_samples)
 plot_var(axs[1], noisy_samples.var(axis=0))
 plot_total(axs[2], noisy_samples)
 ```
-
-+++
 
 Here we've plotted our understanding of the mean behavior with the corresponding epistemic uncertainty on the left, our understanding of the variance or aleatoric uncertainty in the middle, and integrated all sources of uncertainty on the right. This model captures the mean behavior well, but we can see that it overestimates the noise in the lower regime while underestimating the noise in the upper regime, as expected.
 
@@ -245,8 +225,6 @@ Here we've plotted our understanding of the mean behavior with the corresponding
 +++
 
 The simplest approach to modeling a heteroskedastic system is to fit a GP on the mean at each point along the domain and supply the standard deviation as weights.
-
-+++
 
 ```{code-cell} ipython3
 with pm.Model() as model_wt:
@@ -265,8 +243,6 @@ with model_wt:
     samples_wt = pm.sample_posterior_predictive(trace_wt, var_names=["mu_pred_wt"])
 ```
 
-+++
-
 ```{code-cell} ipython3
 _, axs = plt.subplots(1, 3, figsize=(18, 4))
 mu_samples = samples_wt.posterior_predictive["mu_pred_wt"].values.reshape(-1, len(Xnew))
@@ -275,8 +251,6 @@ axs[0].errorbar(X_, y, y_err, ls="none", color="C1", label="STDEV")
 plot_var(axs[1], mu_samples.var(axis=0))
 plot_total(axs[2], mu_samples)
 ```
-
-+++
 
 This approach captured slightly more nuance in the overall uncertainty than the homoskedastic GP, but still underestimated the variance within both the observed regimes. Note that the variance displayed by this model is purely epistemic: our understanding of the mean behavior is weighted by the uncertainty in our observations, but we didn't include a component to account for aleatoric noise.
 
@@ -287,8 +261,6 @@ This approach captured slightly more nuance in the overall uncertainty than the 
 +++
 
 Now let's model the mean and the log of the variance as separate GPs through PyMC's `Latent` implementation, feeding both into a `Normal` likelihood. Note that we add a small amount of diagonal noise to the individual covariances in order to stabilize them for inversion.
-
-+++
 
 ```{code-cell} ipython3
 with pm.Model() as model_ht:
@@ -317,8 +289,6 @@ with model_ht:
     samples_ht = pm.sample_posterior_predictive(trace_ht, var_names=["μ_pred_ht", "lg_σ_pred_ht"])
 ```
 
-+++
-
 ```{code-cell} ipython3
 _, axs = plt.subplots(1, 3, figsize=(18, 4))
 μ_samples = samples_ht.posterior_predictive["μ_pred_ht"].values.reshape(-1, len(Xnew))
@@ -327,8 +297,6 @@ plot_mean(axs[0], μ_samples)
 plot_var(axs[1], σ_samples**2)
 plot_total(axs[2], μ_samples, σ_samples**2)
 ```
-
-+++
 
 That looks much better! We've accurately captured the mean behavior of our system along with an understanding of the underlying trend in the variance, with appropriate uncertainty. Crucially, the aggregate behavior of the model integrates both epistemic *and* aleatoric uncertainty, and the ~5% of our observations that fall outside the 2σ band are more or less evenly distributed across the domain. However, that took *over two hours* to sample only 4k NUTS iterations. Due to the expense of the requisite matrix inversions, GPs are notoriously inefficient for large data sets. Let's reformulate this model using a sparse approximation.
 
@@ -339,8 +307,6 @@ That looks much better! We've accurately captured the mean behavior of our syste
 +++
 
 Sparse approximations to GPs use a small set of *inducing points* to condition the model, vastly improve the speed of inference and somewhat improve memory consumption. PyMC doesn't have an implementation for sparse latent GPs ([yet](https://github.com/pymc-devs/pymc/pull/2951)), but we can throw together our own real quick using Bill Engel's [DTC latent GP example](https://gist.github.com/bwengals/a0357d75d2083657a2eac85947381a44). These inducing points can be specified in a variety of ways, such as via the popular k-means initialization or even optimized as part of the model, but since our observations are evenly distributed we can make do with simply a subset of our unique input values.
-
-+++
 
 ```{code-cell} ipython3
 class SparseLatent:
@@ -374,8 +340,6 @@ class SparseLatent:
         return mu_pred
 ```
 
-+++
-
 ```{code-cell} ipython3
 # Explicitly specify inducing points by downsampling our input vector
 Xu = X[1::2]
@@ -405,8 +369,6 @@ with model_hts:
     samples_hts = pm.sample_posterior_predictive(trace_hts, var_names=["μ_pred", "lg_σ_pred"])
 ```
 
-+++
-
 ```{code-cell} ipython3
 _, axs = plt.subplots(1, 3, figsize=(18, 4))
 μ_samples = samples_hts.posterior_predictive["μ_pred"].values.reshape(-1, len(Xnew))
@@ -419,8 +381,6 @@ plot_total(axs[2], μ_samples, σ_samples**2)
 plot_inducing_points(axs[2])
 ```
 
-+++
-
 That was ~8x faster with nearly indistinguishable results, and fewer divergences as well.
 
 +++
@@ -430,8 +390,6 @@ That was ~8x faster with nearly indistinguishable results, and fewer divergences
 +++
 
 So far, we've modeled the mean and noise of our system as independent. However, there may be scenarios where we expect them to be correlated, for example if higher measurement values are expected to have greater noise. Here, we'll explicitly model this correlation through a covariance function that is a Kronecker product of the spatial kernel we've used previously and a `Coregion` kernel, as suggested by Bill Engel [here](https://discourse.pymc.io/t/coregionalization-model-for-two-separable-multidimensional-gaussian-process/2550/4). This is an implementation of the Linear Model of Coregionalization, which treats each correlated GP as a linear combination of a small number of independent basis functions, which are themselves GPs. We first add a categorical dimension to the domain of our observations to indicate whether the mean or variance is being considered, then unpack the respective components before feeding them into a `Normal` likelihood as above.
-
-+++
 
 ```{code-cell} ipython3
 def add_coreg_idx(x):
@@ -468,8 +426,6 @@ with model_htsc:
     samples_htsc = pm.sample_posterior_predictive(trace_htsc, var_names=["c_mu_pred"])
 ```
 
-+++
-
 ```{code-cell} ipython3
 c_mu_pred = samples_htsc.posterior_predictive["c_mu_pred"].values
 c_mu_pred = c_mu_pred.reshape(-1, c_mu_pred.shape[-1])
@@ -487,18 +443,12 @@ plot_total(axs[2], μ_samples, σ_samples**2)
 plot_inducing_points(axs[2])
 ```
 
-+++
-
 We can look at the learned correlation between the mean and variance by inspecting the covariance matrix $\bf{B}$ constructed via $\mathbf{B} \equiv \mathbf{WW}^T+diag(\kappa)$:
-
-+++
 
 ```{code-cell} ipython3
 with model_htsc:
     B_samples = pm.sample_posterior_predictive(trace_htsc, var_names=["W", "kappa"])
 ```
-
-+++
 
 ```{code-cell} ipython3
 # Keep in mind that the first dimension in all arrays is the sampling dimension
@@ -517,8 +467,6 @@ B = WW_T + diag_kappa
 B.mean(axis=0)
 ```
 
-+++
-
 ```{code-cell} ipython3
 sd = np.sqrt(np.diagonal(B, axis1=1, axis2=2))
 outer_sd = np.einsum("ij,ik->ijk", sd, sd)
@@ -527,8 +475,6 @@ print(f"2.5%ile correlation: {np.percentile(correlation,2.5,axis=0)[0,1]:0.3f}")
 print(f"Median correlation: {np.percentile(correlation,50,axis=0)[0,1]:0.3f}")
 print(f"97.5%ile correlation: {np.percentile(correlation,97.5,axis=0)[0,1]:0.3f}")
 ```
-
-+++
 
 The model has inadvertently learned that the mean and noise are negatively correlated, albeit with a wide credible interval.
 
@@ -543,8 +489,6 @@ The three latent approaches shown here varied in their complexity and efficiency
 +++
 
 ### Regression surfaces
-
-+++
 
 ```{code-cell} ipython3
 _, axs = plt.subplots(1, 3, figsize=(18, 4))
@@ -578,37 +522,23 @@ axs[0].legend().remove()
 axs[1].legend().remove()
 ```
 
-+++
-
 ### Latent model convergence
-
-+++
 
 ```{code-cell} ipython3
 display(az.summary(trace_ht).sort_values("ess_bulk").iloc[:5])
 ```
 
-+++
-
 ### Sparse Latent model convergence
-
-+++
 
 ```{code-cell} ipython3
 display(az.summary(trace_hts).sort_values("ess_bulk").iloc[:5])
 ```
 
-+++
-
 ### Correlated Sparse Latent model convergence
-
-+++
 
 ```{code-cell} ipython3
 display(az.summary(trace_htsc).sort_values("ess_bulk").iloc[:5])
 ```
-
-+++
 
 ## Authors
 - This notebook was written by John Goertz on 5 May, 2021.
@@ -625,15 +555,10 @@ display(az.summary(trace_htsc).sort_values("ess_bulk").iloc[:5])
 
 ## Watermark
 
-+++
-
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w -p xarray
 ```
 
-+++
-
 :::{include} ../page_footer.md
 :::
-
