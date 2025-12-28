@@ -137,3 +137,7 @@ Sponsors
    :target: http://www.numfocus.org/
 .. |PyMCLabs| image:: https://raw.githubusercontent.com/pymc-devs/pymc/main/docs/logos/sponsors/pymc-labs.png
    :target: https://pymc-labs.io
+
+.. image:: https://api.scorecard.dev/projects/github.com/pymc-devs/pymc-examples/badge
+   :target: https://scorecard.dev/viewer/?uri=github.com/pymc-devs/pymc-examples
+   :alt: OpenSSF Scorecard for pymc-devs/pymc-examples
