@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: PyMC Examples (pixi)
+  display_name: PyMC Examples
   language: python
   name: pymc-examples
 ---
