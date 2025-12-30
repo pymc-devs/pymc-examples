@@ -104,11 +104,11 @@ def plot_inducing_points(ax):
     ax.legend(loc="upper left")
 
 
-def get_quantiles(samples, quantiles=[2.5, 50, 97.5]):
-    return [np.percentile(samples, p, axis=0) for p in quantiles]
+def get_quantiles(samples, quantiles=[2.5, 50, 97.5], sample_axis=0):
+    return [np.percentile(samples, p, axis=sample_axis) for p in quantiles]
 
 
-def plot_mean(ax, mean_samples):
+def plot_mean(ax, mean_samples, sample_axis=0):
     """Plots the median and 95% CI from samples of the mean
 
     Note that, although each individual GP exhibits a normal distribution at each point
@@ -116,7 +116,7 @@ def plot_mean(ax, mean_samples):
     our hyperparameters. As such, we use percentiles rather than mean +/- stdev to
     represent the spread of predictions from our models.
     """
-    l, m, u = get_quantiles(mean_samples)
+    l, m, u = get_quantiles(mean_samples, sample_axis=sample_axis)
     ax.plot(Xnew, m, "C0", label="Median")
     ax.fill_between(Xnew_, l, u, facecolor="C0", alpha=0.5, label="95% CI")
 
@@ -126,12 +126,12 @@ def plot_mean(ax, mean_samples):
     ax.legend(loc="upper left")
 
 
-def plot_var(ax, var_samples):
+def plot_var(ax, var_samples, sample_axis=0):
     """Plots the median and 95% CI from samples of the variance"""
     if var_samples.squeeze().ndim == 1:
         ax.plot(Xnew, var_samples, "C0", label="Median")
     else:
-        l, m, u = get_quantiles(var_samples)
+        l, m, u = get_quantiles(var_samples, sample_axis=sample_axis)
         ax.plot(Xnew, m, "C0", label="Median")
         ax.fill_between(Xnew.flatten(), l, u, facecolor="C0", alpha=0.5, label="95% CI")
     ax.plot(Xnew, noise(signal(Xnew_)) ** 2, "--k", label="Noise Function")
@@ -140,7 +140,7 @@ def plot_var(ax, var_samples):
     ax.legend(loc="upper left")
 
 
-def plot_total(ax, mean_samples, var_samples=None, bootstrap=True, n_boots=100):
+def plot_total(ax, mean_samples, var_samples=None, sample_axis=0, bootstrap=True, n_boots=100):
     """Plots the overall mean and variance of the aggregate system
 
     We can represent the overall uncertainty via explicitly sampling the underlying normal
@@ -152,25 +152,22 @@ def plot_total(ax, mean_samples, var_samples=None, bootstrap=True, n_boots=100):
 
     if (var_samples is None) or (var_samples.squeeze().ndim == 1):
         samples = mean_samples
-        l, m, u = get_quantiles(samples)
+        l, m, u = get_quantiles(samples, sample_axis=sample_axis)
         ax.plot(Xnew, m, "C0", label="Median")
     elif bootstrap:
         # Estimate the aggregate behavior using samples from each normal distribution in the posterior
-        samples = (
-            rng.normal(
-                mean_samples.T[:, :, None],
-                np.sqrt(var_samples).T[:, :, None],
-                (*mean_samples.T.shape, n_boots),
-            )
-            .reshape(len(Xnew_), -1)
-            .T
+        samples = rng.normal(
+            mean_samples[:, :, None],
+            np.sqrt(var_samples)[:, :, None],
+            (*mean_samples.shape, n_boots),
         )
-        l, m, u = get_quantiles(samples)
+        quantile_axis = (0, 2) if sample_axis == 0 else (1, 2)
+        l, m, u = get_quantiles(samples, sample_axis=quantile_axis)
         ax.plot(Xnew, m, "C0", label="Median")
     else:
-        m = mean_samples.mean(axis=0)
+        m = mean_samples.mean(axis=sample_axis)
         ax.plot(Xnew, m, "C0", label="Mean")
-        sd = np.sqrt(mean_samples.var(axis=0) + var_samples.mean(axis=0))
+        sd = np.sqrt(mean_samples.var(axis=sample_axis) + var_samples.mean(axis=sample_axis))
         l, u = m - 2 * sd, m + 2 * sd
 
     ax.fill_between(Xnew.flatten(), l, u, facecolor="C0", alpha=0.5, label="Total 95% CI")
@@ -209,11 +206,12 @@ with model_hm:
 
 ```{code-cell} ipython3
 _, axs = plt.subplots(1, 3, figsize=(18, 4))
-mu_samples = samples_hm.posterior_predictive["mu_pred_hm"].values.reshape(-1, len(Xnew))
-noisy_samples = samples_hm.posterior_predictive["noisy_pred_hm"].values.reshape(-1, len(Xnew))
-plot_mean(axs[0], mu_samples)
-plot_var(axs[1], noisy_samples.var(axis=0))
-plot_total(axs[2], noisy_samples)
+ppc_hm = samples_hm.posterior_predictive.stack(sample=("chain", "draw"))
+mu_samples = ppc_hm["mu_pred_hm"].values
+noisy_samples = ppc_hm["noisy_pred_hm"].values
+plot_mean(axs[0], mu_samples, sample_axis=1)
+plot_var(axs[1], noisy_samples.var(axis=1))
+plot_total(axs[2], noisy_samples, sample_axis=1)
 ```
 
 Here we've plotted our understanding of the mean behavior with the corresponding epistemic uncertainty on the left, our understanding of the variance or aleatoric uncertainty in the middle, and integrated all sources of uncertainty on the right. This model captures the mean behavior well, but we can see that it overestimates the noise in the lower regime while underestimating the noise in the upper regime, as expected.
@@ -245,11 +243,11 @@ with model_wt:
 
 ```{code-cell} ipython3
 _, axs = plt.subplots(1, 3, figsize=(18, 4))
-mu_samples = samples_wt.posterior_predictive["mu_pred_wt"].values.reshape(-1, len(Xnew))
-plot_mean(axs[0], mu_samples)
+mu_samples = samples_wt.posterior_predictive.stack(sample=("chain", "draw"))["mu_pred_wt"].values
+plot_mean(axs[0], mu_samples, sample_axis=1)
 axs[0].errorbar(X_, y, y_err, ls="none", color="C1", label="STDEV")
-plot_var(axs[1], mu_samples.var(axis=0))
-plot_total(axs[2], mu_samples)
+plot_var(axs[1], mu_samples.var(axis=1))
+plot_total(axs[2], mu_samples, sample_axis=1)
 ```
 
 This approach captured slightly more nuance in the overall uncertainty than the homoskedastic GP, but still underestimated the variance within both the observed regimes. Note that the variance displayed by this model is purely epistemic: our understanding of the mean behavior is weighted by the uncertainty in our observations, but we didn't include a component to account for aleatoric noise.
@@ -291,11 +289,12 @@ with model_ht:
 
 ```{code-cell} ipython3
 _, axs = plt.subplots(1, 3, figsize=(18, 4))
-μ_samples = samples_ht.posterior_predictive["μ_pred_ht"].values.reshape(-1, len(Xnew))
-σ_samples = np.exp(samples_ht.posterior_predictive["lg_σ_pred_ht"].values.reshape(-1, len(Xnew)))
-plot_mean(axs[0], μ_samples)
-plot_var(axs[1], σ_samples**2)
-plot_total(axs[2], μ_samples, σ_samples**2)
+ppc_ht = samples_ht.posterior_predictive.stack(sample=("chain", "draw"))
+μ_samples = ppc_ht["μ_pred_ht"].values
+σ_samples = np.exp(ppc_ht["lg_σ_pred_ht"].values)
+plot_mean(axs[0], μ_samples, sample_axis=1)
+plot_var(axs[1], σ_samples**2, sample_axis=1)
+plot_total(axs[2], μ_samples, σ_samples**2, sample_axis=1)
 ```
 
 That looks much better! We've accurately captured the mean behavior of our system along with an understanding of the underlying trend in the variance, with appropriate uncertainty. Crucially, the aggregate behavior of the model integrates both epistemic *and* aleatoric uncertainty, and the ~5% of our observations that fall outside the 2σ band are more or less evenly distributed across the domain. However, that took *over two hours* to sample only 4k NUTS iterations. Due to the expense of the requisite matrix inversions, GPs are notoriously inefficient for large data sets. Let's reformulate this model using a sparse approximation.
@@ -371,13 +370,14 @@ with model_hts:
 
 ```{code-cell} ipython3
 _, axs = plt.subplots(1, 3, figsize=(18, 4))
-μ_samples = samples_hts.posterior_predictive["μ_pred"].values.reshape(-1, len(Xnew))
-σ_samples = np.exp(samples_hts.posterior_predictive["lg_σ_pred"].values.reshape(-1, len(Xnew)))
-plot_mean(axs[0], μ_samples)
+ppc_hts = samples_hts.posterior_predictive.stack(sample=("chain", "draw"))
+μ_samples = ppc_hts["μ_pred"].values
+σ_samples = np.exp(ppc_hts["lg_σ_pred"].values)
+plot_mean(axs[0], μ_samples, sample_axis=1)
 plot_inducing_points(axs[0])
-plot_var(axs[1], σ_samples**2)
+plot_var(axs[1], σ_samples**2, sample_axis=1)
 plot_inducing_points(axs[1])
-plot_total(axs[2], μ_samples, σ_samples**2)
+plot_total(axs[2], μ_samples, σ_samples**2, sample_axis=1)
 plot_inducing_points(axs[2])
 ```
 
@@ -427,19 +427,18 @@ with model_htsc:
 ```
 
 ```{code-cell} ipython3
-c_mu_pred = samples_htsc.posterior_predictive["c_mu_pred"].values
-c_mu_pred = c_mu_pred.reshape(-1, c_mu_pred.shape[-1])
-μ_samples = c_mu_pred[:, : len(Xnew)]
-σ_samples = np.exp(c_mu_pred[:, len(Xnew) :])
+c_mu_pred = samples_htsc.posterior_predictive.stack(sample=("chain", "draw"))["c_mu_pred"].values
+μ_samples = c_mu_pred[: len(Xnew), :]
+σ_samples = np.exp(c_mu_pred[len(Xnew) :, :])
 
 _, axs = plt.subplots(1, 3, figsize=(18, 4))
-plot_mean(axs[0], μ_samples)
+plot_mean(axs[0], μ_samples, sample_axis=1)
 plot_inducing_points(axs[0])
-plot_var(axs[1], σ_samples**2)
+plot_var(axs[1], σ_samples**2, sample_axis=1)
 axs[1].set_ylim(-0.01, 0.2)
 axs[1].legend(loc="upper left")
 plot_inducing_points(axs[1])
-plot_total(axs[2], μ_samples, σ_samples**2)
+plot_total(axs[2], μ_samples, σ_samples**2, sample_axis=1)
 plot_inducing_points(axs[2])
 ```
 
@@ -451,32 +450,31 @@ with model_htsc:
 ```
 
 ```{code-cell} ipython3
-# Keep in mind that the first dimension in all arrays is the sampling dimension
-W = B_samples.posterior_predictive["W"].values
-W = W.reshape(-1, *W.shape[-2:])
-W_T = np.swapaxes(W, 1, 2)
-WW_T = np.matmul(W, W_T)
+# Samples are stacked on the last dimension in all arrays
+ppc_htsc = B_samples.posterior_predictive.stack(sample=("chain", "draw"))
+W = ppc_htsc["W"].values
+WW_T = np.einsum("drs,ers->des", W, W)
 
-kappa = B_samples.posterior_predictive["kappa"].values
-kappa = kappa.reshape(-1, kappa.shape[-1])
-I = np.tile(np.identity(2), [kappa.shape[0], 1, 1])
+kappa = ppc_htsc["kappa"].values
+I = np.identity(2)[:, :, None]
 # einsum is just a concise way of doing multiplication and summation over arbitrary axes
-diag_kappa = np.einsum("ij,ijk->ijk", kappa, I)
+diag_kappa = I * kappa[:, None, :]
 
 B = WW_T + diag_kappa
-B.mean(axis=0)
+B.mean(axis=2)
 ```
 
 ```{code-cell} ipython3
-sd = np.sqrt(np.diagonal(B, axis1=1, axis2=2))
-outer_sd = np.einsum("ij,ik->ijk", sd, sd)
+sd = np.sqrt(np.diagonal(B, axis1=0, axis2=1))
+outer_sd = np.einsum("sd,se->des", sd, sd)
 correlation = B / outer_sd
-print(f"2.5%ile correlation: {np.percentile(correlation,2.5,axis=0)[0,1]:0.3f}")
-print(f"Median correlation: {np.percentile(correlation,50,axis=0)[0,1]:0.3f}")
-print(f"97.5%ile correlation: {np.percentile(correlation,97.5,axis=0)[0,1]:0.3f}")
+
+print(f"2.5%ile correlation: {np.percentile(correlation,2.5,axis=2)[0,1]:0.3f}")
+print(f"Median correlation: {np.percentile(correlation,50,axis=2)[0,1]:0.3f}")
+print(f"97.5%ile correlation: {np.percentile(correlation,97.5,axis=2)[0,1]:0.3f}")
 ```
 
-The model has inadvertently learned that the mean and noise are negatively correlated, albeit with a wide credible interval.
+The model has inadvertently learned that the mean and noise are correlated, albeit with a wide credible interval.
 
 +++
 
@@ -493,21 +491,22 @@ The three latent approaches shown here varied in their complexity and efficiency
 ```{code-cell} ipython3
 _, axs = plt.subplots(1, 3, figsize=(18, 4))
 
-μ_samples = samples_ht.posterior_predictive["μ_pred_ht"].values.reshape(-1, len(Xnew))
-σ_samples = np.exp(samples_ht.posterior_predictive["lg_σ_pred_ht"].values.reshape(-1, len(Xnew)))
-plot_total(axs[0], μ_samples, σ_samples**2)
+ppc_ht = samples_ht.posterior_predictive.stack(sample=("chain", "draw"))
+μ_samples = ppc_ht["μ_pred_ht"].values
+σ_samples = np.exp(ppc_ht["lg_σ_pred_ht"].values)
+plot_total(axs[0], μ_samples, σ_samples**2, sample_axis=1)
 axs[0].set_title("Latent")
 
-μ_samples = samples_hts.posterior_predictive["μ_pred"].values.reshape(-1, len(Xnew))
-σ_samples = np.exp(samples_hts.posterior_predictive["lg_σ_pred"].values.reshape(-1, len(Xnew)))
-plot_total(axs[1], μ_samples, σ_samples**2)
+ppc_hts = samples_hts.posterior_predictive.stack(sample=("chain", "draw"))
+μ_samples = ppc_hts["μ_pred"].values
+σ_samples = np.exp(ppc_hts["lg_σ_pred"].values)
+plot_total(axs[1], μ_samples, σ_samples**2, sample_axis=1)
 axs[1].set_title("Sparse Latent")
 
-c_mu_pred = samples_htsc.posterior_predictive["c_mu_pred"].values
-c_mu_pred = c_mu_pred.reshape(-1, c_mu_pred.shape[-1])
-μ_samples = c_mu_pred[:, : len(Xnew)]
-σ_samples = np.exp(c_mu_pred[:, len(Xnew) :])
-plot_total(axs[2], μ_samples, σ_samples**2)
+c_mu_pred = samples_htsc.posterior_predictive.stack(sample=("chain", "draw"))["c_mu_pred"].values
+μ_samples = c_mu_pred[: len(Xnew), :]
+σ_samples = np.exp(c_mu_pred[len(Xnew) :, :])
+plot_total(axs[2], μ_samples, σ_samples**2, sample_axis=1)
 axs[2].set_title("Correlated Sparse Latent")
 
 yls = [ax.get_ylim() for ax in axs]
