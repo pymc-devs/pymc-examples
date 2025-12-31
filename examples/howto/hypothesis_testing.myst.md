@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_env
+  display_name: kulprit
   language: python
   name: python3
 ---
@@ -20,7 +20,7 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-import arviz as az
+import arviz.preview as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
@@ -28,8 +28,10 @@ import pymc as pm
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
-az.style.use("arviz-darkgrid")
-plt.rcParams.update({"font.size": 14, "figure.constrained_layout.use": False})
+az.style.use("arviz-variat")
+# We set the credible interval kind and probability globally
+az.rcParams["stats.ci_kind"] = "hdi"
+az.rcParams["stats.ci_prob"] = 0.95
 SEED = 42
 rng = np.random.default_rng(SEED)
 ```
@@ -112,17 +114,16 @@ It is good practice to visualise the posterior distribution, so below we'll look
 ```{code-cell} ipython3
 :tags: [hide-input]
 
-az.plot_pair(idata, var_names=["mu", "sigma"], marginals=True, point_estimate="mean");
+pc = az.plot_pair(idata, var_names=["mu", "sigma"])
+az.add_lines(
+    pc, {"mu": idata.posterior["mu"].mean().item(), "sigma": idata.posterior["sigma"].mean().item()}
+);
 ```
 
 Finally, seeing as $\mu$ is the core parameter of interest, we'll visualise both the prior and posterior distributions for $\mu$.
 
 ```{code-cell} ipython3
-:tags: [hide-input]
-
-ax = az.plot_dist(idata.prior["mu"], label="Prior", color="C0", figsize=(14, 3))
-az.plot_dist(idata.posterior["mu"], label="Posterior", color="C1", ax=ax)
-ax.set(title=r"Prior and posterior distributions of $\mu$");
+az.plot_prior_posterior(idata, var_names="mu");
 ```
 
 ## Bayesian hypothesis testing methods
@@ -140,7 +141,8 @@ p_mu_greater_0
 We can also include such information in a visual plot using `az.plot_posterior`.
 
 ```{code-cell} ipython3
-az.plot_posterior(idata, var_names=["mu"], ref_val=0, hdi_prob="hide", figsize=(14, 3));
+pc = az.plot_dist(idata, var_names=["mu"], kind="ecdf", visuals={"credible_interval": False})
+az.add_lines(pc, 0);
 ```
 
 It could also be that we have some kind of minimum meaningful threshold that we care about. For example, we might care about whether the mean is greater than 0.1. We can compute this in the same way.
@@ -152,11 +154,11 @@ p_mu_greater
 
 ### Highest Density Intervals (HDIs)
 
-The HDI gives an interval of highest probability density. If zero is outside the HDI, it’s unlikely the parameter is near zero.
+We can define an infinite number of intervals that contain a given probability mass (e.g., 95%). However, some intervals are more informative than others. The Highest Density Interval (HDI) is the narrowest interval that contains a given probability mass. This means that every point inside the HDI has a higher probability density than any point outside the HDI. If zero is outside the HDI, it’s unlikely the parameter is near zero.
 
 ```{code-cell} ipython3
-hdi_mu = az.hdi(idata.posterior["mu"])["mu"].data
-hdi_mu
+hdi_mu = az.hdi(idata.posterior["mu"]).values
+hdi_mu.round(2)
 ```
 
 In this case, zero is within the HDI, so based on this measure, we can't express much confidence that the mean is different from zero.
@@ -166,7 +168,7 @@ In this case, zero is within the HDI, so based on this measure, we can't express
 Again, we can use `az.plot_posterior` to visualize the HDIs.
 
 ```{code-cell} ipython3
-az.plot_posterior(idata, var_names=["mu"], figsize=(14, 3));
+az.plot_dist(idata, var_names="mu");
 ```
 
 ### Region of Practical Equivalence (ROPE)
@@ -176,9 +178,7 @@ If the probability that the parameter is within a certain range is high, we can 
 For example, if we state that values within $-0.1$ to $0.1$ (this region need not be symmetric) are practically equivalent to zero, we can compute the probability that $\mu$ is within this range. If this probability is high enough then we can say that the mean is practically equivalent to zero.
 
 ```{code-cell} ipython3
-rope = [-0.1, 0.1]
-p_in_rope = np.mean((mu_samples > rope[0]) & (mu_samples < rope[1]))
-p_in_rope
+az.ci_in_rope(idata, var_names="mu", rope=[-0.1, 0.1])
 ```
 
 So there is only a 2.2% probability that the mean is practically equivalent to zero. This is sufficiently low that we can reject the hypothesis that the mean is practically equivalent to zero.
@@ -188,7 +188,8 @@ So there is only a 2.2% probability that the mean is practically equivalent to z
 Third time in a row, `arviz` has our back and can plot the ROPE and HDIs.
 
 ```{code-cell} ipython3
-az.plot_posterior(idata, var_names=["mu"], rope=rope, figsize=(14, 3));
+pc = az.plot_dist(idata, var_names=["mu"])
+az.add_bands(pc, [(-0.1, 0.1)]);
 ```
 
 The intuition we can get from this is that if the ROPE is narrow, we would require quite a high level of precision to accept the null hypthesis. The posterior distribution would have to be very tightly centered around the null value to have a large probability of being within the ROPE.
@@ -225,7 +226,7 @@ Because the Bayes Factor directly compares how the data update the prior odds of
 Yet again, `arviz` has a function to help us here. We can use `plot_bf` to compute the Bayes Factor for the hypothesis that $\mu=0$ versus $\mu\neq0$.
 
 ```{code-cell} ipython3
-az.plot_bf(idata, var_name="mu", ref_val=0, figsize=(14, 3));
+az.plot_bf(idata, var_names="mu", ref_val=0);
 ```
 
 We can see that the probability of $\mu=0$ has gone _down_ after observing the data. This is reflected in the value of $BF_{01}=0.54$ in that it is less than 1.
@@ -267,6 +268,7 @@ Readers are referred to {ref}`Bayes_factor` for a more detailed look at Bayes Fa
 
 ## Authors
 * Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in December, 2024.
+* Updated by [Osvaldo Martin](https://aloctavodia.github.io/) in Dec, 2025.
 
 +++
 
