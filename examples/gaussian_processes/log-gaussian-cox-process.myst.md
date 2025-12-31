@@ -31,12 +31,12 @@ In more formal terms, if we have a space $X$ and $A\subseteq X$, the distributio
 $$Y_A \sim Poisson\left(\int_A \lambda(s) ds\right)$$
 and the intensity field is defined as
 $$\log \lambda(s) \sim GP(\mu(s), K(s,s'))$$
-where $GP(\mu(s), K(s,s'))$ denotes a Gaussian process with mean function $\mu(s)$ and covariance kernel $K(s,s')$ for a location $s \in X$. This is one of the simplest models of point patterns of $n$ events recorded as locations $s_1,...,s_n$ in an arbitrary metric space. In conjunction with a Bayesian analysis, this model can be used to answering questions of interest such as:
+where $GP(\mu(s), K(s,s'))$ denotes a Gaussian process with mean function $\mu(s)$ and covariance kernel $K(s,s')$ for a location $s \in X$. This is one of the simplest models of point patterns of $n$ events recorded as locations $s_1,...,s_n$ in an arbitrary metric space. In conjunction with a Bayesian analysis, this model can be used to answer questions of interest such as:
 * Does an observed point pattern imply a statistically significant shift in spatial intensities?
 * What would randomly sampled patterns with the same statistical properties look like?
 * Is there a statistical correlation between the *frequency* and *magnitude* of point events?
 
-In this notebook, we'll use a grid-based approximation to the full LGCP with PyMC to fit a model and analyze its posterior summaries. We will also explore the usage of a marked Poisson process, an extension of this model to account for the distribution of *marks* associated with each data point.
+In this notebook, we'll use a grid-based approximation to the full LGCP with PyMC to fit a model and analyze its posterior summaries. We will also explore the use of a marked Poisson process, an extension of this model to account for the distribution of *marks* associated with each data point.
 
 +++
 
@@ -44,7 +44,7 @@ In this notebook, we'll use a grid-based approximation to the full LGCP with PyM
 
 +++
 
-Our observational data concerns 231 sea anemones whose sizes and locations on the French coast were recorded. This data was taken from the [`spatstat` spatial modeling package in R](https://github.com/spatstat/spatstat) which is designed to address models like the LGCP and its subsequent refinements. The original source of this data is the textbook *Spatial data analysis by example* by Upton and Fingleton {cite}`upton1985spatial` and a longer description of the data can be found there.
+Our observational data concerns 231 sea anemones whose sizes and locations on the French coast were recorded. These data were taken from the [`spatstat` spatial modeling package in R](https://github.com/spatstat/spatstat), which is designed to address models like the LGCP and its subsequent refinements. The original source of this data is the textbook *Spatial data analysis by example* by Upton and Fingleton {cite}`upton1985spatial` and a longer description of the data can be found there.
 
 ```{code-cell} ipython3
 import os
@@ -92,7 +92,7 @@ The 'marks' column indicates the size of each anemone. If we were to model both 
 
 +++
 
-While there are multiple ways to conduct inference, perhaps the  simplest way is to slice up our domain $X$ into many small pieces $A_1, A_2,...,A_M$ and fix the intensity field to be constant within each subset. Then, we will treat the number of points within each $A_j$ as a Poisson random variable such that $Y_j \sim Poisson(\lambda_j)$. and we also consider the $\log{\lambda_1}...,\log{\lambda_M}$ variables as a single draw from a Gaussian process.
+While there are multiple ways to conduct inference, perhaps the simplest way is to slice up our domain $X$ into many small pieces $A_1, A_2,...,A_M$ and fix the intensity field to be constant within each subset. Then, we will treat the number of points within each $A_j$ as a Poisson random variable such that $Y_j \sim Poisson(\lambda_j)$, and we also consider the $\log{\lambda_1}...,\log{\lambda_M}$ variables as a single draw from a Gaussian process.
 
 +++
 
