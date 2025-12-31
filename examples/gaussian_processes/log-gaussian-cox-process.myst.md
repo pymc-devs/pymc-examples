@@ -16,7 +16,7 @@ kernelspec:
 :::{post} December 31, 2025
 :tags: cox process, latent gaussian process, nonparametric, spatial, count data
 :category: intermediate
-:author: Chrisopher Krapu, Chris Fonnesbeck
+:author: Christopher Krapu, Chris Fonnesbeck
 :::
 
 +++
@@ -289,7 +289,7 @@ The posterior variance is lowest in the middle of the domain and largest in the 
 
 - This notebook was written by [Christopher Krapu](https://github.com/ckrapu) on September 6, 2020 and updated on April 1, 2021.
 - Updated by Chris Fonnesbeck on May 31, 2022 for v4 compatibility.
-- Updated by Christopher Krapu on 12/31/2025 for v5 compatibility.
+- Updated by Christopher Krapu on December 31, 2025 for v5 compatibility.
 
 ## References
 :::{bibliography}
