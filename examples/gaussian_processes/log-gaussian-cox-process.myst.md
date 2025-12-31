@@ -5,15 +5,15 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: PyMC Examples
   language: python
-  name: python3
+  name: pymc-examples
 ---
 
 (log-gaussian-cox-process)=
 # Modeling spatial point patterns with a marked log-Gaussian Cox process
 
-:::{post} May 31, 2022
+:::{post} December 31, 2025
 :tags: cox process, latent gaussian process, nonparametric, spatial, count data
 :category: intermediate
 :author: Chrisopher Krapu, Chris Fonnesbeck
@@ -44,9 +44,10 @@ In this notebook, we'll use a grid-based approximation to the full LGCP with PyM
 
 +++
 
-Our observational data concerns 231 sea anemones whose sizes and locations on the French coast were recorded. This data was taken from the [`spatstat` spatial modeling package in R](https://github.com/spatstat/spatstat) which is designed to address models like the LGCP and its subsequent refinements. The original source of this data is the textbook *Spatial data analysis by example* by Upton and Fingleton (1985) and a longer description of the data can be found there.
+Our observational data concerns 231 sea anemones whose sizes and locations on the French coast were recorded. This data was taken from the [`spatstat` spatial modeling package in R](https://github.com/spatstat/spatstat) which is designed to address models like the LGCP and its subsequent refinements. The original source of this data is the textbook *Spatial data analysis by example* by Upton and Fingleton {cite}`upton1985spatial` and a longer description of the data can be found there.
 
 ```{code-cell} ipython3
+import os
 import warnings
 
 from itertools import product
@@ -57,19 +58,19 @@ import numpy as np
 import pandas as pd
 import pymc as pm
 
-from matplotlib import MatplotlibDeprecationWarning
 from numpy.random import default_rng
-
-warnings.filterwarnings(action="ignore", category=MatplotlibDeprecationWarning)
 ```
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
+RANDOM_SEED = 827
+rng = default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
 
 ```{code-cell} ipython3
 data = pd.read_csv(pm.get_data("anemones.csv"))
+
 n = data.shape[0]
 ```
 
@@ -103,7 +104,6 @@ xy = data[["x", "y"]].values
 # Jitter the data slightly so that none of the points fall exactly
 # on cell boundaries
 eps = 1e-3
-rng = default_rng()
 xy = xy.astype("float") + rng.standard_normal(xy.shape) * eps
 
 resolution = 20
@@ -154,7 +154,9 @@ We can see that all of the counts are fairly low and range from zero to five. Wi
 Our first step is to place prior distributions over the high-level parameters for the Gaussian process. This includes the length scale $\rho$ for the covariance function and a constant mean $\mu$ for the GP.
 
 ```{code-cell} ipython3
-with pm.Model() as lgcp_model:
+coords = {"cell": np.arange(cell_counts.size)}
+
+with pm.Model(coords=coords) as lgcp_model:
     mu = pm.Normal("mu", sigma=3)
     rho = pm.Uniform("rho", lower=25, upper=300)
     variance = pm.InverseGamma("variance", alpha=1, beta=1)
@@ -168,18 +170,18 @@ Next, we transform the Gaussian process into a positive-valued process via `pm.m
 with lgcp_model:
     gp = pm.gp.Latent(mean_func=mean_func, cov_func=cov_func)
 
-    log_intensity = gp.prior("log_intensity", X=centroids)
+    log_intensity = gp.prior("log_intensity", X=centroids, dims="cell")
     intensity = pm.math.exp(log_intensity)
 
     rates = intensity * area_per_cell
-    counts = pm.Poisson("counts", mu=rates, observed=cell_counts)
+    counts = pm.Poisson("counts", mu=rates, observed=cell_counts, dims="cell")
 ```
 
 With the model fully specified, we can start sampling from the posterior using the default NUTS sampler. I'll also tweak the target acceptance rate to reduce the number of divergences.
 
 ```{code-cell} ipython3
 with lgcp_model:
-    trace = pm.sample(1000, tune=2000, target_accept=0.95)
+    idata = pm.sample(return_inferencedata=True, mp_ctx="spawn")
 ```
 
 # Interpreting the results
@@ -189,7 +191,7 @@ with lgcp_model:
 Posterior inference on the length_scale parameter is useful for understanding whether or not there are long-range correlations in the data. We can also examine the mean of the log-intensity field, but since it is on the log scale it is hard to directly interpret.
 
 ```{code-cell} ipython3
-az.summary(trace, var_names=["mu", "rho"])
+az.summary(idata, var_names=["mu", "rho"])
 ```
 
 We are also interested in looking at the value of the intensity field at a large number of new points in space. We can accommodate this within our model by including a new random variable for the latent Gaussian process evaluated at a denser set of points. Using `sample_posterior_predictive`, we generate posterior predictions on new data points contained in the variable `intensity_new`.
@@ -201,14 +203,18 @@ xs, ys = np.asarray(np.meshgrid(x_new, y_new))
 xy_new = np.asarray([xs.ravel(), ys.ravel()]).T
 
 with lgcp_model:
-    intensity_new = gp.conditional("log_intensity_new", Xnew=xy_new)
+    lgcp_model.add_coord("cell_new", np.arange(xy_new.shape[0]))
+    intensity_new = gp.conditional("log_intensity_new", Xnew=xy_new, dims="cell_new")
 
-    spp_trace = pm.sample_posterior_predictive(
-        trace, var_names=["log_intensity_new"], keep_size=True
+    idata.extend(
+        pm.sample_posterior_predictive(
+            idata,
+            var_names=["log_intensity_new"],
+            random_seed=RANDOM_SEED,
+        )
     )
 
-trace.extend(spp_trace)
-intensity_samples = np.exp(trace.posterior_predictive["log_intensity_new"])
+intensity_samples = np.exp(idata.posterior_predictive["log_intensity_new"])
 ```
 
 Let's take a look at a few realizations of $\lambda(s)$. Since the samples are on the log scale, we'll need to exponentiate them to obtain the spatial intensity field of our 2D Poisson process. In the plot below, the observed point pattern is overlaid.
@@ -219,9 +225,10 @@ axes = axes.ravel()
 
 field_kwargs = {"marker": "o", "edgecolor": "None", "alpha": 0.5, "s": 80}
 
-for i in range(6):
+num_draws = min(6, intensity_samples.sizes.get("draw", 0))
+for i in range(num_draws):
     field_handle = axes[i].scatter(
-        xy_new[:, 0], xy_new[:, 1], c=intensity_samples.sel(chain=0, draw=i), **field_kwargs
+        xy_new[:, 0], xy_new[:, 1], c=intensity_samples.isel(chain=0, draw=i), **field_kwargs
     )
 
     obs_handle = axes[i].scatter(data["x"], data["y"], s=10, color="k")
@@ -282,6 +289,12 @@ The posterior variance is lowest in the middle of the domain and largest in the 
 
 - This notebook was written by [Christopher Krapu](https://github.com/ckrapu) on September 6, 2020 and updated on April 1, 2021.
 - Updated by Chris Fonnesbeck on May 31, 2022 for v4 compatibility.
+- Updated by Christopher Krapu on 12/31/2025 for v5 compatibility.
+
+## References
+:::{bibliography}
+:filter: docname in docnames
+:::
 
 ## Watermark
 
