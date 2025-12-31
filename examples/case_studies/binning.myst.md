@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python [conda env:pymc_env]
+  display_name: kulprit
   language: python
-  name: conda-env-pymc_env-py
+  name: python3
 ---
 
 (awkward_binning)=
@@ -19,7 +19,26 @@ kernelspec:
 :author: Eric Ma, Benjamin T. Vincent
 :::
 
-+++
+```{code-cell} ipython3
+import warnings
+
+import arviz.preview as az
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pymc as pm
+import pytensor.tensor as pt
+import xarray as xr
+
+warnings.filterwarnings(action="ignore", category=UserWarning)
+```
+
+```{code-cell} ipython3
+%config InlineBackend.figure_format = 'retina'
+plt.rcParams.update({"font.size": 14})
+az.style.use("arviz-variat")
+rng = np.random.default_rng(1234)
+```
 
 ## The problem
 Let us say that we are interested in inferring the properties of a population. This could be anything from the distribution of age, or income, or body mass index, or a whole range of different possible measures. In completing this task, we might often come across the situation where we have multiple datasets, each of which can inform our beliefs about the overall population.
@@ -106,27 +125,7 @@ Hypothetically we could have used base python, or numpy, to describe the generat
 
 The approach was illustrated with a Gaussian distribution, and below we show a number of worked examples using Gaussian distributions. However, the approach is general, and at the end of the notebook we provide a demonstration that the approach does indeed extend to non-Gaussian distributions.
 
-```{code-cell} ipython3
-import warnings
-
-import arviz as az
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import pymc as pm
-import pytensor.tensor as pt
-import seaborn as sns
-
-warnings.filterwarnings(action="ignore", category=UserWarning)
-```
-
-```{code-cell} ipython3
-%matplotlib inline
-%config InlineBackend.figure_format = 'retina'
-plt.rcParams.update({"font.size": 14})
-az.style.use("arviz-darkgrid")
-rng = np.random.default_rng(1234)
-```
++++
 
 ## Simulated data with a Gaussian distribution
 
@@ -257,7 +256,7 @@ c1.plot(kind="bar", ax=ax, alpha=0.5)
 ppc.posterior_predictive.plot.scatter(x="counts1_dim_0", y="counts1", color="k", alpha=0.2)
 # Formatting
 ax.set_xticklabels([f"bin {n}" for n in range(len(c1))])
-ax.set_title("Six bin discretization of N(-2, 2)")
+ax.set_title("Six bin discretization of N(-2, 2)");
 ```
 
 It looks like the numbers are in the right ballpark.
@@ -287,7 +286,8 @@ The more important question is whether we have recovered the parameters of the d
 Recall that we used `mu = -2` and `sigma = 2` to generate the data.
 
 ```{code-cell} ipython3
-az.plot_posterior(trace1, var_names=["mu", "sigma"], ref_val=[true_mu, true_sigma]);
+pc = az.plot_dist(trace1, var_names=["mu", "sigma"])
+az.add_lines(pc, {"mu": true_mu, "sigma": true_sigma});
 ```
 
 Pretty good! And we can access the posterior mean estimates (stored as [xarray](http://xarray.pydata.org/en/stable/index.html) types) as below. The MCMC samples arrive back in a 2D matrix with one dimension for the MCMC chain (`chain`), and one for the sample number (`draw`). We can calculate the overall posterior average with `.mean(dim=["draw", "chain"])`.
@@ -326,7 +326,7 @@ with model2:
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace2);
+az.plot_trace_dist(trace2);
 ```
 
 ### Posterior predictive checks
@@ -358,7 +358,7 @@ c2.plot(kind="bar", ax=ax, alpha=0.5)
 ppc.posterior_predictive.plot.scatter(x="counts2_dim_0", y="counts2", color="k", alpha=0.2)
 # Formatting
 ax.set_xticklabels([f"bin {n}" for n in range(len(c2))])
-ax.set_title("Seven bin discretization of N(-2, 2)")
+ax.set_title("Seven bin discretization of N(-2, 2)");
 ```
 
 Not bad!
@@ -370,7 +370,8 @@ Not bad!
 And did we recover the parameters?
 
 ```{code-cell} ipython3
-az.plot_posterior(trace2, var_names=["mu", "sigma"], ref_val=[true_mu, true_sigma]);
+pc = az.plot_dist(trace2, var_names=["mu", "sigma"])
+az.add_lines(pc, {"mu": true_mu, "sigma": true_sigma});
 ```
 
 ```{code-cell} ipython3
@@ -416,7 +417,11 @@ with model3:
 ```
 
 ```{code-cell} ipython3
-az.plot_pair(trace3, var_names=["mu", "sigma"], divergences=True);
+az.plot_pair(
+    trace3,
+    var_names=["mu", "sigma"],
+    visuals={"divergence": True},
+);
 ```
 
 ### Posterior predictive checks
@@ -449,7 +454,7 @@ ppc.posterior_predictive.plot.scatter(
 )
 # Formatting
 ax[1].set_xticklabels([f"bin {n}" for n in range(len(c2))])
-ax[1].set_title("Seven bin discretization of N(-2, 2)")
+ax[1].set_title("Seven bin discretization of N(-2, 2)");
 ```
 
 ### Recovering parameters
@@ -463,7 +468,8 @@ trace3.posterior["sigma"].mean(dim=["draw", "chain"]).values
 ```
 
 ```{code-cell} ipython3
-az.plot_posterior(trace3, var_names=["mu", "sigma"], ref_val=[true_mu, true_sigma]);
+pc = az.plot_dist(trace3, var_names=["mu", "sigma"])
+az.add_lines(pc, {"mu": true_mu, "sigma": true_sigma});
 ```
 
 ## Example 4: Parameter estimation with continuous and binned measures
@@ -534,7 +540,8 @@ np.mean(ppc.posterior_predictive.y.values.flatten()), np.std(
 Finally, we can check the posterior estimates of the parameters and see that the estimates here are spot on.
 
 ```{code-cell} ipython3
-az.plot_posterior(trace4, var_names=["mu", "sigma"], ref_val=[true_mu, true_sigma]);
+pc = az.plot_dist(trace4, var_names=["mu", "sigma"])
+az.add_lines(pc, {"mu": true_mu, "sigma": true_sigma});
 ```
 
 ## Example 5: Hierarchical estimation
@@ -632,7 +639,9 @@ We can see that despite our efforts, we still get some divergences. Plotting the
 
 ```{code-cell} ipython3
 az.plot_pair(
-    trace5, var_names=["mu_pop_mean", "mu_pop_variance", "sigma"], coords=coords, divergences=True
+    trace5,
+    var_names=["mu_pop_mean", "mu_pop_variance", "sigma"],
+    visuals={"divergence": True},
 );
 ```
 
@@ -662,7 +671,7 @@ c2.plot(kind="bar", ax=ax[1], alpha=0.5)
 ppc.posterior_predictive.plot.scatter(x="bin2", y="counts2", color="k", alpha=0.2, ax=ax[1])
 # Formatting
 ax[1].set_xticklabels([f"bin {n}" for n in range(len(c2))])
-ax[1].set_title("Seven bin discretization of N(-2, 2)")
+ax[1].set_title("Seven bin discretization of N(-2, 2)");
 ```
 
 ### Inspect posterior
@@ -672,15 +681,13 @@ ax[1].set_title("Seven bin discretization of N(-2, 2)")
 Any evidence for differences in study-level means or standard deviations?
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(1, 2, figsize=(10, 3))
-
-diff = trace5.posterior.mu.sel(study=0) - trace5.posterior.mu.sel(study=1)
-az.plot_posterior(diff, ref_val=0, ax=ax[0])
-ax[0].set(title="difference in study level mean estimates")
-
-diff = trace5.posterior.sigma.sel(study=0) - trace5.posterior.sigma.sel(study=1)
-az.plot_posterior(diff, ref_val=0, ax=ax[1])
-ax[1].set(title="difference in study level std estimate");
+diff = trace5.posterior.sel(study=0) - trace5.posterior.sel(study=1)
+pc = az.plot_dist(
+    diff,
+    var_names=["mu", "sigma"],
+    visuals={"title": {"text": "difference in study level estimates"}},
+)
+az.add_lines(pc, 0);
 ```
 
 No compelling evidence for differences between the population level means and standard deviations.
@@ -690,13 +697,11 @@ No compelling evidence for differences between the population level means and st
 Population level estimates in the mean parameter. There is no population level estimate of sigma in this reparameterised model.
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(10, 3))
+pop_mean_values = rng.normal(trace5.posterior.mu_pop_mean, trace5.posterior.mu_pop_variance)
+pop_mean = xr.Dataset({"pop_mean": (["chain", "draw"], pop_mean_values)})
 
-pop_mean = rng.normal(
-    trace5.posterior.mu_pop_mean.values.flatten(), trace5.posterior.mu_pop_variance.values.flatten()
-)
-az.plot_posterior(pop_mean, ax=ax, ref_val=true_mu)
-ax.set(title="population level mean estimate");
+pc = az.plot_dist(pop_mean)
+az.add_lines(pc, true_mu);
 ```
 
 Another possible solution would be to make independent inferences about the study level parameters from group 1 and group 2, and then look for any evidendence that these differ. Taking this approach works just fine, no divergences in sight, although this approach drifts away from our core goal of making population level inferences. Rather than fully work through this example, we included the code in case it is useful to anyone's use case.
@@ -866,13 +871,14 @@ ppc.posterior_predictive.plot.scatter(
 )
 # Formatting
 ax[1].set_xticklabels([f"bin {n}" for n in range(len(c2))])
-ax[1].set_title("Study 2")
+ax[1].set_title("Study 2");
 ```
 
 ### Recovering parameters
 
 ```{code-cell} ipython3
-az.plot_posterior(trace6, var_names=["mu", "beta"], ref_val=[true_mu, true_beta]);
+pc = az.plot_dist(trace6, var_names=["mu", "beta"])
+az.add_lines(pc, {"mu": true_mu, "beta": true_beta});
 ```
 
 We can see that we were able to do a good job of recovering the known parameters of the underlying BMI population.
@@ -898,6 +904,7 @@ We have presented a range of different examples here which makes clear that the 
 ## Authors
 * Authored by [Eric Ma](https://github.com/ericmjl) and [Benjamin T. Vincent](https://github.com/drbenvincent) in September, 2021 ([pymc-examples#229](https://github.com/pymc-devs/pymc-examples/pull/229))
 * Updated to run in PyMC v4 by Fernando Irarrazaval in June 2022 ([pymc-examples#366](https://github.com/pymc-devs/pymc-examples/pull/366))
+* Updated by Osvaldo Martin in Dec 2025
 
 +++
 

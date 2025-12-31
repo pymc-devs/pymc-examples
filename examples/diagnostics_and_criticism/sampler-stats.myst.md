@@ -6,7 +6,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: kulprit
   language: python
   name: python3
 ---
@@ -21,19 +21,15 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-import arviz as az
+import arviz.preview as az
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 import pymc as pm
-
-%matplotlib inline
 
 print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 plt.rcParams["figure.constrained_layout.use"] = False
 ```
 
@@ -98,8 +94,12 @@ idata.sample_stats["tree_depth"].plot(col="chain", ls="none", marker=".", alpha=
 ```
 
 ```{code-cell} ipython3
-az.plot_posterior(
-    idata, group="sample_stats", var_names="acceptance_rate", hdi_prob="hide", kind="hist"
+az.plot_dist(
+    idata,
+    group="sample_stats",
+    var_names="acceptance_rate",
+    kind="hist",
+    visuals={"credible_interval": False},
 );
 ```
 
@@ -118,7 +118,7 @@ energy levels with the change of energy between successive samples.
 Ideally, they should be very similar:
 
 ```{code-cell} ipython3
-az.plot_energy(idata, figsize=(6, 4));
+az.plot_energy(idata);
 ```
 
 If the overall distribution of energy levels has longer tails, the efficiency of the sampler will deteriorate quickly.
@@ -159,12 +159,11 @@ list(idata.sample_stats.data_vars)
 Both samplers export `accept`, so we get one acceptance probability for each sampler:
 
 ```{code-cell} ipython3
-az.plot_posterior(
+az.plot_dist(
     idata,
     group="sample_stats",
     var_names="accept",
-    hdi_prob="hide",
-    kind="hist",
+    kind="ecdf",
 );
 ```
 
@@ -175,19 +174,10 @@ We notice that `accept` sometimes takes really high values (jumps from regions o
 idata.sample_stats["accept"].max("draw") - idata.sample_stats["accept"].min("draw")
 ```
 
-```{code-cell} ipython3
-# We can try plotting the density and view the high density intervals to understand the variable better
-az.plot_density(
-    idata,
-    group="sample_stats",
-    var_names="accept",
-    point_estimate="mean",
-);
-```
-
 ## Authors
 * Updated by Meenal Jhajharia in April 2021 ([pymc-examples#95](https://github.com/pymc-devs/pymc-examples/pull/95))
 * Updated to v4 by Christian Luhmann in May 2022 ([pymc-examples#338](https://github.com/pymc-devs/pymc-examples/pull/338))
+* Updated by Osvaldo Martin in Dec 2025
 
 +++
 
