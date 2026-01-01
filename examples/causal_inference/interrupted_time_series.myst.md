@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_env
+  display_name: PyMC (venv)
   language: python
   name: pymc_env
 ---
@@ -121,7 +121,7 @@ treatment_time = "2017-01-01"
 β0 = 0
 β1 = 0.1
 dates = pd.date_range(
-    start=pd.to_datetime("2010-01-01"), end=pd.to_datetime("2020-01-01"), freq="M"
+    start=pd.to_datetime("2010-01-01"), end=pd.to_datetime("2020-01-01"), freq="ME"
 )
 N = len(dates)
 
@@ -163,7 +163,7 @@ Here we build a simple linear model. Remember that we are building a model of th
 ```{code-cell} ipython3
 with pm.Model() as model:
     # observed predictors and outcome
-    time = pm.MutableData("time", pre["time"].to_numpy(), dims="obs_id")
+    time = pm.Data("time", pre["time"].to_numpy(), dims="obs_id")
     # priors
     beta0 = pm.Normal("beta0", 0, 1)
     beta1 = pm.Normal("beta1", 0, 0.2)
