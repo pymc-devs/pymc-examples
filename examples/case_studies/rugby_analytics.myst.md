@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc
   language: python
   name: python3
 myst:
@@ -48,7 +48,7 @@ Source for Results 2014 are Wikipedia. I've added the subsequent years, 2015, 20
 ```{code-cell} ipython3
 !date
 
-import arviz as az
+import arviz.preview as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -57,12 +57,10 @@ import pytensor.tensor as pt
 import seaborn as sns
 
 from matplotlib.ticker import StrMethodFormatter
-
-%matplotlib inline
 ```
 
 ```{code-cell} ipython3
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 plt.rcParams["figure.constrained_layout.use"] = False
 ```
 
@@ -123,8 +121,9 @@ df_all["difference"] = np.abs(df_all["home_score"] - df_all["away_score"])
         kind="bar",
         title="Average magnitude of scores difference Six Nations",
         yerr=df_all.groupby("year")["difference"].std(),
+        figsize=(10, 4),
     )
-    .set_ylabel("Average (abs) point difference")
+    .set_ylabel("Point difference (abs)")
 );
 ```
 
@@ -147,8 +146,8 @@ Now let's first plot this by home team without year.
 (
     df_all.pivot_table("difference_non_abs", "home_team")
     .rename_axis("Home_Team")
-    .plot(kind="bar", rot=0, legend=False)
-    .set_ylabel("Score difference Home team and away team")
+    .plot(kind="bar", rot=0, legend=False, figsize=(10, 4))
+    .set_ylabel("Score difference\nHome team and away team")
 );
 ```
 
@@ -158,8 +157,8 @@ You can see that Italy and Scotland have negative scores on average. You can als
 (
     df_all.pivot_table("difference_non_abs", "away_team")
     .rename_axis("Away_Team")
-    .plot(kind="bar", rot=0, legend=False)
-    .set_ylabel("Score difference Home team and away team")
+    .plot(kind="bar", rot=0, legend=False, figsize=(10, 4))
+    .set_ylabel("Score difference\nHome team and away team")
 );
 ```
 
@@ -173,13 +172,13 @@ Let us look a bit more at a timeseries plot of the average of the score differen
 We see some changes in team behaviour, and we also see that Italy is a poor team.
 
 ```{code-cell} ipython3
-g = sns.FacetGrid(df_all, col="home_team", col_wrap=2, height=5)
+g = sns.FacetGrid(df_all, col="home_team", col_wrap=2, height=3.5)
 g.map(sns.scatterplot, "year", "difference_non_abs")
 g.fig.autofmt_xdate()
 ```
 
 ```{code-cell} ipython3
-g = sns.FacetGrid(df_all, col="away_team", col_wrap=2, height=5)
+g = sns.FacetGrid(df_all, col="away_team", col_wrap=2, height=3.5)
 g = g.map(plt.scatter, "year", "difference_non_abs").set_axis_labels("Year", "Score Difference")
 g.fig.autofmt_xdate()
 ```
@@ -240,8 +239,8 @@ coords = {"team": teams}
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as model:
     # constant data
-    home_team = pm.ConstantData("home_team", home_idx, dims="match")
-    away_team = pm.ConstantData("away_team", away_idx, dims="match")
+    home_team = pm.Data("home_team", home_idx, dims="match")
+    away_team = pm.Data("away_team", away_idx, dims="match")
 
     # global model parameters
     home = pm.Normal("home", mu=0, sigma=1)
@@ -279,13 +278,13 @@ with pm.Model(coords=coords) as model:
 * All this runs on an PyTensor graph under the hood
 
 ```{code-cell} ipython3
-az.plot_trace(trace, var_names=["intercept", "home", "sd_att", "sd_def"], compact=False);
+az.plot_trace_dist(trace, var_names=["intercept", "home", "sd_att", "sd_def"], compact=False);
 ```
 
 Let us apply good *statistical workflow* practices and look at the various evaluation metrics to see if our NUTS sampler converged.
 
 ```{code-cell} ipython3
-az.plot_energy(trace, figsize=(6, 4));
+az.plot_energy(trace);
 ```
 
 ```{code-cell} ipython3
@@ -312,23 +311,10 @@ From the above we can start to understand the different distributions of attacki
 These are probabilistic estimates and help us better understand the uncertainty in sports analytics
 
 ```{code-cell} ipython3
-_, ax = plt.subplots(figsize=(12, 6))
-
-ax.scatter(teams, trace.posterior["atts"].median(dim=("chain", "draw")), color="C0", alpha=1, s=100)
-ax.vlines(
-    teams,
-    trace_hdi["atts"].sel({"hdi": "lower"}),
-    trace_hdi["atts"].sel({"hdi": "higher"}),
-    alpha=0.6,
-    lw=5,
-    color="C0",
-)
-ax.set_xlabel("Teams")
-ax.set_ylabel("Posterior Attack Strength")
-ax.set_title("HDI of Team-wise Attack Strength");
+az.plot_forest(trace, var_names=["atts"], combined=True);
 ```
 
-This is one of the powerful things about Bayesian modelling, we can have *uncertainty quantification* of some of our estimates.
+This is one of the powerful things about Bayesian modelling, we can have *uncertainty quantification* of our estimates.
 We've got a Bayesian credible interval for the attack strength of different countries.
 
 We can see an overlap between Ireland, Wales and England which is what you'd expect since these teams have won in recent years.
@@ -339,21 +325,7 @@ There are probably some effects we'd like to add in here, like weighting more re
 However that'd be a much more complicated model.
 
 ```{code-cell} ipython3
-# subclass arviz labeller to omit the variable name
-class TeamLabeller(az.labels.BaseLabeller):
-    def make_label_flat(self, var_name, sel, isel):
-        sel_str = self.sel_to_str(sel, isel)
-        return sel_str
-```
-
-```{code-cell} ipython3
-ax = az.plot_forest(trace, var_names=["atts"], labeller=TeamLabeller())
-ax[0].set_title("Team Offense");
-```
-
-```{code-cell} ipython3
-ax = az.plot_forest(trace, var_names=["defs"], labeller=TeamLabeller())
-ax[0].set_title("Team Defense");
+az.plot_forest(trace, var_names=["defs"], combined=True);
 ```
 
 Good teams like Ireland and England have a strong negative effect defense. Which is what we expect. We expect our strong teams to have strong positive effects in attack and strong negative effects in defense.
@@ -370,7 +342,7 @@ Let's do some other plots. So we can see our range for our defensive effect.
 I'll print the teams below too just for reference
 
 ```{code-cell} ipython3
-az.plot_posterior(trace, var_names=["defs"]);
+az.plot_dist(trace, var_names=["defs"]);
 ```
 
 We can see that Ireland's mean is -0.39  which means we expect Ireland to have a strong defense.
@@ -479,12 +451,8 @@ We should do some exploration of the variables
 az.plot_pair(
     trace,
     var_names=["atts"],
-    kind="scatter",
-    divergences=True,
-    textsize=25,
-    marginals=True,
-),
-figsize = (10, 10)
+    visuals={"divergences": True},
+);
 ```
 
 We observe that there isn't a lot of correlation between these covariates, other than the weaker teams like Italy have a more negative distribution of these variables.
@@ -497,6 +465,7 @@ Nevertheless this is a good method to get some insight into how the variables ar
 * Adapted [Daniel Weitzenfeld's](http://danielweitzenfeld.github.io/passtheroc/blog/2014/10/28/bayes-premier-league/) blog post by [Peadar Coyle](). The original blog post was based on the work of {cite:p}`baio2010bayesian`
 * Updated by Meenal Jhajharia to use ArviZ and xarray
 * Updated by Oriol Abril-Pla to use PyMC v4 and xarray-einstats
+* Updated by Osvaldo Martin Dec 2025
 
 +++
 
@@ -517,7 +486,3 @@ Nevertheless this is a good method to get some insight into how the variables ar
 
 :::{include} ../page_footer.md
 :::
-
-```{code-cell} ipython3
-
-```

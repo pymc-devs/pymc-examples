@@ -6,7 +6,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc
   language: python
   name: python3
 ---
@@ -21,17 +21,16 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-import arviz as az
+import arviz.preview as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
-import pytensor.tensor as pt
 ```
 
 ```{code-cell} ipython3
 RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 ```
 
 ## 1. Model creation
@@ -261,25 +260,25 @@ with pm.Model() as model:
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(idata);
+az.plot_trace_dist(idata);
 ```
 
-Another common metric to look at is the Gelman-Rubin statistic, or R-hat:
+It may be difficult to see what is going on the right column as chains overlap, an alternative is to use rank plots:
 
 ```{code-cell} ipython3
-az.summary(idata)
+az.plot_rank_dist(idata);
 ```
 
-R-hat is also presented as part of the `az.plot_forest`:
+Two common metrics to look when diagnosing MCMC samples are the ESS and R-hat. For more information on how to interpret these metrics, see [here](https://arviz-devs.github.io/EABM/Chapters/MCMC_diagnostics.html).
 
 ```{code-cell} ipython3
-az.plot_forest(idata, r_hat=True);
+az.summary(idata, kind="diagnostics")
 ```
 
 Finally, for a plot of the posterior that is inspired by {cite:p}`kruschke2014doing`, you can use the:
 
 ```{code-cell} ipython3
-az.plot_posterior(idata);
+az.plot_dist(idata);
 ```
 
 For high-dimensional models it becomes cumbersome to look at the traces for all parameters. When using `NUTS` we can look at the energy plot to assess problems of convergence:
@@ -313,7 +312,7 @@ The returned `Approximation` object has various capabilities, like drawing sampl
 
 ```{code-cell} ipython3
 idata = approx.sample(1000)
-az.summary(idata)
+az.summary(idata, kind="stats")
 ```
 
 The `variational` submodule offers a lot of flexibility in which VI to use and follows an object oriented design. For example, full-rank ADVI estimates a full covariance matrix:
@@ -341,8 +340,7 @@ with pm.Model(coords={"idx": np.arange(2)}) as model:
 ```
 
 ```{code-cell} ipython3
-plt.figure()
-idata = approx.sample(10000)
+idata = approx.sample(1000)
 az.plot_pair(idata, var_names="x", coords={"idx": [0, 1]});
 ```
 
@@ -363,9 +361,16 @@ with pm.Model() as model:
 ```
 
 ```{code-cell} ipython3
-plt.figure()
-idata = approx.sample(10000)
-az.plot_dist(idata.posterior["x"]);
+idata = approx.sample(1000)
+az.plot_dist(
+    idata,
+    var_names="x",
+    visuals={
+        "point_estimate": False,
+        "point_estimate_text": False,
+        "credible_interval": False,
+    },
+);
 ```
 
 For more information on variational inference, see {ref}`variational_inference`.
@@ -392,10 +397,8 @@ with model:
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots()
-az.plot_ppc(idata, ax=ax)
-ax.axvline(data.mean(), ls="--", color="r", label="True mean")
-ax.legend(fontsize=10);
+pc = az.plot_ppc_dist(idata)
+az.add_lines(pc, data.mean());
 ```
 
 ## 4.1 Predicting on hold-out data
@@ -411,8 +414,8 @@ y = x > 0
 coords = {"idx": np.arange(100)}
 with pm.Model() as model:
     # create shared variables that can be changed later on
-    x_obs = pm.MutableData("x_obs", x, dims="idx")
-    y_obs = pm.MutableData("y_obs", y, dims="idx")
+    x_obs = pm.Data("x_obs", x, dims="idx")
+    y_obs = pm.Data("y_obs", y, dims="idx")
 
     coeff = pm.Normal("x", mu=0, sigma=1)
     logistic = pm.math.sigmoid(coeff * x_obs)
@@ -429,7 +432,7 @@ with model:
         {
             "x_obs": [-1, 0, 1.0],
             # use dummy values with the same shape:
-            "y_obs": [0, 0, 0],
+            "y_obs": [False, False, False],
         },
         coords={"idx": [1001, 1002, 1003]},
     )

@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: bayes_toolbox
+  display_name: pymc
   language: python
-  name: bayes_toolbox
+  name: python3
 ---
 
 (BEST)=
@@ -20,18 +20,18 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-import arviz as az
+import arviz.preview as az
 import numpy as np
-import pandas as pd
+import preliz as pz
 import pymc as pm
-import seaborn as sns
+import xarray as xr
 
 print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 rng = np.random.default_rng(seed=42)
 ```
 
@@ -68,12 +68,8 @@ iq_placebo = np.array([
     101, 99, 101, 100, 100, 101, 100, 99, 101, 100, 102, 99, 100, 99
 ])
 # fmt: on
-
-df1 = pd.DataFrame({"iq": iq_drug, "group": "drug"})
-df2 = pd.DataFrame({"iq": iq_placebo, "group": "placebo"})
-indv = pd.concat([df1, df2]).reset_index()
-
-sns.histplot(data=indv, x="iq", hue="group");
+dt = xr.Dataset({"iq_drug": (["drug"], iq_drug), "iq_placebo": (["placebo"], iq_placebo)})
+az.plot_dist(dt, kind="ecdf", sample_dims=["drug", "placebo"]);
 ```
 
 The first step in a Bayesian approach to inference is to specify the full probability model that corresponds to the problem. For this example, Kruschke chooses a Student-t distribution to describe the distributions of the scores in each group. This choice adds robustness to the analysis, as a T distribution is less sensitive to outlier observations, relative to a normal distribution. The three-parameter Student-t distribution allows for the specification of a mean $\mu$, a precision (inverse-variance) $\lambda$ and a degrees-of-freedom parameter $\nu$:
@@ -91,8 +87,8 @@ As a simplifying assumption, we will assume that the degree of normality $\nu$ i
 $$\mu_k \sim N(\bar{x}, 2s)$$
 
 ```{code-cell} ipython3
-mu_m = indv.iq.mean()
-mu_s = indv.iq.std() * 2
+mu_m = dt.to_array().mean().item()
+mu_s = dt.to_array().std().item() * 2
 
 with pm.Model() as model:
     group1_mean = pm.Normal("group1_mean", mu=mu_m, sigma=mu_s)
@@ -122,7 +118,7 @@ with model:
     nu = pm.Deterministic("nu", nu_minus_one + 1)
     nu_log10 = pm.Deterministic("nu_log10", np.log10(nu))
 
-az.plot_kde(rng.exponential(scale=29, size=10000) + 1, fill_kwargs={"alpha": 0.5});
+pz.plot(nu_minus_one, figsize=(6, 3));
 ```
 
 Since PyMC parametrizes the Student-T in terms of precision, rather than standard deviation, we must transform the standard deviations before specifying our likelihoods.
@@ -156,10 +152,9 @@ with model:
 We can plot the stochastic parameters of the model. Arviz's `plot_posterior` function replicates the informative histograms portrayed in {cite:p}`kruschke2013`. These summarize the posterior distributions of the parameters, and present a 95% credible interval and the posterior mean. The plots below are constructed with the final 1000 samples from each of the 2 chains, pooled together.
 
 ```{code-cell} ipython3
-az.plot_posterior(
+az.plot_dist(
     idata,
     var_names=["group1_mean", "group2_mean", "group1_std", "group2_std", "nu", "nu_log10"],
-    color="#87ceeb",
 );
 ```
 
@@ -168,12 +163,11 @@ Looking at the group differences below, we can conclude that there are meaningfu
 These estimates suggest that the "smart drug" increased both the expected scores, but also the variability in scores across the sample. So, this does not rule out the possibility that some recipients may be adversely affected by the drug at the same time others benefit.
 
 ```{code-cell} ipython3
-az.plot_posterior(
+pc = az.plot_dist(
     idata,
     var_names=["difference of means", "difference of stds", "effect size"],
-    ref_val=0,
-    color="#87ceeb",
-);
+)
+az.add_lines(pc, 0);
 ```
 
 When `plot_forest` is called on a trace with more than one chain, it also plots the potential scale reduction parameter, which is used to reveal evidence for lack of convergence; values near one, as we have here, suggest that the model has converged.
@@ -187,7 +181,9 @@ az.plot_forest(idata, var_names=["group1_std", "group2_std", "nu"]);
 ```
 
 ```{code-cell} ipython3
-az.summary(idata, var_names=["difference of means", "difference of stds", "effect size"])
+az.summary(
+    idata, var_names=["difference of means", "difference of stds", "effect size"], kind="stats"
+)
 ```
 
 ## Autorship
@@ -198,6 +194,7 @@ az.summary(idata, var_names=["difference of means", "difference of stds", "effec
 * Ported to PyMC3 by Thomas Wiecki in 2015
 * Updated by Chris Fonnesbeck in Dec, 2020
 * Ported to PyMC4 by Andrés Suárez in Ene, 2022 ([pymc-examples#52](https://github.com/pymc-devs/pymc-examples/issues/52))
+* Updated by Osvaldo Martin in Dec, 2025
 
 +++
 

@@ -22,11 +22,10 @@ kernelspec:
 ```{code-cell} ipython3
 from copy import copy
 
-import arviz as az
+import arviz.preview as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
-import seaborn as sns
 
 from numpy.random import default_rng
 ```
@@ -34,7 +33,7 @@ from numpy.random import default_rng
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
 rng = default_rng(1234)
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 ```
 
 [This example notebook on Bayesian survival
@@ -59,7 +58,7 @@ Censored data arises in many modelling problems. Two common examples are:
    range of temperatures.
 
 This example notebook presents two different ways of dealing with censored data
-in PyMC3:
+in PyMC:
 
 1. An imputed censored model, which represents censored data as parameters and
    makes up plausible values for all censored values. As a result of this
@@ -101,8 +100,8 @@ censored = censor(samples, low, high)
 # Visualize uncensored and censored data
 _, ax = plt.subplots(figsize=(10, 3))
 edges = np.linspace(-5, 35, 30)
-ax.hist(samples, bins=edges, density=True, histtype="stepfilled", alpha=0.2, label="Uncensored")
-ax.hist(censored, bins=edges, density=True, histtype="stepfilled", alpha=0.2, label="Censored")
+ax.hist(samples, bins=edges, density=True, histtype="stepfilled", alpha=0.4, label="Uncensored")
+ax.hist(censored, bins=edges, density=True, histtype="stepfilled", alpha=0.4, label="Censored")
 [ax.axvline(x=x, c="k", ls="--") for x in [low, high]]
 ax.legend();
 ```
@@ -124,13 +123,16 @@ We should predict that running the uncensored model on uncensored data, we will 
 uncensored_model_1 = uncensored_model(samples)
 with uncensored_model_1:
     idata = pm.sample()
+```
 
-az.plot_posterior(idata, ref_val=[true_mu, true_sigma], round_to=3);
+```{code-cell} ipython3
+pc = az.plot_dist(idata)
+az.add_lines(pc, {"mu": true_mu, "sigma": true_sigma});
 ```
 
 And that is exactly what we find. 
 
-The problem however, is that in censored data contexts, we do not have access to the true values. If we were to use the same uncensored model on the censored data, we would anticipate that our parameter estimates will be biased. If we calculate point estimates for the mean and std, then we can see that we are likely to underestimate the mean and std for this particular dataset and censor bounds.
+The problem however, is that in censored data contexts, we do not have access to the true values. If we were to use the same uncensored model on the censored data, we would anticipate that our parameter estimates will be biased. If we calculate point estimates for the mean and standard deviation, then we can see that we are likely to underestimate the mean and standard deviation for this particular dataset and censor bounds.
 
 ```{code-cell} ipython3
 print(f"mean={np.mean(censored):.2f}; std={np.std(censored):.2f}")
@@ -140,15 +142,18 @@ print(f"mean={np.mean(censored):.2f}; std={np.std(censored):.2f}")
 uncensored_model_2 = uncensored_model(censored)
 with uncensored_model_2:
     idata = pm.sample()
-
-az.plot_posterior(idata, ref_val=[true_mu, true_sigma], round_to=3);
 ```
 
-The figure above confirms this.
+As expected, we see that both the mean and standard deviation are underestimated when using the uncensored model on censored data.
+
+```{code-cell} ipython3
+pc = az.plot_dist(idata)
+az.add_lines(pc, {"mu": true_mu, "sigma": true_sigma});
+```
 
 ## Censored data models
 
-The models below show 2 approaches to dealing with censored data. First, we need to do a bit of data pre-processing to count the number of observations that are left or right censored. We also also need to extract just the non-censored data that we observe.
+The models below show two approaches to dealing with censored data. First, we need to do a bit of data pre-processing to count the number of observations that are left or right censored. We also need to extract just the non-censored data that we observe.
 
 +++
 
@@ -187,11 +192,14 @@ with pm.Model() as imputed_censored_model:
     )
     observed = pm.Normal("observed", mu=mu, sigma=sigma, observed=uncensored, shape=int(n_observed))
     idata = pm.sample()
-
-az.plot_posterior(idata, var_names=["mu", "sigma"], ref_val=[true_mu, true_sigma], round_to=3);
 ```
 
-We can see that the bias in the estimates of the mean and variance (present in the uncensored model) have been largely removed.
+```{code-cell} ipython3
+pc = az.plot_dist(idata, var_names=["mu", "sigma"])
+az.add_lines(pc, {"mu": true_mu, "sigma": true_sigma});
+```
+
+We can see that the bias in the estimates of the mean and standard deviation (present in the uncensored model) have been largely removed.
 
 +++
 
@@ -205,15 +213,12 @@ with pm.Model() as unimputed_censored_model:
     sigma = pm.HalfNormal("sigma", sigma=(high - low) / 2.0)
     y_latent = pm.Normal.dist(mu=mu, sigma=sigma)
     obs = pm.Censored("obs", y_latent, lower=low, upper=high, observed=censored)
+    idata = pm.sample()
 ```
 
-Sampling
-
 ```{code-cell} ipython3
-with unimputed_censored_model:
-    idata = pm.sample()
-
-az.plot_posterior(idata, var_names=["mu", "sigma"], ref_val=[true_mu, true_sigma], round_to=3);
+pc = az.plot_dist(idata, var_names=["mu", "sigma"])
+az.add_lines(pc, {"mu": true_mu, "sigma": true_sigma});
 ```
 
 Again, the bias in the estimates of the mean and variance (present in the uncensored model) have been largely removed.
@@ -231,7 +236,8 @@ As we can see, both censored models appear to capture the mean and variance of t
 - Originally authored by [Luis Mario Domenzain](https://github.com/domenzain) on Mar 7, 2017.
 - Updated by [George Ho](https://github.com/eigenfoo) on Jul 14, 2018.
 - Updated by [Benjamin Vincent](https://github.com/drbenvincent) in May 2021.
-- Updated by [Benjamin Vincent](https://github.com/drbenvincent) in May 2022 to PyMC v4.
+- Updated by [Benjamin Vincent](https://github.com/drbenvincent) in May 2022.
+- Updated by [Osvaldo Martin](https://github.com/aloctavodia) in Dec 2025.
 
 +++
 

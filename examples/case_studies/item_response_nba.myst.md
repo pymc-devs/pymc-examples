@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc
   language: python
   name: python3
 ---
@@ -22,7 +22,7 @@ kernelspec:
 ```{code-cell} ipython3
 import os
 
-import arviz as az
+import arviz.preview as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -35,7 +35,7 @@ print(f"Running on PyMC v{pm.__version__}")
 ```{code-cell} ipython3
 RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 ```
 
 ## Introduction
@@ -197,7 +197,7 @@ coords = {"disadvantaged": disadvantaged, "committing": committing}
 
 with pm.Model(coords=coords) as model:
     # Data
-    foul_called_observed = pm.Data("foul_called_observed", df.foul_called, mutable=False)
+    foul_called_observed = pm.Data("foul_called_observed", df.foul_called)
 
     # Hyperpriors
     mu_theta = pm.Normal("mu_theta", 0.0, 100.0)
@@ -283,11 +283,10 @@ df_committing = df_committing.assign(obs_committing=df["committing"].value_count
 
 # Plot the difference between raw and posterior means as a function of
 # the number of observations
-fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=(12, 6))
 fig.suptitle(
     "Difference of raw and posterior mean of player's foul call probability as "
     "\na function of the player's number of observations\n",
-    fontsize=15,
 )
 ax1.scatter(data=df_disadvantaged, x="obs_disadvantaged", y="Raw - posterior mean", s=7, marker="o")
 ax1.set_title("theta")
@@ -301,7 +300,7 @@ plt.show()
 
 ### Top and bottom committing and disadvantaged players 
 As we successfully estimated the skills of disadvantaged (`theta`) and committing (`b`) players, we can finally check which players perform better and worse in our model.
-So we now plot our posteriors using forest plots. We plot the 10 top and bottom players ranked with respect to the latent skill `theta` and `b`, respectively.
+So we now plot our posteriors using forest plots. We plot the 10 top and bottom players ranked with respect to the latent skill `theta`.
 
 ```{code-cell} ipython3
 def order_posterior(inferencedata, var, bottom_bool):
@@ -317,79 +316,48 @@ top_b, bottom_b = (order_posterior(trace, "b", False), order_posterior(trace, "b
 
 amount = 10  # How many top players we want to display in each cathegory
 
-fig = plt.figure(figsize=(17, 14))
-fig.suptitle(
-    "\nPosterior estimates for top and bottom disadvantaged (theta) and "
-    "committing (b) players \n(94% HDI)\n",
-    fontsize=25,
-)
-theta_top_ax = fig.add_subplot(221)
-b_top_ax = fig.add_subplot(222)
-theta_bottom_ax = fig.add_subplot(223, sharex=theta_top_ax)
-b_bottom_ax = fig.add_subplot(224, sharex=b_top_ax)
 
-# theta: plot top
-az.plot_forest(
+pc = az.plot_forest(
     trace,
     var_names=["theta"],
     combined=True,
     coords={"disadvantaged": top_theta["disadvantaged"][:amount]},
-    ax=theta_top_ax,
-    labeller=az.labels.NoVarLabeller(),
 )
-theta_top_ax.set_title(f"theta: top {amount}")
-theta_top_ax.set_xlabel("theta\n")
-theta_top_ax.set_xlim(xmin=-2.5, xmax=0.1)
-theta_top_ax.vlines(mu_theta_mean, -1, amount, "k", "--", label=("League average"))
-theta_top_ax.legend(loc=2)
+pc.coords = {"column": "forest"}
+az.add_lines(pc, mu_theta_mean.item())
 
 
-# theta: plot bottom
-az.plot_forest(
+pc = az.plot_forest(
     trace,
     var_names=["theta"],
-    colors="blue",
     combined=True,
     coords={"disadvantaged": bottom_theta["disadvantaged"][:amount]},
-    ax=theta_bottom_ax,
-    labeller=az.labels.NoVarLabeller(),
 )
-theta_bottom_ax.set_title(f"theta: bottom {amount}")
-theta_bottom_ax.set_xlabel("theta")
-theta_bottom_ax.vlines(mu_theta_mean, -1, amount, "k", "--", label=("League average"))
-theta_bottom_ax.legend(loc=2)
+pc.coords = {"column": "forest"}
+az.add_lines(pc, mu_theta_mean.item());
+```
 
-# b: plot top
-az.plot_forest(
+Now we plot with respect to the latent skill `b`.
+
+```{code-cell} ipython3
+pc = az.plot_forest(
     trace,
     var_names=["b"],
-    colors="blue",
     combined=True,
     coords={"committing": top_b["committing"][:amount]},
-    ax=b_top_ax,
-    labeller=az.labels.NoVarLabeller(),
 )
-b_top_ax.set_title(f"b: top {amount}")
-b_top_ax.set_xlabel("b\n")
-b_top_ax.set_xlim(xmin=-1.5, xmax=1.5)
-b_top_ax.vlines(0, -1, amount, "k", "--", label="League average")
-b_top_ax.legend(loc=2)
+pc.coords = {"column": "forest"}
+az.add_lines(pc, 0)
 
-# b: plot bottom
-az.plot_forest(
+
+pc = az.plot_forest(
     trace,
     var_names=["b"],
-    colors="blue",
     combined=True,
     coords={"committing": bottom_b["committing"][:amount]},
-    ax=b_bottom_ax,
-    labeller=az.labels.NoVarLabeller(),
 )
-b_bottom_ax.set_title(f"b: bottom {amount}")
-b_bottom_ax.set_xlabel("b")
-b_bottom_ax.vlines(0, -1, amount, "k", "--", label="League average")
-b_bottom_ax.legend(loc=2)
-plt.show();
+pc.coords = {"column": "forest"}
+az.add_lines(pc, 0);
 ```
 
 By visiting [Austin Rochford post](https://www.austinrochford.com/posts/2017-04-04-nba-irt.html) and checking the analogous table for the Rasch model there (which uses data from the 2016-17 season),  the reader can see that several top players in both skills are still in the top 10 with our larger data set (covering seasons 2015-16 to 2020-21).
@@ -407,51 +375,24 @@ top_b_players = top_b["committing"][:amount].values
 
 top_theta_in_committing = set(committing).intersection(set(top_theta_players))
 top_b_in_disadvantaged = set(disadvantaged).intersection(set(top_b_players))
-if (len(top_theta_in_committing) < amount) | (len(top_b_in_disadvantaged) < amount):
-    print(
-        f"Some players in the top {amount} for theta (or b) do not have observations for b (or theta).\n",
-        "Plot not shown",
-    )
-else:
-    fig = plt.figure(figsize=(17, 14))
-    fig.suptitle(
-        "\nScores as committing (b) for best disadvantaged (theta) players"
-        " and vice versa"
-        "\n(94% HDI)\n",
-        fontsize=25,
-    )
-    b_top_theta = fig.add_subplot(121)
-    theta_top_b = fig.add_subplot(122)
 
-    az.plot_forest(
-        trace,
-        var_names=["b"],
-        colors="blue",
-        combined=True,
-        coords={"committing": top_theta_players},
-        figsize=(7, 7),
-        ax=b_top_theta,
-        labeller=az.labels.NoVarLabeller(),
-    )
-    b_top_theta.set_title(f"\nb score for top {amount} in theta\n (94% HDI)\n\n", fontsize=17)
-    b_top_theta.set_xlabel("b")
-    b_top_theta.vlines(mu_b_mean, -1, amount, color="k", ls="--", label="League average")
-    b_top_theta.legend(loc="upper right", bbox_to_anchor=(0.46, 1.05))
+pc = az.plot_forest(
+    trace,
+    var_names=["b"],
+    combined=True,
+    coords={"committing": top_theta_players},
+)
+pc.coords = {"column": "forest"}
+az.add_lines(pc, mu_b_mean)
 
-    az.plot_forest(
-        trace,
-        var_names=["theta"],
-        colors="blue",
-        combined=True,
-        coords={"disadvantaged": top_b_players},
-        figsize=(7, 7),
-        ax=theta_top_b,
-        labeller=az.labels.NoVarLabeller(),
-    )
-    theta_top_b.set_title(f"\ntheta score for top {amount} in b\n (94% HDI)\n\n", fontsize=17)
-    theta_top_b.set_xlabel("theta")
-    theta_top_b.vlines(mu_theta_mean, -1, amount, color="k", ls="--", label="League average")
-    theta_top_b.legend(loc="upper right", bbox_to_anchor=(0.46, 1.05));
+pc = az.plot_forest(
+    trace,
+    var_names=["theta"],
+    combined=True,
+    coords={"disadvantaged": top_b_players},
+)
+pc.coords = {"column": "forest"}
+az.add_lines(pc, mu_theta_mean.item());
 ```
 
 These plots suggest that scoring high in `theta` does not correlate with high or low scores in `b`. Moreover, with a little knowledge of NBA basketball, one can visually note that a higher score in `b` is expected from players playing center or forward rather than guards or point guards. 
@@ -469,7 +410,7 @@ fig = plt.figure(figsize=(8, 6))
 top_theta_position = fig.add_subplot(121)
 df_position.loc[df_position.index.isin(top_theta_players)].position.value_counts().loc[
     positions
-].plot.bar(ax=top_theta_position, color="orange", label="theta")
+].plot.bar(ax=top_theta_position, color="C1", label="theta")
 top_theta_position.set_title(f"Positions of top {amount} disadvantaged (theta)\n", fontsize=12)
 top_theta_position.legend(loc="upper left")
 
@@ -493,6 +434,7 @@ A warm thank you goes to [Eric Ma](https://github.com/ericmjl) for many useful c
 * Adapted from Austin Rochford's [blogpost on NBA Foul Calls and Bayesian Item Response Theory](https://www.austinrochford.com/posts/2017-04-04-nba-irt.html) by [Lorenzo Toniazzi](https://github.com/ltoniazzi) on  3 Jul 2021 ([PR181](https://github.com/pymc-devs/pymc-examples/pull/181))
 * Re-executed by [Michael Osthege](https://github.com/michaelosthege) on  10 Jan 2022 ([PR266](https://github.com/pymc-devs/pymc-examples/pull/266))
 * Updated by [Lorenzo Toniazzi](https://github.com/ltoniazzi) on  25 Apr 2022 ([PR309](https://github.com/pymc-devs/pymc-examples/pull/309))
+* Updated by Osvaldo Martin on Dec 2025
 
 +++
 
