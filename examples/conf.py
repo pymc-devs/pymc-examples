@@ -183,7 +183,7 @@ codeautolink_concat_default = True
 
 # intersphinx mappings
 intersphinx_mapping = {
-    "arviz": ("https://python.arviz.org/en/latest/", None),
+    "arviz": ("https://python.arviz.org/", "https://arviz--2509.org.readthedocs.build/en/2509/objects.inv"),
     "bambi": ("https://bambinos.github.io/bambi", None),
     "einstats": ("https://einstats.python.arviz.org/en/latest/", None),
     "mpl": ("https://matplotlib.org/", None),
