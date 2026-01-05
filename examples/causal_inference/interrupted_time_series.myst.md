@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: PyMC (venv)
+  display_name: Python (pymc-examples)
   language: python
-  name: pymc_env
+  name: pymc-examples
 ---
 
 (interrupted_time_series)=
@@ -354,7 +354,7 @@ There are of course many ways that the interrupted time series approach could be
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p pytensor,aeppl,xarray
+%watermark -n -u -v -iv -w -p pytensor,xarray
 ```
 
 :::{include} ../page_footer.md
