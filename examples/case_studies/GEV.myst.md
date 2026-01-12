@@ -138,7 +138,7 @@ idata.extend(trace)
 ```
 
 ```{code-cell} ipython3
-az.plot_trace_dist(idata, var_names=["μ", "σ", "ξ", "z_p"]);
+az.plot_trace_dist(idata, var_names=["μ", "σ", "ξ"]);
 ```
 
 ### Divergences
