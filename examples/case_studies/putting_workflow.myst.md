@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_env
+  display_name: eabm
   language: python
   name: python3
 ---
@@ -29,7 +29,7 @@ We use a data set from "Statistics: A Bayesian Perspective" {cite:p}`berry1996st
 ```{code-cell} ipython3
 import io
 
-import arviz as az
+import arviz.preview as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -44,7 +44,7 @@ from xarray_einstats.stats import XrContinuousRV
 
 ```{code-cell} ipython3
 RANDOM_SEED = 8927
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 ```
 
 ```{code-cell} ipython3
@@ -82,7 +82,7 @@ We start plotting the data to get a better idea of how it looks. The hidden cell
 ```{code-cell} ipython3
 :tags: [hide-input]
 
-def plot_golf_data(golf_data, ax=None, color="C0"):
+def plot_golf_data(golf_data, ax=None, color="k"):
     """Utility function to standardize a pretty plotting of the golf data."""
     if ax is None:
         _, ax = plt.subplots()
@@ -174,7 +174,7 @@ logit_post = az.extract(logit_trace, num_samples=400)
 logit_ppc = az.extract(logit_trace, group="posterior_predictive", num_samples=400)
 const_data = logit_trace["constant_data"]
 
-logit_ppc_success = logit_ppc["success"] / const_data["tries"]
+logit_ppc_success = logit_ppc / const_data["tries"]
 
 # Plotting
 ax = plot_golf_data(golf_data)
@@ -693,14 +693,10 @@ This new model does better between 10 and 30 feet, as we can also see using the 
 ```{code-cell} ipython3
 const_data = distance_angle_trace.constant_data
 old_pp = az.extract(distance_angle_trace, group="posterior_predictive")
-old_residuals = 100 * ((const_data["successes"] - old_pp["success"]) / const_data["tries"]).mean(
-    dim="sample"
-)
+old_residuals = 100 * ((const_data["successes"] - old_pp) / const_data["tries"]).mean(dim="sample")
 
 pp = az.extract(disp_distance_angle_trace, group="posterior_predictive")
-residuals = 100 * (const_data["successes"] / const_data["tries"] - pp["p_success"]).mean(
-    dim="sample"
-)
+residuals = 100 * (const_data["successes"] / const_data["tries"] - pp).mean(dim="sample")
 
 fig, ax = plt.subplots()
 
@@ -834,6 +830,7 @@ fig.suptitle("Simulated number of putts from\na few distances");
 * Updated by Marco Gorelli ([pymc-examples#39](https://github.com/pymc-devs/pymc-examples/pull/39))
 * Updated by Oriol Abril-Pla to use PyMC v4 and xarray-einstats
 * Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) to use `az.extract` in February 2023 ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
+* Updated by Osvaldo Martin in January 2026
 
 +++
 

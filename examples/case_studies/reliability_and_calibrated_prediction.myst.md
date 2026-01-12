@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: eabm
   language: python
   name: python3
 myst:
@@ -26,19 +26,18 @@ myst:
 :::
 
 ```{code-cell} ipython3
-import os
 import random
 
 from io import StringIO
 
-import arviz as az
+import arviz.preview as az
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
 
-from lifelines import KaplanMeierFitter, LogNormalFitter, WeibullFitter
+from lifelines import LogNormalFitter, WeibullFitter
 from lifelines.utils import survival_table_from_events
 from scipy.stats import binom, lognorm, norm, weibull_min
 ```
@@ -46,7 +45,7 @@ from scipy.stats import binom, lognorm, norm, weibull_min
 ```{code-cell} ipython3
 RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 %config InlineBackend.figure_format = 'retina'
 ```
 
@@ -345,7 +344,7 @@ def plot_cdfs(actuarial_table, dist_fits=True, ax=None, title="", xy=(3000, 0.5)
         lnf = LogNormalFitter().fit(item_period["t"] + 1e-25, item_period["failed"])
         wbf = WeibullFitter().fit(item_period["t"] + 1e-25, item_period["failed"])
     if ax is None:
-        fig, ax = plt.subplots(figsize=(20, 10))
+        _, ax = plt.subplots(figsize=(20, 10))
     ax.plot(
         actuarial_table["t"],
         actuarial_table["F_hat"],
@@ -922,11 +921,11 @@ idata
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(idata, kind="rank_vlines");
+az.plot_rank_dist(idata);
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(idata_informative, kind="rank_vlines");
+az.plot_rank_dist(idata_informative);
 ```
 
 ```{code-cell} ipython3
@@ -1175,6 +1174,7 @@ In particular we've seen how the MLE fits to our bearings data provide a decent 
 ## Authors
 
 * Authored by Nathaniel Forde on 9th of January 2022 ([pymc-examples#491](https://github.com/pymc-devs/pymc-examples/pull/491))
+* Updated by Osvaldo Martin on January 2026
 
 +++
 
