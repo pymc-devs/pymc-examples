@@ -846,7 +846,7 @@ fig.suptitle("Simulated number of putts from\na few distances");
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p aeppl,xarray_einstats
+%watermark -n -u -v -iv -w -p xarray_einstats
 ```
 
 :::{include} ../page_footer.md
