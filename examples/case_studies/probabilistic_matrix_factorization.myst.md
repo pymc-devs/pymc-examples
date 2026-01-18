@@ -757,7 +757,7 @@ all_results = pd.DataFrame(
 fig, ax = plt.subplots(figsize=(10, 5))
 all_results.plot(kind="line", grid=False, ax=ax, title="RMSE for all methods")
 ax.set_xlabel("Number of Samples")
-ax.set_ylabel("RMSE")
+ax.set_ylabel("RMSE");
 ```
 
 ## Summary
@@ -773,9 +773,9 @@ If you made it this far, then congratulations! You now have some idea of how to 
 +++
 
 ## Authors
-
-The model discussed in this analysis was developed by Ruslan Salakhutdinov and Andriy Mnih. Code and supporting text are the original work of [Mack Sweeney](https://www.linkedin.com/in/macksweeney) with changes made to adapt the code and text for the MovieLens dataset by Colin Carroll and Rob Zinkov.
-- Edited by Christopher Krapu on Jaunary 17, 2026
+- Authored by [Mack Sweeney](https://www.linkedin.com/in/macksweeney)with changes made to adapt the code and text for the MovieLens dataset by Colin Carroll and Rob Zinkov on June 3, 2022
+- Adapted from {cite:p}`mnih2008advances`.
+- Updated by Christopher Krapu on January 17, 2026
 
 +++
 
