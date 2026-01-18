@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc-env-v2
   language: python
-  name: python3
+  name: pymc-env-v2
 ---
 
 (probabilistic_matrix_factorization)=
@@ -30,7 +30,7 @@ import xarray as xr
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
-RANDOM_SEED = 8927
+RANDOM_SEED = 827
 rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
 ```
@@ -43,7 +43,7 @@ We'll start out by getting some intuition for how our model will work. Then we'l
 
 ## Intuition
 
-Normally if we want recommendations for something, we try to find people who are similar to us and ask their opinions. If Bob, Alice, and Monty are all similar to me, and they all like crime dramas, I'll probably like crime dramas. Now this isn't always true. It depends on what we consider to be "similar". In order to get the best bang for our buck, we really want to look for people who have the most similar taste. Taste being a complex beast, we'd probably like to break it down into something more understandable. We might try to characterize each movie in terms of various factors. Perhaps films can be moody, light-hearted, cinematic, dialogue-heavy, big-budget, etc. Now imagine we go through IMDB and assign each movie a rating in each of the categories. How moody is it? How much dialogue does it have? What's its budget? Perhaps we use numbers between 0 and 1 for each category. Intuitively, we might call this the film's profile.
+Normally if we want recommendations for something, we try to find people who are similar to us and ask their opinions. If Bob, Alice, and Monty are all similar to me, and they all like crime dramas, I'll probably like crime dramas. Now this isn't always true. It depends on what we consider to be "similar". In order to get the best bang for our buck, we really want to look for people who have the most similar taste. Taste being a complex beast, we'd probably like to break it down into something more understandable. We might try to characterize each movie in terms of various factors. Perhaps films can be moody, light-hearted, cinematic, dialogue-heavy, big-budget, etc. Now imagine we go through IMDb and assign each movie a rating in each of the categories. How moody is it? How much dialogue does it have? What's its budget? Perhaps we use numbers between 0 and 1 for each category. Intuitively, we might call this the film's profile.
 
 Now let's suppose we go back to those 5 movies we rated. At this point, we can get a richer picture of our own preferences by looking at the film profiles of each of the movies we liked and didn't like. Perhaps we take the averages across the 5 film profiles and call this our ideal type of film. In other words, we have computed some notion of our inherent _preferences_ for various types of movies. Suppose Bob, Alice, and Monty all do the same. Now we can compare our preferences and determine how similar each of us really are. I might find that Bob is the most similar and the other two are still more similar than other people, but not as much as Bob. So I want recommendations from all three people, but when I make my final decision, I'm going to put more weight on Bob's recommendation than those I get from Alice and Monty.
 
@@ -53,9 +53,14 @@ While the above procedure sounds fairly effective as is, it also reveals an unex
 
 Let's take some time to make the intuitive notions we've been discussing more concrete. We have a set of $M$ movies, or _items_ ($M = 100$ in our example above). We also have $N$ people, whom we'll call _users_ of our recommender system. For each item, we'd like to find a $D$ dimensional factor composition (film profile above) to describe the item. Ideally, we'd like to do this without actually going through and manually labeling all of the movies. Manual labeling would be both slow and error-prone, as different people will likely label movies differently. So we model each movie as a $D$ dimensional vector, which is its latent factor composition. Furthermore, we expect each user to have some preferences, but without our manual labeling and averaging procedure, we have to rely on the latent factor compositions to learn $D$ dimensional latent preference vectors for each user. The only thing we get to observe is the $N \times M$ ratings matrix $R$ provided by the users. Entry $R_{ij}$ is the rating user $i$ gave to item $j$. Many of these entries may be missing, since most users will not have rated all 100 movies. Our goal is to fill in the missing values with predicted ratings based on the latent variables $U$ and $V$. We denote the predicted ratings by $R_{ij}^*$. We also define an indicator matrix $I$, with entry $I_{ij} = 0$ if $R_{ij}$ is missing and $I_{ij} = 1$ otherwise.
 
+- $R$ is the user-item ratings matrix, with missing entries for unrated items.
+- $U$ is the user latent factor matrix that encodes preferences across latent factors.
+- $V$ is the item latent factor matrix that encodes each item's factor composition.
+- $I$ is the indicator matrix for observed ratings.
+
 So we have an $N \times D$ matrix of user preferences which we'll call $U$ and an $M \times D$ factor composition matrix we'll call $V$. We also have a $N \times M$ rating matrix we'll call $R$. We can think of each row $U_i$ as indications of how much each user prefers each of the $D$ latent factors. Each row $V_j$ can be thought of as how much each item can be described by each of the latent factors. In order to make a recommendation, we need a suitable prediction function which maps a user preference vector $U_i$ and an item latent factor vector $V_j$ to a predicted ranking. The choice of this prediction function is an important modeling decision, and a variety of prediction functions have been used. Perhaps the most common is the dot product of the two vectors, $U_i \cdot V_j$ {cite:p}`koren2009matrixfactorization`.
 
-To better understand CF techniques, let us explore a particular example. Imagine we are seeking to recommend movies using a model which infers five latent factors, $V_j$, for $j = 1,2,3,4,5$. In reality, the latent factors are often unexplainable in a straightforward manner, and most models make no attempt to understand what information is being captured by each factor.  However, for the purposes of explanation, let us assume the five latent factors might end up capturing the film profile we were discussing above. So our five latent factors are: moody, light-hearted, cinematic, dialogue, and budget. Then for a particular user $i$, imagine we infer a preference vector $U_i = <0.5, 0.1, 1.5, 1.1, 0.3>$. Also, for a particular item $j$, we infer these values for the latent factors: $V_j = <0.5, 1.5, 1.25, 0.8, 0.9>$. Using the dot product as the prediction function, we would calculate 3.425 as the ranking for that item, which is more or less a neutral preference given our 1 to 5 rating scale.
+To better understand collaborative filtering techniques, let us explore a particular example. Imagine we are seeking to recommend movies using a model which infers five latent factors, $V_j$, for $j = 1,2,3,4,5$. In reality, the latent factors are often unexplainable in a straightforward manner, and most models make no attempt to understand what information is being captured by each factor.  However, for the purposes of explanation, let us assume the five latent factors might end up capturing the film profile we were discussing above. So our five latent factors are: moody, light-hearted, cinematic, dialogue, and budget. Then for a particular user $i$, imagine we infer a preference vector $U_i = <0.5, 0.1, 1.5, 1.1, 0.3>$. Also, for a particular item $j$, we infer these values for the latent factors: $V_j = <0.5, 1.5, 1.25, 0.8, 0.9>$. Using the dot product as the prediction function, we would calculate 3.425 as the ranking for that item, which is more or less a neutral preference given our 1 to 5 rating scale.
 
 $$ 0.5 \times 0.5 + 0.1 \times 1.5 + 1.5 \times 1.25 + 1.1 \times 0.8 + 0.3 \times 0.9 = 3.425 $$
 
@@ -63,12 +68,12 @@ $$ 0.5 \times 0.5 + 0.1 \times 1.5 + 1.5 \times 1.25 + 1.1 \times 0.8 + 0.3 \tim
 
 ## Data
 
-The MovieLens 100k dataset {cite:p}`harper2015movielens` was collected by the GroupLens Research Project at the University of Minnesota. This data set consists of 100,000 ratings (1-5) from 943 users on 1682 movies. Each user rated at least 20 movies, and be have basic information on the users (age, gender, occupation, zip). Each movie includes basic information like title, release date, video release date, and genre. We will implement a model that is suitable for collaborative filtering on this data and evaluate it in terms of root mean squared error (RMSE) to validate the results.
+The MovieLens 100k dataset {cite:p}`harper2015movielens` was collected by the GroupLens Research Project at the University of Minnesota. This dataset consists of 100,000 ratings (1-5) from 943 users on 1682 movies. Each user rated at least 20 movies, and we have basic information on the users (age, gender, occupation, zip). Each movie includes basic information like title, release date, video release date, and genre. We will implement a model that is suitable for collaborative filtering on this data and evaluate it in terms of root mean squared error (RMSE) to validate the results.
 
 The data was collected through the [MovieLens website](https://movielens.org/) during the seven-month period from September 19th,
-1997 through April 22nd, 1998. This data has been cleaned up - users
+1997 through April 22nd, 1998. This dataset has been cleaned up - users
 who had less than 20 ratings or did not have complete demographic
-information were removed from this data set.
+information were removed from this dataset.
 
 
 Let's begin by exploring our data. We want to get a general feel for what it looks like and a sense for what sort of patterns it might contain. Here are the user rating data:
@@ -104,7 +109,9 @@ movies.head()
 
 ```{code-cell} ipython3
 # Plot histogram of ratings
-data.groupby("rating").size().plot(kind="bar");
+ax = data.groupby("rating").size().plot(kind="bar")
+ax.set_xlabel("Rating")
+ax.set_ylabel("Count");
 ```
 
 ```{code-cell} ipython3
@@ -115,18 +122,22 @@ This must be a decent batch of movies. From our exploration above, we know most 
 
 ```{code-cell} ipython3
 movie_means = data.join(movies["movie title"], on="itemid").groupby("movie title").rating.mean()
-movie_means[:50].plot(kind="bar", grid=False, figsize=(16, 6), title="Mean ratings for 50 movies");
+ax = movie_means[:50].plot(
+    kind="bar", grid=False, figsize=(16, 6), title="Mean ratings for 50 movies"
+)
+ax.set_ylabel("Mean rating");
 ```
 
 While the majority of the movies generally get positive feedback from users, there are definitely a few that stand out as bad. Let's take a look at the worst and best movies, just for fun:
 
 ```{code-cell} ipython3
 fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(16, 4), sharey=True)
-movie_means.nlargest(30).plot(kind="bar", ax=ax1, title="Top 30 movies in data set")
-movie_means.nsmallest(30).plot(kind="bar", ax=ax2, title="Bottom 30 movies in data set");
+movie_means.nlargest(30).plot(kind="bar", ax=ax1, title="Top 30 movies in dataset")
+movie_means.nsmallest(30).plot(kind="bar", ax=ax2, title="Bottom 30 movies in dataset")
+ax1.set_ylabel("Mean rating");
 ```
 
-Make sense to me. We now know there are definite popularity differences between the movies. Some of them are simply better than others, and some are downright lousy. Looking at the movie means allowed us to discover these general trends. Perhaps there are similar trends across users. It might be the case that some users are simply more easily entertained than others. Let's take a look.
+Makes sense to me. We now know there are definite popularity differences between the movies. Some of them are simply better than others, and some are downright lousy. Looking at the movie means allowed us to discover these general trends. Perhaps there are similar trends across users. It might be the case that some users are simply more easily entertained than others. Let's take a look.
 
 ```{code-cell} ipython3
 user_means = data.groupby("userid").rating.mean().sort_values()
@@ -148,7 +159,7 @@ We see even more significant trends here. Some users rate nearly everything high
 
 ## Methods
 
-Having explored the data, we're now ready to dig in and start addressing the problem. We want to predict how much each user is going to like all of the movies he or she has not yet read.
+Having explored the data, we're now ready to dig in and start addressing the problem. We want to predict how much each user is going to like all of the movies they have not yet rated.
 
 
 ### Baselines
@@ -159,7 +170,7 @@ Every good analysis needs some kind of baseline methods to compare against. It's
 
 Our first baseline is about as dead stupid as you can get. Every place we see a missing value in $R$, we'll simply fill it with a number drawn uniformly at random in the range [1, 5]. We expect this method to do the worst by far.
 
-$$R_{ij}^* \sim Uniform$$
+$$R_{ij}^* \sim Uniform(1,5)$$
 
 #### Global Mean Baseline
 
@@ -271,12 +282,13 @@ num_items = data.itemid.unique().shape[0]
 sparsity = 1 - len(data) / (num_users * num_items)
 print(f"Users: {num_users}\nMovies: {num_items}\nSparsity: {sparsity}")
 
-dense_data = data.pivot(index="userid", columns="itemid", values="rating").values
+rating_matrix = data.pivot(index="userid", columns="itemid", values="rating")
+dense_data = rating_matrix.to_numpy()
 ```
 
 ## Probabilistic Matrix Factorization
 
-Probabilistic Matrix Factorization {cite:p}`mnih2008advances` is a probabilistic approach to the collaborative filtering problem that takes a Bayesian perspective. The ratings $R$ are modeled as draws from a Gaussian distribution.  The mean for $R_{ij}$ is $U_i V_j^T$. The precision $\alpha$ is a fixed parameter that reflects the uncertainty of the estimations; the normal distribution is commonly reparameterized in terms of precision, which is the inverse of the variance. Complexity is controlled by placing zero-mean spherical Gaussian priors on $U$ and $V$. In other words, each row of $U$ is drawn from a multivariate Gaussian with mean $\mu = 0$ and precision which is some multiple of the identity matrix $I$. Those multiples are $\alpha_U$ for $U$ and $\alpha_V$ for $V$. So our model is defined by:
+Probabilistic Matrix Factorization {cite:p}`mnih2008advances` is a probabilistic approach to the collaborative filtering problem that takes a Bayesian perspective. The ratings $R$ are modeled as draws from a Gaussian distribution.  The mean for $R_{ij}$ is $U_i V_j^T$. The precision $\alpha$ is a fixed parameter that reflects the uncertainty of the estimations; the normal distribution is commonly reparameterized in terms of precision, which is the inverse of the variance. Complexity is controlled by placing zero-mean spherical Gaussian priors on $U$ and $V$. In other words, each row of $U$ is drawn from a multivariate Gaussian with mean $\mu = 0$ and precision that is some multiple of the identity matrix $I$. Those multiples are $\alpha_U$ for $U$ and $\alpha_V$ for $V$. So our model is defined by:
 
 $\newcommand\given[1][]{\:#1\vert\:}$
 
@@ -302,23 +314,14 @@ Given small precision parameters, the priors on $U$ and $V$ ensure our latent va
 import logging
 import time
 
-import pytensor
-import scipy as sp
-
-# Enable on-the-fly graph computations, but ignore
-# absence of intermediate test values.
-pytensor.config.compute_test_value = "ignore"
-
-# Set up logging.
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logging.basicConfig(level=logging.INFO)
 
 
 class PMF:
-    """Probabilistic Matrix Factorization model using pymc."""
+    """Probabilistic Matrix Factorization model using PyMC."""
 
     def __init__(self, train, dim, alpha=2, std=0.01, bounds=(1, 5)):
-        """Build the Probabilistic Matrix Factorization model using pymc.
+        """Build the Probabilistic Matrix Factorization model using PyMC.
 
         :param np.ndarray train: The training data to use for learning the model.
         :param int dim: Dimensionality of the model; number of latent factors.
@@ -326,8 +329,8 @@ class PMF:
         :param float std: Amount of noise to use for model initialization.
         :param (tuple of int) bounds: (lower, upper) bound of ratings.
             These bounds will simply be used to cap the estimates produced for R.
-
         """
+        self.name = "PMF"
         self.dim = dim
         self.alpha = alpha
         self.std = np.sqrt(1.0 / alpha)
@@ -344,36 +347,46 @@ class PMF:
         self.alpha_u = 1 / self.data.var(axis=1).mean()
         self.alpha_v = 1 / self.data.var(axis=0).mean()
 
+        obs_user_idx, obs_movie_idx = np.where(~nan_mask)
+        obs_user_idx = obs_user_idx.astype("int64")
+        obs_movie_idx = obs_movie_idx.astype("int64")
+        obs_ratings = self.data[~nan_mask]
+
         # Specify the model.
         logging.info("building the PMF model")
         with pm.Model(
             coords={
-                "users": np.arange(n),
-                "movies": np.arange(m),
-                "latent_factors": np.arange(dim),
-                "obs_id": np.arange(self.data[~nan_mask].shape[0]),
+                "user": np.arange(n),
+                "movie": np.arange(m),
+                "latent_factor": np.arange(dim),
+                "obs_id": np.arange(obs_ratings.shape[0]),
             }
         ) as pmf:
-            U = pm.MvNormal(
+            user_idx_ = pm.Data("user_idx", obs_user_idx, dims="obs_id")
+            movie_idx_ = pm.Data("movie_idx", obs_movie_idx, dims="obs_id")
+            ratings_ = pm.Data("ratings", obs_ratings, dims="obs_id")
+
+            U = pm.Normal(
                 "U",
                 mu=0,
-                tau=self.alpha_u * np.eye(dim),
-                dims=("users", "latent_factors"),
+                sigma=1 / np.sqrt(self.alpha_u),
+                dims=("user", "latent_factor"),
                 initval=rng.standard_normal(size=(n, dim)) * std,
             )
-            V = pm.MvNormal(
+            V = pm.Normal(
                 "V",
                 mu=0,
-                tau=self.alpha_v * np.eye(dim),
-                dims=("movies", "latent_factors"),
+                sigma=1 / np.sqrt(self.alpha_v),
+                dims=("movie", "latent_factor"),
                 initval=rng.standard_normal(size=(m, dim)) * std,
             )
-            R = pm.Normal(
+            mu = (U[user_idx_] * V[movie_idx_]).sum(axis=-1)
+            pm.Normal(
                 "R",
-                mu=(U @ V.T)[~nan_mask],
-                tau=self.alpha,
+                mu=mu,
+                sigma=self.std,
                 dims="obs_id",
-                observed=self.data[~nan_mask],
+                observed=ratings_,
             )
 
         logging.info("done building the PMF model")
@@ -387,7 +400,7 @@ We'll also need functions for calculating the MAP and performing sampling on our
 
 $$ E = \frac{1}{2} \sum_{i=1}^N \sum_{j=1}^M I_{ij} (R_{ij} - U_i V_j^T)^2 + \frac{\lambda_U}{2} \sum_{i=1}^N \|U\|_{Fro}^2 + \frac{\lambda_V}{2} \sum_{j=1}^M \|V\|_{Fro}^2, $$
 
-where $\lambda_U = \alpha_U / \alpha$, $\lambda_V = \alpha_V / \alpha$, and $\|\cdot\|_{Fro}^2$ denotes the Frobenius norm {cite:p}`mnih2008advances`. Minimizing this objective function gives a local minimum, which is essentially a maximum a posteriori (MAP) estimate. While it is possible to use a fast Stochastic Gradient Descent procedure to find this MAP, we'll be finding it using the utilities built into `pymc`. In particular, we'll use `find_MAP` with Powell optimization (`scipy.optimize.fmin_powell`). Having found this MAP estimate, we can use it as our starting point for MCMC sampling.
+where $\lambda_U = \alpha_U / \alpha$, $\lambda_V = \alpha_V / \alpha$, and $\|\cdot\|_{Fro}^2$ denotes the Frobenius norm {cite:p}`mnih2008advances`. Minimizing this objective function gives a local minimum, which is essentially a maximum a posteriori (MAP) estimate. While it is possible to use a fast Stochastic Gradient Descent procedure to find this MAP, we'll be finding it using the utilities built into PyMC. In particular, we'll use `find_MAP` with L-BFGS-B optimization and cap the maximum evaluations so the run stays tractable for the full dataset. Having found this MAP estimate, we can use it as our starting point for MCMC sampling.
 
 Since it is a reasonably complex model, we expect the MAP estimation to take some time. So let's save it after we've found it. Note that we define a function for finding the MAP below, assuming it will receive a namespace with some variables in it. Then we attach that function to the PMF class, where it will have such a namespace after initialization. The PMF class is defined in pieces this way so I can say a few things between each piece to make it clearer.
 
@@ -397,7 +410,7 @@ def _find_map(self):
     tstart = time.time()
     with self.model:
         logging.info("finding PMF MAP using L-BFGS-B optimization...")
-        self._map = pm.find_MAP(method="L-BFGS-B")
+        self._map = pm.find_MAP(method="L-BFGS-B", maxeval=2000)
 
     elapsed = int(time.time() - tstart)
     logging.info("found PMF MAP in %d seconds" % elapsed)
@@ -407,7 +420,7 @@ def _find_map(self):
 def _map(self):
     try:
         return self._map
-    except:
+    except AttributeError:
         return self.find_map()
 
 
@@ -421,9 +434,13 @@ So now our PMF class has a `map` `property` which will either be found using Pow
 ```{code-cell} ipython3
 # Draw MCMC samples.
 def _draw_samples(self, **kwargs):
-    # kwargs.setdefault("chains", 1)
+    kwargs.setdefault("chains", 2)
+    kwargs.setdefault("cores", 2)
+    kwargs.setdefault("random_seed", RANDOM_SEED)
+    kwargs.setdefault("return_inferencedata", True)
     with self.model:
-        self.trace = pm.sample(**kwargs)
+        self.idata = pm.sample(**kwargs)
+    return self.idata
 
 
 # Update our class with the sampling infrastructure.
@@ -446,15 +463,13 @@ def _predict(self, U, V):
     sample_R = rng.normal(R, self.std)
     # bound ratings
     low, high = self.bounds
-    sample_R[sample_R < low] = low
-    sample_R[sample_R > high] = high
-    return sample_R
+    return np.clip(sample_R, low, high)
 
 
 PMF.predict = _predict
 ```
 
-One final thing to note: the dot products in this model are often constrained using a logistic function $g(x) = 1/(1 + exp(-x))$, that bounds the predictions to the range [0, 1]. To facilitate this bounding, the ratings are also mapped to the range [0, 1] using $t(x) = (x + min) / range$. The authors of PMF also introduced a constrained version which performs better on users with less ratings {cite:p}`salakhutdinov2008bayesian`. Both models are generally improvements upon the basic model presented here. However, in the interest of time and space, these will not be implemented here.
+One final thing to note: the dot products in this model are often constrained using a logistic function $g(x) = 1/(1 + exp(-x))$, that bounds the predictions to the range [0, 1]. To facilitate this bounding, the ratings are also mapped to the range [0, 1] using $t(x) = (x + min) / range$. The authors of PMF also introduced a constrained version which performs better on users with fewer ratings {cite:p}`salakhutdinov2008bayesian`. Both models are generally improvements upon the basic model presented here. However, in the interest of time and space, these will not be implemented here.
 
 +++
 
@@ -547,8 +562,7 @@ As expected: the uniform random baseline is the worst by far, the global mean ba
 
 # We use a fixed precision for the likelihood.
 # This reflects uncertainty in the dot product.
-# We choose 2 in the footsteps Salakhutdinov
-# Mnihof.
+# We choose 2 in the footsteps of Salakhutdinov and Mnih.
 ALPHA = 2
 
 # The dimensionality D; the number of latent factors.
@@ -559,7 +573,6 @@ ALPHA = 2
 # Movielens dataset, this means we have D(2625), so for 5
 # dimensions, we are sampling 13125 latent variables.
 DIM = 10
-
 
 pmf = PMF(train, DIM, ALPHA, std=0.05)
 ```
@@ -635,14 +648,14 @@ def _norms(pmf_model):
     norms = dict()
     norms["U"] = xr.apply_ufunc(
         np.linalg.norm,
-        pmf_model.trace.posterior["U"],
-        input_core_dims=[["users", "latent_factors"]],
+        pmf_model.idata.posterior["U"],
+        input_core_dims=[["user", "latent_factor"]],
         kwargs={"ord": "fro", "axis": (-2, -1)},
     )
     norms["V"] = xr.apply_ufunc(
         np.linalg.norm,
-        pmf_model.trace.posterior["V"],
-        input_core_dims=[["movies", "latent_factors"]],
+        pmf_model.idata.posterior["V"],
+        input_core_dims=[["movie", "latent_factor"]],
         kwargs={"ord": "fro", "axis": (-2, -1)},
     )
 
@@ -651,11 +664,11 @@ def _norms(pmf_model):
 
 def _traceplot(pmf_model):
     """Plot Frobenius norms of U and V as a function of sample #."""
-    fig, ax = plt.subplots(2, 2, figsize=(12, 7))
-    az.plot_trace(pmf_model.norms(), axes=ax)
-    ax[0][1].set_title(label=r"$\|U\|_{Fro}^2$ at Each Sample", fontsize=10)
-    ax[1][1].set_title(label=r"$\|V\|_{Fro}^2$ at Each Sample", fontsize=10)
-    ax[1][1].set_xlabel("Sample Number", fontsize=10)
+    fig, axs = plt.subplots(2, 2, figsize=(12, 7))
+    az.plot_trace(pmf_model.norms(), axes=axs)
+    axs[0][1].set_title(label=r"$\|U\|_{Fro}^2$ at Each Sample", fontsize=10)
+    axs[1][1].set_title(label=r"$\|V\|_{Fro}^2$ at Each Sample", fontsize=10)
+    axs[1][1].set_xlabel("Sample Number", fontsize=10)
 
 
 PMF.norms = _norms
@@ -666,21 +679,23 @@ PMF.traceplot = _traceplot
 pmf.traceplot()
 ```
 
-It appears we get convergence of $U$ and $V$ after about the default tuning. When testing for convergence, we also want to see convergence of the particular statistics we are looking for, since different characteristics of the posterior may converge at different rates. Let's also do a traceplot of the RSME. We'll compute RMSE for both the train and the test set, even though the convergence is indicated by RMSE on the training set alone. In addition, let's compute a running RMSE on the train/test sets to see how aggregate performance improves or decreases as we continue to sample.
+It appears we get convergence of $U$ and $V$ after about the default tuning. When testing for convergence, we also want to see convergence of the particular statistics we are looking for, since different characteristics of the posterior may converge at different rates. Let's also do a traceplot of the RMSE. We'll compute RMSE for both the train and the test set, even though the convergence is indicated by RMSE on the training set alone. In addition, let's compute a running RMSE on the train/test sets to see how aggregate performance improves or decreases as we continue to sample.
 
-Notice here that we are sampling from 1 chain only, which makes the convergence statistics like $\hat{R}$ impossible (we can still compute the split-rhat but the purpose is different). The reason of not sampling multiple chain is that PMF might not have unique solution. Thus without constraints, the solutions are at best symmetrical, at worse identical under any rotation, in any case subject to label switching. In fact if we sample from multiple chains we will see large $\hat{R}$ indicating the sampler is exploring different solutions in different part of parameter space.
+Because PMF is non-identifiable up to rotations and sign flips, chains can settle in different symmetric modes. We still run multiple chains to catch pathologies, but we focus on within-chain diagnostics like the Frobenius norms and RMSE rather than $\hat{R}$ for this model.
 
 ```{code-cell} ipython3
 def _running_rmse(pmf_model, test_data, train_data, plot=True):
     """Calculate RMSE for each step of the trace to monitor convergence."""
     results = {"per-step-train": [], "running-train": [], "per-step-test": [], "running-test": []}
     R = np.zeros(test_data.shape)
-    for cnt in pmf.trace.posterior.draw.values:
-        U = pmf_model.trace.posterior["U"].sel(chain=0, draw=cnt)
-        V = pmf_model.trace.posterior["V"].sel(chain=0, draw=cnt)
+    posterior = pmf_model.idata.posterior.stack(sample=("chain", "draw"))
+    num_samples = posterior.sizes["sample"]
+    for sample_idx in range(num_samples):
+        U = posterior["U"].isel(sample=sample_idx).to_numpy()
+        V = posterior["V"].isel(sample=sample_idx).to_numpy()
         sample_R = pmf_model.predict(U, V)
         R += sample_R
-        running_R = R / (cnt + 1)
+        running_R = R / (sample_idx + 1)
         results["per-step-train"].append(rmse(train_data, sample_R))
         results["running-train"].append(rmse(train_data, running_R))
         results["per-step-test"].append(rmse(test_data, sample_R))
@@ -689,12 +704,14 @@ def _running_rmse(pmf_model, test_data, train_data, plot=True):
     results = pd.DataFrame(results)
 
     if plot:
-        results.plot(
+        ax = results.plot(
             kind="line",
             grid=False,
             figsize=(15, 7),
             title="Per-step and Running RMSE From Posterior Predictive",
         )
+        ax.set_xlabel("Sample")
+        ax.set_ylabel("RMSE")
 
     # Return the final predictions, and the RMSE calculations
     return running_R, results
@@ -727,29 +744,29 @@ We have some interesting results here. As expected, our MCMC sampler provides lo
 Let's summarize our results.
 
 ```{code-cell} ipython3
-size = 100  # RMSE doesn't really change after 100th sample anyway.
+size = min(100, len(results))  # RMSE doesn't really change after 100th sample anyway.
 all_results = pd.DataFrame(
     {
         "uniform random": np.repeat(baselines["ur"], size),
         "global means": np.repeat(baselines["gm"], size),
         "mean of means": np.repeat(baselines["mom"], size),
         "PMF MAP": np.repeat(pmf_map_rmse, size),
-        "PMF MCMC": results["running-test"][:size],
+        "PMF MCMC": results["running-test"].iloc[:size].to_numpy(),
     }
 )
 fig, ax = plt.subplots(figsize=(10, 5))
 all_results.plot(kind="line", grid=False, ax=ax, title="RMSE for all methods")
 ax.set_xlabel("Number of Samples")
-ax.set_ylabel("RMSE");
+ax.set_ylabel("RMSE")
 ```
 
 ## Summary
 
-We set out to predict user preferences for unseen movies. First we discussed the intuitive notion behind the user-user and item-item neighborhood approaches to collaborative filtering. Then we formalized our intuitions. With a firm understanding of our problem context, we moved on to exploring our subset of the Movielens data. After discovering some general patterns, we defined three baseline methods: uniform random, global mean, and mean of means. With the goal of besting our baseline methods, we implemented the basic version of Probabilistic Matrix Factorization (PMF) using `pymc`.
+We set out to predict user preferences for unseen movies. First we discussed the intuitive notion behind the user-user and item-item neighborhood approaches to collaborative filtering. Then we formalized our intuitions. With a firm understanding of our problem context, we moved on to exploring our subset of the MovieLens data. After discovering some general patterns, we defined three baseline methods: uniform random, global mean, and mean of means. With the goal of besting our baseline methods, we implemented the basic version of Probabilistic Matrix Factorization (PMF) using PyMC.
 
-Our results demonstrate that the mean of means method is our best baseline on our prediction task. As expected, we are able to obtain a significant decrease in RMSE using the PMF MAP estimate obtained via Powell optimization. We illustrated one way to monitor convergence of an MCMC sampler with a high-dimensionality sampling space using the Frobenius norms of the sampled variables. The traceplots using this method seem to indicate that our sampler converged to the posterior. Results using this posterior showed that attempting to improve the MAP estimation using MCMC sampling actually overfit the training data and increased test RMSE. This was likely caused by the constraining of the posterior via fixed precision parameters $\alpha$, $\alpha_U$, and $\alpha_V$.
+Our results demonstrate that the mean of means method is our best baseline on our prediction task. As expected, we are able to obtain a significant decrease in RMSE using the PMF MAP estimate obtained via L-BFGS-B optimization. We illustrated one way to monitor convergence of an MCMC sampler with a high-dimensionality sampling space using the Frobenius norms of the sampled variables. The traceplots using this method seem to indicate that our sampler converged to the posterior. Results using this posterior showed that attempting to improve the MAP estimation using MCMC sampling actually overfit the training data and increased test RMSE. This was likely caused by the constraining of the posterior via fixed precision parameters $\alpha$, $\alpha_U$, and $\alpha_V$.
 
-As a followup to this analysis, it would be interesting to also implement the logistic and constrained versions of PMF. We expect both models to outperform the basic PMF model. We could also implement the fully Bayesian version of PMF (BPMF) {cite:p}`salakhutdinov2008bayesian`, which places hyperpriors on the model parameters to automatically learn ideal mean and precision parameters for $U$ and $V$. This would likely resolve the issue we faced in this analysis. We would expect BPMF to improve upon the MAP estimation produced here by learning more suitable hyperparameters and parameters. For a basic (but working!) implementation of BPMF in `pymc`, see [this gist](https://gist.github.com/macks22/00a17b1d374dfc267a9a).
+As a followup to this analysis, it would be interesting to also implement the logistic and constrained versions of PMF. We expect both models to outperform the basic PMF model. We could also implement the fully Bayesian version of PMF (BPMF) {cite:p}`salakhutdinov2008bayesian`, which places hyperpriors on the model parameters to automatically learn ideal mean and precision parameters for $U$ and $V$. This would likely resolve the issue we faced in this analysis. We would expect BPMF to improve upon the MAP estimation produced here by learning more suitable hyperparameters and parameters. For a basic (but working!) implementation of BPMF in PyMC, see [this gist](https://gist.github.com/macks22/00a17b1d374dfc267a9a).
 
 If you made it this far, then congratulations! You now have some idea of how to build a basic recommender system. These same ideas and methods can be used on many different recommendation tasks. Items can be movies, products, advertisements, courses, or even other people. Any time you can build yourself a user-item matrix with user preferences in the cells, you can use these types of collaborative filtering algorithms to predict the missing values. If you want to learn more about recommender systems, the first reference is a good place to start.
 
@@ -758,6 +775,7 @@ If you made it this far, then congratulations! You now have some idea of how to 
 ## Authors
 
 The model discussed in this analysis was developed by Ruslan Salakhutdinov and Andriy Mnih. Code and supporting text are the original work of [Mack Sweeney](https://www.linkedin.com/in/macksweeney) with changes made to adapt the code and text for the MovieLens dataset by Colin Carroll and Rob Zinkov.
+- Edited by Christopher Krapu on Jaunary 17, 2026
 
 +++
 
