@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: eabm
   language: python
   name: python3
 ---
@@ -50,20 +50,17 @@ The idea of hierarchical partial pooling is to model the global performance, and
 For far more in-depth discussion please refer to Stan [tutorial](http://mc-stan.org/documentation/case-studies/pool-binary-trials.html) {cite:p}`carpenter2016hierarchical` on the subject. The model and parameter values were taken from that example.
 
 ```{code-cell} ipython3
-import arviz as az
-import matplotlib.pyplot as plt
+import arviz.preview as az
 import numpy as np
 import pandas as pd
 import pymc as pm
 import pytensor.tensor as pt
-
-%matplotlib inline
 ```
 
 ```{code-cell} ipython3
 RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 ```
 
 Now we can load the dataset using pandas:
@@ -123,7 +120,7 @@ We can now fit the model using MCMC:
 
 ```{code-cell} ipython3
 with baseball_model:
-    idata = pm.sample(2000, tune=2000, chains=2, target_accept=0.95)
+    idata = pm.sample(2000, tune=2000, chains=4, target_accept=0.95)
 
     # check convergence diagnostics
     assert all(az.rhat(idata) < 1.03)
@@ -132,7 +129,7 @@ with baseball_model:
 Now we can plot the posteriors distribution of the parameters. First, the population hyperparameters:
 
 ```{code-cell} ipython3
-az.plot_trace(idata, var_names=["phi", "kappa"]);
+az.plot_trace_dist(idata, var_names=["phi", "kappa"]);
 ```
 
 Hence, the population mean batting average is in the 0.22-0.31 range, with an expected value of around 0.26.
@@ -146,7 +143,7 @@ az.plot_forest(idata, var_names="theta");
 Finally, let's get the estimate for our 0-for-4 player:
 
 ```{code-cell} ipython3
-az.plot_trace(idata, var_names=["theta_new"]);
+az.plot_trace_dist(idata, var_names=["theta_new"]);
 ```
 
 Notice that, despite the fact our additional player did not get any hits, the estimate of his average is not zero -- zero is not even a highly-probably value. This is because we are assuming that the player is drawn from a *population* of players with a distribution specified by our estimated hyperparemeters. However, the estimated mean for this player is toward the low end of the means for the players in our dataset, indicating that the 4 at-bats contributed some information toward the estimate.
@@ -158,6 +155,7 @@ Notice that, despite the fact our additional player did not get any hits, the es
 * updated by Adrian Seybolt in June, 2017 ([pymc#2288](https://github.com/pymc-devs/pymc/pull/2288))
 * updated by Christian Luhmann in August, 2020 ([pymc#4068](https://github.com/pymc-devs/pymc/pull/4068))
 * run using PyMC v5 by Reshama Shaikh in January, 2023
+* Updated by Osvaldo Martin on January, 2026
 
 +++
 

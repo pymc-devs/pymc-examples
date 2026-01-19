@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: eabm
   language: python
   name: python3
 ---
@@ -48,7 +48,7 @@ where the $\beta \in (0, +\infty)$ parameter determines the level of noise in th
 ```{code-cell} ipython3
 :id: QTq-0HMw7dBK
 
-import arviz as az
+import arviz.preview as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
@@ -62,7 +62,7 @@ from matplotlib.lines import Line2D
 ```{code-cell} ipython3
 seed = sum(map(ord, "RL_PyMC"))
 rng = np.random.default_rng(seed)
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 %config InlineBackend.figure_format = "retina"
 ```
 
@@ -432,7 +432,7 @@ colab:
 id: vgSumt-oATfN
 outputId: eb3348a4-3092-48c8-d8b4-678af0173079
 ---
-az.plot_trace(data=tr);
+az.plot_trace_dist(tr);
 ```
 
 ```{code-cell} ipython3
@@ -443,7 +443,8 @@ colab:
 id: BL84iT_RAzEL
 outputId: dcd4174b-4148-45cb-f72d-973f1487d8c2
 ---
-az.plot_posterior(data=tr, ref_val=[true_alpha, true_beta]);
+pc = az.plot_dist(tr)
+az.add_lines(pc, {"alpha": true_alpha, "beta": true_beta});
 ```
 
 +++ {"id": "1FtAp76PBLCr"}
@@ -507,13 +508,14 @@ colab:
 id: zjXW103JiDRQ
 outputId: aafc1b1e-082e-414b-cac7-0ad805097057
 ---
-az.plot_trace(data=tr_alt);
+az.plot_trace_dist(tr_alt);
 ```
 
 ```{code-cell} ipython3
 :id: SDJN2w117eox
 
-az.plot_posterior(data=tr_alt, ref_val=[true_alpha, true_beta]);
+pc = az.plot_dist(tr_alt)
+az.add_lines(pc, {"alpha": true_alpha, "beta": true_beta});
 ```
 
 ## Watermark
@@ -540,6 +542,7 @@ az.plot_posterior(data=tr_alt, ref_val=[true_alpha, true_beta]);
   * Adapted MLE code from Robert Wilson and Anne Collins {cite:p}`collinswilson2019` ([GitHub](https://github.com/AnneCollins/TenSimpleRulesModeling))
 
 * Re-executed by [Juan Orduz](https://juanitorduz.github.io/) in August 2022 ([pymc-examples#410](https://github.com/pymc-devs/pymc-examples/pull/410))
+* Updated by Osvaldo Martin in January 2026.
 
 +++
 
