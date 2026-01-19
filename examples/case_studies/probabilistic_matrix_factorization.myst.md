@@ -434,10 +434,6 @@ So now our PMF class has a `map` `property` which will either be found using Pow
 ```{code-cell} ipython3
 # Draw MCMC samples.
 def _draw_samples(self, **kwargs):
-    kwargs.setdefault("chains", 2)
-    kwargs.setdefault("cores", 2)
-    kwargs.setdefault("random_seed", RANDOM_SEED)
-    kwargs.setdefault("return_inferencedata", True)
     with self.model:
         self.idata = pm.sample(**kwargs)
     return self.idata
@@ -773,8 +769,7 @@ If you made it this far, then congratulations! You now have some idea of how to 
 +++
 
 ## Authors
-- Authored by [Mack Sweeney](https://www.linkedin.com/in/macksweeney)with changes made to adapt the code and text for the MovieLens dataset by Colin Carroll and Rob Zinkov on June 3, 2022
-- Adapted from {cite:p}`mnih2008advances`.
+- Authored by [Mack Sweeney](https://www.linkedin.com/in/macksweeney) with changes made to adapt the code and text for the MovieLens dataset by Colin Carroll and Rob Zinkov on June 3, 2022
 - Updated by Christopher Krapu on January 17, 2026
 
 +++
