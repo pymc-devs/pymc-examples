@@ -10,7 +10,7 @@ kernelspec:
   name: python3
 ---
 
-(template_notebook)=
+(occupancy)=
 # Estimating species distributions with occupancy models
 
 :::{post} January, 2026
@@ -21,17 +21,13 @@ kernelspec:
 
 +++
 
+Estimating where species live is one of the most common tasks in ecology. Recreational birders know that every field guide includes a range map showing where a species can be found, as well as habitat information to help locate the animals. For example, a field guide for Swiss birds might tell you that Red Crossbills (*Loxia curvirostra*) are most likely found in forests at intermediate elevations. Both of these tasks--mapping ranges and estimating habitat relationships--fall under the umbrella of *species distribution modeling*.
 
+One of the biggest challenges in species distribution modeling, and wildlife science in general, is that the probability of detection is almost universally less than one. That is, just because you didn't see or hear a crossbill on your morning hike doesn't mean that one wasn't there. This minor annoyance for birders can be a headache for wildlife managers. Species distributions models that assume the detection probability is one will underestimate the true occurrence probability, potentially misleading wildlife managers. 
 
-+++
+In this notebook, we will demonstrate how model species distributions with site occupancy models {cite:p}`mackenzie2002occupancy`. Occupancy models treat the underlying true occurrence state--whether a species is at a site=--as a binary latent variable. We will marginalize this latent variable with {ref}`automated marginalization <marginalizing-models>`, a handy tool from `pymc-extras`. 
 
-Estimating where things live is one of the most common tasks in ecology. For example, recreational birders know that every field guide includes a little map showing the species' range in the area of interest. as well as information about where the birder is most likely to find the animals. For example, your field guide for Swiss birds might tell you that Red Crossbills (*Loxia curvirostra*) are most likely to be found in forests at intermediate elevation. Both of these tasks fall under the umbrella of *species distribution modeling*.
-
-One of the biggest challenges in species distribution modeling, and wildlife science in general, is that the probability of detection is almost universally less than one. That is, just because you didn't see or hear a crossbill on your morning hike doesn't mean that one wasn't there. This minor annoyance for birders can be a headache for wildlife managers. Species distributions models that assume the detection probability is less than one will underestimate the true occurrence probability, potentially misleading wildlife managers. 
-
-In this notebook, we will demonstrate how model species distributions with site occupancy models {cite:p}`mackenzie2002occupancy`. Occupancy models treat the underlying true occurrence state, i.e., whether a species is at a site, as a binary latent variable. We will marginalize this latent variable with the `marginalize`  
-
-To do so, we will use an example of Red Crossbills in Switzerland. The data are included in the R package, [unmarked](https://cran.r-project.org/web/packages/unmarked/vignettes//spp-dist.html), and come from the Swiss Breeding Bird Survey (MHB) {cite:p}`schmid2004mhb`. Red Crossbills use their distinctive bills to pry open pine cones and eat the seeds. Unsurprisingly, they like pine forests, which tend to be found at mid-elevations in Switzerland. This notebook is essentially a reproduction of the analysis in this [unmarked vignette](https://cran.r-project.org/web/packages/unmarked/vignettes//spp-dist.html)
+We will use an example of Red Crossbills in Switzerland. The data are included in the R package, [unmarked](https://cran.r-project.org/web/packages/unmarked/vignettes//spp-dist.html), and come from the Swiss Breeding Bird Survey (MHB) {cite:p}`schmid2004mhb`. Red Crossbills use their distinctive bills to pry open pine cones and eat the seeds. Unsurprisingly, they like pine forests, which tend to be found at mid-elevations in Switzerland. This notebook is essentially reproduces the analysis in this [unmarked vignette](https://cran.r-project.org/web/packages/unmarked/vignettes//spp-dist.html)
 
 ![Two male Red Crossbills, showing their distinctive bill shape and preferred food. Image: NaturesPicsOnline.com, via Wikimedia Commons. Licensed under CC BY-SA 3.0.](Red_Crossbills_(Male).jpg)
 
