@@ -78,7 +78,8 @@ $$
 \beta_0, \beta_1, \beta_2, \beta_3 &\sim \text{Normal}(0, 2) \\
 p_{ij}&=\text{logit}^{-1}(\alpha_0 + \alpha_1\mathrm{date}_{ij}) \\
 \psi_{i}&=\text{logit}^{-1}(\beta_0 + \beta_1\mathrm{forest\_cover}_{i} + \beta_2\mathrm{elevation}_{i} + \beta_3\mathrm{elevation}^2_{i}) \\
-y_{ij} &\sim \text{Bernoulli}(p_{ij}z_i),
+z_{j} &\sim \text{Bernoulli}\left(\psi_j\right) \\
+y_{ij} &\sim \text{Bernoulli}\left(p_{ij}z_i\right), 
 \end{align*}
 $$
 where $\alpha$ and $\beta$ represent the effects on detection and occupancy.
