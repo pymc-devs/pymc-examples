@@ -71,14 +71,14 @@ rng = np.random.default_rng(RANDOM_SEED)
 
 ## Site occupancy model
 
-During the MHB, researchers surveyed 267 1km $^2$ quadrats up to 3 times. During each survey, researchers either detect crossbills $y_{ij}=1$, or they don't, $y_{ij}=0$, where $i$ is an index for the quadrat and $j$ is an index for the survey. We assume that crossbills are detected with probability $p_{ij}$ at quadrats they occupy, $z_i=1$, and are never detected at quadrats they do not occupy, $z_i=0,$ where $z_i$ is the true occupancy state at quadrat $i$. In other words, we assume no false positives errors. We assume that the probability of detection depends on the day of year via a logit-linear model. Additionally, we assume that the probability that a crossbill occupies a quadrat, $\psi_i$, depends on the forest cover and a quadratic effect of elevation via a logit-linear model. All told, the model can be written as
+During the MHB, researchers surveyed 267 1km $^2$ quadrats up to 3 times. During each survey, researchers either detect crossbills $y_{ij}=1$, or they don't, $y_{ij}=0$, where $i$ is an index for the quadrat and $j$ is an index for the survey. We assume that crossbills are detected with probability $p_{ij}$ at quadrats they occupy, $z_i=1$, and are never detected at quadrats they do not occupy, $z_i=0,$ where $z_i$ is the true occupancy state at quadrat $i$. In other words, we assume no false positives errors. We assume that the probability of detection depends a linear effect of day of year (note that that all surveys took place from January to April) via a logit-linear model. See below for a visualization of the covariates. Additionally, we assume that the probability that a crossbill occupies a quadrat, $\psi_i$, depends on the forest cover and a quadratic effect of elevation via a logit-linear model. All told, the model can be written as
 $$
 \begin{align*}
 \alpha_0, \alpha_1 &\sim \text{Normal}(0, 2) \\
 \beta_0, \beta_1, \beta_2, \beta_3 &\sim \text{Normal}(0, 2) \\
 p_{ij}&=\text{logit}^{-1}(\alpha_0 + \alpha_1\mathrm{date}_{ij}) \\
 \psi_{i}&=\text{logit}^{-1}(\beta_0 + \beta_1\mathrm{forest\_cover}_{i} + \beta_2\mathrm{elevation}_{i} + \beta_3\mathrm{elevation}^2_{i}) \\
-z_{j} &\sim \text{Bernoulli}\left(\psi_j\right) \\
+z_{i} &\sim \text{Bernoulli}\left(\psi_i\right) \\
 y_{ij} &\sim \text{Bernoulli}\left(p_{ij}z_i\right), 
 \end{align*}
 $$
@@ -118,6 +118,32 @@ X = np.column_stack((np.ones_like(elevation), forest_scaled, elev_scaled, elev_s
 # some dates are missing so we'll impute those
 date[np.isnan(date)] = np.nanmedian(date)
 W = np.stack((np.ones_like(date), date), axis=2)
+```
+
+```{code-cell} ipython3
+fig, axes = plt.subplots(2, 2, figsize=(6, 5), tight_layout=True, sharey="row")
+
+ax = axes.flat[0]
+ax.hist(elevation, ec="w", bins=7)
+ax.set_ylabel("Number of quadrats")
+ax.set_title("Elevation (m)")
+
+ax = axes.flat[1]
+ax.hist(forest_cover, ec="w", bins=7, fc="C2")
+ax.set_title("Forest cover")
+ax.xaxis.set_major_formatter(PercentFormatter())
+
+ax = axes.flat[2]
+real_date = np.datetime64("2001-01-01") + (date - 1).astype("timedelta64[D]")
+df = pd.DataFrame({"date": real_date.flat})
+monthly_counts = df.groupby(df["date"].dt.to_period("M")).size()
+ax.bar(monthly_counts.index.strftime("%b"), monthly_counts.values, ec="w", fc="C1")
+ax.set_ylabel("Number of surveys")
+ax.set_title("Date")
+
+axes.flat[3].remove()
+
+# plt.show()
 ```
 
 The PyMC syntax for the model is quite concise. The only trick is to broadcast the `z` vector across the `p` matrix. The `coords` are not necessary here, but they do help improve the readability of the code and the ArviZ output.
@@ -239,8 +265,8 @@ axes[1, 0].set_title(r"Day of year")
 axes[0, 0].set_title("Elevation (m)")
 axes[0, 1].set_title("Forest cover")
 
-axes[1, 0].xaxis.set_major_formatter(mdates.DateFormatter("%b %d"))
-axes[1, 0].xaxis.set_major_locator(mdates.MonthLocator())
+axes[1, 0].set_xticks(["2001-01-15", "2001-02-15", "2001-03-15", "2001-04-15"])
+axes[1, 0].xaxis.set_major_formatter(mdates.DateFormatter("%b"))
 axes[0, 1].xaxis.set_major_formatter(PercentFormatter())
 
 axes[1, 1].remove()
@@ -248,7 +274,7 @@ axes[1, 1].remove()
 plt.show()
 ```
 
-There is a fair amount of uncertainty in all of the predictions. A more full-fledged analysis might explore the effects of other covariates, different functional forms for the covariate effects (e.g., splines), regularization (e.g., the lasso), or spatial models. Not that this version of the dataset does not include the locations of the quadrats.
+There is a fair amount of uncertainty in all of the predictions. A more full-fledged analysis might explore the effects of other covariates, different functional forms for the covariate effects (e.g., splines), regularization (e.g., the lasso), or spatial models. Note that this version of the dataset does not include the locations of the quadrats.
 
 ## Predicting the species distribution
 
