@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: default
+  display_name: eabm
   language: python
   name: python3
 ---
@@ -38,14 +38,13 @@ Note that this parametrization of the shape parameter $\xi$ is opposite in sign 
 We will use the example of the Port Pirie annual maximum sea-level data used in {cite:t}`coles2001gev`, and compare with the frequentist results presented there.
 
 ```{code-cell} ipython3
-import arviz as az
+import arviz.preview as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
 import pymc_extras.distributions as pmx
-import pytensor.tensor as pt
 
-from arviz.plots import plot_utils as azpu
+az.style.use("arviz-variat")
 ```
 
 ## Data
@@ -112,18 +111,13 @@ Let's get a feel for how well our selected priors cover the range of the data:
 
 ```{code-cell} ipython3
 idata = pm.sample_prior_predictive(samples=1000, model=model)
-az.plot_ppc(idata, group="prior", figsize=(12, 6))
-ax = plt.gca()
-ax.set_xlim([2, 6])
-ax.set_ylim([0, 2]);
+az.plot_ppc_dist(idata, group="prior_predictive", kind="ecdf")
 ```
 
 And we can look at the sampled values of the parameters, using the `plot_posterior` function, but passing in the `idata` object and specifying the `group` to be `"prior"`:
 
 ```{code-cell} ipython3
-az.plot_posterior(
-    idata, group="prior", var_names=["μ", "σ", "ξ"], hdi_prob="hide", point_estimate=None
-);
+az.plot_dist(idata, group="prior", var_names=["μ", "σ", "ξ"]);
 ```
 
 ## Inference
@@ -144,7 +138,7 @@ idata.extend(trace)
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(idata, var_names=["μ", "σ", "ξ"], figsize=(12, 12));
+az.plot_trace_dist(idata, var_names=["μ", "σ", "ξ"]);
 ```
 
 ### Divergences
@@ -159,19 +153,24 @@ The trace exhibits divergences (usually). The HMC/NUTS sampler can have problems
 The 95% credible interval range of the parameter estimates is:
 
 ```{code-cell} ipython3
-az.hdi(idata, hdi_prob=0.95)
+az.hdi(idata, prob=0.95)
 ```
 
 And examine the prediction distribution, considering parameter variability (and without needing to assume normality):
 
 ```{code-cell} ipython3
-az.plot_posterior(idata, hdi_prob=0.95, var_names=["z_p"], round_to=4);
+az.plot_dist(
+    idata,
+    ci_prob=0.95,
+    var_names=["z_p"],
+    stats={"point_estimate": {"round_to": 2}},
+);
 ```
 
 And let's compare the prior and posterior predictions of $z_p$ to see how the data has influenced things:
 
 ```{code-cell} ipython3
-az.plot_dist_comparison(idata, var_names=["z_p"]);
+az.plot_prior_posterior(idata, var_names=["z_p"]);
 ```
 
 ## Comparison
@@ -179,7 +178,7 @@ To compare with the results given in {cite:t}`coles2001gev`, we approximate the 
 
 The MLE results given in {cite:t}`coles2001gev` are:
 
-$$\left(\hat{\mu}, \hat{\sigma}, \hat{\xi} \right) = \left( 3.87, 0.198, -0.050 \right) $$
+$$\left(\hat{\mu}, \hat{\sigma}, \hat{\xi} \right) = \left( 3.87, 0.198, -0.050 \right)$$
 
 
 And the variance-covariance matrix of the estimates is:
@@ -189,13 +188,8 @@ $$ V = \left[ \begin{array} 0.000780 & 0.000197 & -0.00107 \\
                             -0.00107 & -0.000778 & 0.00965 
               \end{array} \right] $$
 
-
-Note that extracting the MLE estimates from our inference involves accessing some of the Arviz back end functions to bash the xarray into something examinable:
-
 ```{code-cell} ipython3
-_, vals = az.sel_utils.xarray_to_ndarray(idata["posterior"], var_names=["μ", "σ", "ξ"])
-mle = [azpu.calculate_point_estimate("mode", val) for val in vals]
-mle
+az.mode(idata, var_names=["μ", "σ", "ξ"])
 ```
 
 ```{code-cell} ipython3
@@ -207,12 +201,17 @@ The results are a good match, but the benefit of doing this in a Bayesian settin
 Finally, we examine the pairs plots and see where any difficulties in inference lie using the divergences
 
 ```{code-cell} ipython3
-az.plot_pair(idata, var_names=["μ", "σ", "ξ"], kind="kde", marginals=True, divergences=True);
+az.plot_pair(
+    idata,
+    var_names=["μ", "σ", "ξ"],
+    visuals={"divergence": True},
+);
 ```
 
 ## Authors
 
 * Authored by [Colin Caprani](https://github.com/ccaprani), October 2021
+* Updated by Osvaldo Martin, January 2026
 
 +++
 

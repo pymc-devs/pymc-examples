@@ -6,7 +6,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: eabm
   language: python
   name: python3
 myst:
@@ -33,7 +33,7 @@ Factor analysis is a widely used probabilistic model for identifying low-rank st
 :::
 
 ```{code-cell} ipython3
-import arviz as az
+import arviz.preview as az
 import numpy as np
 import pymc as pm
 import pytensor.tensor as pt
@@ -42,7 +42,6 @@ import seaborn as sns
 import xarray as xr
 
 from matplotlib import pyplot as plt
-from matplotlib.lines import Line2D
 from numpy.random import default_rng
 from xarray_einstats import linalg
 from xarray_einstats.stats import XrContinuousRV
@@ -52,7 +51,7 @@ print(f"Running on PyMC v{pm.__version__}")
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 
 np.set_printoptions(precision=3, suppress=True)
 RANDOM_SEED = 31415
@@ -128,11 +127,13 @@ with pm.Model(coords=coords) as PPCA:
 At this point, there are already several warnings regarding failed convergence checks. We can see further problems in the trace plot below. This plot shows the path taken by each sampler chain for a single entry in the matrix $W$ as well as the average evaluated over samples for each chain.
 
 ```{code-cell} ipython3
-for i in trace.posterior.chain.values:
-    samples = trace.posterior["W"].sel(chain=i, observed_columns=3, latent_columns=1)
-    plt.plot(samples, label=f"Chain {i + 1}")
-    plt.axhline(samples.mean(), color=f"C{i}")
-plt.legend(ncol=4, loc="upper center", fontsize=12, frameon=True), plt.xlabel("Sample");
+az.plot_trace(
+    trace,
+    var_names="W",
+    coords={"observed_columns": 3, "latent_columns": 1},
+    sample_dims=["draw"],
+    figure_kwargs={"sharey": True},
+);
 ```
 
 Each chain appears to have a different sample mean and we can also see that there is a great deal of autocorrelation across chains, manifest as long-range trends over sampling iterations.
@@ -194,13 +195,7 @@ with pm.Model(coords=coords) as PPCA_identified:
     F = pm.Normal("F", dims=("latent_columns", "rows"))
     sigma = pm.HalfNormal("sigma", 1.0)
     X = pm.Normal("X", mu=W @ F, sigma=sigma, observed=Y, dims=("observed_columns", "rows"))
-    trace = pm.sample(tune=2000, random_seed=rng)  # target_accept=0.9
-
-for i in range(4):
-    samples = trace.posterior["W"].sel(chain=i, observed_columns=3, latent_columns=1)
-    plt.plot(samples, label=f"Chain {i + 1}")
-
-plt.legend(ncol=4, loc="lower center", fontsize=8), plt.xlabel("Sample");
+    trace = pm.sample(tune=2000, random_seed=rng, target_accept=0.9)
 ```
 
 $W$ (and $F$!) now have entries with identical posterior distributions as compared between sampler chains, although it's apparent that some autocorrelation remains.
@@ -251,29 +246,28 @@ When we compare the posteriors calculated using MCMC and VI, we find that (for a
 ```{code-cell} ipython3
 col_selection = dict(observed_columns=3, latent_columns=1)
 
-ax = az.plot_kde(
-    trace.posterior["W"].sel(**col_selection).values,
-    label=f"MCMC posterior for the explicit model",
-    plot_kwargs={"color": f"C{1}"},
+dt = az.from_dict(
+    {
+        "posterior": {
+            "MCMC_explicit": trace.posterior["W"].sel(**col_selection),
+            "MCMC_amortized": trace_amortized.posterior["W"].sel(**col_selection),
+            "FR-ADVI_amortized": trace_vi.posterior["W"].sel(**col_selection),
+        }
+    }
 )
 
-az.plot_kde(
-    trace_amortized.posterior["W"].sel(**col_selection).values,
-    label="MCMC posterior for amortized inference",
-    plot_kwargs={"color": f"C{2}", "linestyle": "--"},
+pc = az.plot_dist(
+    dt,
+    cols=None,
+    aes={"color": ["__variable__"]},
+    visuals={
+        "title": False,
+        "point_estimate_text": False,
+        "point_estimate": False,
+        "credible_interval": False,
+    },
 )
-
-
-az.plot_kde(
-    trace_vi.posterior["W"].sel(**col_selection).squeeze().values,
-    label="FR-ADVI posterior for amortized inference",
-    plot_kwargs={"alpha": 0},
-    fill_kwargs={"alpha": 0.5, "color": f"C{0}"},
-)
-
-
-ax.set_title(rf"PDFs of $W$ estimate at {col_selection}")
-ax.legend(loc="upper left", fontsize=10);
+pc.add_legend("__variable__")
 ```
 
 ### Post-hoc identification of F
@@ -389,6 +383,7 @@ We find that our model does a decent job of capturing the variation in the origi
 * Updated by [Christopher Krapu](https://github.com/ckrapu) on April 4, 2021
 * Updated by Oriol Abril-Pla to use PyMC v4 and xarray-einstats on March, 2022
 * Updated by Erik Werner on Dec, 2023 ([pymc-examples#612](https://github.com/pymc-devs/pymc-examples/pull/612))
+* Updated by Osvaldo Martin on January, 2026
 
 +++
 
