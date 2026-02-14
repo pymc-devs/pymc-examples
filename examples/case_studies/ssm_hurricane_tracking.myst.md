@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_examples_dev
+  display_name: pymc-examples
   language: python
   name: python3
 myst:
@@ -91,8 +91,8 @@ import warnings
 
 warnings.filterwarnings("ignore", message="The RandomType SharedVariables", category=UserWarning)
 
-import arviz as az
 import arviz.labels as azl
+import arviz.preview as az
 import numpy as np
 import pymc as pm
 import pytensor.tensor as pt
@@ -313,9 +313,7 @@ def generate_period_forecasts(
     longitude_cppc = az.extract(forecasts["forecast_observed"].sel(observed_state="x"))
     latitude_cppc = az.extract(forecasts["forecast_observed"].sel(observed_state="y"))
     cppc_var = forecasts["forecast_observed"].var(("chain", "draw"))
-    cppc_covs = xr.cov(
-        latitude_cppc["forecast_observed"], longitude_cppc["forecast_observed"], dim="sample"
-    )
+    cppc_covs = xr.cov(latitude_cppc, longitude_cppc, dim="sample")
     covs_list = []
     for i in range(cppc_covs.shape[0]):
         covs_list.append(
@@ -971,7 +969,7 @@ with pm.Model(coords=n_ssm.coords) as newtonian:
 ```
 
 ```{code-cell} ipython3
-az.summary(newtonian_idata, var_names="acceleration_innovations", kind="stats")
+az.summary(newtonian_idata, var_names="acceleration_innovations", kind="stats", round_to=4)
 ```
 
 ```{code-cell} ipython3
@@ -1361,7 +1359,7 @@ with pm.Model(coords=exog_ssm.coords) as exogenous:
 Typically, the surface wind speed and the central pressure of a hurricane carry little information on the path the hurricane will take. The path of a hurricane is, generally, influenced by surrounding atmospheric conditions like pressure gradients. Knowing this, it makes sense to see that many of our beta parameters are close to zero, indicating little to no influence on the hurricanes' path.
 
 ```{code-cell} ipython3
-az.plot_trace(exogenous_idata, var_names="acceleration_innovations");
+az.plot_trace_dist(exogenous_idata, var_names="acceleration_innovations");
 ```
 
 ```{code-cell} ipython3
@@ -1830,11 +1828,11 @@ with pm.Model(coords=spline_ssm.coords) as spline_model:
 Most of our spline parameters are around zero, with a handful of exceptions. Let's take a look at how these effect our forecasts.
 
 ```{code-cell} ipython3
-az.plot_trace(spline_idata, var_names="acceleration_innovations");
+az.plot_trace_dist(spline_idata, var_names="acceleration_innovations");
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(spline_idata, var_names=["beta_exog"], compact=True, figsize=(20, 8));
+az.plot_trace_dist(spline_idata, var_names=["beta_exog"], compact=True);
 ```
 
 ### Make in-sample forecasts with new spline model
