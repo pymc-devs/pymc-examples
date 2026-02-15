@@ -119,6 +119,8 @@ from pymc_extras.statespace.utils.constants import (
 
 # make all plotly figures static
 pio.renderers.default = "svg"
+# set arviz style
+az.style.use("arviz-variat")
 ```
 
 ## Helper Functions
