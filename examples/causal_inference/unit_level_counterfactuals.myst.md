@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc-examples
   language: python
   name: python3
 ---
@@ -45,7 +45,7 @@ The existing {ref}`interventional_distribution` notebook demonstrates rung 2 usi
 
 ## Set up the notebook
 
-```{code-cell}
+```{code-cell} ipython3
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
@@ -54,7 +54,7 @@ import pymc as pm
 from graphviz import Digraph
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 RANDOM_SEED = 42
 rng = np.random.default_rng(RANDOM_SEED)
 
@@ -88,7 +88,7 @@ $$
 
 where $a = 0.5$, $b = 0.7$, $c = 0.4$, and $U_X, U_H, U_Y$ are mutually independent standard normals.
 
-```{code-cell}
+```{code-cell} ipython3
 dag = Digraph()
 dag.attr(rankdir="LR")
 dag.node("X", "X\n(Encouragement)")
@@ -108,7 +108,7 @@ dag
 
 We generate $N = 500$ observations from the structural equations, then fit a PyMC model to recover the coefficients.
 
-```{code-cell}
+```{code-cell} ipython3
 N = 500
 
 TRUE_A = 0.5
@@ -138,7 +138,7 @@ print(f"Analytical Y_{{H=2}} for Joe = {ANALYTICAL_COUNTERFACTUAL:.2f}")
 
 The PyMC model mirrors the structural equations. Each equation becomes a likelihood statement, and we place weakly informative priors on the coefficients and noise standard deviations.
 
-```{code-cell}
+```{code-cell} ipython3
 with pm.Model() as scm:
     a = pm.Normal("a", mu=0, sigma=2)
     b = pm.Normal("b", mu=0, sigma=2)
@@ -155,7 +155,7 @@ with pm.Model() as scm:
     idata = pm.sample(draws=2000, random_seed=RANDOM_SEED)
 ```
 
-```{code-cell}
+```{code-cell} ipython3
 summary = az.summary(
     idata,
     var_names=["a", "b", "c", "sigma_X", "sigma_H", "sigma_Y"],
@@ -181,7 +181,7 @@ $$E[Y \mid \operatorname{do}(H\!=\!2)] = 2c$$
 
 We compute this for each posterior draw to propagate coefficient uncertainty.
 
-```{code-cell}
+```{code-cell} ipython3
 posterior = idata.posterior
 c_draws = posterior["c"].values.flatten()
 b_draws = posterior["b"].values.flatten()
@@ -234,7 +234,7 @@ Given Joe's observed data $(X = 0.5, H = 1.0, Y = 1.5)$ and the structural equat
 
 $$U_Y^{\text{Joe}} = Y_{\text{obs}} - b \cdot X_{\text{obs}} - c \cdot H_{\text{obs}}$$
 
-```{code-cell}
+```{code-cell} ipython3
 u_y_joe = joe_Y - b_draws * joe_X - c_draws * joe_H
 
 analytical_u_y = joe_Y - TRUE_B * joe_X - TRUE_C * joe_H
@@ -258,7 +258,7 @@ $$Y_{H=2}^{\text{Joe}} = Y_{\text{obs}} + c \cdot (2 - H_{\text{obs}})$$
 
 In a linear SEM, the counterfactual reduces to the observed outcome plus the structural coefficient times the change in the intervened variable. The $b$ terms and the exogenous term cancel exactly.
 
-```{code-cell}
+```{code-cell} ipython3
 y_cf_joe = joe_Y + c_draws * (2 - joe_H)
 
 print(f"Posterior mean of Y_{{H=2}} (Joe): {y_cf_joe.mean():.3f}")
@@ -273,7 +273,7 @@ In a linear structural equation model, the counterfactual change in $Y$ when int
 
 ## Intervention versus counterfactual
 
-```{code-cell}
+```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(FIG_WIDTH, FIG_HEIGHT))
 
 az.plot_kde(
@@ -308,7 +308,7 @@ plt.show()
 
 ## Joe's counterfactual posterior
 
-```{code-cell}
+```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(FIG_WIDTH, FIG_HEIGHT))
 
 az.plot_kde(
@@ -397,7 +397,7 @@ In each case, the population-level answer ($\operatorname{do}$) and the individu
 :filter: docname in docnames
 :::
 
-```{code-cell}
+```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w -p pytensor,xarray
 ```
