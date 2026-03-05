@@ -22,7 +22,7 @@ kernelspec:
 ```{code-cell} ipython3
 import warnings
 
-import arviz.preview as az
+import arviz as az
 import numpy as np
 import pandas as pd
 import pymc as pm
@@ -31,8 +31,8 @@ warnings.filterwarnings("ignore")
 ```
 
 ```{code-cell} ipython3
-%config InlineBackend.figure_format = 'retina'  # high resolution figures
-az.style.use("arviz-variat")
+%config InlineBackend.figure_format = "retina"
+az.style.use("arviz-darkgrid")
 rng = np.random.default_rng(42)
 SEED = 8927
 ```
@@ -190,11 +190,11 @@ with model_inference:
 Now, lets validate if model captured the infused coefficient values in the data.
 
 ```{code-cell} ipython3
-pc = az.plot_dist(
+az.plot_posterior(
     idata,
     var_names=list(true_values.keys()),
-)
-az.add_lines(pc, true_values);
+    ref_val={k: [{"ref_val": v}] for k, v in true_values.items()},
+);
 ```
 
 Pretty nice fit!
@@ -297,7 +297,7 @@ This opens the door for many possibilities in causal analytics: comparing treatm
 ## Authors
 - Authored by [Shekhar Khandelwal](https://github.com/shekharkhandelwal1983) in August 2023
 - Updated by Osvaldo Martin in February 2026
-- Revised wording by [Benjamin T. Vincent](https://github.com/drbenvincent) in March 2026
+- Revised wording around interventions and counterfactuals, by [Benjamin T. Vincent](https://github.com/drbenvincent) in March 2026
 
 +++
 
