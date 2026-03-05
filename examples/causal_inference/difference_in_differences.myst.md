@@ -49,6 +49,16 @@ Otherwise there are likely better suited approaches you could use.
 
 Note that our desire to estimate the causal impact of a treatment involves [counterfactual thinking](https://en.wikipedia.org/wiki/Counterfactual_thinking). This is because we are asking "What would the post-treatment outcome of the treatment group be _if_ treatment had not been administered?" but we can never observe this.
 
+:::{admonition} A note on "counterfactual" terminology
+:class: note
+
+This notebook uses "counterfactual" in the **potential outcomes** (Rubin) sense {cite:p}`rubin1974estimating, imbens2015causal`. The parallel trends assumption lets us use the control group's trajectory as a proxy for the treated group's unobserved potential outcome $Y(0)$ — what *would have happened* without treatment. This is standard counterfactual reasoning in the quasi-experimental literature.
+
+This differs from Pearl's **Level 3** (unit-level) counterfactuals {cite:p}`pearl2009causality`, which require *abduction* — inferring unit-specific exogenous variables from observed data and then reasoning about what would have happened to *that particular unit* under a different action. The difference-in-differences approach operates at Level 2 (interventional) in Pearl's causal hierarchy, making "counterfactual" in the Rubin sense the appropriate term.
+
+For a detailed discussion of the distinction between interventional (L2) and counterfactual (L3) reasoning, see the {ref}`counterfactuals_do_operator` notebook.
+:::
+
 +++
 
 ### Example

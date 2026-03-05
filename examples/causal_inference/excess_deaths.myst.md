@@ -31,6 +31,16 @@ $$
 
 Making a claim about excess deaths requires causal/counterfactual reasoning. While the reported number of deaths is nothing but a (maybe noisy and/or lagged) measure of a real observable fact in the world, _expected deaths_ is unmeasurable because these are never realised in our timeline. That is, the expected deaths is a counterfactual thought experiment where we can ask "What would/will happen if?"
 
+:::{admonition} A note on "counterfactual" terminology
+:class: note
+
+This notebook uses "counterfactual" in the **potential outcomes** (Rubin) sense {cite:p}`rubin1974estimating, imbens2015causal`. The counterfactual here is a *forecast* from a model trained on pre-COVID data, predicting expected deaths *if nothing had changed* — the unobserved potential outcome $Y(0)$. This is the same group-level counterfactual prediction used in {ref}`interrupted time series analysis <interrupted_time_series>`.
+
+This differs from Pearl's **Level 3** (unit-level) counterfactuals {cite:p}`pearl2009causality`, which require *abduction* — inferring unit-specific exogenous variables from observed data and then reasoning about what would have happened to *that particular unit* under a different action. The forecasting approach used here operates at Level 2 (interventional) in Pearl's causal hierarchy, making "counterfactual" in the Rubin sense the appropriate term.
+
+For a detailed discussion of the distinction between interventional (L2) and counterfactual (L3) reasoning, see the {ref}`counterfactuals_do_operator` notebook.
+:::
+
 +++
 
 ## Overall strategy
@@ -42,7 +52,7 @@ How do we go about this, practically? We will follow this strategy:
 2. Split into `pre` and `post` covid datasets. This is an important step. We want to come up with a model based upon what we know _before_ COVID-19 so that we can construct our counterfactual predictions based on data before COVID-19 had any impact.
 3. Estimate model parameters based on the `pre` dataset. 
 4. [Retrodict](https://en.wikipedia.org/wiki/Retrodiction) the number of deaths expected by the model in the pre COVID-19 period. This is not a counterfactual, but acts to tell us how capable the model is at accounting for the already observed data.
-5. Counterfactual inference - we use our model to construct a counterfactual forecast. What would we expect to see in the future if there was no COVID-19? This can be achieved by using the famous do-operator Practically, we do this with posterior prediction on out-of-sample data. 
+5. Counterfactual inference — we use our model to construct a counterfactual forecast. What would we expect to see in the future if there was no COVID-19? Practically, we do this with posterior prediction on out-of-sample data. 
 6. Calculate the excess deaths by comparing the reported deaths with our counterfactual (expected number of deaths).
 
 +++

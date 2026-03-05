@@ -164,6 +164,16 @@ We can use posterior prediction to ask what would we expect to see if:
 - no units were exposed to the treatment (blue shaded region, which is very narrow)
 - all units were exposed to the treatment (orange shaded region).
 
+:::{admonition} A note on "counterfactual" terminology
+:class: note
+
+This notebook uses "counterfactual" in the **potential outcomes** (Rubin) sense {cite:p}`rubin1974estimating, imbens2015causal`. Near the threshold, units are quasi-randomly assigned to treatment or control. The control group's outcome approximates the unobserved potential outcome $Y(0)$ for treated units at the boundary, enabling a local causal estimate. This is standard counterfactual reasoning in the quasi-experimental literature.
+
+This differs from Pearl's **Level 3** (unit-level) counterfactuals {cite:p}`pearl2009causality`, which require *abduction* — inferring unit-specific exogenous variables from observed data and then reasoning about what would have happened to *that particular unit* under a different action. The regression discontinuity approach operates at Level 2 (interventional) in Pearl's causal hierarchy, making "counterfactual" in the Rubin sense the appropriate term.
+
+For a detailed discussion of the distinction between interventional (L2) and counterfactual (L3) reasoning, see the {ref}`counterfactuals_do_operator` notebook.
+:::
+
 _Technical note:_ Formally we are doing posterior prediction of `y`. Running `pm.sample_posterior_predictive` multiple times with different random seeds will result in new and different samples of `y` each time. However, this is not the case (we are not formally doing posterior prediction) for `mu`. This is because `mu` is a deterministic function (`mu = x + delta*treated`), so for our already obtained posterior samples of `delta`, the values of `mu` will be entirely determined by the values of `x` and `treated` data).
 
 ```{code-cell} ipython3

@@ -27,6 +27,16 @@ For example, if a change to a website was made and you want to know the causal i
 
 However, if the website change was rolled out to _all_ users of the website then you do not have a control group. In this case you do not have a direct measurement of the counterfactual, what _would have happened if_ the website change was not made. In this case, if you have data over a 'good' number of time points, then you may be able to make use of the interrupted time series approach.
 
+:::{admonition} A note on "counterfactual" terminology
+:class: note
+
+This notebook uses "counterfactual" in the **potential outcomes** (Rubin) sense {cite:p}`rubin1974estimating, imbens2015causal` — the counterfactual here is a *forecast*. We extrapolate pre-intervention trends to predict the unobserved potential outcome $Y(0)$: what *would have happened* without the intervention. This is a group-level counterfactual prediction, standard in the quasi-experimental literature.
+
+This differs from Pearl's **Level 3** (unit-level) counterfactuals {cite:p}`pearl2009causality`, which require *abduction* — inferring unit-specific exogenous variables from observed data and then reasoning about what would have happened to *that particular unit* under a different action. The forecasting approach used here operates at Level 2 (interventional) in Pearl's causal hierarchy, making "counterfactual" in the Rubin sense the appropriate term.
+
+For a detailed discussion of the distinction between interventional (L2) and counterfactual (L3) reasoning, see the {ref}`counterfactuals_do_operator` notebook.
+:::
+
 Interested readers are directed to the excellent textbook [The Effect](https://theeffectbook.net/) {cite:p}`huntington2021effect`. Chapter 17 covers 'event studies' which the author prefers to the interrupted time series terminology.
 
 +++
