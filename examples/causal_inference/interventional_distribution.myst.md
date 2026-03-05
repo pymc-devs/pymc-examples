@@ -582,6 +582,7 @@ Readers looking to learn more are suggested to check out the cited blog posts as
 
 ## Authors
 - Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in July 2023
+- Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in March 2026
 
 +++
 
