@@ -6,9 +6,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_env
+  display_name: pymc-examples
   language: python
-  name: pymc_env
+  name: python3
 ---
 
 (regression_discontinuity)=
@@ -74,7 +74,7 @@ sd = 0.3  # represents change between pre and post test with zero measurement er
 df = (
     pd.DataFrame.from_dict({"x": rng.normal(size=N)})
     .assign(treated=lambda x: x.x < threshold)
-    .assign(y=lambda x: x.x + rng.normal(loc=0, scale=sd, size=N) + treatment_effect * x.treated)
+    .assign(y=lambda x: (x.x + rng.normal(loc=0, scale=sd, size=N) + treatment_effect * x.treated))
 )
 
 df
@@ -123,8 +123,8 @@ Notes:
 
 ```{code-cell} ipython3
 with pm.Model() as model:
-    x = pm.MutableData("x", df.x, dims="obs_id")
-    treated = pm.MutableData("treated", df.treated, dims="obs_id")
+    x = pm.Data("x", df.x, dims="obs_id")
+    treated = pm.Data("treated", df.treated, dims="obs_id")
     sigma = pm.HalfNormal("sigma", 1)
     delta = pm.Cauchy("effect", alpha=0, beta=1)
     mu = pm.Deterministic("mu", x + (delta * treated), dims="obs_id")
@@ -180,7 +180,7 @@ _Technical note:_ Formally we are doing posterior prediction of `y`. Running `pm
 # MODEL EXPECTATION WITHOUT TREATMENT ------------------------------------
 # probe data
 _x = np.linspace(np.min(df.x), np.max(df.x), 500)
-_treated = np.zeros(_x.shape)
+_treated = np.zeros(_x.shape, dtype=bool)
 
 # posterior prediction (see technical note above)
 with model:
@@ -201,7 +201,7 @@ az.plot_hdi(
 # MODEL EXPECTATION WITH TREATMENT ---------------------------------------
 # probe data
 _x = np.linspace(np.min(df.x), np.max(df.x), 500)
-_treated = np.ones(_x.shape)
+_treated = np.ones(_x.shape, dtype=bool)
 
 # posterior prediction (see technical note above)
 with model:
