@@ -14,7 +14,7 @@ kernelspec:
 # Interventional what-if analysis using the PyMC do-operator
 
 :::{post} August, 2023
-:tags: causality, causal inference, do-operator, interventional analysis
+:tags: causal inference, do-operator, interventional analysis
 :category: beginner, reference
 :author: Shekhar Khandelwal
 :::
