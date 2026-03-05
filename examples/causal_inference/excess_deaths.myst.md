@@ -38,7 +38,7 @@ This notebook uses "counterfactual" in the **potential outcomes** (Rubin) sense 
 
 This differs from Pearl's **Level 3** (unit-level) counterfactuals {cite:p}`pearl2009causality`, which require *abduction* — inferring unit-specific exogenous variables from observed data and then reasoning about what would have happened to *that particular unit* under a different action. The forecasting approach used here operates at Level 2 (interventional) in Pearl's causal hierarchy, making "counterfactual" in the Rubin sense the appropriate term.
 
-For a detailed discussion of the distinction between interventional (L2) and counterfactual (L3) reasoning, see the {ref}`counterfactuals_do_operator` notebook.
+For a detailed discussion of the distinction between interventional (L2) and counterfactual (L3) reasoning, see the {ref}`interventional_what_if_do_operator` notebook.
 :::
 
 +++
