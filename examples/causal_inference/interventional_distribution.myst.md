@@ -6,7 +6,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc-examples
   language: python
   name: python3
 ---
@@ -399,7 +399,7 @@ for i, ds in enumerate([ds1, ds2, ds3]):
         ax=ax[i],
     )
     ax[i].set(
-        title=f"$P(x, y)$, DAG {i+1}",
+        title=f"$P(x, y)$, DAG {i + 1}",
         xlim=[-4, 4],
         xticks=np.arange(-4, 4 + 1, step=2),
         ylim=[-6, 8],
