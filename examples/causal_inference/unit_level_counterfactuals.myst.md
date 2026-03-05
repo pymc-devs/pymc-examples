@@ -89,6 +89,8 @@ $$
 where $a = 0.5$, $b = 0.7$, $c = 0.4$, and $U_X, U_H, U_Y$ are mutually independent standard normals.
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 dag = Digraph()
 dag.attr(rankdir="LR")
 dag.node("X", "X\n(Encouragement)")
@@ -274,6 +276,8 @@ In a linear structural equation model, the counterfactual change in $Y$ when int
 ## Intervention versus counterfactual
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 fig, ax = plt.subplots(figsize=(FIG_WIDTH, FIG_HEIGHT))
 
 az.plot_kde(
@@ -309,6 +313,8 @@ plt.show()
 ## Joe's counterfactual posterior
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
 fig, ax = plt.subplots(figsize=(FIG_WIDTH, FIG_HEIGHT))
 
 az.plot_kde(
