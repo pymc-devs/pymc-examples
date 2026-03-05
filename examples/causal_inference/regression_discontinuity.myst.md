@@ -236,6 +236,7 @@ In this notebook we have merely touched the surface of how to analyse data from 
 ## Authors
 - Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in April 2022
 - Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5
+- Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in March 2026
 
 +++
 
