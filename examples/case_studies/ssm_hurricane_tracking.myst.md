@@ -91,7 +91,6 @@ import warnings
 
 warnings.filterwarnings("ignore", message="The RandomType SharedVariables", category=UserWarning)
 
-import arviz.labels as azl
 import arviz.preview as az
 import numpy as np
 import pymc as pm
@@ -1355,9 +1354,7 @@ az.plot_trace_dist(exogenous_idata, var_names="acceleration_innovations");
 ```
 
 ```{code-cell} ipython3
-az.plot_forest(
-    exogenous_idata, var_names=["beta_exog"], combined=True, labeller=azl.NoVarLabeller()
-);
+az.plot_forest(exogenous_idata, var_names=["beta_exog"], combined=True, labels={"exog_dims": None});
 ```
 
 ### Make in-sample forecasts with new exogenous model
