@@ -6,7 +6,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -22,8 +22,7 @@ kernelspec:
 ```{code-cell} ipython3
 from pathlib import Path
 
-import arviz as azl
-import arviz.preview as az
+import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -318,6 +317,7 @@ The problem with this approach is that BART does not have an explicit mechanism 
 * Updated by Osvaldo Martin in Nov, 2023
 * Updated by Osvaldo Martin in Dec, 2024
 * Updated by Osvaldo Martin in Dec, 2025
+* Rerun by Osvaldo Martin in Apr, 2026
 
 +++
 
