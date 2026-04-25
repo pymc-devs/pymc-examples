@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -20,7 +20,7 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-import arviz.preview as az
+import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -477,6 +477,7 @@ az.add_lines(pc, ref_length);
 * Updated by [Kavya Jaiswal](https://github.com/KavyaJaiswal) and [Oriol Abril](https://github.com/OriolAbril) in December, 2021 ([pymc-examples#151](https://github.com/pymc-devs/pymc-examples/pull/151))
 * Updated by [Jesse Grabowski](https://github.com/jessegrabowski) in July 2023 ([pymc-examples#559](https://github.com/pymc-devs/pymc-examples/pull/559))
 * Updated by [Osvaldo Martin](https://github.com/aloctavodia) in Dec 2025.
+* Updated by [Osvaldo Martin](https://github.com/aloctavodia) in Apr 2026.
 
 +++
 

@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: eabm
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -22,7 +22,7 @@ kernelspec:
 ```{code-cell} ipython3
 import warnings
 
-import arviz.preview as az
+import arviz as az
 import numpy as np
 import pandas as pd
 import pymc as pm
@@ -116,10 +116,10 @@ Lets generate 100 samples.
 N = 100
 
 with model_simulate:
-    simulate = pm.sample_prior_predictive(samples=N)
+    simulate = pm.sample_prior_predictive(draws=N)
 ```
 
-We know that this generates an Arviz object, and since we have called sample_prior_predictive, hence the object will only contain priors.
+We know that this generates an ArviZ object, and since we have called sample_prior_predictive, hence the object will only contain priors.
 
 ```{code-cell} ipython3
 simulate
@@ -278,6 +278,7 @@ This opens the door for many more possibilities in various use cases. Especially
 ## Authors
 - Authored by [Shekhar Khandelwal](https://github.com/shekharkhandelwal1983) in August 2023
 - Updated by Osvaldo Martin in February 2026 
+- Updated by Osvaldo Martin in April 2026 
 
 +++
 
