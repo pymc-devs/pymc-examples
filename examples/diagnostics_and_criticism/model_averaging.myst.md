@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -30,7 +30,7 @@ papermill:
 ---
 import os
 
-import arviz.preview as az
+import arviz as az
 import numpy as np
 import pandas as pd
 import pymc as pm
@@ -209,6 +209,7 @@ Hierarchical models are another example were we build a continuous version of a 
 * Updated notebook to use pymc 5 by Adrien Porter in November 2023 
 * Updated by Osvaldo Martin in August 2024
 * Updated by Osvaldo Martin in Dec 2025
+* Updated by Osvaldo Martin in Apr 2026
 
 +++
 
