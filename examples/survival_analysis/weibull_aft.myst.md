@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_env
+  display_name: arviz_1
   language: python
   name: python3
 myst:
@@ -24,7 +24,7 @@ myst:
 :::
 
 ```{code-cell} ipython3
-import arviz.preview as az
+import arviz as az
 import numpy as np
 import pymc as pm
 import pytensor.tensor as pt
@@ -125,7 +125,7 @@ with model_1:
 ```
 
 ```{code-cell} ipython3
-az.plot_trace_dist(idata_param1, var_names=["alpha", "beta"])
+az.plot_trace_dist(idata_param1, var_names=["alpha", "beta"]);
 ```
 
 ```{code-cell} ipython3
@@ -155,7 +155,7 @@ with model_2:
 ```
 
 ```{code-cell} ipython3
-az.plot_trace_dist(idata_param2, var_names=["r", "beta"])
+az.plot_trace_dist(idata_param2, var_names=["r", "beta"]);
 ```
 
 ```{code-cell} ipython3
@@ -190,7 +190,7 @@ with model_3:
 ```
 
 ```{code-cell} ipython3
-az.plot_trace_dist(idata_param3)
+az.plot_trace_dist(idata_param3);
 ```
 
 ```{code-cell} ipython3
@@ -203,6 +203,7 @@ az.summary(idata_param3, round_to=2)
 - Authored and ported to Jupyter notebook by [George Ho](https://eigenfoo.xyz/) on Jul 15, 2018.
 - Updated for compatibility with PyMC v5 by Chris Fonnesbeck on Jan 16, 2023.
 - Updated to replace `pm.Potential` with `pm.Censored` by Jonathan Dekermanjian on Nov 25, 2024.
+- Updated by Osvaldo Martin in April 2026.
 
 ```{code-cell} ipython3
 %load_ext watermark
