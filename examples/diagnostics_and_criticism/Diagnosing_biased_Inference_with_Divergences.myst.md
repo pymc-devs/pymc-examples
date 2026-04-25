@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -20,9 +20,7 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-from collections import defaultdict
-
-import arviz.preview as az
+import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -340,6 +338,7 @@ pc.add_legend("model");
 * Updated by [@CloudChaoszero](https://github.com/CloudChaoszero) in January 2021, ([pymc-examples#25](https://github.com/pymc-devs/pymc-examples/pull/25))
 * Updated Markdown and styling by @reshamas in August 2022, ([pymc-examples#402](https://github.com/pymc-devs/pymc-examples/pull/402))
 * Updated and modified by Osvaldo Martin in Dec 2025
+* Updated by Osvaldo Martin in Apr 2026
 
 ```{code-cell} ipython3
 %load_ext watermark
@@ -348,7 +347,3 @@ pc.add_legend("model");
 
 :::{include} ../page_footer.md
 :::
-
-```{code-cell} ipython3
-
-```
