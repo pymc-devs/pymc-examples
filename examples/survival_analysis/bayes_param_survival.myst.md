@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -17,7 +17,7 @@ kernelspec:
 ```{code-cell} ipython3
 import warnings
 
-import arviz.preview as az
+import arviz as az
 import numpy as np
 import pymc as pm
 import pytensor.tensor as pt
@@ -231,7 +231,7 @@ az.plot_energy(weibull_trace);
 The $\hat{R}$ statistics also indicate convergence.
 
 ```{code-cell} ipython3
-az.rhat(weibull_trace).to_array().max()
+az.rhat(weibull_trace).ds.to_array().max()
 ```
 
 Below we plot posterior distributions of the parameters.
@@ -341,7 +341,7 @@ az.plot_energy(log_logistic_trace);
 ```
 
 ```{code-cell} ipython3
-az.rhat(log_logistic_trace).to_array().max()
+az.rhat(log_logistic_trace).ds.to_array().max()
 ```
 
 Again, we calculate the posterior expected survival functions for this model.
@@ -396,6 +396,7 @@ This post has been a short introduction to implementing parametric survival regr
 - Updated by [George Ho](https://eigenfoo.xyz/) on July 18, 2018.
 - Updated by @fonnesbeck on September 11, 2024.
 - Updated by Osvaldo Martin on December 2025.
+- Updated by Osvaldo Martin on April 2026.
 
 ```{code-cell} ipython3
 %load_ext watermark
