@@ -126,7 +126,7 @@ def ZeroSumNormal(name, *, sigma=None, active_dims=None, dims, model=None):
             active_axes.append(i)
             dim_name = f"{dim}_reduced"
             if name not in model.coords:
-                model.add_coord(dim_name, length=len(model.coords[dim]) - 1, mutable=False)
+                model.add_coord(dim_name, length=len(model.coords[dim]) - 1)
             dims_reduced.append(dim_name)
         else:
             dims_reduced.append(dim)
@@ -261,10 +261,10 @@ We are going to estimate reported deaths over time with an intercept, a linear t
 ```{code-cell} ipython3
 with pm.Model(coords={"month": month_strings}) as model:
     # observed predictors and outcome
-    month = pm.MutableData("month", pre["month"].to_numpy(), dims="t")
-    time = pm.MutableData("time", pre["t"].to_numpy(), dims="t")
-    temp = pm.MutableData("temp", pre["temp"].to_numpy(), dims="t")
-    deaths = pm.MutableData("deaths", pre["deaths"].to_numpy(), dims="t")
+    month = pm.Data("month", pre["month"].to_numpy(), dims="t")
+    time = pm.Data("time", pre["t"].to_numpy(), dims="t")
+    temp = pm.Data("temp", pre["temp"].to_numpy(), dims="t")
+    deaths = pm.Data("deaths", pre["deaths"].to_numpy(), dims="t")
 
     # priors
     intercept = pm.Normal("intercept", 40_000, 10_000)

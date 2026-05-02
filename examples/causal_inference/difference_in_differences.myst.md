@@ -302,9 +302,9 @@ For those already well-versed in PyMC, you can see that this model is pretty sim
 ```{code-cell} ipython3
 with pm.Model() as model:
     # data
-    t = pm.MutableData("t", df["t"].values, dims="obs_idx")
-    treated = pm.MutableData("treated", df["treated"].values, dims="obs_idx")
-    group = pm.MutableData("group", df["group"].values, dims="obs_idx")
+    t = pm.Data("t", df["t"].values, dims="obs_idx")
+    treated = pm.Data("treated", df["treated"].values, dims="obs_idx")
+    group = pm.Data("group", df["group"].values, dims="obs_idx")
     # priors
     _control_intercept = pm.Normal("control_intercept", 0, 5)
     _treat_intercept_delta = pm.Normal("treat_intercept_delta", 0, 1)
