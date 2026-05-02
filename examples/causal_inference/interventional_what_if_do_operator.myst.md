@@ -137,10 +137,10 @@ Lets generate 100 samples.
 N = 100
 
 with model_simulate:
-    simulate = pm.sample_prior_predictive(samples=N)
+    simulate = pm.sample_prior_predictive(draws=N)
 ```
 
-We know that this generates an Arviz object, and since we have called sample_prior_predictive, hence the object will only contain priors.
+We know that this generates an ArviZ object, and since we have called sample_prior_predictive, hence the object will only contain priors.
 
 ```{code-cell} ipython3
 simulate
@@ -297,6 +297,7 @@ This opens the door for many possibilities in causal analytics: comparing treatm
 ## Authors
 - Authored by [Shekhar Khandelwal](https://github.com/shekharkhandelwal1983) in August 2023
 - Updated by Osvaldo Martin in February 2026
+- Updated by Osvaldo Martin in April 2026
 - Revised wording around interventions and counterfactuals, by [Benjamin T. Vincent](https://github.com/drbenvincent) in March 2026
 
 +++

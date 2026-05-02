@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: kulprit
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -22,7 +22,7 @@ kernelspec:
 ```{code-cell} ipython3
 import warnings
 
-import arviz.preview as az
+import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -253,7 +253,7 @@ fig, ax = plt.subplots(figsize=(12, 4))
 # Plot observed bin counts
 c1.plot(kind="bar", ax=ax, alpha=0.5)
 # Plot posterior predictive
-ppc.posterior_predictive.plot.scatter(x="counts1_dim_0", y="counts1", color="k", alpha=0.2)
+ppc.posterior_predictive.ds.plot.scatter(x="counts1_dim_0", y="counts1", color="k", alpha=0.2)
 # Formatting
 ax.set_xticklabels([f"bin {n}" for n in range(len(c1))])
 ax.set_title("Six bin discretization of N(-2, 2)");
@@ -355,7 +355,7 @@ fig, ax = plt.subplots(figsize=(12, 4))
 # Plot observed bin counts
 c2.plot(kind="bar", ax=ax, alpha=0.5)
 # Plot posterior predictive
-ppc.posterior_predictive.plot.scatter(x="counts2_dim_0", y="counts2", color="k", alpha=0.2)
+ppc.posterior_predictive.ds.plot.scatter(x="counts2_dim_0", y="counts2", color="k", alpha=0.2)
 # Formatting
 ax.set_xticklabels([f"bin {n}" for n in range(len(c2))])
 ax.set_title("Seven bin discretization of N(-2, 2)");
@@ -438,7 +438,7 @@ fig, ax = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
 # Plot observed bin counts
 c1.plot(kind="bar", ax=ax[0], alpha=0.5)
 # Plot posterior predictive
-ppc.posterior_predictive.plot.scatter(
+ppc.posterior_predictive.ds.plot.scatter(
     x="counts1_dim_0", y="counts1", color="k", alpha=0.2, ax=ax[0]
 )
 # Formatting
@@ -449,7 +449,7 @@ ax[0].set_title("Six bin discretization of N(-2, 2)")
 # Plot observed bin counts
 c2.plot(kind="bar", ax=ax[1], alpha=0.5)
 # Plot posterior predictive
-ppc.posterior_predictive.plot.scatter(
+ppc.posterior_predictive.ds.plot.scatter(
     x="counts2_dim_0", y="counts2", color="k", alpha=0.2, ax=ax[1]
 )
 # Formatting
@@ -516,7 +516,7 @@ fig, ax = plt.subplots(1, 2, figsize=(12, 4))
 # Plot observed bin counts
 c1.plot(kind="bar", ax=ax[0], alpha=0.5)
 # Plot posterior predictive
-ppc.posterior_predictive.plot.scatter(
+ppc.posterior_predictive.ds.plot.scatter(
     x="counts1_dim_0", y="counts1", color="k", alpha=0.2, ax=ax[0]
 )
 # Formatting
@@ -524,7 +524,7 @@ ax[0].set_xticklabels([f"bin {n}" for n in range(len(c1))])
 ax[0].set_title("Posterior predictive: Study 1")
 
 # Study 2 ----------------------------------------------------------------
-ax[1].hist(ppc.posterior_predictive.y.values.flatten(), 50, density=True, alpha=0.5)
+ax[1].hist(ppc.posterior_predictive.ds.y.values.flatten(), 50, density=True, alpha=0.5)
 ax[1].set(title="Posterior predictive: Study 2", xlabel="$x$", ylabel="density");
 ```
 
@@ -659,7 +659,7 @@ fig, ax = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
 # Plot observed bin counts
 c1.plot(kind="bar", ax=ax[0], alpha=0.5)
 # Plot posterior predictive
-ppc.posterior_predictive.plot.scatter(x="bin1", y="counts1", color="k", alpha=0.2, ax=ax[0])
+ppc.posterior_predictive.ds.plot.scatter(x="bin1", y="counts1", color="k", alpha=0.2, ax=ax[0])
 # Formatting
 ax[0].set_xticklabels([f"bin {n}" for n in range(len(c1))])
 ax[0].set_title("Six bin discretization of N(-2, 2)")
@@ -668,7 +668,7 @@ ax[0].set_title("Six bin discretization of N(-2, 2)")
 # Plot observed bin counts
 c2.plot(kind="bar", ax=ax[1], alpha=0.5)
 # Plot posterior predictive
-ppc.posterior_predictive.plot.scatter(x="bin2", y="counts2", color="k", alpha=0.2, ax=ax[1])
+ppc.posterior_predictive.ds.plot.scatter(x="bin2", y="counts2", color="k", alpha=0.2, ax=ax[1])
 # Formatting
 ax[1].set_xticklabels([f"bin {n}" for n in range(len(c2))])
 ax[1].set_title("Seven bin discretization of N(-2, 2)");
@@ -855,7 +855,7 @@ fig, ax = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
 # Plot observed bin counts
 c1.plot(kind="bar", ax=ax[0], alpha=0.5)
 # Plot posterior predictive
-ppc.posterior_predictive.plot.scatter(
+ppc.posterior_predictive.ds.plot.scatter(
     x="counts1_dim_0", y="counts1", color="k", alpha=0.2, ax=ax[0]
 )
 # Formatting
@@ -866,7 +866,7 @@ ax[0].set_title("Study 1")
 # Plot observed bin counts
 c2.plot(kind="bar", ax=ax[1], alpha=0.5)
 # Plot posterior predictive
-ppc.posterior_predictive.plot.scatter(
+ppc.posterior_predictive.ds.plot.scatter(
     x="counts2_dim_0", y="counts2", color="k", alpha=0.2, ax=ax[1]
 )
 # Formatting
@@ -905,6 +905,7 @@ We have presented a range of different examples here which makes clear that the 
 * Authored by [Eric Ma](https://github.com/ericmjl) and [Benjamin T. Vincent](https://github.com/drbenvincent) in September, 2021 ([pymc-examples#229](https://github.com/pymc-devs/pymc-examples/pull/229))
 * Updated to run in PyMC v4 by Fernando Irarrazaval in June 2022 ([pymc-examples#366](https://github.com/pymc-devs/pymc-examples/pull/366))
 * Updated by Osvaldo Martin in Dec 2025
+* Rerun by Osvaldo Martin in Apr 2026
 
 +++
 

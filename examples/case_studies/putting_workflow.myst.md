@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: eabm
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -29,7 +29,7 @@ We use a data set from "Statistics: A Bayesian Perspective" {cite:p}`berry1996st
 ```{code-cell} ipython3
 import io
 
-import arviz.preview as az
+import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -167,7 +167,7 @@ We plot 50 posterior draws of $p(\text{success})$ along with the expected value.
 ```{code-cell} ipython3
 # Draw posterior predictive samples
 with logit_model:
-    logit_trace.extend(pm.sample_posterior_predictive(logit_trace))
+    pm.sample_posterior_predictive(logit_trace, extend_inferencedata=True)
 
 # hard to plot more than 400 sensibly
 logit_post = az.extract(logit_trace, num_samples=400)
@@ -297,7 +297,7 @@ Sometimes a custom visualization or dashboard is useful for a prior predictive c
 with angle_model:
     angle_trace = pm.sample_prior_predictive(500)
 
-angle_prior = angle_trace.prior.squeeze()
+angle_prior = angle_trace.prior.ds.squeeze()
 
 angle_of_shot = XrContinuousRV(st.norm, 0, angle_prior["variance_of_shot"]).rvs(
     random_state=RANDOM_SEED
@@ -324,7 +324,7 @@ This is a little funny! Most obviously, it should probably be not this common to
 
 ```{code-cell} ipython3
 with angle_model:
-    angle_trace.extend(pm.sample(1000, tune=1000, target_accept=0.85))
+    angle_trace["posterior"] = pm.sample(1000, tune=1000, target_accept=0.85).posterior
 
 angle_post = az.extract(angle_trace)
 ```
@@ -776,7 +776,7 @@ def expected_num_putts(trace, distance_to_hole, trials=100_000):
 
     combined_trace = az.extract(trace)
 
-    n_samples = combined_trace.dims["sample"]
+    n_samples = combined_trace.sizes["sample"]
 
     idxs = np.random.randint(0, n_samples, trials)
     variance_of_shot = combined_trace["variance_of_shot"].isel(sample=idxs)
@@ -831,6 +831,7 @@ fig.suptitle("Simulated number of putts from\na few distances");
 * Updated by Oriol Abril-Pla to use PyMC v4 and xarray-einstats
 * Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) to use `az.extract` in February 2023 ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
 * Updated by Osvaldo Martin in January 2026
+* Updated by Osvaldo Martin in April 2026
 
 +++
 

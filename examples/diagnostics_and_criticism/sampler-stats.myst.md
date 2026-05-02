@@ -6,7 +6,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: kulprit
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -21,7 +21,7 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-import arviz.preview as az
+import arviz as az
 import matplotlib.pyplot as plt
 import pymc as pm
 
@@ -178,6 +178,7 @@ idata.sample_stats["accept"].max("draw") - idata.sample_stats["accept"].min("dra
 * Updated by Meenal Jhajharia in April 2021 ([pymc-examples#95](https://github.com/pymc-devs/pymc-examples/pull/95))
 * Updated to v4 by Christian Luhmann in May 2022 ([pymc-examples#338](https://github.com/pymc-devs/pymc-examples/pull/338))
 * Updated by Osvaldo Martin in Dec 2025
+* Updated by Osvaldo Martin in Apr 2026
 
 +++
 

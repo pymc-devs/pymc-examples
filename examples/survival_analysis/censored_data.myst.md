@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python [conda env:base] *
+  display_name: arviz_1
   language: python
-  name: conda-base-py
+  name: python3
 ---
 
 (censored_data)=
@@ -22,7 +22,7 @@ kernelspec:
 ```{code-cell} ipython3
 from copy import copy
 
-import arviz.preview as az
+import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
@@ -36,42 +36,22 @@ rng = default_rng(1234)
 az.style.use("arviz-variat")
 ```
 
-[This example notebook on Bayesian survival
-analysis](https://www.pymc.io/projects/examples/en/latest/survival_analysis/survival_analysis.html) touches on the
-point of censored data. _Censoring_ is a form of missing-data problem, in which
-observations greater than a certain threshold are clipped down to that
-threshold, or observations less than a certain threshold are clipped up to that
-threshold, or both. These are called right, left and interval censoring,
-respectively. In this example notebook we consider interval censoring.
+[This example notebook on Bayesian survival analysis](https://www.pymc.io/projects/examples/en/latest/survival_analysis/survival_analysis.html) touches on the point of censored data. _Censoring_ is a form of missing-data problem, in which observations greater than a certain threshold are clipped down to that threshold, or observations less than a certain threshold are clipped up to that threshold, or both. These are called right, left and interval censoring,respectively. In this example notebook we consider interval censoring.
 
 Censored data arises in many modelling problems. Two common examples are:
 
-1. _Survival analysis:_ when studying the effect of a certain medical treatment
-   on survival times, it is impossible to prolong the study until all subjects
-   have died. At the end of the study, the only data collected for many patients
-   is that they were still alive for a time period $T$ after the treatment was
-   administered: in reality, their true survival times are greater than $T$.
+1. _Survival analysis:_ when studying the effect of a certain medical treatment on survival times, it is impossible to prolong the study until all subjects have died. At the end of the study, the only data collected for many patients is that they were still alive for a time period $T$ after the treatment was administered: in reality, their true survival times are greater than $T$.
 
-2. _Sensor saturation:_ a sensor might have a limited range and the upper and
-   lower limits would simply be the highest and lowest values a sensor can
-   report. For instance, many mercury thermometers only report a very narrow
-   range of temperatures.
+2. _Sensor saturation:_ a sensor might have a limited range and the upper and lower limits would simply be the highest and lowest values a sensor can report. For instance, many mercury thermometers only report a very narrow range of temperatures.
 
 This example notebook presents two different ways of dealing with censored data
 in PyMC:
 
-1. An imputed censored model, which represents censored data as parameters and
-   makes up plausible values for all censored values. As a result of this
-   imputation, this model is capable of generating plausible sets of made-up
-   values that would have been censored. Each censored element introduces a
-   random variable.
+1. An imputed censored model, which represents censored data as parameters and makes up plausible values for all censored values. As a result of this imputation, this model is capable of generating plausible sets of made-up values that would have been censored. Each censored element introduces a random variable.
 
-2. An unimputed censored model, where the censored data are integrated out and
-   accounted for only through the log-likelihood. This method deals more
-   adequately with large amounts of censored data and converges more quickly.
+2. An unimputed censored model, where the censored data are integrated out and accounted for only through the log-likelihood. This method deals more adequately with large amounts of censored data and converges more quickly.
 
-To establish a baseline we compare to an uncensored model of the uncensored
-data.
+To establish a baseline we compare to an uncensored model of the uncensored data.
 
 ```{code-cell} ipython3
 # Produce normally distributed samples
@@ -238,6 +218,7 @@ As we can see, both censored models appear to capture the mean and variance of t
 - Updated by [Benjamin Vincent](https://github.com/drbenvincent) in May 2021.
 - Updated by [Benjamin Vincent](https://github.com/drbenvincent) in May 2022.
 - Updated by [Osvaldo Martin](https://github.com/aloctavodia) in Dec 2025.
+- Updated by [Osvaldo Martin](https://github.com/aloctavodia) in Apr 2026.
 
 +++
 

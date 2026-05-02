@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: arviz_1
   language: python
   name: python3
 myst:
@@ -48,7 +48,7 @@ Source for Results 2014 are Wikipedia. I've added the subsequent years, 2015, 20
 ```{code-cell} ipython3
 !date
 
-import arviz.preview as az
+import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -400,7 +400,7 @@ And eventually generate the ranks of all teams for each of the 4000 simulations.
 from xarray_einstats.stats import rankdata
 
 pp["rank"] = rankdata(-pp["teamscores"], dims="team", method="min")
-pp[["rank"]].sel(team="England")
+pp["rank"].sel(team="England")
 ```
 
 As you can see, we now have a collection of 4000 integers between 1 and 6 for each team, 1 meaning they win the competition. We can use a histogram with bin edges at half integers to count and normalize how many times each team
@@ -451,7 +451,7 @@ We should do some exploration of the variables
 az.plot_pair(
     trace,
     var_names=["atts"],
-    visuals={"divergences": True},
+    visuals={"divergence": True},
 );
 ```
 
@@ -466,6 +466,7 @@ Nevertheless this is a good method to get some insight into how the variables ar
 * Updated by Meenal Jhajharia to use ArviZ and xarray
 * Updated by Oriol Abril-Pla to use PyMC v4 and xarray-einstats
 * Updated by Osvaldo Martin Dec 2025
+* Updated by Osvaldo Martin Apr 2026
 
 +++
 

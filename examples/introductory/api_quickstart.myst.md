@@ -6,7 +6,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -21,8 +21,7 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-import arviz.preview as az
-import matplotlib.pyplot as plt
+import arviz as az
 import numpy as np
 import pymc as pm
 ```
@@ -311,7 +310,8 @@ with pm.Model() as model:
 The returned `Approximation` object has various capabilities, like drawing samples from the approximated posterior, which we can analyse like a regular sampling run:
 
 ```{code-cell} ipython3
-idata = approx.sample(1000)
+with model:
+    idata = approx.sample(1000)
 az.summary(idata, kind="stats")
 ```
 
@@ -340,7 +340,8 @@ with pm.Model(coords={"idx": np.arange(2)}) as model:
 ```
 
 ```{code-cell} ipython3
-idata = approx.sample(1000)
+with model:
+    idata = approx.sample(1000)
 az.plot_pair(idata, var_names="x", coords={"idx": [0, 1]});
 ```
 
@@ -361,7 +362,8 @@ with pm.Model() as model:
 ```
 
 ```{code-cell} ipython3
-idata = approx.sample(1000)
+with model:
+    idata = approx.sample(1000)
 az.plot_dist(
     idata,
     var_names="x",
@@ -393,7 +395,7 @@ with pm.Model() as model:
 
 ```{code-cell} ipython3
 with model:
-    idata.extend(pm.sample_posterior_predictive(idata))
+    pm.sample_posterior_predictive(idata, extend_inferencedata=True)
 ```
 
 ```{code-cell} ipython3
@@ -437,7 +439,7 @@ with model:
         coords={"idx": [1001, 1002, 1003]},
     )
 
-    idata.extend(pm.sample_posterior_predictive(idata))
+    pm.sample_posterior_predictive(idata, extend_inferencedata=True)
 ```
 
 ```{code-cell} ipython3

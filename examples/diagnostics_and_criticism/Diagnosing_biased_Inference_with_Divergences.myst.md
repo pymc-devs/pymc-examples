@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -20,9 +20,7 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-from collections import defaultdict
-
-import arviz.preview as az
+import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -187,10 +185,21 @@ az.summary(longer_trace, kind="diagnostics", round_to=2)
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(longer_trace, var_names=["tau"], visuals={"divergence": False});
+pc = az.plot_trace(longer_trace, var_names=["tau"], visuals={"divergence": False})
+
+# identify the sticky intervals in the "purple" chain (chain 3)
+chain = 3
+min_length = 20
+low = (longer_trace.posterior.sel(chain=chain)["tau"] < 2).values
+changes = np.diff(low.astype(int))
+starts = np.where(changes == 1)[0] + 1
+ends = np.where(changes == -1)[0]
+sticky = [(s, e) for s, e in zip(starts, ends) if e - s > min_length]
+# add gray bands to the trace plot
+az.add_bands(pc, sticky);
 ```
 
-We see problems with $\hat{R}$, the effective sample size (in particular for tau) does not indicate any serious issues. As shown in the trace plot, chains occasionally "sticks" as it approaches small values of $\tau$ (this is clearly seen for the "red" one), exactly where we saw the divergences concentrating. This is a clear indication of the underlying pathologies. These sticky intervals induce severe oscillations in the MCMC estimators early on, until they seem to finally settle into biased values.   
+We see problems with $\hat{R}$, the effective sample size (in particular for tau) does not indicate any serious issues. As shown in the trace plot, chains occasionally "sticks" as it approaches small values of $\tau$ (see for example the "purple" chain, at the region highlighted by the gray band), exactly where we saw the divergences concentrating. This is a clear indication of the underlying pathologies. These sticky intervals induce severe oscillations in the MCMC estimators early on, until they seem to finally settle into biased values.   
 
 In fact the sticky intervals are the Markov chain trying to correct the biased exploration. If we ran the chain even longer then it would eventually get stuck again and drag the MCMC estimator down towards the true value. Given an infinite number of iterations this delicate balance asymptotes to the true expectation as we’d expect given the consistency guarantee of MCMC. Stopping after any finite number of iterations, however, destroys this balance and leaves us with a significant bias. More details can be found in the work by {cite:t}`betancourt2018`.
 
@@ -340,6 +349,7 @@ pc.add_legend("model");
 * Updated by [@CloudChaoszero](https://github.com/CloudChaoszero) in January 2021, ([pymc-examples#25](https://github.com/pymc-devs/pymc-examples/pull/25))
 * Updated Markdown and styling by @reshamas in August 2022, ([pymc-examples#402](https://github.com/pymc-devs/pymc-examples/pull/402))
 * Updated and modified by Osvaldo Martin in Dec 2025
+* Updated by Osvaldo Martin in Apr 2026
 
 ```{code-cell} ipython3
 %load_ext watermark
@@ -348,7 +358,3 @@ pc.add_legend("model");
 
 :::{include} ../page_footer.md
 :::
-
-```{code-cell} ipython3
-
-```

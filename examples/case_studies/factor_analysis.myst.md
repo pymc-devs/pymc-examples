@@ -6,7 +6,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: eabm
+  display_name: arviz_1
   language: python
   name: python3
 myst:
@@ -33,7 +33,7 @@ Factor analysis is a widely used probabilistic model for identifying low-rank st
 :::
 
 ```{code-cell} ipython3
-import arviz.preview as az
+import arviz as az
 import numpy as np
 import pymc as pm
 import pytensor.tensor as pt
@@ -384,6 +384,7 @@ We find that our model does a decent job of capturing the variation in the origi
 * Updated by Oriol Abril-Pla to use PyMC v4 and xarray-einstats on March, 2022
 * Updated by Erik Werner on Dec, 2023 ([pymc-examples#612](https://github.com/pymc-devs/pymc-examples/pull/612))
 * Updated by Osvaldo Martin on January, 2026
+* Updated by Osvaldo Martin on April, 2026
 
 +++
 
