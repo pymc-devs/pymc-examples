@@ -91,7 +91,6 @@ import warnings
 
 warnings.filterwarnings("ignore", message="The RandomType SharedVariables", category=UserWarning)
 
-import arviz.labels as azl
 import arviz.preview as az
 import numpy as np
 import pymc as pm
@@ -109,8 +108,8 @@ import plotly.io as pio
 import polars as pl
 
 from patsy import dmatrix
+from pymc_extras.statespace.core.properties import Coord, Data, Parameter, Shock, State
 from pymc_extras.statespace.core.statespace import PyMCStateSpace
-from pymc_extras.statespace.models.utilities import make_default_coords
 from pymc_extras.statespace.utils.constants import (
     ALL_STATE_AUX_DIM,
     ALL_STATE_DIM,
@@ -835,6 +834,54 @@ class NewtonianSSM(PyMCStateSpace):
 
         super().__init__(k_endog=k_endog, k_states=k_states, k_posdef=k_posdef, mode=mode)
 
+    def set_states(self):
+        """
+        Set hidden and observed states of the model
+        """
+        hidden_states = [
+            State(name=name, observed=False, shared=False) for name in ["vx", "vy", "ax", "ay"]
+        ]
+        observed_states = [State(name=name, observed=True, shared=False) for name in ["x", "y"]]
+        return *hidden_states, *observed_states
+
+    def set_parameters(self):
+        """
+        Set the parameters expected by the model
+        """
+        x0_param = Parameter(
+            name="x0", shape=(self.k_states,), dims=(ALL_STATE_DIM,), constraints="None"
+        )
+
+        P0_param = Parameter(
+            name="P0",
+            shape=(self.k_states, self.k_states),
+            dims=(ALL_STATE_DIM, ALL_STATE_AUX_DIM),
+            constraints="Positive Semi-definite",
+        )
+
+        acc_innov_param = Parameter(
+            name="acceleration_innovations",
+            shape=(1,),
+            dims=("innovation",),
+            constraints="Positive",
+        )
+
+        return x0_param, P0_param, acc_innov_param
+
+    def set_coords(self):
+        """
+        Set the coordinates of the model
+        """
+        state_coord = Coord(dimension="state", labels=["x", "y", "vx", "vy", "ax", "ay"])
+
+        state_aux_coord = Coord(
+            dimension="state_aux", labels=["x_aux", "y_aux", "vx_aux", "vy_aux", "ax_aux", "ay_aux"]
+        )
+
+        observed_states_coord = Coord(dimension="observed_state", labels=["x", "y"])
+
+        return state_coord, state_aux_coord, observed_states_coord
+
     def make_symbolic_graph(self):
         delta_t = 6.0  # The amount of time between observations 6 hours in our case
         # these variables wil be estimated in our model
@@ -876,78 +923,6 @@ class NewtonianSSM(PyMCStateSpace):
             ]
         )
         self.ssm["obs_cov", :, :] = np.eye(2) * 0.5
-
-    @property
-    def param_names(self):
-        return [
-            "x0",
-            "P0",
-            "acceleration_innovations",
-        ]
-
-    @property
-    def state_names(self):
-        return ["x", "y", "vx", "vy", "ax", "ay"]
-
-    @property
-    def shock_names(self):
-        return [
-            "x_innovations",
-            "y_innovations",
-            "vx_innovations",
-            "vy_innovations",
-            "ax_innovations",
-            "ay_innovations",
-        ]
-
-    @property
-    def observed_states(self):
-        return ["x", "y"]
-
-    @property
-    def param_dims(self):
-        # There are special standardized names to use here. You can import them from
-        # pymc_extras.statespace.utils.constants
-
-        return {
-            "x0": (ALL_STATE_DIM,),
-            "P0": (ALL_STATE_DIM, ALL_STATE_AUX_DIM),
-            "acceleration_innovations": (1,),
-        }
-
-    @property
-    def coords(self):
-        # This function puts coords on all those statespace matrices (x0, P0, c, d, T, Z, R, H, Q)
-        # and also on the different filter outputs so you don't have to worry about it. You only need to set
-        # the coords for the dims unique to your model.
-        coords = make_default_coords(self)
-        return coords
-
-    @property
-    def param_info(self):
-        # This needs to return a dictionary where the keys are the parameter names, and the values are a
-        # dictionary. The value dictionary should have the following keys: "shape", "constraints", and "dims".
-
-        info = {
-            "x0": {
-                "shape": (self.k_states,),
-                "constraints": "None",
-            },
-            "P0": {
-                "shape": (self.k_states, self.k_states),
-                "constraints": "Positive Semi-definite",
-            },
-            "acceleration_innovations": {
-                "shape": (1,),
-                "constraints": "Positive",
-            },
-        }
-
-        # Lazy way to add the dims without making any typos
-        for name in self.param_names:
-            info[name]["dims"] = self.param_dims[name]
-
-        return info
 ```
 
 ```{code-cell} ipython3
@@ -1113,6 +1088,141 @@ class ExogenousSSM(PyMCStateSpace):
 
         super().__init__(k_endog=k_endog, k_states=k_states, k_posdef=k_posdef, mode=mode)
 
+    def set_states(self):
+        """
+        Set hidden and observed states of the model
+        """
+        hidden_states = [
+            State(name=name, observed=False, shared=False) for name in ["vx", "vy", "ax", "ay"]
+        ]
+        observed_states = [
+            State(name=name, observed=True, shared=False)
+            for name in [
+                "x",
+                "y",
+                "beta_wind_x",
+                "beta_wind_y",
+                "beta_pressure_x",
+                "beta_pressure_y",
+                "interaction_wind_pressure_x",
+                "interaction_wind_pressure_y",
+            ]
+        ]
+        return *hidden_states, *observed_states
+
+    def set_parameters(self):
+        """
+        Set the parameters expected by the model
+        """
+        x0_param = Parameter(
+            name="x0",
+            shape=(self.k_states - self.k_exog,),
+            dims=(ALL_STATE_DIM,),
+            constraints="None",
+        )
+
+        P0_param = Parameter(
+            name="P0",
+            shape=(self.k_states, self.k_states),
+            dims=(ALL_STATE_DIM, ALL_STATE_AUX_DIM),
+            constraints="Positive Semi-definite",
+        )
+
+        acc_innov_param = Parameter(
+            name="acceleration_innovations",
+            shape=(1,),
+            dims=("innovation",),
+            constraints="Positive",
+        )
+
+        beta_param = Parameter(
+            name="beta_exog", shape=(self.k_exog,), dims=("exog_dims",), constraints="None"
+        )
+
+        return x0_param, P0_param, acc_innov_param, beta_param
+
+    def set_data_info(self):
+        """
+        Set exogenous data for the model
+        """
+        data_prop = Data(
+            name="exogenous_data",
+            shape=(None, self.k_exog),
+            dims=(TIME_DIM, "exog_dims"),
+            is_exogenous=True,
+        )
+        return (data_prop,)
+
+    def set_shocks(self):
+        """
+        Set the shocks of the model
+        """
+        shock_names = [
+            "x_innovations",
+            "y_innovations",
+            "vx_innovations",
+            "vy_innovations",
+            "ax_innovations",
+            "ay_innovations",
+        ]
+        return [Shock(name=name) for name in shock_names]
+
+    def set_coords(self):
+        """
+        Set the coordinates of the model
+        """
+        state_coord = Coord(
+            dimension="state",
+            labels=[
+                "x",
+                "y",
+                "vx",
+                "vy",
+                "ax",
+                "ay",
+                "beta_wind_x",
+                "beta_wind_y",
+                "beta_pressure_x",
+                "beta_pressure_y",
+                "interaction_wind_pressure_x",
+                "interaction_wind_pressure_y",
+            ],
+        )
+
+        state_aux_coord = Coord(
+            dimension="state_aux",
+            labels=[
+                "x_aux",
+                "y_aux",
+                "vx_aux",
+                "vy_aux",
+                "ax_aux",
+                "ay_aux",
+                "beta_wind_x_aux",
+                "beta_wind_y_aux",
+                "beta_pressure_x_aux",
+                "beta_pressure_y_aux",
+                "interaction_wind_pressure_x_aux",
+                "interaction_wind_pressure_y_aux",
+            ],
+        )
+
+        observed_states_coord = Coord(dimension="observed_state", labels=["x", "y"])
+
+        exog_coord = Coord(
+            dimension="exog_dims",
+            labels=[
+                "Wind_Longitude",
+                "Wind_Latitude",
+                "Pressure_Longitude",
+                "Pressure_Latitude",
+                "Interaction_Wind_Pressure_Longitude",
+                "Interaction_Wind_Pressure_Latitude",
+            ],
+        )
+
+        return state_coord, state_aux_coord, observed_states_coord, exog_coord
+
     def make_symbolic_graph(self):
         # Add exogenous variables to the model
         exogenous_data = self.make_and_register_data("exogenous_data", shape=(None, self.k_exog))
@@ -1189,127 +1299,6 @@ class ExogenousSSM(PyMCStateSpace):
             ]
         )
         self.ssm["obs_cov", :, :] = np.eye(2) * 0.5
-
-    @property
-    def data_names(self) -> list[str]:
-        """
-        Names of data variables expected by the model.
-
-        This does not include the observed data series, which is automatically handled by PyMC. This property only
-        needs to be implemented for models that expect exogenous data.
-        """
-        return ["exogenous_data"]
-
-    @property
-    def data_info(self):
-        """
-        Information about Data variables that need to be declared in the PyMC model block.
-
-        Returns a dictionary of data_name: dictionary of property-name:property description pairs. The return value is
-        used by the ``_print_data_requirements`` method, to print a message telling users how to define the necessary
-        data for the model. Each dictionary should have the following key-value pairs:
-            * key: "shape", value: a tuple of integers
-            * key: "dims", value: tuple of strings
-        """
-        return {"exogenous_data": {"shape": (None, self.k_exog), "dims": (TIME_DIM, "exog_dims")}}
-
-    @property
-    def param_names(self):
-        return ["x0", "P0", "acceleration_innovations", "beta_exog"]
-
-    @property
-    def state_names(self):
-        return [
-            "x",
-            "y",
-            "vx",
-            "vy",
-            "ax",
-            "ay",
-            "beta_wind_x",
-            "beta_wind_y",
-            "beta_pressure_x",
-            "beta_pressure_y",
-            "interaction_wind_pressure_x",
-            "interaction_wind_pressure_y",
-        ]
-
-    @property
-    def shock_names(self):
-        return [
-            "x_innovations",
-            "y_innovations",
-            "vx_innovations",
-            "vy_innovations",
-            "ax_innovations",
-            "ay_innovations",
-        ]
-
-    @property
-    def observed_states(self):
-        return ["x", "y"]
-
-    @property
-    def param_dims(self):
-        # There are special standardized names to use here. You can import them from
-        # pymc_extras.statespace.utils.constants
-
-        return {
-            "x0": (self.k_states - self.k_exog,),
-            "P0": (ALL_STATE_DIM, ALL_STATE_AUX_DIM),
-            "acceleration_innovations": (1,),
-            "beta_exog": ("exog_dims",),
-        }
-
-    @property
-    def coords(self):
-        # This function puts coords on all those statespace matrices (x0, P0, c, d, T, Z, R, H, Q)
-        # and also on the different filter outputs so you don't have to worry about it. You only need to set
-        # the coords for the dims unique to your model.
-        coords = make_default_coords(self)
-        coords.update(
-            {
-                "exog_dims": [
-                    "Wind_Longitude",
-                    "Wind_Latitude",
-                    "Pressure_Longitude",
-                    "Pressure_Latitude",
-                    "Interaction_Wind_Pressure_Longitude",
-                    "Interaction_Wind_Pressure_Latitude",
-                ]
-            }
-        )
-        return coords
-
-    @property
-    def param_info(self):
-        # This needs to return a dictionary where the keys are the parameter names, and the values are a
-        # dictionary. The value dictionary should have the following keys: "shape", "constraints", and "dims".
-
-        info = {
-            "x0": {
-                "shape": (self.k_states - self.k_exog,),
-                "constraints": "None",
-            },
-            "P0": {
-                "shape": (self.k_states, self.k_states),
-                "constraints": "Positive Semi-definite",
-            },
-            "acceleration_innovations": {
-                "shape": (1,),
-                "constraints": "Positive",
-            },
-            "beta_exog": {
-                "shape": (self.k_exog,),
-                "constraints": "None",
-            },
-        }
-
-        # Lazy way to add the dims without making any typos
-        for name in self.param_names:
-            info[name]["dims"] = self.param_dims[name]
-
-        return info
 ```
 
 Note that because our variables are uni-dimensional we duplicate and mirror the data to apply each variable in two dimensions. The mirroring occurs in the model definition of the design matrix. This is necessary to ensure that the correct data is associated with the proper state during matrix multiplication. Take a look at how the states are defined above. In order to have a univariate variable apply to both the longitude and latitude positions (our observed states) we must duplicate our exogenous data for each observed stated and mirror the data so that when we are multiplying the exogenous data with the longitudinal states the data is non-zero on the longitudinal state but is zero for the latitudinal states and vice versa.
@@ -1365,9 +1354,7 @@ az.plot_trace_dist(exogenous_idata, var_names="acceleration_innovations");
 ```
 
 ```{code-cell} ipython3
-az.plot_forest(
-    exogenous_idata, var_names=["beta_exog"], combined=True, labeller=azl.NoVarLabeller()
-);
+az.plot_forest(exogenous_idata, var_names=["beta_exog"], combined=True, labels={"exog_dims": None});
 ```
 
 ### Make in-sample forecasts with new exogenous model
@@ -1606,6 +1593,106 @@ class SplineSSM(PyMCStateSpace):
 
         super().__init__(k_endog=k_endog, k_states=k_states, k_posdef=k_posdef, mode=mode)
 
+    def set_states(self):
+        """
+        Set hidden and observed states of the model
+        """
+        hidden_states = [
+            State(name=name, observed=False, shared=False) for name in ["vx", "vy", "ax", "ay"]
+        ]
+        observed_states = [
+            State(name=name, observed=True, shared=False)
+            for name in ["x", "y"]
+            + [f"longitude_spline_{i + 1}" for i in range(B_longitude.shape[1])]
+            + [f"latitude_spline_{i + 1}" for i in range(B_latitude.shape[1])]
+        ]
+        return *hidden_states, *observed_states
+
+    def set_parameters(self):
+        """
+        Set the parameters expected by the model
+        """
+        x0_param = Parameter(
+            name="x0",
+            shape=(self.k_states - self.k_exog,),
+            dims=(ALL_STATE_DIM,),
+            constraints="None",
+        )
+
+        P0_param = Parameter(
+            name="P0",
+            shape=(self.k_states, self.k_states),
+            dims=(ALL_STATE_DIM, ALL_STATE_AUX_DIM),
+            constraints="Positive Semi-definite",
+        )
+
+        acc_innov_param = Parameter(
+            name="acceleration_innovations",
+            shape=(1,),
+            dims=("innovation",),
+            constraints="Positive",
+        )
+
+        beta_param = Parameter(
+            name="beta_exog", shape=(self.k_exog,), dims=("exog_dims",), constraints="None"
+        )
+
+        return x0_param, P0_param, acc_innov_param, beta_param
+
+    def set_data_info(self):
+        """
+        Set exogenous data for the model
+        """
+        data_prop = Data(
+            name="exogenous_data",
+            shape=(None, self.k_exog),
+            dims=(TIME_DIM, "exog_dims"),
+            is_exogenous=True,
+        )
+        return (data_prop,)
+
+    def set_shocks(self):
+        """
+        Set the shocks of the model
+        """
+        shock_names = [
+            "x_innovations",
+            "y_innovations",
+            "vx_innovations",
+            "vy_innovations",
+            "ax_innovations",
+            "ay_innovations",
+        ]
+        return [Shock(name=name) for name in shock_names]
+
+    def set_coords(self):
+        """
+        Set the coordinates of the model
+        """
+        state_coord = Coord(
+            dimension="state",
+            labels=["x", "y", "vx", "vy", "ax", "ay"]
+            + [f"longitude_spline_{i + 1}" for i in range(B_longitude.shape[1])]
+            + [f"latitude_spline_{i + 1}" for i in range(B_latitude.shape[1])],
+        )
+
+        state_aux_coord = Coord(
+            dimension="state_aux",
+            labels=["x_aux", "y_aux", "vx_aux", "vy_aux", "ax_aux", "ay_aux"]
+            + [f"longitude_spline_{i + 1}_aux" for i in range(B_longitude.shape[1])]
+            + [f"latitude_spline_{i + 1}_aux" for i in range(B_latitude.shape[1])],
+        )
+
+        observed_states_coord = Coord(dimension="observed_state", labels=["x", "y"])
+
+        exog_coord = Coord(
+            dimension="exog_dims",
+            labels=[f"longitude_spline_{i + 1}" for i in range(B_longitude.shape[1])]
+            + [f"latitude_spline_{i + 1}" for i in range(B_latitude.shape[1])],
+        )
+
+        return state_coord, state_aux_coord, observed_states_coord, exog_coord
+
     def make_symbolic_graph(self):
         # Add exogenous variables to the model
         exogenous_data = self.make_and_register_data("exogenous_data", shape=(None, self.k_exog))
@@ -1691,119 +1778,6 @@ class SplineSSM(PyMCStateSpace):
             ]
         )
         self.ssm["obs_cov", :, :] = np.eye(2) * 0.5
-
-    @property
-    def data_names(self) -> list[str]:
-        """
-        Names of data variables expected by the model.
-
-        This does not include the observed data series, which is automatically handled by PyMC. This property only
-        needs to be implemented for models that expect exogenous data.
-        """
-        return ["exogenous_data"]
-
-    @property
-    def data_info(self):
-        """
-        Information about Data variables that need to be declared in the PyMC model block.
-
-        Returns a dictionary of data_name: dictionary of property-name:property description pairs. The return value is
-        used by the ``_print_data_requirements`` method, to print a message telling users how to define the necessary
-        data for the model. Each dictionary should have the following key-value pairs:
-            * key: "shape", value: a tuple of integers
-            * key: "dims", value: tuple of strings
-        """
-        return {"exogenous_data": {"shape": (None, self.k_exog), "dims": (TIME_DIM, "exog_dims")}}
-
-    @property
-    def param_names(self):
-        return ["x0", "P0", "acceleration_innovations", "beta_exog"]
-
-    @property
-    def state_names(self):
-        return (
-            [
-                "x",
-                "y",
-                "vx",
-                "vy",
-                "ax",
-                "ay",
-            ]
-            + [f"longitude_spline_{i + 1}" for i in range(B_longitude.shape[1])]
-            + [f"latitude_spline_{i + 1}" for i in range(B_latitude.shape[1])]
-        )
-
-    @property
-    def shock_names(self):
-        return [
-            "x_innovations",
-            "y_innovations",
-            "vx_innovations",
-            "vy_innovations",
-            "ax_innovations",
-            "ay_innovations",
-        ]
-
-    @property
-    def observed_states(self):
-        return ["x", "y"]
-
-    @property
-    def param_dims(self):
-        # There are special standardized names to use here. You can import them from
-        # pymc_extras.statespace.utils.constants
-
-        return {
-            "x0": (self.k_states - self.k_exog,),
-            "P0": (ALL_STATE_DIM, ALL_STATE_AUX_DIM),
-            "acceleration_innovations": (1,),
-            "beta_exog": ("exog_dims",),
-        }
-
-    @property
-    def coords(self):
-        # This function puts coords on all those statespace matrices (x0, P0, c, d, T, Z, R, H, Q)
-        # and also on the different filter outputs so you don't have to worry about it. You only need to set
-        # the coords for the dims unique to your model.
-        coords = make_default_coords(self)
-        coords.update(
-            {
-                "exog_dims": [f"longitude_spline_{i + 1}" for i in range(B_longitude.shape[1])]
-                + [f"latitude_spline_{i + 1}" for i in range(B_latitude.shape[1])]
-            }
-        )
-        return coords
-
-    @property
-    def param_info(self):
-        # This needs to return a dictionary where the keys are the parameter names, and the values are a
-        # dictionary. The value dictionary should have the following keys: "shape", "constraints", and "dims".
-
-        info = {
-            "x0": {
-                "shape": (self.k_states - self.k_exog,),
-                "constraints": "None",
-            },
-            "P0": {
-                "shape": (self.k_states, self.k_states),
-                "constraints": "Positive Semi-definite",
-            },
-            "acceleration_innovations": {
-                "shape": (1,),
-                "constraints": "Positive",
-            },
-            "beta_exog": {
-                "shape": (self.k_exog,),
-                "constraints": "None",
-            },
-        }
-
-        # Lazy way to add the dims without making any typos
-        for name in self.param_names:
-            info[name]["dims"] = self.param_dims[name]
-
-        return info
 ```
 
 ```{code-cell} ipython3
@@ -1964,6 +1938,7 @@ fig.show(width=1000, renderer="png", config={"displayModeBar": False})
 ```
 
 ## Authors
+* Updated by Jonathan Dekermanjian in March, 2026 to set states, parameters, data info, shocks, and coords using the new dataclasses implementation
 * Updated by Jonathan Dekermanjian in August, 2025 to use the `sample_filter_outputs` method
 * Authored by Jonathan Dekermanjian in June, 2025 
 

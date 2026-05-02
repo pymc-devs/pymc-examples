@@ -6,7 +6,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -22,7 +22,7 @@ kernelspec:
 ```{code-cell} ipython3
 from pathlib import Path
 
-import arviz.preview as az
+import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -122,7 +122,7 @@ with pm.Model() as model:
     obs = pm.Normal("obs", mu=μ, sigma=σ, observed=y)
 
     idata_g = pm.sample(compute_convergence_checks=False)
-    idata_g.extend(pm.sample_posterior_predictive(idata_g))
+    pm.sample_posterior_predictive(idata_g, extend_inferencedata=True)
 ```
 
 ```{code-cell} ipython3
@@ -151,6 +151,7 @@ We can see that when we use a Normal likelihood, and from that fit we compute th
 * Rerun by Osvaldo Martin in Nov, 2023
 * Rerun by Osvaldo Martin in Dec, 2024
 * Rerun by Osvaldo Martin in Dec, 2025
+* Rerun by Osvaldo Martin in Apr, 2026
 
 +++
 

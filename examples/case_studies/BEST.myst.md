@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -20,7 +20,7 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-import arviz.preview as az
+import arviz as az
 import numpy as np
 import preliz as pz
 import pymc as pm
@@ -195,6 +195,7 @@ az.summary(
 * Updated by Chris Fonnesbeck in Dec, 2020
 * Ported to PyMC4 by Andrés Suárez in Ene, 2022 ([pymc-examples#52](https://github.com/pymc-devs/pymc-examples/issues/52))
 * Updated by Osvaldo Martin in Dec, 2025
+* Rerun by Osvaldo Martin in Apr, 2026
 
 +++
 

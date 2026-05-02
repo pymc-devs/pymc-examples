@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -37,9 +37,7 @@ papermill:
   start_time: '2020-03-27T06:09:14.458116'
   status: completed
 ---
-import warnings
-
-import arviz.preview as az
+import arviz as az
 import load_covid_data
 import numpy as np
 import plotly.express as px
@@ -391,7 +389,7 @@ make_subplots(
 ```
 
 ```{code-cell} ipython3
-obs_samples = az.extract(prior_pred3.prior_predictive).values
+obs_samples = az.extract(prior_pred3, group="prior_predictive").values
 
 fig = go.Figure()
 for i in range(min(100, obs_samples.shape[1])):  # Show max 100 traces
@@ -1082,7 +1080,8 @@ Gelman, A., Vehtari, A., Simpson, D., Margossian, C. C., Carpenter, B., Yao, Y.,
 
 ## Authors
 - Originally authored by Thomas Wiecki in 2020
-- Adapted and expanded by Chris Fonnesbeck in June 2025 
+- Adapted and expanded by Chris Fonnesbeck in June 2025
+- Rerun by Osvaldo Martin in Apr, 2026
 
 +++
 

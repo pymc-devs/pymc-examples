@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: eabm
+  display_name: arviz_1
   language: python
   name: python3
 myst:
@@ -30,7 +30,7 @@ import random
 
 from io import StringIO
 
-import arviz.preview as az
+import arviz as az
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
@@ -847,12 +847,6 @@ ax3.set_title("MLE CDF Fits", fontsize=20)
 ax.legend()
 ax.set_xlabel("Time")
 ax2.set_xlabel("Time")
-xticks = np.round(np.linspace(0, actuarial_table_bearings["t"].max(), 10), 1)
-yticks = np.round(np.linspace(0, actuarial_table_bearings["F_hat"].max(), 10), 4)
-ax.set_xticklabels(xticks)
-ax.set_yticklabels(yticks)
-ax2.set_xticklabels(xticks)
-ax2.set_yticklabels([])
 ax2.legend()
 ax.set_ylabel("Fraction Failing");
 ```
@@ -905,19 +899,15 @@ def make_model(p, info=False):
 
         y_obs = pm.Weibull("y_obs", alpha=alpha, beta=beta, observed=y[~censored])
         y_cens = pm.Potential("y_cens", weibull_lccdf(y[censored], alpha, beta))
-        idata = pm.sample_prior_predictive()
-        idata.extend(pm.sample(random_seed=100, target_accept=0.95))
-        idata.extend(pm.sample_posterior_predictive(idata))
+        idata = pm.sample(random_seed=100, target_accept=0.95)
+        idata["prior_predictive"] = pm.sample_prior_predictive().prior_predictive
+        pm.sample_posterior_predictive(idata, extend_inferencedata=True)
 
     return idata, model
 
 
 idata, model = make_model(priors)
 idata_informative, model = make_model(priors_informative, info=True)
-```
-
-```{code-cell} ipython3
-idata
 ```
 
 ```{code-cell} ipython3
@@ -1175,6 +1165,7 @@ In particular we've seen how the MLE fits to our bearings data provide a decent 
 
 * Authored by Nathaniel Forde on 9th of January 2022 ([pymc-examples#491](https://github.com/pymc-devs/pymc-examples/pull/491))
 * Updated by Osvaldo Martin on January 2026
+* Updated by Osvaldo Martin in April 2026
 
 +++
 

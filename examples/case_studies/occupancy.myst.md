@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: examples
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -34,7 +34,7 @@ We will use an example of Red Crossbills in Switzerland. The data are included i
 ```{code-cell} ipython3
 import os
 
-import arviz.preview as az
+import arviz as az
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
@@ -64,7 +64,7 @@ import pymc_extras as pmx
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'  # high resolution figures
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 RANDOM_SEED = 1792
 rng = np.random.default_rng(RANDOM_SEED)
 ```
@@ -121,7 +121,7 @@ W = np.stack((np.ones_like(date), date), axis=2)
 ```
 
 ```{code-cell} ipython3
-fig, axes = plt.subplots(2, 2, figsize=(6, 5), tight_layout=True, sharey="row")
+fig, axes = plt.subplots(2, 2, figsize=(8, 5), sharey="row")
 
 ax = axes.flat[0]
 ax.hist(elevation, ec="w", bins=7)
@@ -138,12 +138,9 @@ real_date = np.datetime64("2001-01-01") + (date - 1).astype("timedelta64[D]")
 df = pd.DataFrame({"date": real_date.flat})
 monthly_counts = df.groupby(df["date"].dt.to_period("M")).size()
 ax.bar(monthly_counts.index.strftime("%b"), monthly_counts.values, ec="w", fc="C1")
-ax.set_ylabel("Number of surveys")
-ax.set_title("Date")
+ax.set(ylabel="Number of surveys", title="Date")
 
 axes.flat[3].remove()
-
-# plt.show()
 ```
 
 The PyMC syntax for the model is quite concise. The only trick is to broadcast the `z` vector across the `p` matrix. The `coords` are not necessary here, but they do help improve the readability of the code and the ArviZ output.
@@ -202,7 +199,7 @@ with occupancy_marginal:
     ).predictions
 
 # compute the test statistic with the samples
-y_pred = az.extract(predictions)
+y_pred = az.extract(predictions, group="predictions")
 was_detected = y_pred.sum(axis=1) > 1
 quadrats_with_detection_pred = was_detected.sum(axis=0)
 
@@ -212,14 +209,13 @@ sample_count = len(quadrats_with_detection_pred)
 p_value = sum(quadrats_with_detection_pred >= quadrats_with_detection_obs) / sample_count
 
 # plot the results
-fig, ax = plt.subplots(figsize=(5, 4))
+fig, ax = plt.subplots(figsize=(8, 3))
 ax.hist(quadrats_with_detection_pred, ec="w", bins=23)
 ax.axvline(quadrats_with_detection_obs, color="C1", linewidth=4, linestyle="--")
-ax.set_ylabel("Sample count")
-ax.set_xlabel("Quadrats with a detection")
 ax.text(0.9, 0.9, rf"$P$={p_value:0.2f}", ha="right", transform=ax.transAxes, size=14)
-ax.set_title("Posterior predictive check")
-plt.show()
+ax.set(
+    ylabel="Sample count", xlabel="Quadrats with a detection", title="Posterior predictive check"
+)
 ```
 
 The model appears to generally overpredict the number of sites with at least one detection. It could be that the model is overestimating the detection probability or overestimating the occurrence probability. Let's investigate the effect of the covariates on the occurrence probability and the detection probability. 
@@ -247,7 +243,7 @@ p_pred = invlogit(alpha[0][:, None] + alpha[1][:, None] * plot_date)
 base_date = np.datetime64("2001-01-01")
 dates = base_date + (plot_date - 1).astype("timedelta64[D]")
 
-fig, axes = plt.subplots(2, 2, figsize=(7, 5), sharey=True, layout="constrained")
+fig, axes = plt.subplots(2, 2, figsize=(9, 5), sharey=True, layout="constrained")
 
 # plot 1000 samples from the posterior
 sample_indices = rng.choice(len(alpha[0]), size=500)
@@ -270,8 +266,6 @@ axes[1, 0].xaxis.set_major_formatter(mdates.DateFormatter("%b"))
 axes[0, 1].xaxis.set_major_formatter(PercentFormatter())
 
 axes[1, 1].remove()
-
-plt.show()
 ```
 
 There is a fair amount of uncertainty in all of the predictions. A more full-fledged analysis might explore the effects of other covariates, different functional forms for the covariate effects (e.g., splines), regularization (e.g., the lasso), or spatial models. Note that this version of the dataset does not include the locations of the quadrats.
@@ -311,8 +305,6 @@ ax.set_ylabel("Northing (m)")
 ax.set_xlabel("Easting (m)")
 fig.colorbar(scat, ax=ax, label="Forest Cover (%)")
 plt.ticklabel_format(axis="both", style="sci", scilimits=(4, 4))
-
-plt.show()
 ```
 
 Next, we can predict the values of the occurrence probability in each cell. The only potential gotcha here is that we need to scale the values by the mean and the standard deviation of the values at the quadrats, since we used that scaling to fit the model. 
@@ -346,7 +338,6 @@ ax.set_xlabel("Easting (m)")
 ax.set_title("Distribution of Red Crossbills in Switzerland")
 fig.colorbar(scat, ax=ax, label=r"Occurrence probability $\psi$", fraction=0.03)
 plt.ticklabel_format(axis="both", style="sci", scilimits=(4, 4))
-plt.show()
 ```
 
 We can see that the distribution is fairly heterogenous. We are most likely to find crossbills in the Jura Mountains to the west and the Alps in the south, and are unlikely to ever find them in the Swiss Plateau. We are also unlikely to find them at the highest elevations in the Alps. 
@@ -380,7 +371,7 @@ plt.ticklabel_format(axis="both", style="sci", scilimits=(4, 4))
 
 fig.colorbar(
     scat, ax=axes, orientation="vertical", fraction=0.03, label=r"Occurrence probability $\psi$"
-)
+);
 ```
 
 ```{code-cell} ipython3
@@ -393,8 +384,7 @@ ax.set_ylabel("Northing (m)")
 ax.set_xlabel("Easting (m)")
 ax.set_title("Standard error")
 fig.colorbar(scat, ax=ax, fraction=0.03)
-plt.ticklabel_format(axis="both", style="sci", scilimits=(4, 4))
-plt.show()
+plt.ticklabel_format(axis="both", style="sci", scilimits=(4, 4));
 ```
 
 As we saw with the the predictions plots above, there is quite a bit of uncertainty in our predictions. The uncertainty seems to be concentrated in the mid to high elevation forests, i.e., the areas with the highest predicted occupancy.
@@ -407,6 +397,7 @@ In this notebook, we demonstrated how easy it is to code site occupancy models i
 
 ## Authors
 - Authored by [Philip T. Patton](https://github.com/philpatton) in January 2026
+- Rerun by Osvaldo Martin on April, 2026
 
 +++
 

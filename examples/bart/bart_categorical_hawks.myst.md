@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: arviz_1
   language: python
   name: python3
 myst:
@@ -35,7 +35,7 @@ In this example, we will model outcomes with more than two categories.
 import os
 import warnings
 
-import arviz.preview as az
+import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -267,6 +267,7 @@ az.plot_ppc_pava(idata_t, data_type="categorical");
 - Updated by Osvaldo Martin in Dec, 2024
 - Expanded by [Alex Andorra](https://github.com/AlexAndorra) in Feb, 2025
 - Updated by Osvaldo Martin in Dec, 2025
+- Rerun by Osvaldo Martin in Apr, 2026
 
 +++
 

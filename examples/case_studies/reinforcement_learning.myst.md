@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: eabm
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -48,7 +48,7 @@ where the $\beta \in (0, +\infty)$ parameter determines the level of noise in th
 ```{code-cell} ipython3
 :id: QTq-0HMw7dBK
 
-import arviz.preview as az
+import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
@@ -543,6 +543,7 @@ az.add_lines(pc, {"alpha": true_alpha, "beta": true_beta});
 
 * Re-executed by [Juan Orduz](https://juanitorduz.github.io/) in August 2022 ([pymc-examples#410](https://github.com/pymc-devs/pymc-examples/pull/410))
 * Updated by Osvaldo Martin in January 2026.
+* Updated by Osvaldo Martin in April 2026.
 
 +++
 

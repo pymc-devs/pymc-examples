@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: kulprit
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -20,7 +20,7 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-import arviz.preview as az
+import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
@@ -103,8 +103,8 @@ with pm.Model() as model:
     # likelihood
     pm.Normal("y", mu=mu, sigma=sigma, observed=x)
     # sample
-    idata = pm.sample_prior_predictive(samples=10_000)
-    idata.extend(pm.sample(draws=10_000))
+    idata = pm.sample_prior_predictive(draws=10_000)
+    idata.update(pm.sample(draws=10_000))
 ```
 
 We didn't get any warnings from the sampling processes.
@@ -269,6 +269,7 @@ Readers are referred to {ref}`Bayes_factor` for a more detailed look at Bayes Fa
 ## Authors
 * Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in December, 2024.
 * Updated by [Osvaldo Martin](https://aloctavodia.github.io/) in Dec, 2025.
+* Updated by [Osvaldo Martin](https://aloctavodia.github.io/) in Apr, 2026.
 
 +++
 

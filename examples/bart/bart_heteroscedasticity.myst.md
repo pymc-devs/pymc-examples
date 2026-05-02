@@ -6,7 +6,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -27,7 +27,7 @@ In this notebook we show how to use BART to model heteroscedasticity as describe
 ```{code-cell} ipython3
 import os
 
-import arviz.preview as az
+import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -132,7 +132,8 @@ The fit looks good! In fact, we see that the mean and variance increase as a fun
 - Authored by [Juan Orduz](https://juanitorduz.github.io/) in Feb, 2023 
 - Rerun by Osvaldo Martin in Mar, 2023
 - Rerun by Osvaldo Martin in Nov, 2023
-- Rerun by Osvaldo Martin in Dec, 2024
+- Rerun by Osvaldo Martin in Dec, 2025
+- Rerun by Osvaldo Martin in Apr, 2026
 
 +++
 

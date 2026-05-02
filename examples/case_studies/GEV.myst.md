@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: eabm
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -38,7 +38,7 @@ Note that this parametrization of the shape parameter $\xi$ is opposite in sign 
 We will use the example of the Port Pirie annual maximum sea-level data used in {cite:t}`coles2001gev`, and compare with the frequentist results presented there.
 
 ```{code-cell} ipython3
-import arviz.preview as az
+import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
@@ -110,7 +110,7 @@ with pm.Model() as model:
 Let's get a feel for how well our selected priors cover the range of the data:
 
 ```{code-cell} ipython3
-idata = pm.sample_prior_predictive(samples=1000, model=model)
+idata = pm.sample_prior_predictive(draws=1000, model=model)
 az.plot_ppc_dist(idata, group="prior_predictive", kind="ecdf")
 ```
 
@@ -134,7 +134,7 @@ with model:
         target_accept=0.98,
     )
 # add trace to existing idata object
-idata.extend(trace)
+idata["posterior"] = trace.posterior
 ```
 
 ```{code-cell} ipython3
@@ -193,7 +193,7 @@ az.mode(idata, var_names=["μ", "σ", "ξ"])
 ```
 
 ```{code-cell} ipython3
-idata["posterior"].drop_vars("z_p").to_dataframe().cov().round(6)
+idata["posterior"].ds.drop_vars("z_p").to_dataframe().cov().round(6)
 ```
 
 The results are a good match, but the benefit of doing this in a Bayesian setting is we get the full posterior joint distribution of the parameters and the return level, essentially for free. Compare this to the loose normality assumption and computational effort to get even the variance-covarince matrix, as done in {cite:t}`coles2001gev`.
@@ -212,6 +212,7 @@ az.plot_pair(
 
 * Authored by [Colin Caprani](https://github.com/ccaprani), October 2021
 * Updated by Osvaldo Martin, January 2026
+* Updated by Osvaldo Martin on April, 2026
 
 +++
 
