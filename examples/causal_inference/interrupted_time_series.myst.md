@@ -27,6 +27,14 @@ For example, if a change to a website was made and you want to know the causal i
 
 However, if the website change was rolled out to _all_ users of the website then you do not have a control group. In this case you do not have a direct measurement of the counterfactual, what _would have happened if_ the website change was not made. In this case, if you have data over a 'good' number of time points, then you may be able to make use of the interrupted time series approach.
 
+:::{admonition} A note on "counterfactual" terminology
+:class: note
+
+This notebook uses "counterfactual" in the **potential outcomes** (Rubin) sense {cite:p}`rubin1974estimating, imbens2015causal` — the counterfactual here is a *forecast*. We extrapolate pre-intervention trends to predict the unobserved potential outcome $Y(0)$: what *would have happened* without the intervention. This is a group-level counterfactual prediction, standard in the quasi-experimental literature.
+
+The counterfactual quantity targeted here is a **group-level average** — what would have happened to the treated group on average, had it not been treated. This is distinct from a **unit-level** counterfactual about what would have happened to *a particular individual* under a different action, which is a stronger claim that requires additional assumptions and machinery beyond the scope of these methods (see Pearl's causal hierarchy {cite:p}`pearl2009causality` for the formal distinction). For a more in-depth discussion, see the {ref}`interventional_what_if_do_operator` notebook.
+:::
+
 Interested readers are directed to the excellent textbook [The Effect](https://theeffectbook.net/) {cite:p}`huntington2021effect`. Chapter 17 covers 'event studies' which the author prefers to the interrupted time series terminology.
 
 +++
@@ -347,6 +355,7 @@ There are of course many ways that the interrupted time series approach could be
 ## Authors
 - Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in October 2022.
 - Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5
+- Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in March 2026
 
 +++
 

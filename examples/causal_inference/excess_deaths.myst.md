@@ -31,6 +31,14 @@ $$
 
 Making a claim about excess deaths requires causal/counterfactual reasoning. While the reported number of deaths is nothing but a (maybe noisy and/or lagged) measure of a real observable fact in the world, _expected deaths_ is unmeasurable because these are never realised in our timeline. That is, the expected deaths is a counterfactual thought experiment where we can ask "What would/will happen if?"
 
+:::{admonition} A note on "counterfactual" terminology
+:class: note
+
+This notebook uses "counterfactual" in the **potential outcomes** (Rubin) sense {cite:p}`rubin1974estimating, imbens2015causal`. The counterfactual here is a *forecast* from a model trained on pre-COVID data, predicting expected deaths *if nothing had changed* — the unobserved potential outcome $Y(0)$. This is the same group-level counterfactual prediction used in {ref}`interrupted time series analysis <interrupted_time_series>`.
+
+The counterfactual quantity targeted here is a **group-level average** — what would have happened to the treated group on average, had it not been treated. This is distinct from a **unit-level** counterfactual about what would have happened to *a particular individual* under a different action, which is a stronger claim that requires additional assumptions and machinery beyond the scope of these methods (see Pearl's causal hierarchy {cite:p}`pearl2009causality` for the formal distinction). For a more in-depth discussion, see the {ref}`interventional_what_if_do_operator` notebook.
+:::
+
 +++
 
 ## Overall strategy
@@ -42,7 +50,7 @@ How do we go about this, practically? We will follow this strategy:
 2. Split into `pre` and `post` covid datasets. This is an important step. We want to come up with a model based upon what we know _before_ COVID-19 so that we can construct our counterfactual predictions based on data before COVID-19 had any impact.
 3. Estimate model parameters based on the `pre` dataset. 
 4. [Retrodict](https://en.wikipedia.org/wiki/Retrodiction) the number of deaths expected by the model in the pre COVID-19 period. This is not a counterfactual, but acts to tell us how capable the model is at accounting for the already observed data.
-5. Counterfactual inference - we use our model to construct a counterfactual forecast. What would we expect to see in the future if there was no COVID-19? This can be achieved by using the famous do-operator Practically, we do this with posterior prediction on out-of-sample data. 
+5. Counterfactual inference — we use our model to construct a counterfactual forecast. What would we expect to see in the future if there was no COVID-19? Practically, we do this with posterior prediction on out-of-sample data. 
 6. Calculate the excess deaths by comparing the reported deaths with our counterfactual (expected number of deaths).
 
 +++
@@ -116,7 +124,7 @@ def ZeroSumNormal(name, *, sigma=None, active_dims=None, dims, model=None):
             active_axes.append(i)
             dim_name = f"{dim}_reduced"
             if name not in model.coords:
-                model.add_coord(dim_name, length=len(model.coords[dim]) - 1, mutable=False)
+                model.add_coord(dim_name, length=len(model.coords[dim]) - 1)
             dims_reduced.append(dim_name)
         else:
             dims_reduced.append(dim)
@@ -251,10 +259,10 @@ We are going to estimate reported deaths over time with an intercept, a linear t
 ```{code-cell} ipython3
 with pm.Model(coords={"month": month_strings}) as model:
     # observed predictors and outcome
-    month = pm.MutableData("month", pre["month"].to_numpy(), dims="t")
-    time = pm.MutableData("time", pre["t"].to_numpy(), dims="t")
-    temp = pm.MutableData("temp", pre["temp"].to_numpy(), dims="t")
-    deaths = pm.MutableData("deaths", pre["deaths"].to_numpy(), dims="t")
+    month = pm.Data("month", pre["month"].to_numpy(), dims="t")
+    time = pm.Data("time", pre["t"].to_numpy(), dims="t")
+    temp = pm.Data("temp", pre["temp"].to_numpy(), dims="t")
+    deaths = pm.Data("deaths", pre["deaths"].to_numpy(), dims="t")
 
     # priors
     intercept = pm.Normal("intercept", 40_000, 10_000)
@@ -488,6 +496,7 @@ The bad news of course, is that as of the last data point (May 2022) the number 
 ## Authors
 - Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in July 2022.
 - Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5
+- Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in March 2026
 
 +++
 

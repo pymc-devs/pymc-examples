@@ -49,6 +49,14 @@ Otherwise there are likely better suited approaches you could use.
 
 Note that our desire to estimate the causal impact of a treatment involves [counterfactual thinking](https://en.wikipedia.org/wiki/Counterfactual_thinking). This is because we are asking "What would the post-treatment outcome of the treatment group be _if_ treatment had not been administered?" but we can never observe this.
 
+:::{admonition} A note on "counterfactual" terminology
+:class: note
+
+This notebook uses "counterfactual" in the **potential outcomes** (Rubin) sense {cite:p}`rubin1974estimating, imbens2015causal`. The parallel trends assumption lets us use the control group's trajectory as a proxy for the treated group's unobserved potential outcome $Y(0)$ — what *would have happened* without treatment. This is standard counterfactual reasoning in the quasi-experimental literature.
+
+The counterfactual quantity targeted here is a **group-level average** — what would have happened to the treated group on average, had it not been treated. This is distinct from a **unit-level** counterfactual about what would have happened to *a particular individual* under a different action, which is a stronger claim that requires additional assumptions and machinery beyond the scope of these methods (see Pearl's causal hierarchy {cite:p}`pearl2009causality` for the formal distinction). For a more in-depth discussion, see the {ref}`interventional_what_if_do_operator` notebook.
+:::
+
 +++
 
 ### Example
@@ -292,9 +300,9 @@ For those already well-versed in PyMC, you can see that this model is pretty sim
 ```{code-cell} ipython3
 with pm.Model() as model:
     # data
-    t = pm.MutableData("t", df["t"].values, dims="obs_idx")
-    treated = pm.MutableData("treated", df["treated"].values, dims="obs_idx")
-    group = pm.MutableData("group", df["group"].values, dims="obs_idx")
+    t = pm.Data("t", df["t"].values, dims="obs_idx")
+    treated = pm.Data("treated", df["treated"].values, dims="obs_idx")
+    group = pm.Data("group", df["group"].values, dims="obs_idx")
     # priors
     _control_intercept = pm.Normal("control_intercept", 0, 5)
     _treat_intercept_delta = pm.Normal("treat_intercept_delta", 0, 1)
@@ -438,6 +446,7 @@ Of course, when using the difference in differences approach for real applicatio
 ## Authors
 - Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in Sept 2022 ([#424](https://github.com/pymc-devs/pymc-examples/pull/424)).
 - Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5
+- Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in March 2026
 
 +++
 

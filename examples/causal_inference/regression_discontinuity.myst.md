@@ -6,9 +6,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_env
+  display_name: pymc-examples
   language: python
-  name: pymc_env
+  name: python3
 ---
 
 (regression_discontinuity)=
@@ -74,7 +74,7 @@ sd = 0.3  # represents change between pre and post test with zero measurement er
 df = (
     pd.DataFrame.from_dict({"x": rng.normal(size=N)})
     .assign(treated=lambda x: x.x < threshold)
-    .assign(y=lambda x: x.x + rng.normal(loc=0, scale=sd, size=N) + treatment_effect * x.treated)
+    .assign(y=lambda x: (x.x + rng.normal(loc=0, scale=sd, size=N) + treatment_effect * x.treated))
 )
 
 df
@@ -123,8 +123,8 @@ Notes:
 
 ```{code-cell} ipython3
 with pm.Model() as model:
-    x = pm.MutableData("x", df.x, dims="obs_id")
-    treated = pm.MutableData("treated", df.treated, dims="obs_id")
+    x = pm.Data("x", df.x, dims="obs_id")
+    treated = pm.Data("treated", df.treated, dims="obs_id")
     sigma = pm.HalfNormal("sigma", 1)
     delta = pm.Cauchy("effect", alpha=0, beta=1)
     mu = pm.Deterministic("mu", x + (delta * treated), dims="obs_id")
@@ -164,13 +164,21 @@ We can use posterior prediction to ask what would we expect to see if:
 - no units were exposed to the treatment (blue shaded region, which is very narrow)
 - all units were exposed to the treatment (orange shaded region).
 
+:::{admonition} A note on "counterfactual" terminology
+:class: note
+
+This notebook uses "counterfactual" in the **potential outcomes** (Rubin) sense {cite:p}`rubin1974estimating, imbens2015causal`. Near the threshold, units are quasi-randomly assigned to treatment or control. The control group's outcome approximates the unobserved potential outcome $Y(0)$ for treated units at the boundary, enabling a local causal estimate. This is standard counterfactual reasoning in the quasi-experimental literature.
+
+The counterfactual quantity targeted here is a **group-level average** — what would have happened to the treated group on average, had it not been treated. This is distinct from a **unit-level** counterfactual about what would have happened to *a particular individual* under a different action, which is a stronger claim that requires additional assumptions and machinery beyond the scope of these methods (see Pearl's causal hierarchy {cite:p}`pearl2009causality` for the formal distinction). For a more in-depth discussion, see the {ref}`interventional_what_if_do_operator` notebook.
+:::
+
 _Technical note:_ Formally we are doing posterior prediction of `y`. Running `pm.sample_posterior_predictive` multiple times with different random seeds will result in new and different samples of `y` each time. However, this is not the case (we are not formally doing posterior prediction) for `mu`. This is because `mu` is a deterministic function (`mu = x + delta*treated`), so for our already obtained posterior samples of `delta`, the values of `mu` will be entirely determined by the values of `x` and `treated` data).
 
 ```{code-cell} ipython3
 # MODEL EXPECTATION WITHOUT TREATMENT ------------------------------------
 # probe data
 _x = np.linspace(np.min(df.x), np.max(df.x), 500)
-_treated = np.zeros(_x.shape)
+_treated = np.zeros(_x.shape, dtype=bool)
 
 # posterior prediction (see technical note above)
 with model:
@@ -191,7 +199,7 @@ az.plot_hdi(
 # MODEL EXPECTATION WITH TREATMENT ---------------------------------------
 # probe data
 _x = np.linspace(np.min(df.x), np.max(df.x), 500)
-_treated = np.ones(_x.shape)
+_treated = np.ones(_x.shape, dtype=bool)
 
 # posterior prediction (see technical note above)
 with model:
@@ -226,6 +234,7 @@ In this notebook we have merely touched the surface of how to analyse data from 
 ## Authors
 - Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in April 2022
 - Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5
+- Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in March 2026
 
 +++
 
