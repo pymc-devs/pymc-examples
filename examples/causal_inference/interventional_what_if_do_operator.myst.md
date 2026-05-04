@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-examples
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -32,12 +32,12 @@ warnings.filterwarnings("ignore")
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = "retina"
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 rng = np.random.default_rng(42)
 SEED = 8927
 ```
 
-# Introduction
+## Introduction
 
 In the realm of data science and analytics, understanding the causal relationships between variables is paramount. While traditional statistical methods have provided insights into these relationships, the advent of probabilistic programming has ushered in a new era of causal analysis. In this article, we will explore the power of interventional what-if analysis using the PyMC framework, with a special focus on the `do`-operator.
 
@@ -57,7 +57,10 @@ Pearl's *causal ladder* distinguishes three levels of causal reasoning:
 `pm.do` directly supports **L2 queries**. This notebook demonstrates interventional what-if analysis — we set a variable to a new value and predict the outcome. True unit-level counterfactuals (L3) require an additional **abduction** step: inferring unit-specific exogenous terms ($U$) from observed evidence before predicting in the intervened world. That step is not demonstrated here.
 
 For readers interested in L3 counterfactual reasoning, see Pearl, Glymour & Jewell (2016), *Causal Inference in Statistics: A Primer*, Sections 4.2.3–4.2.4.
-:::
+
+## Steps
+
+The basic workflow for interventional what-if analysis using the `do`-operator in PyMC can be summarized in the following steps:
 
 - Step 1. Build a PyMC model skeleton
 - Step 2. Use model skeleton and generate data using `do`-operator to infuse relationship between predictors and target variable
@@ -190,11 +193,12 @@ with model_inference:
 Now, lets validate if model captured the infused coefficient values in the data.
 
 ```{code-cell} ipython3
-az.plot_posterior(
+pc = az.plot_dist(
     idata,
     var_names=list(true_values.keys()),
-    ref_val={k: [{"ref_val": v}] for k, v in true_values.items()},
-);
+    col_wrap=3,
+)
+az.add_lines(pc, true_values);
 ```
 
 Pretty nice fit!
