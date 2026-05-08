@@ -42,50 +42,50 @@ warnings.filterwarnings("ignore", message="PyTensor could not link to a BLAS")
 
 ## Motivation
 
-The PyMC gallery already offers two robust regression notebooks: one based on a
-Student-t likelihood ({ref}`pymc-examples:GLM-robust`) and one on the Hogg (2010)
+The PyMC gallery has two robust regression notebooks: one with a Student-t
+likelihood ({ref}`pymc-examples:GLM-robust`) and one with the Hogg (2010)
 signal-vs-noise mixture ({ref}`pymc-examples:GLM-robust-with-outlier-detection`).
-Both protect against *vertical* outliers — points with unusual response values —
-but neither defends against *leverage points*: observations far from the bulk of
-the predictor space that can drag the regression line even when the Student-t
-assigns them heavy-tailed probability.
+Both protect against *vertical* outliers (points with unusual response values),
+but neither defends against *leverage points*: observations far from the bulk
+of the predictor space, which can drag the regression line even under a
+heavy-tailed likelihood.
 
-{cite:p}`pena2009bayesian` showed that this limitation is not an accident of the
-Student-t choice: **Theorem 1** proves that *no* i.i.d. error model — Normal,
-Student-t, Laplace, or any scale mixture of Normals — can achieve formal
-Kullback–Leibler robustness.  A single observation translated far enough in the
-predictor space will always distort the posterior of $\beta$ without bound.
-**Theorem 2** provides a constructive fix: a *heteroscedastic* model in which
-each observation receives a data-driven weight $w_i \in (0,1]$ can achieve
-that same KL-robustness.  We implement that model here and compare it against
-the Normal and Student-t baselines on three classic datasets.
+{cite:p}`pena2009bayesian` show that this is not specific to the Student-t.
+**Theorem 1** says that no i.i.d. error model (Normal, Student-t, Laplace, or
+any scale mixture of normals) can achieve formal Kullback-Leibler robustness.
+A single observation moved far enough in the predictor space distorts the
+posterior of $\beta$ without bound. **Theorem 2** gives a constructive fix:
+a *heteroscedastic* model in which each observation receives a data-driven
+weight $w_i \in (0, 1]$ does achieve KL-robustness. We implement that model
+here and compare it against the Normal and Student-t baselines on three
+classic datasets.
 
 +++
 
 ## Model
 
-The PZY likelihood modifies Laplace regression by scaling the noise parameter
-observation-by-observation:
+Following the initials of the authors, we refer to the Peña-Zamar-Yan model
+as **PZY** in the rest of the notebook. The PZY likelihood modifies Laplace
+regression by scaling the noise parameter observation-by-observation:
 
 $$
 y_i \mid \beta, \sigma, w_i \;\sim\; \text{Laplace}\!\left(x_i^\top\beta,\;\frac{\sigma}{w_i}\right)
 $$
 
-Observations near the bulk of the data receive $w_i = 1$ and are fit normally.
-Observations far from the bulk receive $w_i < 1$, which inflates their noise
-scale and downweights their influence on the posterior of $\beta$.  Concretely,
-a point with $w_i = 0.1$ has its scale inflated tenfold, so its likelihood
-contribution is roughly ten times less concentrated around the regression line
-and ten times less informative for $\beta$.
+Observations near the bulk of the data get $w_i = 1$ and are fit normally.
+Observations far from the bulk get $w_i < 1$, which inflates their noise
+scale and downweights their influence on the posterior of $\beta$. For
+example, a point with $w_i = 0.1$ has its scale multiplied by 10; its
+likelihood is therefore much wider and pulls the regression line much less
+than a clean point would.
 
-{cite:t}`pena2009bayesian` use the noninformative prior
-$\pi(\beta, \sigma^2) \propto 1/\sigma^2$ throughout their examples.  We
-match that as closely as PyMC allows by using improper flat priors:
-$\alpha, \beta_j \sim \text{Flat}$ and $\sigma \sim \text{HalfFlat}$.  Because
-the likelihood is informative the resulting posterior is proper and NUTS
-samples it without trouble.  The Student-t baseline additionally uses
-$\nu \sim \text{Exponential}(1/30)$, matching the existing
-{ref}`pymc-examples:GLM-robust` notebook.
+{cite:t}`pena2009bayesian` use the improper noninformative prior
+$\pi(\beta, \sigma^2) \propto 1/\sigma^2$ in all their examples. We use the
+closest PyMC equivalents: $\alpha, \beta_j \sim \text{Flat}$ and
+$\sigma \sim \text{HalfFlat}$. The likelihood is informative enough that
+the posterior is proper and NUTS samples it cleanly. For the Student-t
+baseline we add $\nu \sim \text{Exponential}(1/30)$, the same prior used in
+{ref}`pymc-examples:GLM-robust`.
 
 ### Computing the weights
 
@@ -105,10 +105,9 @@ $$
 w_i = \begin{cases} 1 & d_i \leq a \\ (1 + d_i^2 - a^2)^{-1/2} & d_i > a \end{cases}
 $$
 
-The weights are computed once before MCMC — they are deterministic functions
-of the data, not sampled random variables.  The PyMC model treats them as
-named, observed inputs via {class}`~pymc.Data` so that they appear in the
-graph alongside the design matrix.
+The weights are computed once before MCMC. They are deterministic functions
+of the data, not sampled random variables. The PyMC model wraps them in
+{class}`~pymc.Data` so they appear in the graph alongside the design matrix.
 
 ```{code-cell} ipython3
 def _quadrant_correlation(Z, medians):
@@ -285,10 +284,11 @@ def _plot_dataset(
 
 ### Toy demonstration
 
-To build intuition, we generate 30 clean observations from a line of slope
-0.8 and inject one *bad* leverage point: far from the bulk in $x$-space, *and*
-off the true regression line.  The weight function assigns $w_i = 1$ to all
-points within the cutoff distance $a$ and falls off as $d_i$ grows beyond it.
+We start with a synthetic example. Draw 30 clean points from the line
+$y = 0.8\,x$ plus small noise, then add one bad leverage point: far from the
+bulk in $x$-space, and far from the true line. Points within the cutoff
+distance $a$ get weight 1; points beyond it get a smaller weight that
+decreases as $d_i$ grows.
 
 ```{code-cell} ipython3
 n_clean = 30
@@ -336,14 +336,15 @@ ax.legend()
 fig.tight_layout()
 ```
 
-## Dataset 1: Brain/Body Weights
+## Dataset 1: brain and body weights
 
-The `Animals` dataset from {cite:t}`venables2002mass` records average body weight
-(kg) and brain weight (g) for 28 species.  On a log–log scale the relationship
-is roughly linear, but three observations — two dinosaurs (Brachiosaurus,
-Diplodocus) and the Mountain Beaver — are extreme leverage points.  Both the
-Normal and Student-t likelihoods are pulled toward these points; PZY
-downweights them and recovers a steeper, more defensible slope.
+The `Animals` dataset from {cite:t}`venables2002mass` has body weight (kg) and
+brain weight (g) for 28 species. On a log-log scale the relationship is
+roughly linear, except for a handful of species at the extremes: dinosaurs at
+the top end (very large body, small brain relative to body) and the smallest
+rodents at the bottom end. The Normal and Student-t fits are pulled toward
+those points. PZY downweights them and recovers a steeper slope, close to
+the slope you would estimate from the bulk alone.
 
 ```{code-cell} ipython3
 try:
@@ -378,7 +379,7 @@ _plot_dataset(
     title="Animals",
 )
 
-print("Animals — slope 95 % CI (this notebook vs paper Table 1):")
+print("Animals: slope 95 % CI (this notebook vs paper Table 1)")
 paper_animals = {"Normal": (0.33, 0.66), "PZY": (0.67, 0.83)}
 for name, idata in [
     ("Normal", animals_normal_idata),
@@ -391,13 +392,13 @@ for name, idata in [
     print(f"  {name:12s}  mean={mean:.3f}  ours=({lo:.3f}, {hi:.3f}){paper_str}")
 ```
 
-### Diagnostics and posterior predictive check
+### Convergence and posterior predictive check
 
-We sanity-check the PZY chains ($\hat{R}$ should be near 1 and ESS in the
-thousands), then draw replicated datasets from each model.  The Normal
-predictive distribution is too peaked to accommodate the dinosaurs and small
-rodents; the Student-t accommodates them by being heavy-tailed everywhere; the
-PZY accommodates them by being heavy-tailed *only at those points*.
+We first check the PZY chains: $\hat{R}$ should be near 1 and ESS should be
+in the thousands. Then we draw replicated datasets from each model. The
+Normal predictive distribution is too narrow to cover the extreme species.
+The Student-t covers them by giving every observation heavy tails. PZY
+covers them by inflating the noise scale only at the downweighted points.
 
 ```{code-cell} ipython3
 print(
@@ -434,17 +435,16 @@ for ax, (name, ppc) in zip(axes, animals_ppcs.items()):
 fig.tight_layout()
 ```
 
-## Dataset 2: CYG OB1 Star Cluster
+## Dataset 2: CYG OB1 star cluster
 
-{cite:t}`rousseeuw2005robust` use the Hertzsprung–Russell diagram for 47 stars
-in the CYG OB1 cluster {cite:p}`humphreys1978studies`.  The predictor is
-$\log_{10}$ effective temperature; the response is $\log_{10}$ light intensity.
-Plotted naturally (lower temperature on the left), the upper-left of the panel
-contains four giant stars: cool (low $\log_{10} T_e$) but extremely bright
-(high $\log_{10} L$).  Those four points act as leverage points and cause
-ordinary regression to estimate a *negative* slope, contradicting the
-main-sequence relation that hotter stars are also brighter.  PZY downweights
-the giants and recovers a positive slope.
+{cite:t}`rousseeuw2005robust` use the Hertzsprung-Russell diagram for 47 stars
+in the CYG OB1 cluster {cite:p}`humphreys1978studies`. The predictor is
+$\log_{10}$ effective temperature, and the response is $\log_{10}$ light
+intensity. Four giant stars sit apart from the rest: they are cool (low
+$\log_{10} T_e$) but very bright (high $\log_{10} L$). These four points pull
+ordinary regression to a negative slope, the opposite of the expected
+main-sequence pattern (hotter stars are brighter). PZY downweights the
+giants and recovers a positive slope.
 
 ```{code-cell} ipython3
 try:
@@ -472,7 +472,7 @@ _plot_dataset(
     title="CYG OB1",
 )
 
-print("CYG OB1 — slope 95 % CI (this notebook vs paper Table 2):")
+print("CYG OB1: slope 95 % CI (this notebook vs paper Table 2)")
 paper_cyg = {"Normal": (-1.00, 0.15), "PZY": (1.96, 3.98)}
 for name, idata in [
     ("Normal", cyg_normal_idata),
@@ -485,15 +485,17 @@ for name, idata in [
     print(f"  {name:12s}  mean={mean:.3f}  ours=({lo:.3f}, {hi:.3f}){paper_str}")
 ```
 
-## Dataset 3: Hawkins–Bradu–Kass
+## Dataset 3: Hawkins-Bradu-Kass
 
-The {cite:t}`hawkins1984location` dataset has 75 observations on three predictors.
-The first ten are constructed leverage points with predictor values near
-$(10, 20, 30)$ and response values near $10$; the remaining 65 observations
-cluster near the origin with response near $0$.  The true regression
-coefficients for the clean bulk are all zero.  The Normal and Student-t
-likelihoods are strongly pulled by the ten outliers; PZY recovers slopes close
-to zero whose 95 % CIs comfortably include zero.
+The {cite:t}`hawkins1984location` dataset has 75 observations on three
+predictors, designed so that the first 14 rows are leverage points: the first
+10 have large predictor values *and* large response values (bad leverage),
+and rows 11-14 have large predictor values but response near zero (good
+leverage, consistent with the bulk pattern). The remaining 61 observations
+cluster near the origin. The true regression coefficients for the bulk are
+all zero. The Normal and Student-t likelihoods are pulled by the 10 bad
+leverage points. PZY downweights all 14 leverage points and recovers slopes
+whose 95 % CIs include zero.
 
 ```{code-cell} ipython3
 try:
@@ -530,10 +532,10 @@ for ax, pred in zip(axes, ["X1", "X2", "X3"]):
     ax.set_title(pred)
 
 axes[0].set_ylabel("model")
-fig.suptitle("HBK — true coefficients all zero")
+fig.suptitle("HBK: true coefficients all zero")
 fig.tight_layout(rect=[0.0, 0.0, 1.0, 0.94])
 
-print("HBK — coefficient 95 % CIs (true values: all zero):")
+print("HBK: coefficient 95 % CIs (true values: all zero)")
 print(f"{'Model':12s}  {'X1':>18s}  {'X2':>18s}  {'X3':>18s}")
 for name, idata in [
     ("Normal", hbk_normal_idata),
@@ -548,12 +550,12 @@ for name, idata in [
 print("Paper Table 3 PZY:    " "+0.06 (-0.06, +0.19)  +0.02 (-0.11, +0.14)  -0.12 (-0.24, +0.01)")
 ```
 
-## Diagnostics: weights across datasets
+## Weights across datasets
 
 The plot below shows each observation's PZY weight against its robust
-Mahalanobis distance for all three datasets.  Points left of the dashed cutoff
-line have weight 1; points to the right are continuously downweighted by the
-smooth kernel.
+Mahalanobis distance, for all three datasets. Points left of the dashed
+cutoff line have weight 1. Points to the right are downweighted smoothly,
+with weight decreasing as the distance grows.
 
 ```{code-cell} ipython3
 fig, axes = plt.subplots(1, 3, figsize=(13, 4))
@@ -591,9 +593,9 @@ fig.tight_layout()
 ## Sensitivity to the tuning parameter $k$
 
 The cutoff $a = \text{median}(d) + k \cdot \text{MAD}(d)$ is controlled by
-$k$.  Small $k$ is more aggressive (more observations downweighted); large $k$
-is more conservative.  We vary $k \in \{1, 2, 3, 5\}$ on the Animals dataset
-and compare the resulting slope posteriors.
+$k$. A small $k$ is aggressive (more observations downweighted); a large $k$
+is conservative. We vary $k \in \{1, 2, 3, 5\}$ on the Animals dataset and
+compare the resulting slope posteriors.
 
 ```{code-cell} ipython3
 k_values = [1.0, 2.0, 3.0, 5.0]
@@ -619,38 +621,37 @@ for i, k_val in enumerate(k_values):
 ax.set_yticks(range(len(k_values)))
 ax.set_yticklabels([f"k = {k}" for k in k_values])
 ax.set_xlabel("PZY slope  (95 % CI)")
-ax.set_title("Sensitivity to $k$ — Animals dataset")
+ax.set_title("Sensitivity to $k$ on the Animals dataset")
 ax.axvline(0, color="gray", ls="--", lw=0.8)
 fig.tight_layout()
 ```
 
 ## Limitations
 
-* **Good leverage points are also downweighted.** The distance-based criterion
-  cannot distinguish between a harmful leverage point and a genuinely
-  informative boundary observation.  If the data contain correctly measured
-  extremes that lie on the true regression surface, they will still receive
-  reduced weight, widening credible intervals unnecessarily.
+* **Good leverage points are downweighted too.** The distance-based criterion
+  cannot tell a harmful leverage point from a useful one. Extreme but valid
+  observations on the true regression surface still get reduced weight, which
+  widens credible intervals.
 
-* **Single-cluster assumption.** The quadrant-correlation construction
-  estimates a single robust center for the joint distribution of $(y, X)$.
-  Multimodal or clustered predictor spaces may cause the algorithm to flag a
-  legitimate secondary cluster as leverage points.
+* **Single-cluster assumption.** The quadrant correlation estimates a single
+  robust center for the joint distribution of $(y, X)$. If the predictor
+  space has more than one cluster, the algorithm may flag a real secondary
+  cluster as leverage points.
 
 * **Weights are pre-computed, not sampled.** The $w_i$ are fixed before MCMC
-  begins and do not adapt as the posterior of $\beta$ is explored.  A fully
-  Bayesian treatment would model weight uncertainty, but this would substantially
-  complicate inference.
+  starts and do not adapt as the posterior of $\beta$ is explored. A fully
+  Bayesian treatment would model the weights as random variables, but that
+  is much harder to fit.
 
 * **Not appropriate for structured data.** The i.i.d. error assumption that
   justifies the quadrant-correlation distance breaks down for hierarchical
-  models, time series, or any other data with structured dependence.
+  models, time series, or any other data with dependence between observations.
 
 +++
 
 ## Authors
 
-* Authored by Pablo Vena in April 2025
+* Authored by Pablo Vena in April 2026
 
 +++
 
