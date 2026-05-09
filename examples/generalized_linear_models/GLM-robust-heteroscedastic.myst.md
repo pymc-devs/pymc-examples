@@ -49,15 +49,17 @@ but neither defends against *leverage points*: observations far from the bulk
 of the predictor space, which can drag the regression line even under a
 heavy-tailed likelihood.
 
-{cite:p}`pena2009bayesian` show that this is not specific to the Student-t.
-**Theorem 1** says that no i.i.d. error model (Normal, Student-t, Laplace, or
-any scale mixture of normals) can achieve formal Kullback-Leibler robustness.
-A single observation moved far enough in the predictor space distorts the
-posterior of $\beta$ without bound. **Theorem 2** gives a constructive fix:
-a *heteroscedastic* model in which each observation receives a data-driven
-weight $w_i \in (0, 1]$ does achieve KL-robustness. We implement that model
-here and compare it against the Normal and Student-t baselines on three
-classic datasets.
+{cite:p}`pena2009bayesian` show that this is not specific to the Student-t:
+
+- **Theorem 1.** No i.i.d. error model (Normal, Student-t, Laplace, or any
+  scale mixture of normals) can achieve formal Kullback-Leibler robustness.
+  A single observation moved far enough in the predictor space distorts the
+  posterior of $\beta$ without bound.
+- **Theorem 2.** A *heteroscedastic* model in which each observation receives
+  a data-driven weight $w_i \in (0, 1]$ does achieve KL-robustness.
+
+We implement that model here and compare it against the Normal and Student-t
+baselines on three classic datasets.
 
 +++
 
