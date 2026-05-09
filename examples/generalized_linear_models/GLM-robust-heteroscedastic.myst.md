@@ -1,5 +1,6 @@
 ---
 jupytext:
+  notebook_metadata_filter: myst,-jupytext.text_representation.jupytext_version
   text_representation:
     extension: .md
     format_name: myst
@@ -34,8 +35,6 @@ import pymc as pm
 RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-darkgrid")
-# arviz-darkgrid sets constrained_layout; reset to avoid tight_layout conflicts
-plt.rcParams["figure.constrained_layout.use"] = False
 # suppress pip-installed PyTensor BLAS warning (not actionable without conda)
 warnings.filterwarnings("ignore", message="PyTensor could not link to a BLAS")
 ```
@@ -279,7 +278,6 @@ def _plot_dataset(
     ax.set_xlabel("slope  (95 % CI)")
     ax.set_title(f"Slope posterior: {title}")
     ax.axvline(0, color="gray", ls="--", lw=0.8)
-    fig.tight_layout()
 ```
 
 ### Toy demonstration
@@ -332,8 +330,6 @@ ax.set_xlabel("robust Mahalanobis distance $d_i$")
 ax.set_ylabel("weight $w_i$")
 ax.set_title("Weight vs. distance")
 ax.legend()
-
-fig.tight_layout()
 ```
 
 ## Dataset 1: brain and body weights
@@ -432,7 +428,6 @@ for ax, (name, ppc) in zip(axes, animals_ppcs.items()):
     )
     ax.set_title(name)
     ax.set_xlim(-2, 12)
-fig.tight_layout()
 ```
 
 ## Dataset 2: CYG OB1 star cluster
@@ -533,7 +528,6 @@ for ax, pred in zip(axes, ["X1", "X2", "X3"]):
 
 axes[0].set_ylabel("model")
 fig.suptitle("HBK: true coefficients all zero")
-fig.tight_layout(rect=[0.0, 0.0, 1.0, 0.94])
 
 print("HBK: coefficient 95 % CIs (true values: all zero)")
 print(f"{'Model':12s}  {'X1':>18s}  {'X2':>18s}  {'X3':>18s}")
@@ -586,8 +580,6 @@ for ax, (title, info, weights, labels) in zip(axes, datasets):
     ax.set_ylabel("$w_i$")
     ax.set_title(title)
     ax.legend(fontsize=8)
-
-fig.tight_layout()
 ```
 
 ## Sensitivity to the tuning parameter $k$
@@ -623,7 +615,6 @@ ax.set_yticklabels([f"k = {k}" for k in k_values])
 ax.set_xlabel("PZY slope  (95 % CI)")
 ax.set_title("Sensitivity to $k$ on the Animals dataset")
 ax.axvline(0, color="gray", ls="--", lw=0.8)
-fig.tight_layout()
 ```
 
 ## Limitations
