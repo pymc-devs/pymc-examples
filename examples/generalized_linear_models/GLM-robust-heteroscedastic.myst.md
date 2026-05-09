@@ -392,11 +392,13 @@ for name, idata in [
 
 ### Convergence and posterior predictive check
 
-We first check the PZY chains: $\hat{R}$ should be near 1 and ESS should be
-in the thousands. Then we draw replicated datasets from each model. The
-Normal predictive distribution is too narrow to cover the extreme species.
-The Student-t covers them by giving every observation heavy tails. PZY
-covers them by inflating the noise scale only at the downweighted points.
+We first check the PZY chains for convergence (see the [ArviZ MCMC
+diagnostics chapter](https://arviz-devs.github.io/EABM/Chapters/MCMC_diagnostics.html)
+for guidance on $\hat{R}$ and ESS). Then we draw replicated datasets from
+each model. The Normal predictive distribution is too narrow to cover the
+extreme species. The Student-t covers them by giving every observation heavy
+tails. PZY covers them by inflating the noise scale only at the downweighted
+points.
 
 ```{code-cell} ipython3
 print(
