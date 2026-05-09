@@ -419,19 +419,32 @@ animals_idatas = {
     "PZY": animals_pzy_idata,
 }
 animals_ppcs = {}
-for name in animals_models:
-    with animals_models[name]:
+for name, model in animals_models.items():
+    with model:
         animals_ppcs[name] = pm.sample_posterior_predictive(
             animals_idatas[name], random_seed=RANDOM_SEED, progressbar=False
         )
+        # az.plot_loo_pit needs both posterior_predictive and log_likelihood
+        # groups merged into the inference data object.
+        animals_idatas[name].extend(animals_ppcs[name])
+        animals_idatas[name].extend(
+            pm.compute_log_likelihood(animals_idatas[name], progressbar=False)
+        )
 
-fig, axes = plt.subplots(1, 3, figsize=(13, 3.5), sharex=True, sharey=True)
-for ax, (name, ppc) in zip(axes, animals_ppcs.items()):
+fig, axes = plt.subplots(2, 3, figsize=(13, 6.5))
+for col, name in enumerate(animals_models):
     az.plot_ppc(
-        ppc, ax=ax, num_pp_samples=100, observed_rug=True, legend=(name == "Normal"), mean=False
+        animals_ppcs[name],
+        ax=axes[0, col],
+        num_pp_samples=100,
+        observed_rug=True,
+        legend=(col == 0),
+        mean=False,
     )
-    ax.set_title(name)
-    ax.set_xlim(-2, 12)
+    axes[0, col].set_title(f"{name}: PPC")
+    axes[0, col].set_xlim(-2, 12)
+    az.plot_loo_pit(animals_idatas[name], y="y_obs", ax=axes[1, col], legend=(col == 0))
+    axes[1, col].set_title(f"{name}: LOO-PIT")
 ```
 
 ## Dataset 2: CYG OB1 star cluster
