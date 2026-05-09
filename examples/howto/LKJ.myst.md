@@ -31,6 +31,7 @@ outputId: 90631275-86c9-4f4a-f81a-22465d0c8b8c
 import arviz as az
 import numpy as np
 import pymc as pm
+import xarray as xr
 
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
@@ -45,7 +46,7 @@ print(f"Running on PyMC v{pm.__version__}")
 %config InlineBackend.figure_format = 'retina'
 RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 ```
 
 ```{code-cell} ipython3
@@ -188,6 +189,7 @@ outputId: f039bfb8-1acf-42cb-b054-bc2c97697f96
 ---
 with model:
     trace = pm.sample(
+        nuts_sampler="pymc",
         random_seed=rng,
         idata_kwargs={"dims": {"chol_stds": ["axis"], "chol_corr": ["axis", "axis_bis"]}},
     )
@@ -208,12 +210,12 @@ colab:
 id: dgOKiSLdr2Pi
 outputId: a29bde4b-c4dc-49f4-e65d-c3365c1933e1
 ---
-az.plot_trace(
+pc = az.plot_dist(
     trace,
     var_names="chol_corr",
     coords={"axis": "y", "axis_bis": "z"},
-    lines=[("chol_corr", {}, Rho_actual[0, 1])],
-);
+)
+az.add_lines(pc, {"chol_corr": Rho_actual[0, 1]});
 ```
 
 ```{code-cell} ipython3
@@ -224,16 +226,19 @@ colab:
 id: dtBWyd5Jr2Pi
 outputId: 94ee6945-a564-487a-e447-3c447057f0bf
 ---
-az.plot_trace(
+ref_ds = xr.Dataset(
+    {
+        "mu": (("axis",), mu_actual),
+        "cov": (("axis", "axis_bis"), Sigma_actual),
+        "chol_stds": (("axis",), sigmas_actual),
+    },
+    coords={"axis": ["y", "z"], "axis_bis": ["y", "z"]},
+)
+pc = az.plot_dist(
     trace,
     var_names=["~chol", "~chol_corr"],
-    compact=True,
-    lines=[
-        ("mu", {}, mu_actual),
-        ("cov", {}, Sigma_actual),
-        ("chol_stds", {}, sigmas_actual),
-    ],
-);
+)
+az.add_lines(pc, ref_ds);
 ```
 
 +++ {"id": "NnLWJyCMr2Pi"}
@@ -317,6 +322,9 @@ ax.legend(
     loc=2,
 );
 ```
+
+## Authors
+- Updated to run on PyMC v6, PyTensor v3, and ArviZ v1 by Chris Fonnesbeck in May 2026
 
 ```{code-cell} ipython3
 ---
