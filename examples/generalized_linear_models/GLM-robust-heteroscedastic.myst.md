@@ -34,7 +34,7 @@ import pymc as pm
 ```{code-cell} ipython3
 RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 # suppress pip-installed PyTensor BLAS warning (not actionable without conda)
 warnings.filterwarnings("ignore", message="PyTensor could not link to a BLAS")
 ```
@@ -217,8 +217,8 @@ def _slope_hdi(idata, pred, hdi_prob=0.95):
     The default 95% level matches the credible intervals reported in
     {cite:p}`pena2009bayesian`."""
     post = idata.posterior["beta"].sel(predictor=pred).values.ravel()
-    hdi = az.hdi(idata, var_names=["beta"], hdi_prob=hdi_prob)["beta"].sel(predictor=pred)
-    return post.mean(), float(hdi.isel(hdi=0)), float(hdi.isel(hdi=1))
+    hdi = az.hdi(idata, var_names=["beta"], prob=hdi_prob)["beta"].sel(predictor=pred)
+    return post.mean(), float(hdi.isel(ci_bound=0)), float(hdi.isel(ci_bound=1))
 
 
 def _plot_dataset(
@@ -390,15 +390,16 @@ for name, idata in [
     print(f"  {name:12s}  mean={mean:.3f}  ours=({lo:.3f}, {hi:.3f}){paper_str}")
 ```
 
-### Convergence and posterior predictive check
+### Convergence and posterior predictive checks
 
 We first check the PZY chains for convergence (see the [ArviZ MCMC
 diagnostics chapter](https://arviz-devs.github.io/EABM/Chapters/MCMC_diagnostics.html)
-for guidance on $\hat{R}$ and ESS). Then we draw replicated datasets from
-each model. The Normal predictive distribution is too narrow to cover the
-extreme species. The Student-t covers them by giving every observation heavy
-tails. PZY covers them by inflating the noise scale only at the downweighted
-points.
+for guidance on $\hat{R}$ and ESS). Then for each model we draw replicated
+datasets and a posterior predictive PIT plot. The Normal predictive
+distribution is too narrow to cover the extreme species. The Student-t
+covers them by giving every observation heavy tails. PZY covers them by
+inflating the noise scale only at the downweighted points. A
+well-calibrated model produces PPC-PIT values close to uniform.
 
 ```{code-cell} ipython3
 print(
@@ -406,7 +407,7 @@ print(
         ["mean", "sd", "ess_bulk", "ess_tail", "r_hat"]
     ]
 )
-az.plot_trace(animals_pzy_idata, var_names=["beta", "sigma"], compact=True)
+az.plot_trace(animals_pzy_idata, var_names=["beta", "sigma"])
 
 animals_models = {
     "Normal": animals_normal_model,
@@ -424,27 +425,14 @@ for name, model in animals_models.items():
         animals_ppcs[name] = pm.sample_posterior_predictive(
             animals_idatas[name], random_seed=RANDOM_SEED, progressbar=False
         )
-        # az.plot_loo_pit needs both posterior_predictive and log_likelihood
-        # groups merged into the inference data object.
-        animals_idatas[name].extend(animals_ppcs[name])
-        animals_idatas[name].extend(
-            pm.compute_log_likelihood(animals_idatas[name], progressbar=False)
-        )
+        # merge posterior_predictive into the inference data tree
+        animals_idatas[name]["posterior_predictive"] = animals_ppcs[name]["posterior_predictive"]
 
-fig, axes = plt.subplots(2, 3, figsize=(13, 6.5))
-for col, name in enumerate(animals_models):
-    az.plot_ppc(
-        animals_ppcs[name],
-        ax=axes[0, col],
-        num_pp_samples=100,
-        observed_rug=True,
-        legend=(col == 0),
-        mean=False,
-    )
-    axes[0, col].set_title(f"{name}: PPC")
-    axes[0, col].set_xlim(-2, 12)
-    az.plot_loo_pit(animals_idatas[name], y="y_obs", ax=axes[1, col], legend=(col == 0))
-    axes[1, col].set_title(f"{name}: LOO-PIT")
+for name, idata in animals_idatas.items():
+    az.plot_ppc_dist(idata, num_samples=100)
+    plt.gcf().suptitle(f"{name}: posterior predictive")
+    az.plot_ppc_pit(idata)
+    plt.gcf().suptitle(f"{name}: PPC-PIT")
 ```
 
 ## Dataset 2: CYG OB1 star cluster
