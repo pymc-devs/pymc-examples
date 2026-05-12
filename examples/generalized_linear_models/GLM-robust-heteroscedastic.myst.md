@@ -401,11 +401,11 @@ well-calibrated model produces PPC-PIT values close to uniform.
 
 ```{code-cell} ipython3
 print(
-    az.summary(animals_pzy_idata, var_names=["intercept", "beta", "sigma"], round_to=3)[
+    az.summary(animals_pzy_idata, var_names=["intercept", "beta", "sigma"])[
         ["mean", "sd", "ess_bulk", "ess_tail", "r_hat"]
     ]
 )
-az.plot_trace(animals_pzy_idata, var_names=["beta", "sigma"])
+az.plot_rank(animals_pzy_idata, var_names=["beta", "sigma"])
 
 animals_models = {
     "Normal": animals_normal_model,
