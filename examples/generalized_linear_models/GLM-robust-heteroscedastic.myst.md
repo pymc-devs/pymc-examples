@@ -252,7 +252,7 @@ def _plot_dataset(
     low_w = weights < 1.0
     ax.scatter(X_col, y, color="gray", s=25, zorder=3)
     ax.scatter(
-        X_col[low_w], y[low_w], color="tomato", s=55, zorder=4, marker="^", label="leverage (w < 1)"
+        X_col[low_w], y[low_w], color="C1", s=55, zorder=4, marker="^", label="leverage (w < 1)"
     )
     if df_labels is not None:
         for i in np.where(low_w)[0]:
@@ -303,12 +303,12 @@ weights_demo, info_demo = pzy_weights(X_demo, y_demo, k=2.0)
 fig, axes = plt.subplots(1, 2, figsize=(11, 4))
 
 ax = axes[0]
-ax.scatter(X_demo[:-1, 0], y_demo[:-1], s=60, alpha=0.7, color="steelblue", label="clean  (w = 1)")
+ax.scatter(X_demo[:-1, 0], y_demo[:-1], s=60, alpha=0.7, color="C0", label="clean  (w = 1)")
 ax.scatter(
     X_demo[-1, 0],
     y_demo[-1],
     s=200,
-    color="tomato",
+    color="C1",
     marker="*",
     zorder=5,
     label=f"bad leverage  (w = {weights_demo[-1]:.2f})",
@@ -322,12 +322,10 @@ ax = axes[1]
 d_range = np.linspace(0, info_demo["distances"].max() * 1.1, 300)
 a = info_demo["cutoff"]
 w_curve = np.where(d_range <= a, 1.0, 1.0 / np.sqrt(np.maximum(1.0, 1 + d_range**2 - a**2)))
-ax.plot(d_range, w_curve, color="steelblue", lw=2)
+ax.plot(d_range, w_curve, color="C0", lw=2)
 ax.axvline(a, color="gray", ls="--", lw=1, label=f"cutoff $a = {a:.1f}$")
-ax.scatter(info_demo["distances"][:-1], weights_demo[:-1], color="steelblue", alpha=0.5, s=25)
-ax.scatter(
-    info_demo["distances"][-1], weights_demo[-1], color="tomato", marker="*", s=150, zorder=5
-)
+ax.scatter(info_demo["distances"][:-1], weights_demo[:-1], color="C0", alpha=0.5, s=25)
+ax.scatter(info_demo["distances"][-1], weights_demo[-1], color="C1", marker="*", s=150, zorder=5)
 ax.set_xlabel("robust Mahalanobis distance $d_i$")
 ax.set_ylabel("weight $w_i$")
 ax.set_title("Weight vs. distance")
@@ -429,10 +427,10 @@ for name, model in animals_models.items():
         animals_idatas[name]["posterior_predictive"] = animals_ppcs[name]["posterior_predictive"]
 
 for name, idata in animals_idatas.items():
-    az.plot_ppc_dist(idata, num_samples=100)
-    plt.gcf().suptitle(f"{name}: posterior predictive")
-    az.plot_ppc_pit(idata)
-    plt.gcf().suptitle(f"{name}: PPC-PIT")
+    pc = az.plot_ppc_dist(idata, num_samples=100)
+    pc.add_title(f"{name}: posterior predictive")
+    pc = az.plot_ppc_pit(idata)
+    pc.add_title(f"{name}: PPC-PIT")
 ```
 
 ## Dataset 2: CYG OB1 star cluster
@@ -567,11 +565,11 @@ for ax, (title, info, weights, labels) in zip(axes, datasets):
     d, a = info["distances"], info["cutoff"]
     d_plot = np.linspace(0, d.max() * 1.05, 300)
     w_plot = np.where(d_plot <= a, 1.0, 1.0 / np.sqrt(np.maximum(1.0, 1 + d_plot**2 - a**2)))
-    ax.plot(d_plot, w_plot, color="steelblue", lw=2, zorder=2)
+    ax.plot(d_plot, w_plot, color="C0", lw=2, zorder=2)
     ax.axvline(a, color="gray", ls="--", lw=1, label=f"cutoff = {a:.1f}")
     mask = weights < 1.0
-    ax.scatter(d[~mask], weights[~mask], color="steelblue", alpha=0.5, s=20, zorder=3)
-    ax.scatter(d[mask], weights[mask], color="tomato", alpha=0.9, s=40, zorder=4)
+    ax.scatter(d[~mask], weights[~mask], color="C0", alpha=0.5, s=20, zorder=3)
+    ax.scatter(d[mask], weights[mask], color="C1", alpha=0.9, s=40, zorder=4)
     if labels is not None:
         for i in np.where(mask)[0]:
             ax.annotate(
@@ -613,7 +611,7 @@ for k_val in k_values:
 fig, ax = plt.subplots(figsize=(7, 3.5))
 for i, k_val in enumerate(k_values):
     mean, lo, hi, n_down = k_results[k_val]
-    ax.errorbar(mean, i, xerr=[[mean - lo], [hi - mean]], fmt="o", color="steelblue", capsize=5)
+    ax.errorbar(mean, i, xerr=[[mean - lo], [hi - mean]], fmt="o", color="C0", capsize=5)
     ax.text(hi + 0.01, i, f"k={k_val}  ({n_down} downweighted)", va="center", fontsize=9)
 ax.set_yticks(range(len(k_values)))
 ax.set_yticklabels([f"k = {k}" for k in k_values])
