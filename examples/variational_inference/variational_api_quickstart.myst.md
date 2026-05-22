@@ -80,7 +80,8 @@ plt.plot(mean_field.hist);
 ```
 
 ```{code-cell} ipython3
-approx_sample = mean_field.sample(1000)
+with gamma_model:
+    approx_sample = mean_field.sample(1000)
 ```
 
 ```{code-cell} ipython3
@@ -144,7 +145,9 @@ with model:
 ```
 
 ```{code-cell} ipython3
-az.plot_posterior(mean_field.sample(1000), color="LightSeaGreen");
+with model:
+    posterior_sample = mean_field.sample(1000)
+az.plot_dist(posterior_sample, var_names=["x"]);
 ```
 
 Notice that ADVI has failed to approximate the multimodal distribution, since it uses a Gaussian distribution that has a single mode.
@@ -173,7 +176,8 @@ This is not a good convergence plot, despite the fact that we ran many iteration
 ```{code-cell} ipython3
 with model:
     mean_field = pm.fit(
-        method="advi", callbacks=[pm.callbacks.CheckParametersConvergence(diff="absolute")]
+        method="advi",
+        callbacks=[pm.variational.callbacks.CheckParametersConvergence(diff="absolute")],
     )
 ```
 
@@ -215,7 +219,7 @@ advi.approx.mean.eval(), advi.approx.std.eval()
 We can roll these statistics into the `Tracker` callback.
 
 ```{code-cell} ipython3
-tracker = pm.callbacks.Tracker(
+tracker = pm.variational.callbacks.Tracker(
     mean=advi.approx.mean.eval,  # callable that returns mean
     std=advi.approx.std.eval,  # callable that returns std
 )
@@ -268,8 +272,10 @@ We still see evidence for lack of convergence, as the mean has devolved into a r
 Let's compare results with the NUTS output:
 
 ```{code-cell} ipython3
+with model:
+    advi_sample = approx.sample(20000)
 sns.kdeplot(trace.posterior["x"].values.flatten(), label="NUTS")
-sns.kdeplot(approx.sample(20000).posterior["x"].values.flatten(), label="ADVI")
+sns.kdeplot(advi_sample.posterior["x"].values.flatten(), label="ADVI")
 plt.legend();
 ```
 
@@ -286,9 +292,12 @@ with model:
 ```
 
 ```{code-cell} ipython3
+with model:
+    advi_sample = approx.sample(10000)
+    svgd_sample = svgd_approx.sample(2000)
 sns.kdeplot(trace.posterior["x"].values.flatten(), label="NUTS")
-sns.kdeplot(approx.sample(10000).posterior["x"].values.flatten(), label="ADVI")
-sns.kdeplot(svgd_approx.sample(2000).posterior["x"].values.flatten(), label="SVGD")
+sns.kdeplot(advi_sample.posterior["x"].values.flatten(), label="ADVI")
+sns.kdeplot(svgd_sample.posterior["x"].values.flatten(), label="SVGD")
 plt.legend();
 ```
 
@@ -445,7 +454,7 @@ Tracker expects callables so we can pass `.eval` method of PyTensor node that is
 Calls to this function are cached so they can be reused.
 
 ```{code-cell} ipython3
-eval_tracker = pm.callbacks.Tracker(
+eval_tracker = pm.variational.callbacks.Tracker(
     test_accuracy=test_accuracy.eval, train_accuracy=train_accuracy.eval
 )
 ```
@@ -540,7 +549,7 @@ X = pm.Minibatch(data, batch_size=500)
 with pm.Model() as model:
     mu = pm.Normal("mu", 0, sigma=1e5, shape=(100,))
     sd = pm.HalfNormal("sd", shape=(100,))
-    likelihood = pm.Normal("likelihood", mu, sigma=sd, observed=X, total_size=data.shape)
+    likelihood = pm.Normal("likelihood", mu, sigma=sd, observed=X, total_size=data.shape[0])
 ```
 
 ```{code-cell} ipython3
