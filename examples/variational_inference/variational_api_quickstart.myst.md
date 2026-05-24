@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -30,7 +30,6 @@ In PyMC, the variational inference API is focused on approximating posterior dis
 :::
 
 ```{code-cell} ipython3
-%matplotlib inline
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
@@ -39,6 +38,8 @@ import pytensor
 import seaborn as sns
 
 np.random.seed(42)
+
+az.style.use("arviz-variat")
 ```
 
 ## Distributional Approximations
@@ -85,9 +86,9 @@ with gamma_model:
 ```
 
 ```{code-cell} ipython3
-sns.kdeplot(trace.posterior["alpha"].values.flatten(), label="NUTS")
-sns.kdeplot(approx_sample.posterior["alpha"].values.flatten(), label="ADVI")
-plt.legend();
+with gamma_model:
+    approx_sample = mean_field.sample(1000)
+az.plot_dist({"NUTS": trace, "ADVI": approx_sample}, var_names=["alpha"]);
 ```
 
 ## Basic setup
@@ -121,7 +122,7 @@ with model:
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace);
+az.plot_trace_dist(trace);
 ```
 
 Above are traces for $x^2$ and $sin(x)$. We can see there is clear multi-modality in this model. One drawback, is that you need to know in advance what exactly you want to see in trace and wrap it with `Deterministic`.
@@ -274,9 +275,7 @@ Let's compare results with the NUTS output:
 ```{code-cell} ipython3
 with model:
     advi_sample = approx.sample(20000)
-sns.kdeplot(trace.posterior["x"].values.flatten(), label="NUTS")
-sns.kdeplot(advi_sample.posterior["x"].values.flatten(), label="ADVI")
-plt.legend();
+az.plot_dist({"NUTS": trace, "ADVI": advi_sample}, var_names=["x"]);
 ```
 
 Again, we see that ADVI is not able to cope with multimodality; we can instead use SVGD, which generates an approximation based on a large number of particles.
@@ -295,10 +294,10 @@ with model:
 with model:
     advi_sample = approx.sample(10000)
     svgd_sample = svgd_approx.sample(2000)
-sns.kdeplot(trace.posterior["x"].values.flatten(), label="NUTS")
-sns.kdeplot(advi_sample.posterior["x"].values.flatten(), label="ADVI")
-sns.kdeplot(svgd_sample.posterior["x"].values.flatten(), label="SVGD")
-plt.legend();
+az.plot_dist(
+    {"NUTS": trace, "ADVI": advi_sample, "SVGD": svgd_sample},
+    var_names=["x"],
+);
 ```
 
 That did the trick, as we now have a multimodal approximation using SVGD. 
@@ -326,13 +325,13 @@ a_sample.eval()
 a_sample.eval()
 ```
 
-Every call yields a different value from the same node. This is because it is **stochastic**. 
+Note that in modern PyTensor, the random graph is compiled, so repeated `.eval()` calls on the same `sample_node` return the cached value (you can see this above — all three evaluations return the same number). To draw fresh independent samples from the approximation, use the `size` argument as shown below.
 
 By applying replacements, we are now free of the dependence on the PyMC model; instead, we now depend on the approximation. Changing it will change the distribution for stochastic nodes:
 
 ```{code-cell} ipython3
-sns.kdeplot(np.array([a_sample.eval() for _ in range(2000)]))
-plt.title("$x^2$ distribution");
+a_dataset = az.convert_to_dataset({"a": svgd_approx.sample_node(a, size=2000).eval()[None, :]})
+az.plot_dist(a_dataset, var_names=["a"]);
 ```
 
 There is a more convenient way to get lots of samples at once: `sample_node`
@@ -342,8 +341,8 @@ a_samples = svgd_approx.sample_node(a, size=1000)
 ```
 
 ```{code-cell} ipython3
-sns.kdeplot(a_samples.eval())
-plt.title("$x^2$ distribution");
+a_dataset = az.convert_to_dataset({"a": a_samples.eval()[None, :]})
+az.plot_dist(a_dataset, var_names=["a"]);
 ```
 
 The `sample_node` function includes an additional dimension, so taking expectations or calculating variance is specified by `axis=0`.
