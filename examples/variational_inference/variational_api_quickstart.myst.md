@@ -88,7 +88,16 @@ with gamma_model:
 ```{code-cell} ipython3
 with gamma_model:
     approx_sample = mean_field.sample(1000)
-az.plot_dist({"NUTS": trace, "ADVI": approx_sample}, var_names=["alpha"]);
+pc = az.plot_dist(
+    {"NUTS": trace, "ADVI": approx_sample},
+    var_names=["alpha"],
+    visuals={
+        "credible_interval": False,
+        "point_estimate": False,
+        "point_estimate_text": False,
+    },
+)
+pc.add_legend("model");
 ```
 
 ## Basic setup
@@ -202,7 +211,7 @@ with model:
 ```
 
 ```{code-cell} ipython3
-advi.approx
+advi.approx;
 ```
 
 Different approximations have different hyperparameters. In mean-field ADVI, we have $\rho$ and $\mu$ (inspired by [Bayes by BackProp](https://arxiv.org/abs/1505.05424)).
@@ -275,7 +284,16 @@ Let's compare results with the NUTS output:
 ```{code-cell} ipython3
 with model:
     advi_sample = approx.sample(20000)
-az.plot_dist({"NUTS": trace, "ADVI": advi_sample}, var_names=["x"]);
+pc = az.plot_dist(
+    {"NUTS": trace, "ADVI": advi_sample},
+    var_names=["x"],
+    visuals={
+        "credible_interval": False,
+        "point_estimate": False,
+        "point_estimate_text": False,
+    },
+)
+pc.add_legend("model");
 ```
 
 Again, we see that ADVI is not able to cope with multimodality; we can instead use SVGD, which generates an approximation based on a large number of particles.
@@ -294,10 +312,16 @@ with model:
 with model:
     advi_sample = approx.sample(10000)
     svgd_sample = svgd_approx.sample(2000)
-az.plot_dist(
+pc = az.plot_dist(
     {"NUTS": trace, "ADVI": advi_sample, "SVGD": svgd_sample},
     var_names=["x"],
-);
+    visuals={
+        "credible_interval": False,
+        "point_estimate": False,
+        "point_estimate_text": False,
+    },
+)
+pc.add_legend("model");
 ```
 
 That did the trick, as we now have a multimodal approximation using SVGD. 
