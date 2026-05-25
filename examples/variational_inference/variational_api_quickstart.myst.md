@@ -349,7 +349,7 @@ a_sample.eval()
 a_sample.eval()
 ```
 
-Note that in modern PyTensor, the random graph is compiled, so repeated `.eval()` calls on the same `sample_node` return the cached value (you can see this above — all three evaluations return the same number). To draw fresh independent samples from the approximation, use the `size` argument as shown below.
+Note: repeated `.eval()` calls on the same `sample_node` produce the same draw because PyTensor's compiled function reads the shared RNG state but does not advance it between calls. To get fresh independent samples, use `sample_node(node, size=N)`, which materializes N draws within a single graph evaluation.
 
 By applying replacements, we are now free of the dependence on the PyMC model; instead, we now depend on the approximation. Changing it will change the distribution for stochastic nodes:
 
