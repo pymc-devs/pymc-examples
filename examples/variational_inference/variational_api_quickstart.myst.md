@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -30,7 +30,6 @@ In PyMC, the variational inference API is focused on approximating posterior dis
 :::
 
 ```{code-cell} ipython3
-%matplotlib inline
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
@@ -39,6 +38,8 @@ import pytensor
 import seaborn as sns
 
 np.random.seed(42)
+
+az.style.use("arviz-variat")
 ```
 
 ## Distributional Approximations
@@ -80,13 +81,23 @@ plt.plot(mean_field.hist);
 ```
 
 ```{code-cell} ipython3
-approx_sample = mean_field.sample(1000)
+with gamma_model:
+    approx_sample = mean_field.sample(1000)
 ```
 
 ```{code-cell} ipython3
-sns.kdeplot(trace.posterior["alpha"].values.flatten(), label="NUTS")
-sns.kdeplot(approx_sample.posterior["alpha"].values.flatten(), label="ADVI")
-plt.legend();
+with gamma_model:
+    approx_sample = mean_field.sample(1000)
+pc = az.plot_dist(
+    {"NUTS": trace, "ADVI": approx_sample},
+    var_names=["alpha"],
+    visuals={
+        "credible_interval": False,
+        "point_estimate": False,
+        "point_estimate_text": False,
+    },
+)
+pc.add_legend("model");
 ```
 
 ## Basic setup
@@ -120,7 +131,7 @@ with model:
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(trace);
+az.plot_trace_dist(trace);
 ```
 
 Above are traces for $x^2$ and $sin(x)$. We can see there is clear multi-modality in this model. One drawback, is that you need to know in advance what exactly you want to see in trace and wrap it with `Deterministic`.
@@ -144,7 +155,9 @@ with model:
 ```
 
 ```{code-cell} ipython3
-az.plot_posterior(mean_field.sample(1000), color="LightSeaGreen");
+with model:
+    posterior_sample = mean_field.sample(1000)
+az.plot_dist(posterior_sample, var_names=["x"]);
 ```
 
 Notice that ADVI has failed to approximate the multimodal distribution, since it uses a Gaussian distribution that has a single mode.
@@ -173,7 +186,8 @@ This is not a good convergence plot, despite the fact that we ran many iteration
 ```{code-cell} ipython3
 with model:
     mean_field = pm.fit(
-        method="advi", callbacks=[pm.callbacks.CheckParametersConvergence(diff="absolute")]
+        method="advi",
+        callbacks=[pm.variational.callbacks.CheckParametersConvergence(diff="absolute")],
     )
 ```
 
@@ -197,7 +211,7 @@ with model:
 ```
 
 ```{code-cell} ipython3
-advi.approx
+advi.approx;
 ```
 
 Different approximations have different hyperparameters. In mean-field ADVI, we have $\rho$ and $\mu$ (inspired by [Bayes by BackProp](https://arxiv.org/abs/1505.05424)).
@@ -215,7 +229,7 @@ advi.approx.mean.eval(), advi.approx.std.eval()
 We can roll these statistics into the `Tracker` callback.
 
 ```{code-cell} ipython3
-tracker = pm.callbacks.Tracker(
+tracker = pm.variational.callbacks.Tracker(
     mean=advi.approx.mean.eval,  # callable that returns mean
     std=advi.approx.std.eval,  # callable that returns std
 )
@@ -268,9 +282,18 @@ We still see evidence for lack of convergence, as the mean has devolved into a r
 Let's compare results with the NUTS output:
 
 ```{code-cell} ipython3
-sns.kdeplot(trace.posterior["x"].values.flatten(), label="NUTS")
-sns.kdeplot(approx.sample(20000).posterior["x"].values.flatten(), label="ADVI")
-plt.legend();
+with model:
+    advi_sample = approx.sample(20000)
+pc = az.plot_dist(
+    {"NUTS": trace, "ADVI": advi_sample},
+    var_names=["x"],
+    visuals={
+        "credible_interval": False,
+        "point_estimate": False,
+        "point_estimate_text": False,
+    },
+)
+pc.add_legend("model");
 ```
 
 Again, we see that ADVI is not able to cope with multimodality; we can instead use SVGD, which generates an approximation based on a large number of particles.
@@ -286,10 +309,19 @@ with model:
 ```
 
 ```{code-cell} ipython3
-sns.kdeplot(trace.posterior["x"].values.flatten(), label="NUTS")
-sns.kdeplot(approx.sample(10000).posterior["x"].values.flatten(), label="ADVI")
-sns.kdeplot(svgd_approx.sample(2000).posterior["x"].values.flatten(), label="SVGD")
-plt.legend();
+with model:
+    advi_sample = approx.sample(10000)
+    svgd_sample = svgd_approx.sample(2000)
+pc = az.plot_dist(
+    {"NUTS": trace, "ADVI": advi_sample, "SVGD": svgd_sample},
+    var_names=["x"],
+    visuals={
+        "credible_interval": False,
+        "point_estimate": False,
+        "point_estimate_text": False,
+    },
+)
+pc.add_legend("model");
 ```
 
 That did the trick, as we now have a multimodal approximation using SVGD. 
@@ -317,13 +349,13 @@ a_sample.eval()
 a_sample.eval()
 ```
 
-Every call yields a different value from the same node. This is because it is **stochastic**. 
+Note: repeated `.eval()` calls on the same `sample_node` produce the same draw because PyTensor's compiled function reads the shared RNG state but does not advance it between calls. To get fresh independent samples, use `sample_node(node, size=N)`, which materializes N draws within a single graph evaluation.
 
 By applying replacements, we are now free of the dependence on the PyMC model; instead, we now depend on the approximation. Changing it will change the distribution for stochastic nodes:
 
 ```{code-cell} ipython3
-sns.kdeplot(np.array([a_sample.eval() for _ in range(2000)]))
-plt.title("$x^2$ distribution");
+a_dataset = az.convert_to_dataset({"a": svgd_approx.sample_node(a, size=2000).eval()[None, :]})
+az.plot_dist(a_dataset, var_names=["a"]);
 ```
 
 There is a more convenient way to get lots of samples at once: `sample_node`
@@ -333,8 +365,8 @@ a_samples = svgd_approx.sample_node(a, size=1000)
 ```
 
 ```{code-cell} ipython3
-sns.kdeplot(a_samples.eval())
-plt.title("$x^2$ distribution");
+a_dataset = az.convert_to_dataset({"a": a_samples.eval()[None, :]})
+az.plot_dist(a_dataset, var_names=["a"]);
 ```
 
 The `sample_node` function includes an additional dimension, so taking expectations or calculating variance is specified by `axis=0`.
@@ -445,7 +477,7 @@ Tracker expects callables so we can pass `.eval` method of PyTensor node that is
 Calls to this function are cached so they can be reused.
 
 ```{code-cell} ipython3
-eval_tracker = pm.callbacks.Tracker(
+eval_tracker = pm.variational.callbacks.Tracker(
     test_accuracy=test_accuracy.eval, train_accuracy=train_accuracy.eval
 )
 ```
@@ -540,7 +572,7 @@ X = pm.Minibatch(data, batch_size=500)
 with pm.Model() as model:
     mu = pm.Normal("mu", 0, sigma=1e5, shape=(100,))
     sd = pm.HalfNormal("sd", shape=(100,))
-    likelihood = pm.Normal("likelihood", mu, sigma=sd, observed=X, total_size=data.shape)
+    likelihood = pm.Normal("likelihood", mu, sigma=sd, observed=X, total_size=data.shape[0])
 ```
 
 ```{code-cell} ipython3

@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: default
+  display_name: Python [conda env:base] *
   language: python
-  name: python3
+  name: conda-base-py
 myst:
   substitutions:
     extra_dependencies: bokeh
@@ -41,8 +41,8 @@ Not much was known about how fossil fuel burning influences the climate in the l
 
 The history behind these measurements and their influence on climatology today and other interesting reading:
 
-- http://scrippsco2.ucsd.edu/history_legacy/early_keeling_curve#
-- https://scripps.ucsd.edu/programs/keelingcurve/2016/05/23/why-has-a-drop-in-global-co2-emissions-not-caused-co2-levels-in-the-atmosphere-to-stabilize/#more-1412
+- [History & Legacy: The Early Keeling Curve](http://scrippsco2.ucsd.edu/history_legacy/early_keeling_curve)
+- [Why Has a Drop in Global CO2 Emissions Not Caused CO2 Levels in the Atmosphere to Stabilize?](https://keelingcurve.ucsd.edu/2016/05/23/why-has-a-drop-in-global-co2-emissions-not-caused-co2-levels-in-the-atmosphere-to-stabilize/)
 
 Let's load in the data, tidy it up, and have a look.  The [raw data set is located here](http://scrippsco2.ucsd.edu/data/atmospheric_co2/mlo).  This notebook uses the [Bokeh package](http://bokeh.pydata.org/en/latest/) for plots that benefit from interactivity.
 

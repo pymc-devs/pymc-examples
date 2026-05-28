@@ -1,7 +1,7 @@
 # Guidelines for Contributing
-As part of the PyMC3 library documentation, the guidelines to contribute to
+As part of the PyMC library documentation, the guidelines to contribute to
 pymc-examples are based on 
-[PyMC3 contributing guidelines](https://github.com/pymc-devs/pymc3/blob/master/CONTRIBUTING.md). 
+[PyMC contributing guidelines](https://github.com/pymc-devs/pymc/blob/master/CONTRIBUTING.md). 
 Please refer there for a detailed description of the Fork-PR contributing workflow, 
 see "Steps" section,and note that you'll need to update the repository URLs and 
 branch names.
@@ -132,8 +132,8 @@ before you submit a pull request:
   that with the "Restart & Run All" option before saving.
 
 * No `pre-commit` errors: see the 
-  [Jupyter Notebook style](https://github.com/pymc-devs/pymc3/wiki/PyMC3-Jupyter-Notebook-Style-Guide)
-  (and [Python code style](https://github.com/pymc-devs/pymc3/wiki/PyMC3-Python-Code-Style)) 
+  [Jupyter Notebook style](https://www.pymc.io/projects/docs/en/latest/contributing/jupyter_style.html)
+  (and [Python code style](https://github.com/pymc-devs/pymc/wiki/Python-Code-Style)) 
   page from our Wiki on how to install and run it.
 
 * Indicate how are you aiming to update the notebook (i.e. what is the target

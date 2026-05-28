@@ -11,3 +11,4 @@ sphinxcontrib-bibtex
 sphinxext-opengraph
 sphinxext-rediraffe
 sphinx-sitemap
+watermark

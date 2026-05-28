@@ -22,8 +22,7 @@ For questions on PyMC, head on over to our
 Contributing
 ============
 
-If you are interested in contributing to the example notebooks hosted here, 
-please read the
+If you are interested in contributing to the example notebooks hosted here, please read the
 `contributing guide <https://github.com/pymc-devs/pymc-examples/blob/main/CONTRIBUTING.md>`__
 Also read our 
 `Code of Conduct <https://github.com/pymc-devs/pymc-examples/blob/main/CODE_OF_CONDUCT.md>`__ 
@@ -41,16 +40,16 @@ for updates and other announcements.
 To ask a question regarding modeling or usage of PyMC we encourage posting to 
 our Discourse forum under the 
 `“Questions” Category <https://discourse.pymc.io/c/questions>`__. 
-You can also suggest feature in the 
+You can also suggest a feature in the 
 `“Development” Category <https://discourse.pymc.io/c/development>`__.
 
 To report an issue, please use the following:
 
 -  `PyMC Examples - Issue Tracker <https://github.com/pymc-devs/pymc-examples/issues>`__. 
-   For issues about the example notebooks, errors in the example codes, outdated 
+   For issues about the example notebooks, errors in the example codes, and outdated 
    information, improvement suggestions...
 -  `PyMC - Issue Tracker <https://github.com/pymc-devs/pymc/issues>`__. For 
-   issues, bugs or feature requests related to the PyMC library itself.
+   issues, bugs, or feature requests related to the PyMC library itself.
 
 Finally, if you need to get in touch for non-technical information about the 
 project, `send us an e-mail <pymc.devs@gmail.com>`__.
@@ -87,7 +86,7 @@ Learn Bayesian statistics with a book together with PyMC:
 PyMC talks
 -----------
 
-There are also several talks on PyMC which are gathered in this 
+There are also several talks on PyMC, which are gathered in this 
 `YouTube playlist <https://www.youtube.com/playlist?list=PL1Ma_1DBbE82OVW8Fz_6Ts1oOeyOAiovy>`__
 and as part of `PyMCon 2020 <https://discourse.pymc.io/c/pymcon/2020talks/15>`__
 
@@ -100,13 +99,32 @@ To install PyMC on your system, see its
 Citing PyMC
 ============
 
-* To cite the PyMC software, use:
+Please choose from the following:
 
-  Salvatier J., Wiecki T.V., Fonnesbeck C. (2016) Probabilistic programming
-  in Python using PyMC3. PeerJ Computer Science 2:e55
-  `DOI: 10.7717/peerj-cs.55 <https://doi.org/10.7717/peerj-cs.55>`__.
+- |DOIpaper| *PyMC: A Modern and Comprehensive Probabilistic Programming Framework in Python*, Abril-Pla O, Andreani V, Carroll C, Dong L, Fonnesbeck CJ, Kochurov M, Kumar R, Lao J, Luhmann CC, Martin OA, Osthege M, Vieira R, Wiecki T, Zinkov R. (2023)
 
-* To cite specific guides from this collection, use |zenodo|. You'll find page specific
+  - BibTex version
+
+    .. code:: bibtex
+
+       @article{pymc2023,
+         title = {{PyMC}: A Modern and Comprehensive Probabilistic Programming Framework in {P}ython},
+         author = {Oriol Abril-Pla and Virgile Andreani and Colin Carroll and Larry Dong and Christopher J. Fonnesbeck and Maxim Kochurov and Ravin Kumar and Junpeng Lao and Christian C. Luhmann and Osvaldo A. Martin and Michael Osthege and Ricardo Vieira and Thomas Wiecki and Robert Zinkov },
+         journal = {{PeerJ} Computer Science},
+         volume = {9},
+         number = {e1516},
+         doi = {10.7717/peerj-cs.1516},
+         year = {2023}
+       }
+
+- |DOIzenodo| A DOI for all versions. DOIs for specific versions are shown on Zenodo and under `Releases <https://github.com/pymc-devs/pymc/releases>`_
+
+.. |DOIpaper| image:: https://img.shields.io/badge/DOI-10.7717%2Fpeerj--cs.1516-blue.svg
+     :target: https://doi.org/10.7717/peerj-cs.1516
+.. |DOIzenodo| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.4603970.svg
+   :target: https://doi.org/10.5281/zenodo.4603970
+
+- To cite specific guides from this collection, use |zenodo|. You'll find page-specific
   citation instructions at the bottom of each page.
 
 Papers citing PyMC

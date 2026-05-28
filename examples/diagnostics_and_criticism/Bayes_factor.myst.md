@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -21,18 +21,17 @@ kernelspec:
 ```{code-cell} ipython3
 import arviz as az
 import numpy as np
+import preliz as pz
 import pymc as pm
+import xarray as xr
 
-from matplotlib import pyplot as plt
-from matplotlib.ticker import FormatStrFormatter
 from scipy.special import betaln
-from scipy.stats import beta
 
 print(f"Running on PyMC v{pm.__version__}")
 ```
 
 ```{code-cell} ipython3
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 ```
 
 The "Bayesian way" to compare models is to compute the _marginal likelihood_ of each model $p(y \mid M_k)$, _i.e._ the probability of the observed data $y$ given the $M_k$ model. This quantity, the marginal likelihood, is just the normalizing constant of Bayes' theorem. We can see this if we write Bayes' theorem and make explicit the fact that all inferences are model-dependant. 
@@ -181,13 +180,7 @@ priors = ((1, 1), (30, 30))
 
 ```{code-cell} ipython3
 for a, b in priors:
-    distri = beta(a, b)
-    x = np.linspace(0, 1, 300)
-    x_pdf = distri.pdf(x)
-    plt.plot(x, x_pdf, label=rf"$\alpha$ = {a:d}, $\beta$ = {b:d}")
-    plt.yticks([])
-    plt.xlabel("$\\theta$")
-    plt.legend()
+    pz.Beta(a, b).plot_pdf(figsize=(8, 3))
 ```
 
 The following cell returns the Bayes factor
@@ -240,11 +233,11 @@ So far we have used Bayes factors to judge which model seems to be better at exp
 But what about the posterior we get from these models? How different they are?
 
 ```{code-cell} ipython3
-az.summary(idatas[0], var_names="a", kind="stats").round(2)
+az.summary(idatas[0], var_names="a", kind="stats", round_to=2)
 ```
 
 ```{code-cell} ipython3
-az.summary(idatas[1], var_names="a", kind="stats").round(2)
+az.summary(idatas[1], var_names="a", kind="stats", round_to=2)
 ```
 
 We may argue that the results are pretty similar, we have the same mean value for $\theta$, and a slightly wider posterior for `model_0`, as expected since this model has a wider prior. We can also check the posterior predictive distribution to see how similar they are.
@@ -255,30 +248,20 @@ ppc_1 = pm.sample_posterior_predictive(idatas[1], model=models[1]).posterior_pre
 ```
 
 ```{code-cell} ipython3
-_, ax = plt.subplots(figsize=(9, 6))
-
-bins = np.linspace(0.2, 0.8, 8)
-ax = az.plot_dist(
-    ppc_0["yl"].mean("yl_dim_2"),
-    label="model_0",
-    kind="hist",
-    hist_kwargs={"alpha": 0.5, "bins": bins},
-)
-ax = az.plot_dist(
-    ppc_1["yl"].mean("yl_dim_2"),
-    label="model_1",
-    color="C1",
-    kind="hist",
-    hist_kwargs={"alpha": 0.5, "bins": bins},
-    ax=ax,
-)
-ax.legend()
-ax.set_xlabel("$\\theta$")
-ax.xaxis.set_major_formatter(FormatStrFormatter("%0.1f"))
-ax.set_yticks([]);
+models = {
+    "model_0": xr.Dataset({"yl": ppc_0["yl"].mean("yl_dim_0")}),
+    "model_1": xr.Dataset({"yl": ppc_1["yl"].mean("yl_dim_0")}),
+}
+az.plot_dist(
+    models,
+    visuals={
+        "dist": False,
+        "point_estimate_text": False,
+    },
+);
 ```
 
-In this example the observed data $y$ is more consistent with `model_1` (because the prior is concentrated around the correct value of $\theta$) than `model_0` (which assigns equal probability to every possible value of $\theta$), and this difference is captured by the Bayes factor. We could say Bayes factors are measuring which model, as a whole, is better, including details of the prior that may be irrelevant for parameter inference. In fact in this example we can also see that it is possible to have two different models, with different Bayes factors, but nevertheless get very similar predictions. The reason is that the data is informative enough to reduce the effect of the prior up to the point of inducing a very similar posterior. As predictions are computed from the posterior we also get very similar predictions. In most scenarios when comparing models what we really care is the predictive accuracy of the models, if two models have similar predictive accuracy we consider both models as similar. To estimate the predictive accuracy we can use tools like PSIS-LOO-CV (`az.loo`), WAIC (`az.waic`), or cross-validation.
+In this example the observed data $y$ is more consistent with `model_1` (because the prior is concentrated around the correct value of $\theta$) than `model_0` (which assigns equal probability to every possible value of $\theta$), and this difference is captured by the Bayes factor. We could say Bayes factors are measuring which model, as a whole, is better, including details of the prior that may be irrelevant for parameter inference. In fact in this example we can also see that it is possible to have two different models, with different Bayes factors, but nevertheless get very similar predictions. The reason is that the data is informative enough to reduce the effect of the prior up to the point of inducing a very similar posterior. As predictions are computed from the posterior we also get very similar predictions. In most scenarios when comparing models what we really care is the predictive accuracy of the models, if two models have similar predictive accuracy we consider both models as similar. To estimate the predictive accuracy we can use tools like PSIS-LOO-CV (`az.loo`).
 
 +++
 
@@ -300,13 +283,13 @@ with pm.Model() as model_uni:
     a = pm.Beta("a", 1, 1)
     yl = pm.Bernoulli("yl", a, observed=y)
     idata_uni = pm.sample(2000, random_seed=42)
-    idata_uni.extend(pm.sample_prior_predictive(8000))
+    idata_uni["prior"] = pm.sample_prior_predictive(8000).prior
 ```
 
 And now we call ArviZ's `az.plot_bf` function
 
 ```{code-cell} ipython3
-az.plot_bf(idata_uni, var_name="a", ref_val=0.5);
+az.plot_bf(idata_uni, var_names="a", ref_val=0.5);
 ```
 
 The plot shows one KDE for the prior (blue) and one for the posterior (orange). The two black dots show we evaluate both distribution as 0.5. We can see that the Bayes factor in favor of the null BF_01 is $\approx 8$, which we can interpret as a _moderate evidence_ in favor of the null (see the Jeffreys' scale we discussed before).
@@ -322,11 +305,11 @@ with pm.Model() as model_conc:
     a = pm.Beta("a", 30, 30)
     yl = pm.Bernoulli("yl", a, observed=y)
     idata_conc = pm.sample(2000, random_seed=42)
-    idata_conc.extend(pm.sample_prior_predictive(8000))
+    idata_conc["prior"] = pm.sample_prior_predictive(8000).prior
 ```
 
 ```{code-cell} ipython3
-az.plot_bf(idata_conc, var_name="a", ref_val=0.5);
+az.plot_bf(idata_conc, var_names="a", ref_val=0.5);
 ```
 
 * Authored by Osvaldo Martin in September, 2017 ([pymc#2563](https://github.com/pymc-devs/pymc/pull/2563))
@@ -334,6 +317,8 @@ az.plot_bf(idata_conc, var_name="a", ref_val=0.5);
 * Updated by Osvaldo Martin in May, 2022 ([pymc-examples#342](https://github.com/pymc-devs/pymc-examples/pull/342))
 * Updated by Osvaldo Martin in Nov, 2022
 * Re-executed by Reshama Shaikh with PyMC v5 in Jan, 2023
+* Updated by Osvaldo Martin in Dec, 2025
+* Updated by Osvaldo Martin in Apr, 2026
 
 +++
 

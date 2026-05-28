@@ -149,6 +149,8 @@ def dX_dt(X, t, a, b, c, d):
 
 # simulator function
 def competition_model(rng, a, b, size=None):
+    a = np.squeeze(a)
+    b = np.squeeze(b)
     return odeint(dX_dt, y0=X0, t=t, rtol=0.01, args=(a, b, c, d))
 ```
 

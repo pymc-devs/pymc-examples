@@ -6,7 +6,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: pymc-examples
   language: python
   name: python3
 ---
@@ -168,7 +168,7 @@ So far this has been quite high-level, but let's try to pin this down a little. 
 
 Though the real question we might want an answer to is "What would have happened in the past if we had set the interest rates to 2%?" or "What will happen going forward if we set the interest rates to 2%?" Despite the subtle changing of wording, this now radically changes what we have to do in order to answer the question. So a key point here is **interventional distributions require causal (not statistical) approaches**.
 
-Interventional distributions are cool because they allow us to ask what-if (or counterfactual questions). For example, with a causal DAG we could ask questions of the form, "What do I think will happen in the future if I do X?" or "What do I think would have happened in the past if X had happened?" See how these types of questions have a very different flavour to purely statistical kinds of questions - they would be more like "Given what I've seen, what do I think will happen." See how this has a more passive, observational focus.
+Interventional distributions allow us to ask _interventional_ what-if questions. For example, with a causal DAG we could ask questions of the form, "What do I think will happen if I set X to a particular value?" or "What would happen to Y if we were to intervene and change X?" See how these types of questions have a very different flavour to purely statistical kinds of questions — those would be more like "Given what I've seen, what do I think will happen?" See how statistical questions have a more passive, observational focus.
 
 From hereon, the main point of this notebook will be to provide some understanding and intuition about the differences between conditional and interventional distributions, and how to estimate interventional distributions with PyMC. As we said above, we can use the $\operatorname{do}$ operator to estimate interventional distributions. So let's dive in and see how that works.
 
@@ -399,7 +399,7 @@ for i, ds in enumerate([ds1, ds2, ds3]):
         ax=ax[i],
     )
     ax[i].set(
-        title=f"$P(x, y)$, DAG {i+1}",
+        title=f"$P(x, y)$, DAG {i + 1}",
         xlim=[-4, 4],
         xticks=np.arange(-4, 4 + 1, step=2),
         ylim=[-6, 8],
@@ -411,7 +411,7 @@ for i, ds in enumerate([ds1, ds2, ds3]):
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}}
 
-At this point we have met 3 different data generating processes (and their corresponding DAGs). We've drawn many MCMC samples from the prior distribution and visualised this joint distribution $P(x,y)$ for each of the models. We are now in position to recap the conditional distributions (e.g. $P(y|x=2$, see the next section) and how they compare to the interventional distribution $P(y|\operatorname{do}=2)$ in the section following that.
+At this point we have met 3 different data generating processes (and their corresponding DAGs). We've drawn many MCMC samples from the prior distribution and visualised this joint distribution $P(x,y)$ for each of the models. We are now in position to recap the conditional distributions (e.g. $P(y|x=2$, see the next section) and how they compare to the interventional distribution $P(y|\operatorname{do}(x=2))$ in the section following that.
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}}
 
@@ -467,7 +467,7 @@ pm.model_to_graphviz(model3_do)
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}}
 
-So we can see that in DAG 1, the $x$ variable still has causal influence on $y$. However, in DAGs 2 and 3, $y$ is no longer causally influenced by $x$. So in DAGs 2 and 3, our intervention $\operatorname{do}(x=2)$ have no influence on $y$.
+So we can see that in DAG 1, the $x$ variable still has causal influence on $y$. However, in DAGs 2 and 3, $y$ is no longer causally influenced by $x$. So in DAGs 2 and 3, our intervention $\operatorname{do}(x=2)$ has no influence on $y$.
 
 +++ {"editable": true, "slideshow": {"slide_type": ""}}
 
@@ -582,6 +582,7 @@ Readers looking to learn more are suggested to check out the cited blog posts as
 
 ## Authors
 - Authored by [Benjamin T. Vincent](https://github.com/drbenvincent) in July 2023
+- Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in March 2026
 
 +++
 
