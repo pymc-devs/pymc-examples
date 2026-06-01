@@ -6,7 +6,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-marketing-dev
+  display_name: Python 3
   language: python
   name: python3
 ---
@@ -51,14 +51,14 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 rng = np.random.default_rng(7)
 RANDOM_SEED = 7
 ```
 
 ## What the data can and cannot say
 
-The structural picture is small and the notation traditional. Let $T$ be the observed treatment indicator (which flow the visitor actually saw), let $Y$ be the outcome (revenue), and let $U$ be an unmeasured user characteristic: connection quality, engagement disposition, whatever drives the differential compliance. Under randomisation $U$ is independent of $T$ by construction; under compliance failure $U$ is associated with $T$ in a way the analyst cannot directly observe.
+The structural picture is small and the notation traditional. Let $T$ be the observed treatment indicator (which flow the visitor actually saw), let $Y$ be the outcome (revenue), and let $U$ be an unmeasured user characteristic: connection quality, engagement disposition, whatever drives the differential compliance. Under randomisation $U$ is independent of $T$ by construction; under compliance failure $U$ is associated with $T$ and unobservable.
 
 ```{code-cell} ipython3
 :tags: [hide-input]
@@ -98,13 +98,13 @@ What we want is $\tau$, the causal effect of $T$ on $Y$. What the data identify 
 
 ## The bias parameter
 
-The Bayesian sensitivity analysis introduces $\beta$ as a model parameter with an explicit prior. The data inform the sum $\tau + \beta$ through the observed difference; the prior on $\beta$ controls how much of that sum is attributed to the unmeasured confounder rather than to the treatment. Three commitments are useful to compare:
+The Bayesian sensitivity analysis makes $\beta$ a model parameter with a prior. The data inform the sum $\tau + \beta$ through the observed difference; the prior on $\beta$ controls how much of that sum is attributed to the unmeasured confounder rather than to the treatment. Three prior commitments:
 
 - **Dismissive prior** ($\beta \sim \mathcal{N}(0, 0.05)$): "I am confident there is essentially no confounding."
 - **Moderate prior** ($\beta \sim \mathcal{N}(0, 0.3)$): "I will allow that confounding may have shifted the apparent effect by up to a few tenths of a revenue unit."
 - **Sceptical prior** ($\beta \sim \mathcal{N}(0, 0.7)$): "I will not commit to confounding being small; the data must speak loudly to be heard."
 
-Each commitment is a separable, auditable claim. The plot we are about to build shows how the posterior on $\tau$ moves as the analyst slides this commitment.
+Each is an auditable commitment.
 
 ```{code-cell} ipython3
 N = 4000
@@ -127,7 +127,7 @@ print(f"Observed difference d_hat = {d_hat:.3f} (sampling SE = {sigma_d:.3f})")
 print(f"True tau = {TRUE_TAU}, true bias = {TRUE_BIAS}, true sum = {TRUE_TAU + TRUE_BIAS}")
 ```
 
-The observed difference recovers the *biased* effect, as it must. The treatment effect $\tau$ is what we want; the bias $\beta$ is the channel we cannot observe. We now build a PyMC model that asks the data which decomposition is most plausible *given* a prior on the bias.
+The observed difference recovers the *biased* effect, as it must. $\tau$ is what we want; $\beta$ is what we cannot observe. The model below asks which decomposition the data find most plausible given a prior on $\beta$.
 
 ```{code-cell} ipython3
 def gaussian_sensitivity_model(d_hat, sigma_d, tau_prior=(0.0, 1.0), bias_prior=(0.0, 0.3)):
@@ -149,13 +149,16 @@ with gaussian_sensitivity_model(d_hat, sigma_d, bias_prior=(0.0, 0.3)):
         progressbar=False,
     )
 
-axes = az.plot_posterior(
-    idata_moderate, var_names=["tau", "beta"], ref_val=[TRUE_TAU, TRUE_BIAS], figsize=(8, 3.5)
-)
-plt.suptitle(r"Posterior of $\tau$ and $\beta$ under a moderate bias prior", y=1.05);
+az.plot_dist(idata_moderate, var_names=["tau", "beta"])
+axes = plt.gcf().axes
+axes[0].axvline(TRUE_TAU, color="C2", linestyle="--", label=f"true τ = {TRUE_TAU:.2f}")
+axes[0].legend()
+axes[1].axvline(TRUE_BIAS, color="C2", linestyle="--", label=f"true β = {TRUE_BIAS:.2f}")
+axes[1].legend()
+plt.suptitle(r"Posterior of $\tau$ and $\beta$ under a moderate bias prior", y=1.05)
 ```
 
-The posterior of $\tau$ is centred well above zero but with substantial uncertainty; the posterior of $\beta$ is also non-zero, reflecting the prior pull. The data have informed the sum but the decomposition is shaped by the prior on $\beta$. The next move is to vary that prior and see what the data tolerate.
+The posterior of $\tau$ is centred above zero; the posterior of $\beta$ is non-zero, pulled by the prior. The data informed the sum; the prior shapes the decomposition.
 
 ### Tipping-point analysis under a Gaussian outcome
 
@@ -254,51 +257,11 @@ axes[1].set_title("Tipping point in the decision rule")
 axes[1].legend();
 ```
 
-Read the left panel from left to right: as the analyst loosens their prior on the bias, the posterior mean of $\tau$ drifts downward and the posterior interval widens. Read the right panel: there is a bias prior strength at which the posterior probability of a positive effect falls below the conventional decision threshold. The tipping point is not a refutation of the experiment — it is a price tag. To assert a positive effect requires a stated belief that the bias prior is *tighter* than the tipping point. The honest version of the conversation with stakeholders runs through this number.
+Read the left panel from left to right: as the analyst loosens their prior on the bias, the posterior mean of $\tau$ drifts downward and the posterior interval widens. Read the right panel: there is a bias prior strength at which the posterior probability of a positive effect falls below the conventional decision threshold. The tipping point is not a refutation of the experiment — it is a price tag. To assert a positive effect requires a stated belief that the bias prior is *tighter* than the tipping point. The honest version of the conversation with stakeholders runs through this number. The posterior is what makes that conversation possible: the same inference machinery that reads the experiment's results in a clean world is what traces the contour of its fragility here. The question has changed from what the treatment did to which prior commitments on the unmeasured bias are required to believe that it did anything; the machinery has not.
 
-### The sensitivity surface
+The same machinery runs on the log-odds scale. Before mapping the full topology of the bias-prior space, we confirm that the one-dimensional fragility picture is not an artefact of the Gaussian likelihood.
 
-The previous sweep moved one dimension of the bias prior. The bias prior has two, the mean and the standard deviation, and an analyst defending the conclusion ought to be able to point at the region of $(\mu_\beta, \sigma_\beta)$ where the decision still goes through. The two-dimensional sweep below maps it.
-
-```{code-cell} ipython3
-bias_mu_grid = np.linspace(-0.5, 0.5, 25)
-bias_sd_grid_2d = np.linspace(0.01, 1.0, 25)
-prob_grid = np.zeros((len(bias_sd_grid_2d), len(bias_mu_grid)))
-
-for i, b_sd in enumerate(bias_sd_grid_2d):
-    for j, b_mu in enumerate(bias_mu_grid):
-        pm_a, pc_a = gaussian_sensitivity_posterior(
-            d_hat, sigma_d, tau_prior_sd=1.0, bias_prior_sd=b_sd, bias_prior_mean=b_mu
-        )
-        tau_mean, tau_sd = pm_a[0], np.sqrt(pc_a[0, 0])
-        prob_grid[i, j] = 1.0 - stats.norm.cdf(0.0, loc=tau_mean, scale=tau_sd)
-
-fig, ax = plt.subplots(figsize=(6.5, 5))
-im = ax.imshow(
-    prob_grid,
-    origin="lower",
-    aspect="auto",
-    extent=[bias_mu_grid.min(), bias_mu_grid.max(), bias_sd_grid_2d.min(), bias_sd_grid_2d.max()],
-    cmap="RdBu_r",
-    vmin=0.0,
-    vmax=1.0,
-)
-contour = ax.contour(
-    bias_mu_grid,
-    bias_sd_grid_2d,
-    prob_grid,
-    levels=[0.5, decision_threshold],
-    colors=["white", "black"],
-    linewidths=[1.2, 2.0],
-)
-ax.clabel(contour, fmt={0.5: "P=0.5", decision_threshold: f"P={decision_threshold}"})
-ax.set_xlabel(r"Prior mean of bias $\beta$")
-ax.set_ylabel(r"Prior SD of bias $\beta$")
-ax.set_title(r"$P(\tau > 0)$ under bias-prior commitments")
-plt.colorbar(im, ax=ax, label=r"$P(\tau > 0 \mid d_{\text{obs}})$");
-```
-
-The decision threshold contour partitions the bias-prior plane into a region where the experiment is defensible and a region where it is not. The analyst who wants to claim a positive effect commits to a point inside the inner contour. The dissenter who wants to claim the effect is artefactual commits to a point outside it. The graph does not tell anyone who is right; it tells both parties exactly what they are disagreeing about.
++++
 
 ## The same machinery on a binary outcome
 
@@ -406,15 +369,63 @@ axes[1].set_title("Tipping point on the log-odds scale")
 axes[1].legend();
 ```
 
-The shape of the curve is the one we saw in the Gaussian case. The decision rule loses confidence in the positive treatment effect as the analyst becomes more willing to attribute the observed log-odds shift to an unmeasured confounder. The E-value of {cite:p}`vanderweele2017sensitivity` corresponds, roughly, to the bias magnitude at which a frequentist decision would tip; the Bayesian curve here is the full posterior over the bias-prior commitment, and is the object the analyst should actually be reading.
+The shape of the curve confirms what the Gaussian case showed: the decision rule loses confidence as the prior on bias widens, and the tipping point is identifiable on the log-odds scale just as it was on the revenue scale. The E-value of {cite:p}`vanderweele2017sensitivity` corresponds, roughly, to the bias magnitude at which a frequentist decision would tip; the Bayesian curve is the full posterior over that commitment. One dimension, two likelihoods, the same fragility picture. The complete audit — both dimensions of the bias prior, the full region of commitments the conclusion can survive — is the surface below.
+
++++
+
+### The sensitivity surface
+
+Both the Gaussian and the binary sweep moved one dimension of the bias prior. The complete audit requires the other: a map of the full region of $(\mu_\beta, \sigma_\beta)$ commitments the experiment can survive. The sweep below opens the line into a surface.
+
+```{code-cell} ipython3
+bias_mu_grid = np.linspace(-0.5, 0.5, 25)
+bias_sd_grid_2d = np.linspace(0.01, 1.0, 25)
+prob_grid = np.zeros((len(bias_sd_grid_2d), len(bias_mu_grid)))
+
+for i, b_sd in enumerate(bias_sd_grid_2d):
+    for j, b_mu in enumerate(bias_mu_grid):
+        pm_a, pc_a = gaussian_sensitivity_posterior(
+            d_hat, sigma_d, tau_prior_sd=1.0, bias_prior_sd=b_sd, bias_prior_mean=b_mu
+        )
+        tau_mean, tau_sd = pm_a[0], np.sqrt(pc_a[0, 0])
+        prob_grid[i, j] = 1.0 - stats.norm.cdf(0.0, loc=tau_mean, scale=tau_sd)
+
+fig, ax = plt.subplots(figsize=(6.5, 5))
+im = ax.imshow(
+    prob_grid,
+    origin="lower",
+    aspect="auto",
+    extent=[bias_mu_grid.min(), bias_mu_grid.max(), bias_sd_grid_2d.min(), bias_sd_grid_2d.max()],
+    cmap="RdBu_r",
+    vmin=0.0,
+    vmax=1.0,
+)
+contour = ax.contour(
+    bias_mu_grid,
+    bias_sd_grid_2d,
+    prob_grid,
+    levels=[0.5, decision_threshold],
+    colors=["white", "black"],
+    linewidths=[1.2, 2.0],
+)
+ax.clabel(contour, fmt={0.5: "P=0.5", decision_threshold: f"P={decision_threshold}"})
+ax.set_xlabel(r"Prior mean of bias $\beta$")
+ax.set_ylabel(r"Prior SD of bias $\beta$")
+ax.set_title(r"$P(\tau > 0)$ under bias-prior commitments")
+plt.colorbar(im, ax=ax, label=r"$P(\tau > 0 \mid d_{\text{obs}})$");
+```
+
+The decision threshold contour partitions the bias-prior plane into a region where the experiment is defensible and a region where it is not. The analyst who wants to claim a positive effect commits to a point inside the inner contour. The dissenter who wants to claim the effect is artefactual commits to a point outside it. The graph does not tell anyone who is right. It tells both parties exactly what they are disagreeing about: which region of the bias-prior plane their prior commitments occupy, and whether that region sits inside or outside the contour of defensibility. The audit has a legible geometry.
+
++++
 
 ## Robustness as a posterior question
 
 The randomisation gap is not closed by a sensitivity analysis. It is mapped. The analyst who runs the sweep above has not proved the experiment robust; they have produced an audit-able exhibit of which bias commitments the experiment can survive, and which it cannot. The audit is the deliverable.
 
-This shifts what counts as honest reporting. The headline number from a quasi-experiment is no longer the point estimate of the treatment effect; it is the *tipping point* — the prior on the bias at which the conclusion turns. Two analysts holding the same data and disagreeing about a conclusion are not really disagreeing about the data. They are disagreeing about which side of the tipping point their prior commitments sit on. The Bayesian sensitivity machinery makes the locus of disagreement explicit, named, and graphable.
+This shifts what counts as honest reporting. The headline number from a quasi-experiment is no longer the point estimate of the treatment effect; it is the *tipping point* — the prior on the bias at which the conclusion turns. The sensitivity surface extends this from a point to a topology: the full region of bias-prior commitments the experiment can survive, with its boundary drawn as a contour. Two analysts holding the same data and disagreeing about a conclusion are not disagreeing about the data. They occupy different coordinates in the bias-prior plane, and the surface tells them precisely which commitment separates them.
 
-The deeper move is the one we are tracing across the three notebooks in this sequence. The first notebook used the posterior to ask what an experiment will probably say. This one uses the posterior to ask what the experiment did say, once the assumption of clean identification is itself a parameter. The next will use the posterior to ask what a whole series of experiments jointly implies. In all three the same move recurs: an assumption a conventional analysis would simply make becomes a parameter the analysis estimates, and so turns from something assumed into something contestable. The posterior is the constant; the question changes. We have just seen the second.
+The first notebook used the posterior to ask what an experiment will probably say. This one uses the posterior to ask what the experiment did say, once the assumption of clean identification is itself a parameter. The next will use the posterior to ask what a whole series of experiments jointly implies. In each: an assumption a conventional analysis leaves implicit becomes a parameter with a posterior — something to argue about rather than assume. The posterior is the constant; the question changes. We have just seen the second.
 
 ## Authors
 

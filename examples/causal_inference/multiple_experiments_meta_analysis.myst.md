@@ -6,7 +6,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc-marketing-dev
+  display_name: Python 3
   language: python
   name: python3
 ---
@@ -22,7 +22,9 @@ kernelspec:
 
 ## The replication-as-evidence problem
 
-Eight quarterly A/B tests of the same checkout-flow redesign, run across eight markets, return eight different point estimates. Three cross the conventional significance threshold; the other five do not. The product manager asks the natural question — "did it work?" — and gets, depending on which colleague answers, two incompatible defaults: vote-counting ("four out of eight worked, so it's a wash"), or pool-everything ("the combined estimate is positive, so it works"). Both are mistakes. The vote-count discards the magnitude information in each estimate; the pool-everything pretends the markets are exchangeable in a way the evidence does not support. The honest answer requires a model that lets the markets be different, and lets that difference be part of what we are estimating.
+Eight quarterly A/B tests of the same checkout-flow redesign, run across eight markets, return eight different point estimates. Three cross the conventional significance threshold; the other five do not. The product manager asks the natural question — "did it work?" — and gets, depending on which colleague answers, two incompatible defaults: vote-counting ("four out of eight worked, so it's a wash"), or pool-everything ("the combined estimate is positive, so it works"). Both are mistakes. The vote-count discards the magnitude information in each estimate; the pool-everything pretends the markets are exchangeable in a way the evidence does not support. The honest answer requires a model that estimates between-market differences rather than assuming them away.
+
+Each experiment speaks about one market. The hierarchy is what lets us hear all of them at once.
 
 This notebook builds that model. The hierarchical Bayesian meta-analysis treats each experiment as a noisy estimate of its own market's true effect, and treats the per-market effects as draws from a population whose mean and variance are themselves the quantities of substantive interest {cite:p}`borenstein2009meta`, {cite:p}`higgins2009meta`. The structure is the one Rubin used for the 8-schools problem in 1981 {cite:p}`rubin1981estimation`, {cite:p}`gelman2013bayesian`, transposed to product experimentation. We develop it on a continuous outcome (revenue per visitor) and then re-run it on a binary outcome (conversion). This is the third of three notebooks on the lifecycle of a Bayesian experiment; see {ref}`assurance_planning` for the planning counterpart and {ref}`sensitivity_confounding` for the interpretation counterpart. Readers wanting a deeper view of the partial-pooling vocabulary should also consult the existing PyMC notebooks on {ref}`multilevel_modeling` and {ref}`hierarchical_partial_pooling`, which we treat as predecessors rather than re-derive.
 
@@ -50,7 +52,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 rng = np.random.default_rng(11)
 RANDOM_SEED = 11
 ```
@@ -162,7 +164,7 @@ anova_tbl = anova_two_way(study_df, "revenue", "segment", "treatment")
 anova_tbl.round(3)
 ```
 
-The interaction $F$-test reports whether heterogeneity is detectable; it does not estimate how large it is. The meta-analytic siblings of the same variance decomposition do, and because they recur through the rest of the notebook it is worth stating plainly what each one measures.
+The interaction $F$-test reports whether heterogeneity is detectable; it does not estimate how large it is.
 
 :::{admonition} Three numbers for heterogeneity
 :class: note
@@ -235,8 +237,8 @@ comparison.round(3)
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(6.5, 3.8))
-az.plot_posterior(idata_seg, var_names=["tau"], ax=ax)
+az.plot_dist(idata_seg, var_names=["tau"])
+ax = plt.gcf().axes[0]
 ax.axvline(
     np.sqrt(tau2_DL),
     color="C1",
@@ -244,10 +246,10 @@ ax.axvline(
     label=f"DerSimonian–Laird τ = {np.sqrt(tau2_DL):.2f}",
 )
 ax.set_title(r"Posterior of between-segment SD $\tau$ (one study, six segments)")
-ax.legend();
+ax.legend()
 ```
 
-Three estimators, three commitments about how much the segments share. The fixed-effect ANOVA assumes one common effect and pools completely; the random-effects ANOVA admits between-segment variance and estimates it by moments; the hierarchical model carries that variance as a posterior. The grouping factor throughout was the segment, and that is the only thing about to change. Replace "segment" with "study" and the model is untouched: meta-analysis is the random-effects analysis of variance with studies as the groups, and the index $k$ ranges over experiments rather than segments. The rest of this notebook makes exactly that substitution.
+Three estimators, three commitments about how much the segments share. The fixed-effect ANOVA assumes one common effect and pools completely; the random-effects ANOVA admits between-segment variance and estimates it by moments; the hierarchical model carries that variance as a posterior. The grouping factor was the segment. Replace it with "study" and the model is untouched: meta-analysis is the random-effects analysis of variance with studies as the groups, and the index $k$ ranges over experiments rather than segments. The rest of this notebook makes exactly that substitution. The substitution is mechanical; what it opens is not. Once studies replace segments, τ becomes the quantity the replication programme was designed to estimate.
 
 ## The hierarchical re-framing
 
@@ -257,7 +259,7 @@ $$
 \theta_k \sim \mathcal{N}(\mu, \tau), \qquad \hat d_k \mid \theta_k \sim \mathcal{N}(\theta_k, s_k),
 $$
 
-where $\mu$ is the population mean effect across markets and $\tau$ is the between-market standard deviation. The substantive story lives in both: $\mu$ tells the team what to expect *on average* from the redesign; $\tau$ tells them how variable that expectation is when the next market is queried. Neither quantity is recoverable from any single experiment. Both are recoverable from the joint.
+where $\mu$ is the population mean effect across markets and $\tau$ is the between-market standard deviation. $\mu$ tells the team what to expect on average; $\tau$ tells them how variable that expectation is across markets. Neither quantity is recoverable from any single experiment. Both are recoverable from the joint.
 
 ```{code-cell} ipython3
 K = 8
@@ -299,7 +301,7 @@ markets_df = pd.DataFrame(
 markets_df.round(3)
 ```
 
-The per-market `z_score` column is what a frequentist replication exercise would consult: anything above 1.96 in absolute value counts as "significant", anything below does not. The columns disagree about how many markets "worked"; the underlying true effects disagree less. This is the gap the hierarchical model is built to close.
+The per-market `z_score` column is what a frequentist replication exercise would consult: anything above 1.96 in absolute value counts as "significant", anything below does not. The columns disagree about how many markets "worked"; the underlying true effects disagree less. This is the gap the hierarchical model closes. The quantity no single experiment can recover is τ.
 
 ## No pooling, complete pooling, partial pooling
 
@@ -346,8 +348,8 @@ no_pool_se = se_obs
 complete_pool_mean = idata_complete.posterior["mu"].mean().item()
 complete_pool_se = idata_complete.posterior["mu"].std().item()
 partial_pool_summary = az.summary(idata_partial, var_names=["theta"], kind="stats")
-partial_pool_mean = partial_pool_summary["mean"].values
-partial_pool_sd = partial_pool_summary["sd"].values
+partial_pool_mean = partial_pool_summary["mean"].values.astype(float)
+partial_pool_sd = partial_pool_summary["sd"].values.astype(float)
 
 forest = pd.DataFrame(
     {
@@ -432,12 +434,15 @@ ax.legend(loc="lower right");
 The hierarchical model returns two population-level quantities, and the conventional reporting habit of leading with $\mu$ obscures the more important one. The posterior of $\tau$ — the between-market standard deviation of true effects — is what tells the team how transportable any single result is to a new context. A small $\tau$ means the markets are nearly exchangeable, and the experiment generalises cleanly; a large $\tau$ means the markets are heterogeneous, and the next market is a meaningfully new experiment. Reporting only $\mu$ collapses this into a point and hides the variability that the next stakeholder will live with.
 
 ```{code-cell} ipython3
-fig, axes = plt.subplots(1, 2, figsize=(11, 3.8))
-az.plot_posterior(idata_partial, var_names=["mu"], ref_val=TRUE_MU, ax=axes[0])
+az.plot_dist(idata_partial, var_names=["mu", "tau"])
+axes = plt.gcf().axes
+axes[0].axvline(TRUE_MU, color="C2", linestyle="--", label=f"true = {TRUE_MU:.2f}")
+axes[0].legend()
 axes[0].set_title(r"Population mean $\mu$")
-az.plot_posterior(idata_partial, var_names=["tau"], ref_val=TRUE_TAU, ax=axes[1])
+axes[1].axvline(TRUE_TAU, color="C2", linestyle="--", label=f"true = {TRUE_TAU:.2f}")
+axes[1].legend()
 axes[1].set_title(r"Between-market SD $\tau$")
-plt.tight_layout();
+plt.tight_layout()
 ```
 
 The posterior of $\tau$ is concentrated well away from zero, which is itself the result of substantive interest: the eight markets disagree about the size of the treatment effect in a way the data demand be respected. The next section turns this into a prediction.
@@ -497,15 +502,18 @@ with partial_bern_model:
 ```
 
 ```{code-cell} ipython3
-fig, axes = plt.subplots(1, 2, figsize=(11, 3.8))
-az.plot_posterior(idata_partial_bern, var_names=["mu"], ref_val=TRUE_MU_LOGIT, ax=axes[0])
+az.plot_dist(idata_partial_bern, var_names=["mu", "tau"])
+axes = plt.gcf().axes
+axes[0].axvline(TRUE_MU_LOGIT, color="C2", linestyle="--", label=f"true = {TRUE_MU_LOGIT:.2f}")
+axes[0].legend()
 axes[0].set_title(r"Population log-odds effect $\mu$")
-az.plot_posterior(idata_partial_bern, var_names=["tau"], ref_val=TRUE_TAU_LOGIT, ax=axes[1])
+axes[1].axvline(TRUE_TAU_LOGIT, color="C2", linestyle="--", label=f"true = {TRUE_TAU_LOGIT:.2f}")
+axes[1].legend()
 axes[1].set_title(r"Between-market SD $\tau$ (log-odds)")
-plt.tight_layout();
+plt.tight_layout()
 ```
 
-The Bernoulli picture is the Gaussian picture on a different link. The population mean log-odds effect is recovered; the between-market variance is recovered; the per-market shrinkage works as before. "Meta-analysis" is not a binary-outcome technique borrowed from medicine. It is the same Bayesian operation regardless of likelihood.
+The Bernoulli picture is the Gaussian picture on a different link. The population mean log-odds effect is recovered; the between-market variance is recovered; the per-market shrinkage works as before. The log-odds parameterisation carries a structural advantage the probability scale does not: a given value of τ means the same degree of between-market variability in the treatment effect regardless of what the baseline conversion rate happens to be. On the probability scale, a τ of 0.05 is meaningful heterogeneity at a 5\% baseline and negligible noise at a 50\% baseline; on the logit, τ is scale-invariant in the way the analysis needs it to be.
 
 ## Predicting the next experiment
 
@@ -572,13 +580,11 @@ The probability the true effect is positive in the next market is higher than th
 
 ## Replication as the data-generating process
 
-A single experiment is overheard speech. Eight experiments are conversation. The hierarchical model is what lets us hear them as conversation rather than as eight unrelated noises, and the posterior on the population is not a number that "summarises the experiments". It is the population our experiments were drawn from, made audible by being listened to as a chorus.
+A single experiment is overheard speech. Eight experiments are conversation. The hierarchical model is what lets us hear them as conversation, and the posterior on the population is not a summary. It is the population our experiments were drawn from, made audible.
 
-This is the deeper reframing that the meta-analytic posture earns. Replication is often described as a verification protocol: a check we run on a result, after the fact, to see if it survives. The Bayesian version is more substantive than that. Replication is the data-generating process whose distribution we are trying to learn. Each new market is a draw from a population we did not have direct access to; pooling is the operation that constructs the population from the draws; the next experiment is the test that the population so constructed will continue to predict. The posterior on $\mu$ and on $\tau$ are the two halves of what we have inferred about the unobserved-but-real distribution of effects across the worlds the team operates in.
+Replication is often described as a verification protocol: a post-hoc check. Replication is the data-generating process whose distribution we are trying to learn. Each new market is a draw from a population we did not have direct access to; pooling is the operation that constructs the population from the draws; the next experiment is the test that the population so constructed will continue to predict. The triptych closes here, though "closes" is the wrong shape for it. The first notebook turned planning into a posterior over future posteriors; the second turned interpretation into a posterior over the bias an experiment cannot rule out; the third turned a series of experiments into a posterior over the population they sample from. Three questions, one machinery. In each, an assumption a conventional analysis leaves implicit is made a parameter with a posterior — something to argue about rather than assume. The likelihood changed from Gaussian to Bernoulli each time and the picture did not. The posterior is the constant; the question changes.
 
-The triptych closes here, though "closes" is the wrong shape for it. The first notebook turned planning into a posterior over future posteriors; the second turned interpretation into a posterior over the bias an experiment cannot rule out; the third turned a series of experiments into a posterior over the population they sample from. Three questions, one machinery, and in each the same discipline: the quantity a conventional analysis leaves implicit, whether the believed effect, the unmeasured confounder, or the between-study variance, is made an explicit parameter with a posterior, and so becomes something a team can argue about rather than assume. The likelihood changed from Gaussian to Bernoulli each time and the picture did not. The posterior is the constant; the question changes.
-
-And the last question feeds the first. The population this notebook inferred is the prior the planning notebook consumes: $\theta_{\text{new}} \sim \mathcal{N}(\mu, \tau)$ is precisely the kind of belief {ref}`assurance_planning` integrates over before the next experiment is run. The synthesis at the end of one experiment's lifecycle is the input to the design of the next. The lifecycle is not a line from plan to verdict but a loop, and the posterior is what travels around it.
+And the last question feeds the first. The population this notebook inferred is the prior the planning notebook consumes: $\theta_{\text{new}} \sim \mathcal{N}(\mu, \tau)$ is precisely the kind of belief {ref}`assurance_planning` integrates over before the next experiment is run. The synthesis at the end of one experiment's lifecycle is the input to the design of the next. The lifecycle is not a line from plan to verdict but a loop, and the posterior is what travels around it — each notebook's synthesis becoming the next notebook's prior, each conversation overheard becoming the next conversation's opening question.
 
 ## Authors
 
