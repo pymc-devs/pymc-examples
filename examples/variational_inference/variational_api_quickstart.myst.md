@@ -351,7 +351,7 @@ a_sample.eval()
 
 Note: repeated `.eval()` calls on the same `sample_node` produce the same draw because PyTensor's compiled function reads the shared RNG state but does not advance it between calls. To get fresh independent samples, use `sample_node(node, size=N)`, which materializes N draws within a single graph evaluation.
 
-By applying replacements, we are now free of the dependence on the PyMC model; instead, we now depend on the approximation. Changing it will change the distribution for stochastic nodes:
+By applying replacements, `sample_node` swaps the model's random variables for draws from the approximation. The expression still builds on the model, but its randomness now comes from the approximation, so changing the approximation changes the distribution of the stochastic nodes.
 
 ```{code-cell} ipython3
 a_dataset = az.convert_to_dataset({"a": svgd_approx.sample_node(a, size=2000).eval()[None, :]})
