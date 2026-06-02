@@ -20,6 +20,8 @@ kernelspec:
 :author: Nathaniel Forde
 :::
 
+All applied inference is argument. Against every experiment you can set the contention that the working conditions were imperfect. Some aspect of the evaluation was flawed. Maybe treatment assignment introduced a subtle kind of bias, or the subjects didn't comply fully with the design. Against every experiment you can contrast the scientific ideal of perfect randomisation and clear adherence. This contrast is just due diligence and sensitivity analysis varies that contrast against the ideal limit case. 
+
 ## The randomisation gap
 
 Randomisation is an assumption you maintain by design, not a fact you assert by intention. The checkout experiment ran, the headline effect on revenue-per-visitor looks positive, and somewhere in the diagnostic notes there is a line about compliance being 73%: users on slow connections were silently routed back to the old flow by a CDN edge case, and the routing was not random in the way it touched the population. The intent-to-treat estimate now depends on a counterfactual the experiment did not produce: what those users would have done under the new flow. Without further assumptions, the data cannot say what the treatment effect would have been if randomisation had held.
@@ -63,7 +65,7 @@ The structural picture is small and the notation traditional. Let $T$ be the obs
 ```{code-cell} ipython3
 :tags: [hide-input]
 
-fig, ax = plt.subplots(figsize=(6, 3.5))
+fig, ax = plt.subplots(figsize=(15, 3.5))
 ax.set_xlim(0, 10)
 ax.set_ylim(0, 5)
 ax.axis("off")
@@ -127,7 +129,55 @@ print(f"Observed difference d_hat = {d_hat:.3f} (sampling SE = {sigma_d:.3f})")
 print(f"True tau = {TRUE_TAU}, true bias = {TRUE_BIAS}, true sum = {TRUE_TAU + TRUE_BIAS}")
 ```
 
-The observed difference recovers the *biased* effect, as it must. $\tau$ is what we want; $\beta$ is what we cannot observe. The model below asks which decomposition the data find most plausible given a prior on $\beta$.
+The observed difference recovers the *biased* effect, as it must. $\tau$ is what we want; $\beta$ is what we cannot observe. Before asking how a prior reshapes that sum, confirm the machinery is faithful: hand the model the belief an analyst would hold if they knew the confounder exactly — a prior on $\beta$ centred at the true bias — and the treatment effect should return unbiased across repeated experiments.
+
+```{code-cell} ipython3
+def gaussian_sensitivity_posterior(
+    d_hat, sigma_d, tau_prior_sd, bias_prior_sd, tau_prior_mean=0.0, bias_prior_mean=0.0
+):
+    """Closed-form posterior over (tau, beta) given the observed effect."""
+    prior_precision = np.diag([1.0 / tau_prior_sd**2, 1.0 / bias_prior_sd**2])
+    F = np.array([[1.0, 1.0]])
+    data_precision = F.T @ F / sigma_d**2
+    post_precision = prior_precision + data_precision
+    post_cov = np.linalg.inv(post_precision)
+    prior_mean = np.array([tau_prior_mean, bias_prior_mean])
+    rhs = prior_precision @ prior_mean + F.flatten() * d_hat / sigma_d**2
+    post_mean = post_cov @ rhs
+    return post_mean, post_cov
+
+
+# Across many synthetic quasi-experiments, where does the posterior mean of tau land
+# when the analyst's prior on the bias is centred at the true confounding strength?
+recovery_rng = np.random.default_rng(RANDOM_SEED)
+n_recovery = 500
+tau_posterior_means = np.empty(n_recovery)
+for i in range(n_recovery):
+    y_A_i, y_B_i = simulate_quasi_experimental_gaussian(
+        N, TRUE_TAU, TRUE_BIAS, SIGMA_OBS, recovery_rng
+    )
+    d_hat_i = y_B_i.mean() - y_A_i.mean()
+    post_mean_i, _ = gaussian_sensitivity_posterior(
+        d_hat_i, sigma_d, tau_prior_sd=1.0, bias_prior_sd=0.1, bias_prior_mean=TRUE_BIAS
+    )
+    tau_posterior_means[i] = post_mean_i[0]
+
+fig, ax = plt.subplots(figsize=(20, 4))
+ax.hist(tau_posterior_means, bins=30, color="C0", alpha=0.7, edgecolor="white")
+ax.axvline(TRUE_TAU, color="C2", linestyle="--", linewidth=2, label=f"true \u03c4 = {TRUE_TAU:.2f}")
+ax.axvline(
+    tau_posterior_means.mean(),
+    color="C3",
+    linewidth=2,
+    label=f"mean estimate = {tau_posterior_means.mean():.3f}",
+)
+ax.set_xlabel(r"Posterior mean of $\tau$ across simulated experiments")
+ax.set_ylabel("Frequency")
+ax.set_title(r"Recovery of $\tau$ when the bias prior is correctly centred")
+ax.legend();
+```
+
+The sampling distribution of the posterior mean sits on the true $\tau = 0.30$: with the confounder's strength correctly specified, the estimator is unbiased across repeated experiments. The recovery is real, but read what produced it. The data fixed the sum $\tau + \beta$ through the observed difference; the correctly-centred prior on $\beta$ is what split that sum into its parts. A single difference in means cannot separate a treatment effect from a confound that imitates it — the two are not identified by the data, only by the data together with a commitment about the confounder. The prior is not a nuisance to be tuned away. It is the content of the decomposition, and that is why the honest analysis does not settle on one prior but varies it. Recentre the prior on $\beta$ at zero — where an analyst lands by default, having no oracle for the confounder's size — and the estimate moves. The moderate prior below makes the shift concrete.
 
 ```{code-cell} ipython3
 def gaussian_sensitivity_model(d_hat, sigma_d, tau_prior=(0.0, 1.0), bias_prior=(0.0, 0.3)):
@@ -151,36 +201,23 @@ with gaussian_sensitivity_model(d_hat, sigma_d, bias_prior=(0.0, 0.3)):
 
 az.plot_dist(idata_moderate, var_names=["tau", "beta"])
 axes = plt.gcf().axes
+for a in axes:
+    a.set_title("")
 axes[0].axvline(TRUE_TAU, color="C2", linestyle="--", label=f"true τ = {TRUE_TAU:.2f}")
 axes[0].legend()
 axes[1].axvline(TRUE_BIAS, color="C2", linestyle="--", label=f"true β = {TRUE_BIAS:.2f}")
 axes[1].legend()
-plt.suptitle(r"Posterior of $\tau$ and $\beta$ under a moderate bias prior", y=1.05)
+plt.suptitle(r"Posterior of $\tau$ and $\beta$ under a moderate bias prior");
 ```
 
-The posterior of $\tau$ is centred above zero; the posterior of $\beta$ is non-zero, pulled by the prior. The data informed the sum; the prior shapes the decomposition.
+Under the moderate prior, centred at zero, the posterior of $\tau$ is pulled well above the true 0.30 and the posterior of $\beta$ settles near zero: with no prior reason to expect a confounder, the treatment absorbs the sum. The true $\beta = 0.50$ falls in the prior's right tail. The data informed the sum; the prior shaped the split.
 
 ### Tipping-point analysis under a Gaussian outcome
 
 The model with a flat prior on $\tau$ and a Gaussian prior on $\beta$ is fully conjugate; the posterior is a closed-form bivariate Normal that we can compute analytically. This lets us trace the tipping point — the bias prior strength at which the posterior probability of a positive treatment effect drops below the team's decision threshold.
 
 ```{code-cell} ipython3
-def gaussian_sensitivity_posterior(
-    d_hat, sigma_d, tau_prior_sd, bias_prior_sd, tau_prior_mean=0.0, bias_prior_mean=0.0
-):
-    """Closed-form posterior over (tau, beta) given the observed effect."""
-    prior_precision = np.diag([1.0 / tau_prior_sd**2, 1.0 / bias_prior_sd**2])
-    F = np.array([[1.0, 1.0]])
-    data_precision = F.T @ F / sigma_d**2
-    post_precision = prior_precision + data_precision
-    post_cov = np.linalg.inv(post_precision)
-    prior_mean = np.array([tau_prior_mean, bias_prior_mean])
-    rhs = prior_precision @ prior_mean + F.flatten() * d_hat / sigma_d**2
-    post_mean = post_cov @ rhs
-    return post_mean, post_cov
-
-
-# Verify analytical agrees with MCMC under the moderate prior
+# Verify the closed form agrees with MCMC under the moderate prior
 post_mean_anly, post_cov_anly = gaussian_sensitivity_posterior(
     d_hat, sigma_d, tau_prior_sd=1.0, bias_prior_sd=0.3
 )
@@ -214,7 +251,7 @@ decision_threshold = 0.95
 above_threshold = sweep_df[sweep_df["prob_positive"] >= decision_threshold]
 tipping_point = above_threshold["bias_sd"].max() if len(above_threshold) else np.nan
 
-fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+fig, axes = plt.subplots(1, 2, figsize=(20, 4))
 axes[0].plot(
     sweep_df["bias_sd"],
     sweep_df["tau_mean"],
@@ -257,7 +294,7 @@ axes[1].set_title("Tipping point in the decision rule")
 axes[1].legend();
 ```
 
-Read the left panel from left to right: as the analyst loosens their prior on the bias, the posterior mean of $\tau$ drifts downward and the posterior interval widens. Read the right panel: there is a bias prior strength at which the posterior probability of a positive effect falls below the conventional decision threshold. The tipping point is not a refutation of the experiment — it is a price tag. To assert a positive effect requires a stated belief that the bias prior is *tighter* than the tipping point. The honest version of the conversation with stakeholders runs through this number. The posterior is what makes that conversation possible: the same inference machinery that reads the experiment's results in a clean world is what traces the contour of its fragility here. The question has changed from what the treatment did to which prior commitments on the unmeasured bias are required to believe that it did anything; the machinery has not.
+Read the left panel from left to right: as the analyst loosens their prior on the bias, the posterior mean of $\tau$ drifts downward and the posterior interval widens. Read the right panel: there is a bias prior strength at which the posterior probability of a positive effect falls below the conventional decision threshold. The tipping point is not a refutation of the experiment — it is a price tag. To assert a positive effect requires a stated belief that the bias prior is *tighter* than the tipping point. The honest version of the conversation with stakeholders runs through this number. The posterior is what makes that conversation possible: the same inference machinery that reads the experiment's results in a clean world is what traces the contour of its fragility here. The problem has changed from what the treatment did to which prior commitments on the unmeasured bias are required to believe it did anything. Its proper characterisation has not changed: it is a posterior either way.
 
 The same machinery runs on the log-odds scale. Before mapping the full topology of the bias-prior space, we confirm that the one-dimensional fragility picture is not an artefact of the Gaussian likelihood.
 
@@ -312,7 +349,7 @@ def bernoulli_sensitivity_model(
 
 
 tipping_records_bern = []
-for bias_sd in [0.05, 0.15, 0.30, 0.50, 0.80]:
+for bias_sd in [0.05, 0.15, 0.2, 0.30, 0.50, 0.80]:
     with bernoulli_sensitivity_model(n_A_obs, n_B_obs, N=8000, bias_prior=(0.0, bias_sd)):
         idata = pm.sample(
             draws=1000,
@@ -336,7 +373,7 @@ tipping_bern_df.round(3)
 ```
 
 ```{code-cell} ipython3
-fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+fig, axes = plt.subplots(1, 2, figsize=(20, 4))
 axes[0].errorbar(
     tipping_bern_df["bias_sd"],
     tipping_bern_df["tau_mean"],
@@ -362,6 +399,13 @@ axes[1].axhline(
     color="black",
     linestyle="--",
     label=f"Decision threshold = {decision_threshold}",
+)
+axes[1].axvline(
+    0.2,
+    color="C3",
+    linestyle=":",
+    alpha=0.7,
+    label=f"Tipping point ≈ {tipping_point:.2f}",
 )
 axes[1].set_xlabel(r"Prior SD on bias $\beta$ (log-odds)")
 axes[1].set_ylabel(r"$P(\tau > 0 \mid \text{data})$")
@@ -390,7 +434,7 @@ for i, b_sd in enumerate(bias_sd_grid_2d):
         tau_mean, tau_sd = pm_a[0], np.sqrt(pc_a[0, 0])
         prob_grid[i, j] = 1.0 - stats.norm.cdf(0.0, loc=tau_mean, scale=tau_sd)
 
-fig, ax = plt.subplots(figsize=(6.5, 5))
+fig, ax = plt.subplots(figsize=(15, 5))
 im = ax.imshow(
     prob_grid,
     origin="lower",
@@ -425,7 +469,7 @@ The randomisation gap is not closed by a sensitivity analysis. It is mapped. The
 
 This shifts what counts as honest reporting. The headline number from a quasi-experiment is no longer the point estimate of the treatment effect; it is the *tipping point* — the prior on the bias at which the conclusion turns. The sensitivity surface extends this from a point to a topology: the full region of bias-prior commitments the experiment can survive, with its boundary drawn as a contour. Two analysts holding the same data and disagreeing about a conclusion are not disagreeing about the data. They occupy different coordinates in the bias-prior plane, and the surface tells them precisely which commitment separates them.
 
-The first notebook used the posterior to ask what an experiment will probably say. This one uses the posterior to ask what the experiment did say, once the assumption of clean identification is itself a parameter. The next will use the posterior to ask what a whole series of experiments jointly implies. In each: an assumption a conventional analysis leaves implicit becomes a parameter with a posterior — something to argue about rather than assume. The posterior is the constant; the question changes. We have just seen the second.
+The first notebook used the posterior to ask what an experiment will probably say. This one uses the posterior to ask what the experiment did say, once the assumption of clean identification is itself a parameter. The next will use the posterior to ask what a whole series of experiments jointly implies. In each: an assumption a conventional analysis leaves implicit becomes a parameter with a posterior — something to argue about rather than assume. The problem changes; its proper characterisation is always a posterior.
 
 ## Authors
 

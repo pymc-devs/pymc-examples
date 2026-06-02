@@ -20,13 +20,13 @@ kernelspec:
 :author: Nathaniel Forde
 :::
 
-Experimental questions are seeded in the science that preceded them. Experiments spawn further questions again. Each new experiment is a digression from the historic records — an off-kilter orientation in pursuit of theory, anomalous findings and the next question.
+Experimental questions are seeded in the science that preceded them. Experiments spawn further questions again. Each new experiment is a digression from the historic records, orientated at a new angle in pursuit of theory, anomalous findings and the next question.
 
 ## The question planners are actually asking
 
-When we pursue an experiment, we implicitly assume the experiment will be useful. Our questions are "operationalised" as power: given an effect size, what is the probability the experiment crosses a fixed threshold? This is an indirect and contorted gauge of efficacy. Instead of asking whether the treatment is effective, we ask whether the results are surprising assuming a degree of effectiveness. The slippage between these two questions has produced a generation of experimental plans calibrated to invented effect sizes rather than to the beliefs the planners actually hold.
+When we experiment, we implicitly assume the experiment will be useful. Our questions are "operationalised" as power heuristics: given an effect size, what is the probability the experiment crosses a fixed threshold? This is an indirect and contorted gauge of efficacy. Instead of asking whether the treatment is effective, we ask whether the results are surprising assuming a degree of effectiveness. The slippage between these two questions has produced a generation of experimental plans calibrated to invented effect sizes rather than to the beliefs the planners actually hold.
 
-An alternative is Bayesian Assurance. The construction is mechanical: draw an effect from the prior, generate a dataset, fit the treatment model, apply the decision rule, repeat. The result is a single number: the probability the experiment will conclude what its stakeholders need. The engine is the same whether the response is continuous (revenue per visitor) or binary (conversion); we develop it on the Gaussian case first and confirm the conclusion is invariant to the response scale. This notebook is the first of three on the lifecycle of a Bayesian experiment; see {ref}`sensitivity_confounding` for the interpretation counterpart and {ref}`meta_analysis_experiments` for the synthesis counterpart. The same posterior machinery answers all three questions; the question being asked of it is what changes.
+An alternative is Bayesian Assurance. The construction is mechanical: draw an effect from the prior, generate a dataset, fit the treatment model, apply the decision rule, repeat. The result is a single number: the probability the experiment will conclude what its stakeholders need. The engine is the same whether the response is continuous (revenue per visitor) or binary (conversion); we develop it on the Gaussian case first and confirm the process is invariant to the response scale. This notebook is the first of three on the lifecycle of a Bayesian experiment; see {ref}`sensitivity_confounding` for the interpretation counterpart and {ref}`meta_analysis_experiments` for the synthesis counterpart. The same posterior machinery serves all three; what changes is the problem put to it.
 
 :::{admonition} Where this lands in regulatory practice
 :class: note
@@ -41,6 +41,7 @@ from dataclasses import dataclass
 
 import arviz as az
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
 import pymc as pm
@@ -82,13 +83,13 @@ $$
 \text{Power}(N) = P\!\left(\text{reject } H_0 \mid \theta = \theta_0,\; N\right).
 $$
 
-The conditioning bar is the load-bearing part. The planner who has confidently named $\theta_0$ has implicitly used up the uncertainty that motivated the experiment in the first place. Assurance refuses the substitution. Instead it integrates over the planner's prior beliefs about the effect:
+The conditioning bar is the load-bearing part. The planner who has confidently named $\theta_0$ has implicitly used up the uncertainty that motivated the experiment in the first place. Assurance refuses the substitution. Instead it integrates over the planner's prior beliefs about the effect. The decision rule is whether the posterior probability of a positive effect clears a threshold $c$:
 
 $$
-\text{Assurance}(N) = \int P\!\left(\text{decision} \mid \theta,\; N\right)\, \pi(\theta)\, d\theta.
+\text{Assurance}(N) = \mathbb{E}_{\substack{\theta \,\sim\, \pi(\theta) \\ \hat{d} \,\sim\, p(\hat{d} \mid \theta,\, N)}}\!\left[\mathbb{1}\!\bigl(P(\theta > 0 \mid \hat{d},\, N) > c\bigr)\right].
 $$
 
-This is the marginal probability of a successful decision, where "successful" is whatever decision rule the team has agreed in advance and $\pi(\theta)$ is the team's prior over the effect ({cite:p}`ohagan2005assurance`, {cite:p}`spiegelhalter2004bayesian`). The integration is the entire move. Where power asks the planner to invent a world, assurance asks them to describe the one they already believe they are in.
+The outer expectation averages over effect sizes drawn from the prior; the inner averages over data generated under each effect ({cite:p}`ohagan2005assurance`, {cite:p}`spiegelhalter2004bayesian`). The integration is the entire move. Where power asks the planner to invent a world, assurance asks them to describe the one they already believe they are in.
 
 ## The simulation engine
 
@@ -168,7 +169,7 @@ pc = az.plot_dist(idata_gauss_demo, var_names=["delta"])
 ax = plt.gcf().axes[0]
 ax.axvline(0.0, color="C2", linestyle="--", label="ref = 0.0")
 ax.legend()
-ax.set_title(r"Posterior on $\delta$ at $N=200$ (one simulated dataset)")
+ax.set_title(r"Posterior on $\delta$ at $N=200$ (one simulated dataset)");
 ```
 
 The posterior concentrates above zero; under the decision rule the team would conclude the new flow lifts revenue. That is a single draw of the experiment. Assurance asks how often this conclusion would arrive if we re-ran the experiment many times under our actual prior.
@@ -254,7 +255,7 @@ power_at_pessimistic = np.array(
 
 prior_prob_positive = 1.0 - stats.norm.cdf(0.0, EFFECT_PRIOR.mu, EFFECT_PRIOR.sigma)
 
-fig, ax = plt.subplots(figsize=(7, 4.5))
+fig, ax = plt.subplots(figsize=(15, 4.5))
 ax.plot(N_GRID, assurance_df["assurance"], marker="o", linewidth=2, label="Assurance (Bayesian)")
 ax.plot(
     N_GRID,
@@ -287,6 +288,7 @@ ax.axhline(
     label=rf"Assurance ceiling $P(\delta>0)$ = {prior_prob_positive:.2f}",
 )
 ax.set_xscale("log")
+ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{int(x):,}"))
 ax.set_xlabel("Sample size per arm")
 ax.set_ylabel("Probability of declaring uplift")
 ax.set_title("Assurance vs frequentist power, Gaussian outcome")
@@ -388,7 +390,7 @@ power_bern_at_pessimistic = np.array(
     ]
 )
 
-fig, ax = plt.subplots(figsize=(7, 4.5))
+fig, ax = plt.subplots(figsize=(15, 4.5))
 ax.plot(
     N_GRID_BERN,
     assurance_bern_df["assurance"],
@@ -419,7 +421,16 @@ ax.plot(
     alpha=0.7,
     label=r"Power at $\mu - \sigma$",
 )
+ax.axhline(
+    prior_prob_positive,
+    color="C0",
+    linestyle="-.",
+    alpha=0.6,
+    label=rf"Assurance ceiling $P(\delta>0)$ = {prior_prob_positive:.2f}",
+)
+
 ax.set_xscale("log")
+ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{int(x):,}"))
 ax.set_xlabel("Sample size per arm")
 ax.set_ylabel("Probability of declaring uplift")
 ax.set_title("Assurance vs frequentist power, Bernoulli outcome")
@@ -454,7 +465,6 @@ with bernoulli_two_arm_model(
     idata_bern_demo = pm.sample(
         draws=1000,
         tune=1000,
-        chains=2,
         target_accept=0.95,
         random_seed=RANDOM_SEED,
         progressbar=False,
@@ -464,7 +474,7 @@ az.plot_dist(idata_bern_demo, var_names=["lift"])
 ax = plt.gcf().axes[0]
 ax.axvline(0.0, color="C2", linestyle="--", label="ref = 0.0")
 ax.legend()
-plt.title(r"Posterior on conversion lift at $N=4000$")
+plt.title(r"Posterior on conversion lift at $N=4000$");
 ```
 
 The PyMC posterior on lift agrees with the conjugate Beta posterior, as it must under this setup. The decision rule is the same; the ceiling is lower because the planning prior carries a smaller probability that the lift is positive, and that probability — not the sample size — is what sets the asymptote.
@@ -495,10 +505,11 @@ for name, prior in [
     )
     prior_comparison[name] = df
 
-fig, ax = plt.subplots(figsize=(7, 4.5))
+fig, ax = plt.subplots(figsize=(15, 4.5))
 for name, df in prior_comparison.items():
     ax.plot(df["N"], df["assurance"], marker="o", linewidth=2, label=name)
 ax.set_xscale("log")
+ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{int(x):,}"))
 ax.set_xlabel("Sample size per arm")
 ax.set_ylabel("Assurance")
 ax.set_title("Assurance under three prior commitments")
@@ -509,11 +520,11 @@ The three curves disagree most where they should: at small sample sizes where th
 
 ## Planning as a posterior over future posteriors
 
-The experiment we have not yet run is a posterior we have not yet computed. What we have is a prior, a model, and the patience to ask what the experiment will likely say. Assurance is the posterior we can compute now, over the posteriors we will compute later: a rehearsal under the lights of our current uncertainty, and a fair one, because the lights are the only ones we have.
+The experiment we have not yet run is a posterior we have not yet computed. What we have is a prior, a model, and the patience to ask what the experiment will likely say. Assurance is the posterior we can compute now, over the posteriors we will compute later: a rehearsal under the lights of our current uncertainty.
 
 Power answers a conditional: given a specific effect, what probability of detection? Assurance answers a marginal: given everything currently believed, what probability the inference about to be drawn will be useful? The decision-theoretic operation that produces assurance is the same operation that produces the posterior at the end of the experiment. Only the data are still hypothetical. It makes explicit the assumption power leaves buried: a believed distribution of effects. Naming that assumption, and giving it a posterior, is the move this sequence repeats.
 
-In each case here, the Gaussian and the Bernoulli, the inference machinery was the same. What changed was the likelihood — and with it, the ceiling that the likelihood's geometry sets on how much assurance any sample size can buy. The same is true across this notebook and its successors. Planning, interpretation, synthesis are three questions the same machinery answers in turn; the posterior is the constant, the question changes. We have just seen the first of the three.
+In each case here, the Gaussian and the Bernoulli, the inference machinery was the same. What changed was the likelihood — and with it, the ceiling that the likelihood's geometry sets on how much assurance any sample size can buy. The same is true across this notebook and its successors. Planning, interpretation, synthesis: three problems, one machinery. The problem changes; its proper characterisation is always a posterior. We have just seen the first of the three.
 
 ## Authors
 

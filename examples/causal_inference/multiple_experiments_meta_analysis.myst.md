@@ -363,7 +363,7 @@ forest = pd.DataFrame(
     }
 ).round(3)
 
-fig, ax = plt.subplots(figsize=(7.5, 5.5))
+fig, ax = plt.subplots(figsize=(20, 5.5))
 y_pos = np.arange(K)
 ax.errorbar(
     forest["no_pool_mean"],
@@ -408,7 +408,7 @@ plt.tight_layout();
 The partial-pooling estimates are pulled toward the population mean: the canonical *shrinkage* picture {cite:p}`gelman2006multilevel`, {cite:p}`gelman2020regression`. The pull is strongest for the markets whose individual estimates are noisiest (widest no-pooling intervals) or most extreme; it is weakest for markets whose estimates are tight and central. This is the data-driven version of "borrowing strength" that vote-counting cannot do and complete-pooling does only by force.
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(8, 5))
+fig, ax = plt.subplots(figsize=(20, 5))
 for k in range(K):
     ax.plot([0, 1], [no_pool_mean[k], partial_pool_mean[k]], color="grey", alpha=0.5, zorder=1)
     ax.scatter(0, no_pool_mean[k], color="C0", zorder=3, s=55)
@@ -537,7 +537,7 @@ theta_new_samples = rng_pp.normal(mu_samples, tau_samples)
 s_new = np.median(se_obs)
 d_hat_new_samples = theta_new_samples + rng_pp.normal(0.0, s_new, size=len(theta_new_samples))
 
-fig, ax = plt.subplots(figsize=(7.5, 4.5))
+fig, ax = plt.subplots(figsize=(20, 4.5))
 bins = np.linspace(
     min(d_hat_new_samples.min(), theta_new_samples.min()) - 0.2,
     max(d_hat_new_samples.max(), theta_new_samples.max()) + 0.2,
@@ -582,7 +582,7 @@ The probability the true effect is positive in the next market is higher than th
 
 A single experiment is overheard speech. Eight experiments are conversation. The hierarchical model is what lets us hear them as conversation, and the posterior on the population is not a summary. It is the population our experiments were drawn from, made audible.
 
-Replication is often described as a verification protocol: a post-hoc check. Replication is the data-generating process whose distribution we are trying to learn. Each new market is a draw from a population we did not have direct access to; pooling is the operation that constructs the population from the draws; the next experiment is the test that the population so constructed will continue to predict. The triptych closes here, though "closes" is the wrong shape for it. The first notebook turned planning into a posterior over future posteriors; the second turned interpretation into a posterior over the bias an experiment cannot rule out; the third turned a series of experiments into a posterior over the population they sample from. Three questions, one machinery. In each, an assumption a conventional analysis leaves implicit is made a parameter with a posterior — something to argue about rather than assume. The likelihood changed from Gaussian to Bernoulli each time and the picture did not. The posterior is the constant; the question changes.
+Replication is often described as a verification protocol: a post-hoc check. Replication is the data-generating process whose distribution we are trying to learn. Each new market is a draw from a population we did not have direct access to; pooling is the operation that constructs the population from the draws; the next experiment is the test that the population so constructed will continue to predict. The triptych closes here, though "closes" is the wrong shape for it. The first notebook turned planning into a posterior over future posteriors; the second turned interpretation into a posterior over the bias an experiment cannot rule out; the third turned a series of experiments into a posterior over the population they sample from. Three problems, one machinery. In each, an assumption a conventional analysis leaves implicit is made a parameter with a posterior — something to argue about rather than assume. The likelihood changed from Gaussian to Bernoulli each time and the picture did not. The problem changes; its proper characterisation is always a posterior.
 
 And the last question feeds the first. The population this notebook inferred is the prior the planning notebook consumes: $\theta_{\text{new}} \sim \mathcal{N}(\mu, \tau)$ is precisely the kind of belief {ref}`assurance_planning` integrates over before the next experiment is run. The synthesis at the end of one experiment's lifecycle is the input to the design of the next. The lifecycle is not a line from plan to verdict but a loop, and the posterior is what travels around it — each notebook's synthesis becoming the next notebook's prior, each conversation overheard becoming the next conversation's opening question.
 
