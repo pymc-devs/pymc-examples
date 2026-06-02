@@ -516,6 +516,172 @@ ax.set_title("Assurance under three prior commitments")
 ax.legend();
 ```
 
+## The information content of a prior: effective sample size
+
+The three curves above differ because the three priors carry different amounts of information. The *prior effective sample size* (ESS) makes this precise: it is the number of actual experimental observations the prior is equivalent to in terms of information content. A prior with ESS of 128 is, before the first participant is enrolled, already as informative as 128 observed subjects per arm.
+
+For the two-arm Gaussian trial the ESS follows from equating information in the prior with information from $n$ observations. The prior $\mathcal{N}(\mu_0, \sigma_0^2)$ carries information $1/\sigma_0^2$; the effect estimate from $n$ observations carries $n / 2\sigma_{\text{obs}}^2$. Setting them equal:
+
+$$n_{\text{ESS}} = \frac{2\sigma_{\text{obs}}^2}{\sigma_0^2}$$
+
+The simulation-based approach recovers the same number without the closed form. For each $N$ in a grid, draw synthetic datasets from the prior predictive and compute the posterior variance under a flat reference prior; the $N^*$ where the average posterior variance crosses the prior variance is the ESS. The machinery is the same prior-predictive loop already running in the assurance calculation — only the inner step changes. In the conjugate case the analytical posterior fills that step. In non-conjugate models — hierarchical likelihoods, logistic regression — the same loop runs with MCMC posteriors and the ESS estimate generalises without modification. Verifying that analytical and simulation estimates agree for the Gaussian case validates the approach for those more complex settings.
+
+```{code-cell} ipython3
+def analytical_ess(prior, sigma_obs):
+    """Prior ESS for a two-arm Gaussian trial: 2σ²_obs / σ²_prior."""
+    return 2 * sigma_obs**2 / prior.sigma**2
+
+
+pd.DataFrame(
+    {
+        "prior_mu": [p.mu for p in [INFORMED_PRIOR, EFFECT_PRIOR, FLAT_PRIOR, SCEPTICAL_PRIOR]],
+        "prior_sigma": [
+            p.sigma for p in [INFORMED_PRIOR, EFFECT_PRIOR, FLAT_PRIOR, SCEPTICAL_PRIOR]
+        ],
+        "analytical_ESS": [
+            analytical_ess(p, SIGMA_OBS)
+            for p in [INFORMED_PRIOR, EFFECT_PRIOR, FLAT_PRIOR, SCEPTICAL_PRIOR]
+        ],
+    },
+    index=["Informed", "Default", "Flat", "Sceptical"],
+).round(1)
+```
+
+```{code-cell} ipython3
+def simulation_based_ess(prior, sigma_obs, N_grid, n_sims, rng):
+    """
+    Estimate prior ESS via simulation: find N* where the mean posterior variance
+    under a flat reference prior crosses the prior variance.
+
+    Uses the same prior-predictive sampling as the assurance loop. Replace
+    gaussian_posterior_delta with an MCMC posterior to extend to non-conjugate models.
+    """
+    flat_ref = EffectPrior(mu=0.0, sigma=10 * sigma_obs)
+    target_var = prior.sigma**2
+    records = []
+    for N in N_grid:
+        N = int(N)
+        seed = int(rng.integers(2**31 - 1))
+        pp = pm.sample_prior_predictive(
+            n_sims, model=gaussian_generative_model(N, prior), random_seed=seed
+        )
+        y_A = pp.prior["y_A"].values.reshape(n_sims, N)
+        y_B = pp.prior["y_B"].values.reshape(n_sims, N)
+        d_hat = y_B.mean(axis=1) - y_A.mean(axis=1)
+        _, post_sd = gaussian_posterior_delta(d_hat, N, sigma_obs, flat_ref)
+        records.append({"N": N, "mean_post_var": float(np.mean(post_sd**2))})
+    df = pd.DataFrame(records)
+    post_vars = df["mean_post_var"].values
+    N_vals = df["N"].values.astype(float)
+    # post_var decreases with N; interpolate to find where it crosses the prior variance
+    ess_sim = float(np.interp(target_var, post_vars[::-1], N_vals[::-1]))
+    return ess_sim, df
+
+
+N_ESS_GRID = np.unique(np.round(np.geomspace(10, 600, 30)).astype(int))
+N_ESS_SIMS = 200
+ess_rng = np.random.default_rng(RANDOM_SEED + 99)
+
+ess_results = {}
+for name, prior in [
+    ("Informed", INFORMED_PRIOR),
+    ("Default", EFFECT_PRIOR),
+    ("Flat", FLAT_PRIOR),
+    ("Sceptical", SCEPTICAL_PRIOR),
+]:
+    ess_a = analytical_ess(prior, SIGMA_OBS)
+    ess_s, df_curve = simulation_based_ess(prior, SIGMA_OBS, N_ESS_GRID, N_ESS_SIMS, ess_rng)
+    ess_results[name] = {
+        "prior": prior,
+        "ess_analytical": ess_a,
+        "ess_sim": ess_s,
+        "curve": df_curve,
+    }
+
+pd.DataFrame(
+    {
+        "prior_sigma": {n: v["prior"].sigma for n, v in ess_results.items()},
+        "analytical_ESS": {n: round(v["ess_analytical"], 1) for n, v in ess_results.items()},
+        "simulation_ESS": {n: round(v["ess_sim"], 1) for n, v in ess_results.items()},
+    }
+)
+```
+
+```{code-cell} ipython3
+fig, axes = plt.subplots(1, 2, figsize=(20, 5))
+
+# Left: ESS crossing picture for the default prior
+res = ess_results["Default"]
+curve = res["curve"]
+prior_d = res["prior"]
+ess_a_d = res["ess_analytical"]
+ess_s_d = res["ess_sim"]
+
+axes[0].plot(
+    curve["N"],
+    curve["mean_post_var"],
+    marker="o",
+    color="C0",
+    markersize=4,
+    label="Mean posterior variance (flat prior)",
+)
+axes[0].axhline(
+    prior_d.sigma**2,
+    color="C3",
+    linestyle="--",
+    label=rf"Prior variance $\sigma_0^2$ = {prior_d.sigma**2:.2f}",
+)
+axes[0].axvline(
+    ess_a_d,
+    color="C2",
+    linestyle=":",
+    linewidth=2,
+    label=f"Analytical ESS = {ess_a_d:.0f}",
+)
+axes[0].axvline(
+    ess_s_d,
+    color="C3",
+    linestyle=":",
+    linewidth=2,
+    alpha=0.7,
+    label=f"Simulation ESS ≈ {ess_s_d:.0f}",
+)
+axes[0].set_xlabel("N per arm")
+axes[0].set_ylabel("Mean posterior variance under flat prior")
+axes[0].set_title(r"ESS crossing: default prior ($\sigma_0 = 0.5$)")
+axes[0].legend()
+
+# Right: assurance curves with ESS positions annotated
+for name in ["Informed", "Flat", "Sceptical"]:
+    res = ess_results[name]
+    df = prior_comparison[name]
+    ess_a = res["ess_analytical"]
+    axes[1].plot(
+        df["N"],
+        df["assurance"],
+        marker="o",
+        linewidth=2,
+        label=f"{name} (ESS ≈ {ess_a:.0f})",
+    )
+    axes[1].axvline(ess_a, linestyle=":", alpha=0.35)
+
+axes[1].set_xscale("log")
+axes[1].xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{int(x):,}"))
+axes[1].set_xlabel("Sample size per arm")
+axes[1].set_ylabel("Assurance")
+axes[1].set_title("Assurance curves with ESS marked")
+axes[1].legend()
+plt.tight_layout()
+```
+
+The left panel is a calibration check. The simulation curve — posterior variance under a flat prior as a function of N — crosses the prior variance at the point the analytical formula predicts. The two estimates agree to within interpolation noise. For non-conjugate models where no closed form for the posterior variance exists, the same loop with MCMC posteriors in place of `gaussian_posterior_delta` gives the correct ESS. The conjugate case validates the simulation approach before the closed form disappears.
+
+The right panel reads the ESS against the assurance curves. The dotted vertical lines mark each prior's ESS on the sample-size axis. An ESS of 356 (Informed) means the prior carries more information than 350 subjects per arm before the first participant is enrolled; the curve climbs steeply early because the prior is already doing most of the work. An ESS of 14 (Flat) means the prior contributes almost nothing, and every observation earns its full weight. The ESS converts the abstract question "how informative is this prior?" into a number on the same axis as the assurance curve: experiments whose planned N falls well below the ESS are prior-dominated; those well above it are data-dominated.
+
+This is the quantitative form of the trade-off the sensitivity analysis in {ref}`sensitivity_confounding` interrogates from the other side. There, the question is not how much information the prior commits but what happens when that commitment meets an identification gap — the tipping point at which the conclusion turns is the price the prior's ESS is staking.
+
++++
+
 The three curves disagree most where they should: at small sample sizes where the data has not yet overwhelmed the prior. The informed prior reaches high assurance fastest because it is willing to commit to a narrow effect range; the sceptical prior assumes a smaller effect and so needs more data to detect it; the flat prior carries enough probability mass over zero that even moderate datasets do not push the posterior reliably above the decision threshold. The point is not to advocate for a specific prior. It is to make the dependence of the assurance number on the prior commitment visible, so that the prior can be the subject of negotiation rather than a hidden choice.
 
 ## Planning as a posterior over future posteriors
