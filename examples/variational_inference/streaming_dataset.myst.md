@@ -190,17 +190,16 @@ n_grid = np.logspace(5, 9, 50)  # 1e5 .. 1e9 rows
 inram_gb = n_grid * ncols * 8 / 1e9  # whole dataset resident (array lower bound)
 stream_gb = np.full_like(n_grid, batch_size * ncols * 8 / 1e9)  # just the buffer
 
-fig, ax = plt.subplots(figsize=(8, 4.5))
-ax.loglog(n_grid, inram_gb, label="in-RAM pm.Minibatch  (O(N), array lower bound)", lw=2)
-ax.loglog(n_grid, stream_gb, label="streaming DataLoader  (O(batch))", lw=2)
-ax.axhline(26, color="0.4", ls="--", lw=1)
-ax.text(1.2e5, 28, "26 GB RAM", color="0.4")
-ax.set(
-    xlabel="dataset size N",
-    ylabel="design-matrix size (GB) = N·ncols·8 bytes",
-    title="Array footprint is flat in N when streaming (theoretical lower bound)",
-)
-ax.legend();
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.loglog(n_grid, inram_gb, lw=2.5, label="in-RAM pm.Minibatch  (O(N))")
+ax.loglog(n_grid, stream_gb, lw=2.5, label="streaming DataLoader  (O(batch))")
+ax.axhline(26, color="0.5", ls="--", lw=1)
+ax.text(n_grid[-1], 30, "26 GB RAM", color="0.5", ha="right", va="bottom")
+ax.set_xlabel("dataset size N")
+ax.set_ylabel("array footprint (GB, lower bound)")
+ax.set_title("Memory is flat in N when streaming")
+ax.legend(loc="lower right", framealpha=0.95)
+fig.tight_layout();
 ```
 
 That line is only the bare array; actual peak RSS is higher (the framework plus
