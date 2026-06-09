@@ -1,5 +1,6 @@
 ---
 jupytext:
+  default_lexer: ipython3
   text_representation:
     extension: .md
     format_name: myst
@@ -152,9 +153,7 @@ with pm.Model():
     xb, zb, sb, yb = pm.Minibatch(
         X[:, 0].copy(), X[:, 1].copy(), X[:, 2].copy(), y, batch_size=batch_size
     )
-    pm.Bernoulli(
-        "y", logit_p=b[0] + b[1] * xb + b[2] * zb + b[3] * sb, observed=yb, total_size=N
-    )
+    pm.Bernoulli("y", logit_p=b[0] + b[1] * xb + b[2] * zb + b[3] * sb, observed=yb, total_size=N)
     approx_inram = pm.fit(
         30_000, method="advi", obj_optimizer=pm.adam(learning_rate=0.008), progressbar=False
     )
@@ -187,8 +186,8 @@ matrix is the dominant cost; the line below is its *theoretical lower bound*
 
 ```{code-cell} ipython3
 ncols = 4  # 3 features + observed
-n_grid = np.logspace(5, 9, 50)            # 1e5 .. 1e9 rows
-inram_gb = n_grid * ncols * 8 / 1e9       # whole dataset resident (array lower bound)
+n_grid = np.logspace(5, 9, 50)  # 1e5 .. 1e9 rows
+inram_gb = n_grid * ncols * 8 / 1e9  # whole dataset resident (array lower bound)
 stream_gb = np.full_like(n_grid, batch_size * ncols * 8 / 1e9)  # just the buffer
 
 fig, ax = plt.subplots(figsize=(8, 4.5))
@@ -196,8 +195,11 @@ ax.loglog(n_grid, inram_gb, label="in-RAM pm.Minibatch  (O(N), array lower bound
 ax.loglog(n_grid, stream_gb, label="streaming DataLoader  (O(batch))", lw=2)
 ax.axhline(26, color="0.4", ls="--", lw=1)
 ax.text(1.2e5, 28, "26 GB RAM", color="0.4")
-ax.set(xlabel="dataset size N", ylabel="design-matrix size (GB) = N·ncols·8 bytes",
-       title="Array footprint is flat in N when streaming (theoretical lower bound)")
+ax.set(
+    xlabel="dataset size N",
+    ylabel="design-matrix size (GB) = N·ncols·8 bytes",
+    title="Array footprint is flat in N when streaming (theoretical lower bound)",
+)
 ax.legend();
 ```
 
