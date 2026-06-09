@@ -24,28 +24,27 @@ kernelspec:
 +++
 
 `pm.Minibatch` random-indexes an array that must be fully resident in RAM, so
-minibatch variational inference is capped at datasets that fit in memory -- the
-very regime where minibatching is meant to help. This notebook uses the streaming
-API in `pymc.variational.streaming`, which mirrors PyTorch's `torch.utils.data`:
+minibatch variational inference only works on data that already fits in memory.
+This notebook uses the streaming API in `pymc.variational.streaming`, which follows
+the same structure as PyTorch's `torch.utils.data`:
 
 * a {class}`~pymc.variational.streaming.DataLoader` batches (and optionally
-  shuffles) an out-of-core source -- here a directory of Parquet shards read by
-  {func}`~pymc.variational.streaming.parquet_source` -- into fixed-size
-  minibatches, holding only one batch in memory at a time;
-* the model observes a `pm.Data` *placeholder* of one batch, not the whole array;
-* a {class}`~pymc.variational.streaming.Trainer` drives ADVI, streaming each
-  minibatch into that placeholder with `set_data` every step -- **no callbacks**.
+  shuffles) an out-of-core source into fixed-size minibatches, holding only one
+  batch in memory at a time. Here the source is a directory of Parquet shards read
+  by {func}`~pymc.variational.streaming.parquet_source`.
+* the model observes a `pm.Data` placeholder of one batch, not the whole array.
+* a {class}`~pymc.variational.streaming.Trainer` drives ADVI, writing each
+  minibatch into that placeholder with `set_data` every step. There are no callbacks.
 
-The unbiased-gradient rescaling is unchanged from `pm.Minibatch`: the
-`DataLoader` is *sized*, so `total_size=len(loader)` passes the dataset size `N`
-to the observed distribution and PyMC scales the minibatch log-likelihood by
-`N / batch_size`. The one extra obligation is shuffling -- a streaming source is
-only as well mixed as the order it yields rows in -- which `DataLoader(shuffle=True)`
-handles with a bounded buffer.
+The unbiased-gradient rescaling works exactly as in `pm.Minibatch`. The `DataLoader`
+is sized, so `total_size=len(loader)` passes the dataset size `N` to the observed
+distribution, and PyMC scales the minibatch log-likelihood by `N / batch_size`. The
+one extra requirement is shuffling. A streaming source is only as well mixed as the
+order it yields rows in, so pass `DataLoader(shuffle=True)` to shuffle through a
+bounded buffer.
 
-We use a modest `N` here so the notebook runs in seconds and the two posteriors
-are easy to compare; the streaming machinery is identical at any size, and the
-final section shows why it matters at scale.
+`N` is small here so the notebook runs in seconds. The streaming code is the same at
+any size, and the last section shows what changes at scale.
 
 ```{code-cell} ipython3
 import glob
@@ -67,11 +66,10 @@ az.style.use("arviz-variat")
 
 ## Put a dataset on disk and forget the array
 
-We synthesise a logistic-regression dataset, write it to Parquet shards, and
-delete the in-memory table. From here on the features only exist on disk -- exactly
-the situation the streaming `DataLoader` is for. (We keep `X`, `y` around only to
-build the in-RAM `pm.Minibatch` baseline later; the streaming fit never touches
-them.)
+We build a logistic-regression dataset, write it to Parquet shards, and delete the
+in-memory table. From here the features only exist on disk. We keep `X` and `y`
+around only to build the in-RAM `pm.Minibatch` baseline later; the streaming fit
+never reads them.
 
 ```{code-cell} ipython3
 N = 30_000
@@ -95,13 +93,14 @@ print(len(glob.glob(f"{shard_dir}/*.parquet")), "shards written")
 
 ## Stream minibatches off disk and fit with ADVI
 
-`parquet_source` is an out-of-core {class}`~pymc.variational.streaming.IterableDataset`:
-it reads one shard at a time and exposes `n_rows` from Parquet metadata (no data
-scan), so `total_size="auto"` resolves `N` for free. The `DataLoader` batches and
-shuffles it into fixed-size minibatches. The model reads a `pm.Data("batch", ...)`
-*placeholder* -- the only data ever resident -- and the `Trainer` streams each
-minibatch into it with `set_data`. There are no callbacks: `total_size=len(loader)`
-triggers the `N / batch_size` rescaling, and `Trainer.fit` owns the loop.
+`parquet_source` is an out-of-core {class}`~pymc.variational.streaming.IterableDataset`.
+It reads one shard at a time and gets `n_rows` from the Parquet metadata without
+scanning the data, so `total_size="auto"` resolves `N` for free. The `DataLoader`
+batches and shuffles it into fixed-size minibatches. The model reads a
+`pm.Data("batch", ...)` placeholder, the only data resident at any point, and the
+`Trainer` writes each minibatch into it with `set_data`. There are no callbacks:
+`total_size=len(loader)` triggers the `N / batch_size` rescaling and `Trainer.fit`
+runs the loop.
 
 ```{code-cell} ipython3
 batch_size = 1024
@@ -117,7 +116,7 @@ loader = DataLoader(
 
 with pm.Model() as model:
     b = pm.Normal("b", 0.0, 3.0, shape=4)
-    batch = pm.Data("batch", np.zeros((batch_size, 4)))  # placeholder -- the ONLY data in RAM
+    batch = pm.Data("batch", np.zeros((batch_size, 4)))  # placeholder, the only data in RAM
     logit = b[0] + b[1] * batch[:, 0] + b[2] * batch[:, 1] + b[3] * batch[:, 2]
     pm.Bernoulli("y", logit_p=logit, observed=batch[:, 3], total_size=len(loader))
 
@@ -142,10 +141,10 @@ ax.set(xlabel="iteration", ylabel="negative ELBO", title="Streaming ADVI converg
 
 ## The same posterior as in-RAM `pm.Minibatch`
 
-For comparison, the status-quo fit that keeps the whole dataset in memory.
-Streaming changes *where the data lives*, not the inference: the two posteriors
-land on top of each other (both show ADVI's characteristic mild bias relative to
-the dashed ground truth, but they agree with each other).
+For comparison, here is the usual fit that keeps the whole dataset in memory.
+Streaming changes where the data lives, not the inference, so the two posteriors
+land on top of each other. Both show ADVI's usual mild bias relative to the dashed
+ground truth, but they agree with each other.
 
 ```{code-cell} ipython3
 with pm.Model():
@@ -176,13 +175,12 @@ fig.suptitle("Posterior of b: streaming vs in-RAM (dashed = ground truth)", y=1.
 fig.tight_layout();
 ```
 
-## Why bother: memory
+## Memory usage
 
 Both paths feed the same `batch_size` to ADVI, but `pm.Minibatch` keeps all `N`
-rows resident, so the array it must hold grows linearly in `N`; the streaming
-`DataLoader` only ever holds one `batch_size` buffer. The dense `float64` design
-matrix is the dominant cost; the line below is its *theoretical lower bound*
-(`N * ncols * 8` bytes), not a measurement:
+rows resident, so its array grows linearly in `N`, while the streaming `DataLoader`
+only holds one `batch_size` buffer. The dense `float64` design matrix dominates the
+cost. The line below is its lower bound (`N * ncols * 8` bytes), not a measurement:
 
 ```{code-cell} ipython3
 ncols = 4  # 3 features + observed
@@ -202,25 +200,25 @@ ax.legend(loc="lower right", framealpha=0.95)
 fig.tight_layout();
 ```
 
-That line is only the bare array; actual peak RSS is higher (the framework plus
-PyTensor's resident copy), and it crosses the RAM ceiling sooner. To pin the real
-number on public, reproducible data, I measured peak memory on the
-[Criteo 1TB Click Logs](https://huggingface.co/datasets/criteo/CriteoClickLogs),
-the standard out-of-core learning benchmark, with the same logistic model (13
-numeric features + the click label). Streaming through the `DataLoader` stayed flat
-at **~0.7 GB** across a 1M→150M-row sweep, while the in-RAM `pm.Minibatch` baseline
-rose linearly to **15.7 GB at 150M rows** (about **21×** more) and extrapolates to
+That line is only the bare array. Actual peak RSS is higher, because of the
+framework and PyTensor's resident copy, and it hits the RAM ceiling sooner. To get
+the real number on public data, I measured peak memory on the
+[Criteo 1TB Click Logs](https://huggingface.co/datasets/criteo/CriteoClickLogs), a
+standard out-of-core learning benchmark, with the same logistic model (13 numeric
+features plus the click label). Streaming through the `DataLoader` stayed flat at
+**~0.7 GB** across a sweep from 1M to 150M rows. The in-RAM `pm.Minibatch` baseline
+rose linearly to **15.7 GB at 150M rows**, about 21 times more, and extrapolates to
 out-of-memory near **238M rows** on a 26 GB machine. The two posteriors agree to
-within ADVI noise (correlation **0.999** across all 14 coefficients). The point of
-using Criteo rather than a private dataset is that anyone can rerun it.
+within ADVI noise (correlation **0.999** across all 14 coefficients). Criteo is
+public, so anyone can rerun this.
 
-## When to reach for it
+## When to use it
 
 * Use `pm.Minibatch` when the data fits in RAM: it is simpler and its random
   index gives perfectly i.i.d. minibatches for free.
-* Use the streaming `DataLoader` + `Trainer` when it does not: it keeps memory
-  flat in `N` by streaming from disk, with no callbacks to wire up. The remaining
-  obligation is shuffling -- pass `shuffle=True`, or pre-shuffle on disk / interleave
+* Use the streaming `DataLoader` and `Trainer` when it does not: it keeps memory
+  flat in `N` by streaming from disk, with no callbacks to wire up. The one thing to
+  watch is shuffling. Pass `shuffle=True`, or pre-shuffle on disk and interleave
   shards for strongly ordered data, since a bounded buffer over strongly ordered
   data only block-shuffles it and biases the posterior.
 
