@@ -78,7 +78,7 @@ b_true = np.array([0.4, -1.2, 0.8, -0.5])  # intercept + 3 slopes
 X = rng.normal(size=(N, 3))
 p = 1 / (1 + np.exp(-(b_true[0] + X @ b_true[1:])))
 y = (rng.random(N) < p).astype("float64")
-table = np.column_stack([X, y]).astype("float64")  # 3 features + 1 observed column
+table = np.column_stack([X, y]).astype("float64")
 
 shard_dir = tempfile.mkdtemp(prefix="streaming_demo_")
 for i, s in enumerate(range(0, N, 5_000)):
@@ -87,7 +87,7 @@ for i, s in enumerate(range(0, N, 5_000)):
         pa.table({f"c{j}": block[:, j] for j in range(4)}),
         f"{shard_dir}/part_{i:03d}.parquet",
     )
-del table  # the design matrix now lives only on disk
+del table
 print(len(glob.glob(f"{shard_dir}/*.parquet")), "shards written")
 ```
 
@@ -105,13 +105,13 @@ runs the loop.
 ```{code-cell} ipython3
 batch_size = 1024
 loader = DataLoader(
-    parquet_source(shard_dir),  # an IterableDataset over the shards
+    parquet_source(shard_dir),
     batch_size=batch_size,
-    sample_shape=(4,),  # 3 features + 1 observed column, streamed together
-    shuffle=True,  # bounded-buffer shuffle (the shards are written in order)
+    sample_shape=(4,),  # 3 features + 1 observed column
+    shuffle=True,  # the shards were written in order
     buffer_size=15_000,
     seed=0,
-    total_size="auto",  # read N from Parquet metadata; len(loader) == N
+    total_size="auto",  # N from the Parquet metadata
 )
 
 with pm.Model() as model:
@@ -120,7 +120,6 @@ with pm.Model() as model:
     logit = b[0] + b[1] * batch[:, 0] + b[2] * batch[:, 1] + b[3] * batch[:, 2]
     pm.Bernoulli("y", logit_p=logit, observed=batch[:, 3], total_size=len(loader))
 
-    # No callbacks: the Trainer streams each minibatch into "batch" with set_data.
     approx = Trainer(
         method="advi",
         dataloader=loader,
@@ -184,7 +183,7 @@ cost. The line below is its lower bound (`N * ncols * 8` bytes), not a measureme
 
 ```{code-cell} ipython3
 ncols = 4  # 3 features + observed
-n_grid = np.logspace(5, 9, 50)  # 1e5 .. 1e9 rows
+n_grid = np.logspace(5, 9, 50)
 inram_gb = n_grid * ncols * 8 / 1e9  # whole dataset resident (array lower bound)
 stream_gb = np.full_like(n_grid, batch_size * ncols * 8 / 1e9)  # just the buffer
 
@@ -206,10 +205,10 @@ the real number on public data, I measured peak memory on the
 [Criteo 1TB Click Logs](https://huggingface.co/datasets/criteo/CriteoClickLogs), a
 standard out-of-core learning benchmark, with the same logistic model (13 numeric
 features plus the click label). Streaming through the `DataLoader` stayed flat at
-**~0.7 GB** across a sweep from 1M to 150M rows. The in-RAM `pm.Minibatch` baseline
-rose linearly to **15.7 GB at 150M rows**, about 21 times more, and extrapolates to
-out-of-memory near **238M rows** on a 26 GB machine. The two posteriors agree to
-within ADVI noise (correlation **0.999** across all 14 coefficients). Criteo is
+about 0.7 GB across a sweep from 1M to 150M rows. The in-RAM `pm.Minibatch` baseline
+rose linearly to 15.7 GB at 150M rows, about 21 times more, and extrapolates to
+out-of-memory near 238M rows on a 26 GB machine. The two posteriors agree to
+within ADVI noise (correlation 0.999 across all 14 coefficients). Criteo is
 public, so anyone can rerun this.
 
 ## When to use it
