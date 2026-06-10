@@ -16,7 +16,7 @@ kernelspec:
 # Out-of-core minibatch variational inference with DataLoader and Trainer
 
 :::{post} June 2026
-:tags: variational inference, minibatch, out-of-core, ADVI
+:tags: variational inference, minibatch, out-of-core
 :category: intermediate, how-to
 :author: Yicheng (Ethan) Yang
 :::
