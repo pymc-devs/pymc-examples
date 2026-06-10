@@ -24,7 +24,8 @@ kernelspec:
 +++
 
 `pm.Minibatch` random-indexes an array that must be fully resident in RAM, so
-minibatch variational inference only works on data that already fits in memory.
+minibatch variational inference {cite:p}`hoffman2013stochastic,kucukelbir2015automatic`
+only works on data that already fits in memory.
 This notebook uses the streaming API in `pymc.variational.streaming`, which follows
 the same structure as PyTorch's `torch.utils.data`:
 
@@ -225,17 +226,19 @@ public, so anyone can rerun this.
 
 ## Authors
 
-* Authored by Yicheng (Ethan) Yang in June 2026 for the Google Summer of Code
-  project *Streaming Variational Inference for Large Datasets* (PyMC / NumFOCUS).
+* Authored by [Yicheng (Ethan) Yang](https://github.com/YichengYang-Ethan) in June 2026
+  for the Google Summer of Code project Streaming Variational Inference for Large
+  Datasets (PyMC / NumFOCUS).
 
 +++
 
 ## References
 
-* Hoffman, M. D., Blei, D. M., Wang, C., & Paisley, J. (2013). Stochastic
-  variational inference. *Journal of Machine Learning Research*, 14(1).
-* Kucukelbir, A., Tran, D., Ranganath, R., Gelman, A., & Blei, D. M. (2017).
-  Automatic differentiation variational inference. *JMLR*, 18(1).
+:::{bibliography}
+:filter: docname in docnames
+:::
+
+## Watermark
 
 ```{code-cell} ipython3
 %load_ext watermark
