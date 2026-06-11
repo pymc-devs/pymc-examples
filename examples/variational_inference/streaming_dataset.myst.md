@@ -9,6 +9,9 @@ kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
+myst:
+  substitutions:
+    extra_dependencies: pyarrow
 ---
 
 (streaming_dataset)=
@@ -47,6 +50,11 @@ bounded buffer.
 `N` is small here so the notebook runs in seconds. The streaming code is the same at
 any size, and the last section shows what changes at scale.
 
++++
+
+:::{include} ../extra_installs.md
+:::
+
 ```{code-cell} ipython3
 import glob
 import tempfile
@@ -68,9 +76,9 @@ az.style.use("arviz-variat")
 ## Put a dataset on disk and forget the array
 
 We build a logistic-regression dataset, write it to Parquet shards, and delete the
-in-memory table. From here the features only exist on disk. We keep `X` and `y`
-around only to build the in-RAM `pm.Minibatch` baseline later; the streaming fit
-never reads them.
+in-memory table. From here the streaming path reads only the disk copy. We keep `X`
+and `y` around only to build the in-RAM `pm.Minibatch` baseline later; the streaming
+fit never reads them.
 
 ```{code-cell} ipython3
 N = 30_000
@@ -130,8 +138,7 @@ with pm.Model() as model:
     idata_stream = approx.sample(1000)
 ```
 
-The negative-ELBO trace shows the fit converging while only ever holding a
-`batch_size` buffer in memory:
+The negative-ELBO trace shows the fit converging on minibatches read off disk:
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(9, 3))
@@ -164,15 +171,14 @@ bs_stream = idata_stream.posterior["b"].values.reshape(-1, 4)
 bs_inram = idata_inram.posterior["b"].values.reshape(-1, 4)
 names = ["intercept", "slope x1", "slope x2", "slope x3"]
 
-fig, axes = plt.subplots(1, 4, figsize=(13, 3))
+fig, axes = plt.subplots(1, 4, figsize=(13, 3), layout="tight")
 for k, ax in enumerate(axes):
     ax.hist(bs_stream[:, k], bins=40, density=True, alpha=0.5, label="streaming")
     ax.hist(bs_inram[:, k], bins=40, density=True, alpha=0.5, label="in-RAM")
     ax.axvline(b_true[k], color="k", ls="--", lw=1)
     ax.set(title=names[k], yticks=[])
 axes[0].legend(fontsize=8)
-fig.suptitle("Posterior of b: streaming vs in-RAM (dashed = ground truth)", y=1.04)
-fig.tight_layout();
+fig.suptitle("Posterior of b: streaming vs in-RAM (dashed = ground truth)", y=1.04);
 ```
 
 ## Memory usage
@@ -186,9 +192,9 @@ cost. The line below is its lower bound (`N * ncols * 8` bytes), not a measureme
 ncols = 4  # 3 features + observed
 n_grid = np.logspace(5, 9, 50)
 inram_gb = n_grid * ncols * 8 / 1e9  # whole dataset resident (array lower bound)
-stream_gb = np.full_like(n_grid, batch_size * ncols * 8 / 1e9)  # just the buffer
+stream_gb = np.full_like(n_grid, batch_size * ncols * 8 / 1e9)  # one resident batch
 
-fig, ax = plt.subplots(figsize=(8, 5))
+fig, ax = plt.subplots(figsize=(8, 5), layout="tight")
 ax.loglog(n_grid, inram_gb, lw=2.5, label="in-RAM pm.Minibatch  (O(N))")
 ax.loglog(n_grid, stream_gb, lw=2.5, label="streaming DataLoader  (O(batch))")
 ax.axhline(26, color="0.5", ls="--", lw=1)
@@ -196,21 +202,20 @@ ax.text(n_grid[-1], 30, "26 GB RAM", color="0.5", ha="right", va="bottom")
 ax.set_xlabel("dataset size N")
 ax.set_ylabel("array footprint (GB, lower bound)")
 ax.set_title("Memory is flat in N when streaming")
-ax.legend(loc="lower right", framealpha=0.95)
-fig.tight_layout();
+ax.legend(loc="lower right", framealpha=0.95);
 ```
 
 That line is only the bare array. Actual peak RSS is higher, because of the
-framework and PyTensor's resident copy, and it hits the RAM ceiling sooner. To get
-the real number on public data, we measured peak memory on the
+framework and PyTensor's resident copy, and it hits the RAM ceiling sooner. As a
+real-data check, outside this notebook, we ran the same logistic model (13 numeric
+features plus the click label) on the
 [Criteo 1TB Click Logs](https://huggingface.co/datasets/criteo/CriteoClickLogs), a
-standard out-of-core learning benchmark, with the same logistic model (13 numeric
-features plus the click label). Streaming through the `DataLoader` stayed flat at
-about 0.7 GB across a sweep from 1M to 150M rows. The in-RAM `pm.Minibatch` baseline
-rose linearly to 15.7 GB at 150M rows, about 21 times more, and extrapolates to
-out-of-memory near 238M rows on a 26 GB machine. The streaming and in-RAM posteriors agree coefficient for coefficient; the
-largest gap is about 0.1, on the intercept. Criteo is
-public, so anyone can rerun this.
+standard, publicly available out-of-core learning benchmark. Peak memory for the
+streaming `DataLoader` stayed flat at about 0.7 GB across a sweep from 1M to 150M
+rows, while the in-RAM `pm.Minibatch` baseline rose linearly to 15.7 GB at 150M
+rows, which extrapolates to out-of-memory around 250M rows on the same 26 GB
+machine. The streaming and in-RAM posteriors agreed coefficient for coefficient;
+the largest gap was about 0.1, on the intercept.
 
 ## When to use it
 
