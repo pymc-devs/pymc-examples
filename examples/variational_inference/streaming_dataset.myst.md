@@ -202,14 +202,14 @@ fig.tight_layout();
 
 That line is only the bare array. Actual peak RSS is higher, because of the
 framework and PyTensor's resident copy, and it hits the RAM ceiling sooner. To get
-the real number on public data, I measured peak memory on the
+the real number on public data, we measured peak memory on the
 [Criteo 1TB Click Logs](https://huggingface.co/datasets/criteo/CriteoClickLogs), a
 standard out-of-core learning benchmark, with the same logistic model (13 numeric
 features plus the click label). Streaming through the `DataLoader` stayed flat at
 about 0.7 GB across a sweep from 1M to 150M rows. The in-RAM `pm.Minibatch` baseline
 rose linearly to 15.7 GB at 150M rows, about 21 times more, and extrapolates to
-out-of-memory near 238M rows on a 26 GB machine. The two posteriors agree to
-within ADVI noise (correlation 0.999 across all 14 coefficients). Criteo is
+out-of-memory near 238M rows on a 26 GB machine. The streaming and in-RAM posteriors agree coefficient for coefficient; the
+largest gap is about 0.1, on the intercept. Criteo is
 public, so anyone can rerun this.
 
 ## When to use it
