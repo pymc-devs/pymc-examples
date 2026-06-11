@@ -98,8 +98,8 @@ print(len(glob.glob(f"{shard_dir}/*.parquet")), "shards written")
 It reads one shard at a time and gets `n_rows` from the Parquet metadata without
 scanning the data, so `total_size="auto"` resolves `N` for free. The `DataLoader`
 batches and shuffles it into fixed-size minibatches. The model reads a
-`pm.Data("batch", ...)` placeholder, the only data resident at any point, and the
-`Trainer` writes each minibatch into it with `set_data`. There are no callbacks:
+`pm.Data("batch", ...)` placeholder holding a single batch, and the `Trainer`
+writes each minibatch into it with `set_data`. There are no callbacks:
 `total_size=len(loader)` triggers the `N / batch_size` rescaling and `Trainer.fit`
 runs the loop.
 
@@ -117,7 +117,7 @@ loader = DataLoader(
 
 with pm.Model() as model:
     b = pm.Normal("b", 0.0, 3.0, shape=4)
-    batch = pm.Data("batch", np.zeros((batch_size, 4)))  # placeholder, the only data in RAM
+    batch = pm.Data("batch", np.zeros((batch_size, 4)))  # placeholder for one minibatch
     logit = b[0] + b[1] * batch[:, 0] + b[2] * batch[:, 1] + b[3] * batch[:, 2]
     pm.Bernoulli("y", logit_p=logit, observed=batch[:, 3], total_size=len(loader))
 
@@ -179,7 +179,7 @@ fig.tight_layout();
 
 Both paths feed the same `batch_size` to ADVI, but `pm.Minibatch` keeps all `N`
 rows resident, so its array grows linearly in `N`, while the streaming `DataLoader`
-only holds one `batch_size` buffer. The dense `float64` design matrix dominates the
+holds one batch plus its bounded shuffle buffer. The dense `float64` design matrix dominates the
 cost. The line below is its lower bound (`N * ncols * 8` bytes), not a measurement:
 
 ```{code-cell} ipython3
