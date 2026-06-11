@@ -38,14 +38,17 @@ the same structure as PyTorch's `torch.utils.data`:
   read by {func}`~pymc.variational.streaming.parquet_source`.
 * the model observes a `pm.Data` placeholder of one batch, not the whole array.
 * a {class}`~pymc.variational.streaming.Trainer` drives ADVI, writing each
-  minibatch into that placeholder with `set_data` every step. There are no callbacks.
+  minibatch into that placeholder with `set_data` every step. There are no
+  callbacks to write.
 
 The unbiased-gradient rescaling works exactly as in `pm.Minibatch`. The `DataLoader`
 is sized, so `total_size=len(loader)` passes the dataset size `N` to the observed
-distribution, and PyMC scales the minibatch log-likelihood by `N / batch_size`. The
-one extra requirement is shuffling. A streaming source is only as well mixed as the
-order it yields rows in, so pass `DataLoader(shuffle=True)` to shuffle through a
-bounded buffer.
+distribution, and PyMC scales the minibatch log-likelihood by `N / batch_size`.
+Batches are exact-size, so each pass drops the rows that do not fill a final batch;
+with `shuffle=True` that remainder is re-drawn every epoch instead of being a fixed
+tail. The one extra requirement is shuffling itself. A streaming source is only as
+well mixed as the order it yields rows in, so pass `DataLoader(shuffle=True)` to
+shuffle through a bounded buffer.
 
 `N` is small here so the notebook runs in seconds. The streaming code is the same at
 any size, and the last section shows what changes at scale.
@@ -107,7 +110,7 @@ It reads one shard at a time and gets `n_rows` from the Parquet metadata without
 scanning the data, so `total_size="auto"` resolves `N` for free. The `DataLoader`
 batches and shuffles it into fixed-size minibatches. The model reads a
 `pm.Data("batch", ...)` placeholder holding a single batch, and the `Trainer`
-writes each minibatch into it with `set_data`. There are no callbacks:
+writes each minibatch into it with `set_data`. There are no callbacks to wire up:
 `total_size=len(loader)` triggers the `N / batch_size` rescaling and `Trainer.fit`
 runs the loop.
 
@@ -135,7 +138,7 @@ with pm.Model() as model:
         data_name="batch",
         obj_optimizer=pm.adam(learning_rate=0.008),
     ).fit(30_000, random_seed=RANDOM_SEED)
-    idata_stream = approx.sample(1000)
+    idata_stream = approx.sample(1000, random_seed=RANDOM_SEED)
 ```
 
 The negative-ELBO trace shows the fit converging on minibatches read off disk:
@@ -150,8 +153,8 @@ ax.set(xlabel="iteration", ylabel="negative ELBO", title="Streaming ADVI converg
 
 For comparison, here is the usual fit that keeps the whole dataset in memory.
 Streaming changes where the data lives, not the inference, so the two posteriors
-land on top of each other. Both show ADVI's usual mild bias relative to the dashed
-ground truth, but they agree with each other.
+should agree, and here they land on top of each other. Both show ADVI's usual mild
+bias relative to the dashed ground truth, but they agree with each other.
 
 ```{code-cell} ipython3
 with pm.Model():
@@ -161,9 +164,13 @@ with pm.Model():
     )
     pm.Bernoulli("y", logit_p=b[0] + b[1] * xb + b[2] * zb + b[3] * sb, observed=yb, total_size=N)
     approx_inram = pm.fit(
-        30_000, method="advi", obj_optimizer=pm.adam(learning_rate=0.008), progressbar=False
+        30_000,
+        method="advi",
+        obj_optimizer=pm.adam(learning_rate=0.008),
+        progressbar=False,
+        random_seed=RANDOM_SEED,
     )
-    idata_inram = approx_inram.sample(1000)
+    idata_inram = approx_inram.sample(1000, random_seed=RANDOM_SEED)
 ```
 
 ```{code-cell} ipython3
@@ -185,18 +192,20 @@ fig.suptitle("Posterior of b: streaming vs in-RAM (dashed = ground truth)", y=1.
 
 Both paths feed the same `batch_size` to ADVI, but `pm.Minibatch` keeps all `N`
 rows resident, so its array grows linearly in `N`, while the streaming `DataLoader`
-holds one batch plus its bounded shuffle buffer. The dense `float64` design matrix dominates the
-cost. The line below is its lower bound (`N * ncols * 8` bytes), not a measurement:
+holds one batch plus its bounded shuffle buffer and the current source chunk. The
+dense `float64` design matrix dominates the cost. The lines below are array lower
+bounds (`N * ncols * 8` bytes resident versus that constant), not measurements:
 
 ```{code-cell} ipython3
 ncols = 4  # 3 features + observed
 n_grid = np.logspace(5, 9, 50)
 inram_gb = n_grid * ncols * 8 / 1e9  # whole dataset resident (array lower bound)
-stream_gb = np.full_like(n_grid, batch_size * ncols * 8 / 1e9)  # one resident batch
+stream_rows = batch_size + 15_000 + 5_000  # one batch + shuffle buffer + one shard
+stream_gb = np.full_like(n_grid, stream_rows * ncols * 8 / 1e9)
 
 fig, ax = plt.subplots(figsize=(8, 5), layout="tight")
 ax.loglog(n_grid, inram_gb, lw=2.5, label="in-RAM pm.Minibatch  (O(N))")
-ax.loglog(n_grid, stream_gb, lw=2.5, label="streaming DataLoader  (O(batch))")
+ax.loglog(n_grid, stream_gb, lw=2.5, label="streaming DataLoader  (O(batch + buffer + chunk))")
 ax.axhline(26, color="0.5", ls="--", lw=1)
 ax.text(n_grid[-1], 30, "26 GB RAM", color="0.5", ha="right", va="bottom")
 ax.set_xlabel("dataset size N")
@@ -205,7 +214,7 @@ ax.set_title("Memory is flat in N when streaming")
 ax.legend(loc="lower right", framealpha=0.95);
 ```
 
-That line is only the bare array. Actual peak RSS is higher, because of the
+Those lines are only the bare arrays. Actual peak RSS is higher, because of the
 framework and PyTensor's resident copy, and it hits the RAM ceiling sooner. As a
 real-data check, outside this notebook, we ran the same logistic model (13 numeric
 features plus the click label) on the
@@ -225,7 +234,7 @@ the largest gap was about 0.1, on the intercept.
   flat in `N` by streaming from disk, with no callbacks to wire up. The one thing to
   watch is shuffling. Pass `shuffle=True`, or pre-shuffle on disk and interleave
   shards for strongly ordered data, since a bounded buffer over strongly ordered
-  data only block-shuffles it and biases the posterior.
+  data only block-shuffles it and can bias the posterior.
 
 +++
 
