@@ -30,9 +30,9 @@ This notebook uses the streaming API in `pymc.variational.streaming`, which foll
 the same structure as PyTorch's `torch.utils.data`:
 
 * a {class}`~pymc.variational.streaming.DataLoader` batches (and optionally
-  shuffles) an out-of-core source into fixed-size minibatches, holding only one
-  batch in memory at a time. Here the source is a directory of Parquet shards read
-  by {func}`~pymc.variational.streaming.parquet_source`.
+  shuffles) an out-of-core source into fixed-size minibatches without loading
+  the whole dataset into memory. Here the source is a directory of Parquet shards
+  read by {func}`~pymc.variational.streaming.parquet_source`.
 * the model observes a `pm.Data` placeholder of one batch, not the whole array.
 * a {class}`~pymc.variational.streaming.Trainer` drives ADVI, writing each
   minibatch into that placeholder with `set_data` every step. There are no callbacks.
