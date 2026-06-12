@@ -222,9 +222,10 @@ features plus the click label) on the
 standard, publicly available out-of-core learning benchmark. Peak memory for the
 streaming `DataLoader` stayed flat at about 0.7 GB across a sweep from 1M to 150M
 rows, while the in-RAM `pm.Minibatch` baseline rose linearly to 15.7 GB at 150M
-rows, which extrapolates to out-of-memory around 250M rows on the same 26 GB
-machine. The streaming and in-RAM posteriors agreed coefficient for coefficient;
-the largest gap was about 0.1, on the intercept.
+rows, which extrapolates to out-of-memory around 240M rows on the same 26 GB
+machine. On a 1M-row slice, where the in-RAM fit is cheap, the streaming and
+in-RAM posterior means agreed coefficient for coefficient (correlation 0.998
+across the 14 coefficients); the largest gap on any single coefficient was 0.12.
 
 ## When to use it
 
