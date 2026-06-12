@@ -106,8 +106,9 @@ print(len(glob.glob(f"{shard_dir}/*.parquet")), "shards written")
 ## Stream minibatches off disk and fit with ADVI
 
 `parquet_source` is an out-of-core {class}`~pymc.variational.streaming.IterableDataset`.
-It reads one shard at a time and gets `n_rows` from the Parquet metadata without
-scanning the data, so `total_size="auto"` resolves `N` for free. The `DataLoader`
+It reads one row group at a time (one or more per shard) and gets `n_rows` from
+the Parquet metadata without scanning the data, so `total_size="auto"` resolves
+`N` for free. The `DataLoader`
 batches and shuffles it into fixed-size minibatches. The model reads a
 `pm.Data("batch", ...)` placeholder holding a single batch, and the `Trainer`
 writes each minibatch into it with `set_data`. There are no callbacks to wire up:
@@ -223,9 +224,10 @@ standard, publicly available out-of-core learning benchmark. Peak memory for the
 streaming `DataLoader` stayed flat at about 0.7 GB across a sweep from 1M to 150M
 rows, while the in-RAM `pm.Minibatch` baseline rose linearly to 15.7 GB at 150M
 rows, which extrapolates to out-of-memory around 240M rows on the same 26 GB
-machine. On a 1M-row slice, where the in-RAM fit is cheap, the streaming and
-in-RAM posterior means agreed coefficient for coefficient (correlation 0.998
-across the 14 coefficients); the largest gap on any single coefficient was 0.12.
+machine. On a 1M-row slice, where the in-RAM fit is cheap, the largest gap
+between the streaming and in-RAM posterior means on any single coefficient was
+0.12, on coefficients ranging up to 3.6 in magnitude; two near-zero coefficients
+differed in sign between the two stochastic fits.
 
 ## When to use it
 
