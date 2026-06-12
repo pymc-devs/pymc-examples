@@ -20,18 +20,26 @@ kernelspec:
 :author: Nathaniel Forde
 :::
 
+:::{figure} experimentation_triptych.jpeg
+:name: experimentation-triptych
+:width: 100%
+:align: center
+
+The experimentation lifecycle as a Bosch triptych. *Left, Bayesian Assurance (this notebook):* before any data arrive, the planner reads possible effects from the prior and asks what the experiment will likely conclude. *Centre, Sensitivity Analysis:* a single experiment is wracked by the biases it cannot rule out, and the model is contorted to see which commitments its conclusion can survive. *Right, Meta-Analysis:* many experiments are pooled through a hierarchy of levels into a synthesis that becomes the next plan's prior. Three panels, one posterior machinery.
+:::
+
 Experimental questions are seeded in the science that preceded them. Experiments spawn further questions again. Each new experiment is a digression from the historic records, orientated at a new angle in pursuit of theory, anomalous findings and the next question.
 
 ## The question planners are actually asking
 
 When we experiment, we implicitly assume the experiment will be useful. Our questions are "operationalised" as power heuristics: given an effect size, what is the probability the experiment crosses a fixed threshold? This is an indirect and contorted gauge of efficacy. Instead of asking whether the treatment is effective, we ask whether the results are surprising assuming a degree of effectiveness. The slippage between these two questions has produced a generation of experimental plans calibrated to invented effect sizes rather than to the beliefs the planners actually hold.
 
-An alternative is Bayesian Assurance. The construction is mechanical: draw an effect from the prior, generate a dataset, fit the treatment model, apply the decision rule, repeat. The result is a single number: the probability the experiment will conclude what its stakeholders need. The engine is the same whether the response is continuous (revenue per visitor) or binary (conversion); we develop it on the Gaussian case first and confirm the process is invariant to the response scale. This notebook is the first of three on the lifecycle of a Bayesian experiment; see {ref}`sensitivity_confounding` for the interpretation counterpart and {ref}`meta_analysis_experiments` for the synthesis counterpart. The same posterior machinery serves all three; what changes is the problem put to it.
+An alternative is Bayesian Assurance. The construction is mechanical: draw an effect from the prior, generate a dataset, fit the treatment model, apply the decision rule, repeat. The result is a single number: the probability the experiment will conclude what its stakeholders need. The engine is the same whether the response is continuous (like revenue per visitor) or binary (like conversion); we develop it on the Gaussian case first and confirm the process is invariant to the response scale. This notebook is the first of three on the lifecycle of a Bayesian experiment; see {ref}`sensitivity_confounding` for the interpretation counterpart and {ref}`meta_analysis_experiments` for the synthesis counterpart. The same posterior machinery serves all three; what changes is the problem put to it.
 
 :::{admonition} Where this lands in regulatory practice
 :class: note
 
-The assurance focus here is not only a product-analytics convenience. The FDA's 2026 draft guidance on Bayesian methodology in clinical trials defines *Bayesian power* as the probability of meeting the success criterion averaged over a prior distribution {cite:p}`fda2026bayesian`, which is assurance under another name, and formalises the success rule as $\Pr(\text{effect} > a) > c$ (the rule used below, with $a = 0$ and $c = 0.95$). The same guidance separates the *design prior* that generates the synthetic trials from the *analysis prior* used in inference, which is exactly the split the generative and inference models below are built on. The clinical trial setting in the FDA report differs from product experimentation; the machinery is identical.
+The assurance focus here is not only a product-analytics convenience. The FDA's 2026 draft guidance on Bayesian methodology in clinical trials defines *Bayesian power* as the probability of meeting the success criterion averaged over a prior distribution {cite:p}`fda2026bayesian`, which is assurance under another name, and formalises the success rule as $\Pr(\text{effect} > a) > c$ (the rule used below, with $a = 0$ and $c = 0.95$). The same guidance separates the *design prior* that generates the synthetic trials from the *analysis prior* used in inference. The generative and inference models below are distinct objects for this reason, and a later section runs the assurance loop with the two priors deliberately mismatched. The clinical trial setting in the FDA report differs from product experimentation; the machinery is identical.
 :::
 
 ```{code-cell} ipython3
@@ -45,7 +53,6 @@ import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
 import pymc as pm
-import seaborn as sns
 
 from scipy import stats
 
@@ -55,6 +62,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
+az.style.use("arviz-variat")
 rng = np.random.default_rng(42)
 RANDOM_SEED = 42
 ```
@@ -75,7 +83,7 @@ class EffectPrior:
         return rng.normal(self.mu, self.sigma, size=size)
 ```
 
-## Power and assurance: two questions, different focus.
+## Power and assurance: two questions, different focus
 
 Power and assurance share an interface and answer different questions. Power conditions on a specific effect size $\theta_0$ that the planner has been pressed into naming, and computes the probability of rejecting the null:
 
@@ -165,11 +173,17 @@ with gaussian_two_arm_model(y_A_demo, y_B_demo, EFFECT_PRIOR):
 ```
 
 ```{code-cell} ipython3
-pc = az.plot_dist(idata_gauss_demo, var_names=["delta"])
-ax = plt.gcf().axes[0]
-ax.axvline(0.0, color="C2", linestyle="--", label="ref = 0.0")
-ax.legend()
-ax.set_title(r"Posterior on $\delta$ at $N=200$ (one simulated dataset)");
+pc = az.plot_dist(
+    idata_gauss_demo,
+    var_names=["delta"],
+    visuals={"title": {"text": r"Posterior on $\delta$ at $N=200$ (one simulated dataset)"}},
+)
+az.add_lines(
+    pc,
+    values=0.0,
+    visuals={"ref_line": {"color": "C1", "label": "ref = 0.0"}},
+)
+pc.get_viz("plot").legend()
 ```
 
 The posterior concentrates above zero; under the decision rule the team would conclude the new flow lifts revenue. That is a single draw of the experiment. Assurance asks how often this conclusion would arrive if we re-ran the experiment many times under our actual prior.
@@ -208,7 +222,11 @@ pd.DataFrame(
 The two posteriors agree to within MCMC noise. The closed form will carry the decision step; the generative model will carry the data step.
 
 ```{code-cell} ipython3
-def gaussian_assurance_at_N(N, n_sims, prior, sigma_obs, threshold, rng):
+def gaussian_assurance_at_N(N, n_sims, prior, sigma_obs, threshold, rng, analysis_prior=None):
+    # `prior` is the design prior: it generates the synthetic worlds. `analysis_prior`
+    # is used to form the posterior; it defaults to the design prior so a single
+    # argument reproduces the matched-prior case.
+    analysis_prior = prior if analysis_prior is None else analysis_prior
     seed = int(rng.integers(2**31 - 1))
     pp = pm.sample_prior_predictive(
         n_sims, model=gaussian_generative_model(N, prior), random_seed=seed
@@ -216,7 +234,7 @@ def gaussian_assurance_at_N(N, n_sims, prior, sigma_obs, threshold, rng):
     y_A = pp.prior["y_A"].values.reshape(n_sims, N)
     y_B = pp.prior["y_B"].values.reshape(n_sims, N)
     d_hat = y_B.mean(axis=1) - y_A.mean(axis=1)
-    post_mu, post_sd = gaussian_posterior_delta(d_hat, N, sigma_obs, prior)
+    post_mu, post_sd = gaussian_posterior_delta(d_hat, N, sigma_obs, analysis_prior)
     prob_positive = 1.0 - stats.norm.cdf(0.0, loc=post_mu, scale=post_sd)
     return float((prob_positive > threshold).mean())
 
@@ -236,7 +254,7 @@ assurance_df = assurance_curve(
 assurance_df
 ```
 
-For comparison we compute frequentist power at a single fixed effect size. The convention is to set the effect to the prior mean — which is itself an arbitrary choice, and a revealing one.
+For comparison we compute frequentist power at a single fixed effect size. The convention is to set the effect to the prior mean, which is itself an arbitrary choice, and a revealing one.
 
 ```{code-cell} ipython3
 def gaussian_power(N, delta_alt, sigma_obs, alpha=0.05):
@@ -297,9 +315,9 @@ ax.legend(loc="lower right", fontsize=9);
 
 The three power curves fan out because each conditions on a single assumed world. Power at $\mu + \sigma$ assumes an effect of $0.9$ and saturates almost immediately; power at $\mu - \sigma$ is pinned near the test's five-percent floor, because $\mu - \sigma$ lands at essentially zero effect, where even large samples gain almost no detection. Power at the prior mean is the curve a frequentist planner would actually quote. The assurance curve is the prior-weighted integral across the entire fan, and it tells a different story than any single power calculation.
 
-The story is in the crossing. Between $N=400$ and $N=800$ the assurance curve drops below power-at-the-mean, having sat above it at smaller samples. At small samples assurance is buoyed by the optimistic tail of the prior: it counts the plausible draws above $0.4$, effects of $0.8$ or $1.0$ that even a hundred observations have a real chance of detecting, which the single-point power calculation never sees. The frequentist who quotes power at the mean is being pessimistic about small experiments in a way the prior is not.
+The story is in the crossing. Between $N=400$ and $N=800$ the assurance curve drops below power-at-the-mean, having sat above it at smaller samples. At small samples assurance is buoyed by the optimistic tail of the prior: it counts the plausible draws above $0.4$, effects of $0.8$ or $1.0$ that even a hundred observations have a real chance of detecting, which the single-point power calculation never sees. Quoting power at the mean understates what small experiments can do, because it ignores the optimistic tail of the prior that assurance counts.
 
-At large samples the relationship inverts, and the reason is the ceiling drawn above. Power at a fixed positive effect climbs to one: with enough data an effect of $0.4$ is certain to be detected. Assurance cannot reach one: the prior assigns positive probability to a zero or negative effect. Its asymptote is exactly the prior probability that the effect is beneficial, $P(\delta > 0) \approx 0.79$. No sample size buys more assurance than $P(\delta > 0)$. That ceiling, not any point on a power curve, is what a planner should know before committing to more data.
+At large samples the relationship inverts, and the reason is the ceiling drawn above. Power at a fixed positive effect climbs to one: with enough data an effect of $0.4$ is certain to be detected. Assurance cannot reach one: the prior assigns positive probability to a zero or negative effect. Its asymptote is exactly the prior probability that the effect is beneficial, $P(\delta > 0) \approx 0.79$. No sample size buys more assurance than $P(\delta > 0)$. A planner should know that ceiling before committing to more data, and no point on a power curve reveals it.
 
 :::{admonition} The minimum detectable effect leads a double life
 :class: note
@@ -313,8 +331,9 @@ The generative model fixes the baseline conversion rate, places the planning pri
 
 ```{code-cell} ipython3
 BASELINE_RATE = 0.10
-RATE_LIFT_PRIOR = EffectPrior(mu=0.01, sigma=0.012)
+RATE_LIFT_PRIOR = EffectPrior(mu=0.005, sigma=0.012)
 BETA_PRIOR_KAPPA = 200  # prior concentration, in units of pseudo-observations
+prior_prob_lift_positive = 1.0 - stats.norm.cdf(0.0, RATE_LIFT_PRIOR.mu, RATE_LIFT_PRIOR.sigma)
 
 
 def beta_prior_params(p_mean, kappa):
@@ -422,11 +441,11 @@ ax.plot(
     label=r"Power at $\mu - \sigma$",
 )
 ax.axhline(
-    prior_prob_positive,
+    prior_prob_lift_positive,
     color="C0",
     linestyle="-.",
     alpha=0.6,
-    label=rf"Assurance ceiling $P(\delta>0)$ = {prior_prob_positive:.2f}",
+    label=rf"Assurance ceiling $P(\text{{lift}}>0)$ = {prior_prob_lift_positive:.2f}",
 )
 
 ax.set_xscale("log")
@@ -437,7 +456,7 @@ ax.set_title("Assurance vs frequentist power, Bernoulli outcome")
 ax.legend(loc="lower right");
 ```
 
-The conversion-rate version runs the same loop, and the loop discloses something the Gaussian case conceals. The lift is bounded above: how large a positive effect can even be depends on how much room sits above the baseline conversion rate, a constraint the Normal likelihood never faces. The Beta prior on the per-arm rates is parameterised here by a concentration $\kappa$ — the number of pseudo-observations at the baseline rate that the prior is equivalent to. Setting $\kappa = 200$ is saying: I am as confident about the baseline as if I had watched 200 trials at that rate. This is a different handle on prior calibration than the Normal's mean and standard deviation pair, and it makes the ceiling claim more precise: the assurance curve asymptotes toward the prior probability that the lift is positive, and what that probability is depends not only on the prior's location and scale but on the scale on which the lift is defined. At a 10\% baseline with a planning prior mean of 1\%, most of the prior mass sits in a narrow positive strip; the ceiling is lower than the Gaussian case not because the machinery differs but because the planning prior encodes a more cautious belief about how large a conversion lift can plausibly be. The generative model produced the synthetic experiments; the conjugate Beta posterior supplied the decision, with no MCMC in the loop. We confirm below that this matches a full PyMC fit on a single dataset, so nothing in the assurance machinery depends on the closed form being available; it depends only on a posterior we can compute reliably.
+The conversion-rate version runs the same loop, and the loop discloses something the Gaussian case conceals. The lift is bounded above: how large a positive effect can even be depends on how much room sits above the baseline conversion rate, a constraint the Normal likelihood never faces. The Beta prior on the per-arm rates is parameterised here by a concentration $\kappa$, the number of pseudo-observations at the baseline rate that the prior is equivalent to. Setting $\kappa = 200$ is saying: I am as confident about the baseline as if I had watched 200 trials at that rate. This is a different handle on prior calibration than the Normal's mean and standard deviation pair, and it makes the ceiling claim more precise: the assurance curve asymptotes toward the prior probability that the lift is positive, and what that probability is depends not only on the prior's location and scale but on the scale on which the lift is defined. At a 10\% baseline with a planning prior mean of 0.5\%, the prior splits its mass roughly two to one in favour of a positive lift, and the assurance curve asymptotes there, near 0.66. The same machinery produces a lower ceiling than the Gaussian case because the planning prior commits to a more cautious belief about how large a conversion lift can plausibly be. The generative model produced the synthetic experiments; the conjugate Beta posterior supplied the decision, with no MCMC in the loop. We confirm below that this matches a full PyMC fit on a single dataset, so nothing in the assurance machinery depends on the closed form being available; it depends only on a posterior we can compute reliably.
 
 ```{code-cell} ipython3
 def bernoulli_two_arm_model(n_A, n_B, N, baseline_rate, kappa):
@@ -470,14 +489,20 @@ with bernoulli_two_arm_model(
         progressbar=False,
     )
 
-az.plot_dist(idata_bern_demo, var_names=["lift"])
-ax = plt.gcf().axes[0]
-ax.axvline(0.0, color="C2", linestyle="--", label="ref = 0.0")
-ax.legend()
-plt.title(r"Posterior on conversion lift at $N=4000$");
+pc = az.plot_dist(
+    idata_bern_demo,
+    var_names=["lift"],
+    visuals={"title": {"text": r"Posterior on conversion lift at $N=4000$"}},
+)
+az.add_lines(
+    pc,
+    values=0.0,
+    visuals={"ref_line": {"color": "C1", "label": "ref = 0.0"}},
+)
+pc.get_viz("plot").legend()
 ```
 
-The PyMC posterior on lift agrees with the conjugate Beta posterior, as it must under this setup. The decision rule is the same; the ceiling is lower because the planning prior carries a smaller probability that the lift is positive, and that probability — not the sample size — is what sets the asymptote.
+The PyMC posterior on lift agrees with the conjugate Beta posterior, as it must under this setup. The decision rule is the same, and the ceiling is lower because the planning prior carries a smaller probability that the lift is positive. That prior probability sets the asymptote that no sample size can exceed.
 
 ## The cost of an under-informed prior
 
@@ -516,6 +541,48 @@ ax.set_title("Assurance under three prior commitments")
 ax.legend();
 ```
 
+## Design prior and analysis prior
+
+The assurance loop carries two priors with distinct jobs. The *design prior* generates the synthetic worlds the experiment will face. The *analysis prior* reads each dataset and forms the posterior the decision rule consults. Every curve so far set the two equal. Separating them measures a sensitivity the FDA guidance asks for directly: how the operating characteristics respond when the inference commitment disagrees with the planning belief {cite:p}`fda2026bayesian`. The generative model already carries the design prior and the inference model the analysis prior, so the loop runs the mismatch with one extra argument.
+
+```{code-cell} ipython3
+OPTIMISTIC_DESIGN = EffectPrior(mu=0.6, sigma=0.4)
+SCEPTICAL_ANALYSIS = EffectPrior(mu=0.0, sigma=0.3)
+
+design_analysis_cases = {
+    "Matched (design = analysis)": (OPTIMISTIC_DESIGN, OPTIMISTIC_DESIGN),
+    "Optimistic design, sceptical analysis": (OPTIMISTIC_DESIGN, SCEPTICAL_ANALYSIS),
+    "Sceptical design, optimistic analysis": (SCEPTICAL_ANALYSIS, OPTIMISTIC_DESIGN),
+}
+
+design_analysis_curves = {}
+for name, (design_prior, analysis_prior) in design_analysis_cases.items():
+    design_analysis_curves[name] = assurance_curve(
+        gaussian_assurance_at_N,
+        N_grid=N_GRID,
+        n_sims=N_SIMS,
+        rng=np.random.default_rng(RANDOM_SEED),
+        prior=design_prior,
+        analysis_prior=analysis_prior,
+        sigma_obs=SIGMA_OBS,
+        threshold=DECISION_THRESHOLD,
+    )
+
+fig, ax = plt.subplots(figsize=(15, 4.5))
+for name, df in design_analysis_curves.items():
+    ax.plot(df["N"], df["assurance"], marker="o", linewidth=2, label=name)
+ax.set_xscale("log")
+ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{int(x):,}"))
+ax.set_xlabel("Sample size per arm")
+ax.set_ylabel("Assurance")
+ax.set_title("Assurance when the design and analysis priors agree or disagree")
+ax.legend();
+```
+
+A sceptical analysis prior lowers assurance at every sample size, because it discounts the same evidence the optimistic design prior expects to see. The reverse pairing recovers most of the matched curve once the data accumulate, since an optimistic analysis prior and a growing dataset agree. The gap between the curves is the price of a mismatch, and it narrows as $N$ grows. Small experiments pay the most for an analysis prior that disagrees with the design belief, which matches the guidance observation that trial characteristics are most sensitive to the analysis prior when the sample size is small {cite:p}`fda2026bayesian`.
+
++++
+
 ## The information content of a prior: effective sample size
 
 The three curves above differ because the three priors carry different amounts of information. The *prior effective sample size* (ESS) makes this precise: it is the number of actual experimental observations the prior is equivalent to in terms of information content. A prior with ESS of 128 is, before the first participant is enrolled, already as informative as 128 observed subjects per arm.
@@ -524,7 +591,7 @@ For the two-arm Gaussian trial the ESS follows from equating information in the 
 
 $$n_{\text{ESS}} = \frac{2\sigma_{\text{obs}}^2}{\sigma_0^2}$$
 
-The simulation-based approach recovers the same number without the closed form. For each $N$ in a grid, draw synthetic datasets from the prior predictive and compute the posterior variance under a flat reference prior; the $N^*$ where the average posterior variance crosses the prior variance is the ESS. The machinery is the same prior-predictive loop already running in the assurance calculation — only the inner step changes. In the conjugate case the analytical posterior fills that step. In non-conjugate models — hierarchical likelihoods, logistic regression — the same loop runs with MCMC posteriors and the ESS estimate generalises without modification. Verifying that analytical and simulation estimates agree for the Gaussian case validates the approach for those more complex settings.
+The simulation-based approach recovers the same number without the closed form. For each $N$ in a grid, draw synthetic datasets from the prior predictive and compute the posterior variance under a flat reference prior; the $N^*$ where the average posterior variance crosses the prior variance is the ESS. The machinery is the same prior-predictive loop already running in the assurance calculation; only the inner step changes. In the conjugate case the analytical posterior fills that step. In non-conjugate models such as hierarchical likelihoods or logistic regression, the same loop runs with MCMC posteriors and the ESS estimate generalises without modification. Verifying that analytical and simulation estimates agree for the Gaussian case validates the approach for those more complex settings.
 
 ```{code-cell} ipython3
 def analytical_ess(prior, sigma_obs):
@@ -674,23 +741,23 @@ axes[1].legend()
 plt.tight_layout()
 ```
 
-The left panel is a calibration check. The simulation curve — posterior variance under a flat prior as a function of N — crosses the prior variance at the point the analytical formula predicts. The two estimates agree to within interpolation noise. For non-conjugate models where no closed form for the posterior variance exists, the same loop with MCMC posteriors in place of `gaussian_posterior_delta` gives the correct ESS. The conjugate case validates the simulation approach before the closed form disappears.
+The left panel is a calibration check. The simulation curve, posterior variance under a flat prior as a function of N, crosses the prior variance at the point the analytical formula predicts. The two estimates agree to within interpolation noise. For non-conjugate models where no closed form for the posterior variance exists, the same loop with MCMC posteriors in place of `gaussian_posterior_delta` gives the correct ESS. The conjugate case validates the simulation approach before the closed form disappears.
 
 The right panel reads the ESS against the assurance curves. The dotted vertical lines mark each prior's ESS on the sample-size axis. An ESS of 356 (Informed) means the prior carries more information than 350 subjects per arm before the first participant is enrolled; the curve climbs steeply early because the prior is already doing most of the work. An ESS of 14 (Flat) means the prior contributes almost nothing, and every observation earns its full weight. The ESS converts the abstract question "how informative is this prior?" into a number on the same axis as the assurance curve: experiments whose planned N falls well below the ESS are prior-dominated; those well above it are data-dominated.
 
-This is the quantitative form of the trade-off the sensitivity analysis in {ref}`sensitivity_confounding` interrogates from the other side. There, the question is not how much information the prior commits but what happens when that commitment meets an identification gap — the tipping point at which the conclusion turns is the price the prior's ESS is staking.
+This is the quantitative form of the trade-off the sensitivity analysis in {ref}`sensitivity_confounding` interrogates from the other side. There, the question is what happens when that committed information meets an identification gap, and the tipping point at which the conclusion turns measures how much that committed ESS has put at risk.
 
 +++
 
-The three curves disagree most where they should: at small sample sizes where the data has not yet overwhelmed the prior. The informed prior reaches high assurance fastest because it is willing to commit to a narrow effect range; the sceptical prior assumes a smaller effect and so needs more data to detect it; the flat prior carries enough probability mass over zero that even moderate datasets do not push the posterior reliably above the decision threshold. The point is not to advocate for a specific prior. It is to make the dependence of the assurance number on the prior commitment visible, so that the prior can be the subject of negotiation rather than a hidden choice.
+The three curves disagree most where they should: at small sample sizes where the data has not yet overwhelmed the prior. The informed prior reaches high assurance fastest because it is willing to commit to a narrow effect range; the sceptical prior assumes a smaller effect and so needs more data to detect it; the flat prior carries enough probability mass over zero that even moderate datasets do not push the posterior reliably above the decision threshold. The point is to make the dependence of the assurance number on the prior commitment visible, so the prior becomes a subject of negotiation rather than a hidden choice.
 
 ## Planning as a posterior over future posteriors
 
 The experiment we have not yet run is a posterior we have not yet computed. What we have is a prior, a model, and the patience to ask what the experiment will likely say. Assurance is the posterior we can compute now, over the posteriors we will compute later: a rehearsal under the lights of our current uncertainty.
 
-Power answers a conditional: given a specific effect, what probability of detection? Assurance answers a marginal: given everything currently believed, what probability the inference about to be drawn will be useful? The decision-theoretic operation that produces assurance is the same operation that produces the posterior at the end of the experiment. Only the data are still hypothetical. It makes explicit the assumption power leaves buried: a believed distribution of effects. Naming that assumption, and giving it a posterior, is the move this sequence repeats.
+Power answers a conditional: given a specific effect, what probability of detection? Assurance answers a marginal: given everything currently believed, what probability that the inference about to be drawn will be useful? The operation that produces assurance is the same one that will produce the posterior at the end of the experiment. Only the data are still hypothetical. Assurance makes explicit the assumption power leaves buried, a believed distribution of effects, and gives that assumption a posterior to argue over.
 
-In each case here, the Gaussian and the Bernoulli, the inference machinery was the same. What changed was the likelihood — and with it, the ceiling that the likelihood's geometry sets on how much assurance any sample size can buy. The same is true across this notebook and its successors. Planning, interpretation, synthesis: three problems, one machinery. The problem changes; its proper characterisation is always a posterior. We have just seen the first of the three.
+The Gaussian case and the Bernoulli case ran the same inference machinery. What changed was the likelihood, and with it the ceiling its geometry sets on how much assurance any sample size can buy. The next notebook, {ref}`sensitivity_confounding`, keeps the machinery and changes the question: not what an experiment will probably say, but what it did say once clean identification is itself in doubt.
 
 ## Authors
 

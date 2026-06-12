@@ -20,9 +20,17 @@ kernelspec:
 :author: Nathaniel Forde
 :::
 
+:::{figure} experimentation_triptych.jpeg
+:name: experimentation-triptych
+:width: 100%
+:align: center
+
+The experimentation lifecycle as a Bosch triptych. *Left, Bayesian Assurance:* before any data arrive, the planner reads possible effects from the prior and asks what the experiment will likely conclude. *Centre, Sensitivity Analysis:* a single experiment is wracked by the biases it cannot rule out, and the model is contorted to see which commitments its conclusion can survive. *Right, Meta-Analysis (this notebook):* many experiments are pooled through a hierarchy of levels into a synthesis that becomes the next plan's prior. Three panels, one posterior machinery.
+:::
+
 ## The replication-as-evidence problem
 
-Eight quarterly A/B tests of the same checkout-flow redesign, run across eight markets, return eight different point estimates. Three cross the conventional significance threshold; the other five do not. The product manager asks the natural question — "did it work?" — and gets, depending on which colleague answers, two incompatible defaults: vote-counting ("four out of eight worked, so it's a wash"), or pool-everything ("the combined estimate is positive, so it works"). Both are mistakes. The vote-count discards the magnitude information in each estimate; the pool-everything pretends the markets are exchangeable in a way the evidence does not support. The honest answer requires a model that estimates between-market differences rather than assuming them away.
+Eight quarterly A/B tests of the same checkout-flow redesign, run across eight markets, return eight different point estimates. Three cross the conventional significance threshold; the other five do not. The product manager asks the natural question, "did it work?", and gets two incompatible defaults depending on which colleague answers: vote-counting ("four out of eight worked, so it's a wash"), or pool-everything ("the combined estimate is positive, so it works"). Both are mistakes. The vote-count discards the magnitude information in each estimate; the pool-everything pretends the markets are exchangeable in a way the evidence does not support. The honest answer requires a model that estimates between-market differences rather than assuming them away.
 
 Each experiment speaks about one market. The hierarchy is what lets us hear all of them at once.
 
@@ -42,7 +50,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
-import seaborn as sns
 
 from scipy import stats
 
@@ -237,19 +244,22 @@ comparison.round(3)
 ```
 
 ```{code-cell} ipython3
-az.plot_dist(idata_seg, var_names=["tau"])
-ax = plt.gcf().axes[0]
-ax.axvline(
-    np.sqrt(tau2_DL),
-    color="C1",
-    linestyle="--",
-    label=f"DerSimonian–Laird τ = {np.sqrt(tau2_DL):.2f}",
+pc = az.plot_dist(
+    idata_seg,
+    var_names=["tau"],
+    visuals={
+        "title": {"text": r"Posterior of between-segment SD $\tau$ (one study, six segments)"}
+    },
 )
-ax.set_title(r"Posterior of between-segment SD $\tau$ (one study, six segments)")
-ax.legend()
+az.add_lines(
+    pc,
+    values=np.sqrt(tau2_DL),
+    visuals={"ref_line": {"color": "C1", "label": f"DerSimonian–Laird τ = {np.sqrt(tau2_DL):.2f}"}},
+)
+pc.get_viz("plot").legend()
 ```
 
-Three estimators, three commitments about how much the segments share. The fixed-effect ANOVA assumes one common effect and pools completely; the random-effects ANOVA admits between-segment variance and estimates it by moments; the hierarchical model carries that variance as a posterior. The grouping factor was the segment. Replace it with "study" and the model is untouched: meta-analysis is the random-effects analysis of variance with studies as the groups, and the index $k$ ranges over experiments rather than segments. The rest of this notebook makes exactly that substitution. The substitution is mechanical; what it opens is not. Once studies replace segments, τ becomes the quantity the replication programme was designed to estimate.
+Three estimators, three commitments about how much the segments share. The fixed-effect ANOVA assumes one common effect and pools completely; the random-effects ANOVA admits between-segment variance and estimates it by moments; the hierarchical model carries that variance as a posterior. The grouping factor was the segment. Replace it with "study" and the model is untouched: meta-analysis is the random-effects analysis of variance with studies as the groups, and the index $k$ ranges over experiments rather than segments. The rest of this notebook makes exactly that substitution. Making that substitution is mechanical. What it reveals is substantive: once studies replace segments, τ becomes the quantity the replication programme was designed to estimate.
 
 ## The hierarchical re-framing
 
@@ -431,7 +441,7 @@ ax.legend(loc="lower right");
 
 ### The substance lives in $\tau$
 
-The hierarchical model returns two population-level quantities, and the conventional reporting habit of leading with $\mu$ obscures the more important one. The posterior of $\tau$ — the between-market standard deviation of true effects — is what tells the team how transportable any single result is to a new context. A small $\tau$ means the markets are nearly exchangeable, and the experiment generalises cleanly; a large $\tau$ means the markets are heterogeneous, and the next market is a meaningfully new experiment. Reporting only $\mu$ collapses this into a point and hides the variability that the next stakeholder will live with.
+The hierarchical model returns two population-level quantities, and the conventional reporting habit of leading with $\mu$ obscures the more important one. The posterior of $\tau$, the between-market standard deviation of true effects, is what tells the team how transportable any single result is to a new context. A small $\tau$ means the markets are nearly exchangeable, and the experiment generalises cleanly; a large $\tau$ means the markets are heterogeneous, and the next market is a meaningfully new experiment. Reporting only $\mu$ collapses this into a point and hides the variability that the next stakeholder will live with.
 
 ```{code-cell} ipython3
 az.plot_dist(idata_partial, var_names=["mu", "tau"])
@@ -517,7 +527,7 @@ The Bernoulli picture is the Gaussian picture on a different link. The populatio
 
 ## Predicting the next experiment
 
-The stakeholder question that occasioned this entire exercise is rarely "what was the population mean?" — it is "what will happen if we run this in Market I next quarter?". The hierarchical model answers in two posterior-predictive flavours, and the difference between them matters.
+The stakeholder question that occasioned this entire exercise is about a specific market: what will happen if we run this in Market I next quarter? The population mean is rarely what they are asking for. The hierarchical model answers in two posterior-predictive flavours, and the difference between them matters.
 
 **The true-effect predictive** asks for the unknown $\theta_{\text{new}}$ of a new market drawn from the same population:
 
@@ -537,34 +547,31 @@ theta_new_samples = rng_pp.normal(mu_samples, tau_samples)
 s_new = np.median(se_obs)
 d_hat_new_samples = theta_new_samples + rng_pp.normal(0.0, s_new, size=len(theta_new_samples))
 
-fig, ax = plt.subplots(figsize=(20, 4.5))
-bins = np.linspace(
-    min(d_hat_new_samples.min(), theta_new_samples.min()) - 0.2,
-    max(d_hat_new_samples.max(), theta_new_samples.max()) + 0.2,
-    80,
+dt = az.from_dict(
+    {
+        "posterior": {
+            "theta_new": theta_new_samples,
+            "d_hat_new": d_hat_new_samples,
+        }
+    },
+    sample_dims=["sample"],
 )
-ax.hist(
-    theta_new_samples,
-    bins=bins,
-    alpha=0.55,
-    label=r"True effect $\theta_{\text{new}}$",
-    color="C0",
-    density=True,
+
+pc = az.plot_dist(
+    dt,
+    kind="hist",
+    sample_dims=["sample"],
+    cols=[],
+    aes={"color": ["__variable__"]},
+    visuals={
+        "point_estimate": False,
+        "point_estimate_text": False,
+        "credible_interval": False,
+        "title": {"text": "Two predictive distributions for the ninth market"},
+    },
 )
-ax.hist(
-    d_hat_new_samples,
-    bins=bins,
-    alpha=0.45,
-    label=r"Observed estimate $\hat d_{\text{new}}$",
-    color="C3",
-    density=True,
-)
-ax.axvline(0.0, color="black", linestyle=":")
-ax.axvline(mu_samples.mean(), color="C0", linestyle="--", alpha=0.8, label=r"$\mu_{\text{post}}$")
-ax.set_xlabel("Predicted effect in a new market")
-ax.set_ylabel("Posterior predictive density")
-ax.set_title("Two predictive distributions for the ninth market")
-ax.legend();
+pc.add_legend("__variable__")
+az.add_lines(pc, values=0.0, visuals={"ref_line": {"color": "black", "label": "0"}})
 ```
 
 ```{code-cell} ipython3
@@ -576,15 +583,115 @@ pd.DataFrame(
 ).round(3)
 ```
 
-The probability the true effect is positive in the next market is higher than the probability the next experiment will return a positive estimate. The gap is the experimental-noise tax: each individual experiment is a noisy realisation of an underlying truth, and the team will sometimes see a negative estimate even when the true effect is positive. Reporting the meta-analytic posterior on $\theta_{\text{new}}$ as the planning input for the next market — which is what {ref}`assurance_planning` will then consume as its prior — is the way to feed accumulating evidence forward without losing track of the noise.
+The probability the true effect is positive in the next market is higher than the probability the next experiment will return a positive estimate. The gap is the experimental-noise tax: each individual experiment is a noisy realisation of an underlying truth, and the team will sometimes see a negative estimate even when the true effect is positive. Reporting the meta-analytic posterior on $\theta_{\text{new}}$ as the planning input for the next market, which {ref}`assurance_planning` then consumes as its prior, is the way to feed accumulating evidence forward without losing track of the noise.
+
++++
+
+## How much to borrow
+
+Borrowing across markets raises a question the hierarchical model answers quietly: how far should one market's estimate move toward the others. The shrinkage already shown is that answer in action. Each market's pull toward the population mean is a weight set by its own precision against the between-market variance $\tau$ the data infer.
+
+```{code-cell} ipython3
+tau_post_mean = float(idata_partial.posterior["tau"].mean())
+shrinkage_weight = se_obs**2 / (se_obs**2 + tau_post_mean**2)
+borrow_df = pd.DataFrame(
+    {
+        "market": MARKET_NAMES,
+        "se": se_obs,
+        "weight_on_population_mean": shrinkage_weight,
+    }
+).round(3)
+borrow_df
+```
+
+Noisy markets carry the largest weight on the population mean, so they borrow the most; precise markets keep their own estimate. The between-market variance sets the scale, and the data set $\tau$, so the borrowing rate adapts to the evidence. This is the dynamic borrowing the FDA guidance describes, where the amount borrowed responds to the similarity among the sources {cite:p}`fda2026bayesian`.
+
+Borrowing earns its keep through precision: a prior built from real past experiments sharpens the next posterior and lowers the sample size needed to reach a given assurance, so the eight markets already run are information the ninth should use. The open question is how much of it to grant, and a *power prior* makes that dial explicit {cite:p}`ibrahim2000power`. Raise the pooled likelihood from the past markets to a discount $\alpha$ in the unit interval and use the result as the prior for the new market. With $n_0$ past subjects it contributes about $\alpha\, n_0$ observations' worth of information, so $\alpha$ is the fraction of the historical sample size carried forward, the prior effective sample size {ref}`assurance_planning` planned around. At $\alpha = 1$ the past markets count in full, as if pooled; as $\alpha$ falls toward zero the prior widens and the borrowing fades. Fixing $\alpha$ in advance is what makes the power prior the static counterpart to the hierarchical model's data-driven $\tau$.
+
+The word *power* here means raising the likelihood to an exponent, a separate idea from the statistical power and assurance of {ref}`assurance_planning`. The two meet only through effective sample size: $\alpha$ sets how many past observations the prior is worth, and that count is the quantity the planning notebook traded against sample size.
+
+```{code-cell} ipython3
+w_pool = 1.0 / se_obs**2
+pooled_mean = float(np.sum(w_pool * d_hat_obs) / np.sum(w_pool))
+pooled_var = float(1.0 / np.sum(w_pool))
+
+alpha_grid = np.array([0.1, 0.25, 0.5, 0.75, 1.0])
+power_prior_df = pd.DataFrame(
+    {"alpha": alpha_grid, "prior_mean": pooled_mean, "prior_sd": np.sqrt(pooled_var / alpha_grid)}
+).round(3)
+power_prior_df
+```
+
+The power prior borrows the precision of the pooled mean and treats every market as one draw from a single shared effect. A genuinely new market also carries between-market variation, which the hierarchical predictive folds in through $\tau$. The figure sets the two side by side.
+
+```{code-cell} ipython3
+theta_new_mean = float(theta_new_samples.mean())
+theta_new_sd = float(theta_new_samples.std())
+alpha_match = (
+    pooled_var / theta_new_sd**2
+)  # discount at which the power prior reaches the tau-driven width
+xx = np.linspace(pooled_mean - 1.2, pooled_mean + 1.2, 400)
+
+fig, ax = plt.subplots(figsize=(20, 4.5))
+for a in [1.0, 0.5, 0.1]:
+    sd_a = np.sqrt(pooled_var / a)
+    ax.plot(xx, stats.norm.pdf(xx, pooled_mean, sd_a), label=rf"Power prior, $\alpha$ = {a}")
+ax.plot(
+    xx,
+    stats.norm.pdf(xx, pooled_mean, np.sqrt(pooled_var / alpha_match)),
+    color="C1",
+    linestyle="--",
+    label=rf"Power prior matching $\tau$ ($\alpha \approx$ {alpha_match:.2f})",
+)
+ax.plot(
+    xx,
+    stats.norm.pdf(xx, theta_new_mean, theta_new_sd),
+    color="black",
+    linewidth=2.5,
+    label=r"Hierarchical predictive ($\tau$-driven)",
+)
+ax.axvline(0.0, color="grey", linestyle=":", alpha=0.6)
+ax.set_xlabel(r"Effect in a new market $\theta_{\text{new}}$")
+ax.set_ylabel("Prior density")
+ax.set_title("Static power prior versus dynamic hierarchical borrowing")
+ax.legend();
+```
+
+At $\alpha = 1$ the static power prior is the tightest curve, far more confident about a new market than the spread across markets warrants. Matching the hierarchical predictive takes a large deviation from full borrowing: the dashed curve marks the small $\alpha$ at which the static prior finally reaches the $\tau$-driven width, and that value has to be set by hand. The hierarchical model arrives there on its own, because $\tau$ reads the between-market spread from the data.
+
+Either prior becomes the belief the next market inherits, and that inheritance is legitimate only when the new market is drawn from the same population the past markets describe. Borrowing sharpens the posterior when that holds and pulls it toward the wrong centre when it fails, so the strength of borrowing has to be earned rather than assumed. A prior-data conflict check is the gate {cite:p}`evans2006checking`: locate the incoming estimate in the prior predictive distribution, and read a small tail probability as the new market disagreeing with the borrowed belief.
+
+```{code-cell} ipython3
+def prior_data_conflict_tail(d_new, prior_pred_samples):
+    centre = np.median(prior_pred_samples)
+    return float(np.mean(np.abs(prior_pred_samples - centre) >= abs(d_new - centre)))
+
+
+concordant_d_new = 0.28  # a new market in line with the population
+conflicting_d_new = -0.40  # a new market that contradicts the population
+pd.DataFrame(
+    {
+        "incoming estimate": [concordant_d_new, conflicting_d_new],
+        "prior-predictive tail probability": [
+            prior_data_conflict_tail(concordant_d_new, d_hat_new_samples),
+            prior_data_conflict_tail(conflicting_d_new, d_hat_new_samples),
+        ],
+    },
+    index=["concordant market", "conflicting market"],
+).round(3)
+```
+
+The concordant market sits in the body of the predictive and the tail probability is large; the prior and the new data describe one population, so the experiment can borrow at full strength and keep the precision that buys. The conflicting market sits far out and the tail probability is small, the trigger the guidance names for reassessing how much to borrow {cite:p}`fda2026bayesian`: lower $\alpha$, widen the prior, or hold the borrowed estimate aside until the discrepancy is understood. Dynamic borrowing through $\tau$ softens this failure on its own, since a heterogeneous set of markets produces a wide predictive that absorbs a surprising estimate, while a static power prior never adapts, so the analyst must run the check every time. Whatever borrowing strength passes the check is the prior the next experiment plans with.
+
++++
 
 ## Replication as the data-generating process
 
-A single experiment is overheard speech. Eight experiments are conversation. The hierarchical model is what lets us hear them as conversation, and the posterior on the population is not a summary. It is the population our experiments were drawn from, made audible.
+A single experiment is overheard speech. Eight experiments are conversation. The hierarchical model is what lets us hear them as conversation, and the posterior on the population describes the very population our experiments were drawn from.
 
-Replication is often described as a verification protocol: a post-hoc check. Replication is the data-generating process whose distribution we are trying to learn. Each new market is a draw from a population we did not have direct access to; pooling is the operation that constructs the population from the draws; the next experiment is the test that the population so constructed will continue to predict. The triptych closes here, though "closes" is the wrong shape for it. The first notebook turned planning into a posterior over future posteriors; the second turned interpretation into a posterior over the bias an experiment cannot rule out; the third turned a series of experiments into a posterior over the population they sample from. Three problems, one machinery. In each, an assumption a conventional analysis leaves implicit is made a parameter with a posterior — something to argue about rather than assume. The likelihood changed from Gaussian to Bernoulli each time and the picture did not. The problem changes; its proper characterisation is always a posterior.
+Replication is often described as a verification protocol, a post-hoc check on a result already in hand. It is better understood as the data-generating process whose distribution we are trying to learn. Each new market is a draw from a population we never observed directly; pooling constructs that population from the draws; the next experiment tests whether the constructed population keeps predicting new markets. The three notebooks make the same move on three problems. Planning became a posterior over the posteriors a future experiment will compute. Interpretation became a posterior over the bias a single experiment cannot rule out. Synthesis became a posterior over the population a series of experiments samples from. The likelihood changed from Gaussian to Bernoulli each time and the picture held. In each, an assumption a conventional analysis leaves implicit is made a parameter with a posterior, something to argue about rather than assume. The problem changes; its proper characterisation is always a posterior.
 
-And the last question feeds the first. The population this notebook inferred is the prior the planning notebook consumes: $\theta_{\text{new}} \sim \mathcal{N}(\mu, \tau)$ is precisely the kind of belief {ref}`assurance_planning` integrates over before the next experiment is run. The synthesis at the end of one experiment's lifecycle is the input to the design of the next. The lifecycle is not a line from plan to verdict but a loop, and the posterior is what travels around it — each notebook's synthesis becoming the next notebook's prior, each conversation overheard becoming the next conversation's opening question.
+And the last question feeds the first. The population this notebook inferred is the prior the planning notebook consumes: $\theta_{\text{new}} \sim \mathcal{N}(\mu, \tau)$ is the kind of belief {ref}`assurance_planning` integrates over before the next experiment is run. The synthesis that ends one experiment's lifecycle is the input to the design of the next. The lifecycle runs as a loop rather than a line from plan to verdict, and the posterior is what travels around it: each notebook's synthesis becomes the next notebook's prior, and each overheard conversation becomes the next one's opening question.
 
 ## Authors
 
