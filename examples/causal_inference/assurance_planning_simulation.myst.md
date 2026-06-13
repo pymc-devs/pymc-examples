@@ -28,18 +28,17 @@ kernelspec:
 The experimentation lifecycle as a Bosch triptych. *Left, Bayesian Assurance (this notebook):* before any data arrive, the planner reads possible effects from the prior and asks what the experiment will likely conclude. *Centre, Sensitivity Analysis:* a single experiment is wracked by the biases it cannot rule out, and the model is contorted to see which commitments its conclusion can survive. *Right, Meta-Analysis:* many experiments are pooled through a hierarchy of levels into a synthesis that becomes the next plan's prior. Three panels, one posterior machinery.
 :::
 
-Experimental questions are seeded in the science that preceded them. Experiments spawn further questions again. Each new experiment is a digression from the historic records, orientated at a new angle in pursuit of theory, anomalous findings and the next question.
-
+Experimental questions are seeded in the science that preceded them. Experiments spawn further questions again, if we learn from the past. This is the cylce. 
 ## The question planners are actually asking
 
-When we experiment, we implicitly assume the experiment will be useful. Our questions are "operationalised" as power heuristics: given an effect size, what is the probability the experiment crosses a fixed threshold? This is an indirect and contorted gauge of efficacy. Instead of asking whether the treatment is effective, we ask whether the results are surprising assuming a degree of effectiveness. The slippage between these two questions has produced a generation of experimental plans calibrated to invented effect sizes rather than to the beliefs the planners actually hold.
+When we experiment, we implicitly assume the experiment will be useful. Our questions are "operationalised" as power heuristics: given an effect size, what is the probability the experiment crosses a fixed threshold? This is an indirect and contorted gauge of efficacy. Instead of asking whether the treatment is effective, we often ask whether the results are surprising assuming a degree of effectiveness. The slippage between these two questions has produced a generation of experimental plans calibrated to invented effect sizes rather than to the beliefs the planners actually hold.
 
-An alternative is Bayesian Assurance. The construction is mechanical: draw an effect from the prior, generate a dataset, fit the treatment model, apply the decision rule, repeat. The result is a single number: the probability the experiment will conclude what its stakeholders need. The engine is the same whether the response is continuous (like revenue per visitor) or binary (like conversion); we develop it on the Gaussian case first and confirm the process is invariant to the response scale. This notebook is the first of three on the lifecycle of a Bayesian experiment; see {ref}`sensitivity_confounding` for the interpretation counterpart and {ref}`meta_analysis_experiments` for the synthesis counterpart. The same posterior machinery serves all three; what changes is the problem put to it.
+An alternative is Bayesian Assurance. The construction is mechanical: draw from the priors, generate a dataset, fit the treatment model, apply the decision rule, repeat. The result is a single number: the probability the experiment will conclude what its stakeholders need. The process is the same whether the response is continuous (like revenue per visitor) or binary (like conversion); we develop it on the Gaussian case first and confirm the process is invariant to the response scale. This notebook is the first of three on the lifecycle of a Bayesian experiment; see {ref}`sensitivity_confounding` for the interpretation counterpart and {ref}`meta_analysis_experiments` for the synthesis counterpart. The same inferential machinery serves all three panels of the triptych, but what changes is the problem put to it.
 
 :::{admonition} Where this lands in regulatory practice
 :class: note
 
-The assurance focus here is not only a product-analytics convenience. The FDA's 2026 draft guidance on Bayesian methodology in clinical trials defines *Bayesian power* as the probability of meeting the success criterion averaged over a prior distribution {cite:p}`fda2026bayesian`, which is assurance under another name, and formalises the success rule as $\Pr(\text{effect} > a) > c$ (the rule used below, with $a = 0$ and $c = 0.95$). The same guidance separates the *design prior* that generates the synthetic trials from the *analysis prior* used in inference. The generative and inference models below are distinct objects for this reason, and a later section runs the assurance loop with the two priors deliberately mismatched. The clinical trial setting in the FDA report differs from product experimentation; the machinery is identical.
+We are going to apply Bayesian assurance to a question in product-analytics but the technique has a wider application. The FDA's 2026 draft guidance on Bayesian methodology in clinical trials defines *Bayesian power* as the probability of meeting the success criterion averaged over a prior distribution {cite:p}`fda2026bayesian`, which is assurance under another name. The FDA guidance formalises the success rule as $\Pr(\text{effect} > a) > c$ (the rule used below, with $a = 0$ and $c = 0.95$). The same guidance separates the *design prior* that generates the synthetic trials from the *analysis prior* used in inference. The generative and inference models below are distinct objects for this reason. Below we'll runs the assurance loop with the two priors deliberately mismatched. The clinical trial setting in the FDA report differs from product experimentation; the machinery is identical.
 :::
 
 ```{code-cell} ipython3
@@ -85,7 +84,7 @@ class EffectPrior:
 
 ## Power and assurance: two questions, different focus
 
-Power and assurance share an interface and answer different questions. Power conditions on a specific effect size $\theta_0$ that the planner has been pressed into naming, and computes the probability of rejecting the null:
+Power and assurance share an interface and answer different questions. Power conditions on a specific effect size $\theta_0$ that the planner has been pressed into naming, and computes the probability of rejecting the null at that value:
 
 $$
 \text{Power}(N) = P\!\left(\text{reject } H_0 \mid \theta = \theta_0,\; N\right).
@@ -97,7 +96,7 @@ $$
 \text{Assurance}(N) = \mathbb{E}_{\substack{\theta \,\sim\, \pi(\theta) \\ \hat{d} \,\sim\, p(\hat{d} \mid \theta,\, N)}}\!\left[\mathbb{1}\!\bigl(P(\theta > 0 \mid \hat{d},\, N) > c\bigr)\right].
 $$
 
-The outer expectation averages over effect sizes drawn from the prior; the inner averages over data generated under each effect ({cite:p}`ohagan2005assurance`, {cite:p}`spiegelhalter2004bayesian`). The integration is the entire move. Where power asks the planner to invent a world, assurance asks them to describe the one they already believe they are in.
+The outer expectation averages over effect sizes drawn from the prior; the inner averages over data generated under each effect ({cite:p}`ohagan2005assurance`, {cite:p}`spiegelhalter2004bayesian`). The integration is the entire move. Where power asks the planner to invent a world, assurance asks them to describe the one they already believe they are in. With that description in place, we can quantify how likely the result is when conditioned on the prior distribution. 
 
 ## The simulation engine
 
@@ -107,7 +106,7 @@ Assurance is an expectation over the *prior predictive distribution*: the joint 
 2. **Fit the analysis model** to each synthetic dataset and apply the decision rule.
 3. **Record** the fraction of synthetic experiments in which the decision succeeded.
 
-Drawing a truth and generating data under it is exactly what `pm.sample_prior_predictive` does on a model with no observed data, so we let PyMC's generative machinery produce the synthetic experiments rather than hand-rolling the sampling with `numpy`. The generative model that produces the data and the inference model that analyses it are separate objects, and keeping them separate is the point: the generative model encodes the worlds we are planning for, the inference model encodes how we will reason once real data arrive.
+Drawing a truth and generating data under it is exactly what `pm.sample_prior_predictive` does on a model with no observed data, so we let PyMC's generative machinery produce the synthetic experiments rather than hand-rolling the sampling with `numpy`. The generative model that produces the data and the inference model that analyses it are separate objects, and keeping them separate is the point: the generative model encodes the worlds we are planning for, the inference model encodes how we will reason once real data arrive. This workflow is defined as a function and passed through a sample size grid to determine how many _N_ is required to achieve surety in the finding. 
 
 ```{code-cell} ipython3
 def assurance_curve(assurance_fn, N_grid, n_sims, rng, **kwargs):
@@ -123,7 +122,9 @@ def assurance_curve(assurance_fn, N_grid, n_sims, rng, **kwargs):
 
 The Gaussian case is the cleanest place to make the mechanics explicit. Each arm produces a revenue-per-visitor outcome with known noise scale $\sigma_{\text{obs}}$ (we treat this as known here; in practice it is estimated from a pilot or historical data). The team is interested in the treatment effect $\delta = \mu_B - \mu_A$, and holds a prior over $\delta$ informed by past experiments in similar product surfaces. That prior is not conjured from nothing: {ref}`meta_analysis_experiments` shows how a meta-analysis of past experiments produces exactly this kind of prior, so the synthesis at the end of one experiment's lifecycle is the planning input at the start of the next.
 
-Two models do the work. The *generative model* is unconditioned: it places the planning prior on $\delta$ and generates synthetic datasets, and it is the object we hand to `pm.sample_prior_predictive`. The *inference model* conditions on a dataset and returns the posterior on $\delta$; the decision rule asks whether the posterior probability of a positive effect exceeds a threshold (0.95 below). For the assurance loop the conjugate Normal–Normal posterior on $\delta$ admits a closed form, which lets us evaluate the decision on each synthetic experiment without running MCMC every time. We verify that closed form against the inference model's MCMC posterior at a single sample size before relying on it.
+Two models do the work. The *generative model* is unconditioned: it places the planning prior on $\delta$ and generates synthetic datasets, and it is the object we hand to `pm.sample_prior_predictive`. The *inference model* conditions on a dataset and returns the posterior on $\delta$; the decision rule asks whether the posterior probability of a positive effect exceeds a threshold (0.95 below). For the assurance loop the conjugate Normal–Normal posterior on $\delta$ admits a closed form, which lets us evaluate the decision on each synthetic experiment without running MCMC every time. 
+
+We will verify that closed form against the inference model's MCMC posterior at a single sample size before relying on it. This also underwrites the idea that we can use MCMC for this procedure even with more complex models. 
 
 ```{code-cell} ipython3
 SIGMA_OBS = 4.0
@@ -219,7 +220,7 @@ pd.DataFrame(
 ).round(3)
 ```
 
-The two posteriors agree to within MCMC noise. The closed form will carry the decision step; the generative model will carry the data step.
+The two posteriors agree to within MCMC noise. Now we get to the heart of the technique and push our procedure through different sample values of _N_.
 
 ```{code-cell} ipython3
 def gaussian_assurance_at_N(N, n_sims, prior, sigma_obs, threshold, rng, analysis_prior=None):
@@ -254,6 +255,8 @@ assurance_df = assurance_curve(
 assurance_df
 ```
 
+For each simulated future dataset, we compute the posterior distribution of the treatment effect and evaluate the posterior probability that the effect is positive, `prob_positive`. A trial is considered decisive if `prob_positive` exceeds the pre-specified `DECISION_THRESHOLD`. The Bayesian assurance is the proportion of simulated trials that satisfy this decision criterion. As the planned sample size increases, posterior uncertainty decreases, leading to a larger proportion of decisive trials and therefore higher assurance.
+
 For comparison we compute frequentist power at a single fixed effect size. The convention is to set the effect to the prior mean, which is itself an arbitrary choice, and a revealing one.
 
 ```{code-cell} ipython3
@@ -273,7 +276,7 @@ power_at_pessimistic = np.array(
 
 prior_prob_positive = 1.0 - stats.norm.cdf(0.0, EFFECT_PRIOR.mu, EFFECT_PRIOR.sigma)
 
-fig, ax = plt.subplots(figsize=(15, 4.5))
+fig, ax = plt.subplots(figsize=(15, 5.5))
 ax.plot(N_GRID, assurance_df["assurance"], marker="o", linewidth=2, label="Assurance (Bayesian)")
 ax.plot(
     N_GRID,
@@ -753,9 +756,9 @@ The three curves disagree most where they should: at small sample sizes where th
 
 ## Planning as a posterior over future posteriors
 
-The experiment we have not yet run is a posterior we have not yet computed. What we have is a prior, a model, and the patience to ask what the experiment will likely say. Assurance is the posterior we can compute now, over the posteriors we will compute later: a rehearsal under the lights of our current uncertainty.
+The experiment we have not yet run is a posterior we have not yet computed. What we have is a prior, a model, and the patience to ask what the experiment will likely say.
 
-Power answers a conditional: given a specific effect, what probability of detection? Assurance answers a marginal: given everything currently believed, what probability that the inference about to be drawn will be useful? The operation that produces assurance is the same one that will produce the posterior at the end of the experiment. Only the data are still hypothetical. Assurance makes explicit the assumption power leaves buried, a believed distribution of effects, and gives that assumption a posterior to argue over.
+Statistical power questions answers a conditional: given a specific effect, what probability of detection? Bayesian assurance answers a marginal question: given everything currently believed, what probability that the inference about to be drawn will be useful? The operation that produces assurance is the same one that will produce the posterior at the end of the experiment - only the data are still hypothetical. Assurance makes explicit the assumption power leaves buried, a believed distribution of effects, and derives from that assumption a posterior to evaluate.
 
 The Gaussian case and the Bernoulli case ran the same inference machinery. What changed was the likelihood, and with it the ceiling its geometry sets on how much assurance any sample size can buy. The next notebook, {ref}`sensitivity_confounding`, keeps the machinery and changes the question: not what an experiment will probably say, but what it did say once clean identification is itself in doubt.
 
