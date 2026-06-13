@@ -149,9 +149,10 @@ ax.set(xlabel="iteration", ylabel="negative ELBO", title="Streaming ADVI converg
 
 ## Compare with in-RAM `pm.Minibatch`
 
-For comparison, here is the usual fit that keeps the whole dataset in memory.
-Streaming changes where the data lives, not the inference, so the two posteriors
-match; both show ADVI's usual mild bias relative to the dashed ground truth.
+For comparison, here is the usual fit that keeps the whole dataset in memory. The
+prior, optimizer, iteration count, and seeds match the streaming fit; only the
+minibatch source differs. On this toy problem the two posteriors land on top of
+each other, with ADVI's usual mild bias relative to the dashed ground truth.
 
 ```{code-cell} ipython3
 with pm.Model():
@@ -188,10 +189,12 @@ fig.suptitle("Posterior of b: streaming vs in-RAM (dashed = ground truth)", y=1.
 ## Memory usage
 
 Both paths feed the same `batch_size` to ADVI, but `pm.Minibatch` keeps all `N`
-rows resident, so its array grows linearly in `N`, while the streaming `DataLoader`
-holds one batch plus its bounded shuffle buffer and the current source chunk. The
-dense `float64` design matrix dominates the cost. The lines below are array lower
-bounds (`N * ncols * 8` bytes resident versus that constant), not measurements:
+rows resident, so its array grows linearly in `N`. The streaming path keeps only a
+bounded number of rows resident — the model batch, a shuffle-buffer fill, and the
+source chunks used to build it — independent of `N`. The dense `float64` design
+matrix dominates the cost. The lines below are array lower bounds, not measurements;
+they also ignore framework overhead, PyTensor's resident copy, and the transient
+copy `np.concatenate` makes while filling the shuffle buffer:
 
 ```{code-cell} ipython3
 ncols = 4  # 3 features + observed
@@ -220,10 +223,12 @@ standard, publicly available out-of-core learning benchmark. Peak memory for the
 streaming `DataLoader` stayed flat at about 0.7 GB across a sweep from 1M to 150M
 rows, while the in-RAM `pm.Minibatch` baseline rose linearly to 15.7 GB at 150M
 rows, which extrapolates to out-of-memory around 240M rows on the same 26 GB
-machine. On a 1M-row slice, where the in-RAM fit is cheap, the largest gap
-between the streaming and in-RAM posterior means on any single coefficient was
-0.12, on coefficients ranging up to 3.6 in magnitude; two near-zero coefficients
-differed in sign between the two stochastic fits.
+machine. On a 1M-row slice, where the in-RAM fit is cheap, the two posteriors
+agreed on the large coefficients (the intercept near -3.6 and the strong slopes),
+but the weakest slopes were noisier: the largest gap in posterior means was 0.12,
+and two slopes the in-RAM fit placed near zero came out near +0.08 under streaming,
+flipping sign. On coefficients near the noise floor the two stochastic fits are not
+interchangeable at this slice size.
 
 ## When to use it
 
