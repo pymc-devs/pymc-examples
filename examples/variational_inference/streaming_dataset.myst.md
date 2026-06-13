@@ -76,12 +76,12 @@ rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-variat")
 ```
 
-## Put a dataset on disk and forget the array
+## Write the dataset to disk
 
-We build a logistic-regression dataset, write it to Parquet shards, and delete the
-in-memory table. From here the streaming path reads only the disk copy. We keep `X`
-and `y` around only to build the in-RAM `pm.Minibatch` baseline later; the streaming
-fit never reads them.
+First, we build a logistic-regression dataset, write it to Parquet shards, and
+delete the in-memory table. From here the streaming path reads only the disk copy.
+We keep `X` and `y` around only to build the in-RAM `pm.Minibatch` baseline later;
+the streaming fit never reads them.
 
 ```{code-cell} ipython3
 N = 30_000
@@ -105,15 +105,12 @@ print(len(glob.glob(f"{shard_dir}/*.parquet")), "shards written")
 
 ## Stream minibatches off disk and fit with ADVI
 
-`parquet_source` is an out-of-core {class}`~pymc.variational.streaming.IterableDataset`.
-It reads one row group at a time (one or more per shard) and gets `n_rows` from
-the Parquet metadata without scanning the data, so `total_size="auto"` resolves
-`N` for free. The `DataLoader`
-batches and shuffles it into fixed-size minibatches. The model reads a
-`pm.Data("batch", ...)` placeholder holding a single batch, and the `Trainer`
-writes each minibatch into it with `set_data`. There are no callbacks to wire up:
-`total_size=len(loader)` triggers the `N / batch_size` rescaling and `Trainer.fit`
-runs the loop.
+Next, the source is `parquet_source`, an out-of-core
+{class}`~pymc.variational.streaming.IterableDataset` that reads one row group at a
+time and gets `n_rows` from the Parquet metadata, so `total_size="auto"` resolves
+`N` without a data scan. The model observes a `pm.Data` placeholder of one batch and
+passes `total_size=len(loader)` for the `N / batch_size` rescaling; the `Trainer`
+streams each minibatch into the placeholder.
 
 ```{code-cell} ipython3
 batch_size = 1024
@@ -150,12 +147,11 @@ ax.plot(approx.hist, alpha=0.6)
 ax.set(xlabel="iteration", ylabel="negative ELBO", title="Streaming ADVI convergence");
 ```
 
-## The same posterior as in-RAM `pm.Minibatch`
+## Compare with in-RAM `pm.Minibatch`
 
 For comparison, here is the usual fit that keeps the whole dataset in memory.
 Streaming changes where the data lives, not the inference, so the two posteriors
-should agree, and here they land on top of each other. Both show ADVI's usual mild
-bias relative to the dashed ground truth, but they agree with each other.
+match; both show ADVI's usual mild bias relative to the dashed ground truth.
 
 ```{code-cell} ipython3
 with pm.Model():
