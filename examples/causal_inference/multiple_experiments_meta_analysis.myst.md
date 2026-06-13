@@ -444,18 +444,32 @@ ax.legend(loc="lower right");
 The hierarchical model returns two population-level quantities, and the conventional reporting habit of leading with $\mu$ obscures the more important one. The posterior of $\tau$, the between-market standard deviation of true effects, is what tells the team how transportable any single result is to a new context. A small $\tau$ means the markets are nearly exchangeable, and the experiment generalises cleanly; a large $\tau$ means the markets are heterogeneous, and the next market is a meaningfully new experiment. Reporting only $\mu$ collapses this into a point and hides the variability that the next stakeholder will live with.
 
 ```{code-cell} ipython3
-az.plot_dist(idata_partial, var_names=["mu", "tau"])
-axes = plt.gcf().axes
-axes[0].axvline(TRUE_MU, color="C2", linestyle="--", label=f"true = {TRUE_MU:.2f}")
-axes[0].legend()
-axes[0].set_title(r"Population mean $\mu$")
-axes[1].axvline(TRUE_TAU, color="C2", linestyle="--", label=f"true = {TRUE_TAU:.2f}")
-axes[1].legend()
-axes[1].set_title(r"Between-market SD $\tau$")
-plt.tight_layout()
+pc_mu = az.plot_dist(
+    idata_partial,
+    var_names=["mu"],
+    visuals={"title": {"text": r"Population mean $\mu$"}},
+)
+az.add_lines(
+    pc_mu,
+    values=TRUE_MU,
+    visuals={"ref_line": {"color": "C2", "label": f"true = {TRUE_MU:.2f}"}},
+)
+pc_mu.get_viz("plot").legend()
+
+pc_tau = az.plot_dist(
+    idata_partial,
+    var_names=["tau"],
+    visuals={"title": {"text": r"Between-market SD $\tau$"}},
+)
+az.add_lines(
+    pc_tau,
+    values=TRUE_TAU,
+    visuals={"ref_line": {"color": "C2", "label": f"true = {TRUE_TAU:.2f}"}},
+)
+pc_tau.get_viz("plot").legend()
 ```
 
-The posterior of $\tau$ is concentrated well away from zero, which is itself the result of substantive interest: the eight markets disagree about the size of the treatment effect in a way the data demand be respected. The next section turns this into a prediction.
+The posterior of $\tau$ is concentrated well away from zero, which is itself the result of substantive interest: the eight markets disagree about the size of the treatment effect in a way the data demand be respected. The conversion-rate version tells the same story, as we confirm next.
 
 ## The same machinery on a binary outcome
 
@@ -512,84 +526,38 @@ with partial_bern_model:
 ```
 
 ```{code-cell} ipython3
-az.plot_dist(idata_partial_bern, var_names=["mu", "tau"])
-axes = plt.gcf().axes
-axes[0].axvline(TRUE_MU_LOGIT, color="C2", linestyle="--", label=f"true = {TRUE_MU_LOGIT:.2f}")
-axes[0].legend()
-axes[0].set_title(r"Population log-odds effect $\mu$")
-axes[1].axvline(TRUE_TAU_LOGIT, color="C2", linestyle="--", label=f"true = {TRUE_TAU_LOGIT:.2f}")
-axes[1].legend()
-axes[1].set_title(r"Between-market SD $\tau$ (log-odds)")
-plt.tight_layout()
+pc_mu = az.plot_dist(
+    idata_partial_bern,
+    var_names=["mu"],
+    visuals={"title": {"text": r"Population log-odds effect $\mu$"}},
+)
+az.add_lines(
+    pc_mu,
+    values=TRUE_MU_LOGIT,
+    visuals={"ref_line": {"color": "C2", "label": f"true = {TRUE_MU_LOGIT:.2f}"}},
+)
+pc_mu.get_viz("plot").legend()
+
+pc_tau = az.plot_dist(
+    idata_partial_bern,
+    var_names=["tau"],
+    visuals={"title": {"text": r"Between-market SD $\tau$ (log-odds)"}},
+)
+az.add_lines(
+    pc_tau,
+    values=TRUE_TAU_LOGIT,
+    visuals={"ref_line": {"color": "C2", "label": f"true = {TRUE_TAU_LOGIT:.2f}"}},
+)
+pc_tau.get_viz("plot").legend()
 ```
 
 The Bernoulli picture is the Gaussian picture on a different link. The population mean log-odds effect is recovered; the between-market variance is recovered; the per-market shrinkage works as before. The log-odds parameterisation carries a structural advantage the probability scale does not: a given value of τ means the same degree of between-market variability in the treatment effect regardless of what the baseline conversion rate happens to be. On the probability scale, a τ of 0.05 is meaningful heterogeneity at a 5\% baseline and negligible noise at a 50\% baseline; on the logit, τ is scale-invariant in the way the analysis needs it to be.
-
-## Predicting the next experiment
-
-The stakeholder question that occasioned this entire exercise is about a specific market: what will happen if we run this in Market I next quarter? The population mean is rarely what they are asking for. The hierarchical model answers in two posterior-predictive flavours, and the difference between them matters.
-
-**The true-effect predictive** asks for the unknown $\theta_{\text{new}}$ of a new market drawn from the same population:
-
-$$\theta_{\text{new}} \mid \text{data} \sim \mathcal{N}(\mu_{\text{post}}, \sqrt{\tau_{\text{post}}^2 + \sigma_{\mu, \text{post}}^2}).$$
-
-**The observation predictive** layers experimental noise on top:
-
-$$\hat d_{\text{new}} \mid \text{data} \sim \theta_{\text{new}} + \mathcal{N}(0, s_{\text{new}}).$$
-
-The first is what the team should report when they say "our best estimate of the effect in a new market". The second is what they should report when they say "what we expect to see if we run the experiment again". The gap between the two is exactly the experimental-noise envelope that single-market estimates conflate with population variation.
-
-```{code-cell} ipython3
-mu_samples = idata_partial.posterior["mu"].values.flatten()
-tau_samples = idata_partial.posterior["tau"].values.flatten()
-rng_pp = np.random.default_rng(RANDOM_SEED + 1)
-theta_new_samples = rng_pp.normal(mu_samples, tau_samples)
-s_new = np.median(se_obs)
-d_hat_new_samples = theta_new_samples + rng_pp.normal(0.0, s_new, size=len(theta_new_samples))
-
-dt = az.from_dict(
-    {
-        "posterior": {
-            "theta_new": theta_new_samples,
-            "d_hat_new": d_hat_new_samples,
-        }
-    },
-    sample_dims=["sample"],
-)
-
-pc = az.plot_dist(
-    dt,
-    kind="hist",
-    sample_dims=["sample"],
-    cols=[],
-    aes={"color": ["__variable__"]},
-    visuals={
-        "point_estimate": False,
-        "point_estimate_text": False,
-        "credible_interval": False,
-        "title": {"text": "Two predictive distributions for the ninth market"},
-    },
-)
-pc.add_legend("__variable__")
-az.add_lines(pc, values=0.0, visuals={"ref_line": {"color": "black", "label": "0"}})
-```
-
-```{code-cell} ipython3
-prob_theta_new_positive = float((theta_new_samples > 0).mean())
-prob_d_hat_new_positive = float((d_hat_new_samples > 0).mean())
-pd.DataFrame(
-    {"posterior probability > 0": [prob_theta_new_positive, prob_d_hat_new_positive]},
-    index=[r"$\theta_{\text{new}}$ (true effect)", r"$\hat d_{\text{new}}$ (observed estimate)"],
-).round(3)
-```
-
-The probability the true effect is positive in the next market is higher than the probability the next experiment will return a positive estimate. The gap is the experimental-noise tax: each individual experiment is a noisy realisation of an underlying truth, and the team will sometimes see a negative estimate even when the true effect is positive. Reporting the meta-analytic posterior on $\theta_{\text{new}}$ as the planning input for the next market, which {ref}`assurance_planning` then consumes as its prior, is the way to feed accumulating evidence forward without losing track of the noise.
 
 +++
 
 ## How much to borrow
 
-Borrowing across markets raises a question the hierarchical model answers quietly: how far should one market's estimate move toward the others. The shrinkage already shown is that answer in action. Each market's pull toward the population mean is a weight set by its own precision against the between-market variance $\tau$ the data infer.
+With $\tau$ estimated on both scales, borrowing across markets raises a question the hierarchical model answers quietly: how far should one market's estimate move toward the others. The shrinkage already shown is that answer in action. Each market's pull toward the population mean is a weight set by its own precision against the between-market variance $\tau$ the data infer.
 
 ```{code-cell} ipython3
 tau_post_mean = float(idata_partial.posterior["tau"].mean())
@@ -622,7 +590,24 @@ power_prior_df = pd.DataFrame(
 power_prior_df
 ```
 
-The power prior borrows the precision of the pooled mean and treats every market as one draw from a single shared effect. A genuinely new market also carries between-market variation, which the hierarchical predictive folds in through $\tau$. The figure sets the two side by side.
+The power prior must be measured against the belief the hierarchical model already holds about a market it has not seen. That belief is the model's *predictive distribution*, and it comes in two forms. The true-effect predictive gives the unknown effect of a new market drawn from the same population,
+
+$$\theta_{\text{new}} \mid \text{data} \sim \mathcal{N}\!\left(\mu_{\text{post}},\ \sqrt{\tau_{\text{post}}^2 + \sigma_{\mu,\text{post}}^2}\right),$$
+
+and the observation predictive layers experimental noise on top,
+
+$$\hat d_{\text{new}} \mid \text{data} \sim \theta_{\text{new}} + \mathcal{N}(0, s_{\text{new}}).$$
+
+We draw both now. The first sets the width the power prior is chasing; the second is the yardstick for the conflict check below. The power prior borrows the precision of the pooled mean and treats every market as one draw from a single shared effect, while the hierarchical predictive folds the between-market variation back in through $\tau$. The figure sets the two side by side.
+
+```{code-cell} ipython3
+mu_samples = idata_partial.posterior["mu"].values.flatten()
+tau_samples = idata_partial.posterior["tau"].values.flatten()
+rng_pp = np.random.default_rng(RANDOM_SEED + 1)
+theta_new_samples = rng_pp.normal(mu_samples, tau_samples)
+s_new = np.median(se_obs)
+d_hat_new_samples = theta_new_samples + rng_pp.normal(0.0, s_new, size=len(theta_new_samples))
+```
 
 ```{code-cell} ipython3
 theta_new_mean = float(theta_new_samples.mean())
@@ -682,6 +667,51 @@ pd.DataFrame(
 ```
 
 The concordant market sits in the body of the predictive and the tail probability is large; the prior and the new data describe one population, so the experiment can borrow at full strength and keep the precision that buys. The conflicting market sits far out and the tail probability is small, the trigger the guidance names for reassessing how much to borrow {cite:p}`fda2026bayesian`: lower $\alpha$, widen the prior, or hold the borrowed estimate aside until the discrepancy is understood. Dynamic borrowing through $\tau$ softens this failure on its own, since a heterogeneous set of markets produces a wide predictive that absorbs a surprising estimate, while a static power prior never adapts, so the analyst must run the check every time. Whatever borrowing strength passes the check is the prior the next experiment plans with.
+
++++
+
+## Predicting the next experiment
+
+The predictive we drew to calibrate borrowing also answers the question that occasioned the whole exercise: what will happen if we run the redesign in a market we have not tested yet. The two flavours now do decision work. The true-effect predictive $\theta_{\text{new}}$ is the best estimate of the effect in a new market; the observation predictive $\hat d_{\text{new}}$ is what to expect the next experiment to actually return, noise included. The gap between them is the experimental-noise envelope that a single-market estimate conflates with population variation.
+
+```{code-cell} ipython3
+dt = az.from_dict(
+    {
+        "posterior": {
+            "theta_new": theta_new_samples,
+            "d_hat_new": d_hat_new_samples,
+        }
+    },
+    sample_dims=["sample"],
+)
+
+pc = az.plot_dist(
+    dt,
+    kind="hist",
+    sample_dims=["sample"],
+    cols=[],
+    aes={"color": ["__variable__"]},
+    visuals={
+        "point_estimate": False,
+        "point_estimate_text": False,
+        "credible_interval": False,
+        "title": {"text": "Two predictive distributions for the ninth market"},
+    },
+)
+pc.add_legend("__variable__")
+az.add_lines(pc, values=0.0, visuals={"ref_line": {"color": "black", "label": "0"}})
+```
+
+```{code-cell} ipython3
+prob_theta_new_positive = float((theta_new_samples > 0).mean())
+prob_d_hat_new_positive = float((d_hat_new_samples > 0).mean())
+pd.DataFrame(
+    {"posterior probability > 0": [prob_theta_new_positive, prob_d_hat_new_positive]},
+    index=[r"$\theta_{\text{new}}$ (true effect)", r"$\hat d_{\text{new}}$ (observed estimate)"],
+).round(3)
+```
+
+The probability the true effect is positive in the next market is higher than the probability the next experiment will return a positive estimate. The gap is the experimental-noise tax: each individual experiment is a noisy realisation of an underlying truth, and the team will sometimes see a negative estimate even when the true effect is positive. Reporting the meta-analytic posterior on $\theta_{\text{new}}$ as the planning input for the next market, which {ref}`assurance_planning` then consumes as its prior, is the way to feed accumulating evidence forward without losing track of the noise.
 
 +++
 
