@@ -1,25 +1,17 @@
 ---
+jupytext:
+  formats: ipynb,md:myst
+  text_representation:
+    extension: .md
+    format_name: myst
+    format_version: 0.13
 kernelspec:
   display_name: Python 3
   language: python
   name: python3
-language_info:
-  name: python
-  pygments_lexer: ipython3
-myst_substitutions:
-  conda_dependencies: ripser
-  extra_dependencies: ripser
-  extra_install_notes: '`ripser` is used to compute Vietoris--Rips persistent homology
-    for the topological posterior predictive checks.'
-  pip_dependencies: ripser
-jupytext:
-  formats: ipynb,myst
-  text_representation:
-    extension: .myst.md
-    format_name: myst
-    format_version: '0.13'
-    jupytext_version: 1.16.7
 ---
+
++++ {"id": "first-cell"}
 
 (topological_posterior_predictive_checks)=
 # Topological posterior predictive checks with PyMC
@@ -45,6 +37,8 @@ The example illustrates a Bayesian workflow pattern:
 
 The topology is used as an external diagnostic on posterior predictive samples. Related work has used topological summaries in likelihood-free and approximate Bayesian computation {cite:p}`thorne2022topological`; here the focus is posterior predictive model criticism in a standard PyMC workflow.
 
++++ {"id": "dependencies"}
+
 ## Dependencies
 
 This notebook requires PyMC, ArviZ, NumPy, Pandas, Matplotlib, and `ripser` for Vietoris--Rips persistent homology.
@@ -55,9 +49,12 @@ This notebook requires PyMC, ArviZ, NumPy, Pandas, Matplotlib, and `ripser` for 
 The notebook intentionally keeps the example small enough to run quickly, but the Markov chain Monte Carlo cells may still take a minute or two depending on hardware.
 
 ```{code-cell} ipython3
+:id: imports
+
 from __future__ import annotations
 
 import warnings
+
 from dataclasses import dataclass
 from typing import Iterable
 
@@ -76,15 +73,33 @@ except ImportError as err:
     ) from err
 
 warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings(
+    "ignore",
+    message="The figure layout has changed to tight",
+    category=UserWarning,
+)
+warnings.filterwarnings(
+    "ignore",
+    message="invalid value encountered in accumulate",
+    category=RuntimeWarning,
+)
 ```
 
 ```{code-cell} ipython3
+---
+colab:
+  base_uri: https://localhost:8080/
+id: preamble
+outputId: db3320df-7883-44a2-fff9-517956ee9a67
+---
 RANDOM_SEED = 20260520
 rng = np.random.default_rng(RANDOM_SEED)
 
 az.style.use("arviz-darkgrid")
 print(f"PyMC version: {pm.__version__}")
 ```
+
++++ {"id": "84269142"}
 
 ## A short intuition for homology
 
@@ -99,6 +114,13 @@ For point-cloud data, there is no single fixed shape at the start. Persistent ho
 This is useful for posterior predictive checking because some model failures are global rather than marginal. A model can reproduce means, variances, and correlations while still failing to reproduce a connected component, a loop, or another large-scale geometric structure.
 
 ```{code-cell} ipython3
+---
+colab:
+  base_uri: https://localhost:8080/
+  height: 407
+id: 279bc51d
+outputId: f0b21d28-885b-49dd-da57-fd842e6ca119
+---
 # Visual intuition: H0 sees connected components; H1 sees loops.
 theta = np.linspace(0.0, 2.0 * np.pi, 160, endpoint=False)
 noisy_circle = np.column_stack([np.cos(theta), np.sin(theta)])
@@ -124,11 +146,20 @@ for ax in axes:
 plt.tight_layout()
 ```
 
++++ {"id": "6d372477"}
+
 ## Generate a seasonal time series
 
 We generate a synthetic seasonal signal with noise and a weak second harmonic. The observed data is not constructed as a literal circle. The loop appears only after delay-coordinate embedding, which is a standard way to reveal recurrence in a time series.
 
 ```{code-cell} ipython3
+---
+colab:
+  base_uri: https://localhost:8080/
+  height: 407
+id: ee9ceb5e
+outputId: 29005eb8-342b-438c-c244-1d6020818e2b
+---
 def make_seasonal_timeseries(
     n_time: int = 300,
     period: int = 50,
@@ -193,7 +224,11 @@ axes[1].set_aspect("equal", adjustable="box")
 plt.tight_layout()
 ```
 
++++ {"id": "7e7543ae"}
+
 The delay embedding has an annular or loop-like shape. A model that treats the embedded points as a single Gaussian cloud can match the embedding's mean and covariance, but it has no reason to preserve the hole.
+
++++ {"id": "7d83e7ba"}
 
 ## Topological posterior predictive check helper functions
 
@@ -207,6 +242,8 @@ For each posterior predictive replicate, we compute Vietoris--Rips persistent ho
 For this example, the main diagnostic is `h1_max_persistence`.
 
 ```{code-cell} ipython3
+:id: 015795ba
+
 Diagram = np.ndarray
 Diagrams = list[Diagram]
 
@@ -403,6 +440,8 @@ def run_topoppc(
 ```
 
 ```{code-cell} ipython3
+:id: 19c70b59
+
 def plot_replicates(result: TopoPPCResult, rep_ids: tuple[int, ...] = (0, 1, 2)) -> None:
     """Plot the observed embedding next to a few posterior predictive embeddings."""
     fig, axes = plt.subplots(1, 1 + len(rep_ids), figsize=(14, 3.6), sharex=True, sharey=True)
@@ -558,11 +597,15 @@ def plot_betti_envelope(result: TopoPPCResult, dim: int = 1) -> None:
     plt.tight_layout()
 ```
 
++++ {"id": "8a859f52"}
+
 ## Model 1: a Gaussian model on the delay embedding
 
 The first model treats the delay-embedded points as independent draws from a single bivariate normal distribution. This is deliberately misspecified: a Gaussian cloud can reproduce mean and covariance, but it cannot express the recurrent hole in the embedding.
 
 ```{code-cell} ipython3
+:id: 1d306cb1
+
 coords_bad = {
     "obs_id": np.arange(observed_embedding.shape[0]),
     "coord": ["y_t", f"y_t_minus_{LAG}"],
@@ -597,13 +640,22 @@ with pm.Model(coords=coords_bad) as gaussian_embedding_model:
 ```
 
 ```{code-cell} ipython3
-az.summary(idata_bad, var_names=["mu", "chol_cov_stds", "chol_cov_corr"], round_to=2)
+:id: bad-convergence-checks
 
-rhat_bad = az.rhat(idata_bad, var_names=["mu", "chol_cov_stds", "chol_cov_corr"]).to_array()
+az.summary(idata_bad, var_names=["mu", "chol_cov_stds"], round_to=2)
+
+rhat_bad = az.rhat(idata_bad, var_names=["mu", "chol_cov_stds"]).to_array()
 assert float(rhat_bad.max()) < 1.03
 ```
 
 ```{code-cell} ipython3
+---
+colab:
+  base_uri: https://localhost:8080/
+  height: 1000
+id: 60775b71
+outputId: 2081d6d2-7bc1-4000-fc17-ff37ccdcef17
+---
 def posterior_predictive_embedding_array(
     ppc,
     var_name: str = "x",
@@ -630,9 +682,13 @@ plot_h1_diagram(bad_result, rep_id=0)
 plot_betti_envelope(bad_result, dim=1)
 ```
 
++++ {"id": "396414c1"}
+
 The scalar diagnostic below is the primary decision statistic, but the Betti-1 envelope is also useful as a visual posterior predictive check. It shows how the number of active one-dimensional holes evolves over the filtration scale, while the maximum-persistence statistic focuses on the single most persistent loop.
 
 The Gaussian model usually passes the ordinary mean/covariance checks. But the topological check based on `h1_max_persistence` should fail: the observed delay embedding contains one persistent loop, while the Gaussian posterior predictive replicas contain only short-lived noisy cycles.
+
++++ {"id": "7149a3a1"}
 
 ## Model 2: a revised Fourier seasonal model
 
@@ -641,6 +697,8 @@ The topological failure suggests that the model is missing recurrence or periodi
 This is the key workflow step: the topology is not forced into the sampler. Instead, the topological posterior predictive check diagnoses a structural failure and motivates a better generative model.
 
 ```{code-cell} ipython3
+:id: 67d45a4d
+
 def fourier_design(t: np.ndarray, period: int, harmonics: int = 2) -> np.ndarray:
     """Build an intercept plus sine/cosine Fourier design matrix."""
     t = np.asarray(t, dtype=float)
@@ -685,6 +743,8 @@ with pm.Model(coords=coords_good) as fourier_model:
 ```
 
 ```{code-cell} ipython3
+:id: good-convergence-checks
+
 az.summary(idata_good, var_names=["beta", "sigma"], round_to=2)
 
 rhat_good = az.rhat(idata_good, var_names=["beta", "sigma"]).to_array()
@@ -692,6 +752,13 @@ assert float(rhat_good.max()) < 1.03
 ```
 
 ```{code-cell} ipython3
+---
+colab:
+  base_uri: https://localhost:8080/
+  height: 1000
+id: 1fe4ec88
+outputId: 96fdb8d8-d500-4e27-8ce5-c28cdfd8edce
+---
 def posterior_predictive_delay_embeddings(
     ppc,
     var_name: str = "y",
@@ -722,13 +789,24 @@ plot_h1_diagram(good_result, rep_id=0)
 plot_betti_envelope(good_result, dim=1)
 ```
 
++++ {"id": "8c08249d"}
+
 After adding seasonal structure, the posterior predictive delay embeddings should now reproduce the observed loop. The `h1_max_persistence` value for the observed data should be typical under the revised model's posterior predictive distribution.
+
++++ {"id": "69be6550"}
 
 ## Compare the two models through the topological posterior predictive check
 
 The table below compares the main topological discrepancy, `h1_max_persistence`, between the misspecified Gaussian embedding model and the revised Fourier seasonal model.
 
 ```{code-cell} ipython3
+---
+colab:
+  base_uri: https://localhost:8080/
+  height: 112
+id: 93fb872c
+outputId: 9dd78daa-99ff-4870-e481-b579aff03503
+---
 def extract_metric(result: TopoPPCResult, metric: str) -> pd.Series:
     """Extract one discrepancy row and attach the model name."""
     row = result.topo_table.query("metric == @metric").iloc[0].copy()
@@ -745,12 +823,16 @@ comparison = pd.DataFrame(
 comparison
 ```
 
++++ {"id": "ec1dda2a"}
+
 The intended interpretation is:
 
 - The Gaussian embedding model can pass ordinary moment-based posterior predictive checks but fails the topological posterior predictive check because it cannot reproduce the recurrent loop.
 - The Fourier seasonal model is structurally closer to the data-generating process and produces posterior predictive delay embeddings with similar H1 persistence to the observed embedding.
 
 This demonstrates how persistent homology can be used as a model criticism tool: it detects a missing global shape feature and suggests a direction for model revision.
+
++++ {"id": "d367c246"}
 
 ## Discussion and limitations
 
@@ -769,6 +851,8 @@ The method is most useful when the scientific question involves recurrence, loop
 A conservative way to phrase the contribution is:
 
 > Persistent homology summaries can be used as posterior predictive discrepancy statistics in Bayesian workflow, allowing model criticism for global shape features that ordinary scalar summaries may miss.
+
++++ {"id": "c9a05d18"}
 
 ## Appendix: why homology works for point clouds
 
@@ -801,9 +885,13 @@ Persistent homology repeats this calculation over a sequence of scales. A loop m
 
 In practice, this notebook delegates the matrix-reduction algorithm to `ripser`. The Bayesian workflow only needs the resulting diagrams and their scalar summaries, which can be compared to posterior predictive replicas like any other discrepancy statistic.
 
++++ {"id": "authors"}
+
 ## Authors
 
 * Authored by Guillaume Sidoine in May, 2026 ([pymc-examples#881](https://github.com/pymc-devs/pymc-examples/pull/881))
+
++++ {"id": "references"}
 
 ## References
 
@@ -811,13 +899,22 @@ In practice, this notebook delegates the matrix-reduction algorithm to `ripser`.
 :filter: docname in docnames
 :::
 
++++ {"id": "watermark-title"}
+
 ## Watermark
 
 ```{code-cell} ipython3
+---
+colab:
+  base_uri: https://localhost:8080/
+id: EQd45YcPlenk
+outputId: 7108f9c5-b3eb-4a1a-fea4-9cde97c69289
+---
 %load_ext watermark
 %watermark -n -u -v -iv -w -p pytensor,xarray
 ```
 
++++ {"id": "page-footer"}
+
 :::{include} ../page_footer.md
 :::
-
