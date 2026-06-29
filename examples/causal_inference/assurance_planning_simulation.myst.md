@@ -28,10 +28,11 @@ kernelspec:
 The experimentation lifecycle as a Bosch triptych. *Left, Bayesian Assurance (this notebook):* before any data arrive, the planner reads possible effects from the prior and asks what the experiment will likely conclude. *Centre, Sensitivity Analysis:* a single experiment is wracked by the biases it cannot rule out, and the model is contorted to see which commitments its conclusion can survive. *Right, Meta-Analysis:* many experiments are pooled through a hierarchy of levels into a synthesis that becomes the next plan's prior. Three panels, one posterior machinery.
 :::
 
-Experimental questions are seeded in the science that preceded them. Experiments spawn further questions again, if we learn from the past. This is the cylce. 
+Experimental questions are seeded in the science that preceded them. New experiments spawn further questions again. Answers are stress-tested and refined. This is the cycle. 
+
 ## The question planners are actually asking
 
-When we experiment, we implicitly assume the experiment will be useful. Our questions are "operationalised" as power heuristics: given an effect size, what is the probability the experiment crosses a fixed threshold? This is an indirect and contorted gauge of efficacy. Instead of asking whether the treatment is effective, we often ask whether the results are surprising assuming a degree of effectiveness. The slippage between these two questions has produced a generation of experimental plans calibrated to invented effect sizes rather than to the beliefs the planners actually hold.
+When we experiment, we encode questions. Implicitly we assume an answer will be useful. Our questions are "operationalised" as power heuristics: given an effect size, what is the probability the experiment crosses a fixed threshold? This is an indirect and contorted gauge of efficacy. Instead of asking whether the treatment is effective, we often ask whether the results are surprising assuming a degree of effectiveness. The slippage between these two questions has produced a generation of experimental plans calibrated to invented effect sizes rather than to the beliefs the planners actually hold.
 
 An alternative is Bayesian Assurance. The construction is mechanical: draw from the priors, generate a dataset, fit the treatment model, apply the decision rule, repeat. The result is a single number: the probability the experiment will conclude what its stakeholders need. The process is the same whether the response is continuous (like revenue per visitor) or binary (like conversion); we develop it on the Gaussian case first and confirm the process is invariant to the response scale. This notebook is the first of three on the lifecycle of a Bayesian experiment; see {ref}`sensitivity_confounding` for the interpretation counterpart and {ref}`meta_analysis_experiments` for the synthesis counterpart. The same inferential machinery serves all three panels of the triptych, but what changes is the problem put to it.
 
@@ -120,7 +121,7 @@ def assurance_curve(assurance_fn, N_grid, n_sims, rng, **kwargs):
 
 ## Gaussian outcome: revenue per visitor
 
-The Gaussian case is the cleanest place to make the mechanics explicit. Each arm produces a revenue-per-visitor outcome with known noise scale $\sigma_{\text{obs}}$ (we treat this as known here; in practice it is estimated from a pilot or historical data). The team is interested in the treatment effect $\delta = \mu_B - \mu_A$, and holds a prior over $\delta$ informed by past experiments in similar product surfaces. That prior is not conjured from nothing: {ref}`meta_analysis_experiments` shows how a meta-analysis of past experiments produces exactly this kind of prior, so the synthesis at the end of one experiment's lifecycle is the planning input at the start of the next.
+The Gaussian case is the cleanest place to make the mechanics explicit. Each arm produces a revenue-per-visitor outcome with known noise scale $\sigma_{\text{obs}}$ (we treat this as known here; in practice it is estimated from a pilot or historical data). The team is interested in the treatment effect $\delta = \mu_B - \mu_A$, and holds a prior over $\delta$ informed by past experiments in similar product surfaces. That prior is not conjured from nothing: {ref}`meta_analysis_experiments` shows how a meta-analysis of past experiments produces exactly this kind of prior, so the synthesis at the end of one experiment's lifecycle is the planning input at the start of the next. Concretely, the meta-analytic predictive there closes on $\mathcal{N}(0.4, 0.5)$, which is exactly the `EFFECT_PRIOR` defined below: the number that ends that notebook opens this one.
 
 Two models do the work. The *generative model* is unconditioned: it places the planning prior on $\delta$ and generates synthetic datasets, and it is the object we hand to `pm.sample_prior_predictive`. The *inference model* conditions on a dataset and returns the posterior on $\delta$; the decision rule asks whether the posterior probability of a positive effect exceeds a threshold (0.95 below). For the assurance loop the conjugate Normal–Normal posterior on $\delta$ admits a closed form, which lets us evaluate the decision on each synthetic experiment without running MCMC every time. 
 
@@ -130,6 +131,8 @@ We will verify that closed form against the inference model's MCMC posterior at 
 SIGMA_OBS = 4.0
 DECISION_THRESHOLD = 0.95
 BASELINE_REVENUE = 10.0
+# Not free-floating: this is the meta-analytic predictive for a new market from
+# the synthesis notebook (meta_analysis_experiments), which closes on N(0.4, 0.5).
 EFFECT_PRIOR = EffectPrior(mu=0.4, sigma=0.5)
 
 
@@ -184,7 +187,7 @@ az.add_lines(
     values=0.0,
     visuals={"ref_line": {"color": "C1", "label": "ref = 0.0"}},
 )
-pc.get_viz("plot").legend()
+pc.get_viz("plot").legend();
 ```
 
 The posterior concentrates above zero; under the decision rule the team would conclude the new flow lifts revenue. That is a single draw of the experiment. Assurance asks how often this conclusion would arrive if we re-ran the experiment many times under our actual prior.
@@ -740,8 +743,7 @@ axes[1].xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{int(x):,
 axes[1].set_xlabel("Sample size per arm")
 axes[1].set_ylabel("Assurance")
 axes[1].set_title("Assurance curves with ESS marked")
-axes[1].legend()
-plt.tight_layout()
+axes[1].legend();
 ```
 
 The left panel is a calibration check. The simulation curve, posterior variance under a flat prior as a function of N, crosses the prior variance at the point the analytical formula predicts. The two estimates agree to within interpolation noise. For non-conjugate models where no closed form for the posterior variance exists, the same loop with MCMC posteriors in place of `gaussian_posterior_delta` gives the correct ESS. The conjugate case validates the simulation approach before the closed form disappears.

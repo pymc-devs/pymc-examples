@@ -30,7 +30,7 @@ The experimentation lifecycle as a Bosch triptych. *Left, Bayesian Assurance:* b
 
 ## The replication-as-evidence problem
 
-Eight quarterly A/B tests of the same checkout-flow redesign, run across eight markets, return eight different point estimates. Three cross the conventional significance threshold; the other five do not. The product manager asks the natural question, "did it work?", and gets two incompatible defaults depending on which colleague answers: vote-counting ("four out of eight worked, so it's a wash"), or pool-everything ("the combined estimate is positive, so it works"). Both are mistakes. The vote-count discards the magnitude information in each estimate; the pool-everything pretends the markets are exchangeable in a way the evidence does not support. The honest answer requires a model that estimates between-market differences rather than assuming them away.
+Eight quarterly A/B tests of the same checkout-flow redesign, run across eight markets, return eight different point estimates. Two cross the conventional significance threshold; the other six do not. The product manager asks the natural question, "did it work?", and gets two incompatible defaults depending on which colleague answers: vote-counting ("four out of eight worked, so it's a wash"), or pool-everything ("the combined estimate is positive, so it works"). Both are mistakes. The vote-count discards the magnitude information in each estimate; the pool-everything pretends the markets are exchangeable in a way the evidence does not support. The honest answer requires a model that estimates between-market differences rather than assuming them away.
 
 Each experiment speaks about one market. The hierarchy is what lets us hear all of them at once.
 
@@ -256,7 +256,7 @@ az.add_lines(
     values=np.sqrt(tau2_DL),
     visuals={"ref_line": {"color": "C1", "label": f"DerSimonian–Laird τ = {np.sqrt(tau2_DL):.2f}"}},
 )
-pc.get_viz("plot").legend()
+pc.get_viz("plot").legend();
 ```
 
 Three estimators, three commitments about how much the segments share. The fixed-effect ANOVA assumes one common effect and pools completely; the random-effects ANOVA admits between-segment variance and estimates it by moments; the hierarchical model carries that variance as a posterior. The grouping factor was the segment. Replace it with "study" and the model is untouched: meta-analysis is the random-effects analysis of variance with studies as the groups, and the index $k$ ranges over experiments rather than segments. The rest of this notebook makes exactly that substitution. Making that substitution is mechanical. What it reveals is substantive: once studies replace segments, τ becomes the quantity the replication programme was designed to estimate.
@@ -273,13 +273,14 @@ where $\mu$ is the population mean effect across markets and $\tau$ is the betwe
 
 ```{code-cell} ipython3
 K = 8
-TRUE_MU = 0.30
-TRUE_TAU = 0.25
+TRUE_MU = 0.4
+TRUE_TAU = 0.5
 SIGMA_OBS = 4.0
 MARKET_NAMES = [f"Market {chr(65 + i)}" for i in range(K)]
 # Per-market sample sizes vary; smaller markets have noisier estimates, which
 # is the regime where partial pooling does substantively visible work.
 N_PER_MARKET = np.array([200, 250, 300, 350, 400, 500, 700, 1200])
+meta_rng = np.random.default_rng(20)
 
 
 def simulate_meta_dataset_gaussian(K, N_per_market, true_mu, true_tau, sigma_obs, rng):
@@ -296,7 +297,7 @@ def simulate_meta_dataset_gaussian(K, N_per_market, true_mu, true_tau, sigma_obs
 
 
 true_theta, d_hat_obs, se_obs = simulate_meta_dataset_gaussian(
-    K, N_PER_MARKET, TRUE_MU, TRUE_TAU, SIGMA_OBS, rng
+    K, N_PER_MARKET, TRUE_MU, TRUE_TAU, SIGMA_OBS, meta_rng
 )
 markets_df = pd.DataFrame(
     {
@@ -466,7 +467,7 @@ az.add_lines(
     values=TRUE_TAU,
     visuals={"ref_line": {"color": "C2", "label": f"true = {TRUE_TAU:.2f}"}},
 )
-pc_tau.get_viz("plot").legend()
+pc_tau.get_viz("plot").legend();
 ```
 
 The posterior of $\tau$ is concentrated well away from zero, which is itself the result of substantive interest: the eight markets disagree about the size of the treatment effect in a way the data demand be respected. The conversion-rate version tells the same story, as we confirm next.
@@ -478,7 +479,10 @@ The conversion-rate version repeats the structure on the log-odds scale. Each ma
 ```{code-cell} ipython3
 TRUE_MU_LOGIT = 0.20
 TRUE_TAU_LOGIT = 0.25
-BASELINE_RATES = rng.beta(20, 180, size=K)
+# Dedicated generator for the binary arm (as with `meta_rng`): keeps this section
+# reproducible on its own and unaffected by the Gaussian arm's draws.
+bern_rng = np.random.default_rng(2024)
+BASELINE_RATES = bern_rng.beta(20, 180, size=K)
 
 
 def simulate_meta_dataset_bernoulli(
@@ -498,7 +502,7 @@ def simulate_meta_dataset_bernoulli(
 
 
 true_theta_bern, n_A_obs, n_B_obs = simulate_meta_dataset_bernoulli(
-    K, N_PER_MARKET, BASELINE_RATES, TRUE_MU_LOGIT, TRUE_TAU_LOGIT, rng
+    K, N_PER_MARKET, BASELINE_RATES, TRUE_MU_LOGIT, TRUE_TAU_LOGIT, bern_rng
 )
 ```
 
@@ -548,7 +552,7 @@ az.add_lines(
     values=TRUE_TAU_LOGIT,
     visuals={"ref_line": {"color": "C2", "label": f"true = {TRUE_TAU_LOGIT:.2f}"}},
 )
-pc_tau.get_viz("plot").legend()
+pc_tau.get_viz("plot").legend();
 ```
 
 The Bernoulli picture is the Gaussian picture on a different link. The population mean log-odds effect is recovered; the between-market variance is recovered; the per-market shrinkage works as before. The log-odds parameterisation carries a structural advantage the probability scale does not: a given value of τ means the same degree of between-market variability in the treatment effect regardless of what the baseline conversion rate happens to be. On the probability scale, a τ of 0.05 is meaningful heterogeneity at a 5\% baseline and negligible noise at a 50\% baseline; on the logit, τ is scale-invariant in the way the analysis needs it to be.
@@ -653,7 +657,7 @@ def prior_data_conflict_tail(d_new, prior_pred_samples):
 
 
 concordant_d_new = 0.28  # a new market in line with the population
-conflicting_d_new = -0.40  # a new market that contradicts the population
+conflicting_d_new = -1.0  # a new market that contradicts the population
 pd.DataFrame(
     {
         "incoming estimate": [concordant_d_new, conflicting_d_new],
@@ -699,7 +703,7 @@ pc = az.plot_dist(
     },
 )
 pc.add_legend("__variable__")
-az.add_lines(pc, values=0.0, visuals={"ref_line": {"color": "black", "label": "0"}})
+az.add_lines(pc, values=0.0, visuals={"ref_line": {"color": "black", "label": "0"}});
 ```
 
 ```{code-cell} ipython3
@@ -712,6 +716,31 @@ pd.DataFrame(
 ```
 
 The probability the true effect is positive in the next market is higher than the probability the next experiment will return a positive estimate. The gap is the experimental-noise tax: each individual experiment is a noisy realisation of an underlying truth, and the team will sometimes see a negative estimate even when the true effect is positive. Reporting the meta-analytic posterior on $\theta_{\text{new}}$ as the planning input for the next market, which {ref}`assurance_planning` then consumes as its prior, is the way to feed accumulating evidence forward without losing track of the noise.
+
++++
+
+## The synthesis becomes the next plan
+
+The predictive that calibrated borrowing also answers the question the planning notebook opens with. Read off its centre and width and the loop is closed explicitly: this synthesis is the prior {ref}`assurance_planning` integrates over.
+
+```{code-cell} ipython3
+# The true-effect predictive is exactly what the planning notebook treats as its
+# prior: a Normal summarised by a location and a width.
+planning_mu = round(float(theta_new_mean), 1)
+planning_sigma = round(float(theta_new_sd), 1)
+assurance_ceiling_next = 1.0 - stats.norm.cdf(0.0, planning_mu, planning_sigma)
+
+pd.DataFrame(
+    {"value": [planning_mu, planning_sigma, round(float(assurance_ceiling_next), 3)]},
+    index=[
+        "planning prior mean  μ",
+        "planning prior sd    σ",
+        "assurance ceiling  P(θ_new > 0)",
+    ],
+)
+```
+
+`EffectPrior(mu=planning_mu, sigma=planning_sigma)` is the object {ref}`assurance_planning` opens with.
 
 +++
 
