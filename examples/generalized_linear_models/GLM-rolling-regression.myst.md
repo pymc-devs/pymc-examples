@@ -46,7 +46,7 @@ warnings.filterwarnings(action="ignore", category=MatplotlibDeprecationWarning)
 RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
 %config InlineBackend.figure_format = 'retina'
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 ```
 
 Lets load the prices of GFI and GLD.
@@ -109,25 +109,11 @@ ax = fig.add_subplot(
 )
 sc = ax.scatter(prices_zscored.GFI, prices_zscored.GLD, c=colors, cmap=mymap, lw=0)
 
-xi = xr.DataArray(prices_zscored.GFI.values)
-az.plot_hdi(
-    xi,
-    trace_reg.posterior.mu,
-    color="k",
-    hdi_prob=0.95,
-    ax=ax,
-    fill_kwargs={"alpha": 0.25},
-    smooth=False,
-)
-az.plot_hdi(
-    xi,
-    trace_reg.posterior.mu,
-    color="k",
-    hdi_prob=0.5,
-    ax=ax,
-    fill_kwargs={"alpha": 0.25},
-    smooth=False,
-)
+xi = prices_zscored.GFI.values
+order = np.argsort(xi)
+for prob in (0.95, 0.5):
+    hdi = az.hdi(trace_reg.posterior.mu, prob=prob).values
+    ax.fill_between(xi[order], hdi[order, 0], hdi[order, 1], color="k", alpha=0.25)
 
 cb = plt.colorbar(sc, ticks=ticks)
 cb.ax.set_yticklabels(ticklabels);
