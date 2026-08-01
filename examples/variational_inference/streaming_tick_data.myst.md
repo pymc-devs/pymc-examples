@@ -208,8 +208,10 @@ truth = {
     "nu": 3.5,
 }
 
+
 def standardize(x, axis=0):
     return (x - x.mean(axis=axis, keepdims=True)) / x.std(axis=axis, keepdims=True)
+
 
 z_truth = {
     "z_k": standardize(rng.standard_normal(n_symbols)),
@@ -224,6 +226,7 @@ z_truth = {
 def hour_basis(hour):
     w = 2 * np.pi * np.asarray(hour, dtype=float) / 24.0
     return np.column_stack([np.sin(w), np.cos(w), np.sin(2 * w), np.cos(2 * w)])
+
 
 sym = np.repeat(np.arange(n_symbols), counts)
 n = len(sym)
@@ -266,8 +269,10 @@ for s in range(n_symbols):
             y[i] = truth["theta_d"] * d[i] + truth["theta_r"] * last + sigma[i] * t_draw[i]
             last = y[i]
 
-print(f"{n:,} rows, zero-move share {(m == 0).mean():.1%}, "
-      f"median nonzero |y| {np.median(np.abs(y[m == 1])):.3f} bp")
+print(
+    f"{n:,} rows, zero-move share {(m == 0).mean():.1%}, "
+    f"median nonzero |y| {np.median(np.abs(y[m == 1])):.3f} bp"
+)
 ```
 
 The zero spike is the single most prominent feature of per-trade return data —
@@ -276,10 +281,14 @@ here is the synthetic version of the picture that forced the hurdle:
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(8, 3.5), layout="constrained")
 moves = y[m == 1]
-ax.hist(moves, bins=201, range=(-1.5, 1.5), log=True, color="C0",
-        label="nonzero moves")
-ax.bar([0.0], [(m == 0).sum()], width=0.02, color="C1",
-       label=f"exactly zero ({(m == 0).mean():.0%} of rows)")
+ax.hist(moves, bins=201, range=(-1.5, 1.5), log=True, color="C0", label="nonzero moves")
+ax.bar(
+    [0.0],
+    [(m == 0).sum()],
+    width=0.02,
+    color="C1",
+    label=f"exactly zero ({(m == 0).mean():.0%} of rows)",
+)
 ax.set_xlabel("next-event return (bp)")
 ax.set_ylabel("count (log scale)")
 ax.set_title("A continuous density puts zero mass on the most common outcome")
@@ -313,11 +322,13 @@ table = pa.table(
     }
 )
 
+
 def splitmix64(x):
     x = (x + np.uint64(0x9E3779B97F4A7C15)) & np.uint64(0xFFFFFFFFFFFFFFFF)
     x = ((x ^ (x >> np.uint64(30))) * np.uint64(0xBF58476D1CE4E5B9)) & np.uint64(0xFFFFFFFFFFFFFFFF)
     x = ((x ^ (x >> np.uint64(27))) * np.uint64(0x94D049BB133111EB)) & np.uint64(0xFFFFFFFFFFFFFFFF)
     return x ^ (x >> np.uint64(31))
+
 
 key = splitmix64(np.arange(n, dtype=np.uint64))
 order = np.argsort(key, kind="stable")
@@ -327,8 +338,10 @@ for i in range(n_shards):
     pq.write_table(part, os.path.join(data_dir, f"shard_{i:03d}.parquet"))
 
 head = pq.read_table(os.path.join(data_dir, "shard_000.parquet")).slice(0, 10_000)
-print(f"first 10k rows of one shard cover {len(np.unique(head['hour']))} hours "
-      f"and {len(np.unique(head['sym']))} symbols")
+print(
+    f"first 10k rows of one shard cover {len(np.unique(head['hour']))} hours "
+    f"and {len(np.unique(head['sym']))} symbols"
+)
 ```
 
 On the real corpus the same check is part of the ETL script's validation: the
@@ -367,8 +380,6 @@ replay order the *same* 992 every pass — is never seen, while `total_size`
 still rescales by the full $N$. At 0.3% of the data this is a knowably tiny,
 stated bias, not a hidden one; shuffling shard order between epochs would
 rotate the tail if it ever mattered.
-
-+++
 
 ```{code-cell} ipython3
 def build_model(symbols, batch_init, total_size):
@@ -449,9 +460,15 @@ def build_model(symbols, batch_init, total_size):
             return np.where(move, draw, 0.0)
 
         pm.CustomDist(
-            "y_obs", logit_pi, mu, log_sigma, nu,
-            logp=hurdle_logp, random=hurdle_random,
-            observed=y_, total_size=total_size,
+            "y_obs",
+            logit_pi,
+            mu,
+            log_sigma,
+            nu,
+            logp=hurdle_logp,
+            random=hurdle_random,
+            observed=y_,
+            total_size=total_size,
         )
     return model
 ```
@@ -466,9 +483,7 @@ $\log(1-\pi) = -\operatorname{softplus}(x)$ — which is exact and stable at bot
 tails.
 
 ```{code-cell} ipython3
-model = build_model(
-    [f"SYM{i:02d}" for i in range(n_symbols)], next(iter(loader)), len(loader)
-)
+model = build_model([f"SYM{i:02d}" for i in range(n_symbols)], next(iter(loader)), len(loader))
 pm.model_to_graphviz(model)
 ```
 
@@ -496,15 +511,16 @@ class StreamAdvance:
     def __call__(self, approx, losses, i):
         self._shared.set_value(next(self._stream), borrow=True)
 
+
 stream = StreamAdvance(model, loader)
 stream.prime()
 
 with model:
     advi = pm.ADVI(random_seed=RANDOM_SEED)
-advi.fit(6_000, obj_optimizer=pm.adam(learning_rate=0.02),
-         callbacks=[stream], progressbar=False)
-approx = advi.fit(2_500, obj_optimizer=pm.adam(learning_rate=0.005),
-                  callbacks=[stream], progressbar=False)
+advi.fit(6_000, obj_optimizer=pm.adam(learning_rate=0.02), callbacks=[stream], progressbar=False)
+approx = advi.fit(
+    2_500, obj_optimizer=pm.adam(learning_rate=0.005), callbacks=[stream], progressbar=False
+)
 ```
 
 The two-stage learning rate is not decoration: at a constant 0.02 the Adam
@@ -520,9 +536,11 @@ ax.axvline(6_000, color="C1", ls="--", lw=1, label="anneal: lr 0.02 to 0.005")
 ax.set_ylim(-450, 1200)
 ax.set_xlabel("step")
 ax.set_ylabel("negative ELBO")
-ax.set_title("Streaming ADVI loss, y clipped to the plateau (early losses are "
-             "off scale).\nThe visible band is batch-resampling noise — "
-             "remember it for the stopping section")
+ax.set_title(
+    "Streaming ADVI loss, y clipped to the plateau (early losses are "
+    "off scale).\nThe visible band is batch-resampling noise — "
+    "remember it for the stopping section"
+)
 ax.legend();
 ```
 
@@ -532,10 +550,18 @@ ax.legend();
 idata = approx.sample(2_000, random_seed=RANDOM_SEED)
 post = idata.posterior
 
-scalar_params = ["kappa0", "alpha0", "lambda_a", "lambda_q", "beta_a", "beta_q",
-                 "theta_d", "theta_r", "nu"]
-rows = {name: [float(post[name].mean()), float(post[name].std())]
-        for name in scalar_params}
+scalar_params = [
+    "kappa0",
+    "alpha0",
+    "lambda_a",
+    "lambda_q",
+    "beta_a",
+    "beta_q",
+    "theta_d",
+    "theta_r",
+    "nu",
+]
+rows = {name: [float(post[name].mean()), float(post[name].std())] for name in scalar_params}
 # the intercepts share a ridge with their group means; only the sums are identified
 for icpt, b in [("kappa0", "b_k"), ("alpha0", "b_al")]:
     s = post[icpt] + post[b].mean("symbol")
@@ -580,8 +606,9 @@ b_truth = b_truth - b_truth.mean()
 
 fig, ax = plt.subplots(figsize=(8, 3.5), layout="constrained")
 x = np.arange(n_symbols)
-ax.errorbar(x, b_mean, yerr=2 * b_sd, fmt="o", color="C0", capsize=3,
-            label="posterior (mean ± 2 sd)")
+ax.errorbar(
+    x, b_mean, yerr=2 * b_sd, fmt="o", color="C0", capsize=3, label="posterior (mean ± 2 sd)"
+)
 ax.scatter(x, b_truth, marker="x", color="C1", s=60, zorder=3, label="truth")
 for t in thin:
     ax.axvspan(t - 0.4, t + 0.4, color="C3", alpha=0.12)
@@ -615,8 +642,11 @@ eval_batch = next(iter(loader))
 model["batch"].set_value(eval_batch, borrow=True)  # same path the callback uses
 with model:
     idata = pm.sample_posterior_predictive(
-        idata, var_names=["y_obs"], random_seed=RANDOM_SEED,
-        extend_inferencedata=True, progressbar=False,
+        idata,
+        var_names=["y_obs"],
+        random_seed=RANDOM_SEED,
+        extend_inferencedata=True,
+        progressbar=False,
     )
 
 pp = idata.posterior_predictive["y_obs"].stack(sample=("chain", "draw")).values.T
@@ -626,9 +656,11 @@ zero_share = (pp == 0).mean(axis=1)
 med_nonzero = np.array([np.median(np.abs(d[d != 0])) for d in pp[:500]])
 q99_nonzero = np.array([np.quantile(np.abs(d[d != 0]), 0.99) for d in pp[:500]])
 
+
 def check_row(observed, draws):
     lo, hi = np.quantile(draws, [0.05, 0.95])
     return [observed, draws.mean(), lo, hi]
+
 
 y_nonzero = np.abs(y_eval[y_eval != 0])
 pd.DataFrame(
@@ -648,15 +680,20 @@ pd.DataFrame(
 fig, ax = plt.subplots(figsize=(8, 3.5), layout="constrained")
 grid = np.linspace(-0.5, 0.5, 801)
 for draw in pp[:60]:
-    ax.plot(grid, np.searchsorted(np.sort(draw), grid) / draw.size,
-            color="C0", alpha=0.08, lw=1)
-ax.plot(grid, np.searchsorted(np.sort(y_eval), grid) / y_eval.size,
-        color="k", lw=1.6, label="observed")
+    ax.plot(grid, np.searchsorted(np.sort(draw), grid) / draw.size, color="C0", alpha=0.08, lw=1)
+ax.plot(
+    grid, np.searchsorted(np.sort(y_eval), grid) / y_eval.size, color="k", lw=1.6, label="observed"
+)
 ax.plot([], [], color="C0", label="posterior predictive (60 draws)")
 zero_jump = (y_eval == 0).mean()
 below = (y_eval < 0).mean()
-ax.annotate(f"vertical step at exactly 0:\nthe zero share ({zero_jump:.0%})",
-            (0.03, below + zero_jump / 2), fontsize=9, ha="left", va="center")
+ax.annotate(
+    f"vertical step at exactly 0:\nthe zero share ({zero_jump:.0%})",
+    (0.03, below + zero_jump / 2),
+    fontsize=9,
+    ha="left",
+    va="center",
+)
 ax.set_xlabel("next-event return (bp)")
 ax.set_ylabel("ECDF")
 ax.set_title("Posterior predictive ECDF: the step at zero is the hurdle")
@@ -744,7 +781,7 @@ class WindowMean:
     def __call__(self, approx, losses, i):
         if len(losses) % self.k:
             return
-        self._means.append(np.mean(losses[-self.k:]))
+        self._means.append(np.mean(losses[-self.k :]))
         self.monitor(approx, self._means, len(self._means))
 
 
@@ -765,11 +802,12 @@ class Shadow:
 ```{code-cell} ipython3
 loader2 = DataLoader(
     parquet_source(data_dir, columns=columns),
-    batch_size=1024, shuffle=False, sample_shape=(len(columns),), total_size="auto",
+    batch_size=1024,
+    shuffle=False,
+    sample_shape=(len(columns),),
+    total_size="auto",
 )
-model2 = build_model(
-    [f"SYM{i:02d}" for i in range(n_symbols)], next(iter(loader2)), len(loader2)
-)
+model2 = build_model([f"SYM{i:02d}" for i in range(n_symbols)], next(iter(loader2)), len(loader2))
 stream2 = StreamAdvance(model2, loader2)
 stream2.prime()
 steps_per_epoch = len(loader2) // loader2.batch_size
@@ -781,31 +819,44 @@ win_shadow = Shadow(WindowMean(CheckLossConvergence(min_steps=min_windows), k))
 
 with model2:
     advi2 = pm.ADVI(random_seed=RANDOM_SEED)
-approx2 = advi2.fit(20_000, obj_optimizer=pm.adam(learning_rate=0.02),
-                    callbacks=[stream2, raw_shadow, win_shadow], progressbar=False)
-assert raw_shadow.stopped_at is not None and win_shadow.stopped_at is not None, (
-    "a shadow rule never fired within the 20k-step budget; raise the budget"
+approx2 = advi2.fit(
+    20_000,
+    obj_optimizer=pm.adam(learning_rate=0.02),
+    callbacks=[stream2, raw_shadow, win_shadow],
+    progressbar=False,
 )
+assert (
+    raw_shadow.stopped_at is not None and win_shadow.stopped_at is not None
+), "a shadow rule never fired within the 20k-step budget; raise the budget"
 win_stop = win_shadow.stopped_at  # Shadow records raw steps for both rules
-print(f"raw increments: would stop at step {raw_shadow.stopped_at:,} "
-      f"(loss there {approx2.hist[raw_shadow.stopped_at]:,.0f})")
-print(f"window means (k={k}): would stop at step {win_stop:,} "
-      f"(loss there {approx2.hist[win_stop]:,.0f}, final {approx2.hist[-1]:,.0f})")
+print(
+    f"raw increments: would stop at step {raw_shadow.stopped_at:,} "
+    f"(loss there {approx2.hist[raw_shadow.stopped_at]:,.0f})"
+)
+print(
+    f"window means (k={k}): would stop at step {win_stop:,} "
+    f"(loss there {approx2.hist[win_stop]:,.0f}, final {approx2.hist[-1]:,.0f})"
+)
 ```
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(8, 3.2), layout="constrained")
 ax.plot(approx2.hist, lw=0.5, label="loss")
 ax.axvline(steps_per_epoch, color="C2", ls=":", label="one full pass (rule arms)")
-ax.axvline(raw_shadow.stopped_at, color="C3", ls="--",
-           label=f"raw increments: false stop at {raw_shadow.stopped_at:,}")
-ax.axvline(win_stop, color="C1", ls="--",
-           label=f"window means: stop at {win_stop:,}")
+ax.axvline(
+    raw_shadow.stopped_at,
+    color="C3",
+    ls="--",
+    label=f"raw increments: false stop at {raw_shadow.stopped_at:,}",
+)
+ax.axvline(win_stop, color="C1", ls="--", label=f"window means: stop at {win_stop:,}")
 ax.set_ylim(-550, 900)
 ax.set_xlabel("step")
 ax.set_ylabel("negative ELBO")
-ax.set_title("Batch noise blinds the raw rule; window means restore its eyesight\n"
-             "(y clipped to the descent region)")
+ax.set_title(
+    "Batch noise blinds the raw rule; window means restore its eyesight\n"
+    "(y clipped to the descent region)"
+)
 ax.legend(fontsize=9, loc="upper right");
 ```
 
@@ -873,21 +924,41 @@ n_full = results["corpus"]["n_rows"]
 fig, ax = plt.subplots(figsize=(8, 4), layout="constrained")
 ax.plot(mb[:, 0] / 1e6, mb[:, 1], "o-", color="C1", label="pm.Minibatch (rows in RAM)")
 grid = np.linspace(0, n_full, 200)
-ax.plot(grid / 1e6, icpt + bpr * grid / 1e9, ls=":", color="C1", lw=1,
-        label=f"fit: {icpt:.1f} GB + {bpr:.0f} B/row")
+ax.plot(
+    grid / 1e6,
+    icpt + bpr * grid / 1e9,
+    ls=":",
+    color="C1",
+    lw=1,
+    label=f"fit: {icpt:.1f} GB + {bpr:.0f} B/row",
+)
 ax.plot(st[:, 0] / 1e6, st[:, 1], "s-", color="C0", label="streaming DataLoader")
 ax.axhline(12, color="C3", ls="--", lw=1, label="12 GB (16 GB laptop budget)")
 ax.axvline(cross / 1e6, color="C3", ls=":", lw=1)
-ax.annotate(f"wall: {cross / 1e6:,.0f}M rows", (cross / 1e6 + 8, 10.6), color="C3",
-            fontsize=9, ha="left", va="top")
+ax.annotate(
+    f"wall: {cross / 1e6:,.0f}M rows",
+    (cross / 1e6 + 8, 10.6),
+    color="C3",
+    fontsize=9,
+    ha="left",
+    va="top",
+)
 ax.axvline(n_full / 1e6, color="C2", ls=":", lw=1)
 ax.set_ylim(0, 42)
-ax.annotate(f"this corpus: {n_full / 1e6:,.0f}M rows", (n_full / 1e6 - 6, 40.5),
-            color="C2", fontsize=9, ha="right", va="top")
+ax.annotate(
+    f"this corpus: {n_full / 1e6:,.0f}M rows",
+    (n_full / 1e6 - 6, 40.5),
+    color="C2",
+    fontsize=9,
+    ha="right",
+    va="top",
+)
 ax.set_xlabel("dataset size (millions of rows)")
 ax.set_ylabel("peak RSS (GB)")
-ax.set_title("The in-memory path crosses a 16 GB laptop's budget at "
-             f"{cross / 1e6:,.0f}M rows; streaming does not care")
+ax.set_title(
+    "The in-memory path crosses a 16 GB laptop's budget at "
+    f"{cross / 1e6:,.0f}M rows; streaming does not care"
+)
 ax.legend(loc="upper left");
 ```
 
@@ -916,8 +987,14 @@ names = [labels[k] for k in labels]
 vals = [tp[k] for k in labels]
 ax.barh(names, vals, color=["C1", "C0", "C0"])
 for y, v in enumerate(vals):
-    ax.annotate(f"{v:,.0f} steps/s", (v, y), xytext=(4, 0),
-                textcoords="offset points", va="center", fontsize=9)
+    ax.annotate(
+        f"{v:,.0f} steps/s",
+        (v, y),
+        xytext=(4, 0),
+        textcoords="offset points",
+        va="center",
+        fontsize=9,
+    )
 ax.set_xlabel("optimization steps per second (batch 4096, steady state)")
 ax.set_title("With a 500-parameter gradient, the loader is not the bottleneck");
 ```
@@ -1029,17 +1106,19 @@ pol = results["polish"]
 fig, ax = plt.subplots(figsize=(8, 3), layout="constrained")
 names = list(pol.keys())
 scores = [pol[n] for n in names]
-ax.barh(names, scores,
-        color=["C1" if "anneal" in n and "stop" in n else "C0" for n in names])
+ax.barh(names, scores, color=["C1" if "anneal" in n and "stop" in n else "C0" for n in names])
 for y, v in enumerate(scores):
-    ax.annotate(f"{v:+.6f}", (v, y), xytext=(4, 0), textcoords="offset points",
-                va="center", fontsize=8)
+    ax.annotate(
+        f"{v:+.6f}", (v, y), xytext=(4, 0), textcoords="offset points", va="center", fontsize=8
+    )
 lo = min(scores)
 ax.set_xlim(lo - 3e-4, max(scores) + 4e-4)
 ax.set_xticks([0.116, 0.117, 0.118])
 ax.set_xlabel("held-out log score (nats/row)")
-ax.set_title("Stop rule alone inherits optimizer jitter; stop + short anneal\n"
-             "matches the annealed 2-pass reference at 55% of the budget");
+ax.set_title(
+    "Stop rule alone inherits optimizer jitter; stop + short anneal\n"
+    "matches the annealed 2-pass reference at 55% of the budget"
+);
 ```
 
 The working protocol this ablation suggests: **pair a stop rule on a
@@ -1065,10 +1144,12 @@ for sym_name, _ in results["forest_symbols"]:
     disp = results["dispersion_full"][sym_name]
     axs[0].plot(hours, disp["pi_mean"], marker=".", label=sym_name)
     axs[1].plot(hours, disp["hw_mean"], marker=".")
-    axs[1].fill_between(hours,
-                        np.array(disp["hw_mean"]) - 2 * np.array(disp["hw_sd"]),
-                        np.array(disp["hw_mean"]) + 2 * np.array(disp["hw_sd"]),
-                        alpha=0.2)
+    axs[1].fill_between(
+        hours,
+        np.array(disp["hw_mean"]) - 2 * np.array(disp["hw_sd"]),
+        np.array(disp["hw_mean"]) + 2 * np.array(disp["hw_sd"]),
+        alpha=0.2,
+    )
 axs[0].set_title(r"move probability $\pi_{s,h}$")
 axs[1].set_title("conditional-move 90% half-width (bp)")
 axs[1].set_yscale("log")
@@ -1111,8 +1192,15 @@ for sym_name, n_rows in show_syms:
         hw = arm[sym_name]
         for hi, h in enumerate(show_hours):
             hw_m, hw_s = hw["hw_mean"][h], hw["hw_sd"][h]
-            ax.errorbar([hw_m], [ypos + off + 0.5 * (hi - 1)], xerr=[[2 * hw_s], [2 * hw_s]],
-                        fmt="o", ms=4, color=color, capsize=2)
+            ax.errorbar(
+                [hw_m],
+                [ypos + off + 0.5 * (hi - 1)],
+                xerr=[[2 * hw_s], [2 * hw_s]],
+                fmt="o",
+                ms=4,
+                color=color,
+                capsize=2,
+            )
     labels.append(f"{sym_name}\n({n_rows / 1e6:.2f}M rows)")
     ticks.append(ypos)
     ypos += 2.2
@@ -1120,8 +1208,10 @@ ax.set_yticks(ticks)
 ax.set_yticklabels(labels, fontsize=8)
 ax.set_xscale("log")
 ax.set_xlabel("conditional-move 90% half-width (bp), posterior mean ± 2 sd")
-ax.set_title("Full fit (C0) vs 1% subsample (C1) at three hours of day\n"
-             "Global parameters agree; thin-cell uncertainty is where full N earns its keep")
+ax.set_title(
+    "Full fit (C0) vs 1% subsample (C1) at three hours of day\n"
+    "Global parameters agree; thin-cell uncertainty is where full N earns its keep"
+)
 ax.plot([], [], "o", color="C0", label="full corpus")
 ax.plot([], [], "o", color="C1", label="1% subsample")
 ax.legend();
