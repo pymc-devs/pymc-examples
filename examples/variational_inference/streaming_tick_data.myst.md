@@ -374,12 +374,18 @@ loader = DataLoader(
 print(f"N = {len(loader):,} rows -> {len(loader) // loader.batch_size:,} steps per epoch")
 ```
 
-One deliberate loader semantics to know about: only full batches are yielded,
-so a trailing partial batch — here 992 of 300,000 rows, and with a fixed
-replay order the *same* 992 every pass — is never seen, while `total_size`
-still rescales by the full $N$. At 0.3% of the data this is a knowably tiny,
-stated bias, not a hidden one; shuffling shard order between epochs would
-rotate the tail if it ever mattered.
+One deliberate loader semantics to be precise about: only full batches are
+yielded, so a trailing partial batch — here 992 of 300,000 rows, and with a
+fixed replay order the *same* 992 every pass — is never seen. Strictly, then,
+the fit targets the 299,008-row subpopulation the loader streams, which is a
+uniform random subset by the hash shuffle, while `total_size` overstates its
+size by 0.3% (0.0004% at full scale) — invisible at any precision reported
+here, but it does mean Gate 1's equal-inclusion clause holds for the streamed
+subpopulation, not the last few rows of the last shard. If exactness matters,
+set `total_size` to the streamed count
+(`(len(loader) // loader.batch_size) * loader.batch_size`); the durable fix —
+carrying the remainder across epoch boundaries — belongs in the loader and is
+on its review agenda.
 
 ```{code-cell} ipython3
 def build_model(symbols, batch_init, total_size):
@@ -563,25 +569,30 @@ scalar_params = [
 ]
 rows = {name: [float(post[name].mean()), float(post[name].std())] for name in scalar_params}
 # the intercepts share a ridge with their group means; only the sums are identified
-for icpt, b in [("kappa0", "b_k"), ("alpha0", "b_al")]:
+for icpt, b in [("kappa0", "b_k"), ("alpha0", "b_al"), ("beta_a", "b_ba")]:
     s = post[icpt] + post[b].mean("symbol")
     rows[f"{icpt} + mean({b})"] = [float(s.mean()), float(s.std())]
 recovery = pd.DataFrame(rows, index=["mean", "sd"]).T
-recovery["truth"] = [truth[p] for p in scalar_params] + [truth["kappa0"], truth["alpha0"]]
+recovery["truth"] = [truth[p] for p in scalar_params] + [
+    truth["kappa0"],
+    truth["alpha0"],
+    truth["beta_a"],
+]
 recovery["abs_error"] = (recovery["mean"] - recovery["truth"]).abs()
 recovery.round(4)
 ```
 
-Read the table bottom-up. The two raw intercepts look off by 0.3 and 1.3 — but
-a global intercept and the mean of its group effects are only *jointly*
+Read the table bottom-up. The raw intercepts look off by 0.3 and 1.3 — but a
+global coefficient and the mean of its group effects are only *jointly*
 identified: the likelihood constrains their sum, and the prior only weakly
-splits it. The identified sums in the last two rows land within a few
+splits it. The identified sums in the last three rows land within a few
 thousandths of the truth, like every other likelihood-identified quantity.
 The same translation ridge exists for every global-coefficient/group-effect
-pair in this model ($c$ with $b^{(\pi h)}$, $g$ with $b^{(\sigma h)}$,
-$\beta_a$ with $b^{(\beta a)}$) — we show the two intercepts because their
-splits wander furthest; a sum-to-zero constraint on the symbol effects is the
-standard reparameterization when the split itself matters.
+pair in this model (including the vector pairs $c$/$b^{(\pi h)}$ and
+$g$/$b^{(\sigma h)}$, whose sums we spare you) — so raw split rows like
+`kappa0`, `alpha0`, and `beta_a` are prior-dependent decompositions, not
+estimates of their generating values; a sum-to-zero constraint on the symbol
+effects is the standard reparameterization when the split itself matters.
 Notice also what we did *not* print: z-scores against the truth. Some would
 exceed 2, because the mean-field standard deviations in the third column are
 razor-thin — a z-score against a point truth mixes the sampling noise of this
@@ -894,8 +905,9 @@ in front of it. The full-scale corpus behind the numbers in this section:
 
 Fitting the full corpus for two passes (one at lr 0.02, one at 0.005) takes
 about four minutes at roughly 1,000 optimization steps per second (4 million
-rows per second through the model), with peak resident memory of 1.1 GB — the
-loader's flat footprint, independent of N. The subsections below are the
+rows per second through the model), with peak resident memory of 1.1 GB for
+the whole run — fit loop plus posterior draws and summaries; the memory-wall
+figure's leaner 0.5 GB point measures the fit loop alone. Both are flat in N. The subsections below are the
 measured results; each figure's numbers are inlined verbatim from the run
 logs so the plots execute without any data access.
 
@@ -1057,7 +1069,12 @@ likelihood answers the one about typical transitions.
 
 ### The stopping rule at scale, and a pre-registration that failed
 
-The stopping-rule comparison was pre-registered before any full-scale run:
+One scoping sentence first, so no number below is ambiguous: every held-out
+score in this section comes from fits on the 60-shard training split only,
+with the four held-out shards touched by nothing but the scorer — the
+headline four-minute fit above streams all 64 shards and is never
+holdout-scored. The stopping-rule comparison was pre-registered before any
+full-scale run:
 fixed budgets of ¼, ½, 1 and 2 passes versus the windowed rule, identical
 batch order and seeds, flat learning rate; savings to be claimed only if the
 stopped fit's held-out log score landed within max(2 × ref seed spread,
@@ -1096,10 +1113,14 @@ endpoints per arm are the confirmatory design.
 One more layer of honesty on the metric itself: even among fully annealed,
 fully converged runs, path-to-path differences are about $5 \times 10^{-4}$
 nats/row. The pre-registered $2 \times 10^{-4}$ equivalence floor was
-therefore unachievable by any protocol we ran — a pre-registration mistake
-worth admitting, because the comparison it pushed us toward is the right one:
-flat-rate arms scatter over $1.7 \times 10^{-3}$, annealed endpoints over
-$5 \times 10^{-4}$, and the seed spread within one protocol is $10^{-5}$.
+therefore poorly chosen: the only arm that passed it was the fixed 1-pass
+budget — which shadows the reference's own trajectory and passes trivially —
+while for every protocol that behaves differently from the reference the
+floor sits below the plateau jitter it would need to see through. A
+pre-registration mistake worth admitting, because the comparison it pushed us
+toward is the right one: flat-rate arms scatter over $1.7 \times 10^{-3}$,
+annealed endpoints over $5 \times 10^{-4}$, and the seed spread within one
+protocol is $10^{-5}$.
 
 ```{code-cell} ipython3
 pol = results["polish"]
@@ -1117,7 +1138,7 @@ ax.set_xticks([0.116, 0.117, 0.118])
 ax.set_xlabel("held-out log score (nats/row)")
 ax.set_title(
     "Stop rule alone inherits optimizer jitter; stop + short anneal\n"
-    "matches the annealed 2-pass reference at 55% of the budget"
+    "reaches the annealed reference's level at 55% budget (single runs)"
 );
 ```
 
@@ -1230,16 +1251,17 @@ is uniform or it is invalid.
 
 The single most useful diagnostic this notebook can leave you with costs
 three fits and one table: the reported mean-field standard deviation next to
-the spread of the posterior mean across three optimizer seeds. Read it as a
-*computational-stability* diagnostic — a ratio far above one proves the
-reported width understates run-to-run variation, which is a necessary
-condition for trusting it, not a calibration certificate (that would need a
-comparison against full-rank or MCMC on a tractable subproblem):
+the sample standard deviation of the posterior mean across three optimizer
+seeds. Read it as a *computational-stability* diagnostic. A ratio far above
+one is disqualifying — the reported width understates even run-to-run
+variation, so it cannot be trusted. A ratio near or below one is merely
+*necessary*: the width survives seed replication, but certifying it as
+calibrated would take a full-rank or MCMC comparison on a tractable
+subproblem, which is future work here:
 
 ```{code-cell} ipython3
 spread = pd.DataFrame(results["seed_spread"]).T
 spread["ratio"] = (spread["seed_spread"] / spread["reported_sd"]).round(1)
-spread["flag"] = np.where(spread["ratio"] > 10, "ridge-dominated", "seed-stable")
 spread.sort_values("ratio", ascending=False)
 ```
 
