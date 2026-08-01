@@ -1020,10 +1020,10 @@ fig, ax = plt.subplots(figsize=(8, 2.6), layout="constrained")
 names = [labels[k] for k in labels]
 vals = [tp[k] for k in labels]
 ax.barh(names, vals, color=["C1", "C0", "C0"])
-for y, v in enumerate(vals):
+for bar_y, val in enumerate(vals):
     ax.annotate(
-        f"{v:,.0f} steps/s",
-        (v, y),
+        f"{val:,.0f} steps/s",
+        (val, bar_y),
         xytext=(4, 0),
         textcoords="offset points",
         va="center",
@@ -1169,10 +1169,10 @@ ax.barh(
     color=["C1" if "1-pass budget" in n else "C0" for n in names],
     capsize=3,
 )
-for y, (v, s) in enumerate(zip(means, sds)):
+for bar_y, (val, sd_) in enumerate(zip(means, sds)):
     ax.annotate(
-        f"{v:+.6f}",
-        (v + 3 * s, y),
+        f"{val:+.6f}",
+        (val + 3 * sd_, bar_y),
         xytext=(4, 0),
         textcoords="offset points",
         va="center",
