@@ -28,7 +28,8 @@ myst:
 
 Financial tick data outgrows memory quickly: one month of Binance aggregated
 trades for a single liquid pair is roughly 28 million rows, and a modest
-38-symbol universe over six months already exceeds 450 million rows — far more
+38-symbol universe (four majors over six months plus a one-month tail of 34
+alt pairs) already exceeds 450 million rows — far more
 than `pm.Minibatch` can hold resident on a 16 GB machine. This notebook fits a
 hierarchical hurdle–Student-t model of *next-event price moves* to a dataset of
 that scale by streaming minibatches from disk, using the
@@ -152,10 +153,13 @@ y_i \mid m_i = 1 &\sim \text{StudentT}(\nu,\ \mu_i,\ \sigma_i) \\
 \end{aligned}
 $$
 
-with covariates computed *causally* (from information available at trade $i$):
-the trade sign $d_i$, standardized log notional $q_i$, standardized trailing
-60-second activity $a_i$, and the most recent previous nonzero return
-$\text{ylag}_i$. $B(h)$ is the first two sine/cosine harmonics of hour-of-day,
+with raw covariates computed causally (from information available at trade
+$i$): the trade sign $d_i$, log notional $q_i$, trailing 60-second activity
+$a_i$, and the most recent previous nonzero return $\text{ylag}_i$. One
+precision: $q$ and $a$ are then standardized with per-symbol constants
+estimated over the full sample — a fixed affine map that changes the
+parameterization, not the conditional law, and is shared by every arm below;
+a deployed system would freeze these constants from a burn-in window. $B(h)$ is the first two sine/cosine harmonics of hour-of-day,
 the standard way to encode intraday periodicity smoothly
 {cite:p}`andersen1997intraday`; heavy-tailed Student-t noise for returns goes
 back at least to {cite:t}`bollerslev1987conditionally`. All symbol effects
@@ -184,8 +188,8 @@ Notebooks in this collection do not download data at build time, so the
 executed path uses a seeded synthetic generator that mirrors the real corpus:
 same schema, same hurdle structure, same heavy tails, twelve symbols with a
 deliberately thin tail so shrinkage is visible. Because the truth is known,
-recovery is checkable — and the streaming code is byte-for-byte the code used
-on the real corpus.
+recovery is checkable — and the likelihood, priors, and loader configuration
+are line-for-line the ones used on the real corpus.
 
 ```{code-cell} ipython3
 n_symbols = 12
@@ -304,8 +308,10 @@ steps would only ever see early dates and the first symbols, and an early
 stopping decision would be biased by construction. The fix is to shuffle
 **once, globally, on disk at ETL time**: every row gets a deterministic hash
 key, rows are scattered across shards by that key, and each shard is sorted by
-it. After that, sequential reads *are* a uniform permutation, and the loader
-can run with `shuffle=False` at full speed.
+it. After that, sequential reads follow one fixed, data-independent uniform
+permutation — replayed identically each epoch, which is single-shuffle SGD
+semantics rather than fresh per-step subsampling — and the loader can run
+with `shuffle=False` at full speed.
 
 ```{code-cell} ipython3
 data_dir = tempfile.mkdtemp(prefix="ticks_")
@@ -345,8 +351,9 @@ print(
 ```
 
 On the real corpus the same check is part of the ETL script's validation: the
-head of any shard must already mix all 24 hours and all symbols, *verified, not
-assumed*. Note that the cell above is the pedagogical miniature — it sorts the
+head of any shard must already mix all 24 hours and nearly all symbols —
+asserted on a sampled shard at build time and spot-checked on others, rather
+than assumed. Note that the cell above is the pedagogical miniature — it sorts the
 whole table in memory, which at corpus scale would need several gigabytes for
 the keys and permutation alone. The published ETL is genuinely out-of-core:
 pass one hash-scatters rows into shards with bounded row-group appends, pass
@@ -381,8 +388,10 @@ the fit targets the 299,008-row subpopulation the loader streams, which is a
 uniform random subset by the hash shuffle, while `total_size` overstates its
 size by 0.3% (0.0004% at full scale) — invisible at any precision reported
 here, but it does mean Gate 1's equal-inclusion clause holds for the streamed
-subpopulation, not the last few rows of the last shard. If exactness matters,
-set `total_size` to the streamed count
+subpopulation, not the last few rows of the last shard — and, equivalently,
+that the likelihood is tempered by the factor 300,000/299,008 ≈ 1.0033, a
+sub-percent effect dwarfed by the mean-field error quantified later. If
+exactness matters, set `total_size` to the streamed count
 (`(len(loader) // loader.batch_size) * loader.batch_size`); the durable fix —
 carrying the remainder across epoch boundaries — belongs in the loader and is
 on its review agenda.
@@ -486,7 +495,10 @@ gives the term *observed-RV semantics*, which is what makes PyMC's own
 the hurdle's two logs are written with `softplus` —
 $\log \pi = -\operatorname{softplus}(-x)$,
 $\log(1-\pi) = -\operatorname{softplus}(x)$ — which is exact and stable at both
-tails.
+tails. The exact float comparison `value != 0` is safe here because the zeros
+are *structural* — a transition either changes the price or it does not, and
+the smallest genuine move on any listed tick grid sits dozens of orders of
+magnitude above the float32 flush-to-zero threshold.
 
 ```{code-cell} ipython3
 model = build_model([f"SYM{i:02d}" for i in range(n_symbols)], next(iter(loader)), len(loader))
@@ -711,8 +723,12 @@ ax.set_title("Posterior predictive ECDF: the step at zero is the hurdle")
 ax.legend(loc="lower right");
 ```
 
-The predictive distribution reproduces the zero step, the bulk scale, and the
-tail quantile within its own 90% bands. On real data one caveat would surface
+Two of the three statistics sit inside their predictive 90% bands; the median
+|move| lands at the band's edge (0.8% outside at full precision — the
+3-decimal table hides it, so we say it here). Note also that this is an
+in-sample adequacy check: the evaluation batch was seen during the fit; the
+real-corpus scores later use shards the fits never touched. On real data one
+further caveat would surface
 here that the synthetic generator cannot show: real price changes are integer
 multiples of the tick size, so the continuous Student-t's residual misfit
 concentrates at |y| near one tick — visible as small stair-steps in the
@@ -735,8 +751,8 @@ never evidence of convergence.
 :class: warning
 Successive losses are evaluated on *different batches*, so the per-step noise
 dwarfs the per-step improvement: on our full-scale run the median one-step
-change is about 106 loss units while the true improvement is 0.04 units per
-step. A rule that standardizes *raw* increments concludes "improvement is
+change is about 106 loss units while the mean improvement — (first − last)
+loss over the run's steps — is about 0.06 units per step. A rule that standardizes *raw* increments concludes "improvement is
 indistinguishable from zero" immediately upon arming, and fires a fixed
 ~$h/\kappa$ steps later regardless of whether the fit converged.
 :::
@@ -881,8 +897,10 @@ posterior has converged; the held-out checks in the next section are the
 independent evidence. Second, the $h/\kappa$-window delay after a plateau is
 the rule's *nominal* detection lag; clipping and the adaptive scale can move
 the actual hitting time. On the full-scale corpus the same replay shows the
-windowed rule stopping shortly after one pass, at a loss within noise of the
-two-pass reference.
+windowed rule stopping shortly after one pass, at a *training loss* within
+noise of the two-pass reference — whether that stop is also good enough on
+held-out score is precisely what the pre-registered test in the next section
+failed to confirm.
 
 (tick-real-corpus)=
 
@@ -1008,15 +1026,16 @@ for y, v in enumerate(vals):
         fontsize=9,
     )
 ax.set_xlabel("optimization steps per second (batch 4096, steady state)")
-ax.set_title("With a 500-parameter gradient, the loader is not the bottleneck");
+ax.set_title("With a 440-parameter gradient, the loader is not the bottleneck");
 ```
 
 The ordering surprised us, so it is worth stating carefully. On this model the
 gradient dominates the step, and the pre-shuffled streaming path *outpaces*
 in-RAM `pm.Minibatch` — the loader's Python-level handoff is cheaper than
-Minibatch's per-step random indexing. That ordering is model-dependent: on a
-light model the loader overhead shows and `pm.Minibatch` wins the races it can
-enter (we measured exactly that on a small probe model). The one consistently
+Minibatch's per-step random indexing. On our lighter probe model the same
+ordering held (pre-shuffled loader ~4,900 vs Minibatch ~3,000 steps/s), so
+treat any speed ordering as an empirical, model-specific fact rather than a
+law in either direction. The one consistently
 expensive path is the runtime shuffle buffer — which is why the ETL-time
 global shuffle matters twice: it is the *statistically* honest option, and it
 is 3× the throughput.
@@ -1029,7 +1048,9 @@ success story:
 **Non-centered effects collapsed under mean-field.** The first version of this
 model used the textbook non-centered parameterization
 $b_s = \tau \cdot z_s,\ z_s \sim \mathcal{N}(0,1)$. On the real corpus the
-$z_s$ posteriors blew out to $\pm 18$ while every $\tau$ pinned near its prior:
+$z_s$ posteriors blew out to $+17$ while the $\tau$'s collapsed — some pinned
+low against the prior, others (the hour-shape scale) driven far *below* its
+bulk:
 real cross-symbol volatility levels span two orders of magnitude, the original
 $\tau$ prior could not reach them, and a mean-field approximation of the
 $\tau$–$z$ funnel collapses into its small-$\tau$/huge-$z$ corner. Both fixes
@@ -1056,7 +1077,8 @@ quantiles behave, which is exactly why the estimand is quantile-based.
 
 **The robust location disagrees with least squares about a sign.** Ordinary
 least squares of $y$ on $\text{ylag}$ gives a *negative* coefficient
-(bid-ask bounce, −0.29); the fitted $\theta_r$ is *positive*
+(bid-ask bounce, ≈ −0.24 on the held-out sample, moved rows only — the exact
+value is specification-dependent); the fitted $\theta_r$ is *positive*
 (+0.29, seed spread $8 \times 10^{-6}$). Direct likelihood profiling on a
 million real rows
 confirms the likelihood genuinely peaks at the positive value: small moves
@@ -1069,11 +1091,15 @@ likelihood answers the one about typical transitions.
 
 ### The stopping rule at scale, and a pre-registration that failed
 
-One scoping sentence first, so no number below is ambiguous: every held-out
+Two scoping sentences first, so no number below is ambiguous. Every held-out
 score in this section comes from fits on the 60-shard training split only,
 with the four held-out shards touched by nothing but the scorer — the
 headline four-minute fit above streams all 64 shards and is never
-holdout-scored. The stopping-rule comparison was pre-registered before any
+holdout-scored. And "held out" here means a hash-random *contemporaneous*
+split over serially overlapping transitions (a holdout row's `ylag` can be a
+training row's label), which is exactly what paired comparisons between
+optimization arms need and nothing more — no forward-in-time validation is
+claimed anywhere in this notebook. The stopping-rule comparison was pre-registered before any
 full-scale run:
 fixed budgets of ¼, ½, 1 and 2 passes versus the windowed rule, identical
 batch order and seeds, flat learning rate; savings to be claimed only if the
@@ -1083,7 +1109,11 @@ every budget a prefix of the same deterministic trajectory, all five arms per
 seed come from one run with mid-flight snapshots — and the windowed rule ran
 as a shadow observer, stopping (all three seeds) at 1.07 passes: the mandated
 one-pass floor plus its designed $h/\kappa$-window detection delay, 46% below
-the reference budget.
+the reference budget (each protocol is replicated below). Stated plainly,
+because it would be easy to bury: the fixed 1-pass budget *dominated* the
+monitor here — fewer steps, a better held-out score, and it passed the
+pre-registered test the monitor failed — so on this corpus the rule's value
+is certifying the plateau, not saving steps beyond a well-chosen budget.
 
 ```{code-cell} ipython3
 conv = pd.DataFrame(
@@ -1095,59 +1125,97 @@ conv
 
 **The equivalence test failed** — and not in the direction anyone would
 guess: the ¼- and ½-pass arms *out-scored* the 1- and 2-pass arms by about
-$10^{-3}$ nats/row — a hundred times the seed spread — while the 1- and
+$10^{-3}$ nats/row — 74–88× the tightest arms' seed spreads (per-arm spreads
+run $3\times10^{-6}$ to $1.2\times10^{-4}$, and batch order is shared across
+seeds, so these exclude data-order variation) — while the 1- and
 2-pass arms tied within seed spread, and the monitor arm under-scored
 everything. The loss trace suggests why: this fit reaches its loss plateau
 within a quarter pass, so all flat-rate arms sit on the same plateau, where
 the held-out score of a *point* estimate moves with the optimizer's state at
 flat learning rate 0.02 — consistent with Adam's stationary jitter and
 position along the (seed-shared) batch cycle, though these artifacts alone
-cannot separate that from other path effects. The polish experiment points
-the same way: re-running to the monitor's stop and annealing for two thousand
-further steps at a quarter of the learning rate moved the held-out score from
-the worst of the table to the top — within path noise of an annealed two-pass
-reference run on the same split — at 55% of its step budget. One run per
-protocol, so these comparisons are exploratory; paired, replicated annealed
-endpoints per arm are the confirmatory design.
-
-One more layer of honesty on the metric itself: even among fully annealed,
-fully converged runs, path-to-path differences are about $5 \times 10^{-4}$
-nats/row. The pre-registered $2 \times 10^{-4}$ equivalence floor was
-therefore poorly chosen: the only arm that passed it was the fixed 1-pass
-budget — which shadows the reference's own trajectory and passes trivially —
-while for every protocol that behaves differently from the reference the
-floor sits below the plateau jitter it would need to see through. A
-pre-registration mistake worth admitting, because the comparison it pushed us
-toward is the right one: flat-rate arms scatter over $1.7 \times 10^{-3}$,
-annealed endpoints over $5 \times 10^{-4}$, and the seed spread within one
-protocol is $10^{-5}$.
+cannot separate that from other path effects. So we ran the confirmatory
+design the failure demanded: three seeds per protocol for an annealed 2-pass
+reference, a quarter-pass budget plus a 2,000-step anneal, a 1-pass budget
+plus the same anneal, and the monitor's stop (1.07 passes) plus the same
+anneal.
 
 ```{code-cell} ipython3
-pol = results["polish"]
-fig, ax = plt.subplots(figsize=(8, 3), layout="constrained")
-names = list(pol.keys())
-scores = [pol[n] for n in names]
-ax.barh(names, scores, color=["C1" if "anneal" in n and "stop" in n else "C0" for n in names])
-for y, v in enumerate(scores):
+conf = results["confirm"]
+flat_ref = np.array(conv.loc["e2.0", ["seed 0", "seed 1", "seed 2"]], dtype=float)
+mon_raw = np.array(conv.loc["monitor", ["seed 0", "seed 1", "seed 2"]], dtype=float)
+arms = {
+    "monitor stop, raw (1.07 passes)": (mon_raw.mean(), mon_raw.std(ddof=1)),
+    "flat 2-pass reference": (flat_ref.mean(), flat_ref.std(ddof=1)),
+    **{k: (v["mean"], v["sd"]) for k, v in conf.items()},
+}
+fig, ax = plt.subplots(figsize=(8, 3.4), layout="constrained")
+names = list(arms.keys())
+means = [arms[n][0] for n in names]
+sds = [arms[n][1] for n in names]
+ax.barh(
+    names,
+    means,
+    xerr=[3 * s for s in sds],
+    color=["C1" if "1-pass budget" in n else "C0" for n in names],
+    capsize=3,
+)
+for y, (v, s) in enumerate(zip(means, sds)):
     ax.annotate(
-        f"{v:+.6f}", (v, y), xytext=(4, 0), textcoords="offset points", va="center", fontsize=8
+        f"{v:+.6f}",
+        (v + 3 * s, y),
+        xytext=(4, 0),
+        textcoords="offset points",
+        va="center",
+        fontsize=8,
     )
-lo = min(scores)
-ax.set_xlim(lo - 3e-4, max(scores) + 4e-4)
+ax.set_xlim(min(means) - 3e-4, max(means) + 5e-4)
 ax.set_xticks([0.116, 0.117, 0.118])
-ax.set_xlabel("held-out log score (nats/row)")
+ax.set_xlabel("held-out log score (nats/row); bars are 3-seed means ± 3 sd")
 ax.set_title(
-    "Stop rule alone inherits optimizer jitter; stop + short anneal\n"
-    "reaches the annealed reference's level at 55% budget (single runs)"
+    "Replicated: the anneal is the load-bearing ingredient,\n"
+    "and one full pass beats a quarter pass even though the loss plateaued"
 );
 ```
 
-The working protocol this ablation suggests: **pair a stop rule on a
-streaming fit with an anneal-on-stop polish phase**, and judge equivalence
-after the polish, not at the raw stopping point.
-That finding — not the 46% headline — is what we would want a reader to take
-away, and it fed directly back into the design discussion of the upstream
-pull requests.
+Three seeds per arm resolve the picture sharply — within-arm spreads are
+$4 \times 10^{-6}$ to $8 \times 10^{-5}$, so every gap below is tens of
+spreads wide (with one caveat: seeds vary the Monte-Carlo noise, not the
+batch order, which is shared). Four replicated facts:
+
+1. **The anneal is load-bearing.** A 1-pass budget plus a 2,000-step anneal
+   (0.118738) beats the flat 1-pass arm by $1.7 \times 10^{-3}$ — at
+   essentially the same cost.
+2. **The training-loss plateau is not a held-out plateau.** The loss flattens
+   within a quarter pass, but the quarter-pass-plus-anneal arm (0.117021)
+   trails the 1-pass-plus-anneal arm by $1.7 \times 10^{-3}$: between ¼ and 1
+   pass the model keeps improving where the loss trace cannot show it. The
+   one-full-pass floor earns its keep after all.
+3. **The stop rule adds nothing beyond the floor here.** Its stop
+   (1.07 passes) plus anneal (0.118450) sits $2.9 \times 10^{-4}$ *below* the
+   plain 1-pass budget plus anneal — the detection delay bought 7% more flat-lr
+   steps and a slightly worse endpoint. On this corpus the rule's value is
+   certifying the plateau, not choosing a better stop than a well-chosen
+   budget.
+4. **More budget is not better.** The fully annealed 2-pass reference
+   (0.117859) trails 1-pass-plus-short-anneal by $8.8 \times 10^{-4}$: the
+   endpoint depends on the schedule, not the step count.
+
+This also retires our own earlier reading: the "$5 \times 10^{-4}$ path
+noise between annealed runs" was a *protocol* difference wearing a noise
+costume — replicates of the same protocol agree to $10^{-5}$. And it
+sharpens the pre-registration post-mortem: the mistake was not the
+$2 \times 10^{-4}$ floor but the yardstick — equivalence to a reference that
+is itself $8.8 \times 10^{-4}$ off the tested frontier measures loyalty, not
+quality.
+
+The working protocol this ablation supports: **one full pass at the working
+learning rate, then a short anneal** — with the stopping rule as the
+certificate that one pass was indeed enough, and equivalence judged after
+the anneal, on held-out score, against the best arm rather than a
+conventional reference. That finding — not any savings headline — is what we
+would want a reader to take away, and it fed directly back into the design
+discussion of the upstream pull requests.
 
 ### The estimand: dispersion on the event clock
 
@@ -1192,7 +1260,10 @@ clocks tell different stories and this notebook only claims the first.
 A uniform 1% subsample (4.6M rows — 1% of the 60-shard training split, drawn
 by taking the hash-ordered head of each shard, with the last four shards held
 out for scoring) can estimate every *global* parameter of this model — and did,
-matching the full fit on ν, θ, λ, β and the τ's. So why stream 100× more
+matching the full fit closely on the well-determined ones (ν to 0.1%, the
+θ's, λ_q, τ_α) and agreeing in sign and rough magnitude on the small
+coefficients that wander between full-N configurations too. So why stream
+100× more
 data? Because the estimand lives in symbol-by-hour cells, and the thin end of
 the universe is where the two fits part ways. Below, the posterior of the
 conditional-move 90% half-width $\sigma_{s,h}\, t^{-1}_{0.95}(\nu)$ at
@@ -1275,7 +1346,7 @@ spread.sort_values("ratio", ascending=False)
   you have seed-checked — and remember the check bounds the error from below.
 - **The speed ordering is model-dependent.** Here the heavy gradient hides
   the loader entirely and pre-shuffled streaming outpaces in-RAM
-  `pm.Minibatch`; on light models the ordering reverses. Streaming's claim
+  `pm.Minibatch` — and did so on our lighter probe as well. Streaming's claim
   is memory and scale — treat any steps-per-second comparison as specific to
   the model it was measured on.
 - **Sampling semantics differ**: `pm.Minibatch` draws with replacement; the

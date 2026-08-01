@@ -1278,5 +1278,43 @@
   "peak_rss_gb": 1.06,
   "batch_size": 4096,
   "steps_per_epoch": 120009
+ },
+ "confirm": {
+  "annealed 2-pass reference": {
+   "scores": [
+    0.117855,
+    0.117862,
+    0.11786
+   ],
+   "mean": 0.117859,
+   "sd": 3.61e-06
+  },
+  "1-pass budget + 2k anneal": {
+   "scores": [
+    0.118735,
+    0.118747,
+    0.118731
+   ],
+   "mean": 0.118738,
+   "sd": 8.33e-06
+  },
+  "quarter-pass budget + 2k anneal": {
+   "scores": [
+    0.116952,
+    0.117102,
+    0.117009
+   ],
+   "mean": 0.117021,
+   "sd": 7.57e-05
+  },
+  "monitor stop (1.07) + 2k anneal": {
+   "scores": [
+    0.118446,
+    0.11846,
+    0.118444
+   ],
+   "mean": 0.11845,
+   "sd": 8.72e-06
+  }
  }
 }
