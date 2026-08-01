@@ -50,24 +50,26 @@ data:
 
 The notebook itself runs in about a minute on synthetic data with known ground
 truth — the streaming code is identical at any scale. Full-scale results on the
-real 38-symbol Binance corpus are reported in {ref}`tick-real-corpus` from runs
-of the exact scripts shown here, with every number reproducible from public
-data.
+real 38-symbol Binance corpus are reported in {ref}`tick-real-corpus`: the data
+are public, and every quoted number traces to the run artifacts of the ETL and
+fit scripts that accompany the submission.
 
 +++
 
-## When is minibatch VI valid? Two gates
+## Two gates: when minibatch VI is valid, and when it is worth it
 
 Minibatch variational inference rests on one identity: if the likelihood
 factors over rows given the parameters, then the batch log-likelihood scaled by
 $N/B$ is an unbiased estimator of the full-data log-likelihood
-{cite:p}`hoffman2013stochastic`. For a streaming showcase to be honest, two
-conditions must hold. They became the acceptance gates for this notebook's
-model, and they are worth internalizing before reaching for `total_size` on
-your own data:
+{cite:p}`hoffman2013stochastic`. Two gates shaped this notebook's model — the
+first is about *validity*, the second about whether streaming is doing any
+real work — and they are worth internalizing before reaching for `total_size`
+on your own data:
 
-**Gate 1 — the likelihood must factor over rows.** No latent path coupling
-observations, and no label shared across rows. This is exactly why the classic
+**Gate 1 — validity: the likelihood must factor over rows, sampled uniformly.**
+No latent path coupling observations, no label shared across rows, and every
+row given the same inclusion probability by the batching scheme (unequal
+inclusion breaks the plain $N/B$ rescaling). This is exactly why the classic
 stochastic volatility model of the {ref}`stochastic_volatility` notebook
 *cannot* be minibatched: its latent volatility path ties every observation to
 its neighbours, so a random subset of rows does not carry $B/N$ of the
@@ -76,12 +78,14 @@ of a match sharing the final result) fails the same gate through
 pseudo-replication — the effective sample size is the number of outcomes, not
 the number of rows.
 
-**Gate 2 — no low-dimensional sufficient statistics.** A Normal likelihood
-with per-cell variances collapses to per-cell $(\sum y^2, n)$: one linear scan
-computes those, and "streaming inference" degenerates into a glorified
-`groupby`. What provably breaks the collapse: a Student-t likelihood, a mixture
-(the hurdle below), and row-level continuous covariates through nonlinear
-links.
+**Gate 2 — non-triviality: no low-dimensional sufficient statistics.** This
+one is not about validity but about honesty of the *showcase*: a Normal
+likelihood with per-cell means and variances collapses to per-cell
+$(\sum y, \sum y^2, n)$, so one linear scan computes the exact posterior
+inputs and "streaming inference" degenerates into a glorified `groupby` —
+valid, but theater. What provably breaks the collapse: a Student-t likelihood,
+a mixture (the hurdle below), and row-level continuous covariates through
+nonlinear links.
 
 The model below passes both gates, and each ingredient that makes it pass is
 also substantively motivated by the data.
@@ -329,7 +333,11 @@ print(f"first 10k rows of one shard cover {len(np.unique(head['hour']))} hours "
 
 On the real corpus the same check is part of the ETL script's validation: the
 head of any shard must already mix all 24 hours and all symbols, *verified, not
-assumed*.
+assumed*. Note that the cell above is the pedagogical miniature — it sorts the
+whole table in memory, which at corpus scale would need several gigabytes for
+the keys and permutation alone. The published ETL is genuinely out-of-core:
+pass one hash-scatters rows into shards with bounded row-group appends, pass
+two sorts each shard independently, and no step ever holds the corpus.
 
 +++
 
@@ -353,13 +361,21 @@ loader = DataLoader(
 print(f"N = {len(loader):,} rows -> {len(loader) // loader.batch_size:,} steps per epoch")
 ```
 
+One deliberate loader semantics to know about: only full batches are yielded,
+so a trailing partial batch — here 992 of 300,000 rows, and with a fixed
+replay order the *same* 992 every pass — is never seen, while `total_size`
+still rescales by the full $N$. At 0.3% of the data this is a knowably tiny,
+stated bias, not a hidden one; shuffling shard order between epochs would
+rotate the tail if it ever mattered.
+
++++
+
 ```{code-cell} ipython3
 def build_model(symbols, batch_init, total_size):
     coords = {"symbol": list(symbols), "harmonic": ["sin1", "cos1", "sin2", "cos2"]}
     with pm.Model(coords=coords) as model:
         batch = pm.Data("batch", batch_init)
         y_ = batch[:, 0]
-        m_ = batch[:, 1]
         d_ = batch[:, 2]
         q_ = batch[:, 3]
         a_ = batch[:, 4]
@@ -410,7 +426,10 @@ def build_model(symbols, batch_init, total_size):
         )
         mu = theta_d * d_ + theta_r * ylag_
 
-        def hurdle_logp(value, logit_pi, mu, log_sigma, nu, m):
+        def hurdle_logp(value, logit_pi, mu, log_sigma, nu):
+            # one coherent mixed distribution: an atom at exactly zero plus a
+            # Student-t density off zero — the move indicator is value != 0,
+            # never a separate parameter, so logp and random describe the SAME law
             sigma = pt.exp(log_sigma)
             t_ll = (
                 pt.gammaln((nu + 1.0) / 2.0)
@@ -419,17 +438,18 @@ def build_model(symbols, batch_init, total_size):
                 - log_sigma
                 - (nu + 1.0) / 2.0 * pt.log1p(((value - mu) / sigma) ** 2 / nu)
             )
-            return pt.where(m > 0, -pt.softplus(-logit_pi) + t_ll, -pt.softplus(logit_pi))
+            moved = pt.neq(value, 0.0)
+            return pt.where(moved, -pt.softplus(-logit_pi) + t_ll, -pt.softplus(logit_pi))
 
-        def hurdle_random(logit_pi, mu, log_sigma, nu, m, rng=None, size=None):
-            # simulate the full hurdle: first whether the price moves, then how far
+        def hurdle_random(logit_pi, mu, log_sigma, nu, rng=None, size=None):
+            # simulate the same law: first whether the price moves, then how far
             pi = 1.0 / (1.0 + np.exp(-logit_pi))
             move = rng.random(size=size) < pi
             draw = mu + np.exp(log_sigma) * rng.standard_t(nu, size=size)
             return np.where(move, draw, 0.0)
 
         pm.CustomDist(
-            "y_obs", logit_pi, mu, log_sigma, nu, m_,
+            "y_obs", logit_pi, mu, log_sigma, nu,
             logp=hurdle_logp, random=hurdle_random,
             observed=y_, total_size=total_size,
         )
@@ -526,11 +546,16 @@ recovery["abs_error"] = (recovery["mean"] - recovery["truth"]).abs()
 recovery.round(4)
 ```
 
-Read the table bottom-up. The two raw intercepts look off by 0.1–0.3 — but a
-global intercept and the mean of its group effects are only *jointly*
+Read the table bottom-up. The two raw intercepts look off by 0.3 and 1.3 — but
+a global intercept and the mean of its group effects are only *jointly*
 identified: the likelihood constrains their sum, and the prior only weakly
 splits it. The identified sums in the last two rows land within a few
 thousandths of the truth, like every other likelihood-identified quantity.
+The same translation ridge exists for every global-coefficient/group-effect
+pair in this model ($c$ with $b^{(\pi h)}$, $g$ with $b^{(\sigma h)}$,
+$\beta_a$ with $b^{(\beta a)}$) — we show the two intercepts because their
+splits wander furthest; a sum-to-zero constraint on the symbol effects is the
+standard reparameterization when the split itself matters.
 Notice also what we did *not* print: z-scores against the truth. Some would
 exceed 2, because the mean-field standard deviations in the third column are
 razor-thin — a z-score against a point truth mixes the sampling noise of this
@@ -571,7 +596,7 @@ ax.legend();
 The thin symbols' estimates are pulled toward zero and carry visibly wider
 intervals — that is partial pooling doing exactly what it is for
 {cite:p}`gelman2006data`. On the real corpus, where the thinnest symbol has
-230,000 rows against BTC's 200 million, the same mechanism is what makes the
+67,000 rows against BTC's 203 million, the same mechanism is what makes the
 tail of the symbol universe estimable at all.
 
 +++
@@ -599,20 +624,21 @@ y_eval = eval_batch[:, 0]
 
 zero_share = (pp == 0).mean(axis=1)
 med_nonzero = np.array([np.median(np.abs(d[d != 0])) for d in pp[:500]])
-q99 = np.quantile(np.abs(pp), 0.99, axis=1)
+q99_nonzero = np.array([np.quantile(np.abs(d[d != 0]), 0.99) for d in pp[:500]])
 
 def check_row(observed, draws):
     lo, hi = np.quantile(draws, [0.05, 0.95])
     return [observed, draws.mean(), lo, hi]
 
+y_nonzero = np.abs(y_eval[y_eval != 0])
 pd.DataFrame(
     [
         check_row((y_eval == 0).mean(), zero_share),
-        check_row(np.median(np.abs(y_eval[y_eval != 0])), med_nonzero),
-        check_row(np.quantile(np.abs(y_eval), 0.99), q99),
+        check_row(np.median(y_nonzero), med_nonzero),
+        check_row(np.quantile(y_nonzero, 0.99), q99_nonzero),
     ],
     columns=["observed", "pp mean", "pp 5%", "pp 95%"],
-    index=["zero share", "median |nonzero y| (bp)", "q99 |y| (bp)"],
+    index=["zero share", "median |move| (bp)", "q99 |move| (bp)"],
 ).round(3)
 ```
 
@@ -749,8 +775,9 @@ stream2.prime()
 steps_per_epoch = len(loader2) // loader2.batch_size
 
 k = 50
+min_windows = -(-steps_per_epoch // k)  # ceil: never arm before one full pass
 raw_shadow = Shadow(CheckLossConvergence(min_steps=steps_per_epoch))
-win_shadow = Shadow(WindowMean(CheckLossConvergence(min_steps=steps_per_epoch // k), k))
+win_shadow = Shadow(WindowMean(CheckLossConvergence(min_steps=min_windows), k))
 
 with model2:
     advi2 = pm.ADVI(random_seed=RANDOM_SEED)
@@ -786,10 +813,14 @@ The raw rule fires a fixed ~80 steps after arming with the loss still far from
 its floor — a false stop that a fixed-budget run would silently avoid. The
 windowed rule stops once per-window improvement falls below a quarter of the
 window-noise scale, here capturing roughly 95% of the total loss descent at
-under a quarter of the step budget. On the full-scale corpus the same replay
-shows the windowed rule stopping shortly after one pass, at a loss within
-noise of the two-pass reference — the model converges in about one epoch, and
-the rule proves it rather than assumes it.
+under a quarter of the step budget. Two honest qualifications. First, what the
+rule detects is a *loss plateau* — a necessary signal, not a proof that the
+posterior has converged; the held-out checks in the next section are the
+independent evidence. Second, the $h/\kappa$-window delay after a plateau is
+the rule's *nominal* detection lag; clipping and the adaptive scale can move
+the actual hitting time. On the full-scale corpus the same replay shows the
+windowed rule stopping shortly after one pass, at a loss within noise of the
+two-pass reference.
 
 (tick-real-corpus)=
 
@@ -915,7 +946,11 @@ $\tau$ prior could not reach them, and a mean-field approximation of the
 $\tau$–$z$ funnel collapses into its small-$\tau$/huge-$z$ corner. Both fixes
 are principled: weakly informative scale priors, and *centered* effects —
 non-centering exists for data-poor groups, and with $10^5$–$10^8$ rows per
-symbol these groups are anything but.
+symbol these groups are anything but. One honest caveat: the two fixes were
+applied together, so their individual contributions are confounded — a
+same-prior centered/non-centered ablation would separate them, and the safe
+reading is empirical rather than theoretical: on this corpus, this
+combination fits cleanly and the original one did not.
 
 **The variance does not exist.** With the conventional
 $\nu = 2 + \operatorname{softplus}(\eta)$ parameterization, 450 million rows
@@ -925,8 +960,10 @@ finite-variance Student-t. The parameterization was moved to a floor of 1 and
 the estimand to quantile-based dispersion, which is finite for all $\nu > 0$.
 With the floor out of the way, three independent seeds put $\nu$ at 1.895
 with a seed spread of $8 \times 10^{-5}$ — an *interior* optimum below 2.
-Per-trade crypto returns, as far as this half-billion-row likelihood is
-concerned, have no variance; they do have a mean, and quantiles behave.
+Within the fitted conditional-move Student-t, then, the variance simply does
+not exist — a statement about this working likelihood on this corpus, not a
+metaphysical claim about crypto returns — while the mean is finite and
+quantiles behave, which is exactly why the estimand is quantile-based.
 
 **The robust location disagrees with least squares about a sign.** Ordinary
 least squares of $y$ on $\text{ylag}$ gives a *negative* coefficient
@@ -963,25 +1000,29 @@ conv
 ```
 
 **The equivalence test failed** — and not in the direction anyone would
-guess: the ¼-pass arm *out-scored* the 2-pass reference, the monitor arm
-under-scored it, and every gap dwarfed the seed spread (∼10⁻⁵). The loss
-trace explains it: this fit converges within a quarter pass, so all flat-rate
-arms sit on the same plateau, where the held-out score of a *point* estimate
-is dominated by Adam's stationary jitter at learning rate 0.02 — position
-along the batch cycle, not posterior quality. The proof is the polish
-experiment: re-running to the monitor's stop and annealing for two thousand
+guess: the ¼- and ½-pass arms *out-scored* the 1- and 2-pass arms by about
+$10^{-3}$ nats/row — a hundred times the seed spread — while the 1- and
+2-pass arms tied within seed spread, and the monitor arm under-scored
+everything. The loss trace suggests why: this fit reaches its loss plateau
+within a quarter pass, so all flat-rate arms sit on the same plateau, where
+the held-out score of a *point* estimate moves with the optimizer's state at
+flat learning rate 0.02 — consistent with Adam's stationary jitter and
+position along the (seed-shared) batch cycle, though these artifacts alone
+cannot separate that from other path effects. The polish experiment points
+the same way: re-running to the monitor's stop and annealing for two thousand
 further steps at a quarter of the learning rate moved the held-out score from
-the worst of the table to the best — above an annealed two-pass reference run
-on the same split — at 55% of its step budget.
+the worst of the table to the top — within path noise of an annealed two-pass
+reference run on the same split — at 55% of its step budget. One run per
+protocol, so these comparisons are exploratory; paired, replicated annealed
+endpoints per arm are the confirmatory design.
 
 One more layer of honesty on the metric itself: even among fully annealed,
 fully converged runs, path-to-path differences are about $5 \times 10^{-4}$
 nats/row. The pre-registered $2 \times 10^{-4}$ equivalence floor was
-therefore unachievable by *any* stopping protocol on this problem — a
-pre-registration mistake worth admitting, because the comparison it pushed us
-toward is the right one: flat-rate arms scatter over $1.7 \times 10^{-3}$,
-annealed endpoints over $5 \times 10^{-4}$, and the seed spread within one
-protocol is $10^{-5}$.
+therefore unachievable by any protocol we ran — a pre-registration mistake
+worth admitting, because the comparison it pushed us toward is the right one:
+flat-rate arms scatter over $1.7 \times 10^{-3}$, annealed endpoints over
+$5 \times 10^{-4}$, and the seed spread within one protocol is $10^{-5}$.
 
 ```{code-cell} ipython3
 pol = results["polish"]
@@ -997,13 +1038,13 @@ lo = min(scores)
 ax.set_xlim(lo - 3e-4, max(scores) + 4e-4)
 ax.set_xticks([0.116, 0.117, 0.118])
 ax.set_xlabel("held-out log score (nats/row)")
-ax.set_title("Stop rule alone inherits Adam jitter; "
-             "stop + short anneal beats the 2-pass reference at 55% cost");
+ax.set_title("Stop rule alone inherits optimizer jitter; stop + short anneal\n"
+             "matches the annealed 2-pass reference at 55% of the budget");
 ```
 
-The honest protocol that comes out of this ablation: **a stop rule on a
-streaming fit must be paired with an anneal-on-stop polish phase**, and
-equivalence must be judged after the polish, not at the raw stopping point.
+The working protocol this ablation suggests: **pair a stop rule on a
+streaming fit with an anneal-on-stop polish phase**, and judge equivalence
+after the polish, not at the raw stopping point.
 That finding — not the 46% headline — is what we would want a reader to take
 away, and it fed directly back into the design discussion of the upstream
 pull requests.
@@ -1046,8 +1087,9 @@ clocks tell different stories and this notebook only claims the first.
 
 ### What full N buys: thin cells
 
-A uniform 1% subsample (4.6M rows, drawn by taking the hash-ordered head of
-every shard) can estimate every *global* parameter of this model — and did,
+A uniform 1% subsample (4.6M rows — 1% of the 60-shard training split, drawn
+by taking the hash-ordered head of each shard, with the last four shards held
+out for scoring) can estimate every *global* parameter of this model — and did,
 matching the full fit on ν, θ, λ, β and the τ's. So why stream 100× more
 data? Because the estimand lives in symbol-by-hour cells, and the thin end of
 the universe is where the two fits part ways. Below, the posterior of the
@@ -1097,13 +1139,17 @@ is uniform or it is invalid.
 ### What we do not sweep under the rug
 
 The single most useful diagnostic this notebook can leave you with costs
-three fits and one table — the reported mean-field standard deviation next to
-the across-seed spread of the posterior mean:
+three fits and one table: the reported mean-field standard deviation next to
+the spread of the posterior mean across three optimizer seeds. Read it as a
+*computational-stability* diagnostic — a ratio far above one proves the
+reported width understates run-to-run variation, which is a necessary
+condition for trusting it, not a calibration certificate (that would need a
+comparison against full-rank or MCMC on a tractable subproblem):
 
 ```{code-cell} ipython3
 spread = pd.DataFrame(results["seed_spread"]).T
 spread["ratio"] = (spread["seed_spread"] / spread["reported_sd"]).round(1)
-spread["verdict"] = np.where(spread["ratio"] > 10, "ridge — do not trust sd", "ok")
+spread["flag"] = np.where(spread["ratio"] > 10, "ridge-dominated", "seed-stable")
 spread.sort_values("ratio", ascending=False)
 ```
 
@@ -1112,8 +1158,9 @@ spread.sort_values("ratio", ascending=False)
   and across repeated seeds the spread of $\alpha_0$ is roughly 440× its
   reported posterior standard deviation — $\kappa_0$ and $\beta_a$ show the
   same signature at 60–70×. The parameters *without* a ridge ($\theta_r$,
-  $\nu$, $\lambda_a$, the $\tau$'s) have ratios at or below one. Report
-  mean-field standard deviations only for parameters you have seed-checked.
+  $\nu$, $\lambda_a$, the $\tau$'s) sit at or below one, and $\theta_d$ sits
+  in between (≈6). Report mean-field standard deviations only for parameters
+  you have seed-checked — and remember the check bounds the error from below.
 - **The speed ordering is model-dependent.** Here the heavy gradient hides
   the loader entirely and pre-shuffled streaming outpaces in-RAM
   `pm.Minibatch`; on light models the ordering reverses. Streaming's claim
@@ -1139,8 +1186,8 @@ callback-free `Trainer` wrapper
 ([pymc-extras#710](https://github.com/pymc-devs/pymc-extras/pull/710)) and the
 convergence monitor ([pymc#8384](https://github.com/pymc-devs/pymc/pull/8384))
 are under review, and this notebook's callback pattern is exactly what those
-APIs wrap. The ETL and full-scale run scripts are published alongside the
-notebook, and the {ref}`streaming_dataset` companion covers the API mechanics.
+APIs wrap. The ETL and full-scale run scripts accompany the submission, and
+the {ref}`streaming_dataset` companion covers the API mechanics.
 :::
 
 +++

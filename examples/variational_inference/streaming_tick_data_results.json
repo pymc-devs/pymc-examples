@@ -1269,5 +1269,14 @@
     0.00031
    ]
   }
+ },
+ "headline": {
+  "epochs": 2.0,
+  "wall_min": 4.2,
+  "steps_per_sec": 959,
+  "rows_per_sec_m": 3.9,
+  "peak_rss_gb": 1.06,
+  "batch_size": 4096,
+  "steps_per_epoch": 120009
  }
 }
