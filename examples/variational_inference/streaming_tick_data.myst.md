@@ -391,10 +391,14 @@ here, but it does mean Gate 1's equal-inclusion clause holds for the streamed
 subpopulation, not the last few rows of the last shard — and, equivalently,
 that the likelihood is tempered by the factor 300,000/299,008 ≈ 1.0033, a
 sub-percent effect dwarfed by the mean-field error quantified later. If
-exactness matters, set `total_size` to the streamed count
-(`(len(loader) // loader.batch_size) * loader.batch_size`); the durable fix —
-carrying the remainder across epoch boundaries — belongs in the loader and is
-on its review agenda.
+exactness matters, set `total_size` to the streamed count — the cells below
+do exactly that via `n_streamed`; the full-scale runs keep `len(loader)`,
+where the correction is 0.0004%. The durable fix — carrying the remainder
+across epoch boundaries — belongs in the loader and is on its review agenda.
+
+```{code-cell} ipython3
+n_streamed = (len(loader) // loader.batch_size) * loader.batch_size
+```
 
 ```{code-cell} ipython3
 def build_model(symbols, batch_init, total_size):
@@ -501,7 +505,7 @@ the smallest genuine move on any listed tick grid sits dozens of orders of
 magnitude above the float32 flush-to-zero threshold.
 
 ```{code-cell} ipython3
-model = build_model([f"SYM{i:02d}" for i in range(n_symbols)], next(iter(loader)), len(loader))
+model = build_model([f"SYM{i:02d}" for i in range(n_symbols)], next(iter(loader)), n_streamed)
 pm.model_to_graphviz(model)
 ```
 
@@ -597,8 +601,8 @@ recovery.round(4)
 Read the table bottom-up. The raw intercepts look off by 0.3 and 1.3 — but a
 global coefficient and the mean of its group effects are only *jointly*
 identified: the likelihood constrains their sum, and the prior only weakly
-splits it. The identified sums in the last three rows land within a few
-thousandths of the truth, like every other likelihood-identified quantity.
+splits it. The identified sums in the last three rows land within about one
+hundredth of the truth, comparable to the other likelihood-identified rows.
 The same translation ridge exists for every global-coefficient/group-effect
 pair in this model (including the vector pairs $c$/$b^{(\pi h)}$ and
 $g$/$b^{(\sigma h)}$, whose sums we spare you) — so raw split rows like
@@ -610,8 +614,8 @@ exceed 2, because the mean-field standard deviations in the third column are
 razor-thin — a z-score against a point truth mixes the sampling noise of this
 particular synthetic dataset with variational overconfidence along exactly
 such ridges. This is the first appearance of a theme the notebook returns to
-at full scale: a mean-field width is trustworthy only where seed replication
-says it is.
+at full scale: a mean-field width is usable only where seed replication has
+failed to disqualify it — replication can veto a width, never certify one.
 
 The more interesting check is hierarchical: what happened to the per-symbol
 effects of the two symbols with 1,800 and 900 rows?
@@ -834,7 +838,7 @@ loader2 = DataLoader(
     sample_shape=(len(columns),),
     total_size="auto",
 )
-model2 = build_model([f"SYM{i:02d}" for i in range(n_symbols)], next(iter(loader2)), len(loader2))
+model2 = build_model([f"SYM{i:02d}" for i in range(n_symbols)], next(iter(loader2)), n_streamed)
 stream2 = StreamAdvance(model2, loader2)
 stream2.prime()
 steps_per_epoch = len(loader2) // loader2.batch_size
@@ -1093,7 +1097,9 @@ likelihood answers the one about typical transitions.
 
 Two scoping sentences first, so no number below is ambiguous. Every held-out
 score in this section comes from fits on the 60-shard training split only,
-with the four held-out shards touched by nothing but the scorer — the
+with the four held-out shards touched by nothing but the scorer (and, as
+disclosed above, the ETL-time standardization constants estimated over the
+full corpus) — the
 headline four-minute fit above streams all 64 shards and is never
 holdout-scored. And "held out" here means a hash-random *contemporaneous*
 split over serially overlapping transitions (a holdout row's `ylag` can be a
@@ -1126,7 +1132,7 @@ conv
 **The equivalence test failed** — and not in the direction anyone would
 guess: the ¼- and ½-pass arms *out-scored* the 1- and 2-pass arms by about
 $10^{-3}$ nats/row — 74–88× the tightest arms' seed spreads (per-arm spreads
-run $3\times10^{-6}$ to $1.2\times10^{-4}$, and batch order is shared across
+run $6\times10^{-6}$ to $6\times10^{-5}$ (sample sd), and batch order is shared across
 seeds, so these exclude data-order variation) — while the 1- and
 2-pass arms tied within seed spread, and the monitor arm under-scored
 everything. The loss trace suggests why: this fit reaches its loss plateau
@@ -1134,11 +1140,14 @@ within a quarter pass, so all flat-rate arms sit on the same plateau, where
 the held-out score of a *point* estimate moves with the optimizer's state at
 flat learning rate 0.02 — consistent with Adam's stationary jitter and
 position along the (seed-shared) batch cycle, though these artifacts alone
-cannot separate that from other path effects. So we ran the confirmatory
-design the failure demanded: three seeds per protocol for an annealed 2-pass
-reference, a quarter-pass budget plus a 2,000-step anneal, a 1-pass budget
-plus the same anneal, and the monitor's stop (1.07 passes) plus the same
-anneal.
+cannot separate that from other path effects. So we ran the replicated
+follow-up the failure demanded: three seeds per protocol for an annealed
+2-pass reference, a quarter-pass budget plus a 2,000-step anneal, a 1-pass
+budget plus the same anneal, and the monitor's stop (1.07 passes) plus the
+same anneal. One epistemic label before the numbers: these arms were chosen
+*after* seeing the first round, and they score on the same contemporaneous
+split — so what replication establishes is the seed-stability of the ranking
+on this split, not an independent out-of-sample confirmation.
 
 ```{code-cell} ipython3
 conf = results["confirm"]
@@ -1183,9 +1192,10 @@ $4 \times 10^{-6}$ to $8 \times 10^{-5}$, so every gap below is tens of
 spreads wide (with one caveat: seeds vary the Monte-Carlo noise, not the
 batch order, which is shared). Four replicated facts:
 
-1. **The anneal is load-bearing.** A 1-pass budget plus a 2,000-step anneal
-   (0.118738) beats the flat 1-pass arm by $1.7 \times 10^{-3}$ — at
-   essentially the same cost.
+1. **The anneal is load-bearing.** At exactly matched budgets, the annealed
+   2-pass reference beats the flat 2-pass arm by $8.5 \times 10^{-4}$; the
+   1-pass budget plus a 2,000-step anneal (0.118738) beats the flat 1-pass
+   arm by $1.7 \times 10^{-3}$ for 1.8% extra steps.
 2. **The training-loss plateau is not a held-out plateau.** The loss flattens
    within a quarter pass, but the quarter-pass-plus-anneal arm (0.117021)
    trails the 1-pass-plus-anneal arm by $1.7 \times 10^{-3}$: between ¼ and 1
@@ -1203,15 +1213,17 @@ batch order, which is shared). Four replicated facts:
 
 This also retires our own earlier reading: the "$5 \times 10^{-4}$ path
 noise between annealed runs" was a *protocol* difference wearing a noise
-costume — replicates of the same protocol agree to $10^{-5}$. And it
-sharpens the pre-registration post-mortem: the mistake was not the
-$2 \times 10^{-4}$ floor but the yardstick — equivalence to a reference that
-is itself $8.8 \times 10^{-4}$ off the tested frontier measures loyalty, not
-quality.
+costume — replicates of the same protocol agree to $10^{-4}$ or better, most
+to $10^{-5}$. And it sharpens the pre-registration post-mortem: the mistake
+was not the $2 \times 10^{-4}$ floor but the yardstick — the pre-registered
+flat 2-pass reference sits $1.7 \times 10^{-3}$ off the tested frontier, and
+even the annealed 2-pass comparator sits $8.8 \times 10^{-4}$ off it, so
+equivalence to either measures loyalty, not quality.
 
 The working protocol this ablation supports: **one full pass at the working
-learning rate, then a short anneal** — with the stopping rule as the
-certificate that one pass was indeed enough, and equivalence judged after
+learning rate, then a short anneal** — with the stopping rule certifying the
+training-loss plateau (it is the held-out ablation, not the rule, that shows
+one pass sufficed among the schedules tested), and equivalence judged after
 the anneal, on held-out score, against the best arm rather than a
 conventional reference. That finding — not any savings headline — is what we
 would want a reader to take away, and it fed directly back into the design
@@ -1220,7 +1232,9 @@ discussion of the upstream pull requests.
 ### The estimand: dispersion on the event clock
 
 What the model is *for*: per symbol and hour, the probability that a trade
-moves the price at all, and how far it typically goes when it does. Both come
+moves the price at all, and how far it typically goes when it does (posterior:
+the all-shard headline fit — these curves are estimates, not scored claims).
+Both come
 from the posterior of the fitted links at reference covariates, so the
 intraday shape below is pooled across the hierarchy — BTC's curve is almost
 entirely its own data, the thin symbols' curves borrow the global harmonics
