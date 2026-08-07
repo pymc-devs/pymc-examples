@@ -1,0 +1,24 @@
+name: pymc-examples
+channels:
+- conda-forge
+dependencies:
+- python=3.11
+- pymc
+- pymc-bart
+- nutpie
+# spatial notebooks
+- geopandas
+- folium
+- libpysal
+- rasterio
+- pip:
+  - pymc-experimental
+  - preliz
+  - bambi
+  - jax
+  - papermill
+  - joblib
+  - jupyter
+  - seaborn
+  - watermark
+  - lifelines
