@@ -341,7 +341,8 @@ order = np.argsort(key, kind="stable")
 n_shards = 8
 for i in range(n_shards):
     part = table.take(order[i::n_shards])
-    pq.write_table(part, os.path.join(data_dir, f"shard_{i:03d}.parquet"))
+    # Row groups are the loader's batches on the shuffle=False path, so size them here.
+    pq.write_table(part, os.path.join(data_dir, f"shard_{i:03d}.parquet"), row_group_size=1024)
 
 head = pq.read_table(os.path.join(data_dir, "shard_000.parquet")).slice(0, 10_000)
 print(
@@ -363,11 +364,14 @@ two sorts each shard independently, and no step ever holds the corpus.
 
 ## Streaming the model
 
-The `DataLoader` yields `(batch_size, 8)` blocks in a frozen column order and
-knows the dataset size from the Parquet metadata, so `total_size` is simply
-`len(loader)`. The model reads one `pm.Data` placeholder; everything derived —
-the Fourier basis, the integer symbol index — is computed inside the graph, so
-advancing the stream is a single `set_value` per step.
+With `shuffle=False` the `DataLoader` passes source blocks through verbatim —
+one block per Parquet row group, in a frozen column order — which is why the
+shards were written with `row_group_size=1024` above. The dataset size comes
+from the Parquet metadata: `loader.total_size` is `N`, and `len(loader)` is
+the number of batches per epoch, as for a torch dataloader. The model reads
+one `pm.Data` placeholder; everything derived — the Fourier basis, the
+integer symbol index — is computed inside the graph, so advancing the stream
+is a single `set_value` per step.
 
 ```{code-cell} ipython3
 columns = ["y_bp", "m", "d", "q_std", "a_std", "ylag_bp", "hour", "sym"]
@@ -375,30 +379,19 @@ loader = DataLoader(
     parquet_source(data_dir, columns=columns),
     batch_size=1024,
     shuffle=False,  # the shards are already globally shuffled on disk
-    sample_shape=(len(columns),),
     total_size="auto",
 )
-print(f"N = {len(loader):,} rows -> {len(loader) // loader.batch_size:,} steps per epoch")
+print(f"N = {loader.total_size:,} rows -> {len(loader):,} batches per epoch")
 ```
 
-One deliberate loader semantics to be precise about: only full batches are
-yielded, so a trailing partial batch — here 992 of 300,000 rows, and with a
-fixed replay order the *same* 992 every pass — is never seen. Strictly, then,
-the fit targets the 299,008-row subpopulation the loader streams, which is a
-uniform random subset by the hash shuffle, while `total_size` overstates its
-size by 0.3% (0.0004% at full scale) — invisible at any precision reported
-here, but it does mean Gate 1's equal-inclusion clause holds for the streamed
-subpopulation, not the last few rows of the last shard — and, equivalently,
-that the likelihood is tempered by the factor 300,000/299,008 ≈ 1.0033, a
-sub-percent effect dwarfed by the mean-field error quantified later. If
-exactness matters, set `total_size` to the streamed count — the cells below
-do exactly that via `n_streamed`; the full-scale runs keep `len(loader)`,
-where the correction is 0.0004%. The durable fix — carrying the remainder
-across epoch boundaries — belongs in the loader and is on its review agenda.
-
-```{code-cell} ipython3
-n_streamed = (len(loader) // loader.batch_size) * loader.batch_size
-```
+One deliberate loader semantics to be precise about: on this path nothing is
+dropped. Verbatim pass-through streams every row, and the last row group of
+each shard is simply shorter than 1024. The `total_size` rescaling copes,
+because PyMC scales the minibatch log-likelihood by `N / b` with `b` read
+from the batch actually installed, so a short block is weighted up by exactly
+its own size. Gate 1's equal-inclusion clause therefore holds for the full
+corpus, with no tempering correction to track. (Only the shuffle-buffer path
+drops a trailing partial batch; this notebook never uses it.)
 
 ```{code-cell} ipython3
 def build_model(symbols, batch_init, total_size):
@@ -505,7 +498,9 @@ the smallest genuine move on any listed tick grid sits dozens of orders of
 magnitude above the float32 flush-to-zero threshold.
 
 ```{code-cell} ipython3
-model = build_model([f"SYM{i:02d}" for i in range(n_symbols)], next(iter(loader)), n_streamed)
+model = build_model(
+    [f"SYM{i:02d}" for i in range(n_symbols)], next(iter(loader)), loader.total_size
+)
 pm.model_to_graphviz(model)
 ```
 
@@ -744,12 +739,16 @@ observed ECDF that the smooth predictive cannot follow.
 
 A streamed ELBO trace is noisy — each value is a one-batch, one-Monte-Carlo
 estimate — and eyeballing it does not scale to overnight runs. The stopping
-rule proposed for PyMC in [pymc#8384](https://github.com/pymc-devs/pymc/pull/8384)
+rule originally proposed for PyMC in
+[pymc#8384](https://github.com/pymc-devs/pymc/pull/8384)
 standardizes each loss *improvement* by a robust running scale estimate and
 feeds it to a one-sided CUSUM statistic {cite:p}`page1954continuous`, arming
 itself only after `min_steps` — which on streaming fits should be at least
 one full pass, since stopping before the model has seen every row once is
-never evidence of convergence.
+never evidence of convergence. The trap this section demonstrates was later
+confirmed on real ADVI traces, and the revised implementation under review
+for `pymc-extras` is built on the windowed idea shown here, with horizons
+that grow over the run and a second, practical-negligibility yardstick.
 
 :::{admonition} The minibatch trap
 :class: warning
@@ -835,13 +834,14 @@ loader2 = DataLoader(
     parquet_source(data_dir, columns=columns),
     batch_size=1024,
     shuffle=False,
-    sample_shape=(len(columns),),
     total_size="auto",
 )
-model2 = build_model([f"SYM{i:02d}" for i in range(n_symbols)], next(iter(loader2)), n_streamed)
+model2 = build_model(
+    [f"SYM{i:02d}" for i in range(n_symbols)], next(iter(loader2)), loader2.total_size
+)
 stream2 = StreamAdvance(model2, loader2)
 stream2.prime()
-steps_per_epoch = len(loader2) // loader2.batch_size
+steps_per_epoch = len(loader2)  # batches per epoch, torch-style
 
 k = 50
 min_windows = -(-steps_per_epoch // k)  # ceil: never arm before one full pass
