@@ -32,28 +32,21 @@ trades for a single liquid pair is roughly 28 million rows, and a modest
 alt pairs) already exceeds 450 million rows — far more
 than `pm.Minibatch` can hold resident on a 16 GB machine. This notebook fits a
 hierarchical hurdle–Student-t model of *next-event price moves* to a dataset of
-that scale by streaming minibatches from disk, using the
-{class}`~pymc_extras.variational.dataloader.DataLoader` introduced in the
-{ref}`streaming_dataset` companion notebook.
-
-The companion covers the mechanics of the streaming API. This notebook is the
-applied piece, and it tries to teach three things that only show up on real
-data:
+that scale by streaming minibatches from disk with pymc-extras'
+{class}`~pymc_extras.variational.dataloader.DataLoader`. It tries to teach
+three things that only show up on real data:
 
 1. **When minibatch VI is even valid.** Two acceptance gates that most
    time-series models fail — and a model class that passes both.
 2. **The full workflow at scale**: causal feature engineering, an on-disk
    global shuffle, streaming ADVI with `total_size` rescaling, and an online
    stopping rule.
-3. **Honest reporting.** Mean-field variational inference on half a billion
-   rows produces some numbers you should trust and some you should not; we
-   measure which are which instead of guessing.
+3. **Honest reporting.** Mean-field variational inference produces some
+   numbers you should trust and some you should not; with known ground truth
+   we measure which are which instead of guessing.
 
-The notebook itself runs in about a minute on synthetic data with known ground
-truth — the streaming code is identical at any scale. Full-scale results on the
-real 38-symbol Binance corpus are reported in {ref}`tick-real-corpus`: the data
-are public, and every quoted number traces to the run artifacts of the ETL and
-fit scripts that accompany the submission.
+The notebook runs in about a minute on synthetic data with known ground
+truth — the streaming code is identical at any scale.
 
 +++
 
@@ -94,6 +87,13 @@ also substantively motivated by the data.
 +++
 
 :::{include} ../extra_installs.md
+:::
+
+:::{note}
+The {class}`~pymc_extras.variational.dataloader.DataLoader` merged into
+pymc-extras after the v0.14.0 release. Until the next release, install
+pymc-extras from `main`:
+`pip install "pymc-extras @ git+https://github.com/pymc-devs/pymc-extras"`.
 :::
 
 ```{code-cell} ipython3
@@ -167,12 +167,12 @@ $b_s \sim \mathcal{N}(0, \tau)$ are partially pooled {cite:p}`gelman2006data`,
 so a thin symbol borrows the global intraday shape where its own data run out —
 that is the hierarchical payoff we will measure. They are parameterized
 *centered*, deliberately: the familiar non-centered trick exists for data-poor
-groups, and at $10^5$–$10^8$ rows per symbol every group here is data-rich —
-{ref}`tick-real-corpus` shows what happened when we tried it the other way.
+groups, and at $10^5$–$10^8$ rows per symbol every group here is data-rich.
 The degrees of freedom are
 shared across symbols, parameterized $\nu = 1 + \operatorname{softplus}(\eta)$;
-the floor of 1 (rather than the more comfortable 2) is not a stylistic choice,
-and {ref}`tick-real-corpus` shows what the data did to force it.
+the floor of 1 (rather than the more comfortable 2) leaves room for tails too
+heavy to carry a finite variance — and the estimand below is chosen to stay
+meaningful exactly there.
 
 The reported estimand is **event-return dispersion on the event clock**:
 $\pi_{s,h}$ together with the conditional-move 90% half-width
@@ -746,16 +746,15 @@ feeds it to a one-sided CUSUM statistic {cite:p}`page1954continuous`, arming
 itself only after `min_steps` — which on streaming fits should be at least
 one full pass, since stopping before the model has seen every row once is
 never evidence of convergence. The trap this section demonstrates was later
-confirmed on real ADVI traces, and the revised implementation under review
-for `pymc-extras` is built on the windowed idea shown here, with horizons
+confirmed on real ADVI traces, and the revised implementation under review for
+[pymc-extras#733](https://github.com/pymc-devs/pymc-extras/pull/733) is built on the windowed idea shown here, with horizons
 that grow over the run and a second, practical-negligibility yardstick.
 
 :::{admonition} The minibatch trap
 :class: warning
 Successive losses are evaluated on *different batches*, so the per-step noise
-dwarfs the per-step improvement: on our full-scale run the median one-step
-change is about 106 loss units while the mean improvement — (first − last)
-loss over the run's steps — is about 0.06 units per step. A rule that standardizes *raw* increments concludes "improvement is
+dwarfs the per-step improvement by orders of magnitude. A rule that
+standardizes *raw* increments therefore concludes "improvement is
 indistinguishable from zero" immediately upon arming, and fires a fixed
 ~$h/\kappa$ steps later regardless of whether the fit converged.
 :::
@@ -897,494 +896,22 @@ windowed rule stops once per-window improvement falls below a quarter of the
 window-noise scale, here capturing roughly 95% of the total loss descent at
 under a quarter of the step budget. Two honest qualifications. First, what the
 rule detects is a *loss plateau* — a necessary signal, not a proof that the
-posterior has converged; the held-out checks in the next section are the
-independent evidence. Second, the $h/\kappa$-window delay after a plateau is
-the rule's *nominal* detection lag; clipping and the adaptive scale can move
-the actual hitting time. On the full-scale corpus the same replay shows the
-windowed rule stopping shortly after one pass, at a *training loss* within
-noise of the two-pass reference — whether that stop is also good enough on
-held-out score is precisely what the pre-registered test in the next section
-failed to confirm.
-
-(tick-real-corpus)=
-
-## The real corpus: 38 symbols, half a billion transitions
-
-Everything above runs identically on real data; what changes is only the ETL
-in front of it. The full-scale corpus behind the numbers in this section:
-
-- **Source**: Binance's public aggregated-trades archive
-  (`data.binance.vision`) — no API key, published SHA-256 checksums, monthly
-  CSV dumps. The corpus is 491,559,069 transition rows: four majors
-  (BTC/ETH/SOL/XRP × 6 months of 2026) for row bulk plus 34 alt pairs
-  (June 2026) for hierarchy breadth, the thinnest at 67,000 rows.
-- **ETL**: per symbol, *chronologically*: next-event returns, move indicator,
-  trade sign, standardized log notional, trailing 60-second activity, last
-  nonzero return, hour — then the splitmix64 global shuffle into 64 shards
-  (~9 GB of Parquet), with the shard-head mixing check asserted. The complete
-  script is published with the notebook's companion repository.
-- **Hardware**: one Apple M4 laptop, 24 GB RAM. No cluster anywhere.
-
-Fitting the full corpus for two passes (one at lr 0.02, one at 0.005) takes
-about four minutes at roughly 1,000 optimization steps per second (4 million
-rows per second through the model), with peak resident memory of 1.1 GB for
-the whole run — fit loop plus posterior draws and summaries; the memory-wall
-figure's leaner 0.5 GB point measures the fit loop alone. Both are flat in N. The subsections below are the
-measured results; each figure's numbers are inlined verbatim from the run
-logs so the plots execute without any data access.
-
-+++
-
-### The memory wall, measured
-
-Every number in the cells below is inlined verbatim from the run artifacts of
-the published scripts, so these figures execute without touching the data.
-First, the reason streaming exists at all. Each point is a fresh subprocess's
-peak resident memory (`ru_maxrss`) after fitting this exact model at that many
-rows — `pm.Minibatch` holding the rows in RAM versus the loader streaming the
-shards:
-
-```{code-cell} ipython3
-with open("streaming_tick_data_results.json") as f:
-    results = json.load(f)
-
-mb = np.array(results["memwall"]["minibatch"], dtype=float)
-st = np.array(results["memwall"]["stream"], dtype=float)
-bpr = results["memwall"]["bytes_per_row"]
-icpt = results["memwall"]["intercept_gb"]
-cross = results["memwall"]["crossing_rows_12gb"]
-n_full = results["corpus"]["n_rows"]
-
-fig, ax = plt.subplots(figsize=(8, 4), layout="constrained")
-ax.plot(mb[:, 0] / 1e6, mb[:, 1], "o-", color="C1", label="pm.Minibatch (rows in RAM)")
-grid = np.linspace(0, n_full, 200)
-ax.plot(
-    grid / 1e6,
-    icpt + bpr * grid / 1e9,
-    ls=":",
-    color="C1",
-    lw=1,
-    label=f"fit: {icpt:.1f} GB + {bpr:.0f} B/row",
-)
-ax.plot(st[:, 0] / 1e6, st[:, 1], "s-", color="C0", label="streaming DataLoader")
-ax.axhline(12, color="C3", ls="--", lw=1, label="12 GB (16 GB laptop budget)")
-ax.axvline(cross / 1e6, color="C3", ls=":", lw=1)
-ax.annotate(
-    f"wall: {cross / 1e6:,.0f}M rows",
-    (cross / 1e6 + 8, 10.6),
-    color="C3",
-    fontsize=9,
-    ha="left",
-    va="top",
-)
-ax.axvline(n_full / 1e6, color="C2", ls=":", lw=1)
-ax.set_ylim(0, 42)
-ax.annotate(
-    f"this corpus: {n_full / 1e6:,.0f}M rows",
-    (n_full / 1e6 - 6, 40.5),
-    color="C2",
-    fontsize=9,
-    ha="right",
-    va="top",
-)
-ax.set_xlabel("dataset size (millions of rows)")
-ax.set_ylabel("peak RSS (GB)")
-ax.set_title(
-    "The in-memory path crosses a 16 GB laptop's budget at "
-    f"{cross / 1e6:,.0f}M rows; streaming does not care"
-)
-ax.legend(loc="upper left");
-```
-
-The corpus behind this notebook sits at roughly three times the wall.
-
-:::{warning}
-Two caveats belong next to this figure, not in a footnote. The in-memory arm
-was measured up to 64M rows and the crossing is a *projection* from the fitted
-line — macOS does not enforce `RLIMIT_AS`, so a demonstrated hard failure
-needs a memory-capped Linux subprocess. And the two samplers differ
-semantically: `pm.Minibatch` draws with replacement, the loader makes
-without-replacement epoch passes.
-:::
-
-And speed? Steady-state, compile time subtracted, same model:
-
-```{code-cell} ipython3
-tp = results["memwall"]["throughput"]
-labels = {
-    "minibatch": "pm.Minibatch (rows in RAM)",
-    "stream": "DataLoader, pre-shuffled shards",
-    "stream_shuffled": "DataLoader, runtime shuffle buffer",
-}
-fig, ax = plt.subplots(figsize=(8, 2.6), layout="constrained")
-names = [labels[k] for k in labels]
-vals = [tp[k] for k in labels]
-ax.barh(names, vals, color=["C1", "C0", "C0"])
-for bar_y, val in enumerate(vals):
-    ax.annotate(
-        f"{val:,.0f} steps/s",
-        (val, bar_y),
-        xytext=(4, 0),
-        textcoords="offset points",
-        va="center",
-        fontsize=9,
-    )
-ax.set_xlabel("optimization steps per second (batch 4096, steady state)")
-ax.set_title("With a 440-parameter gradient, the loader is not the bottleneck");
-```
-
-The ordering surprised us, so it is worth stating carefully. On this model the
-gradient dominates the step, and the pre-shuffled streaming path *outpaces*
-in-RAM `pm.Minibatch` — the loader's Python-level handoff is cheaper than
-Minibatch's per-step random indexing. On our lighter probe model the same
-ordering held (pre-shuffled loader ~4,900 vs Minibatch ~3,000 steps/s), so
-treat any speed ordering as an empirical, model-specific fact rather than a
-law in either direction. The one consistently
-expensive path is the runtime shuffle buffer — which is why the ETL-time
-global shuffle matters twice: it is the *statistically* honest option, and it
-is 3× the throughput.
-
-### What the data did to the model
-
-Three findings from the first full-scale fits are worth more than any smooth
-success story:
-
-**Non-centered effects collapsed under mean-field.** The first version of this
-model used the textbook non-centered parameterization
-$b_s = \tau \cdot z_s,\ z_s \sim \mathcal{N}(0,1)$. On the real corpus the
-$z_s$ posteriors blew out to $+17$ while the $\tau$'s collapsed — some pinned
-low against the prior, others (the hour-shape scale) driven far *below* its
-bulk:
-real cross-symbol volatility levels span two orders of magnitude, the original
-$\tau$ prior could not reach them, and a mean-field approximation of the
-$\tau$–$z$ funnel collapses into its small-$\tau$/huge-$z$ corner. Both fixes
-are principled: weakly informative scale priors, and *centered* effects —
-non-centering exists for data-poor groups, and with $10^5$–$10^8$ rows per
-symbol these groups are anything but. One honest caveat: the two fixes were
-applied together, so their individual contributions are confounded — a
-same-prior centered/non-centered ablation would separate them, and the safe
-reading is empirical rather than theoretical: on this corpus, this
-combination fits cleanly and the original one did not.
-
-**The variance does not exist.** With the conventional
-$\nu = 2 + \operatorname{softplus}(\eta)$ parameterization, 450 million rows
-pinned $\nu$ at the floor of exactly 2 with a posterior standard deviation of
-$2 \times 10^{-6}$ — the data demanding tails heavier than any
-finite-variance Student-t. The parameterization was moved to a floor of 1 and
-the estimand to quantile-based dispersion, which is finite for all $\nu > 0$.
-With the floor out of the way, three independent seeds put $\nu$ at 1.895
-with a seed spread of $8 \times 10^{-5}$ — an *interior* optimum below 2.
-Within the fitted conditional-move Student-t, then, the variance simply does
-not exist — a statement about this working likelihood on this corpus, not a
-metaphysical claim about crypto returns — while the mean is finite and
-quantiles behave, which is exactly why the estimand is quantile-based.
-
-**The robust location disagrees with least squares about a sign.** Ordinary
-least squares of $y$ on $\text{ylag}$ gives a *negative* coefficient
-(bid-ask bounce, ≈ −0.24 on the held-out sample, moved rows only — the exact
-value is specification-dependent); the fitted $\theta_r$ is *positive*
-(+0.29, seed spread $8 \times 10^{-6}$). Direct likelihood profiling on a
-million real rows
-confirms the likelihood genuinely peaks at the positive value: small moves
-(88% of rows) show continuation, large moves show reversal, and a heavy-tailed
-likelihood follows the bulk while a quadratic loss follows the outliers.
-Neither number is wrong — they answer different questions, and a robust
-likelihood answers the one about typical transitions.
-
-+++
-
-### The stopping rule at scale, and a pre-registration that failed
-
-Two scoping sentences first, so no number below is ambiguous. Every held-out
-score in this section comes from fits on the 60-shard training split only,
-with the four held-out shards touched by nothing but the scorer (and, as
-disclosed above, the ETL-time standardization constants estimated over the
-full corpus) — the
-headline four-minute fit above streams all 64 shards and is never
-holdout-scored. And "held out" here means a hash-random *contemporaneous*
-split over serially overlapping transitions (a holdout row's `ylag` can be a
-training row's label), which is exactly what paired comparisons between
-optimization arms need and nothing more — no forward-in-time validation is
-claimed anywhere in this notebook. The stopping-rule comparison was pre-registered before any
-full-scale run:
-fixed budgets of ¼, ½, 1 and 2 passes versus the windowed rule, identical
-batch order and seeds, flat learning rate; savings to be claimed only if the
-stopped fit's held-out log score landed within max(2 × ref seed spread,
-2·10⁻⁴) nats/row of the 2-pass reference. Because a flat learning rate makes
-every budget a prefix of the same deterministic trajectory, all five arms per
-seed come from one run with mid-flight snapshots — and the windowed rule ran
-as a shadow observer, stopping (all three seeds) at 1.07 passes: the mandated
-one-pass floor plus its designed $h/\kappa$-window detection delay, 46% below
-the reference budget (each protocol is replicated below). Stated plainly,
-because it would be easy to bury: the fixed 1-pass budget *dominated* the
-monitor here — fewer steps, a better held-out score, and it passed the
-pre-registered test the monitor failed — so on this corpus the rule's value
-is certifying the plateau, not saving steps beyond a well-chosen budget.
-
-```{code-cell} ipython3
-conv = pd.DataFrame(
-    [(arm, passes, *scores) for arm, passes, scores in results["converge_table"]],
-    columns=["arm", "passes", "seed 0", "seed 1", "seed 2"],
-).set_index("arm")
-conv
-```
-
-**The equivalence test failed** — and not in the direction anyone would
-guess: the ¼- and ½-pass arms *out-scored* the 1- and 2-pass arms by about
-$10^{-3}$ nats/row — 74–88× the tightest arms' seed spreads (per-arm spreads
-run $6\times10^{-6}$ to $6\times10^{-5}$ (sample sd), and batch order is shared across
-seeds, so these exclude data-order variation) — while the 1- and
-2-pass arms tied within seed spread, and the monitor arm under-scored
-everything. The loss trace suggests why: this fit reaches its loss plateau
-within a quarter pass, so all flat-rate arms sit on the same plateau, where
-the held-out score of a *point* estimate moves with the optimizer's state at
-flat learning rate 0.02 — consistent with Adam's stationary jitter and
-position along the (seed-shared) batch cycle, though these artifacts alone
-cannot separate that from other path effects. So we ran the replicated
-follow-up the failure demanded: three seeds per protocol for an annealed
-2-pass reference, a quarter-pass budget plus a 2,000-step anneal, a 1-pass
-budget plus the same anneal, and the monitor's stop (1.07 passes) plus the
-same anneal. One epistemic label before the numbers: these arms were chosen
-*after* seeing the first round, and they score on the same contemporaneous
-split — so what replication establishes is the seed-stability of the ranking
-on this split, not an independent out-of-sample confirmation.
-
-```{code-cell} ipython3
-conf = results["confirm"]
-flat_ref = np.array(conv.loc["e2.0", ["seed 0", "seed 1", "seed 2"]], dtype=float)
-mon_raw = np.array(conv.loc["monitor", ["seed 0", "seed 1", "seed 2"]], dtype=float)
-arms = {
-    "monitor stop, raw (1.07 passes)": (mon_raw.mean(), mon_raw.std(ddof=1)),
-    "flat 2-pass reference": (flat_ref.mean(), flat_ref.std(ddof=1)),
-    **{k: (v["mean"], v["sd"]) for k, v in conf.items()},
-}
-fig, ax = plt.subplots(figsize=(8, 3.4), layout="constrained")
-names = list(arms.keys())
-means = [arms[n][0] for n in names]
-sds = [arms[n][1] for n in names]
-ax.barh(
-    names,
-    means,
-    xerr=[3 * s for s in sds],
-    color=["C1" if "1-pass budget" in n else "C0" for n in names],
-    capsize=3,
-)
-for bar_y, (val, sd_) in enumerate(zip(means, sds)):
-    ax.annotate(
-        f"{val:+.6f}",
-        (val + 3 * sd_, bar_y),
-        xytext=(4, 0),
-        textcoords="offset points",
-        va="center",
-        fontsize=8,
-    )
-ax.set_xlim(min(means) - 3e-4, max(means) + 5e-4)
-ax.set_xticks([0.116, 0.117, 0.118])
-ax.set_xlabel("held-out log score (nats/row); bars are 3-seed means ± 3 sd")
-ax.set_title(
-    "Replicated: the anneal is the load-bearing ingredient,\n"
-    "and one full pass beats a quarter pass even though the loss plateaued"
-);
-```
-
-Three seeds per arm resolve the picture sharply — within-arm spreads are
-$4 \times 10^{-6}$ to $8 \times 10^{-5}$, so every gap below is tens of
-spreads wide (with one caveat: seeds vary the Monte-Carlo noise, not the
-batch order, which is shared). Four replicated facts:
-
-1. **The anneal is load-bearing.** At exactly matched budgets, the annealed
-   2-pass reference beats the flat 2-pass arm by $8.5 \times 10^{-4}$; the
-   1-pass budget plus a 2,000-step anneal (0.118738) beats the flat 1-pass
-   arm by $1.7 \times 10^{-3}$ for 1.8% extra steps.
-2. **The training-loss plateau is not a held-out plateau.** The loss flattens
-   within a quarter pass, but the quarter-pass-plus-anneal arm (0.117021)
-   trails the 1-pass-plus-anneal arm by $1.7 \times 10^{-3}$: between ¼ and 1
-   pass the model keeps improving where the loss trace cannot show it. The
-   one-full-pass floor earns its keep after all.
-3. **The stop rule adds nothing beyond the floor here.** Its stop
-   (1.07 passes) plus anneal (0.118450) sits $2.9 \times 10^{-4}$ *below* the
-   plain 1-pass budget plus anneal — the detection delay bought 7% more flat-lr
-   steps and a slightly worse endpoint. On this corpus the rule's value is
-   certifying the plateau, not choosing a better stop than a well-chosen
-   budget.
-4. **More budget is not better.** The fully annealed 2-pass reference
-   (0.117859) trails 1-pass-plus-short-anneal by $8.8 \times 10^{-4}$: the
-   endpoint depends on the schedule, not the step count.
-
-This also retires our own earlier reading: the "$5 \times 10^{-4}$ path
-noise between annealed runs" was a *protocol* difference wearing a noise
-costume — replicates of the same protocol agree to $10^{-4}$ or better, most
-to $10^{-5}$. And it sharpens the pre-registration post-mortem: the mistake
-was not the $2 \times 10^{-4}$ floor but the yardstick — the pre-registered
-flat 2-pass reference sits $1.7 \times 10^{-3}$ off the tested frontier, and
-even the annealed 2-pass comparator sits $8.8 \times 10^{-4}$ off it, so
-equivalence to either measures loyalty, not quality.
-
-The working protocol this ablation supports: **one full pass at the working
-learning rate, then a short anneal** — with the stopping rule certifying the
-training-loss plateau (it is the held-out ablation, not the rule, that shows
-one pass sufficed among the schedules tested), and equivalence judged after
-the anneal, on held-out score, against the best arm rather than a
-conventional reference. That finding — not any savings headline — is what we
-would want a reader to take away, and it fed directly back into the design
-discussion of the upstream pull requests.
-
-### The estimand: dispersion on the event clock
-
-What the model is *for*: per symbol and hour, the probability that a trade
-moves the price at all, and how far it typically goes when it does (posterior:
-the all-shard headline fit — these curves are estimates, not scored claims).
-Both come
-from the posterior of the fitted links at reference covariates, so the
-intraday shape below is pooled across the hierarchy — BTC's curve is almost
-entirely its own data, the thin symbols' curves borrow the global harmonics
-exactly as the model intends:
-
-```{code-cell} ipython3
-hours = np.arange(24)
-fig, axs = plt.subplots(1, 2, figsize=(9, 3.6), sharex=True, layout="constrained")
-for sym_name, _ in results["forest_symbols"]:
-    disp = results["dispersion_full"][sym_name]
-    axs[0].plot(hours, disp["pi_mean"], marker=".", label=sym_name)
-    axs[1].plot(hours, disp["hw_mean"], marker=".")
-    axs[1].fill_between(
-        hours,
-        np.array(disp["hw_mean"]) - 2 * np.array(disp["hw_sd"]),
-        np.array(disp["hw_mean"]) + 2 * np.array(disp["hw_sd"]),
-        alpha=0.2,
-    )
-axs[0].set_title(r"move probability $\pi_{s,h}$")
-axs[1].set_title("conditional-move 90% half-width (bp)")
-axs[1].set_yscale("log")
-for ax in axs:
-    ax.set_xlabel("UTC hour")
-    ax.set_xticks(range(0, 24, 6))
-axs[0].legend(fontsize=8, loc="center left")
-fig.suptitle("Event-clock dispersion by hour: shared harmonics, per-symbol levels");
-```
-
-Read it as event time, not clock time: these are per-*transition* quantities,
-and the number of transitions per hour itself varies enormously — the two
-clocks tell different stories and this notebook only claims the first.
-
-+++
-
-### What full N buys: thin cells
-
-A uniform 1% subsample (4.6M rows — 1% of the 60-shard training split, drawn
-by taking the hash-ordered head of each shard, with the last four shards held
-out for scoring) can estimate every *global* parameter of this model — and did,
-matching the full fit closely on the well-determined ones (ν to 0.1%, the
-θ's, λ_q, τ_α) and agreeing in sign and rough magnitude on the small
-coefficients that wander between full-N configurations too. So why stream
-100× more
-data? Because the estimand lives in symbol-by-hour cells, and the thin end of
-the universe is where the two fits part ways. Below, the posterior of the
-conditional-move 90% half-width $\sigma_{s,h}\, t^{-1}_{0.95}(\nu)$ at
-reference covariates, full fit versus 1% subsample, for the thinnest and the
-fattest symbols in the corpus:
-
-```{code-cell} ipython3
-disp_full = results["dispersion_full"]
-disp_sub = results["dispersion_sub1pct"]
-show_syms = results["forest_symbols"]  # thinnest three + BTC, with row counts
-show_hours = [3, 14, 20]
-
-fig, ax = plt.subplots(figsize=(8, 4.2), layout="constrained")
-ypos = 0
-labels, ticks = [], []
-for sym_name, n_rows in show_syms:
-    for arm, color, off in [(disp_full, "C0", 0.22), (disp_sub, "C1", -0.22)]:
-        hw = arm[sym_name]
-        for hi, h in enumerate(show_hours):
-            hw_m, hw_s = hw["hw_mean"][h], hw["hw_sd"][h]
-            ax.errorbar(
-                [hw_m],
-                [ypos + off + 0.5 * (hi - 1)],
-                xerr=[[2 * hw_s], [2 * hw_s]],
-                fmt="o",
-                ms=4,
-                color=color,
-                capsize=2,
-            )
-    labels.append(f"{sym_name}\n({n_rows / 1e6:.2f}M rows)")
-    ticks.append(ypos)
-    ypos += 2.2
-ax.set_yticks(ticks)
-ax.set_yticklabels(labels, fontsize=8)
-ax.set_xscale("log")
-ax.set_xlabel("conditional-move 90% half-width (bp), posterior mean ± 2 sd")
-ax.set_title(
-    "Full fit (C0) vs 1% subsample (C1) at three hours of day\n"
-    "Global parameters agree; thin-cell uncertainty is where full N earns its keep"
-)
-ax.plot([], [], "o", color="C0", label="full corpus")
-ax.plot([], [], "o", color="C1", label="1% subsample")
-ax.legend();
-```
-
-This is a capacity-and-estimand demonstration, not a claim of method
-superiority: the subsample answers global questions at 1% of the cost.
-
-:::{warning}
-No stratified oversampling of thin symbols, however tempting: unequal
-inclusion probabilities break the plain `total_size` rescaling. The subsample
-is uniform or it is invalid.
-:::
-
-### What we do not sweep under the rug
-
-The single most useful diagnostic this notebook can leave you with costs
-three fits and one table: the reported mean-field standard deviation next to
-the sample standard deviation of the posterior mean across three optimizer
-seeds. Read it as a *computational-stability* diagnostic. A ratio far above
-one is disqualifying — the reported width understates even run-to-run
-variation, so it cannot be trusted. A ratio near or below one is merely
-*necessary*: the width survives seed replication, but certifying it as
-calibrated would take a full-rank or MCMC comparison on a tractable
-subproblem, which is future work here:
-
-```{code-cell} ipython3
-spread = pd.DataFrame(results["seed_spread"]).T
-spread["ratio"] = (spread["seed_spread"] / spread["reported_sd"]).round(1)
-spread.sort_values("ratio", ascending=False)
-```
-
-- **Mean-field understates uncertainty along soft ridges.** The intercepts
-  share a ridge with their pooled group means (only the sums are identified),
-  and across repeated seeds the spread of $\alpha_0$ is roughly 440× its
-  reported posterior standard deviation — $\kappa_0$ and $\beta_a$ show the
-  same signature at 60–70×. The parameters *without* a ridge ($\theta_r$,
-  $\nu$, $\lambda_a$, the $\tau$'s) sit at or below one, and $\theta_d$ sits
-  in between (≈6). Report mean-field standard deviations only for parameters
-  you have seed-checked — and remember the check bounds the error from below.
-- **The speed ordering is model-dependent.** Here the heavy gradient hides
-  the loader entirely and pre-shuffled streaming outpaces in-RAM
-  `pm.Minibatch` — and did so on our lighter probe as well. Streaming's claim
-  is memory and scale — treat any steps-per-second comparison as specific to
-  the model it was measured on.
-- **Sampling semantics differ**: `pm.Minibatch` draws with replacement; the
-  loader makes without-replacement epoch passes.
-- **Discreteness at the smallest moves.** Price changes are integer multiples
-  of the tick size; the continuous Student-t is a working approximation whose
-  residual misfit concentrates at |y| near one tick.
-- **Event time is not clock time.** All dispersion statements are per
-  transition, not per minute; activity itself varies by hour, and conflating
-  the two clocks changes the intraday story.
-
-+++
+posterior has converged; the recovery and predictive checks earlier in the
+notebook are the kind of independent evidence a stop should be paired with.
+Second, the $h/\kappa$-window delay after a plateau is the rule's *nominal*
+detection lag; clipping and the adaptive scale can move the actual hitting
+time.
 
 ## Where the pieces live
 
 :::{seealso}
-The `DataLoader`/`parquet_source` used here are in
-[pymc-extras#698](https://github.com/pymc-devs/pymc-extras/pull/698); a
-callback-free `Trainer` wrapper
+The `DataLoader`/`parquet_source` used here merged in
+[pymc-extras#698](https://github.com/pymc-devs/pymc-extras/pull/698). A
+`Trainer` that wraps this notebook's callback pattern
 ([pymc-extras#710](https://github.com/pymc-devs/pymc-extras/pull/710)) and the
-convergence monitor ([pymc#8384](https://github.com/pymc-devs/pymc/pull/8384))
-are under review, and this notebook's callback pattern is exactly what those
-APIs wrap. The ETL and full-scale run scripts accompany the submission, and
-the {ref}`streaming_dataset` companion covers the API mechanics.
+convergence monitor that grew out of the stopping section
+([pymc-extras#733](https://github.com/pymc-devs/pymc-extras/pull/733)) are
+under review.
 :::
 
 +++
