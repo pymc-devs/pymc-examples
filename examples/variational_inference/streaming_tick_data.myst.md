@@ -969,9 +969,9 @@ the data was shuffled, not of the optimizer.
 
 :::{admonition} Why a naive rule does not merely stay silent — it fires
 :class: warning
-It is tempting to accumulate per-step evidence with a one-sided statistic such
-as $S \leftarrow \max(0,\ S + (\kappa - \max(z, 0)))$, stopping when $S$
-exceeds a threshold. The rectification is the problem. Under symmetric noise
+It is tempting to accumulate per-step evidence with a one-sided cumulative-sum
+statistic {cite:p}`page1954continuous`, $S \leftarrow \max(0,\ S + (\kappa -
+\max(z, 0)))$, stopping when $S$ exceeds a threshold. The rectification is the problem. Under symmetric noise
 $\mathbb{E}[\max(z,0)]$ is a fraction of a standard deviation, so any
 allowance $\kappa$ above that value makes $S$ climb at a constant rate *on
 noise alone* and cross any fixed threshold after a fixed number of steps —
