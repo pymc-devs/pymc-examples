@@ -31,7 +31,7 @@ aggregate trades as daily and monthly files at
 [data.binance.vision](https://data.binance.vision). Widen a pull across
 symbols and months and the feature matrix can outgrow the RAM of an ordinary
 workstation; at that point in-memory minibatching stops being an option. PyMC's
-{class}`~pymc.Minibatch` randomly slices tensor *inputs*; it is not itself a
+{func}`~pymc.Minibatch` randomly slices tensor *inputs*; it is not itself a
 disk-backed reader, so it cannot help once the array no longer fits. This
 notebook fits a hierarchical hurdle–Student-t model of *next-event price
 moves* by streaming minibatches from disk with pymc-extras'
@@ -43,15 +43,15 @@ rows that are generated inside the notebook. It tries to teach three things:
 2. **The mechanics, end to end** on an archive small enough to rebuild here:
    an on-disk global shuffle, streaming ADVI with `total_size` rescaling, and
    what a stopping rule has to be able to see before it can fire.
-3. **Honest reporting.** With the truth known we can watch the posterior means
-   land close to it while the mean-field standard deviations stay far too
-   narrow to cover the distance that remains — standardized gaps of 5 to 7 on
-   rows that are cleanly identified. Which widths could be trusted in general
-   is a calibration question that needs many simulated datasets; this notebook
-   fits one, so it reports that gap and withholds width claims rather than
-   certifying them.
+3. **Honest reporting.** With the truth known, recovery is checkable — but only
+   after a correction the fit forces on us: the cyclic replay puts the optimizer
+   on an orbit, and the last iterate misses the truth by several of its own
+   posterior standard deviations purely because of where in that orbit the step
+   budget ended. Averaged over one full pass, every identified quantity lands
+   inside 1.2. The widths themselves are a separate question this notebook
+   cannot settle on one dataset, and it says so rather than certifying them.
 
-The notebook runs in about a minute. Everything below executes on synthetic
+The notebook runs in well under a minute on a laptop. Everything below executes on synthetic
 data with known ground truth, which is what makes the recovery checks
 possible: nothing here is a claim about any real market.
 
@@ -67,10 +67,17 @@ first is about *validity*, the second about whether streaming is doing any
 real work — and they are worth internalizing before reaching for `total_size`
 on your own data:
 
-**Gate 1 — validity: the likelihood must factor over rows, sampled uniformly.**
-No latent path coupling observations, no label shared across rows, and every
-row given the same inclusion probability by the batching scheme (unequal
-inclusion breaks the plain $N/B$ rescaling). This is exactly why the classic
+**Gate 1 — validity: the likelihood must factor over rows, and the batching
+must weight every row equally.** No latent path coupling observations, no
+label shared across rows, and every row given the same inclusion frequency by
+the batching scheme (unequal inclusion breaks the plain $N/B$ rescaling). How
+the batches are *drawn* is a separate matter that this gate does not settle:
+fresh uniform batches make each step's scaled gradient conditionally unbiased
+for the full-data objective — the identity above — while a fixed shuffled
+order replayed every epoch visits each row once per pass, targets the same
+finite sum, and yields cyclic rather than unbiased updates. This notebook does
+the second, and returns to the distinction where the fit is described. The
+factorization requirement is exactly why the classic
 stochastic volatility model of the {ref}`stochastic_volatility` notebook
 *cannot* be minibatched: its latent volatility path ties every observation to
 its neighbours, so a random subset of rows does not carry $B/N$ of the
@@ -194,8 +201,8 @@ $q$ and $a$ are standardized once over the whole sample. On a real archive
 both would instead be trailing statistics built causally from the tape and
 standardized with constants frozen on a burn-in window — a construction that
 is out of scope here, and one that is easy to get subtly wrong. $B(h)$ is the first two sine/cosine harmonics of hour-of-day,
-the standard way to encode intraday periodicity smoothly
-{cite:p}`andersen1997intraday`; heavy-tailed Student-t noise for returns goes
+a low-order version of the Fourier encoding of intraday periodicity in
+{cite:t}`andersen1997intraday`; heavy-tailed Student-t noise for returns goes
 back at least to {cite:t}`bollerslev1987conditionally`. All symbol effects
 $b_s \sim \mathcal{N}(0, \tau)$ are partially pooled {cite:p}`gelman2006data`,
 so a thin symbol is pulled toward the global intraday shape where its own data
@@ -372,10 +379,12 @@ steps would only ever see early dates and the first symbols, and an early
 stopping decision would be biased by construction. The fix is to shuffle
 **once, globally, on disk at ETL time**: every row gets a deterministic hash
 key, rows are scattered across shards by that key, and each shard is sorted by
-it. After that, sequential reads follow one fixed, data-independent uniform
-permutation — replayed identically each epoch, which is single-shuffle SGD
-semantics rather than fresh per-step subsampling — and the loader can run
-with `shuffle=False` at full speed.
+it. After that, sequential reads follow one fixed, data-independent
+permutation — pseudo-random, because it comes from a hash of the row index
+rather than from anything in the row, and replayed identically each epoch,
+which is single-shuffle SGD semantics rather than fresh per-step subsampling —
+and the loader can run with `shuffle=False`, without a copy through the
+shuffle buffer.
 
 ```{code-cell} ipython3
 data_dir = tempfile.mkdtemp(prefix="ticks_")
@@ -410,15 +419,16 @@ for i in range(n_shards):
     part = table.take(order[i::n_shards])
     pq.write_table(part, os.path.join(data_dir, f"shard_{i:03d}.parquet"), row_group_size=BATCH)
 
-head = pq.read_table(os.path.join(data_dir, "shard_000.parquet")).slice(0, 10_000)
-print(
-    f"first 10k rows of one shard cover {len(np.unique(head['hour']))} hours "
-    f"and {len(np.unique(head['sym']))} symbols"
-)
+# the head of every shard has to mix hours and symbols already; check all of them
+for i in range(n_shards):
+    head = pq.read_table(os.path.join(data_dir, f"shard_{i:03d}.parquet")).slice(0, 10_000)
+    assert len(np.unique(head["hour"])) == 24
+    assert len(np.unique(head["sym"])) == n_symbols
+print(f"first 10k rows of every shard cover all 24 hours and all {n_symbols} symbols")
 ```
 
-The printed check is the one to keep: the head of any shard must already mix
-every hour and nearly every symbol, asserted rather than assumed.
+The assertion is the one to keep: the head of every shard must already mix
+every hour and every symbol, checked rather than assumed.
 
 Be clear about what this cell is and is not. It is the pedagogical miniature:
 it builds the whole table, the whole key array and the whole permutation in
@@ -432,7 +442,8 @@ So that the fit really does run against disk rather than against arrays still
 resident from the generator, the row-scale objects are released first:
 
 ```{code-cell} ipython3
-del table, key, order, y, m, d, q, a, ylag, sym, hour, logit_pi, log_sigma, t_draw, sigma
+del table, part, head, key, order, y, m, d, q, a, ylag, sym, hour, B, moves
+del logit_pi, log_sigma, t_draw, sigma
 gc.collect()
 print("row-scale generator arrays released; the fit reads from", data_dir)
 ```
@@ -446,9 +457,9 @@ why the row counts were chosen to divide exactly. That is worth doing
 deliberately: on this path the loader hands you the row groups it finds, so a
 ragged geometry gives ragged batches, `len(loader)` (which is
 `total_size // batch_size`) stops matching the number of blocks an epoch
-yields, and — as the fitting section shows — the recorded loss picks up a
-deterministic sawtooth that has nothing to do with convergence. The model
-reads
+yields, and the recorded loss picks up a deterministic sawtooth that has
+nothing to do with convergence (the fitting section explains why the recorded
+value scales with the block size). The model reads
 one `pm.Data` placeholder; everything derived — the Fourier basis, the
 integer symbol index — is computed inside the graph, so advancing the stream
 is a single `set_value` per step.
@@ -484,7 +495,7 @@ diagnostics below, which is why the shards divide.) Only the shuffle-buffer
 path drops a trailing partial batch, and this notebook never uses it.
 
 Second, a precision about Gate 1 that matters for how the fit should be
-described. The permutation is drawn once, on disk, and then replayed in the
+described. The permutation is fixed once, on disk, and then replayed in the
 same order every epoch. Each row is included exactly once per pass, but the
 batch at step $t$ is a deterministic function of $t$, not a fresh uniform
 draw — so the individual updates are not the conditionally unbiased stochastic
@@ -587,7 +598,7 @@ def build_model(symbols, batch_init, total_size):
 Two implementation notes worth pausing on. The likelihood is a
 {class}`~pymc.CustomDist` with a `logp`, not a `pm.Potential`: `CustomDist`
 gives the term *observed-RV semantics*, which is what makes PyMC's own
-`total_size` minibatch rescaling apply {cite:p}`kucukelbir2015automatic`. And
+`total_size` minibatch rescaling apply. And
 the hurdle's two logs are written with `softplus` —
 $\log \pi = -\operatorname{softplus}(-x)$,
 $\log(1-\pi) = -\operatorname{softplus}(x)$ — which is exact and stable at both
@@ -605,10 +616,12 @@ model = build_model(
 pm.model_to_graphviz(model)
 ```
 
-The plate diagram makes the two-link structure visible at a glance: five
-partially pooled effect families on the symbol plate feeding two linear
-predictors, one shared tail parameter, and a single observed node whose batch
-dimension is whatever the placeholder currently holds.
+The plate diagram is an inventory rather than a picture of the two links: five
+partially pooled effect families on the symbol plate, one shared tail
+parameter, and a single observed node whose batch dimension is whatever the
+placeholder currently holds. The two linear predictors live inside the
+likelihood's `logp` and are not separate nodes; the equations above are where
+that structure is visible.
 
 The loop below is the whole streaming adapter: a `pm.fit` callback that pushes
 the next block into the placeholder after each step. pymc-extras#710 proposes
@@ -636,17 +649,34 @@ class StreamAdvance:
         self._shared.set_value(next(self._stream), borrow=True)
 
 
+class ParamTrace:
+    """pm.fit callback: record the variational parameters after every step."""
+
+    def __init__(self):
+        self.mu, self.rho = [], []
+
+    def __call__(self, approx, losses, i):
+        mu, rho = approx.params
+        self.mu.append(mu.get_value())
+        self.rho.append(rho.get_value())
+
+
 stream = StreamAdvance(model, loader)
 stream.prime()
+tail = ParamTrace()
 
 with model:
     advi = pm.ADVI(random_seed=RANDOM_SEED)
 advi.fit(6_000, obj_optimizer=pm.adam(learning_rate=0.02), callbacks=[stream], progressbar=False)
 approx = advi.fit(
-    2_500, obj_optimizer=pm.adam(learning_rate=0.005), callbacks=[stream], progressbar=False
+    2_400,
+    obj_optimizer=pm.adam(learning_rate=0.005),
+    callbacks=[stream, tail],
+    progressbar=False,
 )
 ```
 
+The fit is mean-field ADVI {cite:p}`kucukelbir2015automatic` driven by Adam.
 The two-stage learning rate is deliberate. A constant step size that is
 comfortable early is too large near the optimum, where it keeps the
 variational mean bouncing instead of settling; dropping it once the descent
@@ -688,6 +718,54 @@ ax.set_title(
 ax.legend();
 ```
 
+## The last iterate is not the answer
+
+Before reading a single parameter off this fit, one property of the replay has
+to be dealt with. The batch at step $t$ is a deterministic function of $t$ with
+period one epoch, so the gradient sequence is periodic and the optimizer's
+iterate inherits a periodic component. Two measurements separate that component
+from genuine progress: compare the same phase in consecutive epochs, and look at
+the spread within a single epoch.
+
+```{code-cell} ipython3
+mu_t = np.asarray(tail.mu)
+sd_unc = approx.std.eval()  # variational sd in the unconstrained space, before averaging
+ends = mu_t[steps_per_epoch - 1 :: steps_per_epoch]  # same phase, one epoch apart
+drift = np.abs(ends[-1] - ends[-2]) / sd_unc
+last = mu_t[-steps_per_epoch:]
+swing = (last.max(0) - last.min(0)) / sd_unc
+print(
+    f"epoch over epoch, same phase: median {np.median(drift):.2f}, max {drift.max():.2f} sd\n"
+    f"within the last epoch:        median {np.median(swing):.2f}, max {swing.max():.1f} sd"
+)
+```
+
+Read those two lines together. Between the same points of consecutive epochs the
+mean barely moves, so the systematic descent really has flattened — the fit is
+not being stopped in mid-descent. Within one epoch it swings by multiples of its
+own posterior width. The optimizer is not converging to a point; it is orbiting
+one, on a cycle locked to the order the rows are replayed in, and the last
+iterate is whatever phase of that orbit the step budget happened to end on.
+
+That is not a subtlety to note and move past. It means the number you would
+report depends on where you stop, so the fit is summarized by averaging the
+variational parameters over the final whole pass — a full period of the cycle,
+which is what makes the average cancel it. This is Polyak–Ruppert averaging, and
+it is why the step budget above is a whole number of epochs. The same tail
+average is what [pymc-extras#722](https://github.com/pymc-devs/pymc-extras/pull/722)
+applies to its own iterates for the same reason.
+
+```{code-cell} ipython3
+rho_t = np.asarray(tail.rho)
+approx.params[0].set_value(mu_t[-steps_per_epoch:].mean(0))
+approx.params[1].set_value(rho_t[-steps_per_epoch:].mean(0))
+print(f"variational parameters averaged over the final {steps_per_epoch} steps (one epoch)")
+```
+
+Everything below reads from that averaged approximation.
+
++++
+
 ## Did it recover the truth?
 
 ```{code-cell} ipython3
@@ -721,7 +799,10 @@ recovery["z"] = (recovery["mean"] - recovery["truth"]) / recovery["sd"]
 recovery.round(4)
 ```
 
-Read the table bottom-up. The raw intercepts look off by 0.3 and 1.3 — but a
+The table is a selection — the scalar globals and the three identified sums —
+and the figure after it checks one of the five symbol-effect families; that,
+plus the two curves for one symbol further down, is the extent of the recovery
+evidence here. Read the table bottom-up. The raw intercepts look off by 0.3 and 1.3 — but a
 global coefficient and the mean of its group effects are only *jointly*
 identified: the likelihood constrains their sum, and the prior only weakly
 splits it. The identified sums in the last three rows land within a couple of hundredths
@@ -734,24 +815,28 @@ estimates of their generating values; a sum-to-zero constraint on the symbol
 effects is the standard reparameterization when the split itself matters.
 The last column standardizes the error by the posterior width, and it has to be
 read against identification rather than straight across the table. On the three
-raw split rows it is not a recovery statistic at all: `alpha0` reads 404 because
+raw split rows it is not a recovery statistic at all: `alpha0` reads 379 because
 a prior-dependent decomposition can have an arbitrary location and still a
-narrow width, which says something about the split and nothing about the fit.
-On the identified sums every $|z|$ is below 2. Between those two extremes sit
-the rows that are identified on their own and still miss by more than their own
-width claims they can: $\theta_d$ at $-7.1$ and $\lambda_q$ at $+4.9$.
+narrow width, which says something about the split and nothing about the fit
+(`beta_a`, at $-4.9$, is the same story in miniature). Everything that *is*
+identified — the three sums and the six standalone rows — lands inside $1.2$
+posterior standard deviations of its generating value, and four of those nine
+are inside $0.5$. Without the tail average the same table showed misses of
+three to seven; that difference was the orbit, not the estimate.
 
-That gap is the result of this section, and it is worth being exact about what
-it licenses. A z-score against a point truth confounds three things — the
-sampling noise of this one synthetic dataset, bias in the variational mean, and
-overconfidence in the variational width — and a single fit cannot separate
-them. What it does establish is a direction: these widths are too narrow to be
-read as uncertainty statements at face value. The stance behind reporting the
-gap and stopping there is a risk-management one, and it is worth stating
-plainly: material disagreement between independent-seed fits is enough to
-withhold a claim about a width, while agreement only removes the instability
-warning — it does not validate calibration. Replication can veto a width; it can
-never certify one.
+Two things this table does not license. It does not say the widths are
+trustworthy: they are the widths of a mean-field approximation, which has no
+correlations to spend, and z-scores this small on one dataset are consistent
+with widths that are somewhat too narrow, somewhat too wide, or right — sizing
+that needs many simulated datasets, and this notebook fits one. Nor does it
+transfer to the raw splits: no amount of data fixes a ridge, only a
+reparameterization does.
+
+The stance behind stopping there is a risk-management one, and it is worth
+stating plainly: material disagreement between independent-seed fits would be
+enough to withhold a claim about a width, while agreement only removes the
+instability warning — it does not validate calibration. Replication can veto a
+width; it can never certify one.
 
 The more interesting check is hierarchical: what happened to the per-symbol
 effects of the two symbols with 1,800 and 900 rows?
@@ -940,7 +1025,10 @@ ax.set_title("Posterior predictive ECDF: the step at zero is the hurdle")
 ax.legend(loc="lower right");
 ```
 
-All three statistics sit inside their predictive 90% bands. Two limits on what
+All three statistics sit inside their predictive 90% bands, though the zero
+share sits close to the lower edge — 0.300 observed against a band starting at
+0.299 — so it is a pass with almost no margin rather than a comfortable one.
+Two limits on what
 that establishes. The heading is literal — the evaluation batch was seen during
 the fit, so this is adequacy, not generalisation, and a held-out split is the
 next thing to add before any of this is used to compare models. And the check
@@ -968,9 +1056,12 @@ z_w(t) = \frac{\bar L_{t-2w:t-w} - \bar L_{t-w:t}}
 $$
 
 with $\hat\sigma$ estimated from successive differences. Positive $z_w$ means
-the loss fell. Averaging divides the noise by $\sqrt{w}$ while a steady drift
-accumulates linearly in $w$, so the detectable drift shrinks like $w^{-3/2}$:
-the horizon does not merely smooth the picture, it sets what is visible at all.
+the loss fell. For noise without long memory, averaging divides it by
+$\sqrt{w}$ while a steady drift accumulates linearly in $w$, so the detectable
+drift shrinks like $w^{-3/2}$: the horizon does not merely smooth the picture,
+it sets what is visible at all. A fixed replay order is not noise of that kind,
+and the printout below shows where the generic scaling breaks — in the
+notebook's favour.
 
 ```{code-cell} ipython3
 # Stage 2 only, on the full-data scale: after the last planned optimizer change,
@@ -992,12 +1083,16 @@ horizons = [(1, "per step"), (steps_per_epoch, "one epoch"), (2 * steps_per_epoc
 # control: a horizon that is NOT a whole number of passes, to test whether the
 # variance collapse below is really about epoch alignment
 control = [(steps_per_epoch + steps_per_epoch // 2, "1.5 epochs")]
+spreads = {}
 for w, label in horizons + control:
     _, z = signed_z(stage2, w)
+    spreads[label] = z.std()
     print(
         f"{label:>10s} (w={w:4d}):  mean z {z.mean():+.3f}   sd {z.std():.2f}"
         f"   |mean|/sd {abs(z.mean()) / z.std():.2f}"
     )
+aligned = max(spreads["one epoch"], spreads["two epochs"])
+print(f"\ncontrol spread is {spreads['1.5 epochs'] / aligned:.0f}x the widest aligned spread")
 ```
 
 ```{code-cell} ipython3
@@ -1029,10 +1124,10 @@ independent noise would predict — and the control row explains why. The
 shuffle is done once on disk and replayed in the same order every epoch, so a
 window of exactly one or two passes averages over the *same rows* every time
 and the batch-composition noise, which dominates the per-step view, cancels.
-Widen the window to one and a half passes and it does not: the control sits
-at more than twenty times the spread of its neighbours on either side, even
-though it is *wider* than the one-epoch window. Nothing but the alignment
-changed.
+Widen the window to one and a half passes and it does not: the printed ratio
+puts the control an order of magnitude above the wider of its two neighbours,
+even though it is itself *wider* than the one-epoch window. Nothing but the
+alignment changed.
 
 What survives the cancellation is Monte-Carlo noise and the parameter drift
 itself, and against that much smaller yardstick the drift becomes visible —
@@ -1074,8 +1169,9 @@ kernel = np.ones(steps_per_epoch) / steps_per_epoch
 smoothed = np.convolve(stage2, kernel, mode="valid")
 total_drop = smoothed[0] - smoothed.min()
 # "valid" convolution starts at the first full window, so index j of `smoothed`
-# is the trailing average ending at stage-2 step j + steps_per_epoch - 1.
-t99 = int(np.argmax(smoothed <= smoothed.min() + 0.01 * total_drop)) + steps_per_epoch - 1
+# is the trailing average ending at stage-2 step j + steps_per_epoch, counting
+# steps from 1.
+t99 = int(np.argmax(smoothed <= smoothed.min() + 0.01 * total_drop)) + steps_per_epoch
 print(
     f"stage 2 smoothed reduction: {total_drop:,.2f} nats; "
     f"99% of it reached by step {t99:,} of {len(stage2):,} "
