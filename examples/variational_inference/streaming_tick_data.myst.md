@@ -11,7 +11,7 @@ kernelspec:
   name: python3
 myst:
   substitutions:
-    extra_dependencies: pymc-extras pyarrow
+    extra_dependencies: pyarrow graphviz
 ---
 
 (streaming_tick_data)=
@@ -95,9 +95,6 @@ the first place.
 
 +++
 
-:::{include} ../extra_installs.md
-:::
-
 :::{note}
 The {class}`~pymc_extras.variational.dataloader.DataLoader` merged into
 pymc-extras after the v0.14.0 release, so it is not in a published version yet
@@ -111,8 +108,7 @@ pip install "pymc-extras @ git+https://github.com/pymc-devs/pymc-extras@8db1880"
 
 That pins pymc-extras `0.14.1.dev3+g8db1880d4`, and its own requirements pull
 PyMC 6.2 and PyTensor 3.2 — the versions reported by the watermark at the
-bottom of this page. Once the module is released, the plain
-`pip install pymc-extras` above is enough.
+bottom of this page. Once the module ships, `pip install pymc-extras` will do.
 :::
 
 ```{code-cell} ipython3
