@@ -27,8 +27,10 @@ myst:
 +++
 
 Exchanges publish per-trade archives — Binance, for instance, distributes
-aggregate trades as daily and monthly files — and a multi-symbol,
-multi-month slice of such an archive does not fit in memory. PyMC's
+aggregate trades as daily and monthly files at
+[data.binance.vision](https://data.binance.vision). Widen a pull across
+symbols and months and the feature matrix can outgrow the RAM of an ordinary
+workstation; at that point in-memory minibatching stops being an option. PyMC's
 {class}`~pymc.Minibatch` randomly slices tensor *inputs*; it is not itself a
 disk-backed reader, so it cannot help once the array no longer fits. This
 notebook fits a hierarchical hurdle–Student-t model of *next-event price
@@ -41,9 +43,11 @@ rows that are generated inside the notebook. It tries to teach three things:
 2. **The mechanics, end to end** on an archive small enough to rebuild here:
    an on-disk global shuffle, streaming ADVI with `total_size` rescaling, and
    what a stopping rule has to be able to see before it can fire.
-3. **Honest reporting.** Mean-field variational inference produces some
-   numbers you should trust and some you should not; with known ground truth
-   we measure which are which instead of guessing.
+3. **Honest reporting.** With the truth known we can watch the posterior means
+   land on it while the mean-field standard deviations stay far too narrow to
+   cover it. Which widths could be trusted in general is a calibration
+   question that needs many simulated datasets; this notebook fits one, so it
+   withholds width claims rather than certifying them.
 
 The notebook runs in about a minute. Everything below executes on synthetic
 data with known ground truth, which is what makes the recovery checks
@@ -78,12 +82,16 @@ one is not about validity but about honesty of the *showcase*: a Normal
 likelihood with per-cell means and variances collapses to per-cell
 $(\sum y, \sum y^2, n)$, so one linear scan computes the exact posterior
 inputs and "streaming inference" degenerates into a glorified `groupby` —
-valid, but theater. What provably breaks the collapse: a Student-t likelihood,
-a mixture (the hurdle below), and row-level continuous covariates through
-nonlinear links.
+valid, but theater. A hurdle alone does not rescue it — an observed Bernoulli
+plus a Normal component still reduces to $(n_0, n_1, \sum y, \sum y^2)$. What
+does break the collapse is the combination used below: a Student-t component
+with an unknown $\nu$, and row-level continuous covariates entering through
+nonlinear links, so no fixed-dimensional summary of the rows suffices.
 
-The model below passes both gates, and each ingredient that makes it pass is
-also substantively motivated by the data.
+The model below passes both gates. Each ingredient that gets it there is also
+the standard choice for the feature it addresses, which is the argument for
+it — not the synthetic data, which was written to contain those features in
+the first place.
 
 +++
 
@@ -92,13 +100,23 @@ also substantively motivated by the data.
 
 :::{note}
 The {class}`~pymc_extras.variational.dataloader.DataLoader` merged into
-pymc-extras after the v0.14.0 release. Until the next release, install
-pymc-extras from `main`:
-`pip install "pymc-extras @ git+https://github.com/pymc-devs/pymc-extras"`.
+pymc-extras after the v0.14.0 release, so it is not in a published version yet
+and `pip install pymc-extras` will not provide it. The outputs stored in this
+notebook were produced against the merge commit itself, which is also the
+install line to use until the next release:
+
+```
+pip install "pymc-extras @ git+https://github.com/pymc-devs/pymc-extras@8db1880"
+```
+
+That pins pymc-extras `0.14.1.dev3+g8db1880d4`, and its own requirements pull
+PyMC 6.2 and PyTensor 3.2 — the versions reported by the watermark at the
+bottom of this page. Once the module is released, the plain
+`pip install pymc-extras` above is enough.
 :::
 
 ```{code-cell} ipython3
-import json
+import gc
 import logging
 import os
 import tempfile
@@ -138,11 +156,12 @@ the return $y_i = 10^4 \, (\log p_{i+1} - \log p_i)$ in basis points, and the
 move indicator $m_i = \mathbb{1}[y_i \neq 0]$. Two consequences of indexing by
 *events* rather than by clock time are worth stating before the algebra.
 
-First, a large share of consecutive trades leave the price unchanged, because
-prices live on a discrete grid and many trades do not cross to a new level. A
-purely continuous likelihood puts zero probability mass on that outcome. The
-fix is a hurdle: model *whether* the price moves separately from *how far* it
-moves given that it does.
+First, prices move on a discrete grid, so an exact-zero return is not a
+measure-zero event the way it is for a continuous variable: consecutive trades
+can and do leave the price where it was. A purely continuous likelihood puts
+zero probability mass on that outcome, whatever share of the rows it turns out
+to occupy. The fix is a hurdle: model *whether* the price moves separately
+from *how far* it moves given that it does.
 
 Second, each row is a transition between consecutive observed events, not a
 fixed-duration return. So $1 - \pi$ is the probability that the next event
@@ -178,16 +197,19 @@ the standard way to encode intraday periodicity smoothly
 {cite:p}`andersen1997intraday`; heavy-tailed Student-t noise for returns goes
 back at least to {cite:t}`bollerslev1987conditionally`. All symbol effects
 $b_s \sim \mathcal{N}(0, \tau)$ are partially pooled {cite:p}`gelman2006data`,
-so a thin symbol borrows the global intraday shape where its own data run out —
-that is the hierarchical payoff we will measure. They are parameterized
+so a thin symbol is pulled toward the global intraday shape where its own data
+run out. They are parameterized
 *centered*, deliberately: the non-centered trick pays off when groups are
 data-poor, and the generator below gives every symbol at least several hundred
 rows.
 The degrees of freedom are
 shared across symbols, parameterized $\nu = 1 + \operatorname{softplus}(\eta)$;
-the floor of 1 (rather than the more comfortable 2) leaves room for tails too
-heavy to carry a finite variance — and the estimand below is chosen to stay
-meaningful exactly there.
+the floor of 1 rather than 2 leaves the support open to tails too heavy to
+carry a finite variance. Be precise about what that buys: under
+$\eta \sim \mathcal{N}(5, 1)$ the prior puts only about $4 \times 10^{-6}$ of
+its mass on $\nu \le 2$, so this is a statement about support, not a serious
+prior belief in infinite variance. The estimand below is chosen so that the
+question does not arise at all.
 
 The reported estimand is **event-return dispersion on the event clock**:
 $\pi_{s,h}$ together with the conditional-move 90% half-width
@@ -203,8 +225,9 @@ below happens to use $\nu = 3.5$.
 Notebooks in this collection do not download data at build time, so the
 executed path uses a seeded synthetic generator: the schema an exchange
 archive would have after feature construction, a hurdle at exactly zero,
-heavy conditional tails, and twelve symbols with a deliberately thin tail so
-shrinkage is visible. Because the truth is known, recovery is checkable. Every
+heavy conditional tails, and twelve symbols whose row counts span two orders
+of magnitude, so the hierarchy has both data-rich and data-poor groups to work
+with. Because the truth is known, recovery is checkable. Every
 statement below about what the fit recovers is conditional on this generator;
 none of it is a measurement of any market.
 
@@ -314,7 +337,7 @@ them the way one would read a specification for a simulator:
   conditional location.
 * $a$ and $q$ are constructed with a target correlation of 0.3 rather than
   orthogonally, so the fit faces mildly collinear covariates instead of a
-  textbook design; the realized sample correlation is printed below.
+  textbook design; the realized sample correlation is in the printout above.
 * `ylag` is generated per symbol in sequence, so row $i$ sees only the most
   recent previously generated nonzero move. That discipline applies to the lag
   construction; the standardization of $a$ and $q$ still uses full-sample
@@ -378,11 +401,13 @@ def splitmix64(x):
 
 key = splitmix64(np.arange(n, dtype=np.uint64))
 order = np.argsort(key, kind="stable")
-n_shards = 8
+n_shards, BATCH = 10, 1_000
+# Row groups are the loader's batches on the shuffle=False path, so the geometry is
+# chosen to divide exactly: 10 shards x 30,000 rows, 30 groups of 1,000 each.
+assert n % n_shards == 0 and (n // n_shards) % BATCH == 0
 for i in range(n_shards):
     part = table.take(order[i::n_shards])
-    # Row groups are the loader's batches on the shuffle=False path, so size them here.
-    pq.write_table(part, os.path.join(data_dir, f"shard_{i:03d}.parquet"), row_group_size=1024)
+    pq.write_table(part, os.path.join(data_dir, f"shard_{i:03d}.parquet"), row_group_size=BATCH)
 
 head = pq.read_table(os.path.join(data_dir, "shard_000.parquet")).slice(0, 10_000)
 print(
@@ -392,24 +417,37 @@ print(
 ```
 
 The printed check is the one to keep: the head of any shard must already mix
-every hour and nearly every symbol, asserted rather than assumed. Note that
-the cell above is the pedagogical miniature — it sorts the whole table in
-memory, which is exactly what one cannot do once the table stops fitting. The
-out-of-core version of the same permutation is two passes: hash-scatter rows
-into shards with bounded row-group appends, then sort each shard
-independently, so no step holds more than one shard.
+every hour and nearly every symbol, asserted rather than assumed.
 
-+++
+Be clear about what this cell is and is not. It is the pedagogical miniature:
+it builds the whole table, the whole key array and the whole permutation in
+memory, which is exactly what one cannot do once the data stops fitting. What
+follows it — the inference — is genuinely disk-backed, but the preprocessing
+above is not. The out-of-core version of the same permutation is two passes:
+hash-scatter rows into shards with bounded row-group appends, then sort each
+shard independently, so no step holds more than one shard.
+
+So that the fit really does run against disk rather than against arrays still
+resident from the generator, the row-scale objects are released first:
+
+```{code-cell} ipython3
+del table, key, order, y, m, d, q, a, ylag, sym, hour, logit_pi, log_sigma, t_draw, sigma
+gc.collect()
+print("row-scale generator arrays released; the fit reads from", data_dir)
+```
 
 ## Streaming the model
 
 With `shuffle=False` the `DataLoader` passes source blocks through verbatim —
 one block per Parquet row group, in a frozen column order — which is why the
-shards were written with `row_group_size=1024` above. The dataset size comes
-from the Parquet metadata: `loader.total_size` is `N`, and `len(loader)` is
-`total_size // batch_size`, the number of *full* batches — which, as the cell
-below shows, is not the same as the number of blocks an epoch yields on this
-path. The model reads
+shards above were written with `row_group_size` equal to the batch size, and
+why the row counts were chosen to divide exactly. That is worth doing
+deliberately: on this path the loader hands you the row groups it finds, so a
+ragged geometry gives ragged batches, `len(loader)` (which is
+`total_size // batch_size`) stops matching the number of blocks an epoch
+yields, and — as the fitting section shows — the recorded loss picks up a
+deterministic sawtooth that has nothing to do with convergence. The model
+reads
 one `pm.Data` placeholder; everything derived — the Fourier basis, the
 integer symbol index — is computed inside the graph, so advancing the stream
 is a single `set_value` per step.
@@ -418,42 +456,40 @@ is a single `set_value` per step.
 columns = ["y_bp", "m", "d", "q_std", "a_std", "ylag_bp", "hour", "sym"]
 loader = DataLoader(
     parquet_source(data_dir, columns=columns),
-    batch_size=1024,
+    batch_size=BATCH,
     shuffle=False,  # the shards are already globally shuffled on disk
     total_size="auto",
 )
 
-# Count one epoch instead of inferring it: on the verbatim path a block is a row
-# group, and the last group of each shard is short, so the block count is not
-# total_size // batch_size.
+# Count one epoch rather than inferring it. With a divisible geometry every block
+# is the same size, so the count and len(loader) agree — which is what the rest of
+# the notebook relies on.
 block_rows = [b.shape[0] for b in loader]
 steps_per_epoch = len(block_rows)
-assert sum(block_rows) == loader.total_size == n
-n_full = block_rows.count(1024)
+assert set(block_rows) == {BATCH}
+assert sum(block_rows) == loader.total_size == n == steps_per_epoch * BATCH
+assert len(loader) == steps_per_epoch
 print(
-    f"N = {loader.total_size:,} rows -> {steps_per_epoch} blocks per epoch "
-    f"({n_full} of 1024 rows + {steps_per_epoch - n_full} shorter), "
+    f"N = {loader.total_size:,} rows -> {steps_per_epoch} blocks of {BATCH} per epoch, "
     f"conserving {sum(block_rows):,} rows; len(loader) = {len(loader)}"
 )
 ```
 
 Two things that assertion pins down. First, **nothing is dropped**: verbatim
-pass-through streams every row, and the short trailing group of each shard is
-simply a shorter batch. The `total_size` rescaling copes, because PyMC scales
-the minibatch log-likelihood by `N / b` with `b` read from the batch actually
-installed, so a short block is weighted up by exactly its own size and every
-row enters the epoch exactly once, with no tempering correction to track. One
-precision on Gate 1: the replay is a fixed permutation rather than fresh
-random sampling at each step, so what holds here is equal inclusion *over an
-epoch* — single-shuffle SGD semantics — not independent uniform batches.
-(Only the shuffle-buffer path drops a trailing partial batch; this notebook
-never uses it.)
+pass-through streams every row exactly once per epoch. (Ragged geometry would
+still lose nothing — PyMC reads `b` from the batch actually installed, so a
+short block is weighted up by its own size — but it would cost the clean
+diagnostics below, which is why the shards divide.) Only the shuffle-buffer
+path drops a trailing partial batch, and this notebook never uses it.
 
-Second, the printed comparison makes the earlier caveat concrete: because the
-short trailing blocks are streamed rather than dropped, an epoch yields a few
-more blocks than `total_size // batch_size`. Anything that needs a true epoch
-boundary — the stopping horizon below, for instance — should count blocks
-rather than trust the division.
+Second, a precision about Gate 1 that matters for how the fit should be
+described. The permutation is drawn once, on disk, and then replayed in the
+same order every epoch. Each row is included exactly once per pass, but the
+batch at step $t$ is a deterministic function of $t$, not a fresh uniform
+draw — so the individual updates are not the conditionally unbiased stochastic
+gradients of the $N/B$ identity. This is single-shuffle, cyclic finite-sum
+optimization, and it is the arrangement the epoch-scale diagnostics later in
+the notebook exploit.
 
 ```{code-cell} ipython3
 def build_model(symbols, batch_init, total_size):
@@ -554,10 +590,12 @@ gives the term *observed-RV semantics*, which is what makes PyMC's own
 the hurdle's two logs are written with `softplus` —
 $\log \pi = -\operatorname{softplus}(-x)$,
 $\log(1-\pi) = -\operatorname{softplus}(x)$ — which is exact and stable at both
-tails. The exact float comparison `value != 0` is safe here because the zeros
-are *structural* — a transition either changes the price or it does not, and
-the smallest genuine move on any listed tick grid sits dozens of orders of
-magnitude above the float32 flush-to-zero threshold.
+tails. The exact float comparison `value != 0` is safe here because the zeros are
+*structural*: the generator writes an exact 0.0 when the hurdle says the price
+did not move, and every nonzero draw is many orders of magnitude above the
+float32 subnormal range. On real data the same comparison is safe as long as
+returns are computed so that "no move" produces an exact zero rather than a
+rounding artefact — worth checking once, in the feature code.
 
 ```{code-cell} ipython3
 model = build_model(
@@ -608,19 +646,39 @@ approx = advi.fit(
 )
 ```
 
-The two-stage learning rate is not decoration: at a constant 0.02 the Adam
-updates near the optimum are larger than the posterior standard deviations of
-the sharpest parameters, so the mean jitters around the mode instead of
-settling into it. Annealing was adopted after measuring exactly that on the
-prototype.
+The two-stage learning rate is deliberate. A constant step size that is
+comfortable early is too large near the optimum, where it keeps the
+variational mean bouncing instead of settling; dropping it once the descent
+has flattened is the cheapest fix. The loss curve below is the evidence
+available here — the visible band narrows after the change.
+
+Before plotting it, one property of `approx.hist` that is easy to get wrong and
+that changes what the numbers mean. PyMC normalizes the minibatch objective
+**twice**: the observed log-probability is scaled up by $N/b$ so the gradient
+targets the full-data model, and then the variational objective is divided by
+that same constant, because `scale_cost_to_minibatch` is on by default. What
+gets recorded per step is therefore
+
+$$
+F_t = -\sum_{i \in B_t} \mathbb{E}_q\left[\log p(y_i \mid \theta)\right]
+      + \frac{b}{N}\,\mathrm{KL}(q \Vert p),
+$$
+
+which lives on the scale of *one batch*, not of the full dataset — and which
+would move mechanically with $b$ if the blocks were ragged. Multiplying by
+$N/b$ puts it back on the full-data negative-ELBO scale, and with equal blocks
+that is one constant:
 
 ```{code-cell} ipython3
+ELBO_SCALE = loader.total_size / BATCH  # undo PyMC's scale_cost_to_minibatch
+loss = np.asarray(approx.hist, dtype=float) * ELBO_SCALE
+
 fig, ax = plt.subplots(figsize=(8, 3), layout="constrained")
-ax.plot(approx.hist, lw=0.5)
+ax.plot(loss, lw=0.5)
 ax.axvline(6_000, color="C1", ls="--", lw=1, label="anneal: lr 0.02 to 0.005")
-ax.set_ylim(-450, 1200)
+ax.set_ylim(np.quantile(loss, 0.002), np.quantile(loss, 0.995))
 ax.set_xlabel("step")
-ax.set_ylabel("negative ELBO")
+ax.set_ylabel("negative ELBO (full-data scale)")
 ax.set_title(
     "Streaming ADVI loss, y clipped to the plateau (early losses are "
     "off scale).\nThe visible band is batch-resampling noise — "
@@ -664,8 +722,8 @@ recovery.round(4)
 Read the table bottom-up. The raw intercepts look off by 0.3 and 1.3 — but a
 global coefficient and the mean of its group effects are only *jointly*
 identified: the likelihood constrains their sum, and the prior only weakly
-splits it. The identified sums in the last three rows land within about one
-hundredth of the truth, comparable to the other likelihood-identified rows.
+splits it. The identified sums in the last three rows land within a couple of hundredths
+of the truth, the same range as the other likelihood-identified rows.
 The same translation ridge exists for every global-coefficient/group-effect
 pair in this model (including the vector pairs $c$/$b^{(\pi h)}$ and
 $g$/$b^{(\sigma h)}$, whose sums we spare you) — so raw split rows like
@@ -869,10 +927,14 @@ ax.set_title("Posterior predictive ECDF: the step at zero is the hurdle")
 ax.legend(loc="lower right");
 ```
 
-All three statistics sit inside their predictive 90% bands. The heading is literal: the
-evaluation batch was seen during the fit, so this is adequacy, not
-generalisation. A held-out split is the next thing to add before any of this
-is used to compare models.
+All three statistics sit inside their predictive 90% bands. Two limits on what
+that establishes. The heading is literal — the evaluation batch was seen during
+the fit, so this is adequacy, not generalisation, and a held-out split is the
+next thing to add before any of this is used to compare models. And the check
+is one batch, one step ahead, with the observed `ylag` held fixed: it does not
+simulate a price path forward, and it says nothing about the hierarchy, the
+hourly curves, or the covariate responses, each of which would need its own
+stratified check.
 
 +++
 
@@ -898,9 +960,9 @@ accumulates linearly in $w$, so the detectable drift shrinks like $w^{-3/2}$:
 the horizon does not merely smooth the picture, it sets what is visible at all.
 
 ```{code-cell} ipython3
-# Stage 2 only: after the last planned optimizer change, which is where a
-# stopping decision would actually be taken.
-stage2 = np.asarray(approx.hist[6_000:], dtype=float)
+# Stage 2 only, on the full-data scale: after the last planned optimizer change,
+# which is where a stopping decision would actually be taken.
+stage2 = loss[6_000:]
 sigma_hat = np.mean(np.abs(np.diff(stage2))) * np.sqrt(np.pi) / 2.0
 
 
@@ -955,7 +1017,7 @@ shuffle is done once on disk and replayed in the same order every epoch, so a
 window of exactly one or two passes averages over the *same rows* every time
 and the batch-composition noise, which dominates the per-step view, cancels.
 Widen the window to one and a half passes and it does not: the control sits
-at roughly twenty times the spread of its neighbours on either side, even
+at more than twenty times the spread of its neighbours on either side, even
 though it is *wider* than the one-epoch window. Nothing but the alignment
 changed.
 
@@ -971,15 +1033,18 @@ the data was shuffled, not of the optimizer.
 :class: warning
 It is tempting to accumulate per-step evidence with a one-sided cumulative-sum
 statistic {cite:p}`page1954continuous`, $S \leftarrow \max(0,\ S + (\kappa -
-\max(z, 0)))$, stopping when $S$ exceeds a threshold. The rectification is the problem. Under symmetric noise
-$\mathbb{E}[\max(z,0)]$ is a fraction of a standard deviation, so any
-allowance $\kappa$ above that value makes $S$ climb at a constant rate *on
-noise alone* and cross any fixed threshold after a fixed number of steps —
-whatever the data is doing. A rule built that way announces convergence on
-schedule rather than on evidence. The fix is not a better threshold but a
-wider horizon, plus a second yardstick that asks whether the remaining
-improvement is negligible relative to the reduction already achieved. That
-design is under review as
+\max(z, 0)))$, stopping when $S$ exceeds a threshold. Read carefully, that
+recursion behaves sensibly while there is signal: if the standardised
+improvement stays above $\kappa$, the increment is negative and $S$ sits at
+zero. The difficulty is what happens when there is *no* resolvable signal.
+Under symmetric noise $\mathbb{E}[\max(z,0)]$ is only a fraction of a standard
+deviation, so with $\kappa$ above that value $S$ climbs at a roughly constant
+rate and crosses any fixed threshold after a roughly fixed number of steps. The
+rule therefore cannot tell "converged" from "still improving, but too slowly
+for this horizon to see" — it announces the same thing at the same pace in
+both cases. Which is why the fix is not a better threshold but a wider horizon,
+plus a second yardstick asking whether the remaining improvement is negligible
+relative to the reduction already achieved. That design is under review as
 [pymc-extras#733](https://github.com/pymc-devs/pymc-extras/pull/733); this
 notebook shows the observation problem it exists to solve rather than shipping
 a second copy of it.
