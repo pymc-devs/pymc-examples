@@ -48,8 +48,9 @@ rows that are generated inside the notebook. It tries to teach three things:
    on an orbit, and the last iterate misses the truth by several of its own
    posterior standard deviations purely because of where in that orbit the step
    budget ended. Averaged over one full pass, every identified quantity lands
-   inside 1.2. The widths themselves are a separate question this notebook
-   cannot settle on one dataset, and it says so rather than certifying them.
+   inside 1.2 — on three optimizer seeds. The widths themselves are a separate
+   question this notebook cannot settle on one dataset, and it says so rather
+   than certifying them.
 
 The notebook runs in well under a minute on a laptop. Everything below executes on synthetic
 data with known ground truth, which is what makes the recovery checks
@@ -150,10 +151,8 @@ rng = np.random.default_rng(RANDOM_SEED)
 az.style.use("arviz-variat")
 # the loss figures carry the fit story; keep the fit logger's lines out of the output
 logging.getLogger("pymc").setLevel(logging.ERROR)
-# pytensor's predictive path emits two benign internals warnings (a 0/0 inside its
-# own allclose diagnostics; numba falling back to object mode for the python
-# `random`); neither is actionable here, so they are filtered by origin
-warnings.filterwarnings("ignore", category=RuntimeWarning, module=r"pytensor\.tensor\.type")
+# the predictive path compiles the custom `random` and the minibatch wrapper through
+# numba, which falls back to object mode for both and says so; not actionable here
 warnings.filterwarnings("ignore", message=r"Numba will use object mode")
 ```
 
@@ -494,14 +493,11 @@ short block is weighted up by its own size — but it would cost the clean
 diagnostics below, which is why the shards divide.) Only the shuffle-buffer
 path drops a trailing partial batch, and this notebook never uses it.
 
-Second, a precision about Gate 1 that matters for how the fit should be
-described. The permutation is fixed once, on disk, and then replayed in the
-same order every epoch. Each row is included exactly once per pass, but the
-batch at step $t$ is a deterministic function of $t$, not a fresh uniform
-draw — so the individual updates are not the conditionally unbiased stochastic
-gradients of the $N/B$ identity. This is single-shuffle, cyclic finite-sum
-optimization, and it is the arrangement the epoch-scale diagnostics later in
-the notebook exploit.
+Second, this is where the Gate 1 distinction bites: the batch at step $t$ is a
+deterministic function of $t$, so what follows is single-shuffle, cyclic
+finite-sum optimization — the arrangement the epoch-scale diagnostics later in
+the notebook exploit, and the reason the fit has to be summarized with some
+care before anything is read off it.
 
 ```{code-cell} ipython3
 def build_model(symbols, batch_init, total_size):
@@ -680,8 +676,10 @@ The fit is mean-field ADVI {cite:p}`kucukelbir2015automatic` driven by Adam.
 The two-stage learning rate is deliberate. A constant step size that is
 comfortable early is too large near the optimum, where it keeps the
 variational mean bouncing instead of settling; dropping it once the descent
-has flattened is the cheapest fix. The loss curve below is the evidence
-available here — the visible band narrows after the change.
+has flattened is the cheapest fix. Do not look for the effect in the width of
+the loss band below — that band is batch-composition noise and the learning
+rate does not touch it; the effect is in the level, and in the parameter
+trace examined after the fit.
 
 Before plotting it, one property of `approx.hist` that is easy to get wrong and
 that changes what the numbers mean. PyMC normalizes the minibatch objective
@@ -710,11 +708,7 @@ ax.axvline(6_000, color="C1", ls="--", lw=1, label="anneal: lr 0.02 to 0.005")
 ax.set_ylim(np.quantile(loss, 0.002), np.quantile(loss, 0.995))
 ax.set_xlabel("step")
 ax.set_ylabel("negative ELBO (full-data scale)")
-ax.set_title(
-    "Streaming ADVI loss, y clipped to the plateau (early losses are "
-    "off scale).\nThe visible band is batch-resampling noise — "
-    "remember it for the stopping section"
-)
+ax.set_title("Streaming ADVI loss (full-data scale, y clipped to the plateau)")
 ax.legend();
 ```
 
@@ -731,29 +725,38 @@ the spread within a single epoch.
 mu_t = np.asarray(tail.mu)
 sd_unc = approx.std.eval()  # variational sd in the unconstrained space, before averaging
 ends = mu_t[steps_per_epoch - 1 :: steps_per_epoch]  # same phase, one epoch apart
-drift = np.abs(ends[-1] - ends[-2]) / sd_unc
+step = np.abs(np.diff(ends, axis=0)) / sd_unc  # (7 epoch pairs, 154 coordinates)
 last = mu_t[-steps_per_epoch:]
 swing = (last.max(0) - last.min(0)) / sd_unc
 print(
-    f"epoch over epoch, same phase: median {np.median(drift):.2f}, max {drift.max():.2f} sd\n"
-    f"within the last epoch:        median {np.median(swing):.2f}, max {swing.max():.1f} sd"
+    "same phase, epoch to epoch — max over coordinates, per pair: "
+    + " ".join(f"{v:.2f}" for v in step.max(1))
+    + f"\n                              median over coordinates, last pair: {np.median(step[-1]):.2f} sd"
+    f"\nwithin the last epoch:        median {np.median(swing):.2f}, max {swing.max():.1f} sd"
 )
 ```
 
-Read those two lines together. Between the same points of consecutive epochs the
-mean barely moves, so the systematic descent really has flattened — the fit is
-not being stopped in mid-descent. Within one epoch it swings by multiples of its
-own posterior width. The optimizer is not converging to a point; it is orbiting
-one, on a cycle locked to the order the rows are replayed in, and the last
-iterate is whatever phase of that orbit the step budget happened to end on.
+Read the two measurements against each other. Between the same phase of
+consecutive epochs the largest movement decays from about six posterior widths
+in the first pair to about half a width in the last, and the median coordinate
+moves a tenth of a width per pass; within a single epoch the same coordinates
+swing by multiples of their width. So the optimizer is not converging to a
+point. It is orbiting one, on a cycle locked to the order the rows are replayed
+in, and most of where the last iterate sits is the phase of that orbit at the
+step the budget ran out.
 
 That is not a subtlety to note and move past. It means the number you would
 report depends on where you stop, so the fit is summarized by averaging the
-variational parameters over the final whole pass — a full period of the cycle,
-which is what makes the average cancel it. This is Polyak–Ruppert averaging, and
-it is why the step budget above is a whole number of epochs. The same tail
-average is what [pymc-extras#722](https://github.com/pymc-devs/pymc-extras/pull/722)
-applies to its own iterates for the same reason.
+variational parameters over the final whole pass. Averaging over a whole number
+of periods removes the phase dependence exactly, which is why the step budget
+above is a whole number of epochs; a window that is not a whole number of
+periods leaves a residual of the order of one swing divided by the window
+length. This is Polyak–Ruppert averaging, and the same tail average is what
+[pymc-extras#722](https://github.com/pymc-devs/pymc-extras/pull/722) applies to
+its own iterates for the same reason. What the average does *not* remove is the
+slow drift the first line still shows: a tenth of a width per pass in the
+median, and much more along the directions the recovery table is about to
+single out.
 
 ```{code-cell} ipython3
 rho_t = np.asarray(tail.rho)
@@ -799,44 +802,153 @@ recovery["z"] = (recovery["mean"] - recovery["truth"]) / recovery["sd"]
 recovery.round(4)
 ```
 
+```{code-cell} ipython3
+# Is the table a property of the problem or of one optimizer trajectory? Two
+# independent-seed refits (same data, budget and tail average), plus the
+# notebook's own last iterate before averaging, for the record.
+raw_splits = ["kappa0", "alpha0", "beta_a"]
+identified = [name for name in recovery.index if name not in raw_splits]
+
+
+def summarize(post_):
+    out = {name: float(post_[name].mean()) for name in scalar_params}
+    for icpt, b in [("kappa0", "b_k"), ("alpha0", "b_al"), ("beta_a", "b_ba")]:
+        out[f"{icpt} + mean({b})"] = float((post_[icpt] + post_[b].mean("symbol")).mean())
+    return pd.Series(out)
+
+
+def refit(seed):
+    stream_s, tail_s = StreamAdvance(model, loader), ParamTrace()
+    stream_s.prime()
+    with model:
+        advi_s = pm.ADVI(random_seed=seed)
+    advi_s.fit(
+        6_000, obj_optimizer=pm.adam(learning_rate=0.02), callbacks=[stream_s], progressbar=False
+    )
+    approx_s = advi_s.fit(
+        2_400,
+        obj_optimizer=pm.adam(learning_rate=0.005),
+        callbacks=[stream_s, tail_s],
+        progressbar=False,
+    )
+    approx_s.params[0].set_value(np.asarray(tail_s.mu)[-steps_per_epoch:].mean(0))
+    approx_s.params[1].set_value(np.asarray(tail_s.rho)[-steps_per_epoch:].mean(0))
+    return summarize(approx_s.sample(2_000, random_seed=seed).posterior)
+
+
+approx.params[0].set_value(mu_t[-1])
+approx.params[1].set_value(rho_t[-1])
+last_iterate = summarize(approx.sample(2_000, random_seed=RANDOM_SEED).posterior)
+approx.params[0].set_value(mu_t[-steps_per_epoch:].mean(0))
+approx.params[1].set_value(rho_t[-steps_per_epoch:].mean(0))
+
+replicates = pd.DataFrame(
+    {
+        "last iterate": last_iterate,
+        "seed 0": recovery["mean"],
+        "seed 1": refit(RANDOM_SEED + 1),
+        "seed 2": refit(RANDOM_SEED + 2),
+    }
+).loc[identified]
+z_rep = replicates.sub(recovery.loc[identified, "truth"], axis=0).div(
+    recovery.loc[identified, "sd"], axis=0
+)
+seed_spread = replicates.iloc[:, 1:].std(axis=1) / recovery.loc[identified, "sd"]
+print(
+    "identified rows, max |z| against the truth — last iterate: "
+    f"{z_rep['last iterate'].abs().max():.2f}; tail-averaged, seeds 0/1/2: "
+    + " / ".join(f"{z_rep[c].abs().max():.2f}" for c in ["seed 0", "seed 1", "seed 2"])
+    + f"\nacross-seed sd of the mean, in reported sd: median {seed_spread.median():.2f}, max {seed_spread.max():.2f}"
+)
+```
+
 The table is a selection — the scalar globals and the three identified sums —
 and the figure after it checks one of the five symbol-effect families; that,
 plus the two curves for one symbol further down, is the extent of the recovery
 evidence here. Read the table bottom-up. The raw intercepts look off by 0.3 and 1.3 — but a
 global coefficient and the mean of its group effects are only *jointly*
-identified: the likelihood constrains their sum, and the prior only weakly
-splits it. The identified sums in the last three rows land within a couple of hundredths
-of the truth, the same range as the other likelihood-identified rows.
-The same translation ridge exists for every global-coefficient/group-effect
-pair in this model (including the vector pairs $c$/$b^{(\pi h)}$ and
-$g$/$b^{(\sigma h)}$, whose sums we spare you) — so raw split rows like
-`kappa0`, `alpha0`, and `beta_a` are prior-dependent decompositions, not
-estimates of their generating values; a sum-to-zero constraint on the symbol
-effects is the standard reparameterization when the split itself matters.
-The last column standardizes the error by the posterior width, and it has to be
-read against identification rather than straight across the table. On the three
-raw split rows it is not a recovery statistic at all: `alpha0` reads 379 because
-a prior-dependent decomposition can have an arbitrary location and still a
-narrow width, which says something about the split and nothing about the fit
-(`beta_a`, at $-4.9$, is the same story in miniature). Everything that *is*
-identified — the three sums and the six standalone rows — lands inside $1.2$
-posterior standard deviations of its generating value, and four of those nine
-are inside $0.5$. Without the tail average the same table showed misses of
-three to seven; that difference was the orbit, not the estimate.
+pinned by the likelihood, which is exactly flat along
+$(\alpha_0 + d,\ b^{(\alpha)} - d)$. What tilts that direction at all is the
+hierarchical prior: shifting every symbol effect by $d$ costs
+$\sum_s (b_s - d)^2 / 2\tau^2$, which is minimized when the effects average
+to zero — and the generator standardized them to average exactly zero, so the
+prior points the split at the generating value, with a curvature that makes
+its posterior width roughly $\tau/\sqrt{12}$, around a tenth. The same
+translation ridge exists for every global-coefficient/group-effect pair in
+this model (including the vector pairs $c$/$b^{(\pi h)}$ and
+$g$/$b^{(\sigma h)}$, whose sums we spare you).
 
-Two things this table does not license. It does not say the widths are
-trustworthy: they are the widths of a mean-field approximation, which has no
-correlations to spend, and z-scores this small on one dataset are consistent
-with widths that are somewhat too narrow, somewhat too wide, or right — sizing
-that needs many simulated datasets, and this notebook fits one. Nor does it
-transfer to the raw splits: no amount of data fixes a ridge, only a
-reparameterization does.
+Two things follow, and the table shows both. Along a direction that flat, a
+gradient optimizer crawls: 8,400 steps have carried `alpha0` to $-1.70$ on its
+way to $-3.00$. To see that it is still travelling, warm-start a fresh optimizer
+at the last iterate and give it sixty more passes at the same learning rate:
 
-The stance behind stopping there is a risk-management one, and it is worth
-stating plainly: material disagreement between independent-seed fits would be
-enough to withhold a claim about a width, while agreement only removes the
-instability warning — it does not validate calibration. Replication can veto a
-width; it can never certify one.
+```{code-cell} ipython3
+# Continue from the last iterate on a fresh optimizer, so `approx` and its loss
+# history above are left exactly as they were.
+with model:
+    advi_more = pm.ADVI(random_seed=RANDOM_SEED)
+advi_more.approx.params[0].set_value(mu_t[-1])
+advi_more.approx.params[1].set_value(rho_t[-1])
+stream_more = StreamAdvance(model, loader)
+stream_more.prime()
+where = {name: approx.ordering[name][1].start for name in ["kappa0", "alpha0"]}
+path = []
+
+
+class EpochMeans:
+    def __call__(self, approx_, losses, i):
+        if i % steps_per_epoch == 0:
+            mu_now = approx_.params[0].get_value()
+            path.append([mu_now[where["kappa0"]], mu_now[where["alpha0"]]])
+
+
+advi_more.fit(
+    60 * steps_per_epoch,
+    obj_optimizer=pm.adam(learning_rate=0.005),
+    callbacks=[stream_more, EpochMeans()],
+    progressbar=False,
+)
+path = np.asarray(path)
+more_loss = np.asarray(advi_more.hist) * ELBO_SCALE
+print(
+    "kappa0 after +0 / +30 / +60 passes: "
+    + " / ".join(f"{v:.3f}" for v in path[[0, 29, 59], 0])
+    + f" (generating {truth['kappa0']:.3f}); alpha0: "
+    + " / ".join(f"{v:.3f}" for v in path[[0, 29, 59], 1])
+    + f" (generating {truth['alpha0']:.3f}); loss per pass over those 60: "
+    f"{(more_loss[-steps_per_epoch:].mean() - more_loss[:steps_per_epoch].mean()) / 59:+.2f} nats"
+)
+```
+
+The ridge coordinates keep moving toward their generating values, at a rate the
+loss barely registers. The raw split rows are a fit still travelling along a
+nearly flat direction, not an ambiguity in the model. And their reported widths — a few thousandths —
+are the mean-field *conditional* width across the ridge, not the tenth the
+ridge posterior actually has along it: mean-field has no correlation to spend,
+so it reports the narrow direction as if it were the wide one, which is why
+`alpha0` reads $z = 379$. Both are reasons a sum-to-zero constraint on the
+symbol effects is the standard reparameterization when the split itself
+matters: it removes the direction instead of asking the optimizer to find its
+way along it.
+
+The identified rows are a different story. Everything that *is* pinned by the
+likelihood — the three sums and the six standalone rows — lands inside $1.2$
+posterior standard deviations of its generating value, and seven of those nine
+are inside $0.5$. The replicate cell puts that in context from two directions.
+Read from the last iterate instead of the tail average, the same rows ran to
+$3.3$; that difference was the orbit, not the estimate. And on two further
+seeds, everything else held fixed, the identified rows land inside the same
+$1.2$, with the across-seed spread of the means about a tenth of the reported
+width. That is the replication check the risk-management stance calls for, and
+it is worth stating what it does and does not buy: material disagreement
+between seeds would have been enough to withhold any claim about a width;
+agreement only removes the instability warning — it does not validate
+calibration. Replication can veto a width; it can never certify one. The widths
+here are those of a mean-field approximation, and z-scores this small on one
+dataset are consistent with widths that are somewhat too narrow, somewhat too
+wide, or right — sizing that needs many simulated datasets, and this notebook
+fits one.
 
 The more interesting check is hierarchical: what happened to the per-symbol
 effects of the two symbols with 1,800 and 900 rows?
