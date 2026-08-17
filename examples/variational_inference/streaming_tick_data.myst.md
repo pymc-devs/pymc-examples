@@ -11,7 +11,7 @@ kernelspec:
   name: python3
 myst:
   substitutions:
-    extra_dependencies: pyarrow graphviz
+    extra_dependencies: pyarrow
 ---
 
 (streaming_tick_data)=
@@ -44,10 +44,12 @@ rows that are generated inside the notebook. It tries to teach three things:
    an on-disk global shuffle, streaming ADVI with `total_size` rescaling, and
    what a stopping rule has to be able to see before it can fire.
 3. **Honest reporting.** With the truth known we can watch the posterior means
-   land on it while the mean-field standard deviations stay far too narrow to
-   cover it. Which widths could be trusted in general is a calibration
-   question that needs many simulated datasets; this notebook fits one, so it
-   withholds width claims rather than certifying them.
+   land close to it while the mean-field standard deviations stay far too
+   narrow to cover the distance that remains — standardized gaps of 5 to 7 on
+   rows that are cleanly identified. Which widths could be trusted in general
+   is a calibration question that needs many simulated datasets; this notebook
+   fits one, so it reports that gap and withholds width claims rather than
+   certifying them.
 
 The notebook runs in about a minute. Everything below executes on synthetic
 data with known ground truth, which is what makes the recovery checks
@@ -94,6 +96,9 @@ it — not the synthetic data, which was written to contain those features in
 the first place.
 
 +++
+
+:::{include} ../extra_installs.md
+:::
 
 :::{note}
 The {class}`~pymc_extras.variational.dataloader.DataLoader` merged into
@@ -712,6 +717,7 @@ recovery["truth"] = [truth[p] for p in scalar_params] + [
     truth["beta_a"],
 ]
 recovery["abs_error"] = (recovery["mean"] - recovery["truth"]).abs()
+recovery["z"] = (recovery["mean"] - recovery["truth"]) / recovery["sd"]
 recovery.round(4)
 ```
 
@@ -726,15 +732,26 @@ $g$/$b^{(\sigma h)}$, whose sums we spare you) — so raw split rows like
 `kappa0`, `alpha0`, and `beta_a` are prior-dependent decompositions, not
 estimates of their generating values; a sum-to-zero constraint on the symbol
 effects is the standard reparameterization when the split itself matters.
-Notice also what we did *not* print: z-scores against the truth. Some would
-exceed 2, because the mean-field standard deviations in the third column are
-razor-thin — a z-score against a point truth mixes the sampling noise of this
-particular synthetic dataset with variational overconfidence along exactly
-such ridges. The stance behind that omission is a risk-management one, and it
-is worth stating plainly: material disagreement between independent-seed fits
-is enough to withhold a claim about a width, while agreement only removes the
-instability warning — it does not validate calibration. Replication can veto a
-width; it can never certify one.
+The last column standardizes the error by the posterior width, and it has to be
+read against identification rather than straight across the table. On the three
+raw split rows it is not a recovery statistic at all: `alpha0` reads 404 because
+a prior-dependent decomposition can have an arbitrary location and still a
+narrow width, which says something about the split and nothing about the fit.
+On the identified sums every $|z|$ is below 2. Between those two extremes sit
+the rows that are identified on their own and still miss by more than their own
+width claims they can: $\theta_d$ at $-7.1$ and $\lambda_q$ at $+4.9$.
+
+That gap is the result of this section, and it is worth being exact about what
+it licenses. A z-score against a point truth confounds three things — the
+sampling noise of this one synthetic dataset, bias in the variational mean, and
+overconfidence in the variational width — and a single fit cannot separate
+them. What it does establish is a direction: these widths are too narrow to be
+read as uncertainty statements at face value. The stance behind reporting the
+gap and stopping there is a risk-management one, and it is worth stating
+plainly: material disagreement between independent-seed fits is enough to
+withhold a claim about a width, while agreement only removes the instability
+warning — it does not validate calibration. Replication can veto a width; it can
+never certify one.
 
 The more interesting check is hierarchical: what happened to the per-symbol
 effects of the two symbols with 1,800 and 900 rows?
