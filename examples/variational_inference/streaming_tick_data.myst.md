@@ -18,7 +18,7 @@ myst:
 
 # Streaming variational inference on high-frequency tick data
 
-:::{post} August 2026
+:::{post} August 17, 2026
 :tags: variational inference, minibatch, out-of-core, hierarchical model, time series
 :category: advanced, tutorial
 :author: Yicheng Yang
@@ -35,7 +35,8 @@ workstation; at that point in-memory minibatching stops being an option. PyMC's
 disk-backed reader, so it cannot help once the array no longer fits. This
 notebook fits a hierarchical hurdle–Student-t model of *next-event price
 moves* by streaming minibatches from disk with pymc-extras'
-{class}`~pymc_extras.variational.dataloader.DataLoader`, on 300,000 synthetic
+[`DataLoader`](https://github.com/pymc-devs/pymc-extras/blob/8db1880d410e509be02abf9b085f08c3d4514fd1/pymc_extras/variational/dataloader.py),
+on 300,000 synthetic
 rows that are generated inside the notebook. It tries to teach three things:
 
 1. **When minibatch VI is even valid.** Two acceptance gates that most
@@ -47,12 +48,13 @@ rows that are generated inside the notebook. It tries to teach three things:
    after a correction the fit forces on us: the cyclic replay puts the optimizer
    on an orbit, and the last iterate misses the truth by several of its own
    posterior standard deviations purely because of where in that orbit the step
-   budget ended. Averaged over one full pass, every identified quantity lands
-   inside 1.2 — on three optimizer seeds. The widths themselves are a separate
-   question this notebook cannot settle on one dataset, and it says so rather
-   than certifying them.
+   budget ended. Averaged over one full pass, every identified row the
+   recovery table reports lands inside 1.2 — across three fits, one of them on
+   a different replay order. The widths themselves are a separate question this
+   notebook cannot settle on one dataset, and it says so rather than certifying
+   them.
 
-The notebook runs in well under a minute on a laptop. Everything below executes on synthetic
+The notebook times itself; the watermark at the end reports the wall time and the machine. Everything below executes on synthetic
 data with known ground truth, which is what makes the recovery checks
 possible: nothing here is a claim about any real market.
 
@@ -109,7 +111,7 @@ the first place.
 :::
 
 :::{note}
-The {class}`~pymc_extras.variational.dataloader.DataLoader` merged into
+The `DataLoader` merged into
 pymc-extras after the v0.14.0 release, so it is not in a published version yet
 and `pip install pymc-extras` will not provide it. The outputs stored in this
 notebook were produced against the merge commit itself, which is also the
@@ -129,6 +131,7 @@ import gc
 import logging
 import os
 import tempfile
+import time
 import warnings
 
 import arviz as az
@@ -142,6 +145,8 @@ import pytensor.tensor as pt
 
 from pymc_extras.variational.dataloader import DataLoader, parquet_source
 from scipy import stats
+
+NOTEBOOK_T0 = time.perf_counter()
 ```
 
 ```{code-cell} ipython3
@@ -433,9 +438,12 @@ Be clear about what this cell is and is not. It is the pedagogical miniature:
 it builds the whole table, the whole key array and the whole permutation in
 memory, which is exactly what one cannot do once the data stops fitting. What
 follows it — the inference — is genuinely disk-backed, but the preprocessing
-above is not. The out-of-core version of the same permutation is two passes:
-hash-scatter rows into shards with bounded row-group appends, then sort each
-shard independently, so no step holds more than one shard.
+above is not. An out-of-core design with the same properties is two passes:
+assign each row to a shard from its hash key, appending row groups of bounded
+size, then sort each shard by key independently, so no step holds more than
+one shard. That yields a different permutation from the rank-based split used
+here — shard sizes come out approximately rather than exactly equal — with the
+same guarantee that no shard's order depends on anything in the rows.
 
 So that the fit really does run against disk rather than against arrays still
 resident from the generator, the row-scale objects are released first:
@@ -620,10 +628,10 @@ likelihood's `logp` and are not separate nodes; the equations above are where
 that structure is visible.
 
 The loop below is the whole streaming adapter: a `pm.fit` callback that pushes
-the next block into the placeholder after each step. pymc-extras#710 proposes
-an interim wrapper around this same data-advance lifecycle while
-pymc-extras#635 develops the longer-term ADVI API, so the twenty lines here are
-deliberately the minimal version a notebook can own.
+the next block into the placeholder after each step. pymc-extras#710 contains
+a wrapper around this same data-advance lifecycle and pymc-extras#635 a
+longer-term ADVI training API; the twenty lines here are deliberately the
+minimal version a notebook can own.
 
 ```{code-cell} ipython3
 class StreamAdvance:
@@ -677,9 +685,10 @@ The two-stage learning rate is deliberate. A constant step size that is
 comfortable early is too large near the optimum, where it keeps the
 variational mean bouncing instead of settling; dropping it once the descent
 has flattened is the cheapest fix. Do not look for the effect in the width of
-the loss band below — that band is batch-composition noise and the learning
-rate does not touch it; the effect is in the level, and in the parameter
-trace examined after the fit.
+the loss band below: the band is dominated by batch-composition noise (the
+stopping section shows it all but vanishing at epoch-aligned horizons), the
+printed spread is the same on both sides of the change, and the effect is in
+the level and in the parameter trace examined after the fit.
 
 Before plotting it, one property of `approx.hist` that is easy to get wrong and
 that changes what the numbers mean. PyMC normalizes the minibatch objective
@@ -709,17 +718,23 @@ ax.set_ylim(np.quantile(loss, 0.002), np.quantile(loss, 0.995))
 ax.set_xlabel("step")
 ax.set_ylabel("negative ELBO (full-data scale)")
 ax.set_title("Streaming ADVI loss (full-data scale, y clipped to the plateau)")
-ax.legend();
+ax.legend()
+print(
+    "sd of the recorded loss over the last two passes at each learning rate: "
+    f"{loss[6_000 - 600 : 6_000].std():,.0f} (lr 0.02) vs {loss[-600:].std():,.0f} (lr 0.005)"
+);
 ```
 
 ## The last iterate is not the answer
 
 Before reading a single parameter off this fit, one property of the replay has
 to be dealt with. The batch at step $t$ is a deterministic function of $t$ with
-period one epoch, so the gradient sequence is periodic and the optimizer's
-iterate inherits a periodic component. Two measurements separate that component
-from genuine progress: compare the same phase in consecutive epochs, and look at
-the spread within a single epoch.
+period one epoch, so the data term of every stochastic gradient repeats with
+that period — the parameters and the Monte-Carlo draw do not, so the realized
+gradients are not literally periodic, but the iterate inherits a component
+locked to the replay order. Two measurements separate that component from
+genuine progress: compare the same phase in consecutive epochs, and look at the
+spread within a single epoch.
 
 ```{code-cell} ipython3
 mu_t = np.asarray(tail.mu)
@@ -747,15 +762,16 @@ step the budget ran out.
 
 That is not a subtlety to note and move past. It means the number you would
 report depends on where you stop, so the fit is summarized by averaging the
-variational parameters over the final whole pass. Averaging over a whole number
-of periods removes the phase dependence exactly, which is why the step budget
-above is a whole number of epochs; a window that is not a whole number of
-periods leaves a residual of the order of one swing divided by the window
-length. This is Polyak–Ruppert averaging, and the same tail average is what
-[pymc-extras#722](https://github.com/pymc-devs/pymc-extras/pull/722) applies to
-its own iterates for the same reason. What the average does *not* remove is the
-slow drift the first line still shows: a tenth of a width per pass in the
-median, and much more along the directions the recovery table is about to
+variational parameters over the final whole pass. To the extent the order-locked
+component repeats from one pass to the next, a window of exactly one pass
+averages it out — which is why the step budget above is a whole number of
+epochs — and a window that is not a whole number of passes leaves a residual of
+the order of one swing divided by the window length. This is Polyak–Ruppert
+averaging; [pymc-extras#722](https://github.com/pymc-devs/pymc-extras/pull/722)
+applies the same device to its own iterates for a neighbouring reason,
+minibatch noise in where the iterate sits. What the average does *not* remove
+is the slow drift the first line still shows: a tenth of a width per pass in
+the median, and much more along the directions the recovery table is about to
 single out.
 
 ```{code-cell} ipython3
@@ -803,22 +819,44 @@ recovery.round(4)
 ```
 
 ```{code-cell} ipython3
-# Is the table a property of the problem or of one optimizer trajectory? Two
-# independent-seed refits (same data, budget and tail average), plus the
-# notebook's own last iterate before averaging, for the record.
+# Is the table a property of the problem or of one optimizer trajectory? Three
+# more readings of the same data and budget: the notebook's own last iterate
+# before averaging; a refit with a different optimizer seed on the same replay
+# order; and a refit on a different on-disk order — the replay order is the one
+# ingredient the orbit story is about, so it is the one worth varying.
 raw_splits = ["kappa0", "alpha0", "beta_a"]
 identified = [name for name in recovery.index if name not in raw_splits]
 
 
 def summarize(post_):
-    out = {name: float(post_[name].mean()) for name in scalar_params}
+    """Posterior mean and sd of every row the recovery table reports."""
+    out = {name: (float(post_[name].mean()), float(post_[name].std())) for name in scalar_params}
     for icpt, b in [("kappa0", "b_k"), ("alpha0", "b_al"), ("beta_a", "b_ba")]:
-        out[f"{icpt} + mean({b})"] = float((post_[icpt] + post_[b].mean("symbol")).mean())
-    return pd.Series(out)
+        total = post_[icpt] + post_[b].mean("symbol")
+        out[f"{icpt} + mean({b})"] = (float(total.mean()), float(total.std()))
+    return pd.DataFrame(out, index=["mean", "sd"]).T
 
 
-def refit(seed):
-    stream_s, tail_s = StreamAdvance(model, loader), ParamTrace()
+def reshuffle(src_dir, salt):
+    """A second on-disk order: re-key the already-shuffled rows with a different salt."""
+    dst_dir = tempfile.mkdtemp(prefix="ticks_reorder_")
+    full = pa.concat_tables(
+        [pq.read_table(os.path.join(src_dir, f)) for f in sorted(os.listdir(src_dir))]
+    )
+    order2 = np.argsort(
+        splitmix64(np.arange(full.num_rows, dtype=np.uint64) + np.uint64(salt)), kind="stable"
+    )
+    for i in range(n_shards):
+        pq.write_table(
+            full.take(order2[i::n_shards]),
+            os.path.join(dst_dir, f"shard_{i:03d}.parquet"),
+            row_group_size=BATCH,
+        )
+    return dst_dir
+
+
+def refit(seed, data_loader):
+    stream_s, tail_s = StreamAdvance(model, data_loader), ParamTrace()
     stream_s.prime()
     with model:
         advi_s = pm.ADVI(random_seed=seed)
@@ -842,23 +880,29 @@ last_iterate = summarize(approx.sample(2_000, random_seed=RANDOM_SEED).posterior
 approx.params[0].set_value(mu_t[-steps_per_epoch:].mean(0))
 approx.params[1].set_value(rho_t[-steps_per_epoch:].mean(0))
 
-replicates = pd.DataFrame(
-    {
-        "last iterate": last_iterate,
-        "seed 0": recovery["mean"],
-        "seed 1": refit(RANDOM_SEED + 1),
-        "seed 2": refit(RANDOM_SEED + 2),
-    }
-).loc[identified]
-z_rep = replicates.sub(recovery.loc[identified, "truth"], axis=0).div(
-    recovery.loc[identified, "sd"], axis=0
+other_dir = reshuffle(data_dir, salt=1)
+other_loader = DataLoader(
+    parquet_source(other_dir, columns=columns), batch_size=BATCH, shuffle=False, total_size="auto"
 )
-seed_spread = replicates.iloc[:, 1:].std(axis=1) / recovery.loc[identified, "sd"]
+readings = {
+    "last iterate": last_iterate,
+    "seed 0": recovery[["mean", "sd"]],
+    "seed 1, same order": refit(RANDOM_SEED + 1, loader),
+    "seed 2, other order": refit(RANDOM_SEED + 2, other_loader),
+}
+tru = recovery.loc[identified, "truth"]
+z_own = {
+    k: ((v.loc[identified, "mean"] - tru) / v.loc[identified, "sd"]).abs().max()
+    for k, v in readings.items()
+}
+means = pd.DataFrame(
+    {k: v.loc[identified, "mean"] for k, v in readings.items() if k != "last iterate"}
+)
+spread = means.std(axis=1) / recovery.loc[identified, "sd"]
 print(
-    "identified rows, max |z| against the truth — last iterate: "
-    f"{z_rep['last iterate'].abs().max():.2f}; tail-averaged, seeds 0/1/2: "
-    + " / ".join(f"{z_rep[c].abs().max():.2f}" for c in ["seed 0", "seed 1", "seed 2"])
-    + f"\nacross-seed sd of the mean, in reported sd: median {seed_spread.median():.2f}, max {seed_spread.max():.2f}"
+    "identified rows, max |z| against the truth, each fit in its own posterior sd:\n  "
+    + "; ".join(f"{k} {v:.2f}" for k, v in z_own.items())
+    + f"\nspread of the mean across the three tail-averaged fits, in seed-0 sd: median {spread.median():.2f}, max {spread.max():.2f}"
 )
 ```
 
@@ -872,8 +916,10 @@ $(\alpha_0 + d,\ b^{(\alpha)} - d)$. What tilts that direction at all is the
 hierarchical prior: shifting every symbol effect by $d$ costs
 $\sum_s (b_s - d)^2 / 2\tau^2$, which is minimized when the effects average
 to zero — and the generator standardized them to average exactly zero, so the
-prior points the split at the generating value, with a curvature that makes
-its posterior width roughly $\tau/\sqrt{12}$, around a tenth. The same
+prior points the split at the generating value. Conditional on everything
+else, that cost is a Gaussian in $d$ with standard deviation $\tau/\sqrt{12}$
+— a tenth for $\tau$ near the generator's $0.35$ — which is the scale of
+uncertainty the split actually carries. The same
 translation ridge exists for every global-coefficient/group-effect pair in
 this model (including the vector pairs $c$/$b^{(\pi h)}$ and
 $g$/$b^{(\sigma h)}$, whose sums we spare you).
@@ -893,7 +939,7 @@ advi_more.approx.params[1].set_value(rho_t[-1])
 stream_more = StreamAdvance(model, loader)
 stream_more.prime()
 where = {name: approx.ordering[name][1].start for name in ["kappa0", "alpha0"]}
-path = []
+path = [[mu_t[-1][where["kappa0"]], mu_t[-1][where["alpha0"]]]]  # +0 passes
 
 
 class EpochMeans:
@@ -913,9 +959,9 @@ path = np.asarray(path)
 more_loss = np.asarray(advi_more.hist) * ELBO_SCALE
 print(
     "kappa0 after +0 / +30 / +60 passes: "
-    + " / ".join(f"{v:.3f}" for v in path[[0, 29, 59], 0])
+    + " / ".join(f"{v:.3f}" for v in path[[0, 30, 60], 0])
     + f" (generating {truth['kappa0']:.3f}); alpha0: "
-    + " / ".join(f"{v:.3f}" for v in path[[0, 29, 59], 1])
+    + " / ".join(f"{v:.3f}" for v in path[[0, 30, 60], 1])
     + f" (generating {truth['alpha0']:.3f}); loss per pass over those 60: "
     f"{(more_loss[-steps_per_epoch:].mean() - more_loss[:steps_per_epoch].mean()) / 59:+.2f} nats"
 )
@@ -924,27 +970,28 @@ print(
 The ridge coordinates keep moving toward their generating values, at a rate the
 loss barely registers. The raw split rows are a fit still travelling along a
 nearly flat direction, not an ambiguity in the model. And their reported widths — a few thousandths —
-are the mean-field *conditional* width across the ridge, not the tenth the
-ridge posterior actually has along it: mean-field has no correlation to spend,
+are the mean-field *conditional* width across the ridge, not the tenth just
+computed along it: mean-field has no correlation to spend,
 so it reports the narrow direction as if it were the wide one, which is why
 `alpha0` reads $z = 379$. Both are reasons a sum-to-zero constraint on the
 symbol effects is the standard reparameterization when the split itself
 matters: it removes the direction instead of asking the optimizer to find its
 way along it.
 
-The identified rows are a different story. Everything that *is* pinned by the
-likelihood — the three sums and the six standalone rows — lands inside $1.2$
-posterior standard deviations of its generating value, and seven of those nine
-are inside $0.5$. The replicate cell puts that in context from two directions.
+The identified rows are a different story. Every row the table reports that
+*is* pinned by the likelihood — the three sums and the six standalone
+coefficients — lands inside $1.2$ posterior standard deviations of its
+generating value, and seven of those nine are inside $0.5$. The replicate cell puts that in context from two directions.
 Read from the last iterate instead of the tail average, the same rows ran to
-$3.3$; that difference was the orbit, not the estimate. And on two further
-seeds, everything else held fixed, the identified rows land inside the same
-$1.2$, with the across-seed spread of the means about a tenth of the reported
-width. That is the replication check the risk-management stance calls for, and
-it is worth stating what it does and does not buy: material disagreement
-between seeds would have been enough to withhold any claim about a width;
-agreement only removes the instability warning — it does not validate
-calibration. Replication can veto a width; it can never certify one. The widths
+$3.4$; that difference was the orbit, not the estimate. And on two refits —
+one with a different optimizer seed on the same replay order, one on a
+different on-disk order altogether — the identified rows land in the same
+range, each fit judged in its own posterior width, with the spread of the means
+across the three tail-averaged fits about a tenth of the reported width. That
+is the replication check the risk-management stance calls for, and it is worth
+stating what it does and does not buy: material disagreement between fits
+would have been enough to withhold any claim about a width; agreement only
+removes the instability warning — it does not validate calibration. Replication can veto a width; it can never certify one. The widths
 here are those of a mean-field approximation, and z-scores this small on one
 dataset are consistent with widths that are somewhat too narrow, somewhat too
 wide, or right — sizing that needs many simulated datasets, and this notebook
@@ -1235,13 +1282,14 @@ At the two epoch-aligned horizons the spread collapses far below what
 independent noise would predict — and the control row explains why. The
 shuffle is done once on disk and replayed in the same order every epoch, so a
 window of exactly one or two passes averages over the *same rows* every time
-and the batch-composition noise, which dominates the per-step view, cancels.
+and the batch-composition noise, which dominates the per-step view, all but
+drops out.
 Widen the window to one and a half passes and it does not: the printed ratio
 puts the control an order of magnitude above the wider of its two neighbours,
 even though it is itself *wider* than the one-epoch window. Nothing but the
 alignment changed.
 
-What survives the cancellation is Monte-Carlo noise and the parameter drift
+What survives is Monte-Carlo noise and the parameter drift
 itself, and against that much smaller yardstick the drift becomes visible —
 the ratio in the last column rises with the horizon. Two lessons sit on top of
 each other here. The horizon is not a smoothing preference, it decides whether
@@ -1252,7 +1300,8 @@ the data was shuffled, not of the optimizer.
 :::{admonition} Why a naive rule does not merely stay silent — it fires
 :class: warning
 It is tempting to accumulate per-step evidence with a one-sided cumulative-sum
-statistic {cite:p}`page1954continuous`, $S \leftarrow \max(0,\ S + (\kappa -
+statistic of the kind {cite:t}`page1954continuous` introduced, here adapted to
+the standardized improvement: $S \leftarrow \max(0,\ S + (\kappa -
 \max(z, 0)))$, stopping when $S$ exceeds a threshold. Read carefully, that
 recursion behaves sensibly while there is signal: if the standardised
 improvement stays above $\kappa$, the increment is negative and $S$ sits at
@@ -1264,7 +1313,7 @@ rule therefore cannot tell "converged" from "still improving, but too slowly
 for this horizon to see" — it announces the same thing at the same pace in
 both cases. Which is why the fix is not a better threshold but a wider horizon,
 plus a second yardstick asking whether the remaining improvement is negligible
-relative to the reduction already achieved. That design is under review as
+relative to the reduction already achieved. That design is implemented in
 [pymc-extras#733](https://github.com/pymc-devs/pymc-extras/pull/733); this
 notebook shows the observation problem it exists to solve rather than shipping
 a second copy of it.
@@ -1300,9 +1349,9 @@ improvement small enough is indistinguishable from none.
 
 ## Where the pieces live
 
-The streaming stack this notebook exercises is being contributed to
-pymc-extras. The map is by role; each pull request's current state is on
-GitHub rather than frozen into this page.
+The streaming stack this notebook exercises was contributed to pymc-extras
+as four pull requests. The map is by role; each one's state — merged, open,
+or closed — is on GitHub, and nothing on this page depends on it.
 
 | Component | Role | Form in this notebook |
 | --- | --- | --- |
@@ -1362,7 +1411,9 @@ of this choice.
 
 ```{code-cell} ipython3
 %load_ext watermark
+print(f"wall time for every cell above, on this machine: {time.perf_counter() - NOTEBOOK_T0:.0f} s")
 %watermark -n -u -v -iv -w -p pytensor,pymc_extras
+%watermark -m
 ```
 
 :::{include} ../page_footer.md
