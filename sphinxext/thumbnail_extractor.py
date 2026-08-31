@@ -28,6 +28,14 @@ HEAD = """
 PyMC Example Gallery
 ====================
 
+.. meta::
+   :description: Hundreds of runnable PyMC example notebooks: regression,
+       hierarchical models, Gaussian processes, time series, causal
+       inference, and more Bayesian modeling recipes.
+
+A collection of runnable Jupyter notebooks showing how to solve real modeling
+problems with PyMC, from simple regression to advanced Bayesian workflows.
+
 .. toctree::
    :hidden:
 
