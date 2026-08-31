@@ -71,9 +71,11 @@ def setup(app: Sphinx):
 
 # theme options
 html_theme = "pymc_sphinx_theme"
-html_baseurl = "https://www.pymc.io/projects/examples/"
+# Also used to build each page's canonical URL, so it points at the default
+# (latest) version: <html_baseurl> + <page name>.html
+html_baseurl = "https://www.pymc.io/projects/examples/en/latest/"
 rtd_version = os.environ.get("READTHEDOCS_VERSION", "")
-sitemap_url_scheme = f"{{lang}}{rtd_version}/{{link}}"
+sitemap_url_scheme = "{link}"
 html_theme_options = {
     "secondary_sidebar_items": ["postcard", "page-toc", "edit-this-page", "sourcelink", "donate"],
     "navbar_start": ["navbar-logo"],
@@ -127,7 +129,7 @@ html_sidebars = {
 }
 
 # ablog config
-blog_baseurl = "https://docs.pymc.io/projects/examples/en/latest/"
+blog_baseurl = "https://www.pymc.io/projects/examples/en/latest/"
 blog_title = "PyMC Examples"
 blog_path = "blog"
 blog_authors = {
