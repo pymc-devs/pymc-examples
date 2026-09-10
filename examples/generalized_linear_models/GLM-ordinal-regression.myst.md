@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_examples_new
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -28,7 +28,6 @@ import pymc as pm
 import pytensor.tensor as pt
 import statsmodels.api as sm
 
-from scipy.stats import bernoulli
 from statsmodels.miscmodels.ordinal_model import OrderedModel
 ```
 
@@ -52,14 +51,11 @@ Ordinal Regression is a statistical technique designed to **model** these kinds 
 
 ```{code-cell} ipython3
 def make_data():
-    np.random.seed(100)
-    salary = np.random.normal(40, 10, 500)
-    work_sat = np.random.beta(1, 0.4, 500)
-    work_from_home = bernoulli.rvs(0.7, size=500)
+    salary = rng.normal(40, 10, 500)
+    work_sat = rng.beta(1, 0.4, 500)
+    work_from_home = rng.binomial(n=1, p=0.7, size=500)
     work_from_home_calc = np.where(work_from_home, 1.4 * work_from_home, work_from_home)
-    latent_rating = (
-        0.08423 * salary + 0.2 * work_sat + work_from_home_calc + np.random.normal(0, 1, 500)
-    )
+    latent_rating = 0.08423 * salary + 0.2 * work_sat + work_from_home_calc + rng.normal(0, 1, 500)
     explicit_rating = np.round(latent_rating, 0)
     df = pd.DataFrame(
         {
@@ -154,19 +150,19 @@ In the data set above we've explicitly specified the relationship, and in the fo
 
 The model specification for ordinal regression models typically makes use of the the logit transformation and the cumulative probabilities implied. For $c$ outcome categories with probabilities $\pi_1, .... \pi_n$ the *cumulative logits* are defined:
 
-$$ logit[P(Y \leq j)]  = log \frac{P(Y \leq j)}{1 - p(Y \leq j)}  = log \frac{\pi_1 + ... + \pi_j}{\pi_{j+1} + ... + \pi_n} \text{ where  j = 1, ..., c-1} $$
+$$ \text{logit}[P(Y \leq j)]  = \log \frac{P(Y \leq j)}{1 - p(Y \leq j)}  = \log \frac{\pi_1 + ... + \pi_j}{\pi_{j+1} + ... + \pi_n} \text{ where  j = 1, ..., c-1} $$
 
 This gets employed in a regression context where we specify the factors which determine our latent outcome in a linear fashion:
 
-$$ logit[P(Y \leq j)] = \alpha_{j} + \beta'x $$
+$$ \text{logit}[P(Y \leq j)] = \alpha_{j} + \beta'x $$
 
 which implies that:
 
-$$ P(Y \leq j) = \frac{exp(\alpha_{j} + \beta'x)}{1 + exp(\alpha_{j} + \beta'x)} $$
+$$ P(Y \leq j) = \frac{\exp(\alpha_{j} + \beta'x)}{1 + \exp(\alpha_{j} + \beta'x)} $$
 
 and that the probability for belonging within a particular category $j$ is determined by the probability of being in the cell defined by: 
 
-$$ P(Y = j) = \frac{exp(\alpha_{j} + \beta'x)}{1 + exp(\alpha_{j} + \beta'x)} - \frac{exp(\alpha_{j-1} + \beta'x)}{1 + exp(\alpha_{j-1} + \beta'x)} $$
+$$ P(Y = j) = \frac{\exp(\alpha_{j} + \beta'x)}{1 + \exp(\alpha_{j} + \beta'x)} - \frac{\exp(\alpha_{j-1} + \beta'x)}{1 + \exp(\alpha_{j-1} + \beta'x)} $$
 
 One nice feature of ordinal regressions specified in this fashion is that the interpretation of the coefficients on the beta terms remain the same across each interval on the latent space. The interpretations of the model parameters is typical: a unit increase in $x_{k}$ corresponds to an increase in $Y_{latent}$ of $\beta_{k}$ Similar interpretation holds for probit regression specification too. However we must be careful about comparing the interpretation of coefficients across different model specifications with different variables. The above coefficient interpretation makes sense as conditional interpretation based on holding fixed precisely the variables in the model. Adding or removing variables changes the conditionalisation which breaks the comparability of the models due the phenomena of non-collapsability. We'll show below how it's better to compare the models on their predictive implications using the posterior predictive distribution. 
 
@@ -207,7 +203,7 @@ def make_model(priors, model_spec=1, constrained_uniform=False, logit=True):
                 "cutpoints",
                 mu=priors["mu"],
                 sigma=sigma,
-                transform=pm.distributions.transforms.univariate_ordered,
+                transform=pm.distributions.transforms.ordered,
             )
 
         if model_spec == 1:
@@ -421,7 +417,7 @@ calc_not_wfh = [
     + 0 * betas_posterior[2, :]
     for i in range(500)
 ]
-sal = np.random.normal(25, 5, 500)
+sal = rng.normal(25, 5, 500)
 calc_wfh_and_low_sal = [
     sal[i] * betas_posterior[0, :]
     + df.iloc[i]["work_sat"] * betas_posterior[1, :]
@@ -505,8 +501,6 @@ def constrainedUniform(N, group, min=0, max=1):
 We will fit this data with both an ordinal model and as a metric. This will show how the ordinal fit is subtantially more compelling. 
 
 ```{code-cell} ipython3
-:tags: [hide-output]
-
 K = 5
 movies_by_rating = movies_by_rating[movies_by_rating["movie_id"].isin([1, 2, 3, 4, 5, 6])]
 indx, unique = pd.factorize(movies_by_rating["movie_id"])
@@ -641,7 +635,9 @@ In this notebook we've seen how to build ordinal regression models with PyMC and
 +++
 
 ## Authors
+
 - Authored by [Nathaniel Forde](https://github.com/NathanielF) in June 2023 
+- Updated by [Miha Gazvoda](https://mihagazvoda.com) in September 2023 
 
 +++
 
