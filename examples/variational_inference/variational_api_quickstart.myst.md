@@ -425,11 +425,16 @@ A relatively simple model will be sufficient here because the classes are roughl
 Xt = pytensor.shared(X_train)
 yt = pytensor.shared(y_train)
 
+n_features = Xt.shape.eval()[1]
+n_classes = len(np.unique(yt.get_value()))
+
 with pm.Model() as iris_model:
     # Coefficients for features
-    β = pm.Normal("β", 0, sigma=1e2, shape=(4, 3))
-    # Transoform to unit interval
-    a = pm.Normal("a", sigma=1e4, shape=(3,))
+    # Weights
+    β = pm.Normal("β", 0, sigma=1e2, shape=(n_features, n_classes))
+    # Intercepts
+    a = pm.Normal("a", sigma=1e4, shape=(n_classes,))
+    # Convert class scores into probabilities
     p = pt.special.softmax(Xt.dot(β) + a, axis=-1)
 
     observed = pm.Categorical("obs", p=p, observed=yt)
