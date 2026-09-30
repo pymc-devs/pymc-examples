@@ -544,7 +544,7 @@ default; when unsure, `"neumann"` degrades most gracefully.
 
 ## Authors
 
-- Authored by [Juan Orduz](https://juanitorduz.github.io/) in September 2026.
+- Authored by [Juan Orduz](https://juanitorduz.github.io/) in September 2026 ([pymc-examples#896](https://github.com/pymc-devs/pymc-examples/pull/896)).
 
 +++
 
