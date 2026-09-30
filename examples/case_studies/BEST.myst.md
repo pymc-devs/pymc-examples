@@ -186,7 +186,7 @@ az.summary(
 )
 ```
 
-## Autorship
+## Authorship
 
 +++
 
