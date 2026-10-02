@@ -56,8 +56,8 @@ On the next cell we compute the pdf of 3 distribution from the Asymmetric Laplac
 ```{code-cell} ipython3
 x = np.linspace(-6, 6, 2000)
 for q, m in zip([0.2, 0.5, 0.8], [0, 0, -1]):
-    κ = (q / (1 - q)) ** 0.5
-    plt.plot(x, stats.laplace_asymmetric(κ, m, 1).pdf(x), label=f"q={q:}, μ={m}, σ=1")
+    k = (q / (1 - q)) ** 0.5
+    plt.plot(x, stats.laplace_asymmetric(k, m, 1).pdf(x), label=f"q={q:}, μ={m}, σ=1")
 plt.yticks([])
 plt.legend();
 ```
@@ -142,6 +142,88 @@ plt.ylabel("BMI");
 ```
 
 We can see that when we use a Normal likelihood, and from that fit we compute the quantiles, the quantiles  q=0.1 and q=0.9 are symmetrical with respect to q=0.5, also the shape of the curves is essentially the same just shifted up or down. Additionally the Asymmetric Laplace family allows the model to account for the increased variability in BMI as the age increases, while for the Gaussian family that variability always stays the same.
+
++++
+
+## Quantile regression with data augmentation
+
+An alternative approach to quantile regression is the data-augmentation method proposed by [O'Hagan and Ročková (2025)](https://arxiv.org/abs/2507.04168).
+
+Instead of fitting a separate BART function for each quantile, the quantile level $\tau$ is included as an additional input to a single BART model. For each observed response $y_i$, we draw a quantile level $\tau_i \sim \mathcal{U}(0,1)$ and augment the predictor with this value, giving $(X_i,\tau_i)$. The model therefore learns a function of both the covariates and the desired quantile.
+
+We use an Asymmetric Laplace likelihood with $q=\tau_i$, so that the location parameter corresponds to the conditional $\tau_i$-quantile. This allows a single BART model to represent the conditional quantile function across the range of $\tau$.
+
+```{code-cell} ipython3
+RANDOM_SEED = 5781
+rng = np.random.default_rng(RANDOM_SEED)
+
+y = bmi.bmi.values
+X = bmi.age.values[:, None]
+
+K = 3
+X_rep = np.repeat(X, K, axis=0)
+y_aug = np.repeat(y, K)
+tau_aug = rng.uniform(0, 1, len(y_aug))
+
+X_aug = np.column_stack([X_rep[:, 0], tau_aug])
+```
+
+```{code-cell} ipython3
+with pm.Model() as iq_bart_model:
+    X_data = pm.Data("X_data", X_aug)
+
+    mu = pmb.BART("mu", X_data, y_aug)
+    sigma = pm.HalfNormal("sigma", 5)
+
+    pm.AsymmetricLaplace(
+        "obs",
+        mu=mu,
+        b=sigma,
+        q=X_data[:, 1],
+        observed=y_aug,
+        shape=mu.shape,
+    )
+
+    idata_iq = pm.sample(
+        chains=4,
+        random_seed=RANDOM_SEED,
+        compute_convergence_checks=False,
+    )
+```
+
+```{code-cell} ipython3
+ages = np.linspace(bmi.age.min(), bmi.age.max(), 200)
+prediction_quantiles = np.array([0.1, 0.5, 0.9])
+
+X_pred = np.vstack([np.column_stack([ages, np.full(len(ages), q)]) for q in prediction_quantiles])
+
+with iq_bart_model:
+    pm.set_data({"X_data": X_pred})
+    idata_pred = pm.sample_posterior_predictive(
+        idata_iq,
+        var_names=["mu"],
+        sample_vars=["mu"],
+        predictions=True,
+        random_seed=RANDOM_SEED,
+    )
+```
+
+```{code-cell} ipython3
+mu_mean = az.mean(idata_pred, var_names=["mu"], group="predictions")["mu"]
+
+n = len(ages)
+_, ax = plt.subplots(figsize=(10, 6))
+ax.plot(bmi.age, bmi.bmi, ".", color="0.5")
+
+for i, q in enumerate(prediction_quantiles):
+    ax.plot(ages, mu_mean.values[200 * i : 200 * (i + 1)], lw=3, label=f"τ = {q}")
+
+
+ax.set(xlabel="Age", ylabel="BMI", title="Quantile regression with data augmentation")
+ax.legend();
+```
+
+The three curves correspond to the 0.1, 0.5, and 0.9 conditional quantiles. Although the model is trained using one uniformly sampled $\tau_i$ for each observation, predictions can be evaluated at any desired quantile level.
 
 +++
 
