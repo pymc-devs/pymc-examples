@@ -17,7 +17,7 @@ kernelspec:
 :::{post} September 30, 2026
 :tags: gaussian process, hilbert space approximation, forecasting
 :category: intermediate
-:author: Juan Orduz
+:author: Alexandre Andorra, Bill Engels, Ben Mares, Juan Orduz
 :::
 
 The Hilbert space Gaussian process approximation (HSGP, {cite:t}`solin2020Hilbert`,
@@ -544,7 +544,7 @@ default; when unsure, `"neumann"` degrades most gracefully.
 
 ## Authors
 
-- Authored by [Juan Orduz](https://juanitorduz.github.io/) in September 2026 ([pymc-examples#896](https://github.com/pymc-devs/pymc-examples/pull/896)).
+- Authored by [Alexandre Andorra](https://github.com/AlexAndorra), [Bill Engels](https://github.com/bwengals), [Ben Mares](https://github.com/maresb) and [Juan Orduz](https://juanitorduz.github.io/) in September 2026 ([pymc-examples#896](https://github.com/pymc-devs/pymc-examples/pull/896)).
 
 +++
 
