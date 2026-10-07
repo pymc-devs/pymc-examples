@@ -37,7 +37,7 @@ from scipy.stats import norm, truncnorm
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
 rng = default_rng(12345)
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 ```
 
 ## Truncation and censoring
@@ -134,13 +134,13 @@ with cens_linear_model:
 By plotting the posterior distribution over the slope parameters we can see that the estimates for the slope are pretty far off, so we are indeed underestimating the regression slope.
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(1, 2, figsize=(10, 5), sharex=True)
+pc_trunc = az.plot_dist(trunc_linear_fit, var_names=["slope"])
+az.add_lines(pc_trunc, {"slope": slope})
+pc_trunc.add_title("Linear regression on truncated data")
 
-az.plot_posterior(trunc_linear_fit, var_names=["slope"], ref_val=slope, ax=ax[0])
-ax[0].set(title="Linear regression\n(truncated data)", xlabel="slope")
-
-az.plot_posterior(cens_linear_fit, var_names=["slope"], ref_val=slope, ax=ax[1])
-ax[1].set(title="Linear regression\n(censored data)", xlabel="slope");
+pc_cens = az.plot_dist(cens_linear_fit, var_names=["slope"])
+az.add_lines(pc_cens, {"slope": slope})
+pc_cens.add_title("Linear regression on censored data");
 ```
 
 To appreciate the extent of the problem (for this dataset) we can visualise the posterior predictive fits alongside the data.
@@ -280,13 +280,13 @@ with censored_model:
 We can do the same as before and visualise our posterior estimates on the slope.
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(1, 2, figsize=(10, 5), sharex=True)
+pc_trunc = az.plot_dist(truncated_fit, var_names=["slope"])
+az.add_lines(pc_trunc, {"slope": slope})
+pc_trunc.add_title("Truncated regression on truncated data")
 
-az.plot_posterior(truncated_fit, var_names=["slope"], ref_val=slope, ax=ax[0])
-ax[0].set(title="Truncated regression\n(truncated data)", xlabel="slope")
-
-az.plot_posterior(censored_fit, var_names=["slope"], ref_val=slope, ax=ax[1])
-ax[1].set(title="Censored regression\n(censored data)", xlabel="slope");
+pc_cens = az.plot_dist(censored_fit, var_names=["slope"])
+az.add_lines(pc_cens, {"slope": slope})
+pc_cens.add_title("Censored regression on censored data");
 ```
 
 These are _much_ better estimates. Interestingly, we can see that the estimate for censored regression is more precise than for truncated data. This will not necessarily always be the case, but the intuition here is that the `x` and `y` data is entirely discarded with truncation, but only the `y` data becomes partially unknown in censoring.
