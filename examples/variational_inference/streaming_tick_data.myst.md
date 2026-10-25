@@ -11,7 +11,8 @@ kernelspec:
   name: python3
 myst:
   substitutions:
-    extra_dependencies: pyarrow
+    conda_dependencies: pyarrow python-graphviz
+    extra_dependencies: pyarrow graphviz
 ---
 
 (streaming_tick_data)=
@@ -35,7 +36,7 @@ workstation; at that point in-memory minibatching stops being an option. PyMC's
 disk-backed reader, so it cannot help once the array no longer fits. This
 notebook fits a hierarchical hurdle–Student-t model of *next-event price
 moves* by streaming minibatches from disk with pymc-extras'
-[`DataLoader`](https://github.com/pymc-devs/pymc-extras/blob/8db1880d410e509be02abf9b085f08c3d4514fd1/pymc_extras/variational/dataloader.py),
+[`DataLoader`](https://github.com/pymc-devs/pymc-extras/blob/v0.15.1/pymc_extras/variational/dataloader.py),
 on 300,000 synthetic
 rows that are generated inside the notebook. It tries to teach three things:
 
@@ -112,19 +113,25 @@ place.
 :::
 
 :::{note}
-The `DataLoader` merged into
-pymc-extras after the v0.14.0 release, so it is not in a published version yet
-and `pip install pymc-extras` will not provide it. The outputs stored in this
-notebook were produced against the merge commit itself, which is also the
-install line to use until the next release:
+`DataLoader` is included in pymc-extras releases from v0.15.0 onward. A
+published release can now be used instead of a development checkout. For a
+fresh Python 3.12 environment, install this compatible stack:
 
-```
-pip install git+https://github.com/pymc-devs/pymc-extras@8db1880
+```bash
+python -m pip install "pymc-extras==0.15.1" "pymc==6.3.2" \
+  "pytensor==3.3.4" "arviz==1.3.0" "pyarrow==26.0.0" \
+  "graphviz==0.21" "watermark==2.6.0" ipykernel
 ```
 
-That pins pymc-extras `0.14.1.dev3+g8db1880d4`, and its own requirements pull
-PyMC 6.2 and PyTensor 3.2, the versions reported by the watermark at the
-bottom of this page. Once the module ships, `pip install pymc-extras` will do.
+The Python `graphviz` package also needs the Graphviz `dot` executable to
+render the model diagram. Install Graphviz with your system package manager,
+or use `conda install -c conda-forge python-graphviz` for the package and
+executable together. PyTensor 3.3 is required by this pymc-extras release;
+retaining an older PyTensor 3.2 pin will produce a dependency conflict.
+
+The stored outputs were regenerated from a fresh kernel with pymc-extras
+0.15.1, PyMC 6.3.2 and PyTensor 3.3.4. The watermark at the end records the
+Python version, companion packages, machine and measured execution time.
 :::
 
 ```{code-cell} ipython3
@@ -1394,15 +1401,19 @@ improvement small enough is indistinguishable from none.
 
 ## Related tooling in pymc-extras
 
-The loader used above is one of four streaming pieces in pymc-extras. The
-others are not imported here; this is where each one fits.
+This notebook uses the released `DataLoader` with PyMC's existing ADVI
+loop. The other components below are not imported here. The release and PR
+links distinguish available APIs from proposals still under review.
 
-| Component | What it does |
-| --- | --- |
-| [`DataLoader` / `parquet_source`](https://github.com/pymc-devs/pymc-extras/pull/698) | Turns an out-of-core source into minibatches and owns `total_size`; used directly above |
-| [`Trainer`](https://github.com/pymc-devs/pymc-extras/pull/710) | Wraps the data-advance lifecycle around `pm.fit`, the job the twenty-line `StreamAdvance` does here |
-| [`CheckLossConvergence`](https://github.com/pymc-devs/pymc-extras/pull/733) | Loss-based stopping on growing block horizons with two yardsticks; the observation problem it addresses is the previous section |
-| [streaming Pathfinder](https://github.com/pymc-devs/pymc-extras/pull/722) | A short quasi-Newton run on minibatch gradients that returns a Gaussian proposal, importance-corrected against the full-data log-density, with Pareto-$k$ as its own veto |
+| Component | Status | What it does |
+| --- | --- | --- |
+| [`DataLoader` / `parquet_source`](https://github.com/pymc-devs/pymc-extras/pull/698) | Released in v0.15.0 | Turns an out-of-core source into minibatches and owns `total_size`; used directly above |
+| [`Trainer`](https://github.com/pymc-devs/pymc-extras/pull/713) | Released in v0.15.0 | Provides the newer guide-based ADVI training API, with data supplied by an external iterator |
+| [`CheckLossConvergence`](https://github.com/pymc-devs/pymc-extras/pull/733) | Proposed; not imported | Loss-based stopping on growing block horizons with two yardsticks; the observation problem it addresses is the previous section |
+| [streaming Pathfinder](https://github.com/pymc-devs/pymc-extras/pull/722) | Proposed; not imported | A short quasi-Newton run on minibatch gradients that returns a Gaussian proposal, importance-corrected against the full-data log-density, with Pareto-$k$ as its own veto |
+
+The newer `Trainer` has its own fitting API. This example retains
+`pm.ADVI.fit` and the small `StreamAdvance` callback shown above.
 
 Pathfinder is the faster route when an approximately placed starting point is
 what you need, for example to initialize Markov chain Monte Carlo (MCMC). It is not run here, and the
