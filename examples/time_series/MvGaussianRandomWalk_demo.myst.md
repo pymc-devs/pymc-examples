@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -23,9 +23,9 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
-import pytensor
 
 from scipy.linalg import cholesky
+from sklearn.preprocessing import StandardScaler
 
 %matplotlib inline
 ```
@@ -33,7 +33,7 @@ from scipy.linalg import cholesky
 ```{code-cell} ipython3
 RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 ```
 
 This notebook shows how to [fit a correlated time series](https://en.wikipedia.org/wiki/Curve_fitting) using multivariate [Gaussian random walks](https://en.wikipedia.org/wiki/Random_walk#Gaussian_random_walk) (GRWs). In particular, we perform a Bayesian [regression](https://en.wikipedia.org/wiki/Regression_analysis) of the time series data against a model dependent on GRWs.
@@ -58,13 +58,13 @@ So the series $\mathbf y$ changes due to the GRW $\alpha$ in five occasions, nam
 
 ## Data generation
 
-Let's generate and plot the data.
+We first set the dimensions of the problem and draw the true random walks $\alpha$ and $\beta$.
 
 ```{code-cell} ipython3
 D = 3  # Dimension of random walks
 N = 300  # Number of steps
 sections = 5  # Number of sections
-period = N / sections  # Number steps in each section
+period = N // sections  # Number steps in each section
 
 Sigma_alpha = rng.standard_normal((D, D))
 Sigma_alpha = Sigma_alpha.T.dot(Sigma_alpha)  # Construct covariance matrix for alpha
@@ -75,65 +75,22 @@ Sigma_beta = Sigma_beta.T.dot(Sigma_beta)  # Construct covariance matrix for bet
 L_beta = cholesky(Sigma_beta, lower=True)  # Obtain its Cholesky decomposition
 
 # Gaussian random walks:
-alpha = np.cumsum(L_alpha.dot(rng.standard_normal((D, sections))), axis=1).T
-beta = np.cumsum(L_beta.dot(rng.standard_normal((D, sections))), axis=1).T
+alpha_true = np.cumsum(L_alpha.dot(rng.standard_normal((D, sections))), axis=1).T
+beta_true = np.cumsum(L_beta.dot(rng.standard_normal((D, sections))), axis=1).T
+sigma_true = 0.1
+
 t = np.arange(N)[:, None] / N
-alpha = np.repeat(alpha, period, axis=0)
-beta = np.repeat(beta, period, axis=0)
-# Correlated series
-sigma = 0.1
-y = alpha + beta * t + sigma * rng.standard_normal((N, 1))
-
-# Plot the correlated series
-plt.figure(figsize=(12, 5))
-plt.plot(t, y, ".", markersize=2, label=("y_0 data", "y_1 data", "y_2 data"))
-plt.title("Three Correlated Series")
-plt.xlabel("Time")
-plt.legend()
-plt.show();
+t_section = np.repeat(np.arange(sections), period)  # Section index of each time step
 ```
 
-## Model
-First we introduce a scaling class to rescale our data and the time parameter before the sampling and then rescale the predictions to match the unscaled data.
+We write the regression model in {eq}`eqn:model` as a function that takes the time steps $\mathbf t$, the section index $i[\mathbf t]$, and optionally the observed series $\mathbf y$, and returns a PyMC model. It imposes priors on the GRWs $\alpha$ and $\beta$, on the standard deviation $\sigma$ and hyperpriors on the Cholesky matrices. We use the LKJ prior {cite:p}`lewandowski2009generating` for the Cholesky matrices (see this {func}`link for the documentation <pymc.LKJCholeskyCov>` and also the PyMC notebook {doc}`/case_studies/LKJ` for some usage examples.) The same function generates the data and fits the model.
 
 ```{code-cell} ipython3
-class Scaler:
-    def __init__(self):
-        mean_ = None
-        std_ = None
+def make_model(t, t_section, y=None):
+    coords = {"y_": ["y_0", "y_1", "y_2"], "steps": np.arange(len(t))}
+    D = len(coords["y_"])
+    sections = t_section.max() + 1
 
-    def transform(self, x):
-        return (x - self.mean_) / self.std_
-
-    def fit_transform(self, x):
-        self.mean_ = x.mean(axis=0)
-        self.std_ = x.std(axis=0)
-        return self.transform(x)
-
-    def inverse_transform(self, x):
-        return x * self.std_ + self.mean_
-```
-
-We now construct the regression model in {eq}`eqn:model` imposing priors on the GRWs $\alpha$ and $\beta$, on the standard deviation $\sigma$ and hyperpriors on the Cholesky matrices. We use the LKJ prior {cite:p}`lewandowski2009generating` for the Cholesky matrices (see this {func}`link for the documentation <pymc.LKJCholeskyCov>` and also the PyMC notebook {doc}`/case_studies/LKJ` for some usage examples.)
-
-```{code-cell} ipython3
-def inference(t, y, sections, n_samples=100):
-    N, D = y.shape
-
-    # Standardize y and t
-    y_scaler = Scaler()
-    t_scaler = Scaler()
-    y = y_scaler.fit_transform(y)
-    t = t_scaler.fit_transform(t)
-    # Create a section index
-    t_section = np.repeat(np.arange(sections), N / sections)
-
-    # Create PyTensor equivalent
-    t_t = pytensor.shared(np.repeat(t, D, axis=1))
-    y_t = pytensor.shared(y)
-    t_section_t = pytensor.shared(t_section)
-
-    coords = {"y_": ["y_0", "y_1", "y_2"], "steps": np.arange(N)}
     with pm.Model(coords=coords) as model:
         # Hyperpriors on Cholesky matrices
         chol_alpha, *_ = pm.LKJCholeskyCov(
@@ -144,43 +101,79 @@ def inference(t, y, sections, n_samples=100):
         )
 
         # Priors on Gaussian random walks
+        init_dist = pm.MvNormal.dist(mu=np.zeros(D), cov=100 * np.eye(D))
         alpha = pm.MvGaussianRandomWalk(
-            "alpha", mu=np.zeros(D), chol=chol_alpha, shape=(sections, D)
+            "alpha", mu=np.zeros(D), chol=chol_alpha, init_dist=init_dist, shape=(sections, D)
         )
-        beta = pm.MvGaussianRandomWalk("beta", mu=np.zeros(D), chol=chol_beta, shape=(sections, D))
+        beta = pm.MvGaussianRandomWalk(
+            "beta", mu=np.zeros(D), chol=chol_beta, init_dist=init_dist, shape=(sections, D)
+        )
 
         # Deterministic construction of the correlated random walk
-        alpha_r = alpha[t_section_t]
-        beta_r = beta[t_section_t]
-        regression = alpha_r + beta_r * t_t
+        regression = alpha[t_section] + beta[t_section] * t
 
         # Prior on noise ξ
         sigma = pm.HalfNormal("sigma", 1.0)
 
         # Likelihood
-        likelihood = pm.Normal("y", mu=regression, sigma=sigma, observed=y_t, dims=("steps", "y_"))
+        pm.Normal("y", mu=regression, sigma=sigma, observed=y, dims=("steps", "y_"))
+    return model
+```
 
-        # MCMC sampling
-        trace = pm.sample(n_samples, tune=1000, chains=4, target_accept=0.9)
+```{code-cell} ipython3
+# fix the random walks and the noise to their true values and take a single draw of y
+true_model = pm.do(
+    model=make_model(t=t, t_section=t_section),
+    vars_to_interventions={"alpha": alpha_true, "beta": beta_true, "sigma": sigma_true},
+)
+prior_draw = pm.sample_prior_predictive(draws=1, model=true_model, random_seed=rng)
+y = prior_draw.prior["y"].isel(chain=0, draw=0).to_numpy()
 
-        # Posterior predictive sampling
-        pm.sample_posterior_predictive(trace, extend_inferencedata=True)
+# Plot the correlated series
+fig, ax = plt.subplots(figsize=(12, 5))
+ax.plot(t, y, ".", markersize=2, label=("y_0 data", "y_1 data", "y_2 data"))
+ax.set(title="Three Correlated Series", xlabel="Time")
+ax.legend()
+plt.show();
+```
 
-    return trace, y_scaler, t_scaler, t_section
+## Model
+First we standardize the data and the time parameter with scikit-learn's `StandardScaler`, so we can rescale the predictions to match the unscaled data after sampling.
+
+```{code-cell} ipython3
+# Standardize y and t
+y_scaler = StandardScaler()
+t_scaler = StandardScaler()
+y_scaled = y_scaler.fit_transform(y)
+t_scaled = t_scaler.fit_transform(t)
+```
+
+We build the model from the standardized time steps and series.
+
+```{code-cell} ipython3
+model = make_model(t=t_scaled, t_section=t_section, y=y_scaled)
+
+pm.model_to_graphviz(model)
 ```
 
 ## Inference
-We now sample from our model and we return the trace, the scaling functions for space and time and the scaled time index.
+We now sample from the posterior, then draw from the posterior predictive distribution.
 
 ```{code-cell} ipython3
-trace, y_scaler, t_scaler, t_section = inference(t, y, sections)
+with model:
+    idata = pm.sample(random_seed=rng, target_accept=0.9)
 ```
 
-We now display the energy plot using {func}`arviz.plot_energy` for a visual check for the model's convergence. Then, using {func}`arviz.plot_ppc`,  we plot the distribution of the {doc}`posterior predictive samples </diagnostics_and_criticism/posterior_predictive>` against the observed data $\mathbf y$. This plot provides a general idea of the accuracy of the model (note that the values of $\mathbf y$ actually correspond to the scaled version of $\mathbf y$).
+```{code-cell} ipython3
+with model:
+    pm.sample_posterior_predictive(idata, extend_inferencedata=True, random_seed=rng)
+```
+
+We now display the energy plot using {func}`arviz.plot_energy` for a visual check for the model's convergence. Then, using {func}`arviz.plot_ppc_dist`,  we plot the distribution of the {doc}`posterior predictive samples </diagnostics_and_criticism/posterior_predictive>` against the observed data $\mathbf y$. This plot provides a general idea of the accuracy of the model (note that the values of $\mathbf y$ actually correspond to the scaled version of $\mathbf y$).
 
 ```{code-cell} ipython3
-az.plot_energy(trace)
-az.plot_ppc(trace);
+az.plot_energy(idata)
+az.plot_ppc_dist(idata);
 ```
 
 +++ {"jupyter": {"outputs_hidden": true}}
@@ -190,12 +183,12 @@ The graphs above look good. Now we plot the observed 3-dimensional series agains
 
 ```{code-cell} ipython3
 # Compute the predicted mean of the multivariate GRWs
-alpha_mean = trace.posterior["alpha"].mean(dim=("chain", "draw"))
-beta_mean = trace.posterior["beta"].mean(dim=("chain", "draw"))
+alpha_mean = idata.posterior["alpha"].mean(dim=("chain", "draw"))
+beta_mean = idata.posterior["beta"].mean(dim=("chain", "draw"))
 
 # Compute the predicted mean of the correlated series
 y_pred = y_scaler.inverse_transform(
-    alpha_mean[t_section].values + beta_mean[t_section].values * t_scaler.transform(t)
+    alpha_mean[t_section].to_numpy() + beta_mean[t_section].to_numpy() * t_scaled
 )
 
 # Plot the predicted mean
@@ -212,23 +205,37 @@ Finally, we plot the data against the posterior predictive samples.
 
 ```{code-cell} ipython3
 # Rescale the posterior predictive samples
-ppc_y = y_scaler.inverse_transform(trace.posterior_predictive["y"].mean("chain"))
+ppc = idata.posterior_predictive["y"].stack(sample=("chain", "draw", "steps"))
+ppc = ppc.transpose("sample", "y_")
+ppc_y = ppc.copy(data=y_scaler.inverse_transform(ppc)).unstack("sample")
 
-fig, ax = plt.subplots(1, 1, figsize=(12, 6))
-# Plot the data
-ax.plot(t, y, ".", markersize=3, label=("y_0 data", "y_1 data", "y_2 data"))
-# Plot the posterior predictive samples
-ax.plot(t, ppc_y.sel(y_="y_0").T, color="C0", alpha=0.003)
-ax.plot(t, ppc_y.sel(y_="y_1").T, color="C1", alpha=0.003)
-ax.plot(t, ppc_y.sel(y_="y_2").T, color="C2", alpha=0.003)
+ppc_mean = ppc_y.mean(dim=["chain", "draw"])
+hdi_50 = az.hdi(ppc_y, prob=0.5, dim=["chain", "draw"])
+hdi_95 = az.hdi(ppc_y, prob=0.95, dim=["chain", "draw"])
+
+fig, ax = plt.subplots(figsize=(12, 6))
+for i, series in enumerate(ppc_y["y_"].to_numpy()):
+    color = f"C{i}"
+    ax.plot(t, y[:, i], ".", color=color, markersize=3, label=f"{series} data")
+    ax.plot(t, ppc_mean.sel(y_=series), color=color, linewidth=1)
+    for hdi, fill_alpha in [(hdi_95, 0.2), (hdi_50, 0.4)]:
+        ax.fill_between(
+            t[:, 0],
+            hdi.sel(y_=series, ci_bound="lower"),
+            hdi.sel(y_=series, ci_bound="upper"),
+            color=color,
+            alpha=fill_alpha,
+            linewidth=0,
+        )
 ax.set_xlabel("Time")
 ax.legend()
-ax.set_title("Posterior Predictive Samples and the Three Correlated Series");
+ax.set_title("Posterior Predictive Mean, 50% and 95% HDI, and the Three Correlated Series");
 ```
 
 ## Authors
 * updated to best practices by Lorenzon Itoniazzi in October, 2021 ([pymc-examples#195](https://github.com/pymc-devs/pymc-examples/pull/195))
 * updated to v5 by Chris Fonnesbeck in February, 2023 
+* updated to v6 by Jesse Grabowski in October, 2026
 
 +++
 
@@ -242,7 +249,7 @@ ax.set_title("Posterior Predictive Samples and the Three Correlated Series");
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p theano,xarray
+%watermark -n -u -v -iv -w -p pytensor,xarray
 ```
 
 :::{include} ../page_footer.md
