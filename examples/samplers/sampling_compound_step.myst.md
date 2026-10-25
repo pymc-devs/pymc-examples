@@ -23,12 +23,10 @@ This notebook explains how the compound steps work in `pymc.sample` function whe
 import arviz as az
 import numpy as np
 import pymc as pm
-import pytensor
-import xarray
 ```
 
 ```{code-cell} ipython3
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 ```
 
 ## Compound steps
@@ -42,10 +40,12 @@ with pm.Model() as m:
     rv2 = ... # random variable 2 (continuous)
     rv3 = ... # random variable 3 (categorical)
     #...
-    step1 = pm.Metropolis([rv1, rv2])
+    step1 = pm.Metropolis([rv1, rv2], blocked=True)
     step2 = pm.CategoricalGibbsMetropolis([rv3])
     trace = pm.sample(..., step=[step1, step2])
 ```
+`blocked=True` makes `pm.Metropolis` propose `rv1` and `rv2` jointly. Without it, `pm.Metropolis` and `pm.Slice` assign a separate step to each variable in the list.
+
 The compound step now contains a list of `methods`. At each sampling step, it iterates over these methods, taking a `point` as input. In each step a new `point` is proposed as an output, if rejected by the Metropolis-Hastings criteria the original input `point` sticks around as the output.
 
 +++
@@ -53,28 +53,28 @@ The compound step now contains a list of `methods`. At each sampling step, it it
 ## Compound steps by default
 To conduct Markov chain Monte Carlo (MCMC) sampling to generate posterior samples in PyMC, we specify a step method object that corresponds to a particular MCMC algorithm, such as Metropolis, Slice sampling, or the No-U-Turn Sampler (NUTS). PyMC’s step_methods can be assigned manually, or assigned automatically by PyMC. Auto-assignment is based on the attributes of each variable in the model. In general:
 
-- Binary variables will be assigned to BinaryMetropolis
+- Binary variables will be assigned to BinaryGibbsMetropolis
 - Discrete variables will be assigned to Metropolis
 - Continuous variables will be assigned to NUTS
 
-When we call `pm.sample(return_inferencedata=False)`, `PyMC` assigns the best step method to each of the free random variables. Take the following example
+When we call `pm.sample()`, `PyMC` assigns the best step method to each of the free random variables. Take the following example
 
 ```{code-cell} ipython3
-n_ = pytensor.shared(np.asarray([10, 15]))
 with pm.Model() as m:
+    n_ = pm.Data("n", np.asarray([10, 15]))
     p = pm.Beta("p", 1.0, 1.0)
     ni = pm.Bernoulli("ni", 0.5)
     k = pm.Binomial("k", p=p, n=n_[ni], observed=4)
     trace = pm.sample(10000)
 ```
 
-There are two free parameters in the model we would like to sample from, a continuous variable `p_logodds__` and a binary variable `ni`.
+There are two free parameters in the model we would like to sample from, a continuous variable `p` (sampled on the log-odds scale as `p_logodds__`) and a binary variable `ni`.
 
 ```{code-cell} ipython3
 m.free_RVs
 ```
 
-When we call `pm.sample(return_inferencedata=False)`, `PyMC` assigns the best step method to each of them. For example, `NUTS` was assigned to `p_logodds__` and `BinaryGibbsMetropolis` was assigned to `ni`.
+When we call `pm.sample()`, `PyMC` assigns the best step method to each of them. For example, `NUTS` was assigned to `p` and `BinaryGibbsMetropolis` was assigned to `ni`.
 
 +++
 
@@ -85,18 +85,11 @@ Auto-assignment can be overridden for any subset of variables by specifying them
 with m:
     step1 = pm.Metropolis([p])
     step2 = pm.BinaryMetropolis([ni])
-    trace = pm.sample(
-        10000,
-        step=[step1, step2],
-        idata_kwargs={
-            "dims": {"accept": ["step"]},
-            "coords": {"step": ["Metropolis", "BinaryMetropolis"]},
-        },
-    )
+    trace = pm.sample(10000, step=[step1, step2])
 ```
 
 ```{code-cell} ipython3
-point = m.test_point
+point = m.initial_point()
 point
 ```
 
@@ -112,18 +105,18 @@ As you can see, the value of  `ni` does not change, but `p_logodds__` is updated
 And similarly, you can pass the updated `point` to `step2` and get a sample for `ni`:
 
 ```{code-cell} ipython3
-point = step2.step(point=point)
-point
+point, state = step2.step(point=point)
+point, state
 ```
 
 Compound step works exactly like this by iterating all the steps within the list. In effect, it is a metropolis hastings within gibbs sampling. 
 
-Moreover, `pm.CompoundStep` is called internally by `pm.sample(return_inferencedata=False)`. We can make them explicit as below:
+Moreover, `pm.step_methods.CompoundStep` is called internally by `pm.sample()`. We can make them explicit as below:
 
 ```{code-cell} ipython3
 with m:
-    comp_step1 = pm.CompoundStep([step1, step2])
-    trace1 = pm.sample(10000, comp_step1)
+    comp_step1 = pm.step_methods.CompoundStep([step1, step2])
+    trace1 = pm.sample(10000, step=comp_step1)
 comp_step1.methods
 ```
 
@@ -132,7 +125,7 @@ comp_step1.methods
 list(trace1.sample_stats.data_vars)
 ```
 
-Note: In compound step method, a sample stats variable maybe present in both step methods, like `accept` in every chain.
+Note: In compound step method, a sample stats variable maybe present in both step methods, like `accept`. PyMC stacks such a stat along an extra dimension, `accept_dim_0`, in the order of the step methods: index 0 belongs to `step1` and index 1 to `step2`.
 
 ```{code-cell} ipython3
 trace1.sample_stats["accept"].sel(chain=1).values
@@ -146,11 +139,8 @@ When in the default setting, the parameter update order follows the same order o
 
 ```{code-cell} ipython3
 with m:
-    comp_step2 = pm.CompoundStep([step2, step1])
-    trace2 = pm.sample(
-        10000,
-        comp_step2,
-    )
+    comp_step2 = pm.step_methods.CompoundStep([step2, step1])
+    trace2 = pm.sample(10000, step=comp_step2)
 comp_step2.methods
 ```
 
@@ -158,24 +148,16 @@ In the sampling process, it always follows the same step order in each sample in
 
 +++
 
-Each step method gets its own `accept`, notice how the plots are reversed in when step order is reverted.
+Each step method gets its own `accept`, notice how the plots are reversed when the step order is reversed. The `accept` stat is the Metropolis-Hastings ratio, which can be larger than 1, so we clip it at 1 to plot the acceptance probability.
 
 ```{code-cell} ipython3
-az.plot_density(
-    trace1,
-    group="sample_stats",
-    var_names="accept",
-    point_estimate="mean",
-);
+accept_prob1 = trace1["sample_stats"].to_dataset()[["accept"]].clip(max=1)
+az.plot_dist(accept_prob1, var_names="accept", point_estimate="mean");
 ```
 
 ```{code-cell} ipython3
-az.plot_density(
-    trace2,
-    group="sample_stats",
-    var_names="accept",
-    point_estimate="mean",
-);
+accept_prob2 = trace2["sample_stats"].to_dataset()[["accept"]].clip(max=1)
+az.plot_dist(accept_prob2, var_names="accept", point_estimate="mean");
 ```
 
 ## Issues with mixing discrete and continuous sampling
@@ -188,9 +170,119 @@ The concern with mixing discrete and continuous sampling is that the change in d
 
 +++
 
-Updated by: Meenal Jhajharia
+## Authors
+- Authored by Yuan Huang in July 2018 ([pymc#3014](https://github.com/pymc-devs/pymc/pull/3014))
+- Updated by Junpeng Lao in March 2019
+- Updated by Alexandre Andorra in June 2020 ([pymc#3955](https://github.com/pymc-devs/pymc/pull/3955))
+- Updated by Michael Osthege in June 2020
+- Updated by Marco Gorelli in September 2020 ([pymc#4073](https://github.com/pymc-devs/pymc/pull/4073)) and October 2020 ([pymc#4165](https://github.com/pymc-devs/pymc/pull/4165))
+- Updated by Meenal Jhajharia in April 2021 ([pymc-examples#141](https://github.com/pymc-devs/pymc-examples/pull/141))
+- Updated by Oriol Abril-Pla in November 2021 ([pymc-examples#239](https://github.com/pymc-devs/pymc-examples/pull/239)) and February 2022 ([pymc-examples#283](https://github.com/pymc-devs/pymc-examples/pull/283))
+- Updated by Michael Osthege in January 2022 ([pymc-examples#266](https://github.com/pymc-devs/pymc-examples/pull/266))
+- Updated by Hector Munoz in May 2022 ([pymc-examples#321](https://github.com/pymc-devs/pymc-examples/pull/321))
+- Updated by Thomas Wiecki in December 2022 ([pymc-examples#481](https://github.com/pymc-devs/pymc-examples/pull/481))
+- Updated by [Jesse Grabowski](https://github.com/jessegrabowski) in October 2026
+
++++
+
+## Watermark
 
 ```{code-cell} ipython3
 %load_ext watermark
 %watermark -n -u -v -iv -w
+```
+
+:::{include} ../page_footer.md
+:::
+
+```{code-cell} ipython3
+:tags: [remove-cell]
+
+import matplotlib.pyplot as plt
+
+n_iterations = 10
+rng = np.random.default_rng(seed=251)
+with m:
+    p_step = pm.Metropolis([p], rng=rng)
+    ni_step = pm.BinaryMetropolis([ni], rng=rng)
+
+point = m.initial_point()
+path = [(float(point["p_logodds__"]), int(point["ni"]))]
+for _ in range(n_iterations):
+    for step in (p_step, ni_step):
+        point, _ = step.step(point=point)
+        path.append((float(point["p_logodds__"]), int(point["ni"])))
+path = np.array(path)
+
+logp_fn = m.compile_logp()
+grid = np.linspace(-2.6, 1.2, 500)
+lane_density = np.array(
+    [[np.exp(logp_fn({"p_logodds__": x, "ni": lane})) for x in grid] for lane in (0, 1)]
+)
+lane_density /= lane_density.max()
+
+ridge_height = 0.9
+
+
+def ridge(x, lane):
+    return lane + ridge_height * np.interp(x, grid, lane_density[lane])
+
+
+# A state and the BinaryMetropolis step after it share an offset, so lane jumps stay vertical
+offset_per_iteration = 0.03
+x_shown = path[:, 0] + offset_per_iteration * ((np.arange(len(path)) + 1) // 2)
+lanes = path[:, 1].astype(int)
+y_shown = np.array([ridge(x, lane) for x, lane in zip(x_shown, lanes)])
+
+step_colors = ("C3", "C1")
+arrow_style = {"arrowstyle": "-|>", "mutation_scale": 20, "lw": 0, "shrinkA": 0, "shrinkB": 5}
+
+fig, ax = plt.subplots(figsize=(6, 6))
+for lane in (1, 0):
+    ax.fill_between(grid, lane, ridge(grid, lane), color="C0", alpha=0.35, lw=0)
+    ax.plot(grid, ridge(grid, lane), color="C0", lw=2)
+
+for i in range(len(path) - 1):
+    color = step_colors[i % 2]
+    if lanes[i] == lanes[i + 1]:
+        segment_x = np.linspace(x_shown[i], x_shown[i + 1], 50)
+        segment_y = ridge(segment_x, lanes[i])
+    else:
+        segment_x = x_shown[i : i + 2]
+        segment_y = y_shown[i : i + 2]
+    ax.plot(segment_x, segment_y, color=color, lw=3, zorder=2)
+    if np.hypot(segment_x[-1] - segment_x[0], segment_y[-1] - segment_y[0]) > 0.05:
+        ax.annotate(
+            "",
+            xy=(segment_x[-1], segment_y[-1]),
+            xytext=(segment_x[-2], segment_y[-2]),
+            arrowprops={**arrow_style, "color": color},
+            zorder=3,
+        )
+
+# Rejected steps leave the state unchanged, so consecutive repeats share one dot and label
+run_starts = np.flatnonzero(np.r_[True, np.any(path[1:] != path[:-1], axis=1)])
+run_ends = np.r_[run_starts[1:], len(path)] - 1
+ax.scatter(x_shown[run_starts], y_shown[run_starts], s=45, color="0.2", zorder=4)
+for start, end in zip(run_starts, run_ends):
+    label = str(start) if start == end else f"{start}-{end}"
+    ax.annotate(
+        label,
+        (x_shown[start], y_shown[start]),
+        xytext=(0, 8),
+        textcoords="offset points",
+        ha="center",
+        fontsize=11,
+    )
+
+ax.set(
+    xlim=(grid[0], grid[-1]),
+    ylim=(-0.05, 2.15),
+    yticks=[0, 1],
+    yticklabels=["ni = 0", "ni = 1"],
+    xlabel="p_logodds__",
+)
+ax.plot([], [], color=step_colors[0], lw=3, label="Metropolis on p")
+ax.plot([], [], color=step_colors[1], lw=3, label="BinaryMetropolis on ni")
+ax.legend(loc="upper right", frameon=False);
 ```
