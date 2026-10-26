@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_env
+  display_name: Python 3 (ipykernel)
   language: python
-  name: pymc_env
+  name: python3
 ---
 
 (gaussian_mixture_model)=
@@ -27,18 +27,17 @@ This could be useful in a number of ways. For example, we may be interested in s
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import pymc as pm
+import xarray as xr
 
 from scipy.stats import norm
-from xarray_einstats.stats import XrContinuousRV
 ```
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
 RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 ```
 
 First we generate some simulated observations.
@@ -63,7 +62,7 @@ with pm.Model(coords={"cluster": range(k)}) as model:
         "μ",
         mu=0,
         sigma=5,
-        transform=pm.distributions.transforms.univariate_ordered,
+        transform=pm.distributions.transforms.ordered,
         initval=[-4, 0, 4],
         dims="cluster",
     )
@@ -82,15 +81,18 @@ with model:
 We can also plot the trace to check the nature of the MCMC chains, and compare to the ground truth values.
 
 ```{code-cell} ipython3
-az.plot_trace(idata, var_names=["μ", "σ"], lines=[("μ", {}, [centers]), ("σ", {}, [sds])]);
+pc = az.plot_trace_dist(idata, var_names=["μ", "σ"])
+pc.coords = {"column": "dist"}
+az.add_lines(pc, {"μ": centers, "σ": sds});
 ```
 
 And if we wanted, we could calculate the probability density function and examine the estimated group membership probabilities, based on the posterior mean estimates.
 
 ```{code-cell} ipython3
-xi = np.linspace(-7, 7, 500)
+grid = np.linspace(-7, 7, 500)
+xi = xr.DataArray(grid, dims="x", coords={"x": grid})
 post = idata.posterior
-pdf_components = XrContinuousRV(norm, post["μ"], post["σ"]).pdf(xi) * post["w"]
+pdf_components = xr.apply_ufunc(norm.pdf, xi, post["μ"], post["σ"]) * post["w"]
 pdf = pdf_components.sum("cluster")
 
 fig, ax = plt.subplots(3, 1, figsize=(7, 8), sharex=True)
@@ -110,6 +112,7 @@ ax[2].set(title="Group membership", xlabel="x", ylabel="Probability");
 - Updated by Thomas Wiecki.
 - Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in April 2022 ([#310](https://github.com/pymc-devs/pymc-examples/pull/310)) to use `pm.NormalMixture`.
 - Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5.
+- Updated by [Jesse Grabowski](https://github.com/jessegrabowski) in October 2026 to run on PyMC v6 and ArviZ v1.
 
 +++
 
@@ -117,7 +120,7 @@ ax[2].set(title="Group membership", xlabel="x", ylabel="Probability");
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p pytensor,aeppl,xarray,xarray_einstats
+%watermark -n -u -v -iv -w -p pytensor
 ```
 
 :::{include} ../page_footer.md
