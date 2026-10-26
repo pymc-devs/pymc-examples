@@ -29,6 +29,7 @@ This notebook explains how the compound steps work in `pymc.sample` function whe
 
 ```{code-cell} ipython3
 import arviz as az
+import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
 ```
@@ -211,18 +212,15 @@ The concern with mixing discrete and continuous sampling is that the change in d
 ```{code-cell} ipython3
 :tags: [remove-cell]
 
-import matplotlib.pyplot as plt
-
 n_iterations = 10
 rng = np.random.default_rng(seed=251)
 with m:
-    p_step = pm.Metropolis([p], rng=rng)
-    ni_step = pm.BinaryMetropolis([ni], rng=rng)
+    steps = (pm.Metropolis([p], rng=rng), pm.BinaryMetropolis([ni], rng=rng))
 
 point = m.initial_point()
 path = [(float(point["p_logodds__"]), int(point["ni"]))]
 for _ in range(n_iterations):
-    for step in (p_step, ni_step):
+    for step in steps:
         point, _ = step.step(point=point)
         path.append((float(point["p_logodds__"]), int(point["ni"])))
 path = np.array(path)
@@ -245,10 +243,11 @@ def ridge(x, lane):
 offset_per_iteration = 0.03
 x_shown = path[:, 0] + offset_per_iteration * ((np.arange(len(path)) + 1) // 2)
 lanes = path[:, 1].astype(int)
-y_shown = np.array([ridge(x, lane) for x, lane in zip(x_shown, lanes)])
+y_shown = np.array([ridge(x, lane) for x, lane in zip(x_shown, lanes, strict=True)])
 
 step_colors = ("C3", "C1")
 arrow_style = {"arrowstyle": "-|>", "mutation_scale": 20, "lw": 0, "shrinkA": 0, "shrinkB": 5}
+min_arrow_length = 0.05
 
 fig, ax = plt.subplots(figsize=(6, 6))
 for lane in (1, 0):
@@ -256,7 +255,7 @@ for lane in (1, 0):
     ax.plot(grid, ridge(grid, lane), color="C0", lw=2)
 
 for i in range(len(path) - 1):
-    color = step_colors[i % 2]
+    color = step_colors[i % len(steps)]
     if lanes[i] == lanes[i + 1]:
         segment_x = np.linspace(x_shown[i], x_shown[i + 1], 50)
         segment_y = ridge(segment_x, lanes[i])
@@ -264,7 +263,7 @@ for i in range(len(path) - 1):
         segment_x = x_shown[i : i + 2]
         segment_y = y_shown[i : i + 2]
     ax.plot(segment_x, segment_y, color=color, lw=3, zorder=2)
-    if np.hypot(segment_x[-1] - segment_x[0], segment_y[-1] - segment_y[0]) > 0.05:
+    if np.hypot(segment_x[-1] - segment_x[0], segment_y[-1] - segment_y[0]) > min_arrow_length:
         ax.annotate(
             "",
             xy=(segment_x[-1], segment_y[-1]),
@@ -277,7 +276,7 @@ for i in range(len(path) - 1):
 run_starts = np.flatnonzero(np.r_[True, np.any(path[1:] != path[:-1], axis=1)])
 run_ends = np.r_[run_starts[1:], len(path)] - 1
 ax.scatter(x_shown[run_starts], y_shown[run_starts], s=45, color="0.2", zorder=4)
-for start, end in zip(run_starts, run_ends):
+for start, end in zip(run_starts, run_ends, strict=True):
     label = str(start) if start == end else f"{start}-{end}"
     ax.annotate(
         label,
