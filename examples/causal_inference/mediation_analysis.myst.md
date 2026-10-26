@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_env
+  display_name: Python 3 (ipykernel)
   language: python
-  name: pymc_env
+  name: python3
 ---
 
 (mediation_analysis)=
@@ -31,15 +31,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
 import seaborn as sns
+import xarray as xr
 
+from arviz_base.labels import MapLabeller
 from pandas import DataFrame
 ```
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
 plt.rcParams.update({"font.size": 14})
-seed = 42
-rng = np.random.default_rng(seed);
+seed = sum(map(ord, "mediation_analysis"))
+rng = np.random.default_rng(seed)
 ```
 
 ## The mediation model
@@ -65,72 +67,80 @@ Using definitions from {cite:t}`hayes2017introduction`, we can define a few effe
 
 +++
 
-## Generate simulated data
+## Define the PyMC model
+
+We write the mediation model as a function that takes $x$, and optionally the observed $m$ and $y$, and returns a PyMC model. The same function generates the simulated data and fits the model.
 
 ```{code-cell} ipython3
-def make_data():
-    N = 75
-    a, b, cprime = 0.5, 0.6, 0.3
-    im, iy, σm, σy = 2.0, 0.0, 0.5, 0.5
-    x = rng.normal(loc=0, scale=1, size=N)
-    m = im + rng.normal(loc=a * x, scale=σm, size=N)
-    y = iy + (cprime * x) + rng.normal(loc=b * m, scale=σy, size=N)
-    print(f"True direct effect = {cprime}")
-    print(f"True indirect effect = {a*b}")
-    print(f"True total effect = {cprime+a*b}")
-    return x, m, y
-
-
-x, m, y = make_data()
-
-sns.pairplot(DataFrame({"x": x, "m": m, "y": y}));
-```
-
-## Define the PyMC model and conduct inference
-
-```{code-cell} ipython3
-def mediation_model(x, m, y):
-    with pm.Model() as model:
-        x = pm.ConstantData("x", x, dims="obs_id")
-        y = pm.ConstantData("y", y, dims="obs_id")
-        m = pm.ConstantData("m", m, dims="obs_id")
+def mediation_model(x, m=None, y=None):
+    with pm.Model(coords={"obs_id": np.arange(len(x))}) as model:
+        x_data = pm.Data("x", x, dims="obs_id")
 
         # intercept priors
         im = pm.Normal("im", mu=0, sigma=10)
         iy = pm.Normal("iy", mu=0, sigma=10)
+
         # slope priors
         a = pm.Normal("a", mu=0, sigma=10)
         b = pm.Normal("b", mu=0, sigma=10)
         cprime = pm.Normal("cprime", mu=0, sigma=10)
+
         # noise priors
         σm = pm.HalfCauchy("σm", 1)
         σy = pm.HalfCauchy("σy", 1)
 
         # likelihood
-        pm.Normal("m_likelihood", mu=im + a * x, sigma=σm, observed=m, dims="obs_id")
-        pm.Normal("y_likelihood", mu=iy + b * m + cprime * x, sigma=σy, observed=y, dims="obs_id")
+        mediator = pm.Normal("m", mu=im + a * x_data, sigma=σm, observed=m, dims="obs_id")
+        pm.Normal("y", mu=iy + b * mediator + cprime * x_data, sigma=σy, observed=y, dims="obs_id")
 
         # calculate quantities of interest
         indirect_effect = pm.Deterministic("indirect effect", a * b)
         total_effect = pm.Deterministic("total effect", a * b + cprime)
 
     return model
+```
 
+## Generate simulated data
 
+We fix the parameters to their true values with `pm.do` and take a single draw of $m$ and $y$.
+
+```{code-cell} ipython3
+N = 75
+true_params = {"a": 0.5, "b": 0.6, "cprime": 0.3, "im": 2.0, "iy": 0.0, "σm": 0.5, "σy": 0.5}
+x = rng.normal(loc=0, scale=1, size=N)
+
+true_model = pm.do(model=mediation_model(x), vars_to_interventions=true_params)
+prior_draw = pm.sample_prior_predictive(draws=1, model=true_model, random_seed=rng)
+m = prior_draw.prior["m"].isel(chain=0, draw=0).to_numpy()
+y = prior_draw.prior["y"].isel(chain=0, draw=0).to_numpy()
+
+true_direct = true_params["cprime"]
+true_indirect = true_params["a"] * true_params["b"]
+print(f"True direct effect = {true_direct}")
+print(f"True indirect effect = {true_indirect}")
+print(f"True total effect = {true_direct + true_indirect}")
+
+sns.pairplot(DataFrame({"x": x, "m": m, "y": y}));
+```
+
+## Conduct inference
+
+We build the model from the simulated data and sample from its posterior.
+
+```{code-cell} ipython3
 model = mediation_model(x, m, y)
 pm.model_to_graphviz(model)
 ```
 
 ```{code-cell} ipython3
 with model:
-    result = pm.sample(tune=4000, target_accept=0.9, random_seed=42)
+    result = pm.sample(random_seed=rng)
 ```
 
 Visualise the trace to check for convergence.
 
 ```{code-cell} ipython3
-az.plot_trace(result)
-plt.tight_layout()
+az.plot_trace_dist(result, figure_kwargs={"tight_layout": True, "sharex": "col"});
 ```
 
 We have good chain mixing and the posteriors for each chain look very similar, so no problems in that regard.
@@ -144,11 +154,8 @@ First we will use a pair plot to look at joint posterior distributions.
 ```{code-cell} ipython3
 az.plot_pair(
     result,
-    marginals=True,
-    point_estimate="median",
-    figsize=(12, 12),
-    scatter_kwargs={"alpha": 0.05},
     var_names=["a", "b", "cprime", "indirect effect", "total effect"],
+    figure_kwargs={"figsize": (12, 12)},
 );
 ```
 
@@ -156,19 +163,19 @@ az.plot_pair(
 We can take a closer look at the indirect, total, and direct effects:
 
 ```{code-cell} ipython3
-ax = az.plot_posterior(
+pc = az.plot_dist(
     result,
     var_names=["cprime", "indirect effect", "total effect"],
-    ref_val=0,
-    hdi_prob=0.95,
-    figsize=(14, 4),
+    ci_prob=0.95,
+    labeller=MapLabeller(var_name_map={"cprime": "direct effect"}),
+    figure_kwargs={"figsize": (14, 4)},
 )
-ax[0].set(title="direct effect");
+az.add_lines(pc, 0);
 ```
 
-- The posterior mean **direct effect** is 0.29, meaning that for every 1 unit of increase in $x$, $y$ increases by 0.29 due to the direct effect $x \rightarrow y$.
-- The posterior mean **indirect effect** is 0.49, meaning that for every 1 unit of increase in $x$, $y$ increases by 0.49 through the pathway $x \rightarrow m \rightarrow y$. The probability that the indirect effect is zero is infinitesimal.
-- The posterior mean **total effect** is 0.77, meaning that for every 1 unit of increase in $x$, $y$ increases by 0.77 through both the direct and indirect pathways.
+- The posterior mean **direct effect** is 0.19, meaning that for every 1 unit of increase in $x$, $y$ increases by 0.19 due to the direct effect $x \rightarrow y$.
+- The posterior mean **indirect effect** is 0.36, meaning that for every 1 unit of increase in $x$, $y$ increases by 0.36 through the pathway $x \rightarrow m \rightarrow y$. The probability that the indirect effect is zero is infinitesimal.
+- The posterior mean **total effect** is 0.55, meaning that for every 1 unit of increase in $x$, $y$ increases by 0.55 through both the direct and indirect pathways.
 
 +++
 
@@ -176,8 +183,8 @@ ax[0].set(title="direct effect");
 Above, we stated that the total effect could also be estimated by evaluating the alternative model $y_i \sim \mathrm{Normal}(i_{Y*} + c \cdot x_i, \sigma_{Y*})$. Here we will check this by comparing the posterior distribution for $c'$ in the mediation model, and the posterior distribution for $c$ in this alternative model.
 
 ```{code-cell} ipython3
-with pm.Model() as total_effect_model:
-    _x = pm.ConstantData("_x", x, dims="obs_id")
+with pm.Model(coords={"obs_id": np.arange(len(x))}) as total_effect_model:
+    _x = pm.Data("_x", x, dims="obs_id")
     iy = pm.Normal("iy", mu=0, sigma=1)
     c = pm.Normal("c", mu=0, sigma=1)
     σy = pm.HalfCauchy("σy", 1)
@@ -187,20 +194,28 @@ with pm.Model() as total_effect_model:
 
 ```{code-cell} ipython3
 with total_effect_model:
-    total_effect_result = pm.sample(tune=4000, target_accept=0.9, random_seed=42)
+    total_effect_result = pm.sample(random_seed=rng)
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(14, 4))
-az.plot_posterior(
-    total_effect_result, var_names=["c"], point_estimate=None, hdi_prob="hide", c="r", lw=4, ax=ax
+total_effects = {
+    "mediation model": xr.DataTree.from_dict(
+        {"posterior": result.posterior.to_dataset()[["total effect"]]}
+    ),
+    "total effect model": xr.DataTree.from_dict(
+        {"posterior": total_effect_result.posterior.to_dataset()[["c"]].rename(c="total effect")}
+    ),
+}
+pc = az.plot_dist(
+    total_effects,
+    var_names=["total effect"],
+    visuals={"credible_interval": False, "point_estimate": False, "point_estimate_text": False},
+    figure_kwargs={"figsize": (14, 4)},
 )
-az.plot_posterior(
-    result, var_names=["total effect"], point_estimate=None, hdi_prob="hide", c="k", lw=4, ax=ax
-);
+pc.add_legend("model");
 ```
 
-As we can see, the posterior distributions over the direct effects are near-identical for the mediation model (black curve) and the direct model (red curve).
+As we can see, the posterior distributions over the total effect are near-identical for the mediation model and the total effect model.
 
 +++
 
@@ -219,6 +234,7 @@ As stated at the outset, the procedures used in mediation analysis have evolved 
 ## Authors
 - Authored by Benjamin T. Vincent in August 2021
 - Updated by Benjamin T. Vincent in February 2022
+- Updated by [Jesse Grabowski](https://github.com/jessegrabowski) in October 2026 to run on PyMC v6 and ArviZ v1
 
 +++
 
@@ -233,7 +249,7 @@ As stated at the outset, the procedures used in mediation analysis have evolved 
 
 ```{code-cell} ipython3
 %load_ext watermark
-%watermark -n -u -v -iv -w -p pytensor,aeppl,xarray
+%watermark -n -u -v -iv -w -p pytensor
 ```
 
 :::{include} ../page_footer.md
