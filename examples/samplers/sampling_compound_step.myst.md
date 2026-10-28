@@ -75,7 +75,7 @@ with pm.Model() as m:
     p = pm.Beta("p", 1.0, 1.0)
     ni = pm.Bernoulli("ni", 0.5)
     k = pm.Binomial("k", p=p, n=n_[ni], observed=4)
-    trace = pm.sample(10000)
+    trace = pm.sample()
 ```
 
 There are two free parameters in the model we would like to sample from, a continuous variable `p` (sampled on the log-odds scale as `p_logodds__`) and a binary variable `ni`.
@@ -95,7 +95,7 @@ Auto-assignment can be overridden for any subset of variables by specifying them
 with m:
     step1 = pm.Metropolis([p])
     step2 = pm.BinaryMetropolis([ni])
-    trace = pm.sample(10000, step=[step1, step2])
+    trace = pm.sample(step=[step1, step2])
 ```
 
 `pm.sample` calls these step methods for us, but we can also call them by hand. Start from the initial point of the model:
@@ -128,7 +128,7 @@ A compound step works exactly like this, iterating over all the steps in the lis
 ```{code-cell} ipython3
 with m:
     comp_step1 = pm.step_methods.CompoundStep([step1, step2])
-    trace1 = pm.sample(10000, step=comp_step1)
+    trace1 = pm.sample(step=comp_step1)
 comp_step1.methods
 ```
 
@@ -154,7 +154,7 @@ By default, the step methods we pass to `pm.sample` run first, followed by the a
 ```{code-cell} ipython3
 with m:
     comp_step2 = pm.step_methods.CompoundStep([step2, step1])
-    trace2 = pm.sample(10000, step=comp_step2)
+    trace2 = pm.sample(step=comp_step2)
 comp_step2.methods
 ```
 
