@@ -63,10 +63,10 @@ true_rho = 0.7, -0.3
 # true standard deviation of the innovation:
 true_sigma = 2.0
 # true constant term:
-true_center = -1.0
+true_constant = -1.0
 
 ar2_process = pm.AR.dist(
-    rho=[true_center, *true_rho],
+    rho=[true_constant, *true_rho],
     sigma=true_sigma,
     constant=True,
     init_dist=pm.Normal.dist(0, 10),
@@ -112,7 +112,7 @@ az.add_lines(
     pc,
     xr.Dataset(
         {
-            "rho": xr.DataArray([true_center, true_rho[0]], dims="rho_dim_0"),
+            "rho": xr.DataArray([true_constant, true_rho[0]], dims="rho_dim_0"),
             "tau": true_sigma**-2,
         }
     ),
@@ -156,7 +156,7 @@ az.add_lines(
     pc,
     xr.Dataset(
         {
-            "rho": xr.DataArray([true_center, *true_rho], dims="rho_dim_0"),
+            "rho": xr.DataArray([true_constant, *true_rho], dims="rho_dim_0"),
             "sigma": true_sigma,
         }
     ),
@@ -194,7 +194,7 @@ with pm.Model() as ar2_bis:
 pc = az.plot_dist(idata, var_names=["rho0", "rho1", "rho2", "sigma"])
 az.add_lines(
     pc,
-    {"rho0": true_center, "rho1": true_rho[0], "rho2": true_rho[1], "sigma": true_sigma},
+    {"rho0": true_constant, "rho1": true_rho[0], "rho2": true_rho[1], "sigma": true_sigma},
 );
 ```
 
