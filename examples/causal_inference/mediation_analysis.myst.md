@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -30,15 +30,14 @@ import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pymc as pm
-import seaborn as sns
 import xarray as xr
 
 from arviz_base.labels import MapLabeller
-from pandas import DataFrame
 ```
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
+az.style.use("arviz-variat")
 plt.rcParams.update({"font.size": 14})
 seed = sum(map(ord, "mediation_analysis"))
 rng = np.random.default_rng(seed)
@@ -111,8 +110,8 @@ x = rng.normal(loc=0, scale=1, size=N)
 
 true_model = pm.do(model=mediation_model(x), vars_to_interventions=true_params)
 prior_draw = pm.sample_prior_predictive(draws=1, model=true_model, random_seed=rng)
-m = prior_draw.prior["m"].isel(chain=0, draw=0).to_numpy()
-y = prior_draw.prior["y"].isel(chain=0, draw=0).to_numpy()
+m = prior_draw.prior["m"].squeeze()
+y = prior_draw.prior["y"].squeeze()
 
 true_direct = true_params["cprime"]
 true_indirect = true_params["a"] * true_params["b"]
@@ -120,7 +119,10 @@ print(f"True direct effect = {true_direct}")
 print(f"True indirect effect = {true_indirect}")
 print(f"True total effect = {true_direct + true_indirect}")
 
-sns.pairplot(DataFrame({"x": x, "m": m, "y": y}));
+prior_draw.prior["x"] = xr.DataArray(x, dims="obs_id")
+az.plot_pair(
+    prior_draw, group="prior", var_names=["x", "m", "y"], marginal_kind="hist", sample_dims="obs_id"
+);
 ```
 
 ## Conduct inference
@@ -140,7 +142,7 @@ with model:
 Visualise the trace to check for convergence.
 
 ```{code-cell} ipython3
-az.plot_trace_dist(result, figure_kwargs={"tight_layout": True, "sharex": "col"});
+az.plot_trace_dist(result, figure_kwargs={"sharex": "col"});
 ```
 
 We have good chain mixing and the posteriors for each chain look very similar, so no problems in that regard.
@@ -155,7 +157,6 @@ First we will use a pair plot to look at joint posterior distributions.
 az.plot_pair(
     result,
     var_names=["a", "b", "cprime", "indirect effect", "total effect"],
-    figure_kwargs={"figsize": (12, 12)},
 );
 ```
 
@@ -199,18 +200,14 @@ with total_effect_model:
 
 ```{code-cell} ipython3
 total_effects = {
-    "mediation model": xr.DataTree.from_dict(
-        {"posterior": result.posterior.to_dataset()[["total effect"]]}
-    ),
-    "total effect model": xr.DataTree.from_dict(
-        {"posterior": total_effect_result.posterior.to_dataset()[["c"]].rename(c="total effect")}
-    ),
+    "mediation model": result,
+    "total effect model": total_effect_result.posterior.ds.rename_vars({"c": "total effect"}),
 }
 pc = az.plot_dist(
     total_effects,
     var_names=["total effect"],
     visuals={"credible_interval": False, "point_estimate": False, "point_estimate_text": False},
-    figure_kwargs={"figsize": (14, 4)},
+    figure_kwargs={"figsize": (12, 4)},
 )
 pc.add_legend("model");
 ```
