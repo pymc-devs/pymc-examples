@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -27,6 +27,7 @@ import pymc as pm
 import seaborn as sns
 import xarray as xr
 
+from matplotlib.colors import LinearSegmentedColormap
 from sklearn.metrics import RocCurveDisplay, auc, roc_curve
 from sklearn.model_selection import train_test_split
 ```
@@ -34,11 +35,11 @@ from sklearn.model_selection import train_test_split
 ```{code-cell} ipython3
 RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 
-# color each class from the end of the colormap that represents certainty in that class
-cmap = plt.get_cmap("RdBu_r")
-class_palette = {0: cmap(0.1), 1: cmap(0.9)}
+
+cmap = LinearSegmentedColormap.from_list("C0wC1", ["C0", "w", "C1"])
+class_palette = {0: "C0", 1: "C1"}
 marker_style = {"s": 50, "edgecolor": "white"}
 ```
 
@@ -154,10 +155,9 @@ The 89% interval of every coefficient contains its true value, so the model reco
 true_values = xr.DataArray(
     [intercept, beta_x1, beta_x2, beta_interaction],
     coords={"coeffs": labels},
-    dims="coeffs",
     name="b",
 )
-pc = az.plot_dist(idata, var_names=["b"], figure_kwargs={"figsize": (15, 4)})
+pc = az.plot_dist(idata, var_names=["b"])
 az.add_lines(pc, true_values);
 ```
 
