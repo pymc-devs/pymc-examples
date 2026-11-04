@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -26,8 +26,6 @@ import pymc as pm
 
 from scipy.linalg import cholesky
 from sklearn.preprocessing import StandardScaler
-
-%matplotlib inline
 ```
 
 ```{code-cell} ipython3
@@ -127,14 +125,13 @@ true_model = pm.do(
     vars_to_interventions={"alpha": alpha_true, "beta": beta_true, "sigma": sigma_true},
 )
 prior_draw = pm.sample_prior_predictive(draws=1, model=true_model, random_seed=rng)
-y = prior_draw.prior["y"].isel(chain=0, draw=0).to_numpy()
+y = prior_draw.prior["y"].squeeze()
 
 # Plot the correlated series
-fig, ax = plt.subplots(figsize=(12, 5))
+_, ax = plt.subplots(figsize=(12, 5))
 ax.plot(t, y, ".", markersize=2, label=("y_0 data", "y_1 data", "y_2 data"))
 ax.set(title="Three Correlated Series", xlabel="Time")
 ax.legend()
-plt.show();
 ```
 
 ## Model
@@ -192,44 +189,52 @@ y_pred = y_scaler.inverse_transform(
 )
 
 # Plot the predicted mean
-fig, ax = plt.subplots(1, 1, figsize=(12, 6))
+_, ax = plt.subplots(1, 1, figsize=(12, 6))
 ax.plot(t, y, ".", markersize=2, label=("y_0 data", "y_1 data", "y_2 data"))
 plt.gca().set_prop_cycle(None)
 ax.plot(t, y_pred, label=("y_0 pred", "y_1 pred", "y_2 pred"))
-ax.set_xlabel("Time")
-ax.legend()
-ax.set_title("Predicted Mean of Three Correlated Series");
+ax.set(title="Predicted Mean of Three Correlated Series", xlabel="Time")
+ax.legend();
 ```
 
 Finally, we plot the data against the posterior predictive samples.
 
 ```{code-cell} ipython3
-# Rescale the posterior predictive samples
+# Rescale posterior predictive
 ppc = idata.posterior_predictive["y"].stack(sample=("chain", "draw", "steps"))
 ppc = ppc.transpose("sample", "y_")
 ppc_y = ppc.copy(data=y_scaler.inverse_transform(ppc)).unstack("sample")
 
-ppc_mean = ppc_y.mean(dim=["chain", "draw"])
-hdi_50 = az.hdi(ppc_y, prob=0.5, dim=["chain", "draw"])
-hdi_95 = az.hdi(ppc_y, prob=0.95, dim=["chain", "draw"])
+_, ax = plt.subplots(figsize=(10, 4))
 
-fig, ax = plt.subplots(figsize=(12, 6))
-for i, series in enumerate(ppc_y["y_"].to_numpy()):
-    color = f"C{i}"
-    ax.plot(t, y[:, i], ".", color=color, markersize=3, label=f"{series} data")
-    ax.plot(t, ppc_mean.sel(y_=series), color=color, linewidth=1)
-    for hdi, fill_alpha in [(hdi_95, 0.2), (hdi_50, 0.4)]:
-        ax.fill_between(
-            t[:, 0],
-            hdi.sel(y_=series, ci_bound="lower"),
-            hdi.sel(y_=series, ci_bound="upper"),
-            color=color,
-            alpha=fill_alpha,
-            linewidth=0,
-        )
-ax.set_xlabel("Time")
+for i, series in enumerate(ppc_y["y_"]):
+    series_idata = az.from_dict(
+        {
+            "observed_data": {"y": y[:, i]},
+            "posterior_predictive": {"y_hat": ppc_y.sel(y_=series).values},
+            "constant_data": {"t": t[:, 0]},
+        },
+        dims={"y": ["time"], "y_hat": ["time"], "t": ["time"]},
+    )
+
+    az.plot_lm(
+        series_idata,
+        x="t",
+        y="y_hat",
+        visuals={
+            "ci_band": {"color": f"C{i}", "alpha": 0.3},
+            "observed_scatter": {"color": f"C{i}"},
+            "pe_line": {"color": f"C{i}"},
+        },
+        smooth=False,
+        axes=ax,
+    )
+    ax.plot([], [], color=f"C{i}", label=f"y_{i} data")
 ax.legend()
-ax.set_title("Posterior Predictive Mean, 50% and 95% HDI, and the Three Correlated Series");
+ax.set(
+    title="Posterior Predictive Mean, 50% and 95% HDI, and the Three Correlated Series",
+    xlabel="Time",
+);
 ```
 
 ## Authors
