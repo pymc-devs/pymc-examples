@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_env
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -37,7 +37,7 @@ from scipy.stats import norm, truncnorm
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
 rng = default_rng(12345)
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 ```
 
 ## Truncation and censoring
@@ -134,13 +134,16 @@ with cens_linear_model:
 By plotting the posterior distribution over the slope parameters we can see that the estimates for the slope are pretty far off, so we are indeed underestimating the regression slope.
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(1, 2, figsize=(10, 5), sharex=True)
-
-az.plot_posterior(trunc_linear_fit, var_names=["slope"], ref_val=slope, ax=ax[0])
-ax[0].set(title="Linear regression\n(truncated data)", xlabel="slope")
-
-az.plot_posterior(cens_linear_fit, var_names=["slope"], ref_val=slope, ax=ax[1])
-ax[1].set(title="Linear regression\n(censored data)", xlabel="slope");
+pc = az.plot_dist(
+    {"linear": trunc_linear_fit, "censored": cens_linear_fit},
+    var_names=["slope"],
+    visuals={
+        "point_estimate_text": False,
+        "title": {"text": "Linear regression"},
+    },
+)
+az.add_lines(pc, slope)
+pc.add_legend("model")
 ```
 
 To appreciate the extent of the problem (for this dataset) we can visualise the posterior predictive fits alongside the data.
@@ -280,13 +283,16 @@ with censored_model:
 We can do the same as before and visualise our posterior estimates on the slope.
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(1, 2, figsize=(10, 5), sharex=True)
-
-az.plot_posterior(truncated_fit, var_names=["slope"], ref_val=slope, ax=ax[0])
-ax[0].set(title="Truncated regression\n(truncated data)", xlabel="slope")
-
-az.plot_posterior(censored_fit, var_names=["slope"], ref_val=slope, ax=ax[1])
-ax[1].set(title="Censored regression\n(censored data)", xlabel="slope");
+pc = az.plot_dist(
+    {"truncated": truncated_fit, "censored": censored_fit},
+    var_names=["slope"],
+    visuals={
+        "point_estimate_text": False,
+        "title": {"text": "Truncated vs. censored"},
+    },
+)
+az.add_lines(pc, slope)
+pc.add_legend("model")
 ```
 
 These are _much_ better estimates. Interestingly, we can see that the estimate for censored regression is more precise than for truncated data. This will not necessarily always be the case, but the intuition here is that the `x` and `y` data is entirely discarded with truncation, but only the `y` data becomes partially unknown in censoring.
@@ -327,6 +333,7 @@ When looking into this topic, I found that most of the material out there focuse
 * Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in September 2022
 * Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 to run on PyMC v5
 * Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023 to use `az.extract`, ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
+* Updated by [Chris Fonnesbeck](https://github.com/fonnesbeck) in October 2026 to run on PyMC v6
 
 +++
 
