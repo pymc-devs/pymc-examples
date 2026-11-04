@@ -20,12 +20,20 @@ kernelspec:
 :author: Alexandre Andorra, Bill Engels, Ben Mares, Juan Orduz
 :::
 
-The Hilbert space Gaussian process approximation (HSGP, {cite:t}`solin2020Hilbert`,
-{cite:t}`riutort2022PracticalHilbertSpaceApproximate`) represents a stationary GP on a box $[-L, L]$ using the
-eigenfunctions of the Laplacian. Those eigenfunctions depend on what we ask the GP to do at the
-ends of the box. This notebook explains the four boundary conditions available in
-{class}`pymc.gp.HSGP`, shows where the choice makes no difference at all, where it is the only
-way to express what you know about the function, and where it helps with caveats.
+A Gaussian process (GP) prior describes a distribution over functions before we observe data.
+Its covariance function controls how function values vary together.
+For a **stationary** GP, this relationship depends on the separation between inputs, not their absolute positions.
+
+The Hilbert space Gaussian process approximation (HSGP) replaces the GP with a finite sum of fixed curves, called **basis functions**.
+Random weights combine these curves into possible functions.
+This representation can reduce computation when the number of basis functions is much smaller than the number of observations.
+
+One constraint on this approach is that these curves need a finite interval and a rule at each endpoint.
+Those rules are **boundary conditions**, and they affect both the function and its uncertainty near the endpoints.
+This notebook explains the four choices in {class}`pymc.gp.HSGP` and compares interpolation, known physical constraints, and short-range forecasts.
+
+For HSGP background, see {ref}`hsgp`.
+The approximation follows {cite:t}`solin2020Hilbert` and {cite:t}`riutort2022PracticalHilbertSpaceApproximate`.
 
 ```{code-cell} ipython3
 import arviz as az
@@ -46,30 +54,110 @@ seed = 42
 rng = np.random.default_rng(seed)
 ```
 
-## What a boundary condition is
+## Boundary conditions
 
-HSGP approximates the GP prior by $f(x) \approx \sum_{j} \sqrt{S(\omega_j)}\, \beta_j\, \phi_j(x)$
-with $\beta_j \sim \mathcal{N}(0, 1)$, where $S$ is the spectral density of the covariance
-function and $\phi_j$ are eigenfunctions of the Laplacian on $[-L, L]$. All four options share
-the eigenvalues $\lambda_j = (\pi j / 2L)^2$, $\omega_j = \sqrt{\lambda_j}$, and differ only in
-the index set $j$ and in the trigonometric function:
+### Dirichlet and Neumann conditions
 
-| `boundary` | at $-L$ | at $+L$ | $\phi_j(x)$ | $j$ |
-|---|---|---|---|---|
-| `"dirichlet"` (default) | $f = 0$ | $f = 0$ | $\sin(\omega_j (x + L)) / \sqrt{L}$ | $1, 2, \dots, m$ |
-| `"neumann"` | $f' = 0$ | $f' = 0$ | $\cos(\omega_j (x + L)) / \sqrt{L}$ | $0, 1, \dots, m-1$ |
-| `"dirichlet-neumann"` | $f = 0$ | $f' = 0$ | $\sin(\omega_j (x + L)) / \sqrt{L}$ | $\tfrac12, \tfrac32, \dots, m - \tfrac12$ |
-| `"neumann-dirichlet"` | $f' = 0$ | $f = 0$ | $\cos(\omega_j (x + L)) / \sqrt{L}$ | $\tfrac12, \tfrac32, \dots, m - \tfrac12$ |
+Imagine a curve on a finite interval.
+At both endpoints, we can force its height to zero or force its slope to zero.
+The rule applies to every curve that the HSGP can represent, before and after we observe data.
 
-The name reads left to right as (condition at the lower end, condition at the upper end).
-Dirichlet pins the *value* of the function to zero at the end, Neumann pins its *slope*. The two
-mixed conditions are mirror images of each other, so below we only show `"neumann-dirichlet"`.
-The constant Neumann mode ($j = 0$, normalised by $1/\sqrt{2L}$) is part of the basis: it
-carries the prior variance $S(0) / 2L$ that the other modes do not.
+- A **Dirichlet** condition fixes the function value to zero.
+  Every possible curve passes through zero at that endpoint.
+- A **Neumann** condition fixes the derivative, or slope, to zero.
+  Every possible curve has a horizontal tangent there, but its height remains uncertain.
 
-The box itself is centred on the midpoint of the training inputs, with half-width $L$ (given
-directly, or as $c$ times the half-range of the data). Keep that in mind: a boundary condition
-acts at the ends of the *box*, which are only the ends of your *domain* if you place them there.
+These are hard constraints, so no amount of data can override them
+
+The models in this notebook all use a zero mean function, $\mu(x)=0$, so the prior expected value is zero at each input, but individual function draws need not equal zero.
+
+With a nonzero mean, write $f(x)=\mu(x)+g(x)$, where $g(x)$ is the weighted basis sum.
+Dirichlet fixes $g=0$ at the endpoint, so $f=\mu$ there.
+Neumann fixes $g'=0$ at the endpoint, so $f'=\mu'$ there.
+
+
+| `boundary` | Lower endpoint | Upper endpoint |
+|---|---|---|
+| `"dirichlet"` (default) | Zero value | Zero value |
+| `"neumann"` | Zero slope | Zero slope |
+| `"dirichlet-neumann"` | Zero value | Zero slope |
+| `"neumann-dirichlet"` | Zero slope | Zero value |
+
+### Approximation domain
+
+In one dimension, the HSGP interval has a center and a half-width $L$.
+PyMC centers the interval on the midpoint of the inputs supplied when it first builds the basis.
+The notation $[-L, L]$ describes coordinates relative to that center.
+
+So for example, inputs spanning $[0, 1]$, the center is $0.5$.
+With $c = 1.5$, the half-width is $L = 0.75$, so the interval in original coordinates is $[-0.25, 1.25]$.
+Note that the constraints act at $-0.25$ and $1.25$, not at the first and last observations.
+
+The three hyperparameters have different roles:
+
+- `L` sets the distance from the center to each endpoint.
+  Alternatively, `c` sets $L$ as a multiple of the input half-range.
+- `m` sets the number of basis functions in one dimension.
+  More functions can represent finer variation, but they do not remove the endpoint constraint.
+- `boundary` sets the endpoint behavior.
+  It does not change the interval width.
+
+If the endpoints only support the numerical approximation, place them beyond the inputs where you need accurate predictions.
+If they represent known physical boundaries, place them at those boundaries instead.
+The radial-profile model in **Radial profiles with physical constraints** places its interval endpoints at $r=0$ and $r=1$.
+Its observations cover only $r\in[0.1,0.7]$.
+
+### HSGP basis functions
+
+HSGP essentially turns the Gaussian process into a linear regression with fixed curves instead of ordinary predictors.
+It assigns a random coefficient to each curve and adds the weighted curves together:
+
+$$
+f(x) \approx \sum_{j \in J} \sqrt{S(\omega_j)}\,\beta_j\,\phi_j(x),
+\qquad \beta_j \overset{\mathrm{iid}}{\sim} \mathcal{N}(0, 1).
+$$
+
+Here, $\phi_j$ is a basis function, $\beta_j$ is its independent standard Normal coefficient, and $\omega_j$ is its frequency.
+The **spectral density** $S$ comes from the covariance function.
+It controls the variance assigned to each frequency, so the chosen kernel still controls the scale and smoothness of variation.
+
+The basis functions are eigenfunctions of the Laplacian.
+In this one-dimensional example, they are sine or cosine curves that satisfy the chosen endpoint rules.
+Happily, we do not need to solve this eigenfunction problem ourselves because PyMC supplies the basis.
+
+For the sine and cosine bases in the table, the Laplacian eigenfunction equation is $-\phi_j''(x)=\lambda_j\phi_j(x)$.
+The eigenvalue $\lambda_j$ is the squared frequency of basis function $j$.
+
+If every basis function is zero at an endpoint, every weighted sum is also zero there (the same applies to zero derivatives).
+This explains why learning the coefficients cannot remove the constraint.
+
+For readers who want the formulae, the frequency and eigenvalue obey the same relation for all four choices:
+
+$$
+\omega_j = \frac{\pi j}{2L}, \qquad \lambda_j = \omega_j^2.
+$$
+
+The allowed indices $J$ and the sine or cosine basis differ:
+
+| `boundary` | Basis function $\phi_j(x)$ | Indices $J$ for $m$ functions |
+|---|---|---|
+| `"dirichlet"` | $\sin(\omega_j(x + L))/\sqrt{L}$ | $1, 2, \ldots, m$ |
+| `"neumann"` | $\cos(\omega_j(x + L))/\sqrt{L}$ for $j > 0$ | $0, 1, \ldots, m-1$ |
+| `"dirichlet-neumann"` | $\sin(\omega_j(x + L))/\sqrt{L}$ | $\tfrac12, \tfrac32, \ldots, m-\tfrac12$ |
+| `"neumann-dirichlet"` | $\cos(\omega_j(x + L))/\sqrt{L}$ | $\tfrac12, \tfrac32, \ldots, m-\tfrac12$ |
+
+For the Neumann basis, $j = 0$ is a constant function with a different normalization: $\phi_0(x) = 1/\sqrt{2L}$.
+Its random coefficient lets the overall level vary while the slope stays zero at both ends.
+Its contribution to the variance at any input is $S(0)/(2L)$.
+
+The plot below shows the first four basis functions for Dirichlet, Neumann, and Neumann–Dirichlet.
+These are the **fixed curves** that the random coefficients combine, not sampled GP functions.
+
+At each Dirichlet endpoint in the basis plot, all four basis functions equal zero.
+At each Neumann endpoint, all four derivatives equal zero, but the function values differ.
+
+Dirichlet–Neumann just flips the endpoint roles shown in the third panel.
+The fitting comparisons use `"neumann-dirichlet"` rather than repeat both orientations.
 
 ```{code-cell} ipython3
 BOUNDARIES = ["dirichlet", "neumann", "neumann-dirichlet"]
@@ -87,11 +175,21 @@ axes[0].set(ylabel=r"$\phi_j(x)$")
 fig.suptitle("First four basis functions on $[-L, L]$, $L = 1$", y=1.02)
 ```
 
-## What it does to the prior
+## Prior uncertainty near boundaries
 
-The prior standard deviation of the approximate GP can be computed in closed form from the
-basis and the spectral density. The exact stationary GP has constant standard deviation
-$\sigma = 1$.
+A GP prior describes uncertainty before we observe data.
+Its pointwise standard deviation measures how much possible function values vary at each input.
+This is uncertainty about the latent function, not observation noise.
+
+The prior-standard-deviation plot below uses the squared-exponential kernel (`ExpQuad`), $L=5$, $m=200$, and $\ell=1$.
+Its horizontal axis spans the full approximation interval, including both constrained endpoints.
+The lengthscale $\ell=1$ sets the distance over which function values remain strongly correlated.
+
+Here, we set the exact GP's signal standard deviation to $1$.
+Stationarity makes that standard deviation constant across inputs.
+
+The HSGP constraints break that stationarity near the endpoints.
+We compute the standard deviation directly from the basis weights, without sampling or fitting a model.
 
 ```{code-cell} ipython3
 def prior_sd(boundary, X, L, m, ls):
@@ -110,39 +208,58 @@ ax.set(xlabel="$x$", ylabel="prior sd", title=r"Prior sd, ExpQuad with $\ell = 1
 ax.legend()
 ```
 
-Three things to read off this plot:
+Notice a few things:
 
-1. In the interior all conditions agree with the exact GP. The boundary condition only acts
-   within roughly $1.5 \ell$ of an end.
-2. At a Dirichlet end the prior variance goes to $0$; at a Neumann end it goes to $2\sigma^2$.
-   Neither is the exact GP. In the limit $m \to \infty$ the approximate covariance is the
-   stationary kernel plus its *reflection* about the ends ("method of images"): with a minus
-   sign for Dirichlet, a plus sign for Neumann. The size of the deviation from the exact GP is
-   the same in all cases.
-3. Consequently the usual guidance for $m$ and $c$ (`pm.gp.hsgp_approx.approx_hsgp_hyperparams`)
-   applies unchanged to every boundary condition. A boundary condition is a **modeling
-   assumption about what happens at the edge**, not a better approximation of the GP.
+1. Near $x=0$, all three HSGP curves approach the exact GP's standard deviation of $1$.
+   For `ExpQuad` with $L=5$ and $\ell=1$, visible differences concentrate within about $1.5$ input units of an endpoint.
+   But, this distance is not a universal cutoff for other kernels or lengthscales.
+2. A Dirichlet endpoint has zero function variance because every possible function has the same value there.
+   A Neumann endpoint fixes the slope instead, so its function value remains uncertain.
+   For this `ExpQuad` calculation, the Neumann endpoint variance approaches $2$, so its standard deviation approaches $\sqrt{2}$.
+3. Neither constraint reproduces the unconstrained GP at the endpoint.
+   Increasing `m` refines the basis but cannot remove this difference.
+   To approximate the unconstrained GP over a wider prediction range, increase the interval width and reconsider `m` together.
+
+Reflecting an input across an interval endpoint helps describe how these constraints change covariance.
+With `ExpQuad`, a nearby reflected input adds a covariance contribution for Neumann and subtracts one for Dirichlet.
+More distant reflections contribute less when the interval spans many lengthscales.
+
+In the above, the interval width is ten lengthscales, which makes the influence of the opposite endpoint small near either boundary.
+Keep in mind that a boundary condition is just a modeling assumption near the edge, not an improvement in approximation accuracy!
 
 +++
 
-## Shared helpers
+## Model fitting and evaluation
 
-Two kinds of fits are used below.
+The interpolation, radial-profile, and forecasting comparisons use some fitting and evaluation helper functions specified below below.
+Each comparison includes an exact GP without endpoint constraints as a reference.
+Here, *exact* describes the covariance calculation, not a guarantee that the model matches the physical process.
 
-- For the **figures**, one NUTS fit per model with weakly informative priors on the
-  hyperparameters, compared against the exact GP (`pm.gp.Marginal`).
-- For the **tables**, a replicated study: 100 GP draws, and for each draw and each model the
-  hyperparameters $(\ell, \eta, \sigma_\text{noise})$ are learned by type-II maximum likelihood
-  on a grid, followed by the closed-form Gaussian posterior. This is what NUTS estimates, without
-  the sampling noise, and it is cheap enough to replicate. A table from a single realisation is
-  not evidence: with a lengthscale of $0.4$ the twenty forecast points are essentially one draw.
+The figures and tables use different inference methods:
 
-A practical note on $m$. With a free lengthscale, the spectral density of the highest
-frequencies in the basis underflows to exactly zero once $\ell$ is a few times larger than
-$L / m$, and the gradient of $\sqrt{S}$ is then infinite: NUTS diverges. Keep $m$ close to what
-`approx_hsgp_hyperparams` recommends for your lengthscale range rather than "large to be safe".
-Here $m = 15$ at $c = 1.5$ (and $m = 6$ at $c = 1$) is plenty for $\ell \in [0.2, 0.8]$; the
-same $m$ is used for the figures and the tables.
+- The **figures** use NUTS sampling to estimate uncertainty in the covariance parameters and latent function.
+  The parameters are the lengthscale $\ell$, signal amplitude $\eta$, and observation-noise standard deviation $\sigma_\text{noise}$.
+- The **tables** repeat each comparison over 100 simulated functions.
+  For each function and model, a grid search selects the parameter values with the largest marginal likelihood.
+  A closed-form Gaussian calculation then gives the conditional posterior at those selected values.
+
+The table method is **type-II maximum likelihood**.
+Unlike the NUTS fits, it does not integrate over parameter uncertainty, so the two methods need not produce identical uncertainty intervals.
+This repetition helps us fairly compare methods across functions rather than judge them from one favorable draw.
+
+The tables report root mean square error (RMSE), coverage, and the latent standard deviation at the last prediction input, labeled `sd(last)`.
+
+The reported standard deviation measures uncertainty, not error.
+A small value could reflect either precise information or an overzealous constraint.
+
+You want to choose `m` according to the plausible lengthscale range, rather than making it arbitrarily large.
+Very high frequencies can receive spectral weights that round to zero, which can cause invalid gradients during NUTS sampling. Here, the interpolation and forecasting fits use $m=15$. The radial-profile fit uses $m=6$ and endpoints fixed at $r=0$ and $r=1$.
+
+Pro tip: use `pm.gp.hsgp_approx.approx_hsgp_hyperparams` to select initial values of `m` and interval width for your input and lengthscale ranges.
+Include the intended prediction inputs, not just the observations.
+
+The settings `m` and `L` control the largest basis frequency through $\omega_j=\pi j/(2L)$.
+Increasing `L` without increasing `m` reduces the highest frequency represented by the basis.
 
 ```{code-cell} ipython3
 def hyperpriors():
@@ -306,11 +423,15 @@ def draw_gp(x, ell, eta=1.0):
     return np.linalg.cholesky(K + 1e-9 * np.eye(len(x))) @ rng.standard_normal(len(x))
 ```
 
-## Where it does not matter: fitting inside the data
+## Interpolation within the observed range
 
-Sixty noisy observations of a GP draw on $[0, 1]$, prediction on the same interval, the usual
-$c = 1.5$ (so $L = 0.75$ around the midpoint, i.e. the box is $[-0.25, 1.25]$). The nearest
-data point is $0.25$ away from the box edge, less than one lengthscale, and yet:
+We first simulate 60 noisy observations on $[0, 1]$ and predict the latent function over the same interval.
+We use $c = 1.5$, which places the approximation boundaries at $-0.25$ and $1.25$.
+The nearest observation is $0.25$ from a boundary, less than the generating lengthscale of $0.4$.
+
+The interpolation comparison tests whether nearby observations reduce differences between the three HSGP boundary choices.
+The exact GP supplies a fourth fitted model without endpoint constraints.
+Compare the fitted curves and 90% intervals over $[0,1]$, then compare RMSE and coverage in the repeated-study table.
 
 ```{code-cell} ipython3
 ell_true, noise_true = 0.4, 0.3
@@ -334,30 +455,40 @@ models_in["exact GP"] = k_expquad
 replicated_table(models_in, lambda: draw_gp(np.r_[x, x], ell_true), x, x, noise_true)
 ```
 
-All four posteriors coincide, in the figure and in the replicated table. If your predictions
-live inside the data and $c \geq 1.2$, the boundary condition is irrelevant and you should keep
-the default. An example that only looks at in-sample fit cannot show a difference; this is by
-construction, not by accident.
+For the 60-point interpolation data set, the observations constrain function values throughout $[0,1]$.
+Agreement between these four fitted models does not establish accuracy for sparse data, larger noise, or different lengthscales.
+
+For interpolation, start with the default `"dirichlet"` boundary and an interval that extends beyond the observation range.
 
 +++
 
-## Where a boundary condition shines: constraints no $c$ can express
+## Radial profiles with physical constraints
 
-Consider a smooth profile $f(r)$ on $r \in [0, R]$ that is symmetric about the origin, so
-$f'(0) = 0$, and decays to the background level at the outer edge, $f(R) = 0$ (a brightness
-profile, a concentration around a source, a pressure profile). We observe it only on the
-inner part $r \in [0.1, 0.7]$ and want to reconstruct it on all of $[0, 1]$.
+Consider a radial profile $f(r)$ on $[0, R]$, such as brightness or concentration around a source.
+Symmetry about the origin gives $f'(0) = 0$.
+After background subtraction, a known background level at the outer edge gives $f(R) = 0$.
 
-No value of $c$ makes the Dirichlet basis express $f'(0) = 0$: the sine basis has no flat mode.
-With `"neumann-dirichlet"` and the box placed exactly on the physical domain ($L = 0.5$
-around $r = 0.5$, i.e. $c = 1$, the smallest possible box) both constraints are built in. To
-put the box on the physical domain rather than around the midpoint of the observations, we
-build the basis on a grid covering the whole domain with `prior_linearized` and index the
-observed rows in the likelihood.
+The radial profile has outer radius $R=1$, and observations cover only $r\in[0.1,0.7]$.
+Its unobserved regions are $[0,0.1)$ and $(0.7,1]$.
+The goal is to reconstruct the unobserved ends using physical knowledge, not just to approximate an unconstrained GP.
 
-Two truths are used: one where the constraints hold exactly (a GP draw conditioned on them),
-and one where they hold only approximately ($f(R)$ is only *near* zero), because a reviewer
-will rightly ask whether the first is circular.
+A larger Dirichlet interval moves its zero-value constraints elsewhere, but it does not impose zero slope at the physical origin.
+A Dirichlet weighted sum can happen to have zero slope there, but that property does not hold for every possible function.
+
+With `"neumann-dirichlet"` and endpoints at $0$ and $1$, every represented function satisfies both physical constraints.
+We build the basis with `prior_linearized` on a grid that spans the full physical domain.
+We then use only observed rows in the likelihood.
+
+The full-domain grid centers the basis at $r=0.5$ with $L=0.5$, which places the endpoints at $r=0$ and $r=1$.
+For this grid, $L=0.5$ equals $c=1$ times the half-range.
+Using `c=1` on the observed inputs alone would instead place the boundaries at $0.1$ and $0.7$.
+
+We generate two sets of radial profiles.
+Both sets satisfy $f'(0)=0$.
+The first also fixes $f(1)=0$, while the second allows $f(1)\sim\mathcal{N}(0,0.3^2)$.
+
+The HSGP still fixes $f(1)=0$ in both comparisons.
+In the second comparison, its assumption conflicts with the simulated endpoint values.
 
 ```{code-cell} ipython3
 def draw_constrained_profile(r, ell, eta=1.0, edge_sd=0.0):
@@ -439,25 +570,31 @@ print("\nf(R) only approximately zero (sd 0.3):")
 replicated_table(models_r, truth_radial(0.3), r_obs, r_pred, noise_true=0.2)
 ```
 
-When the constraints hold, `"neumann-dirichlet"` reconstructs the unobserved ends far better
-than the exact GP, which knows nothing about the symmetry or the decay, and it does so with the
-smallest possible box ($c = 1$). When the outer constraint only holds approximately, much of
-that advantage is gone: the RMSE is comparable to the exact GP's, and the model is overconfident
-at that end because it pins $f(R)$ exactly where the truth only comes close (coverage drops).
-A boundary condition pays off in proportion to how well it actually holds. The default
-Dirichlet is wrong at $r = 0$ (it pins the profile to zero there) and the reversed
-`"dirichlet-neumann"` is wrong at both ends and is the worst of all. **A mismatched boundary
-condition is worse than the default**: use a non-default condition only when you know what the
-function does at that edge. Plain `"neumann"` is the most forgiving choice when you are unsure.
+When the generated profiles satisfy $f'(0)=0$ and $f(1)=0$, `"neumann-dirichlet"` supplies correct information about the unobserved endpoints.
+When $f(1)\sim\mathcal{N}(0,0.3^2)$, that HSGP still assigns zero uncertainty to $f(1)$.
+It cannot represent the nonzero endpoint values in the second set of simulated profiles.
+
+The unconstrained exact GP in the radial-profile comparison does not impose $f'(0)=0$ or $f(1)=0$.
+The comparison tests whether those two physical constraints improve reconstruction of the unobserved profile regions.
+An exact GP can also impose these constraints through a suitable covariance or conditioning calculation.
+
+Neither mixed condition nor Neumann is a safe default for an unknown physical boundary.
+You should choose the condition from domain knowledge about the latent function, and check sensitivity when that knowledge is uncertain.
 
 +++
 
-## Where Neumann helps, with caveats: forecasting just past the data
+## Forecasting near approximation boundaries
 
-A new GP draw on $[0, 1.2]$; we observe $[0, 1]$ and forecast $(1, 1.2]$, half a lengthscale
-past the last observation, with the same $c = 1.5$ as before (box edge at $1.25$). A Dirichlet
-end forces the forecast to zero *with vanishing uncertainty*; a Neumann end lets it flatten out
-and keep its uncertainty. The exact GP is the reference.
+Let's now observe inputs on $[0, 1]$ and forecast to $1.2$, half a generating lengthscale beyond the last observation.
+With $c = 1.5$, the upper approximation boundary is $1.25$, so the forecasts approach it without crossing it.
+
+A Dirichlet endpoint forces the latent function toward zero with vanishing uncertainty at the boundary.
+A Neumann endpoint allows uncertain function values but forces the slope to zero there.
+Neither rule follows from the observed time series alone.
+
+The exact stationary GP provides a reference without these artificial endpoint constraints.
+The forecasting experiment tests predictions on $(1,1.2]$, not arbitrary forecast horizons.
+With $c=1.5$, all prediction inputs remain below the upper approximation endpoint at $1.25$.
 
 ```{code-cell} ipython3
 x_new = np.linspace(1.0, 1.2, 21)[1:]
@@ -497,40 +634,47 @@ for c in [1.5, 2.0]:
     print()
 ```
 
-At $c = 1.5$ the Dirichlet forecast band collapses and covers the truth far less than 90% of
-the time; the Neumann forecast and its uncertainty are close to the exact GP. This is the
-situation of many time-series uses of HSGP (trend components, time-varying coefficients):
-predictions are made right where the Dirichlet artefact lives.
+The nominal intervals contain 90% of the model's probability for each latent function value.
+Coverage tests whether those intervals contain the simulated truth about 90% of the time across repetitions.
+A narrow interval is not better if it misses the truth too often.
 
-Three caveats, all visible in the table:
+The forecast table compares two interval widths, with the same training-input center at $0.5$:
 
-1. The gain is in **calibration**, not point accuracy. Once $c = 2$ the Dirichlet model is as
-   accurate as the exact GP and Neumann is no better.
-2. The exact GP reverts to its mean at the scale of the lengthscale; Neumann flattens instead.
-   Over horizons shorter than a lengthscale these agree; over longer horizons Neumann is
-   *over*-dispersed and neither approximation is trustworthy.
-3. PyMC's `approx_hsgp_hyperparams` already tells you to include the prediction range in
-   `x_range`, which for this problem recommends $c \approx 4$. That is the library's answer to
-   "my forecast reverts to zero"; it costs proportionally more basis functions ($m \propto c$
-   per input dimension). A Neumann end at small $c$ is the cheaper way to get calibrated
-   short-horizon forecasts, not a replacement for choosing $c$ well.
+1. With $c=1.5$, the approximation interval is $[-0.25,1.25]$.
+   The last prediction input, $x=1.2$, lies only $0.05$ below the Dirichlet endpoint, where latent uncertainty must vanish.
+   Neumann avoids that zero-value constraint, but it substitutes a zero-slope assumption.
+2. With $c=2$, the interval is $[-0.5,1.5]$, so the last prediction input is $0.3$ below the upper endpoint.
+   Compare its forecast means, 90% coverage, and `sd(last)` with the corresponding $c=1.5$ results.
+   A wider interval can need more basis functions to preserve the same range of frequencies.
+3. The two forecast configurations cover only $(1,1.2]$.
+   Neither calculation tests predictions outside its approximation interval.
+   Neumann's zero-slope constraint does not supply a model for an arbitrary trend beyond that interval.
+
+Include the intended prediction range when using `approx_hsgp_hyperparams`.
+For each proposed interval width and basis count, compare forecast means and 90% intervals at the same prediction inputs.
+Use the repeated-study coverage to check whether narrow intervals miss the simulated function values too often.
 
 +++
 
-## How to choose
+## Choosing a boundary condition
+
+We reccommend separating the two goals: approximating an unconstrained GP and expressing known behavior at a physical endpoint.
+Padding addresses the first goal.
+A boundary condition can address the second only when its exact constraint matches the latent function.
 
 | Your situation | Recommendation |
 |---|---|
-| Predictions stay inside the data, $c \geq 1.2$ | Default `"dirichlet"`; the condition is irrelevant |
-| Function known to have zero slope at an edge (symmetry axis, zero flux, plateau) | Neumann at that end, box edge placed on it ($c = 1$ via `L`, basis built on the full domain) |
-| Function known to vanish at an edge | Dirichlet at that end, box edge placed on it |
-| One of each | `"neumann-dirichlet"` or `"dirichlet-neumann"` |
-| Forecasting a short horizon just past the data with a small $c$ | `"neumann"` for calibrated uncertainty; or increase $c$ (more basis functions) |
-| You want the unconstrained GP near the edge | Increase $c$; no boundary condition gives this |
+| Interpolation without known endpoint constraints | Start with `"dirichlet"` and enough padding, then check approximation accuracy |
+| Known zero slope at a physical endpoint | Use Neumann at that endpoint and place the interval edge there |
+| Known zero value at a physical endpoint | Use Dirichlet at that endpoint and place the interval edge there |
+| Zero slope at one end and zero value at the other | Use the matching mixed condition, with endpoints in the correct order |
+| Short-range forecasts near an artificial endpoint | Increase padding and reconsider `m`, then compare forecast means and uncertainty |
+| Need the unconstrained GP near the current endpoint | Widen the interval because no boundary choice removes its own constraint |
 
-Two reminders. First, the guidance for $m$ and $c$ does not change with the boundary
-condition. Second, a boundary condition that does not match the function is worse than the
-default; when unsure, `"neumann"` degrades most gracefully.
+The recommendations from `approx_hsgp_hyperparams` give initial values for the basis count and interval width, not accuracy guarantees.
+Repeat the fit with a wider interval and enough basis functions to cover the same frequencies.
+Compare posterior means and 90% intervals at the same prediction inputs.
+If physical knowledge is uncertain, examine the consequences of an incorrect exact constraint before using it.
 
 +++
 
@@ -545,6 +689,7 @@ default; when unsure, `"neumann"` degrades most gracefully.
 ## Authors
 
 - Authored by [Alexandre Andorra](https://github.com/AlexAndorra), [Bill Engels](https://github.com/bwengals), [Ben Mares](https://github.com/maresb) and [Juan Orduz](https://juanitorduz.github.io/) in September 2026 ([pymc-examples#896](https://github.com/pymc-devs/pymc-examples/pull/896)).
+- Expanded narrative by [Chris Fonnesbeck](https://github.com/fonnesbeck) in November 2026
 
 +++
 
