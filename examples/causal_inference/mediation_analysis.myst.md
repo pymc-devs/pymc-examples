@@ -121,7 +121,11 @@ print(f"True total effect = {true_direct + true_indirect}")
 
 prior_draw.prior["x"] = xr.DataArray(x, dims="obs_id")
 az.plot_pair(
-    prior_draw, group="prior", var_names=["x", "m", "y"], marginal_kind="hist", sample_dims="obs_id"
+    prior_draw,
+    group="prior",
+    var_names=["x", "m", "y"],
+    marginal_kind="hist",
+    sample_dims="obs_id",
 );
 ```
 
