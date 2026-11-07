@@ -1,5 +1,6 @@
 ---
 jupytext:
+  default_lexer: ipython3
   formats: ipynb,md
   text_representation:
     extension: .md
@@ -184,7 +185,7 @@ az.plot_convergence_dist(idata_bikes, var_names="μ");
 
 In the BART literature, the diagnostics of the BART variables is sometimes considered less important than the diagnostics of the non-BART variables, the main argument is that the individual estimates of the latent variables are of no direct interest, and instead we should only care about how well we are estimating the whole function/regression.
 
-We instead consider checking the convergence of BART variables an important part of the Bayesian workflow. The main reason to use `az.plot_convergence_dist` is that usually the BART variable will be a large vector (we estimate a distribution per observation) and thus we will need to check many diagnostics. Additionally, the R-hat threshold of 1.01 is not a hard threshold, this value was chosen assuming one or a few R-hats are examined (and chains are long enough to accurately estimate their autocorrelation), and if we observed many R-hats a few of them are expected to be larger than the 1.01 threshold (or whatever threshold we pick) even if there is nothing wrong with our inference. So, how to read its output? We have three panels two for ESS (bulk and tail) and one for the R-hat. The continuous line is the empirical cumulative distribution for those values, for the ESS we want the entire curve above the dashed line, and for R-hat we want the curve to be entirely below the dashed line. In the previous figure, we can see that the ESS panels are ok but for the R-hat we have a few values above the threshold. Are our results useless? Most likely not. But to be sure we may want to take a few more draws.  
+We instead consider checking the convergence of BART variables an important part of the Bayesian workflow. The main reason to use `az.plot_convergence_dist` is that usually the BART variable will be a large vector (we estimate a distribution per observation) and thus we will need to check many diagnostics. Additionally, the R-hat threshold of 1.01 is not a hard threshold, this value was chosen assuming one or a few R-hats are examined (and chains are long enough to accurately estimate their autocorrelation), and if we observed many R-hats a few of them are expected to be larger than the 1.01 threshold (or whatever threshold we pick) even if there is nothing wrong with our inference. So, how to read its output? We have three panels two for ESS (bulk and tail) and one for the R-hat. The continuous line is the empirical cumulative distribution for those values, for the ESS we want the entire curve above the dashed line, and for R-hat we want the curve to be entirely below the dashed line. In the previous figure, we can see that the ESS panels are ok but for the R-hat we have a few values above the threshold. Are our results useless? Most likely not. But to be sure we may want to take a few more draws.
 
 +++
 
@@ -264,8 +265,20 @@ Next, we replace the data in the model and sample from the posterior predictive 
 with model_oos_regression:
     X.set_value(X_test)
     posterior_predictive_oos_regression_test = pm.sample_posterior_predictive(
-        trace=idata_oos_regression, random_seed=RANDOM_SEED
+        trace=idata_oos_regression,
+        sample_vars=["μ"],
+        var_names=["y"],
+        random_seed=RANDOM_SEED,
     )
+
+test_plot_data = az.from_dict(
+    {
+        "posterior_predictive": {
+            "y": posterior_predictive_oos_regression_test.posterior_predictive["y"].values
+        },
+        "observed_data": {"y": Y_test},
+    }
+)
 ```
 
 Finally, we can compare the posterior predictive distribution with the observed data.
@@ -276,7 +289,7 @@ pc.get_viz("plot", "y").set_xlim(0, 1_000);
 ```
 
 ```{code-cell} ipython3
-pc = az.plot_ppc_dist(posterior_predictive_oos_regression_test, kind="ecdf")
+pc = az.plot_ppc_dist(test_plot_data, kind="ecdf")
 pc.get_viz("plot", "y").set_xlim(0, 1_000);
 ```
 
