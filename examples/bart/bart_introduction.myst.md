@@ -264,8 +264,20 @@ Next, we replace the data in the model and sample from the posterior predictive 
 with model_oos_regression:
     X.set_value(X_test)
     posterior_predictive_oos_regression_test = pm.sample_posterior_predictive(
-        trace=idata_oos_regression, random_seed=RANDOM_SEED
+        trace=idata_oos_regression,
+        sample_vars=["μ"],
+        var_names=["y"],
+        random_seed=RANDOM_SEED,
     )
+
+test_plot_data = az.from_dict({
+    "posterior_predictive": {
+        "y": posterior_predictive_oos_regression_test.posterior_predictive["y"].values
+    },
+    "observed_data": {
+        "y": Y_test
+    },
+})
 ```
 
 Finally, we can compare the posterior predictive distribution with the observed data.
@@ -276,7 +288,7 @@ pc.get_viz("plot", "y").set_xlim(0, 1_000);
 ```
 
 ```{code-cell} ipython3
-pc = az.plot_ppc_dist(posterior_predictive_oos_regression_test, kind="ecdf")
+pc = az.plot_ppc_dist(test_plot_data, kind="ecdf")
 pc.get_viz("plot", "y").set_xlim(0, 1_000);
 ```
 
