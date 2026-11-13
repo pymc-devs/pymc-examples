@@ -35,6 +35,9 @@ import pymc as pm
 ```
 
 ```{code-cell} ipython3
+RANDOM_SEED = sum(map(ord, "sampling_compound_step"))
+rng = np.random.default_rng(RANDOM_SEED)
+
 az.style.use("arviz-variat")
 ```
 
@@ -75,7 +78,7 @@ with pm.Model() as m:
     p = pm.Beta("p", 1.0, 1.0)
     ni = pm.Bernoulli("ni", 0.5)
     k = pm.Binomial("k", p=p, n=n_[ni], observed=4)
-    trace = pm.sample()
+    trace = pm.sample(random_seed=rng)
 ```
 
 There are two free parameters in the model we would like to sample from, a continuous variable `p` (sampled on the log-odds scale as `p_logodds__`) and a binary variable `ni`.
@@ -93,9 +96,9 @@ Auto-assignment can be overridden for any subset of variables by specifying them
 
 ```{code-cell} ipython3
 with m:
-    step1 = pm.Metropolis([p])
-    step2 = pm.BinaryMetropolis([ni])
-    trace = pm.sample(step=[step1, step2])
+    step1 = pm.Metropolis([p], rng=rng)
+    step2 = pm.BinaryMetropolis([ni], rng=rng)
+    trace = pm.sample(step=[step1, step2], random_seed=rng)
 ```
 
 `pm.sample` calls these step methods for us, but we can also call them by hand. Start from the initial point of the model:
@@ -128,7 +131,7 @@ A compound step works exactly like this, iterating over all the steps in the lis
 ```{code-cell} ipython3
 with m:
     comp_step1 = pm.step_methods.CompoundStep([step1, step2])
-    trace1 = pm.sample(step=comp_step1)
+    trace1 = pm.sample(step=comp_step1, random_seed=rng)
 comp_step1.methods
 ```
 
@@ -154,7 +157,7 @@ By default, the step methods we pass to `pm.sample` run first, followed by the a
 ```{code-cell} ipython3
 with m:
     comp_step2 = pm.step_methods.CompoundStep([step2, step1])
-    trace2 = pm.sample(step=comp_step2)
+    trace2 = pm.sample(step=comp_step2, random_seed=rng)
 comp_step2.methods
 ```
 
@@ -166,12 +169,12 @@ Each step method gets its own `accept`. When the step order is reversed, the two
 
 ```{code-cell} ipython3
 accept_prob1 = trace1["sample_stats"].to_dataset()[["accept"]].clip(max=1)
-az.plot_dist(accept_prob1, var_names="accept", point_estimate="mean");
+az.plot_dist(accept_prob1);
 ```
 
 ```{code-cell} ipython3
 accept_prob2 = trace2["sample_stats"].to_dataset()[["accept"]].clip(max=1)
-az.plot_dist(accept_prob2, var_names="accept", point_estimate="mean");
+az.plot_dist(accept_prob2);
 ```
 
 ## Issues with mixing discrete and continuous sampling
