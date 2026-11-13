@@ -216,7 +216,7 @@ class NotebookGenerator:
         self.default_image_loc = DEFAULT_IMG_LOC
 
     def extract_title(self):
-        """Return the notebook's first level-one markdown heading, or its file name."""
+        """Return the notebook's first level-one markdown heading, or its file stem."""
         for cell in self.json_source["cells"]:
             if cell["cell_type"] != "markdown":
                 continue
@@ -230,11 +230,12 @@ class NotebookGenerator:
     def extract_preview_pic(self):
         """Return the first image of the cell tagged ``THUMBNAIL_TAG``, else the notebook's last."""
         cells = self.json_source["cells"]
-        tagged_cells = [
-            cell for cell in cells if THUMBNAIL_TAG in cell.get("metadata", {}).get("tags", [])
-        ]
-        if tagged_cells:
-            tagged_pics = _cell_images(tagged_cells[0])
+        tagged_cell = next(
+            (cell for cell in cells if THUMBNAIL_TAG in cell.get("metadata", {}).get("tags", [])),
+            None,
+        )
+        if tagged_cell is not None:
+            tagged_pics = _cell_images(tagged_cell)
             if tagged_pics:
                 return base64.b64decode(tagged_pics[0])
             logger.warning(
@@ -306,7 +307,7 @@ def write_gallery():
                 )
             )
 
-        # A section with no cards would emit a bare grid that sphinx-codeautolink chokes on.
+        # An empty grid directive is invalid, so a section with no cards is left out entirely.
         if not items:
             continue
 
