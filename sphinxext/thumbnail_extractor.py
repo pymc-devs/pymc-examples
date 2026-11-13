@@ -200,7 +200,14 @@ def main(app):
 
     working_dir = os.getcwd()
     os.chdir(app.builder.srcdir)
+    try:
+        write_gallery()
+    finally:
+        os.chdir(working_dir)
 
+
+def write_gallery():
+    """Write gallery.rst and the thumbnails, relative to the Sphinx source directory."""
     file = [HEAD]
 
     for folder, title in folder_title_map.items():
@@ -210,8 +217,7 @@ def main(app):
             )
         )
         target_dir = os.path.join("..", "_thumbnails", folder)
-        if not os.path.isdir(target_dir):
-            os.mkdir(target_dir)
+        os.makedirs(target_dir, exist_ok=True)
 
         if folder in external_nbs.keys():
             for descr in external_nbs[folder]:
@@ -240,8 +246,7 @@ def main(app):
     with open("gallery.rst", "w", encoding="utf-8") as f:
         f.write("\n".join(file))
 
-    os.chdir(working_dir)
-
 
 def setup(app):
     app.connect("builder-inited", main)
+    return {"parallel_read_safe": True, "parallel_write_safe": True}
