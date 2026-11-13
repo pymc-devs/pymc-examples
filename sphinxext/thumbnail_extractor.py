@@ -138,7 +138,7 @@ def create_thumbnail(infile, width=275, height=275, cx=0.5, cy=0.5, border=4):
     size = min(rows, cols)
     if size == cols:
         xslice = slice(0, size)
-        ymin = min(max(0, int(cx * rows - size // 2)), rows - size)
+        ymin = min(max(0, int(cy * rows - size // 2)), rows - size)
         yslice = slice(ymin, ymin + size)
     else:
         yslice = slice(0, size)
@@ -151,7 +151,7 @@ def create_thumbnail(infile, width=275, height=275, cx=0.5, cy=0.5, border=4):
     dpi = 100
     fig = plt.figure(figsize=(width / dpi, height / dpi), dpi=dpi)
 
-    ax = fig.add_axes([0, 0, 1, 1], aspect="auto", frameon=False, xticks=[], yticks=[])
+    ax = fig.add_axes((0, 0, 1, 1), aspect="auto", frameon=False, xticks=[], yticks=[])
     ax.imshow(thumb, aspect="auto", resample=True, interpolation="bilinear")
     fig.savefig(infile, dpi=dpi)
     plt.close(fig)
