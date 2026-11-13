@@ -8,7 +8,9 @@ import base64
 import json
 import os
 import shutil
+import subprocess
 from glob import glob
+from pathlib import Path
 
 import matplotlib
 
@@ -131,6 +133,28 @@ folder_title_map = {
 }
 
 
+def is_tracked_by_git(filepath):
+    # Git indexes a symlink as one entry and reports nothing for paths that run through it, so
+    # resolve first. A git hook exports GIT_DIR, and with GIT_DIR set git takes the current
+    # directory, here the Sphinx source directory, as the top of the work tree, so every notebook
+    # would fall outside it. Dropping it lets git find the repository.
+    env = {
+        key: value for key, value in os.environ.items() if key not in ("GIT_DIR", "GIT_WORK_TREE")
+    }
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", str(Path(filepath).resolve())],
+            capture_output=True,
+            check=False,
+            env=env,
+        )
+    except FileNotFoundError:
+        # git not available, assume all files are valid
+        return True
+    else:
+        return result.returncode == 0
+
+
 def create_thumbnail(infile, width=275, height=275, cx=0.5, cy=0.5, border=4):
     """Overwrites `infile` with a new file of the given size"""
     im = image.imread(infile)
@@ -211,30 +235,27 @@ def write_gallery():
     file = [HEAD]
 
     for folder, title in folder_title_map.items():
-        file.append(
-            SECTION_TEMPLATE.format(
-                section_title=title, section_id=folder, underlines="-" * len(title)
-            )
-        )
         target_dir = os.path.join("..", "_thumbnails", folder)
         os.makedirs(target_dir, exist_ok=True)
 
-        if folder in external_nbs.keys():
-            for descr in external_nbs[folder]:
-                file.append(
-                    ITEM_TEMPLATE.format(
-                        doc_name=descr["doc_name"],
-                        image=descr["image"],
-                        doc_reference=descr["doc_reference"],
-                        link_type=descr["link_type"],
-                    )
-                )
+        items = [
+            ITEM_TEMPLATE.format(
+                doc_name=descr["doc_name"],
+                image=descr["image"],
+                doc_reference=descr["doc_reference"],
+                link_type=descr["link_type"],
+            )
+            for descr in external_nbs.get(folder, [])
+        ]
 
-        nb_paths = sorted(glob(f"{folder}/*.ipynb"))
-        for nb_path in nb_paths:
+        for nb_path in sorted(glob(f"{folder}/*.ipynb")):
+            if not is_tracked_by_git(nb_path):
+                logger.info(f"Skipping {nb_path}, not tracked by git", type="thumbnail_extractor")
+                continue
+
             nbg = NotebookGenerator(nb_path, "..", folder)
             nbg.gen_previews()
-            file.append(
+            items.append(
                 ITEM_TEMPLATE.format(
                     doc_name=os.path.join(folder, nbg.stripped_name),
                     image=nbg.png_path,
@@ -242,6 +263,17 @@ def write_gallery():
                     link_type="doc",
                 )
             )
+
+        # A section with no cards would emit a bare grid that sphinx-codeautolink chokes on.
+        if not items:
+            continue
+
+        file.append(
+            SECTION_TEMPLATE.format(
+                section_title=title, section_id=folder, underlines="-" * len(title)
+            )
+        )
+        file.extend(items)
 
     with open("gallery.rst", "w", encoding="utf-8") as f:
         f.write("\n".join(file))
