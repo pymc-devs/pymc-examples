@@ -7,8 +7,11 @@ Modified from the seaborn project, which modified the mpld3 project.
 import base64
 import json
 import os
+import re
 import shutil
+import subprocess
 from glob import glob
+from pathlib import Path
 
 import matplotlib
 
@@ -17,9 +20,9 @@ import matplotlib.pyplot as plt
 
 from matplotlib import image
 
-import sphinx
+from sphinx.util import logging as sphinx_logging
 
-logger = sphinx.util.logging.getLogger(__name__)
+logger = sphinx_logging.getLogger(__name__)
 
 DOC_SRC = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_IMG_LOC = os.path.join(os.path.dirname(DOC_SRC), "_static", "PyMC.png")
@@ -55,7 +58,7 @@ SECTION_TEMPLATE = """
 """
 
 ITEM_TEMPLATE = """
-   .. grid-item-card:: :doc:`{doc_name}`
+   .. grid-item-card:: {title}
       :img-top: {image}
       :link: {doc_reference}
       :link-type: {link_type}
@@ -63,42 +66,42 @@ ITEM_TEMPLATE = """
 """
 
 intro_nb = {
-    "doc_name": "General Overview",
+    "title": "General Overview",
     "image": "https://raw.githubusercontent.com/pymc-devs/brand/main/pymc/pymc_logos/PyMC_square.svg",
     "doc_reference": "pymc:pymc_overview",
     "link_type": "ref",
 }
 
 glm_nb = {
-    "doc_name": "Simple Linear Regression",
+    "title": "Simple Linear Regression",
     "image": "../_thumbnails/core_notebooks/glm_linear.png",
     "doc_reference": "pymc:glm_linear",
     "link_type": "ref",
 }
 
 model_comparison_nb = {
-    "doc_name": "Model Comparison",
-    "image": "../_thumbnails/core_notebooks/posterior_predictive.png",
+    "title": "Model Comparison",
+    "image": "../_thumbnails/core_notebooks/model_comparison.png",
     "doc_reference": "pymc:model_comparison",
     "link_type": "ref",
 }
 
 prior_pred_nb = {
-    "doc_name": "Prior and Posterior Predictive Checks",
-    "image": "../_thumbnails/core_notebooks/model_comparison.png",
+    "title": "Prior and Posterior Predictive Checks",
+    "image": "../_thumbnails/core_notebooks/posterior_predictive.png",
     "doc_reference": "pymc:posterior_predictive",
     "link_type": "ref",
 }
 
 dimensionality_nb = {
-    "doc_name": "Distribution Dimensionality",
+    "title": "Distribution Dimensionality",
     "image": "../_thumbnails/core_notebooks/dimensionality.png",
     "doc_reference": "pymc:dimensionality",
     "link_type": "ref",
 }
 
 pytensor_nb = {
-    "doc_name": "PyMC and PyTensor",
+    "title": "PyMC and PyTensor",
     "image": "../_thumbnails/core_notebooks/pytensor_pymc.png",
     "doc_reference": "pymc:pymc_pytensor",
     "link_type": "ref",
@@ -130,6 +133,47 @@ folder_title_map = {
     "statistical_rethinking_lectures": "Statistical Rethinking Lectures",
 }
 
+# Cell tag that picks the cell whose first image becomes the notebook's gallery thumbnail.
+THUMBNAIL_TAG = "gallery-thumbnail"
+
+
+def _cell_images(cell):
+    return [
+        output["data"]["image/png"]
+        for output in cell.get("outputs", [])
+        if "image/png" in output.get("data", {})
+    ]
+
+
+def markdown_title_to_rst(title):
+    """Convert the inline code and math a MyST title uses into their reST equivalents."""
+    # reST only recognizes inline markup that is set off from surrounding text, and an escaped
+    # space is an invisible separator, so it keeps markup inside words such as CO$_2$ working.
+    title = re.sub(r"(?<!`)`([^`]+)`(?!`)", r"\\ ``\1``\\ ", title)
+    return re.sub(r"\$([^$]+)\$", r"\\ :math:`\1`\\ ", title)
+
+
+def is_tracked_by_git(filepath):
+    # Git indexes a symlink as one entry and reports nothing for paths that run through it, so
+    # resolve first. A git hook exports GIT_DIR, and with GIT_DIR set git takes the current
+    # directory, here the Sphinx source directory, as the top of the work tree, so every notebook
+    # would fall outside it. Dropping it lets git find the repository.
+    env = {
+        key: value for key, value in os.environ.items() if key not in ("GIT_DIR", "GIT_WORK_TREE")
+    }
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", str(Path(filepath).resolve())],
+            capture_output=True,
+            check=False,
+            env=env,
+        )
+    except FileNotFoundError:
+        # git not available, assume all files are valid
+        return True
+    else:
+        return result.returncode == 0
+
 
 def create_thumbnail(infile, width=275, height=275, cx=0.5, cy=0.5, border=4):
     """Overwrites `infile` with a new file of the given size"""
@@ -138,7 +182,7 @@ def create_thumbnail(infile, width=275, height=275, cx=0.5, cy=0.5, border=4):
     size = min(rows, cols)
     if size == cols:
         xslice = slice(0, size)
-        ymin = min(max(0, int(cx * rows - size // 2)), rows - size)
+        ymin = min(max(0, int(cy * rows - size // 2)), rows - size)
         yslice = slice(ymin, ymin + size)
     else:
         yslice = slice(0, size)
@@ -151,7 +195,7 @@ def create_thumbnail(infile, width=275, height=275, cx=0.5, cy=0.5, border=4):
     dpi = 100
     fig = plt.figure(figsize=(width / dpi, height / dpi), dpi=dpi)
 
-    ax = fig.add_axes([0, 0, 1, 1], aspect="auto", frameon=False, xticks=[], yticks=[])
+    ax = fig.add_axes((0, 0, 1, 1), aspect="auto", frameon=False, xticks=[], yticks=[])
     ax.imshow(thumb, aspect="auto", resample=True, interpolation="bilinear")
     fig.savefig(infile, dpi=dpi)
     plt.close(fig)
@@ -171,15 +215,38 @@ class NotebookGenerator:
             self.json_source = json.load(fid)
         self.default_image_loc = DEFAULT_IMG_LOC
 
-    def extract_preview_pic(self):
-        """By default, just uses the last image in the notebook."""
-        pic = None
+    def extract_title(self):
+        """Return the notebook's first level-one markdown heading, or its file stem."""
         for cell in self.json_source["cells"]:
-            for output in cell.get("outputs", []):
-                if "image/png" in output.get("data", []):
-                    pic = output["data"]["image/png"]
-        if pic is not None:
-            return base64.b64decode(pic)
+            if cell["cell_type"] != "markdown":
+                continue
+            for line in "".join(cell["source"]).splitlines():
+                if line.startswith("# "):
+                    return markdown_title_to_rst(line[2:].strip())
+
+        logger.warning(f"No title heading found in {self.basename}", type="thumbnail_extractor")
+        return self.stripped_name
+
+    def extract_preview_pic(self):
+        """Return the first image of the cell tagged ``THUMBNAIL_TAG``, else the notebook's last."""
+        cells = self.json_source["cells"]
+        tagged_cell = next(
+            (cell for cell in cells if THUMBNAIL_TAG in cell.get("metadata", {}).get("tags", [])),
+            None,
+        )
+        if tagged_cell is not None:
+            tagged_pics = _cell_images(tagged_cell)
+            if tagged_pics:
+                return base64.b64decode(tagged_pics[0])
+            logger.warning(
+                f"The cell tagged {THUMBNAIL_TAG!r} in {self.basename} has no image output, "
+                "using the last image",
+                type="thumbnail_extractor",
+            )
+
+        pics = [pic for cell in cells for pic in _cell_images(cell)]
+        if pics:
+            return base64.b64decode(pics[-1])
         return None
 
     def gen_previews(self):
@@ -200,48 +267,61 @@ def main(app):
 
     working_dir = os.getcwd()
     os.chdir(app.builder.srcdir)
+    try:
+        write_gallery()
+    finally:
+        os.chdir(working_dir)
 
+
+def write_gallery():
+    """Write gallery.rst and the thumbnails, relative to the Sphinx source directory."""
     file = [HEAD]
 
     for folder, title in folder_title_map.items():
-        file.append(
-            SECTION_TEMPLATE.format(
-                section_title=title, section_id=folder, underlines="-" * len(title)
-            )
-        )
         target_dir = os.path.join("..", "_thumbnails", folder)
-        if not os.path.isdir(target_dir):
-            os.mkdir(target_dir)
+        os.makedirs(target_dir, exist_ok=True)
 
-        if folder in external_nbs.keys():
-            for descr in external_nbs[folder]:
-                file.append(
-                    ITEM_TEMPLATE.format(
-                        doc_name=descr["doc_name"],
-                        image=descr["image"],
-                        doc_reference=descr["doc_reference"],
-                        link_type=descr["link_type"],
-                    )
-                )
+        items = [
+            ITEM_TEMPLATE.format(
+                title=descr["title"],
+                image=descr["image"],
+                doc_reference=descr["doc_reference"],
+                link_type=descr["link_type"],
+            )
+            for descr in external_nbs.get(folder, [])
+        ]
 
-        nb_paths = sorted(glob(f"{folder}/*.ipynb"))
-        for nb_path in nb_paths:
+        for nb_path in sorted(glob(f"{folder}/*.ipynb")):
+            if not is_tracked_by_git(nb_path):
+                logger.info(f"Skipping {nb_path}, not tracked by git", type="thumbnail_extractor")
+                continue
+
             nbg = NotebookGenerator(nb_path, "..", folder)
             nbg.gen_previews()
-            file.append(
+            items.append(
                 ITEM_TEMPLATE.format(
-                    doc_name=os.path.join(folder, nbg.stripped_name),
+                    title=nbg.extract_title(),
                     image=nbg.png_path,
                     doc_reference=os.path.join(folder, nbg.stripped_name),
                     link_type="doc",
                 )
             )
 
+        # An empty grid directive is invalid, so a section with no cards is left out entirely.
+        if not items:
+            continue
+
+        file.append(
+            SECTION_TEMPLATE.format(
+                section_title=title, section_id=folder, underlines="-" * len(title)
+            )
+        )
+        file.extend(items)
+
     with open("gallery.rst", "w", encoding="utf-8") as f:
         f.write("\n".join(file))
-
-    os.chdir(working_dir)
 
 
 def setup(app):
     app.connect("builder-inited", main)
+    return {"parallel_read_safe": True, "parallel_write_safe": True}
