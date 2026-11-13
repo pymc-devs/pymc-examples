@@ -7,6 +7,7 @@ Modified from the seaborn project, which modified the mpld3 project.
 import base64
 import json
 import os
+import re
 import shutil
 import subprocess
 from glob import glob
@@ -57,7 +58,7 @@ SECTION_TEMPLATE = """
 """
 
 ITEM_TEMPLATE = """
-   .. grid-item-card:: :doc:`{doc_name}`
+   .. grid-item-card:: {title}
       :img-top: {image}
       :link: {doc_reference}
       :link-type: {link_type}
@@ -65,42 +66,42 @@ ITEM_TEMPLATE = """
 """
 
 intro_nb = {
-    "doc_name": "General Overview",
+    "title": "General Overview",
     "image": "https://raw.githubusercontent.com/pymc-devs/brand/main/pymc/pymc_logos/PyMC_square.svg",
     "doc_reference": "pymc:pymc_overview",
     "link_type": "ref",
 }
 
 glm_nb = {
-    "doc_name": "Simple Linear Regression",
+    "title": "Simple Linear Regression",
     "image": "../_thumbnails/core_notebooks/glm_linear.png",
     "doc_reference": "pymc:glm_linear",
     "link_type": "ref",
 }
 
 model_comparison_nb = {
-    "doc_name": "Model Comparison",
+    "title": "Model Comparison",
     "image": "../_thumbnails/core_notebooks/model_comparison.png",
     "doc_reference": "pymc:model_comparison",
     "link_type": "ref",
 }
 
 prior_pred_nb = {
-    "doc_name": "Prior and Posterior Predictive Checks",
+    "title": "Prior and Posterior Predictive Checks",
     "image": "../_thumbnails/core_notebooks/posterior_predictive.png",
     "doc_reference": "pymc:posterior_predictive",
     "link_type": "ref",
 }
 
 dimensionality_nb = {
-    "doc_name": "Distribution Dimensionality",
+    "title": "Distribution Dimensionality",
     "image": "../_thumbnails/core_notebooks/dimensionality.png",
     "doc_reference": "pymc:dimensionality",
     "link_type": "ref",
 }
 
 pytensor_nb = {
-    "doc_name": "PyMC and PyTensor",
+    "title": "PyMC and PyTensor",
     "image": "../_thumbnails/core_notebooks/pytensor_pymc.png",
     "doc_reference": "pymc:pymc_pytensor",
     "link_type": "ref",
@@ -142,6 +143,14 @@ def _cell_images(cell):
         for output in cell.get("outputs", [])
         if "image/png" in output.get("data", {})
     ]
+
+
+def markdown_title_to_rst(title):
+    """Convert the inline code and math a MyST title uses into their reST equivalents."""
+    # reST only recognizes inline markup that is set off from surrounding text, and an escaped
+    # space is an invisible separator, so it keeps markup inside words such as CO$_2$ working.
+    title = re.sub(r"(?<!`)`([^`]+)`(?!`)", r"\\ ``\1``\\ ", title)
+    return re.sub(r"\$([^$]+)\$", r"\\ :math:`\1`\\ ", title)
 
 
 def is_tracked_by_git(filepath):
@@ -206,6 +215,18 @@ class NotebookGenerator:
             self.json_source = json.load(fid)
         self.default_image_loc = DEFAULT_IMG_LOC
 
+    def extract_title(self):
+        """Return the notebook's first level-one markdown heading, or its file name."""
+        for cell in self.json_source["cells"]:
+            if cell["cell_type"] != "markdown":
+                continue
+            for line in "".join(cell["source"]).splitlines():
+                if line.startswith("# "):
+                    return markdown_title_to_rst(line[2:].strip())
+
+        logger.warning(f"No title heading found in {self.basename}", type="thumbnail_extractor")
+        return self.stripped_name
+
     def extract_preview_pic(self):
         """Return the first image of the cell tagged ``THUMBNAIL_TAG``, else the notebook's last."""
         cells = self.json_source["cells"]
@@ -261,7 +282,7 @@ def write_gallery():
 
         items = [
             ITEM_TEMPLATE.format(
-                doc_name=descr["doc_name"],
+                title=descr["title"],
                 image=descr["image"],
                 doc_reference=descr["doc_reference"],
                 link_type=descr["link_type"],
@@ -278,7 +299,7 @@ def write_gallery():
             nbg.gen_previews()
             items.append(
                 ITEM_TEMPLATE.format(
-                    doc_name=os.path.join(folder, nbg.stripped_name),
+                    title=nbg.extract_title(),
                     image=nbg.png_path,
                     doc_reference=os.path.join(folder, nbg.stripped_name),
                     link_type="doc",
