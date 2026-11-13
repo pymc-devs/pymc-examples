@@ -41,3 +41,27 @@ pre-commit = ">=4.6.2,<5"
 [tool.pixi.pypi-dependencies]
 pymc-extras = ">=0.5.0, <0.6"
 kaleido = ">=1.2.0, <2"
+
+# Mirrors requirements-docs.txt, which Read the Docs installs from.
+[tool.pixi.feature.docs.pypi-dependencies]
+ablog = ">=0.11"
+matplotlib = "*"
+myst-nb = "*"
+sphinx-codeautolink = "*"
+sphinx = ">=5"
+pymc-sphinx-theme = ">=0.16"
+sphinx-copybutton = "*"
+sphinx-design = "*"
+sphinx-notfound-page = "*"
+sphinxcontrib-bibtex = "*"
+sphinxext-opengraph = "*"
+sphinxext-rediraffe = "*"
+sphinx-sitemap = "*"
+watermark = "*"
+
+[tool.pixi.feature.docs.tasks]
+docs-build = "sphinx-build -b html -j auto examples/ _build"
+docs-serve = { cmd = "python -m http.server --bind 127.0.0.1 --directory _build 8000", depends-on = ["docs-build"] }
+
+[tool.pixi.environments]
+docs = { features = ["docs"], solve-group = "default" }
