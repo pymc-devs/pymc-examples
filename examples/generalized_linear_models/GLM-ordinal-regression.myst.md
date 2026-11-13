@@ -8,6 +8,9 @@ kernelspec:
   display_name: pymc_examples_new
   language: python
   name: python3
+myst:
+  substitutions:
+    extra_dependencies: jax, jaxlib, numpyro
 ---
 
 (ordinal_regression)=
