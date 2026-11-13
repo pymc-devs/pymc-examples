@@ -78,14 +78,14 @@ glm_nb = {
 
 model_comparison_nb = {
     "doc_name": "Model Comparison",
-    "image": "../_thumbnails/core_notebooks/posterior_predictive.png",
+    "image": "../_thumbnails/core_notebooks/model_comparison.png",
     "doc_reference": "pymc:model_comparison",
     "link_type": "ref",
 }
 
 prior_pred_nb = {
     "doc_name": "Prior and Posterior Predictive Checks",
-    "image": "../_thumbnails/core_notebooks/model_comparison.png",
+    "image": "../_thumbnails/core_notebooks/posterior_predictive.png",
     "doc_reference": "pymc:posterior_predictive",
     "link_type": "ref",
 }
