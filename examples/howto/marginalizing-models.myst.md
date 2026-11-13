@@ -10,7 +10,7 @@ kernelspec:
   name: python3
 myst:
   substitutions:
-    extra_dependencies: pymc-experimental
+    extra_dependencies: pymc-extras
 ---
 
 (marginalizing-models)=
@@ -38,7 +38,7 @@ $$ \mathbb{V}_{p(x, z)}[f(x, z)] \geq \mathbb{V}_{p(z)}[g(z)] $$
 
 Intuitively, marginalizing variables in your model lets you use $g$ instead of $f$. This lower variance manifests most directly in lower Monte-Carlo standard error (mcse), and indirectly in a generally higher effective sample size (ESS).
 
-Unfortunately, the computation to do this is often tedious and unintuitive. Luckily, `pymc-experimental` now supports a way to do this work automatically!
+Unfortunately, the computation to do this is often tedious and unintuitive. Luckily, `pymc_extras` supports a way to do this work automatically!
 
 ```{code-cell} ipython3
 import arviz as az
@@ -58,7 +58,7 @@ import pymc_extras as pmx
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'  # high resolution figures
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 rng = np.random.default_rng(32)
 ```
 
@@ -84,7 +84,7 @@ with pm.Model() as explicit_mixture:
 plt.hist(pm.draw(y, draws=2000, random_seed=rng), bins=30, rwidth=0.9);
 ```
 
-The other way is where we use the built-in {class}`NormalMixture <pymc.NormalMixture>` distribution. Here the mixture assignment is not an explicit variable in our model. There is nothing unique about the first model other than we initialize it with {class}`pmx.MarginalModel <pymc_extras.MarginalModel>` instead of {class}`pm.Model <pymc.model.core.Model>`. This different class is what will allow us to marginalize out variables later.
+The other way is where we use the built-in {class}`NormalMixture <pymc.NormalMixture>` distribution. Here the mixture assignment is not an explicit variable in our model — the distribution already integrates it out for us. In the first model the assignment `idx` is an explicit latent variable, which we will instead marginalize out ourselves using {func}`pmx.marginalize <pymc_extras.marginalize>`.
 
 ```{code-cell} ipython3
 with pm.Model() as prebuilt_mixture:
@@ -122,21 +122,21 @@ az.summary(idata)
 
 As we can see, the `idx` variable is gone now. We also were able to use the NUTS sampler, and the ESS has improved.
 
-But {class}`MarginalModel <pymc_extras.MarginalModel>` has a distinct advantage. It still knows about the discrete variables that were marginalized out, and we can obtain estimates for the posterior of `idx` given the other variables. We do this using the {meth}`recover_marginals <pymc_extras.MarginalModel.recover_marginals>` method.
+But `pymc_extras` still knows about the discrete variables that were marginalized out. We can obtain samples from the conditional posterior of `idx` using {func}`recover_marginals <pymc_extras.recover_marginals>`, and we can get the full conditional model using {func}`conditional <pymc_extras.conditional>`.
 
 ```{code-cell} ipython3
-idata = pmx.recover_marginals(explicit_mixture_marginalized, idata, random_seed=rng);
+idata = pmx.recover_marginals(idata, model=explicit_mixture_marginalized, random_seed=rng)
 ```
 
 ```{code-cell} ipython3
-az.summary(idata)
+az.summary(idata, var_names=["y", "idx"])
 ```
 
 This `idx` variable lets us recover the mixture assignment variable after running the NUTS sampler! We can split out the samples of `y` by reading off the mixture label from the associated `idx` for each sample.
 
 ```{code-cell} ipython3
 # fmt: off
-post = idata.posterior
+post = idata.posterior.dataset
 plt.hist(
     post.where(post.idx == 0).y.values.reshape(-1),
     bins=30,
@@ -155,7 +155,7 @@ plt.hist(
 plt.legend();
 ```
 
-One important thing to notice is that this discrete variable has a lower ESS, and particularly so for the tail. This means `idx` might not be estimated well particularly for the tails. If this is important, I recommend using the `lp_idx` instead, which is the log-probability of `idx` given sample values on each iteration. The benefits of working with `lp_idx` will explored further in the next example.
+One important thing to notice is that this discrete variable has a lower ESS, and particularly so for the tail. This means `idx` might not be estimated well particularly for the tails. For a cleaner estimate, we can compute the log-probabilities of `idx` directly using {func}`conditional <pymc_extras.conditional>`, which returns a model where the marginalized variable has its conditional posterior as its distribution. The benefits of working with log-probabilities will be explored further in the next example.
 
 +++
 
@@ -215,32 +215,55 @@ As before, the ESS improved massively
 Finally, let us recover the `switchpoint` variable
 
 ```{code-cell} ipython3
-after_marg = pmx.recover_marginals(disaster_model_marginalized, after_marg);
+after_marg = pmx.recover_marginals(after_marg, model=disaster_model_marginalized)
 ```
 
 ```{code-cell} ipython3
-az.summary(after_marg, var_names=["~disasters", "~lp"], filter_vars="like")
+az.summary(after_marg, var_names=["~disasters"], filter_vars="like")
 ```
 
-While `recover_marginals` is able to sample the discrete variables that were marginalized out. The probabilities associated with each draw often offer a cleaner estimate of the discrete variable. Particularly for lower probability values. This is best illustrated by comparing the histogram of the sampled values with the plot of the log-probabilities.
+While `recover_marginals` draws samples of the marginalized variable, the probabilities associated with each value often offer a cleaner estimate. Particularly for lower probability values. This is best illustrated by comparing the histogram of the sampled values with the plot of the log-probabilities.
+
+To compute conditional log-probabilities, we use {func}`conditional <pymc_extras.conditional>` to get a model where `switchpoint` is a free RV with its conditional posterior distribution, then use `compile_logp` to evaluate it at each domain value.
 
 ```{code-cell} ipython3
-post = after_marg.posterior.switchpoint.values.reshape(-1)
+post = after_marg.posterior.dataset.switchpoint.values.reshape(-1)
 bins = np.arange(post.min(), post.max())
 plt.hist(post, bins, rwidth=0.9);
 ```
 
 ```{code-cell} ipython3
-lp_switchpoint = after_marg.posterior.lp_switchpoint.mean(dim=["chain", "draw"])
-x_max = years[lp_switchpoint.argmax()]
+from pymc.model.transform.conditioning import remove_value_transforms
 
+# `conditional` returns a model where `switchpoint` is a free RV with its
+# conditional posterior distribution. We strip the value transforms so the
+# logp inputs are on the natural scale and match the posterior variable names.
+cond_model = pmx.conditional(
+    remove_value_transforms(disaster_model_marginalized), "switchpoint"
+)
+logp_fn = cond_model.compile_logp(vars=[cond_model["switchpoint"]])
+
+# The switchpoint conditional depends on these variables (`disasters_unobserved`
+# is the imputed missing data, which enters the conditional log-probability).
+rv_names = ["early_rate", "late_rate", "disasters_unobserved"]
+post = after_marg.posterior.dataset[rv_names].stack(sample=("chain", "draw"))
+draws = [{v: post[v].values[..., s] for v in rv_names} for s in range(post.sizes["sample"])]
+
+# For each posterior draw, evaluate log P(switchpoint=year | rest) at every
+# candidate year, then average over draws.
+lp_switchpoint = np.mean(
+    [[logp_fn(draw | {"switchpoint": yr}) for yr in years] for draw in draws],
+    axis=0,
+)
+
+x_max = years[lp_switchpoint.argmax()]
 plt.scatter(years, lp_switchpoint)
 plt.axvline(x=x_max, c="orange")
 plt.xlabel(r"$\mathrm{year}$")
 plt.ylabel(r"$\log p(\mathrm{switchpoint}=\mathrm{year})$");
 ```
 
-By plotting a histogram of sampled values instead of working with the log-probabilities directly, we are left with noisier and more incomplete exploration of the underlying discrete distribution.
+By plotting a histogram of sampled values instead of working with the conditional log-probabilities directly, we are left with noisier and more incomplete exploration of the underlying discrete distribution. The `conditional()` function returns a standard PyMC model, so you can use any of PyMC's tools (e.g., `compile_logp`, `sample_posterior_predictive`) to analyze the conditional posterior.
 
 +++
 
