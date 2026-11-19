@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: bayesian_causal_book
+  display_name: Python 3
   language: python
   name: python3
 ---
@@ -102,6 +102,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 %config InlineBackend.figure_format = 'retina'  # high resolution figures
 az.style.use("arviz-darkgrid")
 rng = np.random.default_rng(42)
+np.random.seed(42)  # make_sample and the group assignment use the global RNG
 ```
 
 ### Job Satisfaction and Bayesian Workflows
@@ -271,15 +272,26 @@ which highlights that the conditional formulation samples the latent variables e
 #### Marginal Formulation
 Here the focus is on deriving the covariance matrix. 
 
-$$\Sigma_{\mathcal{y}} = \Psi + \Lambda(I - B)^{-1}\Psi_{\zeta}(I - B)^{T}\Lambda^{T} $$
+$$\Sigma_{\mathcal{y}} = \Psi + \Lambda(I - B)^{-1}\Psi_{\zeta}(I - B)^{-T}\Lambda^{T} $$
 
 $$ \mathcal{y} \sim MvN(\mu, \Sigma_{y})$$
 
-This approach marginalises out the latent draws in the likelihood and avoids sampling the latent terms directly. Instead we can estimate a point estimate for each of the latent scores by regression approach calculating.
+This approach marginalises out the latent draws in the likelihood and avoids sampling the latent terms directly. Instead we can estimate a point estimate for each of the latent scores by the regression method, which multiplies the covariance between the factors and the indicators by the inverse of the indicator covariance.
 
-$$ \hat{\eta} = \hat{\Psi}\hat{\Lambda^{T}}\hat{\Sigma^{-1}}(y - \hat{\mu})$$
+$$ \hat{\eta} = (I - \hat{B})^{-1}\hat{\Psi}_{\zeta}(I - \hat{B})^{-T}\hat{\Lambda}^{T}\hat{\Sigma}_{y}^{-1}(y - \hat{\mu})$$
 
-We'll introduce each of these components are additional steps as we layer over the basic factor model
+#### Identification
+
+Each block of parameters needs a constraint that fixes its scale or its meaning before the data can pin it down. We follow the conventions of `lavaan`'s `sem()` function.
+
+- **Factor scale**: the first loading of each factor is fixed to 1. This marker indicator sets the units of the latent factor.
+- **Structural paths**: $B_{ij}$ is the effect of $\eta_j$ on $\eta_i$. Rows index the outcome and columns the predictor, so $\eta = B\eta + \zeta$ reads like a set of regressions. The diagonal is zero.
+- **Disturbances**: the variances in $\Psi_{\zeta}$ are free and the covariances are zero unless we name them. A free disturbance covariance asserts a hidden common cause of two constructs.
+- **Mean structure**: the intercept of each marker indicator is fixed to 0, so the latent means carry the location of each factor.
+
+The disturbance restriction is what identifies the structural paths. Four latent factors have 10 variances and covariances. Our structural model has six paths and four disturbance variances, so 10 parameters meet 10 moments and the structural part is exactly identified. Freeing all six disturbance covariances as well would give 16 parameters for the same 10 moments. The data would then fix only the latent covariance matrix, and the split between paths and hidden common causes would be set by the priors. Bollen's pseudo-isolation assumption, discussed below, is this restriction stated in words.
+
+We'll introduce each of these components as additional steps as we layer over the basic factor model.
 
 +++
 
@@ -287,12 +299,22 @@ We'll introduce each of these components are additional steps as we layer over t
 
 For this exercise we will lean on a  range of utility functions to build and compare the expansionary sequence. These functions include repeated steps that will be required for any SEM model. These functions modularize the model-building process and make it easier to compare successive model expansions.
 
-The most important cases are functions like `make_lambda` to sample and fix the scale of the covariates that contribute to each latent factor. Similarly, we have the `make_B` which samples the parameter values of the path coefficients between the latent constructs, while arranging them in a matrix that can be passed through matrix multiplication routines. Additionally, we have a `make_Psi` function which samples parameter values for particular covariances that gets deployed to encode aspects of the variance in our system not captured by the covariances among the latent factors. These three helper functions determine the structure of the SEM model and variants of each can be used to construct any SEM structure.
+The most important cases are functions like `make_lambda` to sample and fix the scale of the covariates that contribute to each latent factor. Similarly, we have the `make_B` which samples the parameter values of the path coefficients between the latent constructs, while arranging them in a matrix that can be passed through matrix multiplication routines. The `make_Psi_zeta` function builds the covariance of the structural disturbances, with free variances and zero covariances unless a pair is named. Additionally, we have a `make_Psi` function which samples parameter values for particular covariances among the indicator residuals, encoding aspects of the variance in our system not captured by the latent factors. These four helper functions determine the structure of the SEM model and variants of each can be used to construct any SEM structure.
 
 We also save some plotting functions which will be used to compare models. 
 
 ```{code-cell} ipython3
 :tags: [hide-input]
+
+PATHS = [
+    # (outcome, predictor)
+    ("dysfunctional", "constructive"),
+    ("well being", "dysfunctional"),
+    ("well being", "constructive"),
+    ("satisfaction", "well being"),
+    ("satisfaction", "dysfunctional"),
+    ("satisfaction", "constructive"),
+]
 
 coords = {
     "obs": list(range(len(sample_df))),
@@ -303,14 +325,7 @@ coords = {
     "indicators_4": ["EBA", "ST", "MI"],  # constructive thought strategies
     "latent": ["satisfaction", "well being", "dysfunctional", "constructive"],
     "latent1": ["satisfaction", "well being", "dysfunctional", "constructive"],
-    "paths": [
-        "dysfunctional ~ constructive",
-        "well being ~ dysfunctional",
-        "well being ~ constructive",
-        "satisfaction ~ well being",
-        "satisfaction ~ dysfunction",
-        "satisfaction ~ constructive",
-    ],
+    "paths": [f"{outcome} ~ {predictor}" for outcome, predictor in PATHS],
     "sd_params": [i + "_sd" for i in FEATURE_COLUMNS],
     "corr_params": ["UF1 ~~ FOR"],
 }
@@ -341,57 +356,63 @@ def make_Lambda(lambdas_1, lambdas_2, lambdas_3, lambdas_4):
     return Lambda
 
 
-def make_B(priors=[0, 0.5], group_suffix=""):
-    coefs = pm.Normal(
-        f"mu_betas{group_suffix}", [0, 0, 0, 0, 0, 0], [1, 1, 1, 1, 1, 1], dims="paths"
-    )
+def make_B(paths=PATHS, priors=[0, 1], group_suffix=""):
+    """Structural path matrix with B[outcome, predictor] = coefficient, so eta = B @ eta + zeta."""
+    coefs = pm.Normal(f"mu_betas{group_suffix}", priors[0], priors[1], dims="paths")
+    latent_dim = len(coords["latent"])
+    B = pt.zeros((latent_dim, latent_dim))
+    for k, (outcome, predictor) in enumerate(paths):
+        B = pt.set_subtensor(B[LATENT_ORDER_LKUP[outcome], LATENT_ORDER_LKUP[predictor]], coefs[k])
+    return pm.Deterministic(f"B_{group_suffix}", B, dims=("latent", "latent1"))
 
-    zeros = pt.zeros((4, 4))
-    ## dysfunctional ~ constructive
-    zeros = pt.set_subtensor(
-        zeros[LATENT_ORDER_LKUP["dysfunctional"], LATENT_ORDER_LKUP["constructive"]], coefs[0]
-    )
-    ## well being ~ dysfunctional
-    zeros = pt.set_subtensor(
-        zeros[LATENT_ORDER_LKUP["well being"], LATENT_ORDER_LKUP["dysfunctional"]], coefs[1]
-    )
-    ## well being ~ constructive
-    zeros = pt.set_subtensor(
-        zeros[LATENT_ORDER_LKUP["well being"], LATENT_ORDER_LKUP["constructive"]], coefs[2]
-    )
-    ## satisfaction ~ well being
-    zeros = pt.set_subtensor(
-        zeros[LATENT_ORDER_LKUP["satisfaction"], LATENT_ORDER_LKUP["well being"]], coefs[3]
-    )
-    ## satisfaction ~ dysfunction
-    zeros = pt.set_subtensor(
-        zeros[LATENT_ORDER_LKUP["satisfaction"], LATENT_ORDER_LKUP["dysfunctional"]], coefs[4]
-    )
-    ## satisfaction ~ constructive
-    coefs_ = pt.set_subtensor(
-        zeros[LATENT_ORDER_LKUP["satisfaction"], LATENT_ORDER_LKUP["constructive"]], coefs[5]
-    )
-    B = pm.Deterministic(f"B_{group_suffix}", coefs_, dims=("latent", "latent1"))
-    return B
+
+def free_pair_covariances(cov, sds, pairs, name, dims=None):
+    """Free the covariance of each named pair as rho * sd_a * sd_b.
+
+    The pairs must be disjoint. The matrix is then block diagonal up to a permutation,
+    with 2 x 2 blocks that are positive definite whenever |rho| < 1.
+    """
+    flat = [i for pair in pairs for i in pair]
+    if len(flat) != len(set(flat)):
+        raise ValueError("Free covariances must name disjoint pairs.")
+    size = {"dims": dims} if dims else {"shape": len(pairs)}
+    rho_ = pm.Beta(name + "_rho_", 2, 2, **size)
+    rho = pm.Deterministic(name + "_rho", 2 * rho_ - 1, **size)
+    for k, (a, b) in enumerate(pairs):
+        cov_ab = rho[k] * sds[a] * sds[b]
+        cov = pt.set_subtensor(cov[a, b], cov_ab)
+        cov = pt.set_subtensor(cov[b, a], cov_ab)
+    return cov
+
+
+def make_Psi_zeta(free_covs=(), name="Psi_zeta"):
+    """Covariance of the structural disturbances.
+
+    Variances are free and covariances are zero, the lavaan default for the disturbances
+    of a recursive model. Each (latent_a, latent_b) pair in `free_covs` gets a free
+    covariance, which asserts a hidden common cause of the two constructs.
+    """
+    sds = pm.Exponential(name + "_sd", 1.0, dims="latent")
+    cov = pt.diag(sds**2)
+    if free_covs:
+        pairs = [(LATENT_ORDER_LKUP[a], LATENT_ORDER_LKUP[b]) for a, b in free_covs]
+        cov = free_pair_covariances(cov, sds, pairs, name)
+    return pm.Deterministic(name, cov, dims=("latent", "latent1"))
 
 
 def make_Psi(indicators, name="Psi_cov"):
-    """Takes an argument indicators which is a string in the coords dict"""
-    temp_name = name + "_"
-    n = len(coords[indicators])
-    cov_params = pm.InverseGamma(temp_name, 3, 4, dims="sd_params")
-    r = pt.zeros((n, n))
-    beta_params = pm.Beta(temp_name + "beta", 1, 1, dims="corr_params")
-    for i in range(len(coords[indicators])):
-        r = pt.set_subtensor(r[i, i], 1)
-    # UF1 ~~ FOR
-    r = pt.set_subtensor(r[COLUMN_ORDER_LKUP["UF1"], COLUMN_ORDER_LKUP["FOR"]], beta_params[0])
-    s = pt.diag(cov_params)
-    cov = (s @ r) @ pt.transpose(s @ r)
-    r = pm.Deterministic("Psi_corr", r)
-    cov = pm.Deterministic("Psi_cov", cov)
+    """Residual covariance of the indicators.
 
-    return cov
+    Each indicator has its own error variance. Each pair named in coords["corr_params"]
+    gets a free residual correlation of either sign, recorded as `Psi_cov_rho`.
+    """
+    sds = pm.InverseGamma(name + "_sd", 3, 4, dims="sd_params")
+    cov = pt.diag(sds**2)
+    pairs = [
+        [COLUMN_ORDER_LKUP[v.strip()] for v in pair.split("~~")] for pair in coords["corr_params"]
+    ]
+    cov = free_pair_covariances(cov, sds, pairs, name, dims="corr_params")
+    return pm.Deterministic(name, cov)
 
 
 def make_ppc(
@@ -486,7 +507,7 @@ observed_data = sample_df[coords["indicators"]].values
 ```
 
 ```{code-cell} ipython3
-sampler_kwargs = {"draws": 1000, "tune": 2000}
+sampler_kwargs = {"draws": 1000, "tune": 2000, "nuts_sampler": "numpyro"}
 
 
 def sample_model(model, sampler_kwargs):
@@ -503,7 +524,7 @@ In this section, we translate the theoretical structure of a confirmatory factor
 
 ![](cfa_excalidraw.png)
 
-In the model below we sample draws from the latent factors `eta` and relate them to the observables by the matrix computation `pt.dot(eta, Lambda.T)`. This computation results in a "pseudo-observation" matrix which we then feed through our likelihood to calibrate the latent structures against the observed data. This is the conditional mean of each observation. The covariances (i.e. red arrows) among the latent factors is determined with `chol`. These are the general patterns we'll see in all models below, but we add complexity as we go.
+In the model below we sample draws from the latent factors `eta` and relate them to the observables by the matrix computation `pt.dot(eta, Lambda.T)`. This computation results in a "pseudo-observation" matrix which we then feed through our likelihood to calibrate the latent structures against the observed data. This is the conditional mean of each observation. The covariances (i.e. red arrows) among the latent factors are determined with `chol`. In the CFA every factor is exogenous, so all of their covariances are free. Once we add structural paths, those covariances will be carried by the $B$ matrix instead. These are the general patterns we'll see in all models below, but we add complexity as we go.
 
 ```{code-cell} ipython3
 with pm.Model(coords=coords) as cfa_model_v1:
@@ -664,17 +685,17 @@ parameters = ["lambdas1", "lambdas2", "lambdas3", "lambdas4"]
 plot_model_highlights(idata_cfa_model_v1, "CFA", parameters);
 ```
 
-These plots indicate a fairly promising modelling strategy. The estimated factor Loadings are all close to 1 which implies a conformity in the magnitude and scale of the indicator metrics within each of the four factors.The indicator(s) are strongly reflective of the latent factor although `UF1` and `FOR` seem to be moving in opposite directions. We will want to address this later when we specify covariance structures for the residuals. 
+These plots indicate a promising measurement model. Within each factor the loadings sit near the marker's scale of 1, and two indicators load more heavily: `UF2` on well being and `MI` on constructive thought, each around 1.6. The indicators are strongly reflective of their latent factors.
 
-The Posterior Predictive Residuals are close to 0 which suggests that model is well able to capture the latent covariance structure of the observed data. The latent factors move together in intuitive ways, with high Satisfaction ~~ high Well Being. 
+The posterior predictive residuals are small, mostly within ±0.1. The largest sit in the `UF1` row, where the residuals against `ST` (0.16) and the dysfunction indicators (around 0.1) are positive. We will return to `UF1` when we specify residual covariances. The latent factors move together in intuitive ways, with high Satisfaction ~~ high Well Being.
 
-Below these model checks we will now plot some diagnostics for the sampler. The energy plots should show overlapping distributions and the effective sample size should hopefully be high across the slew of focal parameters.
+Below these model checks we plot diagnostics for the sampler. The energy plots should show overlapping distributions and the effective sample size should be high across the focal parameters.
 
 ```{code-cell} ipython3
 plot_diagnostics(idata_cfa_model_v1, parameters);
 ```
 
-The sampler diagnostics give no indication of trouble. This is a promising start. We now shift the SEM setting to layer in Structural regressions. These relations are usually the focus of an analysis. 
+The loadings mix well, with effective sample sizes above 1,000. PyMC still warns about r-hat and effective sample size, and those warnings come from parameters outside this plot: the 1,052 latent scores in `eta`, the factor covariance and the error scales. The BFMI values near 0.4 sit at the low end of the acceptable range. This is a workable start. We now shift the SEM setting to layer in structural regressions. These relations are usually the focus of an analysis.
 
 +++
 
@@ -692,7 +713,7 @@ This is a claim of conditional independence which licenses the causal interpreta
 
 +++
 
-The isolation or conditional independence of interest is encoded in the model with the sampling of the `gamma` variable. These are drawn from a process that is structurally divorced from the influence of the exogenous variables. For instance if we have $\gamma_{cts} \perp\!\!\!\perp \eta_{dtp}$ then the $\beta_{cts -> dpt}$ coefficient is an unbiased estimate of the direct effect of `CTS` on `DTP` because the remaining variation in $\eta_{dtp}$ is noise by construction. 
+The isolation or conditional independence of interest is encoded in the model with the sampling of the structural disturbances `gamma`. Each construct receives its own disturbance with a free variance, and the disturbances are drawn independently of one another. For instance, because $\gamma_{dtp} \perp\!\!\!\perp \gamma_{cts}$, the disturbance of `DTP` is independent of `CTS`, and the $\beta_{cts \to dtp}$ coefficient isolates the direct effect of `CTS` on `DTP`. This independence is also what identifies the paths. A free covariance between two disturbances would compete with the path between those constructs to explain the same latent covariance.
 
 Each additional arrow in the structural model thus encodes a substantive theoretical claim about causal influence. You are making claims of causal influence. Arrows should be added in line with plausible theory, while parameter identification is well supported. In our case we have structured the DAG following the discussion in {cite:p}`vehkalahti2019multivariate` which will allow us to unpick the direct and indirect effects below. In Lavaan syntax the model we want to specify is: 
 
@@ -725,24 +746,20 @@ with pm.Model(coords=coords) as sem_model_v1:
 
     latent_dim = len(coords["latent"])
 
-    sd_dist = pm.Exponential.dist(1.0, shape=latent_dim)
-    chol, _, _ = pm.LKJCholeskyCov(
-        "chol_cov", n=latent_dim, eta=2, sd_dist=sd_dist, compute_corr=True
-    )
-    gamma = pm.MvNormal("gamma", 0, chol=chol, dims=("obs", "latent"))
+    ## Independent structural disturbances: Bollen's pseudo-isolation
+    zeta_sd = pm.Exponential("Psi_zeta_sd", 1.0, dims="latent")
+    gamma = pm.Normal("gamma", 0, zeta_sd, dims=("obs", "latent"))
 
     B = make_B()
     I = pt.eye(latent_dim)
-    ## Clean Causal Influence of Shocks
-    eta = pm.Deterministic(
-        "eta", pt.slinalg.solve(I - B + 1e-8 * I, gamma.T).T, dims=("obs", "latent")
-    )
+    ## Propagate the shocks through the structural paths: eta = (I - B)^{-1} gamma
+    eta = pm.Deterministic("eta", pt.slinalg.solve(I - B, gamma.T).T, dims=("obs", "latent"))
     ## Influence of Exogenous indicator variables
     mu = pt.dot(eta, Lambda.T)
 
     ## Error Terms
     sds = pm.InverseGamma("Psi", 5, 10, dims="indicators")
-    Psi = pt.diag(sds)
+    Psi = pt.diag(sds**2)
     _ = pm.MvNormal(
         "likelihood", mu=mu, cov=Psi, observed=observed_data, dims=("obs", "indicators")
     )
@@ -758,13 +775,13 @@ idata_sem_model_v1 = sample_model(sem_model_v1, sampler_kwargs)
 
 #### A Sampled B Matrix
 
-Now we can sample the B matrix and observe its structure. The sampled $B$ matrix compactly represents the system of regression relationships among latent constructs 
+Now we can sample the B matrix and observe its structure. The sampled $B$ matrix compactly represents the system of regression relationships among latent constructs.
 
-It's best to see the matrix as encoding target variables in the columns and predictor variables in the rows. Here we have the set up our matrix so that `satisfaction` is predicted by three variables, but not itself. The values in the first column are sampled coefficient values in the regression: 
+Each row of the matrix is a regression: the row names the outcome and the columns name its predictors. Here `satisfaction` is predicted by three variables, but not itself, so the first row holds its coefficients:
 
-$$ \eta_{sat} \sim B_{1, 0}\eta_{well} + B_{2, 0}\eta_{dys} +  B_{3, 0}\eta_{con}$$
+$$ \eta_{sat} = B_{0, 1}\eta_{well} + B_{0, 2}\eta_{dys} + B_{0, 3}\eta_{con} + \zeta_{sat}$$
 
-where we've used pythonic indexing of the matrix. Note how values of $\eta$ appear on both sides of the equation. We are solving a system of equations simultaneously i.e. we need to solve for $\eta = B\eta $ where values of $\eta_{i}$ appear on both sides. Solving the matrix untangles the mess of simultaneous equations, but also allows us to derive to total, direct and indirect effects of each latent factor across all the pathways of the system. 
+where we've used pythonic indexing of the matrix. Note how values of $\eta$ appear on both sides of the equation. We are solving a system of equations simultaneously i.e. we need to solve for $\eta = B\eta + \zeta$ where values of $\eta_{i}$ appear on both sides. Solving the matrix untangles the mess of simultaneous equations, but also allows us to derive to total, direct and indirect effects of each latent factor across all the pathways of the system.
 
 ```{code-cell} ipython3
 idata_sem_model_v1["posterior"]["B_"].sel(chain=0, draw=0)
@@ -782,20 +799,20 @@ Let's examine our model sense checks. The posterior predictive distributions ret
 plot_ppc_check(idata_sem_model_v1, indicators=coords["indicators"][0:3], fitted=True, dims=(1, 3));
 ```
 
-The derived covariance structures show improvement on the model implied residuals. Additionally we now get insight into the implied paths and relationships between the latent constructs. These move in compelling ways. Dysfunctional thought processes have a probable negative impact on well being, and similarly for job satisfaction. Conversely constructive thought processes have a probable positive direct effect on well being and satisfaction. Although the latter appears slight. 
+The residuals match the CFA closely, and we now get insight into the implied paths between the latent constructs. Dysfunctional thought has a clearly negative effect on well being, and well being has a strong positive effect on satisfaction, with a coefficient near 1. Constructive thought has a small positive direct effect on satisfaction, though its interval overlaps zero. The remaining direct paths sit near zero.
 
 ```{code-cell} ipython3
 parameters = ["mu_betas", "lambdas1", "lambdas2", "lambdas3", "lambdas4"]
 plot_model_highlights(idata_sem_model_v1, "SEM", parameters, sem=True);
 ```
 
-However, the model diagnostics appear less robust. The sampler seemed to have difficulty with sampling the parameters for the path-coefficients `mu_betas`. 
+The path coefficients sample cleanly, with effective sample sizes above 1,500. This is where identification shows up in the sampler. Had we given the structural disturbances a free LKJ covariance, each path would trade off against a disturbance covariance along a flat ridge, and the sampler would wander along it. With independent disturbances the data pin down each path coefficient.
 
 ```{code-cell} ipython3
 plot_diagnostics(idata_sem_model_v1, parameters);
 ```
 
-The sampler diagnostics suggest that the model is having trouble samplng from the B matrix. This is a little concerning because the structural relations are the primary parameters of interest in the SEM setting. Anything which undercuts our confidence in their estimation, undermines the whole modelling exercise. Because the conditional SEM showed sampler challenges on `mu_betas`, we now try a marginal formulation.
+The energy plot still shows a low BFMI, near 0.4, and PyMC warns about r-hat for parameters outside the focal set. The conditional formulation samples 1,052 latent disturbances `gamma` alongside the structural parameters, and NUTS finds that high-dimensional posterior hard to traverse. Because the structural relations are the primary parameters of interest, we now try a marginal formulation that integrates the latent terms out of the likelihood.
 
 +++
 
@@ -836,36 +853,19 @@ with pm.Model(coords=coords) as sem_model_v2:
 
     Lambda = make_Lambda(lambdas_1, lambdas_2, lambdas_3, lambdas_4)
 
-    sd_dist = pm.Exponential.dist(1.0, shape=4)
-    chol, _, _ = pm.LKJCholeskyCov("chol_cov", n=4, eta=2, sd_dist=sd_dist, compute_corr=True)
-
-    Psi_zeta = pm.Deterministic("Psi_zeta", chol.dot(chol.T))
+    Psi_zeta = make_Psi_zeta()
     Psi = make_Psi("indicators")
 
     B = make_B()
     latent_dim = len(coords["latent"])
     I = pt.eye(latent_dim)
-    lhs = I - B + 1e-8 * pt.eye(latent_dim)  # (latent_dim, latent_dim)
-    inv_lhs = pm.Deterministic(
-        "solve_I-B", pt.slinalg.solve(lhs, pt.eye(latent_dim)), dims=("latent", "latent1")
-    )
+    inv_lhs = pm.Deterministic("solve_I-B", pt.slinalg.solve(I - B, I), dims=("latent", "latent1"))
+    Sigma_eta = inv_lhs @ Psi_zeta @ inv_lhs.T
 
-    Sigma_y = pm.Deterministic(
-        "Sigma_y",
-        Lambda.dot(inv_lhs).dot(Psi_zeta).dot(inv_lhs.T).dot(Lambda.T) + Psi,
-    )
-    ## Eta is predicted not sampled!
-    Sigma_eta_y = pm.Deterministic(
-        "Sigma_eta_y", inv_lhs @ Psi_zeta @ inv_lhs.T @ Lambda.T, dims=("latent", "indicators")
-    )
-
-    # Inverse of Sigma_y
-    Sigma_y_inv = pm.math.matrix_inverse(Sigma_y)
-
-    # Posterior mean of eta (E[eta|y])
-    eta_hat = pm.Deterministic(
-        "eta", ((Sigma_eta_y @ Sigma_y_inv) @ (observed_data - 0).T).T, dims=("obs", "latent")
-    )
+    Sigma_y = pm.Deterministic("Sigma_y", Lambda @ Sigma_eta @ Lambda.T + Psi)
+    ## Eta is predicted not sampled: E[eta | y] = Cov(eta, y) Sigma_y^{-1} (y - mu)
+    M = Sigma_eta @ Lambda.T @ pm.math.matrix_inverse(Sigma_y)
+    eta_hat = pm.Deterministic("eta", (M @ (observed_data - 0).T).T, dims=("obs", "latent"))
     _ = pm.MvNormal(
         "likelihood", mu=0, cov=Sigma_y, observed=observed_data, dims=("obs", "indicators")
     )
@@ -892,7 +892,7 @@ parameters = ["mu_betas", "lambdas1", "lambdas2", "lambdas3", "lambdas4"]
 plot_model_highlights(idata_sem_model_v2, "SEM", parameters, sem=True);
 ```
 
-However, now the sampler health looks much, much better. Marginalising the likelihood seems to have considerable improved the sampling diagnostics. 
+Marginalising the likelihood improves the sampler health considerably. The BFMI values sit near 1 and every focal parameter has an effective sample size above 5,000. The marginal formulation removes the 1,052 latent scores from the sampled parameters and leaves the sampler a compact posterior over the structural parameters.
 
 ```{code-cell} ipython3
 plot_diagnostics(idata_sem_model_v2, parameters);
@@ -902,7 +902,7 @@ plot_diagnostics(idata_sem_model_v2, parameters);
 
 +++
 
-Let's add a bit more structure and push this sampling strategy. Here we've allowed the the mean realisation of the the indicator variables can vary. The $\mu$ parameter of our likelihood needs to reflect this assumption to better capture the structure of the data. This is useful when believe there are baseline differences across groups in the data or you want to compare the mean-differences across two populations.
+Let's add a bit more structure and push this sampling strategy. Here we've allowed the the mean realisation of the the indicator variables can vary. The $\mu$ parameter of our likelihood needs to reflect this assumption to better capture the structure of the data. This is useful when we believe there are baseline differences across groups in the data or want to compare the mean-differences across two populations. Twelve indicator means cannot identify twelve intercepts and four latent means at once, so we fix the intercept of each marker indicator at 0. Each latent mean is then expressed in the units and location of its marker.
 
 ```{code-cell} ipython3
 sample_df_mean = make_sample(cov_matrix, 263, FEATURE_COLUMNS, mean_structure=True)
@@ -913,6 +913,9 @@ pd.DataFrame(sample_df_mean.mean()).T
 obs_idx = list(range(len(sample_df_mean)))
 observed_data = sample_df_mean[coords["indicators"]].values
 coords["obs"] = range(len(sample_df_mean))
+MARKERS = [COLUMN_ORDER_LKUP[coords[f"indicators_{k}"][0]] for k in range(1, 5)]
+FREE_INTERCEPTS = np.ones(len(FEATURE_COLUMNS))
+FREE_INTERCEPTS[MARKERS] = 0
 
 with pm.Model(coords=coords) as sem_model_mean_structure:
 
@@ -923,38 +926,27 @@ with pm.Model(coords=coords) as sem_model_mean_structure:
     lambdas_4 = make_lambda("indicators_4", "lambdas4", priors=[1, 0.5])
     Lambda = make_Lambda(lambdas_1, lambdas_2, lambdas_3, lambdas_4)
 
-    sd_dist = pm.Exponential.dist(1.0, shape=4)
-    chol, _, _ = pm.LKJCholeskyCov("chol_cov", n=4, eta=2, sd_dist=sd_dist, compute_corr=True)
-
-    Psi_zeta = pm.Deterministic("Psi_zeta", chol.dot(chol.T))
+    Psi_zeta = make_Psi_zeta()
     Psi = make_Psi("indicators")
 
     B = make_B()
     latent_dim = len(coords["latent"])
     I = pt.eye(latent_dim)
-    lhs = I - B + 1e-8 * pt.eye(latent_dim)  # (latent_dim, latent_dim)
-    inv_lhs = pm.Deterministic(
-        "solve_I-B", pt.slinalg.solve(lhs, pt.eye(latent_dim)), dims=("latent", "latent1")
-    )
+    inv_lhs = pm.Deterministic("solve_I-B", pt.slinalg.solve(I - B, I), dims=("latent", "latent1"))
+    Sigma_eta = inv_lhs @ Psi_zeta @ inv_lhs.T
 
     # Mean Structure
-    tau = pm.Normal("tau", mu=0, sigma=5, dims="indicators")  # observed intercepts
-    alpha = pm.Normal("alpha", mu=0, sigma=0.5, dims="latent")  # latent means
-    mu_y = pm.Deterministic("mu_y", tau + pt.dot(Lambda, pt.dot(inv_lhs, alpha)))
+    # observed intercepts, with each marker's intercept fixed at 0 to identify the latent means
+    tau_ = pm.Normal("tau_", mu=0, sigma=5, dims="indicators")
+    tau = pm.Deterministic("tau", tau_ * FREE_INTERCEPTS, dims="indicators")
+    alpha = pm.Normal("alpha", mu=0, sigma=5, dims="latent")  # structural intercepts
+    eta_mean = pm.Deterministic("eta_mean", inv_lhs @ alpha, dims="latent")  # latent means
+    mu_y = pm.Deterministic("mu_y", tau + Lambda @ eta_mean, dims="indicators")
 
-    Sigma_y = pm.Deterministic(
-        "Sigma_y", Lambda.dot(inv_lhs).dot(Psi_zeta).dot(inv_lhs.T).dot(Lambda.T) + Psi
-    )
-    Sigma_eta_y = pm.Deterministic(
-        "Sigma_eta_y", inv_lhs @ Psi_zeta @ inv_lhs.T @ Lambda.T, dims=("latent", "indicators")
-    )
-
-    # Inverse of Sigma_y
-    Sigma_y_inv = pm.math.matrix_inverse(Sigma_y)
-
-    # Posterior mean of eta (E[eta|y])
+    Sigma_y = pm.Deterministic("Sigma_y", Lambda @ Sigma_eta @ Lambda.T + Psi)
+    M = Sigma_eta @ Lambda.T @ pm.math.matrix_inverse(Sigma_y)
     eta_hat = pm.Deterministic(
-        "eta", ((Sigma_eta_y @ Sigma_y_inv) @ (observed_data - mu_y).T).T, dims=("obs", "latent")
+        "eta", eta_mean + (M @ (observed_data - mu_y).T).T, dims=("obs", "latent")
     )
     _ = pm.MvNormal(
         "likelihood", mu=mu_y, cov=Sigma_y, observed=observed_data, dims=("obs", "indicators")
@@ -985,7 +977,7 @@ parameters = ["mu_betas", "lambdas1", "lambdas2", "lambdas3", "lambdas4", "tau"]
 plot_model_highlights(idata_sem_model_v3, "SEM_Marginal_Mean", parameters, sem=True);
 ```
 
-The posterior predictive distribution of the model implied residuals seems comparable to the cases above, but this time we've also isolated the mean structure. 
+The mean-structure model is fitted to a fresh sample with shifted indicator means. Fixing the marker intercepts at 0 places each latent factor at the mean of its marker indicator, which is why the latent scores now centre away from zero. The `tau` estimates locate the remaining indicators relative to their markers. The residual correlations are larger than for the zero-mean models, notably between `DA1` and `JW1`.
 
 ```{code-cell} ipython3
 plot_diagnostics(idata_sem_model_v3, parameters);
@@ -1041,11 +1033,12 @@ def plot_total_effects(idata, title):
     fig, axs = plt.subplots(1, 3, figsize=(20, 8))
     axs = axs.flatten()
 
-    total_effect = az.summary(idata, var_names=["solve_I-B"])["mean"].values.reshape((4, 4))
+    # B is stored as [outcome, predictor]; transpose so rows are predictors and columns targets
+    total_effect = az.summary(idata, var_names=["solve_I-B"])["mean"].values.reshape((4, 4)).T
 
-    direct_effect = az.summary(idata, var_names=["B_"])["mean"].values.reshape((4, 4))
+    direct_effect = az.summary(idata, var_names=["B_"])["mean"].values.reshape((4, 4)).T
 
-    i, j = np.tril_indices(total_effect.reshape((4, 4)).shape[0])
+    i, j = np.triu_indices(total_effect.reshape((4, 4)).shape[0])
     total_effect[i, j] = np.nan
     direct_effect[i, j] = np.nan
 
@@ -1062,8 +1055,8 @@ def plot_total_effects(idata, title):
     )
     plt.tight_layout()
     axs[0].set_xticklabels(axs[0].get_xticklabels(), rotation=65)
-    axs[0].set_xlabel("Regression Predictor")
-    axs[0].set_ylabel("Target Variable")
+    axs[0].set_xlabel("Target Variable")
+    axs[0].set_ylabel("Regression Predictor")
 
     plot_heatmap(
         pd.DataFrame(indirect_effect, columns=coords["latent"], index=coords["latent"]),
@@ -1077,7 +1070,7 @@ def plot_total_effects(idata, title):
     plt.tight_layout()
     axs[1].set_yticklabels([])
     axs[1].set_xticklabels(axs[1].get_xticklabels(), rotation=65)
-    axs[1].set_xlabel("Regression Predictor")
+    axs[1].set_xlabel("Target Variable")
 
     plot_heatmap(
         pd.DataFrame(
@@ -1093,7 +1086,7 @@ def plot_total_effects(idata, title):
     plt.tight_layout()
     axs[2].set_yticklabels([])
     axs[2].set_xticklabels(axs[2].get_xticklabels(), rotation=65)
-    axs[2].set_xlabel("Regression Predictor")
+    axs[2].set_xlabel("Target Variable")
 
     axs[0].grid(False)
     axs[1].grid(False)
@@ -1106,7 +1099,7 @@ plot_total_effects(idata_sem_model_v2, "Marginal SEM v2")
 plot_total_effects(idata_sem_model_v3, "Mean Structure SEM v3")
 ```
 
-Even though constructive thought processes have a directly positive effect on job satisfaction, we can see that when they are paired with dysfunctional thought processes the positive effects are moderated. __Note to all employers__: well-being and general welfare is seen as the most substantively positive predictor of job satisfaction. Fix your process certainly, improve your workflows, encourage constructive practices and dialogues, but it's hard to beat a secure welfare and fair compensation when aiming to improve work satisfaction. 
+Well-being is the dominant driver of satisfaction, with a direct and total effect near 0.9 in the marginal model. Dysfunctional thought lowers satisfaction almost entirely through well-being: its direct effect is close to zero, while its indirect effect is about −0.28. Constructive thought has a small positive total effect of about 0.14, mostly direct. The mean-structure model, fitted to a fresh sample, tells the same story with somewhat larger magnitudes. __Note to all employers__: well-being and general welfare is seen as the most substantively positive predictor of job satisfaction. Fix your process certainly, improve your workflows, encourage constructive practices and dialogues, but it's hard to beat a secure welfare and fair compensation when aiming to improve work satisfaction. 
 
 +++
 
@@ -1129,9 +1122,9 @@ for idata, model_name, ax in zip(idatas, model_names, axs):
     ax.set_title(f"Residuals for {model_name}", fontsize=25);
 ```
 
-We see similar residuals for all models except a degradation as the model tries to account for the novel mean-structured data. This could be attributed to the greater complexity of the parameter space with the same amount of data, or an idiosyncracy of the sampling process. 
+We see similar residuals for all models except the mean-structure model. That model is fitted to a different sample drawn from the same covariance, and its residuals are larger, which could reflect the extra parameters or the idiosyncrasies of the new sample.
 
-Below we can see that the models are substantially similar in key dimensions; the magnitude and direction of the implied effects are similar across each model. This is an important observation. It is this kind of robustness to model specification that we want to see in this kind of iterative modelling. This should give us confidence that the model is well specified and picking up on the actual relationships between these latent constructs. 
+Below we can see that the models agree in key dimensions. The loadings are nearly identical across the four models, and the path coefficients share their signs and approximate magnitudes across the three SEMs. The mean-structure model departs most, with a negative direct path from dysfunction to satisfaction. This kind of robustness to model specification is what we want to see in iterative modelling. It gives us confidence that the models pick up the same relationships among the latent constructs.
 
 ```{code-cell} ipython3
 :tags: [hide-input]
@@ -1164,17 +1157,17 @@ loo_df = pd.concat(
 loo_df[["elpd_loo", "se", "p_loo", "n_samples", "n_data_points"]]
 ```
 
-The conditional model formulas show a lower and therefore better performance. This is typical because the conditional formulation is forced to use a conditional calculation making use of the sampled `eta`. In short we're using a probability
+These four scores are not directly comparable. The CFA scores each of the 3,156 indicator values separately and the conditional SEM scores the 263 response vectors, both given the sampled latent scores `eta`. In short they use a probability
 
 $$ p(y | \eta, \theta)$$
 
-whereas the marginal formulation does not make use of `eta` in the likelihood calculation. 
+whereas the marginal formulation scores the same 263 response vectors with the latent terms integrated out.
 
-$p(y | \theta)$ 
+$p(y | \theta)$
 
-As such, we're comparing apples and oranges when we try and compare marginal and conditional SEMs on their LOO scores. The interpretive gloss here is that it's better to see the conditional performance metric as a score for reconstruction error. While the marginal scores can be seen as proper proxies for out-of-sample predictions error. They are both useful measures but represent slightly different performance measures. This is an easy detail to miss when you're naively chasing performance benchmarks. When selecting models with metric optimisation in mind, we need to understand what we're actually optimising.  
+The conditional scores are best read as reconstruction error, while the marginal scores are proper proxies for out-of-sample prediction error. The `p_loo` column makes the distinction plain: around 650 effective parameters for the conditional models against roughly 30 for the marginal ones. The mean-structure model is fitted to a different sample, so its score cannot be set against the others either. This is an easy detail to miss when you're naively chasing performance benchmarks. When selecting models with metric optimisation in mind, we need to understand what we're actually optimising.
 
-In this case we can see that the SEM structure does seem to improve on the CFA model. But that the mean structure model doesn't improve on the baseline marginal structure. Coupled with the comparability of the Residual errors, we can compellingly claim that the Marginal SEM model is the preferred model. It recovers the plausible posterior predictive statistics and does so with reasonably parsimony. It is coherent with insights from the other moodel but improves on them in a range of ways, from computational efficiency to preferable performance measures. 
+The comparisons that remain are qualitative. The structural model is exactly identified, so it reproduces the CFA's latent covariance while reorganising it into directed paths. The marginal formulation samples far more efficiently than the conditional one and gives the smallest residuals of the four. Coupled with the agreement in loadings and paths, we can claim that the marginal SEM is the preferred model. It recovers plausible posterior predictive statistics with reasonable parsimony and improves on the conditional formulations in computational efficiency.
 
 These kinds of sensitivity analysis help with model validation, but we can be even more clinical in our assessment of these models. We can perform parameter recovery exercises to properly validate that our model specification can identify the structural parameters of our complex SEM architecture. 
 
@@ -1189,7 +1182,7 @@ The mean-structure SEM provides a baseline description of how latent factors gen
 Let's assume we are aiming to assess a causal difference between treatment and control groups.
 
 ```{code-cell} ipython3
-grp_idx = np.random.binomial(1, 0.5, 250)
+grp_idx = np.random.binomial(1, 0.5, 1000)
 coords["group"] = ["treatment", "control"]
 coords["obs"] = list(range(len(grp_idx)))
 coords.keys()
@@ -1209,27 +1202,18 @@ def make_hierarchical(priors, grp_idx):
 
         Lambda = make_Lambda(lambdas_1, lambdas_2, lambdas_3, lambdas_4)
 
-        sd_dist = pm.Exponential.dist(1.0, shape=4)
-        chol, _, _ = pm.LKJCholeskyCov("chol_cov", n=4, eta=2, sd_dist=sd_dist, compute_corr=True)
-
-        Psi_zeta = pm.Deterministic("Psi_zeta", chol.dot(chol.T))
+        Psi_zeta = make_Psi_zeta()
         Psi = make_Psi("indicators")
 
-        Bs = []
-        for g in coords["group"]:
-            B_g = make_B(group_suffix=f"_{g}", priors=priors["B"])  # give group-specific names
-            Bs.append(B_g)
-        B_ = pt.stack(Bs)
+        # group-specific structural paths
+        Bs = [make_B(priors=priors["B"], group_suffix=f"_{g}") for g in coords["group"]]
 
         latent_dim = len(coords["latent"])
         I = pt.eye(latent_dim)
 
         # invert (I - B_g) for each group
         inv_I_minus_B = pm.Deterministic(
-            "inv_I_minus_B",
-            pt.stack(
-                [pt.slinalg.solve(I - B_[g] + 1e-8 * I, I) for g in range(len(coords["group"]))]
-            ),
+            "inv_I_minus_B", pt.stack([pt.slinalg.solve(I - B_g, I) for B_g in Bs])
         )
 
         Sigma_y = []
@@ -1243,9 +1227,9 @@ def make_hierarchical(priors, grp_idx):
     return sem_model_hierarchical
 
 
-priors = {"lambdas": [1, 0.5], "eta": 2, "B": [0, 0.5], "tau": [0, 1]}
+priors = {"lambdas": [1, 0.5], "B": [0, 0.5]}
 
-priors_wide = {"lambdas": [1, 5], "eta": 2, "B": [0, 5], "tau": [0, 5]}
+priors_wide = {"lambdas": [1, 5], "B": [0, 5]}
 
 sem_model_hierarchical_tight = make_hierarchical(priors, grp_idx)
 sem_model_hierarchical_wide = make_hierarchical(priors_wide, grp_idx)
@@ -1253,20 +1237,23 @@ sem_model_hierarchical_wide = make_hierarchical(priors_wide, grp_idx)
 pm.model_to_graphviz(sem_model_hierarchical_tight)
 ```
 
-Notice that we haven’t yet provided any observed data to the model — this is intentional. Our next step is to simulate data by performing a forward pass through the system. We initialize two versions of the model: (1) with tight priors and (2) with wide priors on the data-generating parameters. We’ll sample from the tightly parameterized model to generate indicator data consistent with our chosen parameter settings.
+Notice that we haven’t yet provided any observed data to the model — this is intentional. Our next step is to simulate data by performing a forward pass through the system. We initialize two versions of the model: (1) with tight priors and (2) with wide priors on the data-generating parameters. We’ll sample from the tightly parameterized model to generate indicator data consistent with our chosen parameter settings. The structural disturbances are simulated independently, with free variances and zero covariances, so the synthetic data satisfy the same identifying restriction the model imposes. Recovery then tests what the default specification claims to estimate. We take the true values from the SEM fitted by maximum likelihood to the population covariance of the job satisfaction data, so the simulated latent factors keep the moderate correlations of the real data. The control group keeps those paths, and the treatment group strengthens the three paths out of constructive thought.
 
 ```{code-cell} ipython3
 # Generating data from model by fixing parameters
 fixed_parameters = {
-    "mu_betas_treatment": [0.1, 0.5, 2.3, 0.9, -2.0, 0.8],
-    "mu_betas_control": [3, 0.2, 0.7, 0.8, 0.6, 1.2],
-    "lambdas1_": [1.0, 0.8, 0.9],
-    "lambdas2_": [1.0, 0.9, 1.2],
-    "lambdas3_": [1.0, 0.95, 0.8],
-    "lambdas4_": [1.0, 1.4, 1.1],
-    "chol_cov": [0.696, -0.096, 0.23, -0.3, -0.385, 0.398, -0.004, 0.043, -0.037, 0.422],
-    "Psi_cov_": [0.559, 0.603, 0.666, 0.483, 0.53, 0.402, 0.35, 0.28, 0.498, 0.494, 0.976, 0.742],
-    "Psi_cov_beta": [0.029],
+    # Control paths from the population fit. Treatment strengthens the three paths out of
+    # constructive thought: dysfunctional, well being and satisfaction ~ constructive
+    "mu_betas_treatment": [-0.5, -0.37, 0.3, 0.8, -0.24, 0.4],
+    "mu_betas_control": [-0.13, -0.37, 0.07, 0.8, -0.24, 0.16],
+    # Measurement and disturbance values from the ML fit of the SEM to the population covariance
+    "lambdas1_": [1.0, 1.04, 0.89],
+    "lambdas2_": [1.0, 1.49, 0.82],
+    "lambdas3_": [1.0, 1.13, 0.99],
+    "lambdas4_": [1.0, 1.06, 1.89],
+    "Psi_zeta_sd": [0.68, 0.33, 0.48, 0.46],
+    "Psi_cov_sd": [0.51, 0.61, 0.62, 0.42, 0.51, 0.42, 0.33, 0.26, 0.55, 0.54, 1.01, 0.49],
+    "Psi_cov_rho_": [0.38],  # residual correlation UF1 ~~ FOR of 2 * 0.38 - 1 = -0.24
 }
 with pm.do(sem_model_hierarchical_tight, fixed_parameters) as synthetic_model:
     idata = pm.sample_prior_predictive(
@@ -1288,11 +1275,11 @@ We now want to see if we can infer the parameters used to generate the data from
 with pm.observe(sem_model_hierarchical_wide, {"likelihood": synthetic_y}) as inference_model:
     idata_hierarchical = pm.sample_prior_predictive()
     idata_hierarchical.extend(
-        pm.sample(random_seed=100, nuts_sampler="numpyro", chains=4, draws=1000, tune=2000)
+        pm.sample(random_seed=100, nuts_sampler="numpyro", chains=4, draws=500, tune=2000)
     )
 ```
 
-The model samples well and gives good evidence of distinct posterior distributions across the parameters suggesting the model is capable of identification. 
+The sampler reports no divergences and healthy r-hat values, so we can read the recovery results directly.
 
 ```{code-cell} ipython3
 az.plot_trace(idata_hierarchical, var_names=["mu_betas_treatment", "mu_betas_control", "Lambda"]);
@@ -1316,7 +1303,7 @@ az.plot_posterior(
 );
 ```
 
-The posterior estimates can “recover” the true values within uncertainty, ensuring the model is faithful to the data generating process. Were the effort at parameter recover to fail, we would equally have learned something about our model. Parameter recovery exercises helps discover issues of mis-specification or unidentified parameters. They tell us how informative our data is with respect to our data generating process, they clarify the degree to which the data constrains (or fails to constrain) the model’s parameters.
+The recovery is close across both groups. The posteriors for the path coefficients sit on or near their true values, and the disturbance standard deviations are recovered tightly. Because the true values come from the population fit, the latent factors carry realistic, moderate correlations, and 1,000 respondents split across two groups give the data enough independent variation to pin down each group's paths. Were the effort at parameter recovery to fail, we would equally have learned something about our model. Parameter recovery exercises help discover issues of mis-specification or weakly identified parameters. They tell us how informative our data is with respect to our data generating process, they clarify the degree to which the data constrains (or fails to constrain) the model’s parameters.
 
 Verlyn Klinkenborg begins his justly famous book _Several short sentences about writing_ with a reminder that applies equally to modelling: 
 
@@ -1330,12 +1317,12 @@ The Bayesian workflow explores the depths of meaning achieved by our statistical
 
 ### Hypothesis Evaluation: How does group membership change direct effects?
 
-In this case we've encoded a difference in the regression effects for each of the two groups. These effects are easily recovered with quantifiable measures of uncertainty around the treatment effects.
+In this case the treatment strengthens the three paths out of constructive thought and leaves the other paths unchanged. The posterior contrasts recover this pattern. The shifts on `dysfunctional ~ constructive` and `well being ~ constructive` sit clearly away from zero, and the shift on `satisfaction ~ constructive` is mostly positive with an interval that just reaches zero. The contrasts on the unchanged paths centre near zero.
 
 ```{code-cell} ipython3
 diff = (
-    idata_hierarchical["posterior"]["mu_betas_control"]
-    - idata_hierarchical["posterior"]["mu_betas_treatment"]
+    idata_hierarchical["posterior"]["mu_betas_treatment"]
+    - idata_hierarchical["posterior"]["mu_betas_control"]
 )
 
 axs = az.plot_posterior(diff)
@@ -1344,7 +1331,7 @@ plt.suptitle(
 );
 ```
 
-In applied work, these are precisely the implications we want to surface and understand. From a workflow perspective, our models should clarify these relationships rather than add noise. If we're assessing a particular hypothesis or aiming to estimate a concrete quantity, the model specification should be robust enough to support those inferences. This is where parameter recovery exercises can lend assurances and bolster confidence in the findings of empirical work. Here we've shown that our model specification will support inferences about about a class of particular causal contrasts i.e. how treatment changes the direct effects of one latent construct on another.
+In applied work, these are precisely the implications we want to surface and understand. From a workflow perspective, our models should clarify these relationships rather than add noise. If we're assessing a particular hypothesis or aiming to estimate a concrete quantity, the model specification should be robust enough to support those inferences. This is where parameter recovery exercises can lend assurances and bolster confidence in the findings of empirical work. Here we've shown that our model specification supports inferences about how treatment changes the direct effects of one latent construct on another.
 
 Another way we might interrogate the implications of a model is to see how well it can predict "downstream" outcomes of the implied model. How does job-satisfaction relate to attrition risk and approaches to work?
 
@@ -1363,13 +1350,13 @@ To explore this, we’ll embed a discrete choice scenario into the SEM framework
 The discrete choice setting is intuitive in this context because we can model the individual's subjective utility of work as a function of their job satisfaction. Within rational-choice theory, this utility determines the decision outcome.
 
 ```{code-cell} ipython3
-observed_data_discrete = make_sample(cov_matrix, 250, FEATURE_COLUMNS)
+observed_data_discrete = make_sample(cov_matrix, 1000, FEATURE_COLUMNS)
 observed_data_discrete = observed_data_discrete.values
 coords["obs"] = range(len(observed_data_discrete))
 coords["alts"] = ["stay", "quit", "quiet quit"]
 ```
 
-The modelling is similar to the basic SEM set up, but we've additionally included a multinomial outcome for each of the available alternatives. Note however, that we have no alternative-specific covariates (i.e. price of the choice) since the draws of the latent constructs are fixed predictors for each of the three outcomes. As such we need to constrain one of the alternatives to 0 so it acts as the reference class and allows identification of the coefficient weights for the other alternatives. This is a basic implementation of a discrete choice model where we allow alternative-specific intercept terms to interact with the beta coefficient for each latent construct. Other variants are possible, but this example will allow us to infer how job satisfaction drives choices about work.
+The modelling is similar to the basic SEM set up, but we've additionally included a multinomial outcome for each of the available alternatives. Note however, that we have no alternative-specific covariates (i.e. price of the choice) since the draws of the latent constructs are fixed predictors for each of the three outcomes. Only differences in utility affect the choice probabilities, so we fix the intercept and the slopes of one alternative, quiet quitting, at 0. It acts as the reference class, and every other alternative gets its own intercept and its own slope on each latent construct, measured relative to that reference. This is the standard identification of a multinomial logit. Other variants are possible, but this example will allow us to infer how job satisfaction drives choices about work.
 
 ```{code-cell} ipython3
 def make_discrete_choice_conditional(observed_data, priors, conditional=True):
@@ -1383,52 +1370,29 @@ def make_discrete_choice_conditional(observed_data, priors, conditional=True):
 
         Lambda = make_Lambda(lambdas_1, lambdas_2, lambdas_3, lambdas_4)
 
-        sd_dist = pm.Exponential.dist(1.0, shape=4)
-        chol, _, _ = pm.LKJCholeskyCov(
-            "chol_cov", n=4, eta=priors["eta"], sd_dist=sd_dist, compute_corr=True
-        )
-
         Psi = make_Psi("indicators")
 
-        B = make_B()
+        B = make_B(priors=priors["B"])
+        latent_dim = len(coords["latent"])
+        I = pt.eye(latent_dim)
         if conditional:
-            latent_dim = len(coords["latent"])
-            gamma = pm.MvNormal("gamma", 0, chol=chol, dims=("obs", "latent"))
-            I = pt.eye(latent_dim)
+            zeta_sd = pm.Exponential("Psi_zeta_sd", 1.0, dims="latent")
+            gamma = pm.Normal("gamma", 0, zeta_sd, dims=("obs", "latent"))
             eta = pm.Deterministic(
-                "eta", pt.slinalg.solve(I - B + 1e-8 * I, gamma.T).T, dims=("obs", "latent")
+                "eta", pt.slinalg.solve(I - B, gamma.T).T, dims=("obs", "latent")
             )
             mu = pt.dot(eta, Lambda.T)
             _ = pm.MvNormal("likelihood", mu=mu, cov=Psi)
         else:
-            Psi_zeta = pm.Deterministic("Psi_zeta", chol.dot(chol.T))
-            latent_dim = len(coords["latent"])
-            I = pt.eye(latent_dim)
-            lhs = I - B + 1e-8 * pt.eye(latent_dim)  # (latent_dim, latent_dim)
+            Psi_zeta = make_Psi_zeta()
             inv_lhs = pm.Deterministic(
-                "solve_I-B", pt.slinalg.solve(lhs, pt.eye(latent_dim)), dims=("latent", "latent1")
+                "solve_I-B", pt.slinalg.solve(I - B, I), dims=("latent", "latent1")
             )
-
-            Sigma_y = pm.Deterministic(
-                "Sigma_y",
-                Lambda.dot(inv_lhs).dot(Psi_zeta).dot(inv_lhs.T).dot(Lambda.T) + Psi,
-            )
-            Sigma_eta_y = pm.Deterministic(
-                "Sigma_eta_y",
-                inv_lhs @ Psi_zeta @ inv_lhs.T @ Lambda.T,
-                dims=("latent", "indicators"),
-            )
-
-            # Inverse of Sigma_y
-            Sigma_y_inv = pm.math.matrix_inverse(Sigma_y)
-
-            # Posterior mean of eta (E[eta|y])
-            eta_hat = pm.Deterministic(
-                "eta",
-                ((Sigma_eta_y @ Sigma_y_inv) @ (observed_data - 0).T).T,
-                dims=("obs", "latent"),
-            )
-
+            Sigma_eta = inv_lhs @ Psi_zeta @ inv_lhs.T
+            Sigma_y = pm.Deterministic("Sigma_y", Lambda @ Sigma_eta @ Lambda.T + Psi)
+            ## Eta is predicted not sampled!
+            M = Sigma_eta @ Lambda.T @ pm.math.matrix_inverse(Sigma_y)
+            eta = pm.Deterministic("eta", (M @ (observed_data - 0).T).T, dims=("obs", "latent"))
             _ = pm.MvNormal("likelihood", mu=0, cov=Sigma_y, dims=("obs", "indicators"))
 
         alphas_choice_ = pm.Normal(
@@ -1445,10 +1409,14 @@ def make_discrete_choice_conditional(observed_data, priors, conditional=True):
             priors["betas_choice"][1],
             dims=("alts", "latent"),
         )
-        betas_choice = pt.expand_dims(alphas_choice, 1) * betas_choice_
+        ## The reference alternative's slopes are fixed at 0 as well, so each slope
+        ## measures the effect of a latent construct on utility relative to quiet quitting
+        betas_choice = pm.Deterministic(
+            "betas_choice", pt.set_subtensor(betas_choice_[-1, :], 0), dims=("alts", "latent")
+        )
 
         utility_of_work = pm.Deterministic(
-            "mu_choice", alphas_choice + pm.math.dot(eta_hat, betas_choice.T)
+            "mu_choice", alphas_choice + pm.math.dot(eta, betas_choice.T)
         )
         p = pm.Deterministic("p", pm.math.softmax(utility_of_work, axis=1))
         _ = pm.Categorical("likelihood_choice", p)
@@ -1458,7 +1426,6 @@ def make_discrete_choice_conditional(observed_data, priors, conditional=True):
 
 priors = {
     "lambdas": [1, 0.5],
-    "eta": 2,
     "B": [0, 0.5],
     "betas_choice": [0, 1],
     "alphas_choice": [0, 1],
@@ -1466,17 +1433,16 @@ priors = {
 
 priors_wide = {
     "lambdas": [1, 5],
-    "eta": 2,
     "B": [0, 5],
     "betas_choice": [0, 5],
     "alphas_choice": [0, 5],
 }
 
 sem_model_discrete_choice_tight = make_discrete_choice_conditional(
-    observed_data_discrete, priors, conditional=False
+    observed_data_discrete, priors, conditional=True
 )
 sem_model_discrete_choice_wide = make_discrete_choice_conditional(
-    observed_data_discrete, priors_wide, conditional=False
+    observed_data_discrete, priors_wide, conditional=True
 )
 
 pm.model_to_graphviz(sem_model_discrete_choice_tight)
@@ -1490,17 +1456,20 @@ To demonstrate parameter recovery we need to sample from both outcomes simultane
 
 ```{code-cell} ipython3
 fixed_parameters = {
-    "lambdas1_": [1, 0.8, 0.9],
-    "lambdas2_": [1, 0.9, 1.2],
-    "lambdas3_": [1, 0.95, 0.8],
-    "lambdas4_": [1, 1.4, 1.1],
-    "alphas_choice_": [2, 4, 1],
+    # Measurement and disturbance values from the ML fit of the SEM to the population covariance
+    "lambdas1_": [1.0, 1.04, 0.89],
+    "lambdas2_": [1.0, 1.49, 0.82],
+    "lambdas3_": [1.0, 1.13, 0.99],
+    "lambdas4_": [1.0, 1.06, 1.89],
+    "Psi_zeta_sd": [0.68, 0.33, 0.48, 0.46],
+    "Psi_cov_sd": [0.51, 0.61, 0.62, 0.42, 0.51, 0.42, 0.33, 0.26, 0.55, 0.54, 1.01, 0.49],
+    "Psi_cov_rho_": [0.38],  # residual correlation UF1 ~~ FOR of 2 * 0.38 - 1 = -0.24
+    # stay, quit, quiet quit (the reference alternative is fixed at 0 in the model)
+    "alphas_choice_": [1.0, -0.5, 0],
     # 'satisfaction', 'well being', 'dysfunctional', 'constructive'
-    "betas_choice_": [[2.2, 1.2, -0.6, 1.5], [-1.5, -2, 1.7, 0.5], [-0.5, 2.5, -1.5, 1.7]],
-    "chol_cov": [0.696, -0.096, 0.23, -0.3, -0.385, 0.398, -0.004, 0.043, -0.037, 0.422],
-    "Psi_cov_": [0.559, 0.603, 0.666, 0.483, 0.53, 0.402, 0.35, 0.28, 0.498, 0.494, 0.976, 0.742],
-    "Psi_cov_beta": [0.029],
-    "mu_betas": [-0.9, -0.3, 0.5, 0.9, -0.5, 2.7],
+    # satisfaction raises the utility of staying; dysfunction raises the utility of quitting
+    "betas_choice_": [[2.0, 1.0, -1.0, 0.5], [-2.5, -1.0, 2.0, 0.0], [0, 0, 0, 0]],
+    "mu_betas": [-0.13, -0.37, 0.07, 0.8, -0.24, 0.16],  # population fit
 }
 with pm.do(sem_model_discrete_choice_tight, fixed_parameters) as synthetic_model:
     idata = pm.sample_prior_predictive(
@@ -1518,10 +1487,10 @@ with pm.observe(
     sem_model_discrete_choice_wide, {"likelihood": synthetic_y, "likelihood_choice": synthetic_c}
 ) as inference_model:
     idata = pm.sample_prior_predictive()
-    idata.extend(pm.sample(random_seed=300, chains=4, tune=2000, draws=1000))
+    idata.extend(pm.sample(random_seed=100, chains=4, tune=2000, draws=500, nuts_sampler="nutpie"))
 ```
 
-The factor structures are nicely recovered. 
+The free factor loadings land near their true values. The marker entries (`UF1`, `EBA`) show only their prior, since those loadings are fixed at 1 in the model.
 
 ```{code-cell} ipython3
 az.plot_posterior(idata, var_names=["lambdas2_"], ref_val=fixed_parameters["lambdas2_"]);
@@ -1531,20 +1500,16 @@ az.plot_posterior(idata, var_names=["lambdas2_"], ref_val=fixed_parameters["lamb
 az.plot_posterior(idata, var_names=["lambdas4_"], ref_val=fixed_parameters["lambdas4_"]);
 ```
 
-The `B` parameters seem to be approximately well identified. 
+The structural paths are recovered closely, even with the choice outcome sharing the latent factors. PyMC may flag a slightly elevated r-hat on the disturbance scale of constructive thought. The conditional formulation samples each respondent's latent disturbance directly, and the scale of the one exogenous factor mixes slowly against those 1,000 draws. A non-centred parameterisation of `gamma` is the usual remedy.
 
 ```{code-cell} ipython3
 az.plot_posterior(idata, var_names=["mu_betas"], ref_val=fixed_parameters["mu_betas"]);
 ```
 
-Now we look at the beta coefficients from the discrete choice setting, noting that the model can recover sensible values. 
+Now we look at the choice slopes. Each alternative has its own slopes relative to quiet quitting, and the posteriors recover their true values closely. Satisfaction raises the utility of staying and lowers the utility of quitting, while dysfunctional thought pushes the other way.
 
 ```{code-cell} ipython3
-ref = (
-    fixed_parameters["betas_choice_"][0]
-    + fixed_parameters["betas_choice_"][1]
-    + fixed_parameters["betas_choice_"][2]
-)
+ref = fixed_parameters["betas_choice_"][0] + fixed_parameters["betas_choice_"][1]
 az.plot_posterior(
     idata,
     var_names=["betas_choice_"],
@@ -1553,7 +1518,7 @@ az.plot_posterior(
 );
 ```
 
-Similarly, the intercept terms are properly recovered.
+The intercepts are recovered as well.
 
 ```{code-cell} ipython3
 az.plot_posterior(
@@ -1623,7 +1588,7 @@ axs[0].legend()
 axs[1].legend();
 ```
 
-We can recover the inverse relationship we encoded in the outcomes between job-satisfaction and the choice to stay. Similarly, this posterior predictive checks look sound. This is encouraging. 
+We recover the opposing relationships we encoded: the utility of staying rises with satisfaction and the utility of quitting falls. The posterior predictive checks on the choice outcome also look sound. 
 
 The "action" in human decision making is often understood to be driven by these hard-to-quantify constructs that determine motivation. SEM with a discrete choice component offers us a way to model these processes, while allowing for measurement error between the observables and the latent drivers of choice. Secondly, we are triangulating the values of the system between two sources of observable data. On the one hand, we measure latent constructs in the SEM with a range of survey measures (`JW1`, `JW2`, ... ) but then calibrate the consequences of that measurement against revealed choice data. This dual calibration offers a powerful approach to understanding how latent dispositions translate into observable actions.
 
