@@ -73,7 +73,7 @@ from scipy.special import expit
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 rng = np.random.default_rng(1234)
 ```
 
@@ -119,8 +119,8 @@ freq.set_ylabel("number of successes")
 freq.scatter(x, y, color="k")
 # plot proportion related stuff on ax[1]
 ax[1].plot(x, p_true, label=r"$g^{-1}(β_0 + β_1 \cdot x_i)$")
-ax[1].set_ylabel("proportion successes", color="b")
-ax[1].tick_params(axis="y", labelcolor="b")
+ax[1].set_ylabel("proportion successes", color="C0")
+ax[1].tick_params(axis="y", labelcolor="C0")
 ax[1].set(xlabel="$x$", title="Binomial regression")
 ax[1].legend()
 # get y-axes to line up
@@ -142,7 +142,7 @@ Technically, we don't need to supply `coords`, but providing this (a list of obs
 coords = {"observation": data.index.values}
 
 with pm.Model(coords=coords) as binomial_regression_model:
-    x = pm.ConstantData("x", data["x"], dims="observation")
+    x = pm.Data("x", data["x"], dims="observation")
     # priors
     beta0 = pm.Normal("beta0", mu=0, sigma=1)
     beta1 = pm.Normal("beta1", mu=0, sigma=1)
@@ -165,7 +165,7 @@ with binomial_regression_model:
 Confirm no inference issues by visual inspection of chain. We've got no warnings about divergences, $\hat{R}$, or effective sample size. Everything looks good.
 
 ```{code-cell} ipython3
-az.plot_trace(idata, var_names=["beta0", "beta1"]);
+az.plot_rank_dist(idata, var_names=["beta0", "beta1"]);
 ```
 
 ## Examine results
@@ -174,55 +174,25 @@ The code below plots out model predictions in data space, and our posterior beli
 ```{code-cell} ipython3
 :tags: [hide-input]
 
-fig, ax = plt.subplots(1, 2, figsize=(9, 4), gridspec_kw={"width_ratios": [2, 1]})
-
-# Data space plot ========================================================
-az.plot_hdi(
-    data["x"],
-    idata.posterior.p,
-    hdi_prob=0.95,
-    fill_kwargs={"alpha": 0.25, "linewidth": 0},
-    ax=ax[0],
-    color="C1",
+pc = az.plot_lm(
+    idata,
+    y="p",
+    y_obs="y",
+    group="posterior",
+    ci_prob=0.95,
+    visuals={"observed_scatter": False},
 )
-# posterior mean
-post_mean = idata.posterior.p.mean(("chain", "draw"))
-ax[0].plot(data["x"], post_mean, label="posterior mean", color="C1")
-# plot truth
-ax[0].plot(data["x"], p_true, "--", label="true", color="C2")
-# formatting
-ax[0].set(xlabel="x", title="Data space")
-ax[0].set_ylabel("proportion successes", color="C1")
-ax[0].tick_params(axis="y", labelcolor="C1")
-ax[0].legend()
-# instantiate a second axes that shares the same x-axis
-freq = ax[0].twinx()
-freq.set_ylabel("number of successes")
-freq.scatter(data["x"], data["y"], color="k", label="data")
-# get y-axes to line up
-y_buffer = 1
-freq.set(ylim=[-y_buffer, n + y_buffer])
-ax[0].set(ylim=[-(y_buffer / n), 1 + (y_buffer / n)])
-freq.grid(None)
-# set both y-axis to have 5 ticks
-ax[0].set(yticks=np.linspace(0, 20, 5) / n)
-freq.set(yticks=np.linspace(0, 20, 5))
+pc.map(az.visuals.line_xy, "true", x=data["x"], y=p_true, color="C1", label="true")
+pc.map(az.visuals.scatter_xy, "observed", x=data["x"], y=data["y"] / n, color="k")
+plt.legend()
 
-# Parameter space plot ===================================================
-az.plot_kde(
-    az.extract(idata, var_names="beta0"),
-    az.extract(idata, var_names="beta1"),
-    contourf_kwargs={"cmap": "Blues"},
-    ax=ax[1],
-)
-ax[1].plot(beta0_true, beta1_true, "C2o", label="true")
-ax[1].set(xlabel=r"$\beta_0$", ylabel=r"$\beta_1$", title="Parameter space")
-ax[1].legend(facecolor="white", frameon=True);
+pc = az.plot_dist(idata, var_names=["beta0", "beta1"])
+az.add_lines(pc, {"beta0": beta0_true, "beta1": beta1_true});
 ```
 
-The left panel shows the posterior mean (solid line) and 95% credible intervals (shaded region). Because we are working with simulated data, we know what the true model is, so we can see that the posterior mean compares favourably with the true data generating model. 
+The top panel shows the posterior mean (solid line) and 95% credible intervals (shaded region). Because we are working with simulated data, we know what the true model is, so we can see that the posterior mean compares favourably with the true data generating model. 
 
-This is also shown by the posterior distribution over parameter space (right panel), which does well when comparing to the true data generating parameters.
+This is also shown by the posterior distribution over parameter space (bottom panel), which does well when comparing to the true data generating parameters.
 
 Using binomial regression in real data analysis situations would probably involve more predictor variables, and correspondingly more model parameters, but hopefully this example has demonstrated the logic behind binomial regression.
 
@@ -235,6 +205,7 @@ A good introduction to generalized linear models is provided by {cite:t}`roback2
 - Updated by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2022
 - Updated by Benjamin T. Vincent in February 2023 to run on PyMC v5
 - Updated to use `az.extract` by [Benjamin T. Vincent](https://github.com/drbenvincent) in February 2023, ([pymc-examples#522](https://github.com/pymc-devs/pymc-examples/pull/522))
+- Updated by Osvaldo Martin in April 2026
 
 +++
 

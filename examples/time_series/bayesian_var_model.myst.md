@@ -41,7 +41,7 @@ az.style.use("arviz-darkgrid")
 
 ## V(ector)A(uto)R(egression) Models 
 
-In this notebook we will outline an application of the Bayesian Vector Autoregressive Modelling. We will draw on the work in the PYMC Labs [blogpost](https://www.pymc-labs.io/blog-posts/bayesian-vector-autoregression/) (see {cite:t}`vieira2022BVAR`). This will be a three part series. In the first we want to show how to fit Bayesian VAR models in PYMC. In the second we will show how to extract extra insight from the fitted model with Impulse Response analysis and make forecasts from the fitted VAR model. In the third and final post we will show in some more detail the benefits of using hierarchical priors with Bayesian VAR models. Specifically, we'll outline how and why there are actually a range of carefully formulated industry standard priors which work with Bayesian VAR modelling. 
+In this notebook we will outline an application of the Bayesian Vector Autoregressive Modelling. We will draw on the work in the PYMC Labs [blogpost](https://www.pymc-labs.io/blog-posts/bayesian-vector-autoregression/) (see {cite:t}`vieira2022BVAR`). We show how to fit Bayesian VAR models in PYMC. The blogpost also covers extracting extra insight from the fitted model with impulse-response analysis, forecasting from the fitted VAR model, and in more detail the benefits of using hierarchical priors with Bayesian VAR models. Specifically, we'll outline how and why there are actually a range of carefully formulated industry standard priors which work with Bayesian VAR modelling. 
 
 In this post we will (i) demonstrate the basic pattern on a simple VAR model on fake data and show how the model recovers the true data generating parameters and (ii) we will show an example applied to macro-economic data and compare the results to those achieved on the same data with statsmodels MLE fits and (iii) show an example of estimating a hierarchical bayesian VAR model over a number of countries.  
 
@@ -64,7 +64,7 @@ $$ \begin{bmatrix} gdp \\ inv \\ con \end{bmatrix}_{T} = \nu + A_{1}\begin{bmatr
 
 This structure is compact representation using matrix notation. The thing we are trying to estimate when we fit a VAR model is the A matrices that determine the nature of the linear combination that best fits our timeseries data. Such timeseries models can have an auto-regressive or a moving average representation, and the details matter for some of the implication of a VAR model fit. 
 
-We'll see in the next notebook of the series how the moving-average representation of a VAR lends itself to the interpretation of the covariance structure in our model as representing a kind of impulse-response relationship between the component timeseries. 
+The moving-average representation of a VAR lends itself to the interpretation of the covariance structure in our model as representing a kind of impulse-response relationship between the component timeseries. 
 
 ### A Concrete Specification with Two lagged Terms
 

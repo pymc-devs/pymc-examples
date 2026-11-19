@@ -674,7 +674,7 @@ plt.axvline(0, color="k", linestyle="--")
 plt.title(
     "Causal effect of increasing Marriage Rate\n"
     f"by {n_std_increase} standard deviations on Divorce Rate\n"
-    f"$p(\delta < 0) = {prob_lt_zero:1.2}$"
+    rf"$p(\delta < 0) = {prob_lt_zero:1.2}$"
 );
 ```
 

@@ -5,20 +5,27 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python [conda env:pymc3]
+  display_name: PyMC Examples
   language: python
-  name: conda-env-pymc3-py
+  name: pymc-examples
 ---
 
+(GP-Heteroskedastic)=
 # Heteroskedastic Gaussian Processes
+
+:::{post} May 5, 2021
+:tags: gaussian process, heteroskedastic, coregionalization
+:category: intermediate
+:author: John Goertz
+:::
 
 +++
 
 We can typically divide the sources of uncertainty in our models into two categories. "Aleatoric" uncertainty (from the Latin word for dice or randomness) arises from the intrinsic variability of our system. "Epistemic" uncertainty (from the Greek word for knowledge) arises from how our observations are placed throughout the domain of interest.
 
-Gaussian Process (GP) models are a powerful tool to capture both of these sources of uncertainty. By considering the distribution of all functions that satisfy the conditions specified by the covariance kernel and the data, these models express low epistemic uncertainty near the observations and high epistemic uncertainty farther away. To incorporate aleatoric uncertainty, the standard GP model assumes additive white noise with constant magnitude throughout the domain. However, this "homoskedastic" model can do a poor job of representing your system if some regions have higher variance than others. Among other fields, this is particularly common in the experimental sciences, where varying experimental parameters can affect both the magnitude and the variability of the response. Explicitly incorporating the dependence (and inter-dependence) of noise on the inputs and outputs can lead to a better understanding of the mean behavior as well as a more informative landscape for optimization, for example.
+Gaussian Process (GP) models are powerful tools for capturing both of these sources of uncertainty. By considering the distribution of all functions that satisfy the conditions specified by the covariance kernel and the data, these models express low epistemic uncertainty near the observations and high epistemic uncertainty farther away. To incorporate aleatoric uncertainty, the standard GP model assumes additive white noise with constant magnitude throughout the domain. However, this "homoskedastic" model can do a poor job of representing your system if some regions have higher variance than others. Among other fields, this is particularly common in the experimental sciences, where varying experimental parameters can affect both the magnitude and the variability of the response. Explicitly incorporating the dependence (and interdependence) of noise on the inputs and outputs can lead to a better understanding of the mean behavior as well as a more informative landscape for optimization, for example.
 
-This notebook will work through several approaches to heteroskedastic modeling with GPs. We'll use toy data that represents (independent) repeated measurements at a range of input values on a system where the magnitude of the noise increases with the response variable. We'll start with simplistic modeling approaches such as fitting a GP to the mean at each point weighted by the variance at each point (which may be useful if individual measurements are taken via a method with known uncertainty), contrasting this with a typical homoskedastic GP. We'll then construct a model that uses one latent GP to model the response mean and a second (independent) latent GP to model the response variance. To improve the efficiency and scalability of this model, we'll re-formulate it in a sparse framework. Finally, we'll use a coregionalization kernel to allow correlation between the noise and the mean response.
+This notebook will work through several approaches to heteroskedastic modeling with GPs. We'll use toy data that represents (independent) repeated measurements at a range of input values on a system where the magnitude of the noise increases with the response variable. We'll start with simplistic modeling approaches such as fitting a GP to the mean at each point weighted by the variance at each point (which may be useful if individual measurements are taken via a method with known uncertainty), contrasting this with a typical homoskedastic GP. We'll then construct a model that uses one latent GP to model the response mean and a second (independent) latent GP to model the response variance. To improve the efficiency and scalability of this model, we'll reformulate it in a sparse framework. Finally, we'll use a coregionalization kernel to allow correlation between the noise and the mean response.
 
 +++
 
@@ -28,13 +35,12 @@ This notebook will work through several approaches to heteroskedastic modeling w
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
-import pymc3 as pm
-import theano.tensor as tt
+import pymc as pm
+import pytensor.tensor as pt
 
 from scipy.spatial.distance import pdist
 
 %config InlineBackend.figure_format ='retina'
-%load_ext watermark
 ```
 
 ```{code-cell} ipython3
@@ -98,11 +104,11 @@ def plot_inducing_points(ax):
     ax.legend(loc="upper left")
 
 
-def get_quantiles(samples, quantiles=[2.5, 50, 97.5]):
-    return [np.percentile(samples, p, axis=0) for p in quantiles]
+def get_quantiles(samples, quantiles=[2.5, 50, 97.5], sample_axis=0):
+    return [np.percentile(samples, p, axis=sample_axis) for p in quantiles]
 
 
-def plot_mean(ax, mean_samples):
+def plot_mean(ax, mean_samples, sample_axis=0):
     """Plots the median and 95% CI from samples of the mean
 
     Note that, although each individual GP exhibits a normal distribution at each point
@@ -110,7 +116,7 @@ def plot_mean(ax, mean_samples):
     our hyperparameters. As such, we use percentiles rather than mean +/- stdev to
     represent the spread of predictions from our models.
     """
-    l, m, u = get_quantiles(mean_samples)
+    l, m, u = get_quantiles(mean_samples, sample_axis=sample_axis)
     ax.plot(Xnew, m, "C0", label="Median")
     ax.fill_between(Xnew_, l, u, facecolor="C0", alpha=0.5, label="95% CI")
 
@@ -120,12 +126,12 @@ def plot_mean(ax, mean_samples):
     ax.legend(loc="upper left")
 
 
-def plot_var(ax, var_samples):
+def plot_var(ax, var_samples, sample_axis=0):
     """Plots the median and 95% CI from samples of the variance"""
     if var_samples.squeeze().ndim == 1:
         ax.plot(Xnew, var_samples, "C0", label="Median")
     else:
-        l, m, u = get_quantiles(var_samples)
+        l, m, u = get_quantiles(var_samples, sample_axis=sample_axis)
         ax.plot(Xnew, m, "C0", label="Median")
         ax.fill_between(Xnew.flatten(), l, u, facecolor="C0", alpha=0.5, label="95% CI")
     ax.plot(Xnew, noise(signal(Xnew_)) ** 2, "--k", label="Noise Function")
@@ -134,7 +140,7 @@ def plot_var(ax, var_samples):
     ax.legend(loc="upper left")
 
 
-def plot_total(ax, mean_samples, var_samples=None, bootstrap=True, n_boots=100):
+def plot_total(ax, mean_samples, var_samples=None, sample_axis=0, bootstrap=True, n_boots=100):
     """Plots the overall mean and variance of the aggregate system
 
     We can represent the overall uncertainty via explicitly sampling the underlying normal
@@ -146,25 +152,22 @@ def plot_total(ax, mean_samples, var_samples=None, bootstrap=True, n_boots=100):
 
     if (var_samples is None) or (var_samples.squeeze().ndim == 1):
         samples = mean_samples
-        l, m, u = get_quantiles(samples)
+        l, m, u = get_quantiles(samples, sample_axis=sample_axis)
         ax.plot(Xnew, m, "C0", label="Median")
     elif bootstrap:
         # Estimate the aggregate behavior using samples from each normal distribution in the posterior
-        samples = (
-            rng.normal(
-                mean_samples.T[:, :, None],
-                np.sqrt(var_samples).T[:, :, None],
-                (*mean_samples.T.shape, n_boots),
-            )
-            .reshape(len(Xnew_), -1)
-            .T
+        samples = rng.normal(
+            mean_samples[:, :, None],
+            np.sqrt(var_samples)[:, :, None],
+            (*mean_samples.shape, n_boots),
         )
-        l, m, u = get_quantiles(samples)
+        quantile_axis = (0, 2) if sample_axis == 0 else (1, 2)
+        l, m, u = get_quantiles(samples, sample_axis=quantile_axis)
         ax.plot(Xnew, m, "C0", label="Median")
     else:
-        m = mean_samples.mean(axis=0)
+        m = mean_samples.mean(axis=sample_axis)
         ax.plot(Xnew, m, "C0", label="Mean")
-        sd = np.sqrt(mean_samples.var(axis=0) + var_samples.mean(axis=0))
+        sd = np.sqrt(mean_samples.var(axis=sample_axis) + var_samples.mean(axis=sample_axis))
         l, u = m - 2 * sd, m + 2 * sd
 
     ax.fill_between(Xnew.flatten(), l, u, facecolor="C0", alpha=0.5, label="Total 95% CI")
@@ -179,7 +182,7 @@ def plot_total(ax, mean_samples, var_samples=None, bootstrap=True, n_boots=100):
 
 +++
 
-First let's fit a standard homoskedastic GP using PyMC3's `Marginal Likelihood` implementation. Here and throughout this notebook we'll use an informative prior for length scale as suggested by [Michael Betancourt](https://betanalpha.github.io/assets/case_studies/gp_part3/part3.html#4_adding_an_informative_prior_for_the_length_scale). We could use `pm.find_MAP()` and `.predict`for even faster inference and prediction, with similar results, but for direct comparison to the other models we'll use NUTS and `.conditional` instead, which run fast enough.
+First, let's fit a standard homoskedastic GP using PyMC's `Marginal Likelihood` implementation. Here and throughout this notebook we'll use an informative prior for length scale as suggested by [Michael Betancourt](https://betanalpha.github.io/assets/case_studies/gp_part3/part3.html#4_adding_an_informative_prior_for_the_length_scale). We could use `pm.find_MAP()` and `.predict` for even faster inference and prediction, with similar results, but for direct comparison to the other models we'll use NUTS and `.conditional` instead, which run fast enough.
 
 ```{code-cell} ipython3
 with pm.Model() as model_hm:
@@ -191,7 +194,7 @@ with pm.Model() as model_hm:
 
     σ = pm.Exponential("σ", lam=1)
 
-    ml_hm = gp_hm.marginal_likelihood("ml_hm", X=X_obs, y=y_obs_, noise=σ)
+    ml_hm = gp_hm.marginal_likelihood("ml_hm", X=X_obs, y=y_obs_, sigma=σ)
 
     trace_hm = pm.sample(return_inferencedata=True, random_seed=SEED)
 
@@ -203,14 +206,15 @@ with model_hm:
 
 ```{code-cell} ipython3
 _, axs = plt.subplots(1, 3, figsize=(18, 4))
-mu_samples = samples_hm["mu_pred_hm"]
-noisy_samples = samples_hm["noisy_pred_hm"]
-plot_mean(axs[0], mu_samples)
-plot_var(axs[1], noisy_samples.var(axis=0))
-plot_total(axs[2], noisy_samples)
+ppc_hm = samples_hm.posterior_predictive.stack(sample=("chain", "draw"))
+mu_samples = ppc_hm["mu_pred_hm"].values
+noisy_samples = ppc_hm["noisy_pred_hm"].values
+plot_mean(axs[0], mu_samples, sample_axis=1)
+plot_var(axs[1], noisy_samples.var(axis=1))
+plot_total(axs[2], noisy_samples, sample_axis=1)
 ```
 
-Here we've plotted our understanding of the mean behavior with the corresponding epistemic uncertainty on the left, our understanding of the variance or aleatoric uncertainty in the middle, and integrate all sources of uncertainty on the right. This model captures the mean behavior well, but we can see that it overestimates the noise in the lower regime while underestimating the noise in the upper regime, as expected.
+Here we've plotted our understanding of the mean behavior with the corresponding epistemic uncertainty on the left, our understanding of the variance or aleatoric uncertainty in the middle, and integrated all sources of uncertainty on the right. This model captures the mean behavior well, but we can see that it overestimates the noise in the lower regime while underestimating the noise in the upper regime, as expected.
 
 +++
 
@@ -228,7 +232,7 @@ with pm.Model() as model_wt:
 
     gp_wt = pm.gp.Marginal(cov_func=cov)
 
-    ml_wt = gp_wt.marginal_likelihood("ml_wt", X=X, y=y, noise=y_err)
+    ml_wt = gp_wt.marginal_likelihood("ml_wt", X=X, y=y, sigma=y_err)
 
     trace_wt = pm.sample(return_inferencedata=True, random_seed=SEED)
 
@@ -239,11 +243,11 @@ with model_wt:
 
 ```{code-cell} ipython3
 _, axs = plt.subplots(1, 3, figsize=(18, 4))
-mu_samples = samples_wt["mu_pred_wt"]
-plot_mean(axs[0], mu_samples)
+mu_samples = samples_wt.posterior_predictive.stack(sample=("chain", "draw"))["mu_pred_wt"].values
+plot_mean(axs[0], mu_samples, sample_axis=1)
 axs[0].errorbar(X_, y, y_err, ls="none", color="C1", label="STDEV")
-plot_var(axs[1], mu_samples.var(axis=0))
-plot_total(axs[2], mu_samples)
+plot_var(axs[1], mu_samples.var(axis=1))
+plot_total(axs[2], mu_samples, sample_axis=1)
 ```
 
 This approach captured slightly more nuance in the overall uncertainty than the homoskedastic GP, but still underestimated the variance within both the observed regimes. Note that the variance displayed by this model is purely epistemic: our understanding of the mean behavior is weighted by the uncertainty in our observations, but we didn't include a component to account for aleatoric noise.
@@ -254,7 +258,7 @@ This approach captured slightly more nuance in the overall uncertainty than the 
 
 +++
 
-Now let's model the mean and the log of the variance as separate GPs through PyMC3's `Latent` implementation, feeding both into a `Normal` likelihood. Note that we add a small amount of diagonal noise to the individual covariances in order to stabilize them for inversion.
+Now let's model the mean and the log of the variance as separate GPs through PyMC's `Latent` implementation, feeding both into a `Normal` likelihood. Note that we add a small amount of diagonal noise to the individual covariances in order to stabilize them for inversion.
 
 ```{code-cell} ipython3
 with pm.Model() as model_ht:
@@ -273,7 +277,7 @@ with pm.Model() as model_ht:
     lg_σ_f = σ_gp.prior("lg_σ_f", X=X_obs)
     σ_f = pm.Deterministic("σ_f", pm.math.exp(lg_σ_f))
 
-    lik_ht = pm.Normal("lik_ht", mu=μ_f, sd=σ_f, observed=y_obs_)
+    lik_ht = pm.Normal("lik_ht", mu=μ_f, sigma=σ_f, observed=y_obs_)
 
     trace_ht = pm.sample(target_accept=0.95, chains=2, return_inferencedata=True, random_seed=SEED)
 
@@ -285,14 +289,15 @@ with model_ht:
 
 ```{code-cell} ipython3
 _, axs = plt.subplots(1, 3, figsize=(18, 4))
-μ_samples = samples_ht["μ_pred_ht"]
-σ_samples = np.exp(samples_ht["lg_σ_pred_ht"])
-plot_mean(axs[0], μ_samples)
-plot_var(axs[1], σ_samples**2)
-plot_total(axs[2], μ_samples, σ_samples**2)
+ppc_ht = samples_ht.posterior_predictive.stack(sample=("chain", "draw"))
+μ_samples = ppc_ht["μ_pred_ht"].values
+σ_samples = np.exp(ppc_ht["lg_σ_pred_ht"].values)
+plot_mean(axs[0], μ_samples, sample_axis=1)
+plot_var(axs[1], σ_samples**2, sample_axis=1)
+plot_total(axs[2], μ_samples, σ_samples**2, sample_axis=1)
 ```
 
-That looks much better! We've accurately captured the mean behavior of our system along with an understanding of the underlying trend in the variance, with appropriate uncertainty. Crucially, the aggregate behavior of the model integrates both epistemic *and* aleatoric uncertainty, and the ~5% of our observations fall outside the 2σ band are more or less evenly distributed across the domain. However, that took *over two hours* to sample only 4k NUTS iterations. Due to the expense of the requisite matrix inversions, GPs are notoriously inefficient for large data sets. Let's reformulate this model using a sparse approximation.
+That looks much better! We've accurately captured the mean behavior of our system along with an understanding of the underlying trend in the variance, with appropriate uncertainty. Crucially, the aggregate behavior of the model integrates both epistemic *and* aleatoric uncertainty, and the ~5% of our observations that fall outside the 2σ band are more or less evenly distributed across the domain. However, that took *over two hours* to sample only 4k NUTS iterations. Due to the expense of the requisite matrix inversions, GPs are notoriously inefficient for large data sets. Let's reformulate this model using a sparse approximation.
 
 +++
 
@@ -300,7 +305,7 @@ That looks much better! We've accurately captured the mean behavior of our syste
 
 +++
 
-Sparse approximations to GPs use a small set of *inducing points* to condition the model, vastly improve speed of inference and somewhat improving memory consumption. PyMC3 doesn't have an implementation for sparse latent GPs ([yet](https://github.com/pymc-devs/pymc3/pull/2951)), but we can throw together our own real quick using Bill Engel's [DTC latent GP example](https://gist.github.com/bwengals/a0357d75d2083657a2eac85947381a44). These inducing points can be specified in a variety of ways, such as via the popular k-means initialization or even optimized as part of the model, but since our observations are evenly distributed we can make do with simply a subset of our unique input values.
+Sparse approximations to GPs use a small set of *inducing points* to condition the model, vastly improve the speed of inference and somewhat improve memory consumption. PyMC doesn't have an implementation for sparse latent GPs ([yet](https://github.com/pymc-devs/pymc/pull/2951)), but we can throw together our own real quick using Bill Engel's [DTC latent GP example](https://gist.github.com/bwengals/a0357d75d2083657a2eac85947381a44). These inducing points can be specified in a variety of ways, such as via the popular k-means initialization or even optimized as part of the model, but since our observations are evenly distributed we can make do with simply a subset of our unique input values.
 
 ```{code-cell} ipython3
 class SparseLatent:
@@ -309,25 +314,27 @@ class SparseLatent:
 
     def prior(self, name, X, Xu):
         Kuu = self.cov(Xu)
-        self.L = pm.gp.util.cholesky(pm.gp.util.stabilize(Kuu))
+        self.L = pt.linalg.cholesky(pm.gp.util.stabilize(Kuu))
 
-        self.v = pm.Normal(f"u_rotated_{name}", mu=0.0, sd=1.0, shape=len(Xu))
-        self.u = pm.Deterministic(f"u_{name}", tt.dot(self.L, self.v))
+        self.v = pm.Normal(f"u_rotated_{name}", mu=0.0, sigma=1.0, shape=len(Xu))
+        self.u = pm.Deterministic(f"u_{name}", pt.dot(self.L, self.v))
 
         Kfu = self.cov(X, Xu)
-        self.Kuiu = tt.slinalg.solve_upper_triangular(
-            self.L.T, tt.slinalg.solve_lower_triangular(self.L, self.u)
+        self.Kuiu = pt.linalg.solve_triangular(
+            self.L.T,
+            pt.linalg.solve_triangular(self.L, self.u, lower=True),
+            lower=False,
         )
-        self.mu = pm.Deterministic(f"mu_{name}", tt.dot(Kfu, self.Kuiu))
+        self.mu = pm.Deterministic(f"mu_{name}", pt.dot(Kfu, self.Kuiu))
         return self.mu
 
     def conditional(self, name, Xnew, Xu):
         Ksu = self.cov(Xnew, Xu)
-        mus = tt.dot(Ksu, self.Kuiu)
-        tmp = tt.slinalg.solve_lower_triangular(self.L, Ksu.T)
-        Qss = tt.dot(tmp.T, tmp)  # Qss = tt.dot(tt.dot(Ksu, tt.nlinalg.pinv(Kuu)), Ksu.T)
+        mus = pt.dot(Ksu, self.Kuiu)
+        tmp = pt.linalg.solve_triangular(self.L, Ksu.T, lower=True)
+        Qss = pt.dot(tmp.T, tmp)  # Qss = pt.dot(pt.dot(Ksu, pt.nlinalg.pinv(Kuu)), Ksu.T)
         Kss = self.cov(Xnew)
-        Lss = pm.gp.util.cholesky(pm.gp.util.stabilize(Kss - Qss))
+        Lss = pt.linalg.cholesky(pm.gp.util.stabilize(Kss - Qss))
         mu_pred = pm.MvNormal(name, mu=mus, chol=Lss, shape=len(Xnew))
         return mu_pred
 ```
@@ -352,7 +359,7 @@ with pm.Model() as model_hts:
     lg_σ_f = lg_σ_gp.prior("lg_σ_f", X_obs, Xu)
     σ_f = pm.Deterministic("σ_f", pm.math.exp(lg_σ_f))
 
-    lik_hts = pm.Normal("lik_hts", mu=μ_f, sd=σ_f, observed=y_obs_)
+    lik_hts = pm.Normal("lik_hts", mu=μ_f, sigma=σ_f, observed=y_obs_)
     trace_hts = pm.sample(target_accept=0.95, return_inferencedata=True, random_seed=SEED)
 
 with model_hts:
@@ -363,13 +370,14 @@ with model_hts:
 
 ```{code-cell} ipython3
 _, axs = plt.subplots(1, 3, figsize=(18, 4))
-μ_samples = samples_hts["μ_pred"]
-σ_samples = np.exp(samples_hts["lg_σ_pred"])
-plot_mean(axs[0], μ_samples)
+ppc_hts = samples_hts.posterior_predictive.stack(sample=("chain", "draw"))
+μ_samples = ppc_hts["μ_pred"].values
+σ_samples = np.exp(ppc_hts["lg_σ_pred"].values)
+plot_mean(axs[0], μ_samples, sample_axis=1)
 plot_inducing_points(axs[0])
-plot_var(axs[1], σ_samples**2)
+plot_var(axs[1], σ_samples**2, sample_axis=1)
 plot_inducing_points(axs[1])
-plot_total(axs[2], μ_samples, σ_samples**2)
+plot_total(axs[2], μ_samples, σ_samples**2, sample_axis=1)
 plot_inducing_points(axs[2])
 ```
 
@@ -381,7 +389,7 @@ That was ~8x faster with nearly indistinguishable results, and fewer divergences
 
 +++
 
-So far, we've modeled the mean and noise of our system as independent. However, there may be scenarios where we expect them to be correlated, for example if higher measurement values are expected to have greater noise. Here, we'll explicitly model this correlation through a covariance function that is a Kronecker product of the spatial kernel we've used previously and a `Coregion` kernel, as suggested by Bill Engels [here](https://discourse.pymc.io/t/coregionalization-model-for-two-separable-multidimensional-gaussian-process/2550/4). This is an implementation of the Linear Model of Coregionalization, which treats each correlated GP as a linear combination of a small number of independent basis functions, which are themselves GPs. We first add a categorical dimension to the domain of our observations to indicate whether the mean or variance is being considered, then unpack the respective components before feeding them into a `Normal` likelihood as above.
+So far, we've modeled the mean and noise of our system as independent. However, there may be scenarios where we expect them to be correlated, for example if higher measurement values are expected to have greater noise. Here, we'll explicitly model this correlation through a covariance function that is a Kronecker product of the spatial kernel we've used previously and a `Coregion` kernel, as suggested by Bill Engel [here](https://discourse.pymc.io/t/coregionalization-model-for-two-separable-multidimensional-gaussian-process/2550/4). This is an implementation of the Linear Model of Coregionalization, which treats each correlated GP as a linear combination of a small number of independent basis functions, which are themselves GPs. We first add a categorical dimension to the domain of our observations to indicate whether the mean or variance is being considered, then unpack the respective components before feeding them into a `Normal` likelihood as above.
 
 ```{code-cell} ipython3
 def add_coreg_idx(x):
@@ -397,7 +405,7 @@ with pm.Model() as model_htsc:
 
     D_out = 2  # two output dimensions, mean and variance
     rank = 2  # two basis GPs
-    W = pm.Normal("W", mu=0, sd=3, shape=(D_out, rank), testval=np.full([D_out, rank], 0.1))
+    W = pm.Normal("W", mu=0, sigma=3, shape=(D_out, rank), initval=np.full([D_out, rank], 0.1))
     kappa = pm.Gamma("kappa", alpha=1.5, beta=1, shape=D_out)
     coreg = pm.gp.cov.Coregion(input_dim=1, active_dims=[0], kappa=kappa, W=W)
 
@@ -410,7 +418,7 @@ with pm.Model() as model_htsc:
     lg_σ_f = LMC_f[len(y_obs_) :]
     σ_f = pm.Deterministic("σ_f", pm.math.exp(lg_σ_f))
 
-    lik_htsc = pm.Normal("lik_htsc", mu=μ_f, sd=σ_f, observed=y_obs_)
+    lik_htsc = pm.Normal("lik_htsc", mu=μ_f, sigma=σ_f, observed=y_obs_)
     trace_htsc = pm.sample(target_accept=0.95, return_inferencedata=True, random_seed=SEED)
 
 with model_htsc:
@@ -419,17 +427,18 @@ with model_htsc:
 ```
 
 ```{code-cell} ipython3
-μ_samples = samples_htsc["c_mu_pred"][:, : len(Xnew)]
-σ_samples = np.exp(samples_htsc["c_mu_pred"][:, len(Xnew) :])
+c_mu_pred = samples_htsc.posterior_predictive.stack(sample=("chain", "draw"))["c_mu_pred"].values
+μ_samples = c_mu_pred[: len(Xnew), :]
+σ_samples = np.exp(c_mu_pred[len(Xnew) :, :])
 
 _, axs = plt.subplots(1, 3, figsize=(18, 4))
-plot_mean(axs[0], μ_samples)
+plot_mean(axs[0], μ_samples, sample_axis=1)
 plot_inducing_points(axs[0])
-plot_var(axs[1], σ_samples**2)
+plot_var(axs[1], σ_samples**2, sample_axis=1)
 axs[1].set_ylim(-0.01, 0.2)
 axs[1].legend(loc="upper left")
 plot_inducing_points(axs[1])
-plot_total(axs[2], μ_samples, σ_samples**2)
+plot_total(axs[2], μ_samples, σ_samples**2, sample_axis=1)
 plot_inducing_points(axs[2])
 ```
 
@@ -441,30 +450,31 @@ with model_htsc:
 ```
 
 ```{code-cell} ipython3
-# Keep in mind that the first dimension in all arrays is the sampling dimension
-W = B_samples["W"]
-W_T = np.swapaxes(W, 1, 2)
-WW_T = np.matmul(W, W_T)
+# Samples are stacked on the last dimension in all arrays
+ppc_htsc = B_samples.posterior_predictive.stack(sample=("chain", "draw"))
+W = ppc_htsc["W"].values
+WW_T = np.einsum("drs,ers->des", W, W)
 
-kappa = B_samples["kappa"]
-I = np.tile(np.identity(2), [kappa.shape[0], 1, 1])
+kappa = ppc_htsc["kappa"].values
+I = np.identity(2)[:, :, None]
 # einsum is just a concise way of doing multiplication and summation over arbitrary axes
-diag_kappa = np.einsum("ij,ijk->ijk", kappa, I)
+diag_kappa = I * kappa[:, None, :]
 
 B = WW_T + diag_kappa
-B.mean(axis=0)
+B.mean(axis=2)
 ```
 
 ```{code-cell} ipython3
-sd = np.sqrt(np.diagonal(B, axis1=1, axis2=2))
-outer_sd = np.einsum("ij,ik->ijk", sd, sd)
+sd = np.sqrt(np.diagonal(B, axis1=0, axis2=1))
+outer_sd = np.einsum("sd,se->des", sd, sd)
 correlation = B / outer_sd
-print(f"2.5%ile correlation: {np.percentile(correlation,2.5,axis=0)[0,1]:0.3f}")
-print(f"Median correlation: {np.percentile(correlation,50,axis=0)[0,1]:0.3f}")
-print(f"97.5%ile correlation: {np.percentile(correlation,97.5,axis=0)[0,1]:0.3f}")
+
+print(f"2.5%ile correlation: {np.percentile(correlation,2.5,axis=2)[0,1]:0.3f}")
+print(f"Median correlation: {np.percentile(correlation,50,axis=2)[0,1]:0.3f}")
+print(f"97.5%ile correlation: {np.percentile(correlation,97.5,axis=2)[0,1]:0.3f}")
 ```
 
-The model has inadvertently learned that the mean and noise are slightly negatively correlated, albeit with a wide credible interval.
+The model has inadvertently learned that the mean and noise are correlated, albeit with a wide credible interval.
 
 +++
 
@@ -472,7 +482,7 @@ The model has inadvertently learned that the mean and noise are slightly negativ
 
 +++
 
-The three latent approaches shown here varied in their complexity and efficiency, but ultimately produced very similar regression surfaces, as shown below. All three displayed a nuanced understanding of both aleatoric and epistemic uncertainties. It's worth noting that we had to increase `target_accept` from the default 0.8 to 0.95 to avoid an excessive number of divergences, but this has the downside of slowing down NUTS evaluations. Sampling times could be decreased by reducing `target_accept`, at the expense of potentially biased inference due to divergences, or by further reducing the number of inducing points used in the sparse approximations. Inspecting the convergence statistics for each method, all had low r_hat values of 1.01 or below but the LMC model showed low effective sample sizes for some parameters, in particular the `ess_tail` for the η and ℓ parameters. To have confidence in the 95% CI bounds for this model, we should run the sampling for more iterations, ideally at least until the smallest `ess_tail` is above 200 but the higher the better.
+The three latent approaches shown here varied in their complexity and efficiency, but ultimately produced very similar regression surfaces, as shown below. All three displayed a nuanced understanding of both aleatoric and epistemic uncertainties. It's worth noting that we had to increase `target_accept` from the default 0.8 to 0.95 to avoid an excessive number of divergences, but this has the downside of slowing down NUTS evaluations. Sampling times could be decreased by reducing `target_accept`, at the expense of potentially biased inference due to divergences, or by further reducing the number of inducing points used in the sparse approximations. Inspecting the convergence statistics for each method, all had low r_hat values of 1.01 or below, but the LMC model showed low effective sample sizes for some parameters, in particular the `ess_tail` for the η and ℓ parameters. To have confidence in the 95% CI bounds for this model, we should run the sampling for more iterations, ideally at least until the smallest `ess_tail` is above 200 but the higher the better.
 
 +++
 
@@ -481,19 +491,22 @@ The three latent approaches shown here varied in their complexity and efficiency
 ```{code-cell} ipython3
 _, axs = plt.subplots(1, 3, figsize=(18, 4))
 
-μ_samples = samples_ht["μ_pred_ht"]
-σ_samples = np.exp(samples_ht["lg_σ_pred_ht"])
-plot_total(axs[0], μ_samples, σ_samples**2)
+ppc_ht = samples_ht.posterior_predictive.stack(sample=("chain", "draw"))
+μ_samples = ppc_ht["μ_pred_ht"].values
+σ_samples = np.exp(ppc_ht["lg_σ_pred_ht"].values)
+plot_total(axs[0], μ_samples, σ_samples**2, sample_axis=1)
 axs[0].set_title("Latent")
 
-μ_samples = samples_hts["μ_pred"]
-σ_samples = np.exp(samples_hts["lg_σ_pred"])
-plot_total(axs[1], μ_samples, σ_samples**2)
+ppc_hts = samples_hts.posterior_predictive.stack(sample=("chain", "draw"))
+μ_samples = ppc_hts["μ_pred"].values
+σ_samples = np.exp(ppc_hts["lg_σ_pred"].values)
+plot_total(axs[1], μ_samples, σ_samples**2, sample_axis=1)
 axs[1].set_title("Sparse Latent")
 
-μ_samples = samples_htsc["c_mu_pred"][:, : len(Xnew)]
-σ_samples = np.exp(samples_htsc["c_mu_pred"][:, len(Xnew) :])
-plot_total(axs[2], μ_samples, σ_samples**2)
+c_mu_pred = samples_htsc.posterior_predictive.stack(sample=("chain", "draw"))["c_mu_pred"].values
+μ_samples = c_mu_pred[: len(Xnew), :]
+σ_samples = np.exp(c_mu_pred[len(Xnew) :, :])
+plot_total(axs[2], μ_samples, σ_samples**2, sample_axis=1)
 axs[2].set_title("Correlated Sparse Latent")
 
 yls = [ax.get_ylim() for ax in axs]
@@ -526,12 +539,25 @@ display(az.summary(trace_hts).sort_values("ess_bulk").iloc[:5])
 display(az.summary(trace_htsc).sort_values("ess_bulk").iloc[:5])
 ```
 
-* This notebook was written by John Goertz on 5 May, 2021.
+## Authors
+- This notebook was written by John Goertz on 5 May, 2021.
+- Updated by Christopher Krapu on December 21, 2025 for v5 compatibility.
+
++++
+
+## References
+:::{bibliography}
+:filter: docname in docnames
+:::
+
++++
+
+## Watermark
 
 ```{code-cell} ipython3
+%load_ext watermark
 %watermark -n -u -v -iv -w -p xarray
 ```
 
-```{code-cell} ipython3
-
-```
+:::{include} ../page_footer.md
+:::

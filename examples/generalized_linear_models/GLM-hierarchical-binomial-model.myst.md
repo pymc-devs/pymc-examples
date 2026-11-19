@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: arviz_1
   language: python
   name: python3
 ---
@@ -30,7 +30,7 @@ from scipy.special import gammaln
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 ```
 
 This short tutorial demonstrates how to use PyMC to do inference for the rat tumour example found in chapter 5 of *Bayesian Data Analysis 3rd Edition* {cite:p}`gelman2013bayesian`. Readers should already be familiar with the PyMC API.
@@ -211,7 +211,7 @@ def logp_ab(value):
 
 with pm.Model(coords=coords) as model:
     # Uninformative prior for alpha and beta
-    n_val = pm.ConstantData("n_val", n)
+    n_val = pm.Data("n_val", n)
     ab = pm.HalfNormal("ab", sigma=10, dims="param")
     pm.Potential("p(a, b)", logp_ab(ab))
 
@@ -226,19 +226,19 @@ with pm.Model(coords=coords) as model:
 
 ```{code-cell} ipython3
 # Check the trace. Looks good!
-az.plot_trace(trace, var_names=["ab", "X", "Z"], compact=False);
+az.plot_rank_dist(trace, var_names=["ab", "X", "Z"], compact=False);
 ```
 
 We can plot a kernel density estimate for $x$ and $y$. It looks rather similar to our contour plot made from the analytic marginal posterior density.  That's a good sign, and required far less effort.
 
 ```{code-cell} ipython3
-az.plot_pair(trace, var_names=["X", "Z"], kind="kde");
+az.plot_pair(trace, var_names=["X", "Z"]);
 ```
 
 From here, we could use the trace to compute the mean of the distribution.
 
 ```{code-cell} ipython3
-az.plot_posterior(trace, var_names=["ab"]);
+az.plot_dist(trace, var_names=["ab"]);
 ```
 
 ```{code-cell} ipython3
@@ -266,6 +266,7 @@ Analytically calculating statistics for posterior distributions is difficult if 
 * Updated and reexecuted by Raúl Maldonado ([pymc-examples#24](https://github.com/pymc-devs/pymc-examples/pull/24), [pymc-examples#45](https://github.com/pymc-devs/pymc-examples/pull/45) and [pymc-examples#147](https://github.com/pymc-devs/pymc-examples/pull/147))
 * Updated and reexecuted by Farhan Reynaldo in November 2021 ([pymc-examples#248](https://github.com/pymc-devs/pymc-examples/pull/248))
 * Rerun with PyMC v5, by Reshama Shaikh, January 2023
+* Updated by Osvaldo Martin, April 2026
 
 +++
 

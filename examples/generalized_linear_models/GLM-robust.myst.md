@@ -61,7 +61,7 @@ import xarray as xr
 RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
 %config InlineBackend.figure_format = 'retina'
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 ```
 
 Create some toy data but also add some outliers.
@@ -104,7 +104,7 @@ A version of this same notebook using Bambi is available at {doc}`bambi's docs <
 
 ```{code-cell} ipython3
 with pm.Model() as model:
-    xdata = pm.ConstantData("x", x_out, dims="obs_id")
+    xdata = pm.Data("x", x_out, dims="obs_id")
 
     # define priors
     intercept = pm.Normal("intercept", mu=0, sigma=1)
@@ -159,7 +159,7 @@ Below is a PyMC model, with the `likelihood` term following a `StudentT` distrib
 
 ```{code-cell} ipython3
 with pm.Model() as robust_model:
-    xdata = pm.ConstantData("x", x_out, dims="obs_id")
+    xdata = pm.Data("x", x_out, dims="obs_id")
 
     # define priors
     intercept = pm.Normal("intercept", mu=0, sigma=1)

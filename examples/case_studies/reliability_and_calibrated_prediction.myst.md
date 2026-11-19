@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3 (ipykernel)
+  display_name: arviz_1
   language: python
   name: python3
 myst:
@@ -26,7 +26,6 @@ myst:
 :::
 
 ```{code-cell} ipython3
-import os
 import random
 
 from io import StringIO
@@ -38,7 +37,7 @@ import numpy as np
 import pandas as pd
 import pymc as pm
 
-from lifelines import KaplanMeierFitter, LogNormalFitter, WeibullFitter
+from lifelines import LogNormalFitter, WeibullFitter
 from lifelines.utils import survival_table_from_events
 from scipy.stats import binom, lognorm, norm, weibull_min
 ```
@@ -46,7 +45,7 @@ from scipy.stats import binom, lognorm, norm, weibull_min
 ```{code-cell} ipython3
 RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 %config InlineBackend.figure_format = 'retina'
 ```
 
@@ -345,7 +344,7 @@ def plot_cdfs(actuarial_table, dist_fits=True, ax=None, title="", xy=(3000, 0.5)
         lnf = LogNormalFitter().fit(item_period["t"] + 1e-25, item_period["failed"])
         wbf = WeibullFitter().fit(item_period["t"] + 1e-25, item_period["failed"])
     if ax is None:
-        fig, ax = plt.subplots(figsize=(20, 10))
+        _, ax = plt.subplots(figsize=(20, 10))
     ax.plot(
         actuarial_table["t"],
         actuarial_table["F_hat"],
@@ -848,12 +847,6 @@ ax3.set_title("MLE CDF Fits", fontsize=20)
 ax.legend()
 ax.set_xlabel("Time")
 ax2.set_xlabel("Time")
-xticks = np.round(np.linspace(0, actuarial_table_bearings["t"].max(), 10), 1)
-yticks = np.round(np.linspace(0, actuarial_table_bearings["F_hat"].max(), 10), 4)
-ax.set_xticklabels(xticks)
-ax.set_yticklabels(yticks)
-ax2.set_xticklabels(xticks)
-ax2.set_yticklabels([])
 ax2.legend()
 ax.set_ylabel("Fraction Failing");
 ```
@@ -906,9 +899,9 @@ def make_model(p, info=False):
 
         y_obs = pm.Weibull("y_obs", alpha=alpha, beta=beta, observed=y[~censored])
         y_cens = pm.Potential("y_cens", weibull_lccdf(y[censored], alpha, beta))
-        idata = pm.sample_prior_predictive()
-        idata.extend(pm.sample(random_seed=100, target_accept=0.95))
-        idata.extend(pm.sample_posterior_predictive(idata))
+        idata = pm.sample(random_seed=100, target_accept=0.95)
+        idata["prior_predictive"] = pm.sample_prior_predictive().prior_predictive
+        pm.sample_posterior_predictive(idata, extend_inferencedata=True)
 
     return idata, model
 
@@ -918,15 +911,11 @@ idata_informative, model = make_model(priors_informative, info=True)
 ```
 
 ```{code-cell} ipython3
-idata
+az.plot_rank_dist(idata);
 ```
 
 ```{code-cell} ipython3
-az.plot_trace(idata, kind="rank_vlines");
-```
-
-```{code-cell} ipython3
-az.plot_trace(idata_informative, kind="rank_vlines");
+az.plot_rank_dist(idata_informative);
 ```
 
 ```{code-cell} ipython3
@@ -1175,6 +1164,8 @@ In particular we've seen how the MLE fits to our bearings data provide a decent 
 ## Authors
 
 * Authored by Nathaniel Forde on 9th of January 2022 ([pymc-examples#491](https://github.com/pymc-devs/pymc-examples/pull/491))
+* Updated by Osvaldo Martin on January 2026
+* Updated by Osvaldo Martin in April 2026
 
 +++
 

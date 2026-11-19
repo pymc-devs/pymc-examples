@@ -5,9 +5,9 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: pymc_examples_new
+  display_name: arviz_1
   language: python
-  name: pymc_examples_new
+  name: python3
 myst:
   substitutions:
     extra_dependencies: jax, jaxlib, numpyro
@@ -29,10 +29,10 @@ myst:
 
 ```{code-cell} ipython3
 import arviz as az
-import numpy as np  # For vectorized math operations
-import pandas as pd  # For file input/output
+import numpy as np
+import pandas as pd
 import pymc as pm
-import pytensor.tensor as pt
+import xarray as xr
 
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
@@ -40,7 +40,7 @@ from matplotlib.lines import Line2D
 
 ```{code-cell} ipython3
 %config InlineBackend.figure_format = 'retina'  # high resolution figures
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 rng = np.random.default_rng(42)
 ```
 
@@ -160,10 +160,9 @@ with pm.Model(coords=coords) as model_1:
     choice_obs = pm.Categorical("y_cat", p=p_, observed=observed, dims="obs")
 
     idata_m1 = pm.sample_prior_predictive()
-    idata_m1.extend(
-        pm.sample(nuts_sampler="numpyro", idata_kwargs={"log_likelihood": True}, random_seed=101)
-    )
-    idata_m1.extend(pm.sample_posterior_predictive(idata_m1))
+    idata_m1.update(pm.sample(nuts_sampler="numpyro", random_seed=101))
+    pm.compute_log_likelihood(idata_m1, extend_inferencedata=True)
+    pm.sample_posterior_predictive(idata_m1, extend_inferencedata=True)
 
 pm.model_to_graphviz(model_1)
 ```
@@ -202,11 +201,11 @@ substitution_rate.mean().item()
 This statistic gives a view of the relative importance of the attributes which drive our utility measures. But being good Bayesians we actually want to calculate the posterior distribution for this statistic.
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(20, 10))
+fig, ax = plt.subplots(figsize=(12, 4))
 
 ax.hist(
     substitution_rate,
-    bins=30,
+    bins="auto",
     ec="black",
 )
 ax.set_title("Uncertainty in Marginal Rate of Substitution \n Operating Costs / Installation Costs");
@@ -217,34 +216,27 @@ which suggests that there is around .7 of the value accorded to the a unit reduc
 To assess overall model adequacy we can rely on the posterior predictive checks to see if the model can recover an approximation to the data generating process.
 
 ```{code-cell} ipython3
-idata_m1["posterior"]["p"].mean(dim=["chain", "draw", "obs"])
-```
-
-```{code-cell} ipython3
-fig, axs = plt.subplots(1, 2, figsize=(20, 10))
-ax = axs[0]
+# Forest plot with observed proportions
 counts = wide_heating_df.groupby("depvar")["idcase"].count()
-predicted_shares = idata_m1["posterior"]["p"].mean(dim=["chain", "draw", "obs"])
-ci_lb = idata_m1["posterior"]["p"].quantile(0.025, dim=["chain", "draw", "obs"])
-ci_ub = idata_m1["posterior"]["p"].quantile(0.975, dim=["chain", "draw", "obs"])
-ax.scatter(ci_lb, ["ec", "er", "gc", "gr", "hp"], color="k", s=2)
-ax.scatter(ci_ub, ["ec", "er", "gc", "gr", "hp"], color="k", s=2)
-ax.scatter(
-    counts / counts.sum(),
-    ["ec", "er", "gc", "gr", "hp"],
-    label="Observed Shares",
-    color="red",
-    s=100,
+obs_ds = xr.Dataset({"p": xr.DataArray(counts / counts.sum(), dims=["obs_dim_0"])})
+
+
+pc = az.plot_forest(
+    idata_m1,
+    var_names=["p"],
+    combined=True,
+    sample_dims=["chain", "draw", "obs"],
 )
-ax.hlines(
-    ["ec", "er", "gc", "gr", "hp"], ci_lb, ci_ub, label="Predicted 95% Interval", color="black"
+
+pc.map(
+    az.visuals.scatter_x,
+    "observations",
+    data=obs_ds,
+    coords={"column": "forest"},
+    color="k",
 )
-ax.legend()
-ax.set_title("Observed V Predicted Shares")
-az.plot_ppc(idata_m1, ax=axs[1])
-axs[1].set_title("Posterior Predictive Checks")
-ax.set_xlabel("Shares")
-ax.set_ylabel("Heating System");
+# Calibration plot for categorical data
+pc = az.plot_ppc_pava(idata_m1, data_type="categorical");
 ```
 
 We can see here that the model is fairly inadequate, and fails quite dramatically to recapture the posterior predictive distribution. 
@@ -284,10 +276,9 @@ with pm.Model(coords=coords) as model_2:
     choice_obs = pm.Categorical("y_cat", p=p_, observed=observed, dims="obs")
 
     idata_m2 = pm.sample_prior_predictive()
-    idata_m2.extend(
-        pm.sample(nuts_sampler="numpyro", idata_kwargs={"log_likelihood": True}, random_seed=103)
-    )
-    idata_m2.extend(pm.sample_posterior_predictive(idata_m2))
+    idata_m2.update(pm.sample(nuts_sampler="numpyro", random_seed=103))
+    pm.compute_log_likelihood(idata_m2, extend_inferencedata=True)
+    pm.sample_posterior_predictive(idata_m2, extend_inferencedata=True)
 
 
 pm.model_to_graphviz(model_2)
@@ -296,37 +287,29 @@ pm.model_to_graphviz(model_2)
 We have deliberately 0'd out the intercept parameter for the `hp` alternative to ensure parameter identification is feasible. 
 
 ```{code-cell} ipython3
-az.summary(idata_m2, var_names=["beta_ic", "beta_oc", "alpha"], round_to=4)
+az.summary(idata_m2, var_names=["beta_ic", "beta_oc", "alpha"])
 ```
 
 We can see now how this model performs much better in capturing aspects of the data generating process. 
 
 ```{code-cell} ipython3
-fig, axs = plt.subplots(1, 2, figsize=(20, 10))
-ax = axs[0]
-counts = wide_heating_df.groupby("depvar")["idcase"].count()
-predicted_shares = idata_m2["posterior"]["p"].mean(dim=["chain", "draw", "obs"])
-ci_lb = idata_m2["posterior"]["p"].quantile(0.025, dim=["chain", "draw", "obs"])
-ci_ub = idata_m2["posterior"]["p"].quantile(0.975, dim=["chain", "draw", "obs"])
+# Forest plot with observed proportions
+pc = az.plot_forest(
+    idata_m2,
+    var_names=["p"],
+    combined=True,
+    sample_dims=["chain", "draw", "obs"],
+)
 
-ax.scatter(ci_lb, ["ec", "er", "gc", "gr", "hp"], color="k", s=2)
-ax.scatter(ci_ub, ["ec", "er", "gc", "gr", "hp"], color="k", s=2)
-ax.scatter(
-    counts / counts.sum(),
-    ["ec", "er", "gc", "gr", "hp"],
-    label="Observed Shares",
-    color="red",
-    s=100,
+pc.map(
+    az.visuals.scatter_x,
+    "observations",
+    data=obs_ds,
+    coords={"column": "forest"},
+    color="k",
 )
-ax.hlines(
-    ["ec", "er", "gc", "gr", "hp"], ci_lb, ci_ub, label="Predicted 95% Interval", color="black"
-)
-ax.legend()
-ax.set_title("Observed V Predicted Shares")
-az.plot_ppc(idata_m2, ax=axs[1])
-axs[1].set_title("Posterior Predictive Checks")
-ax.set_xlabel("Shares")
-ax.set_ylabel("Heating System");
+# Calibration plot for categorical data
+pc = az.plot_ppc_pava(idata_m2, data_type="categorical");
 ```
 
 This model represents a substantial improvement. 
@@ -345,10 +328,10 @@ coords = {
 }
 with pm.Model(coords=coords) as model_3:
     ## Add data to experiment with changes later.
-    ic_ec = pm.MutableData("ic_ec", wide_heating_df["ic.ec"])
-    oc_ec = pm.MutableData("oc_ec", wide_heating_df["oc.ec"])
-    ic_er = pm.MutableData("ic_er", wide_heating_df["ic.er"])
-    oc_er = pm.MutableData("oc_er", wide_heating_df["oc.er"])
+    ic_ec = pm.Data("ic_ec", wide_heating_df["ic.ec"])
+    oc_ec = pm.Data("oc_ec", wide_heating_df["oc.ec"])
+    ic_er = pm.Data("ic_er", wide_heating_df["ic.er"])
+    oc_er = pm.Data("oc_er", wide_heating_df["oc.er"])
 
     beta_ic = pm.Normal("beta_ic", 0, 1)
     beta_oc = pm.Normal("beta_oc", 0, 1)
@@ -370,10 +353,9 @@ with pm.Model(coords=coords) as model_3:
     choice_obs = pm.Categorical("y_cat", p=p_, observed=observed, dims="obs")
 
     idata_m3 = pm.sample_prior_predictive()
-    idata_m3.extend(
-        pm.sample(nuts_sampler="numpyro", idata_kwargs={"log_likelihood": True}, random_seed=100)
-    )
-    idata_m3.extend(pm.sample_posterior_predictive(idata_m3))
+    idata_m3.update(pm.sample(nuts_sampler="numpyro", random_seed=100))
+    pm.compute_log_likelihood(idata_m3, extend_inferencedata=True)
+    pm.sample_posterior_predictive(idata_m3, extend_inferencedata=True)
 
 
 pm.model_to_graphviz(model_3)
@@ -382,37 +364,29 @@ pm.model_to_graphviz(model_3)
 Plotting the model fit we see a similar story.The model predictive performance is not drastically improved and we have added some complexity to the model. This extra complexity ought to be penalised in model assessment metrics such as AIC and WAIC. But often the correlation amongst products are some of the features of interest, independent of issues of historic predictions.
 
 ```{code-cell} ipython3
-fig, axs = plt.subplots(1, 2, figsize=(20, 10))
-ax = axs[0]
-counts = wide_heating_df.groupby("depvar")["idcase"].count()
-predicted_shares = idata_m3["posterior"]["p"].mean(dim=["chain", "draw", "obs"])
-ci_lb = idata_m3["posterior"]["p"].quantile(0.025, dim=["chain", "draw", "obs"])
-ci_ub = idata_m3["posterior"]["p"].quantile(0.975, dim=["chain", "draw", "obs"])
+# Forest plot with observed proportions
+pc = az.plot_forest(
+    idata_m2,
+    var_names=["p"],
+    combined=True,
+    sample_dims=["chain", "draw", "obs"],
+)
 
-ax.scatter(ci_lb, ["ec", "er", "gc", "gr", "hp"], color="k", s=2)
-ax.scatter(ci_ub, ["ec", "er", "gc", "gr", "hp"], color="k", s=2)
-ax.scatter(
-    counts / counts.sum(),
-    ["ec", "er", "gc", "gr", "hp"],
-    label="Observed Shares",
-    color="red",
-    s=100,
+pc.map(
+    az.visuals.scatter_x,
+    "observations",
+    data=obs_ds,
+    coords={"column": "forest"},
+    color="k",
 )
-ax.hlines(
-    ["ec", "er", "gc", "gr", "hp"], ci_lb, ci_ub, label="Predicted 95% Interval", color="black"
-)
-ax.legend()
-ax.set_title("Observed V Predicted Shares")
-az.plot_ppc(idata_m3, ax=axs[1])
-axs[1].set_title("Posterior Predictive Checks")
-ax.set_xlabel("Shares")
-ax.set_ylabel("Heating System");
+# Calibration plot for categorical data
+pc = az.plot_ppc_pava(idata_m2, data_type="categorical");
 ```
 
 That extra complexity can be informative, and the degree of relationship amongst the alternative products will inform the substitution patterns under policy changes. Also, note how under this model specification the parameter for `beta_ic` has a expected value of 0. Suggestive perhaps of a resignation towards the reality of installation costs that doesn't change the  utility metric one way or other after a decision to purchase.
 
 ```{code-cell} ipython3
-az.summary(idata_m3, var_names=["beta_ic", "beta_oc", "alpha", "chol_corr"], round_to=4)
+az.summary(idata_m3, var_names=["beta_ic", "beta_oc", "alpha", "chol_corr"])
 ```
 
 In this model we see that the marginal rate of substitution shows that an increase of one dollar for the operating costs is almost 17 times more impactful on the utility calculus than a similar increase in installation costs. Which makes sense in so far as we can expect the installation costs to be a one-off expense we're pretty resigned to. 
@@ -463,37 +437,41 @@ new - old
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots(1, figsize=(20, 10))
-counts = wide_heating_df.groupby("depvar")["idcase"].count()
-new_predictions = idata_new_policy["predictions"]["p"].mean(dim=["chain", "draw", "obs"]).values
-ci_lb = idata_m3["posterior"]["p"].quantile(0.025, dim=["chain", "draw", "obs"])
-ci_ub = idata_m3["posterior"]["p"].quantile(0.975, dim=["chain", "draw", "obs"])
-ax.scatter(ci_lb, ["ec", "er", "gc", "gr", "hp"], color="k", s=2)
-ax.scatter(ci_ub, ["ec", "er", "gc", "gr", "hp"], color="k", s=2)
-ax.scatter(
-    new_predictions,
-    ["ec", "er", "gc", "gr", "hp"],
-    color="green",
+# Forest plot with observed proportions
+pc = az.plot_forest(
+    idata_m3,
+    var_names=["p"],
+    combined=True,
+    sample_dims=["chain", "draw", "obs"],
+)
+
+pc.map(
+    az.visuals.scatter_x,
+    "observations",
+    data=obs_ds,
+    coords={"column": "forest"},
+    color="k",
+    label="Observed share",
+)
+
+new_predictions = xr.Dataset(
+    {
+        "p": xr.DataArray(
+            idata_new_policy["predictions"]["p"].mean(dim=["chain", "draw", "obs"]).values,
+            coords={"obs_dim_0": obs_ds["obs_dim_0"].values},
+        )
+    }
+)
+
+pc.map(
+    az.visuals.scatter_x,
+    "new_predictions",
+    data=new_predictions,
+    coords={"column": "forest"},
+    color="C1",
     label="New Policy Predicted Share",
-    s=100,
 )
-ax.scatter(
-    counts / counts.sum(),
-    ["ec", "er", "gc", "gr", "hp"],
-    label="Observed Shares",
-    color="red",
-    s=100,
-)
-ax.hlines(
-    ["ec", "er", "gc", "gr", "hp"],
-    ci_lb,
-    ci_ub,
-    label="Predicted 95% Credible Interval Old Policy",
-    color="black",
-)
-ax.set_title("Predicted Market Shares under Old and New Pricing Policy", fontsize=20)
-ax.set_xlabel("Market Share")
-ax.legend();
+plt.legend();
 ```
 
 Here we can, as expected, see that a rise in the operating costs of the electrical options has a negative impact on their predicted market share.  
@@ -535,25 +513,22 @@ The presence of repeated choice over time complicates the issue. We now have to 
 ```{code-cell} ipython3
 fig, axs = plt.subplots(1, 2, figsize=(20, 10))
 axs = axs.flatten()
-map_color = {"nabisco": "red", "keebler": "blue", "sunshine": "purple", "private": "orange"}
-
 
 for i in c_df["personId"].unique():
     temp = c_df[c_df["personId"] == i].copy(deep=True)
-    temp["color"] = temp["choice"].map(map_color)
     predict = np.poly1d(np.polyfit(temp["personChoiceId"], temp["price.sunshine"], deg=1))
-    axs[0].plot(predict(range(25)), color="red", label="Sunshine", alpha=0.4)
+    axs[0].plot(predict(range(25)), color="C1", label="Sunshine", alpha=0.4)
     predict = np.poly1d(np.polyfit(temp["personChoiceId"], temp["price.keebler"], deg=1))
-    axs[0].plot(predict(range(25)), color="blue", label="Keebler", alpha=0.4)
+    axs[0].plot(predict(range(25)), color="C0", label="Keebler", alpha=0.4)
     predict = np.poly1d(np.polyfit(temp["personChoiceId"], temp["price.nabisco"], deg=1))
-    axs[0].plot(predict(range(25)), color="grey", label="Nabisco", alpha=0.4)
+    axs[0].plot(predict(range(25)), color="C2", label="Nabisco", alpha=0.4)
 
     predict = np.poly1d(np.polyfit(temp["personChoiceId"], temp["price.sunshine"], deg=2))
-    axs[1].plot(predict(range(25)), color="red", label="Sunshine", alpha=0.4)
+    axs[1].plot(predict(range(25)), color="C1", label="Sunshine", alpha=0.4)
     predict = np.poly1d(np.polyfit(temp["personChoiceId"], temp["price.keebler"], deg=2))
-    axs[1].plot(predict(range(25)), color="blue", label="Keebler", alpha=0.4)
+    axs[1].plot(predict(range(25)), color="C0", label="Keebler", alpha=0.4)
     predict = np.poly1d(np.polyfit(temp["personChoiceId"], temp["price.nabisco"], deg=2))
-    axs[1].plot(predict(range(25)), color="grey", label="Nabisco", alpha=0.4)
+    axs[1].plot(predict(range(25)), color="C2", label="Nabisco", alpha=0.4)
 
 axs[0].set_title("Linear Regression Fit \n Customer Price Exposure over Time", fontsize=20)
 axs[1].set_title("Polynomial^(2) Regression Fit \n Customer Price Exposure over Time", fontsize=20)
@@ -563,7 +538,7 @@ axs[0].set_ylabel("Product Price Offered")
 axs[1].set_ylim(0, 2)
 axs[0].set_ylim(0, 2)
 
-colors = ["red", "blue", "grey"]
+colors = ["C1", "C0", "C2"]
 lines = [Line2D([0], [0], color=c, linewidth=3, linestyle="-") for c in colors]
 labels = ["Sunshine", "Keebler", "Nabisco"]
 axs[0].legend(lines, labels)
@@ -626,10 +601,9 @@ with pm.Model(coords=coords) as model_4:
     choice_obs = pm.Categorical("y_cat", p=p_, observed=observed, dims="obs")
 
     idata_m4 = pm.sample_prior_predictive()
-    idata_m4.extend(
-        pm.sample(nuts_sampler="numpyro", idata_kwargs={"log_likelihood": True}, random_seed=103)
-    )
-    idata_m4.extend(pm.sample_posterior_predictive(idata_m4))
+    idata_m4.update(pm.sample(nuts_sampler="numpyro", random_seed=103))
+    pm.compute_log_likelihood(idata_m4, extend_inferencedata=True)
+    pm.sample_posterior_predictive(idata_m4, extend_inferencedata=True)
 
 
 pm.model_to_graphviz(model_4)
@@ -642,56 +616,65 @@ az.summary(idata_m4, var_names=["beta_disp", "beta_feat", "beta_price", "alpha"]
 What have we learned? We've imposed a negative slope on the price coefficient but given it a wide prior. We can see that the data is sufficient to have narrowed the likely range of the coefficient considerably. 
 
 ```{code-cell} ipython3
-az.plot_dist_comparison(idata_m4, var_names=["beta_price"]);
+az.plot_prior_posterior(idata_m4, var_names=["beta_price"], figure_kwargs={"figsize": (10, 2)});
 ```
 
 We have recovered a strongly negative estimate on the price effect in line with the basic theory of rational choice. The effect of price should have a negative impact on utility. The flexibility of priors here is key for incorporating theoretical knowledge about the process involved in choice. Priors are important for building a better picture of the decision making process and we'd be foolish to ignore their value in this setting. 
 
 ```{code-cell} ipython3
-fig, axs = plt.subplots(1, 2, figsize=(20, 10))
-ax = axs[0]
+posterior_coords = idata_m4["posterior"]["p"].coords["alts_probs"].values
+
 counts = c_df.groupby("choice")["choiceId"].count()
-labels = c_df.groupby("choice")["choiceId"].count().index
-predicted_shares = idata_m4["posterior"]["p"].mean(dim=["chain", "draw", "obs"])
-ci_lb = idata_m4["posterior"]["p"].quantile(0.025, dim=["chain", "draw", "obs"])
-ci_ub = idata_m4["posterior"]["p"].quantile(0.975, dim=["chain", "draw", "obs"])
-ax.scatter(ci_lb, labels, color="k", s=2)
-ax.scatter(ci_ub, labels, color="k", s=2)
-ax.scatter(
-    counts / counts.sum(),
-    labels,
-    label="Observed Shares",
-    color="red",
-    s=100,
+counts /= counts.sum()
+counts = counts.reindex(posterior_coords)
+
+obs_ds = xr.Dataset(
+    {"p": xr.DataArray(counts.values, dims=["obs_dim_0"], coords={"obs_dim_0": posterior_coords})}
 )
-ax.scatter(
-    predicted_shares,
-    predicted_shares["alts_probs"].values,
-    label="Predicted Mean",
-    color="green",
-    s=200,
-    alpha=0.5,
+
+new_predictions_ds = xr.Dataset(
+    {
+        "p": xr.DataArray(
+            idata_m4["posterior"]["p"]
+            .mean(dim=["chain", "draw", "obs"])
+            .sel(alts_probs=posterior_coords)
+            .values,
+            dims=["obs_dim_0"],
+            coords={"obs_dim_0": posterior_coords},
+        )
+    }
 )
-ax.hlines(
-    predicted_shares["alts_probs"].values,
-    ci_lb,
-    ci_ub,
-    label="Predicted 95% Interval",
-    color="black",
+
+pc = az.plot_forest(
+    idata_m4,
+    var_names=["p"],
+    combined=True,
+    sample_dims=["chain", "draw", "obs"],
 )
-ax.legend()
-ax.set_title("Observed V Predicted Shares")
-az.plot_ppc(idata_m4, ax=axs[1])
-axs[1].set_title("Posterior Predictive Checks")
-ax.set_xlabel("Shares")
-ax.set_ylabel("Crackers");
+
+pc.map(
+    az.visuals.scatter_x,
+    "observations",
+    data=obs_ds,
+    coords={"column": "forest"},
+    color="k",
+    label="Observed share",
+)
+
+pc.map(
+    az.visuals.scatter_x,
+    "new_predictions",
+    data=new_predictions_ds,
+    coords={"column": "forest"},
+    color="C1",
+    label="Predicted mean",
+)
+plt.legend()
+
+az.plot_ppc_pava(idata_m4, data_type="categorical");
 ```
 
 We can now also recover the differences among individuals estimated by the model for particular cracker choices. More precisely we'll plot how the individual specific contribution to the intercept drives preferences among the cracker choices. 
-
-```{code-cell} ipython3
-idata_m4
-```
 
 ```{code-cell} ipython3
 beta_individual = idata_m4["posterior"]["beta_individual"]
@@ -724,7 +707,7 @@ ax = fig.add_subplot(gs[1, 0])
 ax.set_yticklabels([])
 ax_histx = fig.add_subplot(gs[0, 0], sharex=ax)
 ax_histx.set_title("Expected Modifications \n to Nabisco Baseline", fontsize=10)
-ax_histx.hist(predicted.sel(alts_intercepts="nabisco"), bins=30, ec="black", color="red")
+ax_histx.hist(predicted.sel(alts_intercepts="nabisco"), bins=30, ec="black", color="C1")
 ax_histx.set_yticklabels([])
 ax_histx.tick_params(labelsize=8)
 ax.set_ylabel("Individuals", fontsize=10)
@@ -736,8 +719,8 @@ ax.hlines(
     color="black",
     alpha=0.3,
 )
-ax.scatter(predicted.sel(alts_intercepts="nabisco"), range(len(predicted)), color="red", ec="white")
-ax.fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="red")
+ax.scatter(predicted.sel(alts_intercepts="nabisco"), range(len(predicted)), color="C1", ec="white")
+ax.fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="C1")
 
 ax1 = fig.add_subplot(gs[1, 1])
 ax1.set_yticklabels([])
@@ -745,7 +728,7 @@ ax_histx = fig.add_subplot(gs[0, 1], sharex=ax1)
 ax_histx.set_title("Expected Modifications \n to Keebler Baseline", fontsize=10)
 ax_histx.set_yticklabels([])
 ax_histx.tick_params(labelsize=8)
-ax_histx.hist(predicted.sel(alts_intercepts="keebler"), bins=30, ec="black", color="red")
+ax_histx.hist(predicted.sel(alts_intercepts="keebler"), bins="auto", ec="black", color="C1")
 ax1.hlines(
     range(len(predicted)),
     ci_lb.sel(alts_intercepts="keebler"),
@@ -753,11 +736,9 @@ ax1.hlines(
     color="black",
     alpha=0.3,
 )
-ax1.scatter(
-    predicted.sel(alts_intercepts="keebler"), range(len(predicted)), color="red", ec="white"
-)
+ax1.scatter(predicted.sel(alts_intercepts="keebler"), range(len(predicted)), color="C1", ec="white")
 ax1.set_xlabel("Individual Modifications to the Product Intercept", fontsize=10)
-ax1.fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="red", label="Negligible \n Region")
+ax1.fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="C1", label="Negligible \n Region")
 ax1.tick_params(labelsize=8)
 ax1.legend(fontsize=10)
 
@@ -766,7 +747,7 @@ ax2.set_yticklabels([])
 ax_histx = fig.add_subplot(gs[0, 2], sharex=ax2)
 ax_histx.set_title("Expected Modifications \n to Sunshine Baseline", fontsize=10)
 ax_histx.set_yticklabels([])
-ax_histx.hist(predicted.sel(alts_intercepts="sunshine"), bins=30, ec="black", color="red")
+ax_histx.hist(predicted.sel(alts_intercepts="sunshine"), bins=30, ec="black", color="C1")
 ax2.hlines(
     range(len(predicted)),
     ci_lb.sel(alts_intercepts="sunshine"),
@@ -774,9 +755,9 @@ ax2.hlines(
     color="black",
     alpha=0.3,
 )
-ax2.fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="red")
+ax2.fill_betweenx(range(139), -0.03, 0.03, alpha=0.2, color="C1")
 ax2.scatter(
-    predicted.sel(alts_intercepts="sunshine"), range(len(predicted)), color="red", ec="white"
+    predicted.sel(alts_intercepts="sunshine"), range(len(predicted)), color="C1", ec="white"
 )
 ax2.tick_params(labelsize=8)
 ax_histx.tick_params(labelsize=8)
@@ -796,6 +777,7 @@ We can see here the flexibility and richly parameterised possibilities for model
 
 ## Authors
 - Authored by [Nathaniel Forde](https://nathanielf.github.io/) in June 2023 
+- Updated by [Osvaldo Martin](https://aloctavodia.github.io/) in April 2026
 
 +++
 

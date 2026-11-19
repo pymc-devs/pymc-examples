@@ -1163,7 +1163,7 @@ $$ p(y | \eta, \theta)$$
 
 whereas the marginal formulation scores the same 263 response vectors with the latent terms integrated out.
 
-$$ p(y | \theta)$$
+$p(y | \theta)$
 
 The conditional scores are best read as reconstruction error, while the marginal scores are proper proxies for out-of-sample prediction error. The `p_loo` column makes the distinction plain: around 650 effective parameters for the conditional models against roughly 30 for the marginal ones. The mean-structure model is fitted to a different sample, so its score cannot be set against the others either. This is an easy detail to miss when you're naively chasing performance benchmarks. When selecting models with metric optimisation in mind, we need to understand what we're actually optimising.
 

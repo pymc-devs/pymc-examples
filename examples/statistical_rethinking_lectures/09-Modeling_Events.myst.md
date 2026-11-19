@@ -493,7 +493,7 @@ for ii, std in enumerate([10, 1.5, 1]):
     az.plot_dist(ps, color="C0")
     plt.xlim([0, 1])
     plt.ylabel("density")
-    plt.title(f"$\\alpha \sim \mathcal{{N}}(0, {std})$")
+    plt.title(f"$\\alpha \\sim \\mathcal{{N}}(0, {std})$")
     if ii == 2:
         plt.xlabel("p(event)")
 ```

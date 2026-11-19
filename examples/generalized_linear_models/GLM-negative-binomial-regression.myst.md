@@ -40,7 +40,7 @@ RANDOM_SEED = 8927
 rng = np.random.default_rng(RANDOM_SEED)
 
 %config InlineBackend.figure_format = "retina"
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 ```
 
 This notebook closely follows the GLM Poisson regression example by [Jonathan Sedar](https://github.com/jonsedar) (which is in turn inspired by [a project by Ian Osvald](http://ianozsvald.com/2016/05/07/statistically-solving-sneezes-and-sniffles-a-work-in-progress-report-at-pydatalondon-2016/)) except the data here is negative binomially distributed instead of Poisson distributed.
@@ -191,9 +191,9 @@ with pm.Model(coords=COORDS) as m_sneeze_inter:
     b = pm.Normal("slopes", mu=0, sigma=1, dims="regressor")
     alpha = pm.Exponential("alpha", 0.5)
 
-    M = pm.ConstantData("nomeds", df.nomeds.to_numpy(), dims="obs_idx")
-    A = pm.ConstantData("alcohol", df.alcohol.to_numpy(), dims="obs_idx")
-    S = pm.ConstantData("nsneeze", df.nsneeze.to_numpy(), dims="obs_idx")
+    M = pm.Data("nomeds", df.nomeds.to_numpy(), dims="obs_idx")
+    A = pm.Data("alcohol", df.alcohol.to_numpy(), dims="obs_idx")
+    S = pm.Data("nsneeze", df.nsneeze.to_numpy(), dims="obs_idx")
 
     λ = pm.math.exp(a + b[0] * M + b[1] * A + b[2] * M * A)
 
@@ -205,12 +205,12 @@ with pm.Model(coords=COORDS) as m_sneeze_inter:
 ### View Results
 
 ```{code-cell} ipython3
-az.plot_trace(idata, compact=False);
+az.plot_trace_dist(idata, compact=False);
 ```
 
 ```{code-cell} ipython3
 # Transform coefficients to recover parameter values
-az.summary(np.exp(idata.posterior), kind="stats", var_names=["intercept", "slopes"])
+az.summary(np.exp(idata.posterior.to_dataset()), kind="stats", var_names=["intercept", "slopes"])
 ```
 
 ```{code-cell} ipython3

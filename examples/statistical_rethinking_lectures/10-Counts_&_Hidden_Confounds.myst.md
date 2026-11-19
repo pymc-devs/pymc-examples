@@ -558,7 +558,7 @@ for prior_mu, prior_sigma in normal_alpha_prior_params:
     # since log(lambda) = alpha, if
     # alpha is Normally distributed, therefore lambda is log-normal
     lambda_prior_dist = stats.lognorm(s=prior_sigma, scale=np.exp(prior_mu))
-    label = f"$\\alpha \sim \mathcal{{N}}{prior_mu, prior_sigma}$"
+    label = f"$\\alpha \\sim \\mathcal{{N}}{prior_mu, prior_sigma}$"
     pdf = lambda_prior_dist.pdf(num_tools)
     plt.plot(num_tools, pdf, label=label, linewidth=3)
 
@@ -581,7 +581,9 @@ for ii, (prior_mu, prior_sigma) in enumerate(normal_alpha_prior_params):
     for sample_idx, lambda_ in enumerate(lambdas):
         pmf = stats.poisson(lambda_).pmf(num_tools)
 
-        label = f"$\\alpha \sim \mathcal{{N}}{prior_mu, prior_sigma}$" if sample_idx == 1 else None
+        label = (
+            f"$\\alpha \\sim \\mathcal{{N}}{prior_mu, prior_sigma}$" if sample_idx == 1 else None
+        )
         color = f"C{ii}"
         plt.plot(num_tools, pmf, color=color, label=label, alpha=0.1)
 
