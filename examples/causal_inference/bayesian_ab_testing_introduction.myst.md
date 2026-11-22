@@ -5,7 +5,7 @@ jupytext:
     format_name: myst
     format_version: 0.13
 kernelspec:
-  display_name: Python 3.8.10 ('pymc-examples-ipRlw-UN')
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
@@ -20,15 +20,16 @@ kernelspec:
 :::
 
 ```{code-cell} ipython3
-from dataclasses import dataclass
-from typing import Dict, List, Union
+from typing import List
 
 import arviz as az
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
+import pymc_extras as pmx
+import xarray as xr
 
+from pymc_extras.prior import Prior
 from scipy.stats import bernoulli, expon
 ```
 
@@ -37,12 +38,13 @@ RANDOM_SEED = 4000
 rng = np.random.default_rng(RANDOM_SEED)
 
 %config InlineBackend.figure_format = 'retina'
-az.style.use("arviz-darkgrid")
+az.style.use("arviz-variat")
 
 plotting_defaults = dict(
-    bins=50,
     kind="hist",
-    textsize=10,
+    ci_kind="hdi",
+    ci_prob=0.94,
+    stats={"dist": {"bins": 50}},
 )
 ```
 
@@ -96,35 +98,20 @@ $$\mathrm{reluplift}_B = \theta_B / \theta_A - 1$$
 We'll implement this model setup in PyMC below.
 
 ```{code-cell} ipython3
-@dataclass
-class BetaPrior:
-    alpha: float
-    beta: float
+def format_prior(prior: Prior) -> str:
+    parameters = ", ".join(f"{name}={value}" for name, value in prior.parameters.items())
+    return f"{prior.distribution}({parameters})"
 ```
 
 ```{code-cell} ipython3
-@dataclass
-class BinomialData:
-    trials: int
-    successes: int
+@pmx.as_model()
+def conversion_model_two_variant(trials, successes, prior):
+    p = prior.create_variable("p")
+    pm.Binomial("y", n=trials, p=p, observed=successes, dims="variant")
+    pm.Deterministic("reluplift_b", p[1] / p[0] - 1)
 ```
 
-```{code-cell} ipython3
-class ConversionModelTwoVariant:
-    def __init__(self, priors: BetaPrior):
-        self.priors = priors
-
-    def create_model(self, data: List[BinomialData]) -> pm.Model:
-        trials = [d.trials for d in data]
-        successes = [d.successes for d in data]
-        with pm.Model() as model:
-            p = pm.Beta("p", alpha=self.priors.alpha, beta=self.priors.beta, shape=2)
-            obs = pm.Binomial("y", n=trials, p=p, shape=2, observed=successes)
-            reluplift = pm.Deterministic("reluplift_b", p[1] / p[0] - 1)
-        return model
-```
-
-Now that we've defined a class that can take a prior and our synthetic data as inputs, our first step is to choose an appropriate prior. There are a few things to consider when doing this in practice, but for the purpose of this notebook we'll focus on the following:
+The model is a plain function decorated with pymc-extras' {func}`pymc_extras.as_model`, which returns a {class}`pymc.Model`, and its prior is a pymc-extras {class}`pymc_extras.prior.Prior` object. Now that we've defined a function that can take a prior and our synthetic data as inputs, our first step is to choose an appropriate prior. There are a few things to consider when doing this in practice, but for the purpose of this notebook we'll focus on the following:
 
 * We assume that the same Beta prior is set for each variant.
 * An _uninformative_ or _weakly informative_ prior occurs when we set low values for `alpha` and `beta`. For example, `alpha = 1, beta = 1` leads to a uniform distribution as a prior. If we were considering one distribution in isolation, setting this prior is a statement that we don't know anything about the value of the parameter, nor our confidence around it. In the context of A/B testing however, we're interested in comparing the _relative uplift_ of one variant over another. With a weakly informative Beta prior, this relative uplift distribution is very wide, so we're implicitly saying that the variants could be very different to each other.
@@ -141,31 +128,57 @@ We illustrate these points with prior predictive checks.
 Note that we can pass in arbitrary values for the observed data in these prior predictive checks. PyMC will not use that data when sampling from the prior predictive distribution.
 
 ```{code-cell} ipython3
-weak_prior = ConversionModelTwoVariant(BetaPrior(alpha=100, beta=100))
+weak_prior = Prior("Beta", alpha=100.0, beta=100.0, dims="variant")
 ```
 
 ```{code-cell} ipython3
-strong_prior = ConversionModelTwoVariant(BetaPrior(alpha=10000, beta=10000))
+strong_prior = Prior("Beta", alpha=10000.0, beta=10000.0, dims="variant")
 ```
 
 ```{code-cell} ipython3
-with weak_prior.create_model(data=[BinomialData(1, 1), BinomialData(1, 1)]):
-    weak_prior_predictive = pm.sample_prior_predictive(samples=10000, return_inferencedata=False)
+weak_model = conversion_model_two_variant(
+    trials=[1, 1],
+    successes=[1, 1],
+    prior=weak_prior,
+    coords={"variant": ["A", "B"]},
+)
+with weak_model:
+    weak_prior_predictive = pm.sample_prior_predictive(
+        draws=10000, random_seed=rng, return_inferencedata=False
+    )
 ```
 
 ```{code-cell} ipython3
-with strong_prior.create_model(data=[BinomialData(1, 1), BinomialData(1, 1)]):
-    strong_prior_predictive = pm.sample_prior_predictive(samples=10000, return_inferencedata=False)
+strong_model = conversion_model_two_variant(
+    trials=[1, 1],
+    successes=[1, 1],
+    prior=strong_prior,
+    coords={"variant": ["A", "B"]},
+)
+with strong_model:
+    strong_prior_predictive = pm.sample_prior_predictive(
+        draws=10000, random_seed=rng, return_inferencedata=False
+    )
 ```
 
 ```{code-cell} ipython3
-fig, axs = plt.subplots(2, 1, figsize=(7, 7), sharex=True)
-az.plot_posterior(weak_prior_predictive["reluplift_b"], ax=axs[0], **plotting_defaults)
-axs[0].set_title(f"B vs. A Rel Uplift Prior Predictive, {weak_prior.priors}", fontsize=10)
-axs[0].axvline(x=0, color="red")
-az.plot_posterior(strong_prior_predictive["reluplift_b"], ax=axs[1], **plotting_defaults)
-axs[1].set_title(f"B vs. A Rel Uplift Prior Predictive, {strong_prior.priors}", fontsize=10)
-axs[1].axvline(x=0, color="red");
+prior_predictive = xr.Dataset(
+    {
+        "weak": ("draw", weak_prior_predictive["reluplift_b"]),
+        "strong": ("draw", strong_prior_predictive["reluplift_b"]),
+    }
+)
+pc = az.plot_dist(
+    prior_predictive,
+    sample_dims="draw",
+    col_wrap=1,
+    figure_kwargs={"figsize": (7, 7), "sharex": True},
+    **plotting_defaults,
+)
+axs = [pc.get_viz("plot", var_name=name) for name in ("weak", "strong")]
+axs[0].set_title(f"B vs. A Rel Uplift Prior Predictive, {format_prior(weak_prior)}", fontsize=10)
+axs[1].set_title(f"B vs. A Rel Uplift Prior Predictive, {format_prior(strong_prior)}", fontsize=10)
+az.add_lines(pc, 0, visuals={"ref_line": {"color": "red"}});
 ```
 
 With the weak prior our 94% HDI for the relative uplift for B over A is roughly [-20%, +20%], whereas it is roughly [-2%, +2%] with the strong prior. This is effectively the "starting point" for the relative uplift distribution, and will affect how the observed conversions translate to the posterior distribution.
@@ -188,7 +201,7 @@ def generate_binomial_data(
 ) -> pd.DataFrame:
     data = {}
     for variant, p in zip(variants, true_rates):
-        data[variant] = bernoulli.rvs(p, size=samples_per_variant)
+        data[variant] = bernoulli.rvs(p, size=samples_per_variant, random_state=rng)
     agg = (
         pd.DataFrame(data)
         .aggregate(["count", "sum"])
@@ -209,26 +222,46 @@ def run_scenario_twovariant(
     variants: List[str],
     true_rates: List[float],
     samples_per_variant: int,
-    weak_prior: BetaPrior,
-    strong_prior: BetaPrior,
+    weak_prior: Prior,
+    strong_prior: Prior,
 ) -> None:
     generated = generate_binomial_data(variants, true_rates, samples_per_variant)
-    data = [BinomialData(**generated[v].to_dict()) for v in variants]
-    with ConversionModelTwoVariant(priors=weak_prior).create_model(data):
-        trace_weak = pm.sample(draws=5000)
-    with ConversionModelTwoVariant(priors=strong_prior).create_model(data):
-        trace_strong = pm.sample(draws=5000)
+    trials = generated.loc["trials"].to_numpy()
+    successes = generated.loc["successes"].to_numpy()
+    weak_model = conversion_model_two_variant(
+        trials, successes, weak_prior, coords={"variant": variants}
+    )
+    strong_model = conversion_model_two_variant(
+        trials, successes, strong_prior, coords={"variant": variants}
+    )
+    with weak_model:
+        trace_weak = pm.sample(draws=5000, random_seed=rng)
+    with strong_model:
+        trace_strong = pm.sample(draws=5000, random_seed=rng)
 
     true_rel_uplift = true_rates[1] / true_rates[0] - 1
 
-    fig, axs = plt.subplots(2, 1, figsize=(7, 7), sharex=True)
-    az.plot_posterior(trace_weak.posterior["reluplift_b"], ax=axs[0], **plotting_defaults)
-    axs[0].set_title(f"True Rel Uplift = {true_rel_uplift:.1%}, {weak_prior}", fontsize=10)
-    axs[0].axvline(x=0, color="red")
-    az.plot_posterior(trace_strong.posterior["reluplift_b"], ax=axs[1], **plotting_defaults)
-    axs[1].set_title(f"True Rel Uplift = {true_rel_uplift:.1%}, {strong_prior}", fontsize=10)
-    axs[1].axvline(x=0, color="red")
-    fig.suptitle("B vs. A Rel Uplift")
+    trace = xr.Dataset(
+        {
+            "weak": trace_weak.posterior["reluplift_b"],
+            "strong": trace_strong.posterior["reluplift_b"],
+        }
+    )
+    pc = az.plot_dist(
+        trace,
+        col_wrap=1,
+        figure_kwargs={"figsize": (7, 7), "sharex": True},
+        **plotting_defaults,
+    )
+    axs = [pc.get_viz("plot", var_name=name) for name in ("weak", "strong")]
+    axs[0].set_title(
+        f"True Rel Uplift = {true_rel_uplift:.1%}, {format_prior(weak_prior)}", fontsize=10
+    )
+    axs[1].set_title(
+        f"True Rel Uplift = {true_rel_uplift:.1%}, {format_prior(strong_prior)}", fontsize=10
+    )
+    az.add_lines(pc, 0, visuals={"ref_line": {"color": "red"}})
+    pc.add_title("B vs. A Rel Uplift")
     return trace_weak, trace_strong
 ```
 
@@ -239,8 +272,8 @@ trace_weak, trace_strong = run_scenario_twovariant(
     variants=["A", "B"],
     true_rates=[0.23, 0.23],
     samples_per_variant=100000,
-    weak_prior=BetaPrior(alpha=100, beta=100),
-    strong_prior=BetaPrior(alpha=10000, beta=10000),
+    weak_prior=Prior("Beta", alpha=100.0, beta=100.0, dims="variant"),
+    strong_prior=Prior("Beta", alpha=10000.0, beta=10000.0, dims="variant"),
 )
 ```
 
@@ -256,9 +289,9 @@ run_scenario_twovariant(
     variants=["A", "B"],
     true_rates=[0.21, 0.23],
     samples_per_variant=100000,
-    weak_prior=BetaPrior(alpha=100, beta=100),
-    strong_prior=BetaPrior(alpha=10000, beta=10000),
-)
+    weak_prior=Prior("Beta", alpha=100.0, beta=100.0, dims="variant"),
+    strong_prior=Prior("Beta", alpha=10000.0, beta=10000.0, dims="variant"),
+);
 ```
 
 * In both cases, the posterior relative uplift distribution suggests that B has a higher conversion rate than A, as the 94% HDI is well above 0. The decision in this case would be to roll out Variant B to all users, and this outcome "true discovery".
@@ -284,31 +317,23 @@ Approach 1 is intuitive to most people, and is easily explained. But what if the
 We'll implement the model setup for both approaches below, cleaning up our code from before so that it generalises to the `n` variant case. Note that we can also re-use this model for the 2-variant case.
 
 ```{code-cell} ipython3
-class ConversionModel:
-    def __init__(self, priors: BetaPrior):
-        self.priors = priors
-
-    def create_model(self, data: List[BinomialData], comparison_method) -> pm.Model:
-        num_variants = len(data)
-        trials = [d.trials for d in data]
-        successes = [d.successes for d in data]
-        with pm.Model() as model:
-            p = pm.Beta("p", alpha=self.priors.alpha, beta=self.priors.beta, shape=num_variants)
-            y = pm.Binomial("y", n=trials, p=p, observed=successes, shape=num_variants)
-            reluplift = []
-            for i in range(num_variants):
-                if comparison_method == "compare_to_control":
-                    comparison = p[0]
-                elif comparison_method == "best_of_rest":
-                    others = [p[j] for j in range(num_variants) if j != i]
-                    if len(others) > 1:
-                        comparison = pm.math.maximum(*others)
-                    else:
-                        comparison = others[0]
-                else:
-                    raise ValueError(f"comparison method {comparison_method} not recognised.")
-                reluplift.append(pm.Deterministic(f"reluplift_{i}", p[i] / comparison - 1))
-        return model
+@pmx.as_model()
+def conversion_model(trials, successes, prior, comparison_method):
+    num_variants = len(pm.modelcontext(None).coords["variant"])
+    p = prior.create_variable("p")
+    pm.Binomial("y", n=trials, p=p, observed=successes, dims="variant")
+    for i in range(num_variants):
+        if comparison_method == "compare_to_control":
+            comparison = p[0]
+        elif comparison_method == "best_of_rest":
+            others = [p[j] for j in range(num_variants) if j != i]
+            if len(others) > 1:
+                comparison = pm.math.maximum(*others)
+            else:
+                comparison = others[0]
+        else:
+            raise ValueError(f"comparison method {comparison_method} not recognised.")
+        pm.Deterministic(f"reluplift_{i}", p[i] / comparison - 1)
 ```
 
 ```{code-cell} ipython3
@@ -316,24 +341,38 @@ def run_scenario_bernoulli(
     variants: List[str],
     true_rates: List[float],
     samples_per_variant: int,
-    priors: BetaPrior,
+    priors: Prior,
     comparison_method: str,
-) -> az.InferenceData:
+) -> xr.DataTree:
     generated = generate_binomial_data(variants, true_rates, samples_per_variant)
-    data = [BinomialData(**generated[v].to_dict()) for v in variants]
-    with ConversionModel(priors).create_model(data=data, comparison_method=comparison_method):
-        trace = pm.sample(draws=5000)
+    model = conversion_model(
+        generated.loc["trials"].to_numpy(),
+        generated.loc["successes"].to_numpy(),
+        priors,
+        comparison_method,
+        coords={"variant": variants},
+    )
+    with model:
+        trace = pm.sample(draws=5000, random_seed=rng)
 
     n_plots = len(variants)
-    fig, axs = plt.subplots(nrows=n_plots, ncols=1, figsize=(3 * n_plots, 7), sharex=True)
+    var_names = [f"reluplift_{i}" for i in range(n_plots)]
+    pc = az.plot_dist(
+        trace,
+        var_names=var_names,
+        col_wrap=1,
+        figure_kwargs={"figsize": (3 * n_plots, 7), "sharex": True},
+        **plotting_defaults,
+    )
+    axs = [pc.get_viz("plot", var_name=var_name) for var_name in var_names]
+    az.add_lines(pc, 0, visuals={"ref_line": {"color": "red"}})
     for i, variant in enumerate(variants):
         if i == 0 and comparison_method == "compare_to_control":
+            for visual in ("dist", "credible_interval", "point_estimate", "point_estimate_text"):
+                pc.get_viz(visual, var_name=var_names[i]).set_visible(False)
             axs[i].set_yticks([])
-        else:
-            az.plot_posterior(trace.posterior[f"reluplift_{i}"], ax=axs[i], **plotting_defaults)
         axs[i].set_title(f"Rel Uplift {variant}, True Rate = {true_rates[i]:.2%}", fontsize=10)
-        axs[i].axvline(x=0, color="red")
-    fig.suptitle(f"Method {comparison_method}, {priors}")
+    pc.add_title(f"Method {comparison_method}, {format_prior(priors)}")
 
     return trace
 ```
@@ -345,7 +384,7 @@ _ = run_scenario_bernoulli(
     variants=["A", "B", "C"],
     true_rates=[0.21, 0.23, 0.228],
     samples_per_variant=100000,
-    priors=BetaPrior(alpha=5000, beta=5000),
+    priors=Prior("Beta", alpha=5000.0, beta=5000.0, dims="variant"),
     comparison_method="compare_to_control",
 )
 ```
@@ -358,7 +397,7 @@ _ = run_scenario_bernoulli(
     variants=["A", "B", "C"],
     true_rates=[0.21, 0.23, 0.228],
     samples_per_variant=100000,
-    priors=BetaPrior(alpha=5000, beta=5000),
+    priors=Prior("Beta", alpha=5000.0, beta=5000.0, dims="variant"),
     comparison_method="best_of_rest",
 )
 ```
@@ -402,86 +441,43 @@ $\mu$ here represents the average revenue per visitor, including those who don't
 Below we put the model setup into code and perform prior predictive checks.
 
 ```{code-cell} ipython3
-@dataclass
-class GammaPrior:
-    alpha: float
-    beta: float
-```
-
-```{code-cell} ipython3
-@dataclass
-class RevenueData:
-    visitors: int
-    purchased: int
-    total_revenue: float
-```
-
-```{code-cell} ipython3
-class RevenueModel:
-    def __init__(self, conversion_rate_prior: BetaPrior, mean_purchase_prior: GammaPrior):
-        self.conversion_rate_prior = conversion_rate_prior
-        self.mean_purchase_prior = mean_purchase_prior
-
-    def create_model(self, data: List[RevenueData], comparison_method: str) -> pm.Model:
-        num_variants = len(data)
-        visitors = [d.visitors for d in data]
-        purchased = [d.purchased for d in data]
-        total_revenue = [d.total_revenue for d in data]
-
-        with pm.Model() as model:
-            theta = pm.Beta(
-                "theta",
-                alpha=self.conversion_rate_prior.alpha,
-                beta=self.conversion_rate_prior.beta,
-                shape=num_variants,
-            )
-            lam = pm.Gamma(
-                "lam",
-                alpha=self.mean_purchase_prior.alpha,
-                beta=self.mean_purchase_prior.beta,
-                shape=num_variants,
-            )
-            converted = pm.Binomial(
-                "converted", n=visitors, p=theta, observed=purchased, shape=num_variants
-            )
-            revenue = pm.Gamma(
-                "revenue", alpha=purchased, beta=lam, observed=total_revenue, shape=num_variants
-            )
-            revenue_per_visitor = pm.Deterministic("revenue_per_visitor", theta * (1 / lam))
-            theta_reluplift = []
-            reciprocal_lam_reluplift = []
-            reluplift = []
-            for i in range(num_variants):
-                if comparison_method == "compare_to_control":
-                    comparison_theta = theta[0]
-                    comparison_lam = 1 / lam[0]
-                    comparison_rpv = revenue_per_visitor[0]
-                elif comparison_method == "best_of_rest":
-                    others_theta = [theta[j] for j in range(num_variants) if j != i]
-                    others_lam = [1 / lam[j] for j in range(num_variants) if j != i]
-                    others_rpv = [revenue_per_visitor[j] for j in range(num_variants) if j != i]
-                    if len(others_rpv) > 1:
-                        comparison_theta = pm.math.maximum(*others_theta)
-                        comparison_lam = pm.math.maximum(*others_lam)
-                        comparison_rpv = pm.math.maximum(*others_rpv)
-                    else:
-                        comparison_theta = others_theta[0]
-                        comparison_lam = others_lam[0]
-                        comparison_rpv = others_rpv[0]
-                else:
-                    raise ValueError(f"comparison method {comparison_method} not recognised.")
-                theta_reluplift.append(
-                    pm.Deterministic(f"theta_reluplift_{i}", theta[i] / comparison_theta - 1)
-                )
-                reciprocal_lam_reluplift.append(
-                    pm.Deterministic(
-                        f"reciprocal_lam_reluplift_{i}", (1 / lam[i]) / comparison_lam - 1
-                    )
-                )
-                reluplift.append(
-                    pm.Deterministic(f"reluplift_{i}", revenue_per_visitor[i] / comparison_rpv - 1)
-                )
-        return model
+@pmx.as_model()
+def revenue_model(
+    visitors,
+    purchased,
+    total_revenue,
+    conversion_rate_prior,
+    mean_purchase_prior,
+    comparison_method,
+):
+    num_variants = len(pm.modelcontext(None).coords["variant"])
+    theta = conversion_rate_prior.create_variable("theta")
+    lam = mean_purchase_prior.create_variable("lam")
+    pm.Binomial("converted", n=visitors, p=theta, observed=purchased, dims="variant")
+    pm.Gamma("revenue", alpha=purchased, beta=lam, observed=total_revenue, dims="variant")
+    revenue_per_visitor = pm.Deterministic("revenue_per_visitor", theta * (1 / lam), dims="variant")
+    for i in range(num_variants):
+        if comparison_method == "compare_to_control":
+            comparison_theta = theta[0]
+            comparison_lam = 1 / lam[0]
+            comparison_rpv = revenue_per_visitor[0]
+        elif comparison_method == "best_of_rest":
+            others_theta = [theta[j] for j in range(num_variants) if j != i]
+            others_lam = [1 / lam[j] for j in range(num_variants) if j != i]
+            others_rpv = [revenue_per_visitor[j] for j in range(num_variants) if j != i]
+            if len(others_rpv) > 1:
+                comparison_theta = pm.math.maximum(*others_theta)
+                comparison_lam = pm.math.maximum(*others_lam)
+                comparison_rpv = pm.math.maximum(*others_rpv)
+            else:
+                comparison_theta = others_theta[0]
+                comparison_lam = others_lam[0]
+                comparison_rpv = others_rpv[0]
+        else:
+            raise ValueError(f"comparison method {comparison_method} not recognised.")
+        pm.Deterministic(f"theta_reluplift_{i}", theta[i] / comparison_theta - 1)
+        pm.Deterministic(f"reciprocal_lam_reluplift_{i}", (1 / lam[i]) / comparison_lam - 1)
+        pm.Deterministic(f"reluplift_{i}", revenue_per_visitor[i] / comparison_rpv - 1)
 ```
 
 For the Beta prior, we can set a similar prior to before - centered around 0.5, with the magnitude of `alpha` and `beta` determining how "thin" the distribution is.
@@ -489,27 +485,44 @@ For the Beta prior, we can set a similar prior to before - centered around 0.5, 
 We need to be a bit more careful about the Gamma prior. The mean of the Gamma prior is $\dfrac{\alpha_G}{\beta_G}$, and needs to be set to a reasonable value given existing mean purchase values. For example, if `alpha` and `beta` were set such that the mean was 1 dollar, but the average revenue per visitor for a website is much higher at 100 dollars, his could affect our inference.
 
 ```{code-cell} ipython3
-c_prior = BetaPrior(alpha=5000, beta=5000)
-mp_prior = GammaPrior(alpha=9000, beta=900)
+c_prior = Prior("Beta", alpha=5000.0, beta=5000.0, dims="variant")
+mp_prior = Prior("Gamma", alpha=9000.0, beta=900.0, dims="variant")
 ```
 
 ```{code-cell} ipython3
-data = [
-    RevenueData(visitors=1, purchased=1, total_revenue=1),
-    RevenueData(visitors=1, purchased=1, total_revenue=1),
-]
+visitors = [1, 1]
+purchased = [1, 1]
+total_revenue = [1, 1]
 ```
 
 ```{code-cell} ipython3
-with RevenueModel(c_prior, mp_prior).create_model(data, "best_of_rest"):
-    revenue_prior_predictive = pm.sample_prior_predictive(samples=10000, return_inferencedata=False)
+prior_revenue_model = revenue_model(
+    visitors,
+    purchased,
+    total_revenue,
+    c_prior,
+    mp_prior,
+    "best_of_rest",
+    coords={"variant": ["A", "B"]},
+)
+with prior_revenue_model:
+    revenue_prior_predictive = pm.sample_prior_predictive(
+        draws=10000, random_seed=rng, return_inferencedata=False
+    )
 ```
 
 ```{code-cell} ipython3
-fig, ax = plt.subplots()
-az.plot_posterior(revenue_prior_predictive["reluplift_1"], ax=ax, **plotting_defaults)
-ax.set_title(f"Revenue Rel Uplift Prior Predictive, {c_prior}, {mp_prior}", fontsize=10)
-ax.axvline(x=0, color="red");
+pc = az.plot_dist(
+    xr.Dataset({"reluplift_1": ("draw", revenue_prior_predictive["reluplift_1"])}),
+    sample_dims="draw",
+    **plotting_defaults,
+)
+ax = pc.get_viz("plot", var_name="reluplift_1")
+ax.set_title(
+    f"Revenue Rel Uplift Prior Predictive, {format_prior(c_prior)}, {format_prior(mp_prior)}",
+    fontsize=10,
+)
+az.add_lines(pc, 0, visuals={"ref_line": {"color": "red"}});
 ```
 
 Similar to the model for Bernoulli conversions, the width of the prior predictive uplift distribution will depend on the strength of our priors. See the Bernoulli conversions section for a discussion of the benefits and disadvantages of using a weak vs. strong prior.
@@ -530,8 +543,8 @@ def generate_revenue_data(
     converted = {}
     mean_purchase = {}
     for variant, p, mp in zip(variants, true_conversion_rates, true_mean_purchase):
-        converted[variant] = bernoulli.rvs(p, size=samples_per_variant)
-        mean_purchase[variant] = expon.rvs(scale=mp, size=samples_per_variant)
+        converted[variant] = bernoulli.rvs(p, size=samples_per_variant, random_state=rng)
+        mean_purchase[variant] = expon.rvs(scale=mp, size=samples_per_variant, random_state=rng)
     converted = pd.DataFrame(converted)
     mean_purchase = pd.DataFrame(mean_purchase)
     revenue = converted * mean_purchase
@@ -552,30 +565,48 @@ def run_scenario_value(
     true_conversion_rates: List[float],
     true_mean_purchase: List[float],
     samples_per_variant: int,
-    conversion_rate_prior: BetaPrior,
-    mean_purchase_prior: GammaPrior,
+    conversion_rate_prior: Prior,
+    mean_purchase_prior: Prior,
     comparison_method: str,
-) -> az.InferenceData:
+) -> xr.DataTree:
     generated = generate_revenue_data(
         variants, true_conversion_rates, true_mean_purchase, samples_per_variant
     )
-    data = [RevenueData(**generated[v].to_dict()) for v in variants]
-    with RevenueModel(conversion_rate_prior, mean_purchase_prior).create_model(
-        data, comparison_method
-    ):
-        trace = pm.sample(draws=5000, chains=2, cores=1)
+    model = revenue_model(
+        generated.loc["visitors"].to_numpy(),
+        generated.loc["purchased"].to_numpy(),
+        generated.loc["total_revenue"].to_numpy(),
+        conversion_rate_prior,
+        mean_purchase_prior,
+        comparison_method,
+        coords={"variant": variants},
+    )
+    with model:
+        trace = pm.sample(draws=5000, chains=2, cores=1, random_seed=rng)
 
     n_plots = len(variants)
-    fig, axs = plt.subplots(nrows=n_plots, ncols=1, figsize=(3 * n_plots, 7), sharex=True)
+    var_names = [f"reluplift_{i}" for i in range(n_plots)]
+    pc = az.plot_dist(
+        trace,
+        var_names=var_names,
+        col_wrap=1,
+        figure_kwargs={"figsize": (3 * n_plots, 7), "sharex": True},
+        **plotting_defaults,
+    )
+    axs = [pc.get_viz("plot", var_name=var_name) for var_name in var_names]
+    az.add_lines(pc, 0, visuals={"ref_line": {"color": "red"}})
     for i, variant in enumerate(variants):
         if i == 0 and comparison_method == "compare_to_control":
+            for visual in ("dist", "credible_interval", "point_estimate", "point_estimate_text"):
+                pc.get_viz(visual, var_name=var_names[i]).set_visible(False)
             axs[i].set_yticks([])
-        else:
-            az.plot_posterior(trace.posterior[f"reluplift_{i}"], ax=axs[i], **plotting_defaults)
         true_rpv = true_conversion_rates[i] * true_mean_purchase[i]
         axs[i].set_title(f"Rel Uplift {variant}, True RPV = {true_rpv:.2f}", fontsize=10)
-        axs[i].axvline(x=0, color="red")
-    fig.suptitle(f"Method {comparison_method}, {conversion_rate_prior}, {mean_purchase_prior}")
+    pc.add_title(
+        f"Method {comparison_method}, {format_prior(conversion_rate_prior)}, "
+        f"{format_prior(mean_purchase_prior)}",
+        size=8,
+    )
 
     return trace
 ```
@@ -588,8 +619,8 @@ _ = run_scenario_value(
     true_conversion_rates=[0.1, 0.1],
     true_mean_purchase=[10, 10],
     samples_per_variant=100000,
-    conversion_rate_prior=BetaPrior(alpha=5000, beta=5000),
-    mean_purchase_prior=GammaPrior(alpha=9000, beta=900),
+    conversion_rate_prior=Prior("Beta", alpha=5000.0, beta=5000.0, dims="variant"),
+    mean_purchase_prior=Prior("Gamma", alpha=9000.0, beta=900.0, dims="variant"),
     comparison_method="best_of_rest",
 )
 ```
@@ -606,27 +637,31 @@ scenario_value_2 = run_scenario_value(
     true_conversion_rates=[0.1, 0.08],
     true_mean_purchase=[10, 12.5],
     samples_per_variant=100000,
-    conversion_rate_prior=BetaPrior(alpha=5000, beta=5000),
-    mean_purchase_prior=GammaPrior(alpha=9000, beta=900),
+    conversion_rate_prior=Prior("Beta", alpha=5000.0, beta=5000.0, dims="variant"),
+    mean_purchase_prior=Prior("Gamma", alpha=9000.0, beta=900.0, dims="variant"),
     comparison_method="best_of_rest",
 )
 ```
 
-* The 94% HDI for the average revenue per visitor (RPV) contains 0 as expected.
+* The 94% HDI for the average revenue per visitor (RPV) is below 0 in this simulated dataset, despite the equal true RPVs.
 * In these cases, it's also useful to plot the relative uplift distributions for `theta` (the purchase-anything rate) and `1 / lam` (the mean purchase value) to understand how the A/B test has affected visitor behaviour. We show this below:
 
 ```{code-cell} ipython3
-axs = az.plot_posterior(
+pc = az.plot_dist(
     scenario_value_2,
     var_names=["theta_reluplift_1", "reciprocal_lam_reluplift_1"],
     **plotting_defaults,
 )
+axs = [
+    pc.get_viz("plot", var_name=var_name)
+    for var_name in ("theta_reluplift_1", "reciprocal_lam_reluplift_1")
+]
+axs[0].locator_params(axis="x", nbins=4)
 axs[0].set_title(f"Conversion Rate Uplift B, True Uplift = {(0.04 / 0.05 - 1):.2%}", fontsize=10)
-axs[0].axvline(x=0, color="red")
 axs[1].set_title(
     f"Revenue per Converting Visitor Uplift B, True Uplift = {(25 / 20 - 1):.2%}", fontsize=10
 )
-axs[1].axvline(x=0, color="red");
+az.add_lines(pc, 0, visuals={"ref_line": {"color": "red"}});
 ```
 
 * Variant B's conversion rate uplift has a HDI well below 0, while the revenue per converting visitor has a HDI well above 0. So the model is able to capture the reduction in purchasing visitors as well as the increase in mean purchase amount.
@@ -641,8 +676,8 @@ _ = run_scenario_value(
     true_conversion_rates=[0.1, 0.11],
     true_mean_purchase=[10, 10.5],
     samples_per_variant=100000,
-    conversion_rate_prior=BetaPrior(alpha=5000, beta=5000),
-    mean_purchase_prior=GammaPrior(alpha=9000, beta=900),
+    conversion_rate_prior=Prior("Beta", alpha=5000.0, beta=5000.0, dims="variant"),
+    mean_purchase_prior=Prior("Gamma", alpha=9000.0, beta=900.0, dims="variant"),
     comparison_method="best_of_rest",
 )
 ```
@@ -672,6 +707,7 @@ We also plan to create more PyMC tutorials on these topics, so stay tuned!
 
 * Authored by [Cuong Duong](https://github.com/tcuongd) in May, 2021 ([pymc-examples#164](https://github.com/pymc-devs/pymc-examples/pull/164))
 * Re-executed by [percevalve](https://github.com/percevalve) in May, 2022 ([pymc-examples#351](https://github.com/pymc-devs/pymc-examples/pull/351))
+* Updated by [Lenin Mookiah](https://github.com/leninworld) in November 2026 to run on PyMC v6 and ArviZ v1 and to use pymc-extras `as_model` and `Prior` ([pymc-examples#708](https://github.com/pymc-devs/pymc-examples/issues/708))
 
 +++
 
